@@ -7,6 +7,19 @@ const dropZone   = document.getElementById('drop-zone');
 const fileInput  = document.getElementById('file-input');
 const fileStatus = document.getElementById('file-status');
 const parseError = document.getElementById('parse-error');
+const exportBtn  = document.getElementById('export-btn');
+
+exportBtn.addEventListener('click', () => {
+  const json = JSON.stringify(window._submissions, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `downtime_${new Date().toISOString().slice(0,10)}.json`
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
 // ── File handling ─────────────────────────────────────────────────────────────
 
@@ -40,10 +53,10 @@ function handleFile(file) {
         fileStatus.textContent += ` (${warnings.length} warning${warnings.length !== 1 ? 's' : ''} -- see console)`;
       }
 
-      // Expose globally for debugging
       window._submissions = submissions;
 
       renderDashboard(submissions);
+      exportBtn.style.display = 'inline-block';
       document.getElementById('upload-section').style.marginBottom = '2rem';
     } catch (err) {
       showError(`Parse failed: ${err.message}`);
