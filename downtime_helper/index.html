@@ -9,8 +9,11 @@
 <body>
 
 <header>
-  <h1>Downtime Helper</h1>
-  <span>Terra Mortis ST Suite</span>
+  <div class="header-brand">
+    <h1>Downtime Helper</h1>
+    <span>Terra Mortis ST Suite</span>
+  </div>
+  <div id="header-auth" class="header-auth"></div>
 </header>
 
 <main>
@@ -28,6 +31,7 @@
     <div id="parse-error"></div>
     <div style="display:flex;gap:0.75rem;margin-top:1rem;align-items:center;flex-wrap:wrap">
       <button class="btn" id="export-btn"    style="display:none">Export JSON</button>
+      <button class="btn" id="publish-btn"   style="display:none">Publish Cycle</button>
       <button class="btn" id="new-cycle-btn" style="display:none">New Cycle</button>
       <button class="btn" id="clear-btn"     style="display:none;border-color:var(--crim);color:var(--crim2)">Clear Database</button>
       <span   id="db-status" style="font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.08em;color:var(--muted)"></span>
@@ -117,6 +121,8 @@
 
 </main>
 
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/db.js"></script>
 <script src="js/roller.js"></script>

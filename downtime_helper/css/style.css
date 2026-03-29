@@ -41,6 +41,12 @@ header {
   border-bottom: 1px solid var(--border);
   padding: 1.2rem 2rem;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.header-brand {
+  display: flex;
   align-items: baseline;
   gap: 1rem;
 }
@@ -54,6 +60,29 @@ header span {
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.header-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.discord-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.discord-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+.discord-username {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
 }
 
 main {

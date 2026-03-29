@@ -974,17 +974,23 @@ function renderSearchResults(query, filter) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-function renderDashboard(submissions) {
-  // Summary tab
+function renderDashboard(submissions, opts) {
+  const { playerFilter } = opts || {};
+
+  if (playerFilter) {
+    _renderPlayerOnlyView(submissions, playerFilter);
+    document.getElementById('dashboard').style.display = 'block';
+    return;
+  }
+
+  // Full ST view
   renderStats(      submissions, document.getElementById('stat-grid'));
   renderBreakdowns( submissions, document.getElementById('breakdown-grid'));
   initSearch(submissions);
 
-  // Territories tab
   renderTerritoryActions(submissions, document.getElementById('territory-actions-section'));
   renderTerritoryTable(  submissions, document.getElementById('territory-section'));
 
-  // Players tab
   renderPlayerMenu(
     submissions,
     document.getElementById('player-menu'),
@@ -993,4 +999,52 @@ function renderDashboard(submissions) {
 
   initTabs();
   document.getElementById('dashboard').style.display = 'block';
+}
+
+/**
+ * Player-only view: hides Summary and Territories tabs, shows just
+ * the logged-in player's character detail in the Players tab.
+ */
+function _renderPlayerOnlyView(submissions, characterName) {
+  // Hide tabs the player shouldn't access
+  document.querySelectorAll('.tab-btn[data-tab="summary"], .tab-btn[data-tab="territories"]')
+    .forEach(btn => btn.style.display = 'none');
+
+  // Activate Players tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="players"]').classList.add('active');
+  document.getElementById('tab-players').classList.add('active');
+
+  const menuContainer   = document.getElementById('player-menu');
+  const detailContainer = document.getElementById('player-detail');
+
+  const sub = submissions.find(s => s.submission.character_name === characterName);
+
+  menuContainer.innerHTML = '';
+
+  if (sub) {
+    const attended = sub.submission.attended_last_game;
+    const item = document.createElement('div');
+    item.className = 'player-menu-item active';
+    item.innerHTML = `
+      <span class="char-name">${sub.submission.character_name}</span>
+      <span class="player-name">${sub.submission.player_name}</span>
+      <span class="attended-badge ${attended ? 'yes' : 'no'}"
+        style="font-size:0.58rem;margin-top:0.2rem">${attended ? 'Attended' : 'Absent'}</span>`;
+    menuContainer.appendChild(item);
+    renderPlayerDetail(sub, detailContainer);
+  } else {
+    detailContainer.innerHTML = `
+      <p style="color:var(--muted);font-family:'Cinzel',serif;font-size:0.8rem;padding-top:2rem">
+        No submission found for <strong>${characterName}</strong> in the current cycle.
+      </p>`;
+  }
+
+  window._refreshActiveDetail = (charName) => {
+    const name = charName || characterName;
+    if (name !== characterName) return;
+    const current = window._submissions.find(s => s.submission.character_name === name);
+    if (current) renderPlayerDetail(current, detailContainer);
+  };
 }
