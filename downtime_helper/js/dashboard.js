@@ -56,15 +56,44 @@ function countBy(arr, keyFn) {
  * Shows expression as-is; appends "· N dice" only when size is known
  * but no "=" total is already present in the expression.
  */
-function dicePoolDisplay(pool) {
+/**
+ * Renders a pool line with a rollable (or already-rolled) badge.
+ * pool:         DicePool { expression, size }
+ * rollCtx:      { char, source, index } -- enables Save in the modal; null = view-only
+ * existingRoll: DicePoolResult | null -- if set, badge is greyed and result shown inline
+ */
+function dicePoolDisplay(pool, rollCtx, existingRoll) {
   if (!pool || !pool.expression) return null;
+  const expr = pool.expression;
+  const safeExpr = expr.replace(/"/g, '&quot;');
+
+  if (existingRoll) {
+    // Already rolled -- grey badge + inline result
+    const ctxAttrs = rollCtx
+      ? `data-pool-size="${pool.size}" data-pool-expr="${safeExpr}"
+         data-roll-char="${rollCtx.char.replace(/"/g, '&quot;')}"
+         data-roll-source="${rollCtx.source}" data-roll-index="${rollCtx.index}"
+         data-existing-roll="${JSON.stringify(existingRoll).replace(/"/g, '&quot;')}"`
+      : '';
+    return `<span class="dice-pool-expr">${expr}</span>
+      <button class="dice-size-badge rolled" title="View stored roll" ${ctxAttrs}>${pool.size ?? '?'}d ✓</button>
+      <span class="roll-inline-result">
+        <span class="roll-inline-string">${existingRoll.dice_string}</span>
+        <span class="roll-inline-count">${existingRoll.successes} succ</span>
+      </span>`;
+  }
+
+  // Not yet rolled -- gold clickable badge
+  const ctxAttrs = rollCtx
+    ? `data-roll-char="${rollCtx.char.replace(/"/g, '&quot;')}"
+       data-roll-source="${rollCtx.source}" data-roll-index="${rollCtx.index}"`
+    : '';
   const badge = pool.size != null
     ? `<button class="dice-size-badge" title="Roll ${pool.size} dice"
-         data-pool-size="${pool.size}"
-         data-pool-expr="${(pool.expression || '').replace(/"/g, '&quot;')}"
-       >${pool.size}d</button>`
+         data-pool-size="${pool.size}" data-pool-expr="${safeExpr}"
+         ${ctxAttrs}>${pool.size}d</button>`
     : '';
-  return `<span class="dice-pool-expr">${pool.expression}</span>${badge}`;
+  return `<span class="dice-pool-expr">${expr}</span>${badge}`;
 }
 
 /**
@@ -542,6 +571,7 @@ function renderPlayerMenu(submissions, menuContainer, detailContainer) {
   for (const s of sorted) {
     const btn = document.createElement('button');
     btn.className = 'player-menu-item';
+    btn.dataset.char = s.submission.character_name;
     const attended = s.submission.attended_last_game;
     btn.innerHTML = `
       <span class="char-name">${s.submission.character_name}</span>
@@ -552,12 +582,25 @@ function renderPlayerMenu(submissions, menuContainer, detailContainer) {
     btn.addEventListener('click', () => {
       menuContainer.querySelectorAll('.player-menu-item').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      renderPlayerDetail(s, detailContainer);
+      // Re-read from window._submissions so saved rolls are reflected
+      const current = window._submissions.find(
+        sub => sub.submission.character_name === s.submission.character_name
+      ) || s;
+      renderPlayerDetail(current, detailContainer);
     });
 
     menuContainer.appendChild(btn);
     if (!firstBtn) firstBtn = btn;
   }
+
+  // Expose a refresh hook so roller.js can re-render after saving a roll
+  window._refreshActiveDetail = (charName) => {
+    const activeBtn = menuContainer.querySelector(`.player-menu-item.active`);
+    const name = charName || activeBtn?.dataset.char;
+    if (!name) return;
+    const sub = window._submissions.find(s => s.submission.character_name === name);
+    if (sub) renderPlayerDetail(sub, detailContainer);
+  };
 
   if (firstBtn) firstBtn.click();
 }
@@ -598,11 +641,13 @@ function renderPlayerDetail(s, container) {
   // ── Projects ──
   if (s.projects.length) {
     section('Projects', s.projects.length, body => {
-      for (const p of s.projects) {
-        const div = document.createElement('div');
+      for (let i = 0; i < s.projects.length; i++) {
+        const p      = s.projects[i];
+        const rollCtx = { char: s.submission.character_name, source: 'projects', index: i };
+        const div    = document.createElement('div');
         div.className = 'action-item';
-        const primDisplay = dicePoolDisplay(p.primary_pool);
-        const secDisplay  = dicePoolDisplay(p.secondary_pool);
+        const primDisplay = dicePoolDisplay(p.primary_pool, rollCtx, p.roll ?? null);
+        const secDisplay  = dicePoolDisplay(p.secondary_pool, null, null);
         div.innerHTML = `
           <div class="action-type">${cleanActionType(p.action_type)}</div>
           ${primDisplay ? `<div class="action-pool">Pool: ${primDisplay}</div>` : ''}
@@ -617,13 +662,18 @@ function renderPlayerDetail(s, container) {
   // ── Sphere Actions ──
   if (s.sphere_actions.length) {
     section('Sphere Actions', s.sphere_actions.length, body => {
-      for (const a of s.sphere_actions) {
+      for (let i = 0; i < s.sphere_actions.length; i++) {
+      const a = s.sphere_actions[i];
         const dir = ambienceDirection(a.action_type);
         const dirBadge = dir === 'increase'
           ? '<span style="color:#7fbf8f;font-size:0.7rem">▲ Increase</span>'
           : dir === 'decrease'
           ? '<span style="color:var(--crim2);font-size:0.7rem">▼ Decrease</span>'
           : '';
+        const rollCtx = { char: s.submission.character_name, source: 'sphere_actions', index: i };
+        const poolDisplay = a.dice_pool
+          ? dicePoolDisplay(a.dice_pool, rollCtx, a.roll ?? null)
+          : null;
         const div = document.createElement('div');
         div.className = 'action-item';
         div.innerHTML = `
@@ -631,6 +681,7 @@ function renderPlayerDetail(s, container) {
             <span>${cleanActionType(a.action_type)}</span>${dirBadge}
           </div>
           <div class="action-merit">${a.merit_type}</div>
+          ${poolDisplay ? `<div class="action-pool">Pool: ${poolDisplay}</div>` : ''}
           ${a.desired_outcome ? `<div class="action-outcome">${a.desired_outcome}</div>` : ''}
           ${a.description     ? `<div class="action-desc">${a.description}</div>` : ''}`;
         body.appendChild(div);

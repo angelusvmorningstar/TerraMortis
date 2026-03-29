@@ -340,6 +340,34 @@ async function getSummary() {
   };
 }
 
+/**
+ * Persists a DicePoolResult onto a specific action within a submission's _raw tree.
+ * source: 'projects' | 'sphere_actions'
+ * index:  position in that array
+ * Returns the updated _raw object.
+ */
+async function saveRoll(cycleId, characterName, source, index, roll) {
+  const existing = await idbRequest(
+    _db.transaction(['submissions'])
+       .objectStore('submissions')
+       .index('cycle_char')
+       .get([cycleId, characterName])
+  );
+  if (!existing) throw new Error(`Submission not found: ${characterName}`);
+
+  const raw = existing._raw;
+  raw[source][index].roll = roll;
+  existing._raw      = raw;
+  existing._rawHash  = JSON.stringify(raw);
+
+  await idbRequest(
+    _db.transaction(['submissions'], 'readwrite')
+       .objectStore('submissions')
+       .put(existing)
+  );
+  return raw;
+}
+
 async function clearAll() {
   await Promise.all([
     clearStore('cycles'),     clearStore('submissions'),
@@ -362,5 +390,5 @@ const db = {
   // Search
   searchSubmissions, searchProjects,
   // Util
-  getSummary, clearAll,
+  getSummary, clearAll, saveRoll,
 };

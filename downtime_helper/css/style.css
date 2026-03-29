@@ -514,6 +514,35 @@ section + section { margin-top: 2.5rem; }
   background: rgba(224,196,122,0.25);
   color: var(--gold3);
 }
+.dice-size-badge.rolled {
+  color: var(--muted);
+  background: var(--surf3);
+  border-color: var(--surf4);
+  cursor: pointer; /* still clickable to view */
+}
+.dice-size-badge.rolled:hover {
+  color: var(--text);
+  background: var(--surf4);
+}
+
+/* Inline result shown next to a rolled badge */
+.roll-inline-result {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin-left: 0.25rem;
+}
+.roll-inline-string {
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.roll-inline-count {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  color: var(--gold2);
+  letter-spacing: 0.04em;
+}
 
 /* ── Roll modal ── */
 .roll-overlay {

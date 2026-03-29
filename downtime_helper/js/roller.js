@@ -64,6 +64,14 @@ function parseDiceString(diceString) {
 
 // ── Roll modal ────────────────────────────────────────────────────────────────
 
+/**
+ * pool: {
+ *   size, expression,
+ *   again?, success?, exc?,
+ *   rollContext?: { char, source, index }  -- if present, enables Save
+ *   existingRoll?: DicePoolResult          -- if present, shown as current result
+ * }
+ */
 function showRollModal(pool) {
   const params = {
     again:   pool.again   ?? 10,
@@ -170,8 +178,14 @@ function showRollModal(pool) {
     // ── Buttons ──
     const btnRow = document.createElement('div');
     btnRow.className = 'roll-btn-row';
+
+    const saveBtn   = pool.rollContext
+      ? `<button class="btn" id="roll-save-btn"
+           style="border-color:#7fbf8f;color:#7fbf8f">Save Roll</button>`
+      : '';
     btnRow.innerHTML = `
       <button class="btn" id="roll-reroll-btn">Re-roll</button>
+      ${saveBtn}
       <button class="btn" id="roll-done-btn"
         style="border-color:var(--muted);color:var(--muted)">Close</button>`;
     panel.appendChild(btnRow);
@@ -183,9 +197,43 @@ function showRollModal(pool) {
     document.getElementById('roll-done-btn').onclick   = () => overlay.style.display = 'none';
     document.getElementById('roll-reroll-btn').onclick = () => render(roll_pool(
       pool.size, params.again, params.success, params.exc));
+
+    if (pool.rollContext) {
+      document.getElementById('roll-save-btn').onclick = async () => {
+        const { char, source, index } = pool.rollContext;
+        const toSave = {
+          dice_string: result.dice_string,
+          successes:   result.successes,
+          rolled_at:   result.rolled_at,
+        };
+        try {
+          const active = await db.getActiveCycle();
+          const updatedRaw = await db.saveRoll(active.id, char, source, index, toSave);
+
+          // Update in-memory submissions array
+          const subIdx = window._submissions.findIndex(
+            s => s.submission.character_name === char
+          );
+          if (subIdx !== -1) window._submissions[subIdx] = updatedRaw;
+
+          // Notify dashboard to refresh the player detail
+          if (typeof window._refreshActiveDetail === 'function') {
+            window._refreshActiveDetail(char);
+          }
+          overlay.style.display = 'none';
+        } catch (err) {
+          console.error('Save roll failed:', err);
+          document.getElementById('roll-save-btn').textContent = 'Save failed';
+        }
+      };
+    }
   }
 
-  render(roll_pool(pool.size, params.again, params.success, params.exc));
+  // If a roll is already stored, show it immediately; otherwise roll fresh
+  const initial = pool.existingRoll
+    ? { ...pool.existingRoll, params, exceptional: pool.existingRoll.successes >= params.exc }
+    : roll_pool(pool.size, params.again, params.success, params.exc);
+  render(initial);
 }
 
 // ── Global click delegation for dice badges ───────────────────────────────────
@@ -195,8 +243,24 @@ document.addEventListener('click', e => {
   if (!badge) return;
   const size = parseInt(badge.dataset.poolSize, 10);
   if (isNaN(size) || size < 1) return;
+
+  const rollContext = badge.dataset.rollChar
+    ? {
+        char:   badge.dataset.rollChar,
+        source: badge.dataset.rollSource,
+        index:  parseInt(badge.dataset.rollIndex, 10),
+      }
+    : null;
+
+  let existingRoll = null;
+  if (badge.dataset.existingRoll) {
+    try { existingRoll = JSON.parse(badge.dataset.existingRoll); } catch (_) {}
+  }
+
   showRollModal({
     size,
-    expression: badge.dataset.poolExpr || null,
+    expression:   badge.dataset.poolExpr || null,
+    rollContext,
+    existingRoll,
   });
 });
