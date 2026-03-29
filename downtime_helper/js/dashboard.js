@@ -261,7 +261,7 @@ function renderCharCards(submissions, container) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export function renderDashboard(submissions) {
+function renderDashboard(submissions) {
   renderStats(      submissions, document.getElementById('stat-grid'));
   renderBreakdowns( submissions, document.getElementById('breakdown-grid'));
   renderTerritoryTable(submissions, document.getElementById('territory-section'));

@@ -3,9 +3,6 @@
  * App entry point: wires upload UI to parser and dashboard.
  */
 
-import { parseDowntimeCSV } from './parser.js';
-import { renderDashboard }  from './dashboard.js';
-
 const dropZone   = document.getElementById('drop-zone');
 const fileInput  = document.getElementById('file-input');
 const fileStatus = document.getElementById('file-status');

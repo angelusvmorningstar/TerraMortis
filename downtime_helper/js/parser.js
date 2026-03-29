@@ -97,7 +97,7 @@ const COL = {
  * @param {string} raw - Full CSV text
  * @returns {string[][]} Array of rows, each row an array of field strings
  */
-export function parseCSV(raw) {
+function parseCSV(raw) {
   const rows = [];
   let row = [];
   let field = '';
@@ -219,7 +219,7 @@ function isBlankRow(cols) {
  * @param {string} csvText - Raw CSV file content
  * @returns {{ submissions: object[], warnings: string[] }}
  */
-export function parseDowntimeCSV(csvText) {
+function parseDowntimeCSV(csvText) {
   const allRows = parseCSV(csvText);
   const warnings = [];
   const submissions = [];
