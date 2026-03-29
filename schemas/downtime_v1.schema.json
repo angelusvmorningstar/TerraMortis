@@ -319,12 +319,12 @@
           ]
         },
         "primary_pool": {
-          "type": ["string", "null"],
-          "description": "Primary dice pool expression and any relevant powers. Freetext as entered by the player, e.g. 'Presence 4 + Empathy 3 + Obfuscate 5 = 12'."
+          "description": "Primary dice pool as entered by the player. Null if not provided.",
+          "oneOf": [{ "$ref": "#/$defs/DicePool" }, { "type": "null" }]
         },
         "secondary_pool": {
-          "type": ["string", "null"],
-          "description": "Secondary dice pool for opposed or extended rolls. Freetext. May be blank."
+          "description": "Secondary pool for opposed or extended rolls. Null if not provided.",
+          "oneOf": [{ "$ref": "#/$defs/DicePool" }, { "type": "null" }]
         },
         "desired_outcome": {
           "type": "string",
@@ -375,12 +375,30 @@
           "description": "Full narrative description of how the merit is being used and the intended effect."
         },
         "dice_pool": {
-          "type": ["string", "null"],
-          "description": "The dice pool expression actually rolled, recorded by the ST at resolution time. Not supplied by the player -- determined from the merit rating and any modifiers. E.g. 'Allies 3 (Underworld) = 3 dice'."
+          "description": "Pool recorded by the ST at resolution time. Not from the form -- derived from the merit rating plus any modifiers. Null until the ST fills it in.",
+          "oneOf": [{ "$ref": "#/$defs/DicePool" }, { "type": "null" }]
         },
         "roll": {
           "$ref": "#/$defs/DicePoolResult",
           "description": "ST-resolved roll. Absent until resolved. The successes total drives the ambience shift (one step per success for Ambience Change actions). Must only be set once."
+        }
+      }
+    },
+
+    "DicePool": {
+      "description": "A dice pool definition: the freetext expression as entered plus a computed integer size. Size is derived by taking the stated total after '=' if present, otherwise by summing all integer tokens in the expression string.",
+      "type": "object",
+      "required": ["expression", "size"],
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "type": ["string", "null"],
+          "description": "Freetext pool as entered, e.g. 'Presence 4 + Empathy 3 + Obfuscate 5 = 12', 'Allies 3 (Finance)', 'Wits + Occult'."
+        },
+        "size": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of dice to roll. Null when the expression contains no numeric values (e.g. 'Wits + Occult' without dot counts stated)."
         }
       }
     },

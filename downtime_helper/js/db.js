@@ -14,7 +14,7 @@
  */
 
 const DB_NAME    = 'terra_mortis_downtime';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let _db = null;
 
@@ -28,8 +28,8 @@ function init() {
       const db  = e.target.result;
       const old = e.oldVersion;
 
-      // Wipe v1 stores if upgrading -- early dev, no migration needed
-      if (old < 2) {
+      // Wipe and recreate on any schema-breaking upgrade -- early dev, no migration needed
+      if (old < 3) {
         ['cycles','submissions','projects','sphere_actions','contacts']
           .filter(s => db.objectStoreNames.contains(s))
           .forEach(s => db.deleteObjectStore(s));

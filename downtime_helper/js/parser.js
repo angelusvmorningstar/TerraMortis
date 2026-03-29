@@ -162,6 +162,34 @@ const str  = (v) => (v == null ? null : v.trim() || null);
 const bool = (v) => /^yes$/i.test((v || '').trim());
 const int  = (v) => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
 
+/**
+ * Converts a freetext dice pool expression into a DicePool object.
+ *
+ * Resolution strategy (in order):
+ *   1. If expression contains "= N" treat N as the stated total (most reliable --
+ *      players who sum their pool write it as "Attr 3 + Skill 2 = 5").
+ *   2. Otherwise sum all integer tokens in the string (handles "Allies 3 (Finance)" → 3).
+ *   3. If no numeric tokens found, size is null (handles "Wits + Occult" with no dots stated).
+ *
+ * @param {string|null} expression
+ * @returns {{ expression: string, size: number|null } | null}
+ */
+function parseDicePool(expression) {
+  const s = str(expression);
+  if (!s) return null;
+
+  // Prefer a stated total: "= 12" or "= 12 dice" anywhere in the string
+  const totalMatch = s.match(/=\s*(\d+)/);
+  if (totalMatch) {
+    return { expression: s, size: parseInt(totalMatch[1], 10) };
+  }
+
+  // Fall back to summing all integer tokens
+  const tokens = s.match(/\b\d+\b/g);
+  const size   = tokens ? tokens.reduce((acc, n) => acc + parseInt(n, 10), 0) : null;
+  return { expression: s, size: (size > 0 ? size : null) };
+}
+
 function feedingStatus(v) {
   const s = (v || '').trim();
   if (!s || s === 'Not feeding here') return 'Not feeding here';
@@ -172,18 +200,20 @@ function feedingStatus(v) {
 }
 
 function parseProject(cols, offset) {
-  const actionType   = str(cols[offset]);
-  const primaryPool  = str(cols[offset + 1]);
-  const secondaryPool= str(cols[offset + 2]);
+  const actionType    = str(cols[offset]);
   const desiredOutcome = str(cols[offset + 3]);
-  const description  = str(cols[offset + 4]);
+  const description   = str(cols[offset + 4]);
 
   // Skip blank or sentinel entries
   if (!actionType || /no action taken/i.test(actionType)) return null;
 
-  return { action_type: actionType, primary_pool: primaryPool,
-           secondary_pool: secondaryPool, desired_outcome: desiredOutcome || '',
-           description: description || '' };
+  return {
+    action_type:     actionType,
+    primary_pool:    parseDicePool(cols[offset + 1]),
+    secondary_pool:  parseDicePool(cols[offset + 2]),
+    desired_outcome: desiredOutcome || '',
+    description:     description || '',
+  };
 }
 
 function parseSphereAction(cols, offset) {

@@ -52,6 +52,20 @@ function countBy(arr, keyFn) {
 }
 
 /**
+ * Renders a DicePool object as a display string.
+ * Shows expression as-is; appends "· N dice" only when size is known
+ * but no "=" total is already present in the expression.
+ */
+function dicePoolDisplay(pool) {
+  if (!pool || !pool.expression) return null;
+  const hasStatedTotal = /=/.test(pool.expression);
+  if (pool.size != null && !hasStatedTotal) {
+    return `${pool.expression} <span style="color:var(--muted)">· ${pool.size} dice</span>`;
+  }
+  return pool.expression;
+}
+
+/**
  * Strips emoji and ":" suffix from action type labels for cleaner display.
  */
 function cleanActionType(s) {
@@ -585,10 +599,12 @@ function renderPlayerDetail(s, container) {
       for (const p of s.projects) {
         const div = document.createElement('div');
         div.className = 'action-item';
+        const primDisplay = dicePoolDisplay(p.primary_pool);
+        const secDisplay  = dicePoolDisplay(p.secondary_pool);
         div.innerHTML = `
           <div class="action-type">${cleanActionType(p.action_type)}</div>
-          ${p.primary_pool   ? `<div class="action-pool">Pool: ${p.primary_pool}</div>` : ''}
-          ${p.secondary_pool ? `<div class="action-pool" style="color:var(--muted)">Secondary: ${p.secondary_pool}</div>` : ''}
+          ${primDisplay ? `<div class="action-pool">Pool: ${primDisplay}</div>` : ''}
+          ${secDisplay  ? `<div class="action-pool" style="color:var(--muted)">Secondary: ${secDisplay}</div>` : ''}
           ${p.desired_outcome ? `<div class="action-outcome">${p.desired_outcome}</div>` : ''}
           ${p.description     ? `<div class="action-desc">${p.description}</div>` : ''}`;
         body.appendChild(div);
