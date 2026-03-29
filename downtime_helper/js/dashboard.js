@@ -366,58 +366,92 @@ function actionCategory(actionType) {
 }
 
 /**
- * Renders a per-territory ambience score summary grid.
- * +1 per increase-ambience action, -1 per decrease-ambience action.
- * Scans both sphere_actions and projects.
+ * Renders the per-territory ambience + influence summary grid.
+ *
+ * Score sources (all combined into a single net per territory):
+ *   - Increase ambience actions: +roll.successes each (or flagged pending if unrolled)
+ *   - Decrease ambience actions: -roll.successes each (or pending)
+ *   - Influence spending: +N per territory (raw spend value, always counts)
+ *
+ * Pending actions (no roll stored yet) are shown separately and excluded from Net.
  */
-function renderAmbienceScores(rows, container) {
-  const scores = {};
+function renderAmbienceScores(rows, submissions, container) {
+  // ── Aggregate per territory ──────────────────────────────────────────────
+  const data = {};
+  const ensure = t => { if (!data[t]) data[t] = { incRolled: 0, decRolled: 0, incPending: 0, decPending: 0, influence: 0 }; };
+
   for (const r of rows) {
     if (!r.territory || r.direction === null) continue;
-    if (!scores[r.territory]) scores[r.territory] = { inc: 0, dec: 0 };
-    if (r.direction === 'increase') scores[r.territory].inc++;
-    if (r.direction === 'decrease') scores[r.territory].dec++;
+    ensure(r.territory);
+    const d = data[r.territory];
+    const succ = r.roll ? r.roll.successes : null;
+    if (r.direction === 'increase') {
+      if (succ != null) d.incRolled  += succ;
+      else              d.incPending += 1;
+    } else {
+      if (succ != null) d.decRolled  += succ;
+      else              d.decPending += 1;
+    }
   }
 
-  const scored = Object.entries(scores)
-    .filter(([, v]) => v.inc + v.dec > 0)
+  // Influence spending -- sum across all submissions per territory
+  // INF_TERRITORIES keys match canonical territory names directly
+  for (const s of submissions) {
+    for (const [terr, val] of Object.entries(s.influence || {})) {
+      if (!val) continue;
+      ensure(terr);
+      data[terr].influence += val;
+    }
+  }
+
+  const territories = Object.entries(data)
+    .filter(([, v]) => v.incRolled + v.decRolled + v.incPending + v.decPending + v.influence > 0)
     .sort((a, b) => a[0].localeCompare(b[0]));
 
-  if (!scored.length) return;
+  if (!territories.length) return;
 
   const title = document.createElement('div');
-  title.style.cssText = 'font-family:"Cinzel",serif;font-size:0.7rem;letter-spacing:0.1em;' +
-    'color:var(--muted);text-transform:uppercase;margin-bottom:0.75rem';
-  title.textContent = 'Ambience Score by Territory';
+  title.className = 'section-title';
+  title.style.marginBottom = '0.75rem';
+  title.textContent = 'Territory Movement';
   container.appendChild(title);
 
   const grid = document.createElement('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));' +
-    'gap:0.6rem;margin-bottom:1.75rem';
+  grid.className = 'ambience-score-grid';
 
-  for (const [territory, { inc, dec }] of scored) {
-    const net      = inc - dec;
-    const netColor = net > 0 ? '#7fbf8f' : net < 0 ? 'var(--crim2)' : 'var(--muted)';
-    const netStr   = net > 0 ? `+${net}` : String(net);
-    const barW     = Math.max(inc, dec) > 0 ? Math.round((Math.abs(net) / Math.max(inc, dec)) * 100) : 0;
+  for (const [territory, d] of territories) {
+    const ambienceNet = d.incRolled - d.decRolled;
+    const totalNet    = ambienceNet + d.influence;
+    const hasPending  = d.incPending + d.decPending > 0;
+
+    const netColor = totalNet > 0 ? '#7fbf8f' : totalNet < 0 ? 'var(--crim2)' : 'var(--muted)';
+    const netStr   = totalNet > 0 ? `+${totalNet}` : String(totalNet);
+
+    // Bar represents how decisive the net is relative to gross movement
+    const gross = d.incRolled + d.decRolled + d.influence;
+    const barW  = gross > 0 ? Math.round((Math.abs(totalNet) / gross) * 100) : 0;
+
+    // Pending note
+    const pendingParts = [];
+    if (d.incPending) pendingParts.push(`▲ ${d.incPending}`);
+    if (d.decPending) pendingParts.push(`▼ ${d.decPending}`);
+    const pendingNote = hasPending
+      ? `<div class="ambience-pending">${pendingParts.join(' ')} pending</div>`
+      : '';
 
     const card = document.createElement('div');
-    card.style.cssText =
-      'background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);' +
-      'padding:0.6rem 0.75rem;position:relative;overflow:hidden';
+    card.className = 'ambience-score-card';
     card.innerHTML = `
-      <div style="font-family:'Cinzel',serif;font-size:0.68rem;color:var(--gold1);
-        letter-spacing:0.06em;margin-bottom:0.45rem;white-space:nowrap;overflow:hidden;
-        text-overflow:ellipsis">${territory.replace('The ', '')}</div>
-      <div style="display:flex;align-items:baseline;gap:0.6rem">
-        <span style="color:#7fbf8f;font-size:0.82rem" title="Increase actions">▲&thinsp;${inc}</span>
-        <span style="color:var(--crim2);font-size:0.82rem" title="Decrease actions">▼&thinsp;${dec}</span>
-        <span style="color:${netColor};font-family:'Cinzel',serif;font-size:1.15rem;
-          font-weight:700;margin-left:auto" title="Net ambience score">${netStr}</span>
+      <div class="ambience-score-name">${territory.replace('The ', '')}</div>
+      <div class="ambience-score-row">
+        <span class="ambience-inc" title="Increase successes rolled">▲&thinsp;${d.incRolled}</span>
+        <span class="ambience-dec" title="Decrease successes rolled">▼&thinsp;${d.decRolled}</span>
+        ${d.influence ? `<span class="ambience-inf" title="Influence spent">Inf&thinsp;${d.influence}</span>` : ''}
+        <span class="ambience-net" style="color:${netColor}" title="Net: ambience successes + influence">${netStr}</span>
       </div>
-      <div style="margin-top:0.35rem;height:3px;background:var(--surf3);border-radius:2px">
-        <div style="height:100%;width:${barW}%;background:${netColor};border-radius:2px;
-          transition:width 0.3s ease"></div>
+      ${pendingNote}
+      <div class="ambience-bar-track">
+        <div class="ambience-bar-fill" style="width:${barW}%;background:${netColor}"></div>
       </div>`;
     grid.appendChild(card);
   }
@@ -446,6 +480,7 @@ function renderTerritoryActions(submissions, container) {
         territory,
         direction,
         category,
+        roll: a.roll ?? null,
       });
     }
     // Also pull projects that have an ambience direction in their action_type
@@ -464,6 +499,7 @@ function renderTerritoryActions(submissions, container) {
         territory,
         direction,
         category: 'ambience',
+        roll: p.primary_roll ?? null,
       });
     }
   }
@@ -474,7 +510,7 @@ function renderTerritoryActions(submissions, container) {
   }
 
   // Ambience score summary at the top
-  renderAmbienceScores(rows, container);
+  renderAmbienceScores(rows, submissions, container);
 
   // Group by territory, then by direction/category
   const byTerritory = {};
@@ -505,7 +541,7 @@ function renderTerritoryActions(submissions, container) {
     const table = document.createElement('table');
     table.className = 'territory-table';
     table.innerHTML = `<thead><tr>
-      <th>Type</th><th>Character</th><th>Merit</th><th>Desired Outcome</th>
+      <th>Type</th><th>Character</th><th>Merit</th><th>Desired Outcome</th><th style="text-align:center">Succ</th>
     </tr></thead>`;
 
     const tbody = document.createElement('tbody');
@@ -524,11 +560,18 @@ function renderTerritoryActions(submissions, container) {
 
     for (const r of [...increases, ...decreases, ...patrols, ...others]) {
       const tr = document.createElement('tr');
+      const succCell = r.roll
+        ? `<td style="text-align:center;font-family:'Cinzel Decorative',serif;
+            font-size:0.9rem;color:${r.roll.successes > 0 ? '#7fbf8f' : 'var(--muted)'}">
+            ${r.roll.successes}${r.roll.rote_other != null ? '<span style="font-size:0.55rem;color:var(--muted);vertical-align:super"> r</span>' : ''}
+           </td>`
+        : `<td style="text-align:center;color:var(--surf4);font-size:0.75rem">—</td>`;
       tr.innerHTML = `
         <td>${typeLabel(r)}</td>
         <td style="font-family:'Cinzel',serif;font-size:0.8rem">${r.character}</td>
         <td style="font-size:0.78rem;color:var(--muted)">${r.merit_type}</td>
-        <td style="font-size:0.82rem">${r.desired_outcome || '--'}</td>`;
+        <td style="font-size:0.82rem">${r.desired_outcome || '--'}</td>
+        ${succCell}`;
       tbody.appendChild(tr);
     }
 
@@ -931,17 +974,23 @@ function renderSearchResults(query, filter) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-function renderDashboard(submissions) {
-  // Summary tab
+function renderDashboard(submissions, opts) {
+  const { playerFilter } = opts || {};
+
+  if (playerFilter) {
+    _renderPlayerOnlyView(submissions, playerFilter);
+    document.getElementById('dashboard').style.display = 'block';
+    return;
+  }
+
+  // Full ST view
   renderStats(      submissions, document.getElementById('stat-grid'));
   renderBreakdowns( submissions, document.getElementById('breakdown-grid'));
   initSearch(submissions);
 
-  // Territories tab
   renderTerritoryActions(submissions, document.getElementById('territory-actions-section'));
   renderTerritoryTable(  submissions, document.getElementById('territory-section'));
 
-  // Players tab
   renderPlayerMenu(
     submissions,
     document.getElementById('player-menu'),
@@ -950,4 +999,52 @@ function renderDashboard(submissions) {
 
   initTabs();
   document.getElementById('dashboard').style.display = 'block';
+}
+
+/**
+ * Player-only view: hides Summary and Territories tabs, shows just
+ * the logged-in player's character detail in the Players tab.
+ */
+function _renderPlayerOnlyView(submissions, characterName) {
+  // Hide tabs the player shouldn't access
+  document.querySelectorAll('.tab-btn[data-tab="summary"], .tab-btn[data-tab="territories"]')
+    .forEach(btn => btn.style.display = 'none');
+
+  // Activate Players tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="players"]').classList.add('active');
+  document.getElementById('tab-players').classList.add('active');
+
+  const menuContainer   = document.getElementById('player-menu');
+  const detailContainer = document.getElementById('player-detail');
+
+  const sub = submissions.find(s => s.submission.character_name === characterName);
+
+  menuContainer.innerHTML = '';
+
+  if (sub) {
+    const attended = sub.submission.attended_last_game;
+    const item = document.createElement('div');
+    item.className = 'player-menu-item active';
+    item.innerHTML = `
+      <span class="char-name">${sub.submission.character_name}</span>
+      <span class="player-name">${sub.submission.player_name}</span>
+      <span class="attended-badge ${attended ? 'yes' : 'no'}"
+        style="font-size:0.58rem;margin-top:0.2rem">${attended ? 'Attended' : 'Absent'}</span>`;
+    menuContainer.appendChild(item);
+    renderPlayerDetail(sub, detailContainer);
+  } else {
+    detailContainer.innerHTML = `
+      <p style="color:var(--muted);font-family:'Cinzel',serif;font-size:0.8rem;padding-top:2rem">
+        No submission found for <strong>${characterName}</strong> in the current cycle.
+      </p>`;
+  }
+
+  window._refreshActiveDetail = (charName) => {
+    const name = charName || characterName;
+    if (name !== characterName) return;
+    const current = window._submissions.find(s => s.submission.character_name === name);
+    if (current) renderPlayerDetail(current, detailContainer);
+  };
 }

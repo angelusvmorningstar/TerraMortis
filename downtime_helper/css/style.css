@@ -41,6 +41,12 @@ header {
   border-bottom: 1px solid var(--border);
   padding: 1.2rem 2rem;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.header-brand {
+  display: flex;
   align-items: baseline;
   gap: 1rem;
 }
@@ -54,6 +60,29 @@ header span {
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.header-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.discord-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.discord-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+.discord-username {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
 }
 
 main {
@@ -328,6 +357,64 @@ section + section { margin-top: 2.5rem; }
 }
 .meta-pill span { color: var(--gold1); margin-left: 0.25rem; }
 .meta-pill.regent { border-color: var(--gold1); color: var(--gold2); }
+
+/* ── Ambience score cards ── */
+.ambience-score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.75rem;
+}
+.ambience-score-card {
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.8rem;
+}
+.ambience-score-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  color: var(--gold1);
+  letter-spacing: 0.06em;
+  margin-bottom: 0.45rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ambience-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+.ambience-inc  { color: #7fbf8f; }
+.ambience-dec  { color: var(--crim2); }
+.ambience-inf  { color: #8ab4d4; }
+.ambience-net  {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-left: auto;
+}
+.ambience-pending {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+.ambience-bar-track {
+  margin-top: 0.35rem;
+  height: 3px;
+  background: var(--surf3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ambience-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
 
 /* ── Tabs ── */
 .tab-nav {

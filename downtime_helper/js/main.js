@@ -1,6 +1,7 @@
 /**
  * main.js
  * App entry point: wires upload UI to parser, DB, and dashboard.
+ * Handles Discord OAuth callback and routes the view by role.
  */
 
 const dropZone     = document.getElementById('drop-zone');
@@ -8,13 +9,75 @@ const fileInput    = document.getElementById('file-input');
 const fileStatus   = document.getElementById('file-status');
 const parseError   = document.getElementById('parse-error');
 const exportBtn    = document.getElementById('export-btn');
+const publishBtn   = document.getElementById('publish-btn');
 const newCycleBtn  = document.getElementById('new-cycle-btn');
 const clearBtn     = document.getElementById('clear-btn');
 const dbStatus     = document.getElementById('db-status');
 
-// ── DB initialisation ────────────────────────────────────────────────────────
+// ── Auth state ────────────────────────────────────────────────────────────────
+
+let _currentUser = null;
+let _currentRole = null;   // 'st' | 'player' | 'unknown' | null
+
+async function initAuth() {
+  // Handle Discord redirect callback (sets token in localStorage, cleans URL)
+  const callbackToken = Auth.handleCallback();
+
+  const token = Auth.getToken();
+  if (!token) {
+    updateAuthUI(null);
+    return;
+  }
+
+  // Re-fetch user on a fresh callback; otherwise use cached value
+  let user = Auth.getStoredUser();
+  if (callbackToken || !user) {
+    user = await Auth.fetchUser(token);
+  }
+
+  _currentUser = user;
+  _currentRole = Auth.getRole(user);
+  updateAuthUI(user);
+}
+
+function updateAuthUI(user) {
+  const container = document.getElementById('header-auth');
+  if (!user) {
+    container.innerHTML = `<button class="btn" id="login-btn">Login with Discord</button>`;
+    document.getElementById('login-btn').addEventListener('click', () => Auth.login());
+    return;
+  }
+
+  const avatarHtml = user.avatar
+    ? `<img src="https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32"
+            alt="" class="discord-avatar">`
+    : '';
+
+  container.innerHTML = `
+    <span class="discord-user-info">
+      ${avatarHtml}
+      <span class="discord-username">${user.username}</span>
+    </span>
+    <button class="btn" id="logout-btn">Logout</button>
+  `;
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    Auth.logout();
+    location.reload();
+  });
+}
+
+/** Returns renderDashboard opts for the current user's role. */
+function _renderOpts() {
+  if (_currentRole === 'player' && _currentUser) {
+    return { playerFilter: Auth.getCharacterName(_currentUser) };
+  }
+  return {};
+}
+
+// ── DB initialisation ─────────────────────────────────────────────────────────
 
 db.init().then(async () => {
+  await initAuth();
   await refreshFromDB();
 }).catch(err => {
   console.error('DB init failed:', err);
@@ -22,6 +85,17 @@ db.init().then(async () => {
 });
 
 async function refreshFromDB() {
+  if (_currentRole === 'unknown') {
+    _showUnknownUser();
+    return;
+  }
+
+  if (_currentRole === 'player') {
+    await _refreshAsPlayer();
+    return;
+  }
+
+  // ST / no-auth: full dashboard from IndexedDB
   const summary = await db.getSummary();
   const active  = await db.getActiveCycle();
 
@@ -41,6 +115,53 @@ async function refreshFromDB() {
   updateDBStatus(summary, active);
 }
 
+/** Player flow: load published JSON or fall back to local IndexedDB, render filtered. */
+async function _refreshAsPlayer() {
+  document.getElementById('upload-section').style.display = 'none';
+
+  const characterName = Auth.getCharacterName(_currentUser);
+  if (!characterName) {
+    fileStatus.textContent = 'Your Discord account is not linked to a character. Contact your Storyteller.';
+    fileStatus.className = 'err';
+    return;
+  }
+
+  // Prefer published static JSON (committed to the repo by the ST)
+  let subs = await _fetchPublishedData();
+
+  if (!subs || !subs.length) {
+    // Fall back to whatever is in local IndexedDB
+    const active = await db.getActiveCycle();
+    if (active) subs = await db.getRawSubmissionsForCycle(active.id);
+  }
+
+  if (subs && subs.length) {
+    window._submissions = subs;
+    renderDashboard(subs, { playerFilter: characterName });
+    fileStatus.textContent = `Downtime: ${characterName}`;
+    fileStatus.className   = 'ok';
+  } else {
+    document.getElementById('dashboard').style.display = 'none';
+    fileStatus.textContent = 'No downtime data available for this cycle yet.';
+    fileStatus.className   = '';
+  }
+}
+
+function _showUnknownUser() {
+  document.getElementById('upload-section').style.display = 'none';
+  fileStatus.textContent = 'Your Discord account is not linked to a character. Contact your Storyteller.';
+  fileStatus.className   = 'err';
+}
+
+async function _fetchPublishedData() {
+  try {
+    const res = await fetch('./data/current_cycle.json');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data : null;
+  } catch { return null; }
+}
+
 function updateDBStatus(summary, active) {
   const cycleLabel = active ? `"${active.label}"` : 'none';
   dbStatus.textContent =
@@ -50,10 +171,11 @@ function updateDBStatus(summary, active) {
     `${summary.contacts} contacts · active: ${cycleLabel}`;
 }
 
-// ── File handling ─────────────────────────────────────────────────────────────
+// ── File handling (ST only) ───────────────────────────────────────────────────
 
 function handleFile(file) {
   if (!file) return;
+  if (_currentRole === 'player' || _currentRole === 'unknown') return;
 
   if (!file.name.endsWith('.csv')) {
     showError('Please upload a .csv file exported from Google Forms.');
@@ -95,7 +217,7 @@ function handleFile(file) {
 
       const subs = await db.getRawSubmissionsForCycle(result.cycleId);
       window._submissions = subs;
-      renderDashboard(subs);
+      renderDashboard(subs, _renderOpts());
       showControls();
       updateDBStatus(summary, active);
 
@@ -109,7 +231,9 @@ function handleFile(file) {
 }
 
 function showControls() {
+  if (_currentRole === 'player') return;
   exportBtn.style.display   = 'inline-block';
+  publishBtn.style.display  = 'inline-block';
   newCycleBtn.style.display = 'inline-block';
   clearBtn.style.display    = 'inline-block';
   document.getElementById('upload-section').style.marginBottom = '2rem';
@@ -130,7 +254,8 @@ newCycleBtn.addEventListener('click', async () => {
   await db.newCycle(label);
   window._submissions = [];
   document.getElementById('dashboard').style.display = 'none';
-  exportBtn.style.display = 'none';
+  exportBtn.style.display  = 'none';
+  publishBtn.style.display = 'none';
   const summary = await db.getSummary();
   const active  = await db.getActiveCycle();
   updateDBStatus(summary, active);
@@ -138,18 +263,37 @@ newCycleBtn.addEventListener('click', async () => {
   fileStatus.className   = '';
 });
 
-// ── Export ────────────────────────────────────────────────────────────────────
+// ── Export JSON ───────────────────────────────────────────────────────────────
 
 exportBtn.addEventListener('click', () => {
   const json = JSON.stringify(window._submissions, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = Object.assign(document.createElement('a'), {
-    href: url,
-    download: `downtime_${new Date().toISOString().slice(0, 10)}.json`
+    href:     url,
+    download: `downtime_${new Date().toISOString().slice(0, 10)}.json`,
   });
   a.click();
   URL.revokeObjectURL(url);
+});
+
+// ── Publish Cycle (ST only) ───────────────────────────────────────────────────
+// Downloads current_cycle.json -- commit this file to downtime_helper/data/
+// and push to GitHub Pages so players can fetch it.
+
+publishBtn.addEventListener('click', () => {
+  if (!window._submissions || !window._submissions.length) return;
+  const json = JSON.stringify(window._submissions, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href:     url,
+    download: 'current_cycle.json',
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+  fileStatus.textContent = 'Saved current_cycle.json -- commit it to downtime_helper/data/ and push.';
+  fileStatus.className   = 'ok';
 });
 
 // ── Clear DB ──────────────────────────────────────────────────────────────────
@@ -160,6 +304,7 @@ clearBtn.addEventListener('click', async () => {
   window._submissions = [];
   document.getElementById('dashboard').style.display = 'none';
   exportBtn.style.display   = 'none';
+  publishBtn.style.display  = 'none';
   newCycleBtn.style.display = 'none';
   clearBtn.style.display    = 'none';
   dbStatus.textContent      = 'DB: empty';
