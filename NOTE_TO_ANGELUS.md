@@ -127,4 +127,83 @@ The SM agent will find `specs/prd/epic-1-foundation-restructure.md` and `specs/a
 
 ---
 
+## If You Have Your Own Uncommitted or Branched Work
+
+The `piatra` branch has been merged into `main`. If you have local changes or your own branch that predates this merge, here is how to incorporate the upstream changes cleanly.
+
+### Scenario A: You are on `main` with no local changes
+
+```sh
+git pull origin main
+```
+
+Done.
+
+---
+
+### Scenario B: You are on `main` with uncommitted local changes
+
+Stash your work, pull, then restore:
+
+```sh
+git stash
+git pull origin main
+git stash pop
+```
+
+If `stash pop` reports conflicts, open the affected files, resolve them (keep both sets of changes), then:
+
+```sh
+git add <conflicted-files>
+git stash drop
+```
+
+---
+
+### Scenario C: You are on your own branch (e.g. `angelus-work`)
+
+Rebase your branch on top of the updated `main`. This replays your commits cleanly on top of the new base:
+
+```sh
+git fetch origin
+git rebase origin/main
+```
+
+If there are conflicts during rebase, Git will pause at each one. Resolve the conflict in the file, then:
+
+```sh
+git add <conflicted-file>
+git rebase --continue
+```
+
+If it gets messy and you want to start over:
+
+```sh
+git rebase --abort
+```
+
+Then try a merge instead (less clean history but simpler conflict resolution):
+
+```sh
+git merge origin/main
+```
+
+---
+
+### What is likely to conflict
+
+Most of this session's changes are in files Angelus has not touched (`specs/`, `_bmad/`, `.github/`, `data/schema*`). The most likely conflict points are:
+
+| File | Risk | Why |
+|---|---|---|
+| `.gitignore` | Low | One line added (`settings.local.json`) |
+| `CLAUDE.md` | None | Not modified in this session |
+| `public/index.html` | None | Not modified, only moved to `public/` |
+| `_bmad/core/config.yaml` | Low | One line changed (`output_folder`) |
+| `_bmad/bmm/config.yaml` | Low | Four lines changed (paths to `specs/`) |
+
+If you get a conflict in `_bmad/*/config.yaml`, the correct resolution is to keep the `specs/` paths from this session (not the `_bmad-output` paths from the original install).
+
+---
+
 *Changes made on: 2026-03-29 | Branch: piatra*
