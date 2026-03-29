@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terra Mortis -- Downtime Helper</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Downtime Helper</h1>
+  <span>Terra Mortis ST Suite</span>
+</header>
+
+<main>
+
+  <!-- Upload -->
+  <section id="upload-section">
+    <div id="drop-zone">
+      <div class="drop-icon">📋</div>
+      <p><strong>Drop your Google Forms CSV export here</strong></p>
+      <p>or</p>
+      <button class="btn" id="browse-btn">Browse File</button>
+      <input type="file" id="file-input" accept=".csv">
+    </div>
+    <div id="file-status"></div>
+    <div id="parse-error"></div>
+  </section>
+
+  <!-- Dashboard (hidden until file loaded) -->
+  <div id="dashboard">
+
+    <section>
+      <div class="section-title">Overview</div>
+      <div class="stat-grid" id="stat-grid"></div>
+    </section>
+
+    <section>
+      <div class="section-title">Action Breakdown</div>
+      <div class="breakdown-grid" id="breakdown-grid"></div>
+    </section>
+
+    <section>
+      <div class="section-title">Territories</div>
+      <div id="territory-section"></div>
+    </section>
+
+    <section>
+      <div class="section-title">Characters</div>
+      <div class="char-grid" id="char-grid"></div>
+    </section>
+
+  </div>
+
+</main>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
