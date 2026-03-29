@@ -14,7 +14,7 @@
  */
 
 const DB_NAME    = 'terra_mortis_downtime';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let _db = null;
 
@@ -29,7 +29,7 @@ function init() {
       const old = e.oldVersion;
 
       // Wipe and recreate on any schema-breaking upgrade -- early dev, no migration needed
-      if (old < 3) {
+      if (old < 4) {
         ['cycles','submissions','projects','sphere_actions','contacts']
           .filter(s => db.objectStoreNames.contains(s))
           .forEach(s => db.deleteObjectStore(s));
@@ -341,12 +341,14 @@ async function getSummary() {
 }
 
 /**
- * Persists a DicePoolResult onto a specific action within a submission's _raw tree.
- * source: 'projects' | 'sphere_actions'
- * index:  position in that array
+ * Persists one or more roll fields onto a specific action within a submission's _raw tree.
+ * source:     'projects' | 'sphere_actions'
+ * index:      position in that array
+ * rollFields: object merged into the action, e.g. { primary_roll: result }
+ *             or { secondary_roll: result } or { roll: result }
  * Returns the updated _raw object.
  */
-async function saveRoll(cycleId, characterName, source, index, roll) {
+async function saveRoll(cycleId, characterName, source, index, rollFields) {
   const existing = await idbRequest(
     _db.transaction(['submissions'])
        .objectStore('submissions')
@@ -356,9 +358,9 @@ async function saveRoll(cycleId, characterName, source, index, roll) {
   if (!existing) throw new Error(`Submission not found: ${characterName}`);
 
   const raw = existing._raw;
-  raw[source][index].roll = roll;
-  existing._raw      = raw;
-  existing._rawHash  = JSON.stringify(raw);
+  Object.assign(raw[source][index], rollFields);
+  existing._raw     = raw;
+  existing._rawHash = JSON.stringify(raw);
 
   await idbRequest(
     _db.transaction(['submissions'], 'readwrite')

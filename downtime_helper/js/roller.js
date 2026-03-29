@@ -243,9 +243,8 @@ function showRollModal(pool) {
 
     if (pool.rollContext) {
       document.getElementById('roll-save-btn').onclick = async () => {
-        const { char, source, index } = pool.rollContext;
-        // Save only the winner fields; rote_other stored for reference
-        const toSave = {
+        const { char, source, index, rollField } = pool.rollContext;
+        const rollData = {
           dice_string: result.dice_string,
           successes:   result.successes,
           rolled_at:   result.rolled_at,
@@ -253,7 +252,8 @@ function showRollModal(pool) {
         };
         try {
           const active      = await db.getActiveCycle();
-          const updatedRaw  = await db.saveRoll(active.id, char, source, index, toSave);
+          const updatedRaw  = await db.saveRoll(active.id, char, source, index,
+                                                { [rollField]: rollData });
           const subIdx      = window._submissions.findIndex(
             s => s.submission.character_name === char
           );
@@ -286,8 +286,10 @@ document.addEventListener('click', e => {
   if (isNaN(size) || size < 1) return;
 
   const rollContext = badge.dataset.rollChar
-    ? { char: badge.dataset.rollChar, source: badge.dataset.rollSource,
-        index: parseInt(badge.dataset.rollIndex, 10) }
+    ? { char:      badge.dataset.rollChar,
+        source:    badge.dataset.rollSource,
+        index:     parseInt(badge.dataset.rollIndex, 10),
+        rollField: badge.dataset.rollField || 'roll' }
     : null;
 
   let existingRoll = null;

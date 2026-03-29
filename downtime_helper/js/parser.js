@@ -216,16 +216,35 @@ function parseProject(cols, offset) {
   };
 }
 
+/**
+ * Extracts a DicePool from an Allies / Mystery Cult / Mortal Status merit string.
+ * Reads the first integer token as the merit rating (= pool size).
+ *   "Allies 3 (Finance)"         → { expression: "Allies 3 (Finance)", size: 3 }
+ *   "Mystery Cult Initiate 5"    → { expression: "...", size: 5 }
+ *   "Mortal Status 2 (Politics)" → { expression: "...", size: 2 }
+ */
+function parseMeritPool(meritType) {
+  const s = str(meritType);
+  if (!s) return null;
+  const m = s.match(/\b(\d+)\b/);
+  return { expression: s, size: m ? parseInt(m[1], 10) : null };
+}
+
 function parseSphereAction(cols, offset) {
-  const meritType     = str(cols[offset]);
-  const actionType    = str(cols[offset + 1]);
-  const desiredOutcome= str(cols[offset + 2]);
-  const description   = str(cols[offset + 3]);
+  const meritType      = str(cols[offset]);
+  const actionType     = str(cols[offset + 1]);
+  const desiredOutcome = str(cols[offset + 2]);
+  const description    = str(cols[offset + 3]);
 
   if (!meritType || !actionType || /no action taken/i.test(actionType)) return null;
 
-  return { merit_type: meritType, action_type: actionType,
-           desired_outcome: desiredOutcome || '', description: description || '' };
+  return {
+    merit_type:      meritType,
+    action_type:     actionType,
+    desired_outcome: desiredOutcome || '',
+    description:     description || '',
+    dice_pool:       parseMeritPool(meritType),
+  };
 }
 
 function collectArray(cols, startIdx, count) {

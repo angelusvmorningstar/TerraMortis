@@ -334,9 +334,13 @@
           "type": "string",
           "description": "Full narrative description of the project: who is involved, what they do, any merits or XP referenced."
         },
-        "roll": {
+        "primary_roll": {
           "$ref": "#/$defs/DicePoolResult",
-          "description": "ST-resolved roll against primary_pool. Absent until the ST has rolled and recorded the result. Must only be set once -- re-rolling is not permitted after recording."
+          "description": "ST-resolved roll against primary_pool. Absent until resolved."
+        },
+        "secondary_roll": {
+          "$ref": "#/$defs/DicePoolResult",
+          "description": "ST-resolved roll against secondary_pool (e.g. resistance roll). Absent until resolved."
         }
       }
     },
@@ -375,12 +379,12 @@
           "description": "Full narrative description of how the merit is being used and the intended effect."
         },
         "dice_pool": {
-          "description": "Pool recorded by the ST at resolution time. Not from the form -- derived from the merit rating plus any modifiers. Null until the ST fills it in.",
+          "description": "Auto-populated at parse time from the merit_type rating (e.g. 'Allies 3 (Finance)' → size 3). May be overridden by the ST if modifiers apply.",
           "oneOf": [{ "$ref": "#/$defs/DicePool" }, { "type": "null" }]
         },
         "roll": {
           "$ref": "#/$defs/DicePoolResult",
-          "description": "ST-resolved roll. Absent until resolved. The successes total drives the ambience shift (one step per success for Ambience Change actions). Must only be set once."
+          "description": "ST-resolved roll against dice_pool. Absent until resolved."
         }
       }
     },

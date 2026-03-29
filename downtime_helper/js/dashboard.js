@@ -73,6 +73,7 @@ function dicePoolDisplay(pool, rollCtx, existingRoll) {
       ? `data-pool-size="${pool.size}" data-pool-expr="${safeExpr}"
          data-roll-char="${rollCtx.char.replace(/"/g, '&quot;')}"
          data-roll-source="${rollCtx.source}" data-roll-index="${rollCtx.index}"
+         data-roll-field="${rollCtx.rollField}"
          data-existing-roll="${JSON.stringify(existingRoll).replace(/"/g, '&quot;')}"`
       : '';
     const roteTag = existingRoll.rote_other
@@ -88,7 +89,8 @@ function dicePoolDisplay(pool, rollCtx, existingRoll) {
   // Not yet rolled -- gold clickable badge
   const ctxAttrs = rollCtx
     ? `data-roll-char="${rollCtx.char.replace(/"/g, '&quot;')}"
-       data-roll-source="${rollCtx.source}" data-roll-index="${rollCtx.index}"`
+       data-roll-source="${rollCtx.source}" data-roll-index="${rollCtx.index}"
+       data-roll-field="${rollCtx.rollField}"`
     : '';
   const badge = pool.size != null
     ? `<button class="dice-size-badge" title="Roll ${pool.size} dice"
@@ -644,12 +646,14 @@ function renderPlayerDetail(s, container) {
   if (s.projects.length) {
     section('Projects', s.projects.length, body => {
       for (let i = 0; i < s.projects.length; i++) {
-        const p      = s.projects[i];
-        const rollCtx = { char: s.submission.character_name, source: 'projects', index: i };
-        const div    = document.createElement('div');
+        const p       = s.projects[i];
+        const char    = s.submission.character_name;
+        const primCtx = { char, source: 'projects', index: i, rollField: 'primary_roll' };
+        const secCtx  = { char, source: 'projects', index: i, rollField: 'secondary_roll' };
+        const div     = document.createElement('div');
         div.className = 'action-item';
-        const primDisplay = dicePoolDisplay(p.primary_pool, rollCtx, p.roll ?? null);
-        const secDisplay  = dicePoolDisplay(p.secondary_pool, null, null);
+        const primDisplay = dicePoolDisplay(p.primary_pool,   primCtx, p.primary_roll   ?? null);
+        const secDisplay  = dicePoolDisplay(p.secondary_pool, secCtx,  p.secondary_roll ?? null);
         div.innerHTML = `
           <div class="action-type">${cleanActionType(p.action_type)}</div>
           ${primDisplay ? `<div class="action-pool">Pool: ${primDisplay}</div>` : ''}
@@ -672,7 +676,7 @@ function renderPlayerDetail(s, container) {
           : dir === 'decrease'
           ? '<span style="color:var(--crim2);font-size:0.7rem">▼ Decrease</span>'
           : '';
-        const rollCtx = { char: s.submission.character_name, source: 'sphere_actions', index: i };
+        const rollCtx = { char: s.submission.character_name, source: 'sphere_actions', index: i, rollField: 'roll' };
         const poolDisplay = a.dice_pool
           ? dicePoolDisplay(a.dice_pool, rollCtx, a.roll ?? null)
           : null;
