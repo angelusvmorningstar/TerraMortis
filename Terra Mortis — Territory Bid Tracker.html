@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<!-- saved from url=(0055)file:///C:/Users/angel/Downloads/tm_territory_bids.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terra Mortis — Territory Bid Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="./Terra Mortis — Territory Bid Tracker_files/css2" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0b0906; --bg2:#100d0a; --surface:#16120e; --surface2:#1e1912; --surface3:#252018;
+  --border:rgba(201,169,98,.14); --border2:rgba(201,169,98,.28); --border3:rgba(201,169,98,.5);
+  --gold:#c9a962; --gold2:#e0c47a; --gold-dim:#7a6535;
+  --crimson:#8b0000; --crimson2:#a81010;
+  --text:#d4c89a; --text2:#8a7a5a; --text3:#4a3e2a;
+  --fh:'Cinzel Decorative',serif; --fh2:'Cinzel',serif; --fb:'EB Garamond',serif;
+}
+html{background:var(--bg);}
+body{background:var(--bg);color:var(--text);font-family:var(--fh2);min-height:100vh;padding-bottom:4rem;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 80% 30% at 50% 0%,rgba(100,60,10,.18) 0%,transparent 60%),
+             radial-gradient(ellipse 80% 30% at 0% 100%,rgba(80,10,10,.12) 0%,transparent 50%),
+             radial-gradient(ellipse 80% 30% at 100% 100%,rgba(80,10,10,.12) 0%,transparent 50%);}
+#root{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:0 16px;}
+
+.site-header{text-align:center;padding:2rem 0 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1.4rem;}
+.eyebrow{font-size:9px;letter-spacing:.55em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem;}
+.site-title{font-family:var(--fh);font-size:clamp(1.8rem,4vw,2.6rem);font-weight:700;color:var(--gold);letter-spacing:.08em;line-height:1;margin-bottom:.5rem;}
+.site-sub{font-size:9px;letter-spacing:.45em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;justify-content:center;gap:.8rem;}
+.site-sub::before,.site-sub::after{content:'';display:block;width:60px;height:1px;background:var(--border2);}
+
+.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;}
+.toolbar-l,.toolbar-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+
+.phase-pill{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.28em;text-transform:uppercase;padding:5px 14px;border:1px solid;}
+.phase-open{border-color:rgba(100,160,80,.5);color:#8bc878;background:rgba(100,160,80,.08);}
+.phase-final{border-color:rgba(200,144,10,.5);color:#d4971a;background:rgba(200,144,10,.08);}
+.phase-reveal{border-color:var(--border3);color:var(--gold);background:rgba(201,169,98,.08);}
+.phase-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.8s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+.save-dot{font-size:8px;letter-spacing:.18em;text-transform:uppercase;}
+.save-ok{color:rgba(100,160,80,.55);} .save-busy{color:var(--text3);}
+
+button{font-family:var(--fh2);font-size:9px;letter-spacing:.2em;text-transform:uppercase;padding:7px 14px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .16s;}
+button:hover{border-color:var(--border3);color:var(--text);background:rgba(201,169,98,.06);}
+.btn-primary{background:rgba(201,169,98,.1);border-color:var(--border3);color:var(--gold);}
+.btn-primary:hover{background:rgba(201,169,98,.2);}
+.btn-danger{border-color:rgba(180,40,40,.4);color:#c06060;}
+.btn-danger:hover{background:rgba(180,40,40,.1);}
+.btn-sm{font-size:8px;padding:5px 10px;letter-spacing:.16em;}
+
+.summary{display:flex;gap:0;border:1px solid var(--border);margin-bottom:1rem;}
+.sum-item{flex:1;padding:12px 16px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;}
+.sum-item:last-child{border-right:none;}
+.sum-val{font-size:1.5rem;font-weight:700;color:var(--gold);line-height:1;font-family:var(--fh);}
+.sum-lbl{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+
+.peek-strip{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border:1px solid var(--border2);margin-bottom:1.4rem;}
+.peek-info{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--text3);}
+.peek-info strong{color:var(--gold-dim);}
+.peek-toggle-label{display:flex;align-items:center;gap:8px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);cursor:pointer;}
+.peek-toggle-label input{width:14px;height:14px;accent-color:var(--gold);cursor:pointer;}
+
+.terr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;}
+
+.tc{background:var(--surface);border:1px solid var(--border);display:flex;flex-direction:column;}
+.tc.tc-resolved{border-color:var(--border2);}
+.tc-head{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.tc-name{font-size:13px;font-weight:700;color:var(--text);letter-spacing:.05em;}
+.regent-tag{font-size:8px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--border2);color:var(--gold-dim);white-space:nowrap;flex-shrink:0;}
+.regent-row{display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--bg2);border-bottom:1px solid var(--border);}
+.regent-lbl{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);white-space:nowrap;}
+.regent-inp{flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text2);font-family:var(--fh2);font-size:11px;padding:2px 4px;outline:none;min-width:0;}
+.regent-inp:focus{border-bottom-color:var(--border3);color:var(--text);}
+.regent-inp::placeholder{color:var(--text3);}
+.tc-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1;}
+.no-bids-msg{font-size:12px;color:var(--text3);font-style:italic;font-family:var(--fb);padding:4px 0;}
+
+.bid{border:1px solid var(--border);background:var(--surface2);}
+.bid.bid-win{border-color:var(--gold);background:rgba(201,169,98,.04);}
+.bid.bid-lose{opacity:.52;}
+.bid-head{padding:10px 12px 8px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.bid-claimant{font-size:13px;font-weight:700;color:var(--text);letter-spacing:.04em;}
+.bid-seconder{font-size:11px;color:var(--text2);margin-top:2px;font-family:var(--fb);font-style:italic;}
+.bid-seconder em{font-style:normal;color:var(--text3);}
+.defend-note{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);margin-top:3px;}
+.bid-score-block{text-align:right;flex-shrink:0;}
+.bid-score{font-size:1.9rem;font-weight:700;font-family:var(--fh);color:var(--text2);line-height:1;}
+.bid-score.s-lead{color:var(--gold);}
+.bid-score.s-win{color:var(--gold2);}
+.bid-score-sub{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-top:2px;}
+.win-badge{display:inline-block;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);border:1px solid var(--border2);padding:2px 8px;margin-top:4px;}
+
+.peek-row{padding:6px 12px 4px;display:flex;align-items:center;gap:10px;}
+.peek-word{font-size:10px;letter-spacing:.16em;text-transform:uppercase;width:96px;flex-shrink:0;}
+.peek-track{flex:1;height:5px;background:var(--surface);border:1px solid var(--border);}
+.peek-fill{height:100%;background:var(--gold);transition:width .5s ease;}
+.peek-fill.pf-lead{background:var(--gold2);}
+.pw-none{color:var(--text3);} .pw-zero{color:var(--text3);} .pw-weak{color:var(--text2);} .pw-modest{color:var(--text);}
+.pw-strong{color:var(--gold-dim);} .pw-formidable{color:var(--gold);} .pw-overwhelming{color:var(--gold2);}
+
+.back-list{padding:0 12px 4px;}
+.back-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.back-row:last-child{border-bottom:none;}
+.back-name{color:var(--text);font-family:var(--fb);}
+.back-right{display:flex;align-items:center;gap:6px;}
+.back-amt{font-weight:600;color:var(--text2);font-family:var(--fh);}
+.back-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 2px;}
+.back-del:hover{color:#c06060;}
+
+.ruler-row{display:flex;align-items:center;gap:7px;padding:5px 12px 6px;}
+.ruler-lbl{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);white-space:nowrap;}
+.adj{width:24px;height:24px;background:var(--surface);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.adj:hover{border-color:var(--border3);color:var(--gold);}
+.adj-val{font-family:var(--fh);font-size:13px;font-weight:600;min-width:28px;text-align:center;}
+.av-pos{color:var(--gold);} .av-neg{color:#c06060;} .av-zero{color:var(--text3);}
+
+.bid-acts{display:flex;gap:6px;flex-wrap:wrap;padding:6px 12px 8px;border-top:1px solid var(--border);}
+.tc-foot{padding:8px 12px;border-top:1px solid var(--border);background:var(--bg2);display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.res-bar{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:rgba(201,169,98,.05);border-top:1px solid var(--border2);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
+.modal{background:var(--surface);border:1px solid var(--border2);padding:24px;width:100%;max-width:380px;}
+.modal-title{font-size:13px;font-weight:700;color:var(--gold);letter-spacing:.1em;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--text2);font-family:var(--fb);font-style:italic;margin-bottom:18px;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--fh2);font-size:12px;padding:7px 10px;outline:none;transition:border-color .15s;}
+.field input:focus{border-color:var(--border3);}
+.field input::placeholder{color:var(--text3);}
+.modal-err{font-size:11px;color:#c06060;margin-top:6px;font-family:var(--fb);}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+</style>
+</head>
+<body>
+<div id="root"><header class="site-header"><div class="eyebrow">Chronicles of Darkness</div><h1 class="site-title">Terra Mortis</h1><div class="site-sub">Territory Bid Tracker</div></header><div><div class="toolbar"><div class="toolbar-l"><div class="phase-pill phase-open"><span class="phase-dot"></span>Bidding Open</div><span class="save-dot save-ok">Saved</span></div><div class="toolbar-r"><button class="btn-primary btn-sm">Call Final Commitments</button><button class="btn-danger btn-sm">Reset All</button></div></div><div class="summary"><div class="sum-item"><div class="sum-val">2</div><div class="sum-lbl">Open Bids</div></div><div class="sum-item"><div class="sum-val">0</div><div class="sum-lbl">Influence In</div></div><div class="sum-item"><div class="sum-val">0/5</div><div class="sum-lbl">Resolved</div></div></div><div class="peek-strip"><div class="peek-info"><strong></strong> — show approximate tallies without revealing exact numbers</div><label class="peek-toggle-label"><input type="checkbox">Peek on (approximate)</label></div><div class="terr-grid"><div class="tc"><div class="tc-head"><span class="tc-name">The Academy</span></div><div class="regent-row"><span class="regent-lbl">Regent:</span><input class="regent-inp" placeholder="none" value=""></div><div class="tc-body"><div class="bid"><div class="bid-head"><div><div class="bid-claimant">Bob</div><div class="bid-seconder"><em>sec. </em>eli</div></div><div class="bid-score-block"></div></div><div class="peek-row"><div class="peek-word pw-formidable">~12</div><div class="peek-track"><div class="peek-fill pf-lead" style="width: 53%;"></div></div></div><div class="ruler-row"><span class="ruler-lbl">Ruler's adj.</span><button class="adj">−</button><span class="adj-val av-zero">·</span><button class="adj">+</button></div><div class="bid-acts"><button class="btn-primary btn-sm">+ Influence</button><button class="btn-danger btn-sm">Remove</button></div></div><div class="bid"><div class="bid-head"><div><div class="bid-claimant">Germaine</div><div class="bid-seconder"><em>sec. </em>Rev</div></div><div class="bid-score-block"></div></div><div class="peek-row"><div class="peek-word pw-weak">~1</div><div class="peek-track"><div class="peek-fill pf-lead" style="width: 53%;"></div></div></div><div class="ruler-row"><span class="ruler-lbl">Ruler's adj.</span><button class="adj">−</button><span class="adj-val av-zero">·</span><button class="adj">+</button></div><div class="bid-acts"><button class="btn-primary btn-sm">+ Influence</button><button class="btn-danger btn-sm">Remove</button></div></div></div><div class="tc-foot"><button style="flex: 1 1 0%;">+ Open Bid</button><button class="btn-primary" style="flex: 1 1 0%;">Resolve</button></div></div><div class="tc"><div class="tc-head"><span class="tc-name">The North Shore</span></div><div class="regent-row"><span class="regent-lbl">Regent:</span><input class="regent-inp" placeholder="none" value=""></div><div class="tc-body"><div class="no-bids-msg">No bids declared yet.</div></div><div class="tc-foot"><button style="flex: 1 1 0%;">+ Open Bid</button></div></div><div class="tc"><div class="tc-head"><span class="tc-name">The Dockyards</span></div><div class="regent-row"><span class="regent-lbl">Regent:</span><input class="regent-inp" placeholder="none" value=""></div><div class="tc-body"><div class="no-bids-msg">No bids declared yet.</div></div><div class="tc-foot"><button style="flex: 1 1 0%;">+ Open Bid</button></div></div><div class="tc"><div class="tc-head"><span class="tc-name">The Harbour</span></div><div class="regent-row"><span class="regent-lbl">Regent:</span><input class="regent-inp" placeholder="none" value=""></div><div class="tc-body"><div class="no-bids-msg">No bids declared yet.</div></div><div class="tc-foot"><button style="flex: 1 1 0%;">+ Open Bid</button></div></div><div class="tc"><div class="tc-head"><span class="tc-name">The Second City</span></div><div class="regent-row"><span class="regent-lbl">Regent:</span><input class="regent-inp" placeholder="none" value=""></div><div class="tc-body"><div class="no-bids-msg">No bids declared yet.</div></div><div class="tc-foot"><button style="flex: 1 1 0%;">+ Open Bid</button></div></div></div></div></div>
+
+<script src="./Terra Mortis — Territory Bid Tracker_files/react.production.min.js.download"></script>
+<script src="./Terra Mortis — Territory Bid Tracker_files/react-dom.production.min.js.download"></script>
+<script>
+const {createElement:h,useState,useEffect,useRef,Component} = React;
+const TERRS=[{id:'academy',name:'The Academy'},{id:'northshore',name:'The North Shore'},{id:'dockyards',name:'The Dockyards'},{id:'harbour',name:'The Harbour'},{id:'secondcity',name:'The Second City'}];
+const KEY='tm_bids_v2';
+let _id=Date.now();const uid=()=>String(++_id);
+
+function dflt(){return{phase:'open',peek:false,territories:TERRS.map(t=>({...t,regent:'',regentInput:'',bids:[],resolved:false,winnerId:null}))}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.territories)return s;}catch(e){}return dflt();}
+const _fuzz={};
+function peekInfo(n,bidId){
+  if(n<=0)return{cls:'zero',w:'~0'};
+  if(!_fuzz[bidId])_fuzz[bidId]=Math.floor(Math.random()*15)-7;
+  const approx=Math.max(0,n+_fuzz[bidId]);
+  const cls=approx<=2?'weak':approx<=6?'modest':approx<=11?'strong':approx<=16?'formidable':'overwhelming';
+  return{cls,w:'~'+approx};
+}
+function total(bid){return bid.backing.reduce((s,b)=>s+b.amount,0)+bid.rulerAdjust;}
+
+class App extends Component{
+  constructor(p){super(p);this.state={...load(),modal:null,saving:false};this._t=null;}
+  _save(ns){clearTimeout(this._t);this.setState({saving:true});this._t=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify({phase:ns.phase,peek:ns.peek,territories:ns.territories}));}catch(e){}this.setState({saving:false});},500);}
+  set(fn){this.setState(s=>{const ns=fn(s);this._save(ns);return ns;});}
+  ut(id,fn){this.set(s=>({...s,territories:s.territories.map(t=>t.id===id?fn(t):t)}));}
+  addBid(tid,cl,sc){this.ut(tid,t=>({...t,bids:[...t.bids,{id:uid(),claimant:cl,seconder:sc,backing:[],rulerAdjust:0}]}));}
+  rmBid(tid,bid){this.ut(tid,t=>({...t,bids:t.bids.filter(b=>b.id!==bid),resolved:false,winnerId:null}));}
+  addBack(tid,bid,pl,amt){this.ut(tid,t=>({...t,bids:t.bids.map(b=>b.id===bid?{...b,backing:[...b.backing,{id:uid(),player:pl,amount:amt}]}:b)}));}
+  rmBack(tid,bid,bk){this.ut(tid,t=>({...t,bids:t.bids.map(b=>b.id===bid?{...b,backing:b.backing.filter(x=>x.id!==bk)}:b)}));}
+  adj(tid,bid,d){this.ut(tid,t=>({...t,bids:t.bids.map(b=>b.id===bid?{...b,rulerAdjust:b.rulerAdjust+d}:b)}));}
+  resolve(tid){this.ut(tid,t=>{if(!t.bids.length)return t;let best=null,bs=-Infinity;t.bids.forEach(b=>{const def=t.regent&&b.claimant.trim().toLowerCase()===t.regent.trim().toLowerCase();const sc=total(b)+(def?3:0);if(sc>bs){bs=sc;best=b.id;}});return{...t,resolved:true,winnerId:best};});}
+  unres(tid){this.ut(tid,t=>({...t,resolved:false,winnerId:null}));}
+  reset(){if(!confirm('Reset all bids and territory data?'))return;const ns=dflt();this.setState({...ns,modal:null,saving:false});try{localStorage.setItem(KEY,JSON.stringify(ns));}catch(e){}}
+  render(){
+    const{phase,peek,territories,modal,saving}=this.state;
+    const totBids=territories.reduce((s,t)=>s+t.bids.length,0);
+    const totInf=territories.reduce((s,t)=>s+t.bids.reduce((s2,b)=>s2+b.backing.reduce((s3,bk)=>s3+bk.amount,0),0),0);
+    const res=territories.filter(t=>t.resolved).length;
+    const nextPhase={open:'Call Final Commitments',final:'Reveal Tallies'};
+    const prevPhase={final:'Re-open Bidding',reveal:'Back to Final Commitments'};
+    return h(React.Fragment,null,
+      h('header',{className:'site-header'},
+        h('div',{className:'eyebrow'},'Chronicles of Darkness'),
+        h('h1',{className:'site-title'},'Terra Mortis'),
+        h('div',{className:'site-sub'},'Territory Bid Tracker')
+      ),
+      h('div',null,
+        h('div',{className:'toolbar'},
+          h('div',{className:'toolbar-l'},
+            h('div',{className:'phase-pill phase-'+phase},h('span',{className:'phase-dot'}),phase==='open'?'Bidding Open':phase==='final'?'Final Commitments':'Tallies Revealed'),
+            h('span',{className:'save-dot '+(saving?'save-busy':'save-ok')},saving?'Saving…':'Saved')
+          ),
+          h('div',{className:'toolbar-r'},
+            phase!=='reveal'&&h('button',{className:'btn-primary btn-sm',onClick:()=>this.set(s=>({...s,phase:phase==='open'?'final':'reveal'}))},nextPhase[phase]),
+            phase==='reveal'&&h('button',{className:'btn-sm',onClick:()=>this.set(s=>({...s,phase:'final'}))},prevPhase.reveal),
+            phase==='final'&&h('button',{className:'btn-sm',onClick:()=>this.set(s=>({...s,phase:'open'}))},prevPhase.final),
+            h('button',{className:'btn-danger btn-sm',onClick:()=>this.reset()},'Reset All')
+          )
+        ),
+        h('div',{className:'summary'},
+          h('div',{className:'sum-item'},h('div',{className:'sum-val'},totBids),h('div',{className:'sum-lbl'},'Open Bids')),
+          h('div',{className:'sum-item'},h('div',{className:'sum-val'},totInf),h('div',{className:'sum-lbl'},'Influence In')),
+          h('div',{className:'sum-item'},h('div',{className:'sum-val'},res+'/5'),h('div',{className:'sum-lbl'},'Resolved'))
+        ),
+        h('div',{className:'peek-strip'},
+          h('div',{className:'peek-info'},h('strong',"Prince's Peek"),' — show approximate tallies without revealing exact numbers'),
+          h('label',{className:'peek-toggle-label'},
+            h('input',{type:'checkbox',checked:peek,onChange:()=>this.set(s=>({...s,peek:!s.peek}))}),
+            peek?'Peek on (approximate)':'Peek off (exact)'
+          )
+        ),
+        h('div',{className:'terr-grid'},
+          territories.map(t=>h(TCard,{
+            key:t.id,t,peek,
+            onBid:()=>this.setState({modal:{type:'bid',tid:t.id,tname:t.name}}),
+            onBack:bid=>this.setState({modal:{type:'back',tid:t.id,bid}}),
+            onRmBack:(bid,bk)=>this.rmBack(t.id,bid,bk),
+            onAdj:(bid,d)=>this.adj(t.id,bid,d),
+            onRmBid:bid=>{if(confirm('Remove this bid?'))this.rmBid(t.id,bid);},
+            onResolve:()=>this.resolve(t.id),
+            onUnres:()=>this.unres(t.id),
+            onRegIn:v=>this.ut(t.id,x=>({...x,regentInput:v})),
+            onRegSet:v=>this.ut(t.id,x=>({...x,regent:v,regentInput:v})),
+          }))
+        )
+      ),
+      modal&&h(Modal,{modal,territories,onClose:()=>this.setState({modal:null}),
+        onAddBid:(tid,cl,sc)=>{this.addBid(tid,cl,sc);this.setState({modal:null});},
+        onAddBack:(tid,bid,pl,am)=>{this.addBack(tid,bid,pl,am);this.setState({modal:null});}
+      })
+    );
+  }
+}
+
+function TCard({t,peek,onBid,onBack,onRmBack,onAdj,onRmBid,onResolve,onUnres,onRegIn,onRegSet}){
+  const scores=t.bids.map(b=>{const def=t.regent&&b.claimant.trim().toLowerCase()===t.regent.trim().toLowerCase();return total(b)+(def?3:0);});
+  const maxScore=Math.max(0,...scores);
+  const gmax=Math.max(maxScore,15);
+  const winner=t.resolved?t.bids.find(b=>b.id===t.winnerId):null;
+  return h('div',{className:'tc'+(t.resolved?' tc-resolved':'')},
+    h('div',{className:'tc-head'},
+      h('span',{className:'tc-name'},t.name),
+      t.regent&&h('span',{className:'regent-tag'},'Regent: '+t.regent)
+    ),
+    h('div',{className:'regent-row'},
+      h('span',{className:'regent-lbl'},'Regent:'),
+      h('input',{className:'regent-inp',placeholder:'none',value:t.regentInput||'',
+        onChange:ev=>onRegIn(ev.target.value),
+        onBlur:ev=>onRegSet(ev.target.value.trim()),
+        onKeyDown:ev=>ev.key==='Enter'&&onRegSet(ev.target.value.trim())}),
+      t.regent&&h('button',{className:'btn-sm',style:{padding:'3px 7px'},onClick:()=>onRegSet('')},'×')
+    ),
+    h('div',{className:'tc-body'},
+      t.bids.length===0?h('div',{className:'no-bids-msg'},'No bids declared yet.'):
+      t.bids.map((bid,i)=>{
+        const def=t.regent&&bid.claimant.trim().toLowerCase()===t.regent.trim().toLowerCase();
+        const sc=scores[i];
+        const isMax=sc===maxScore&&sc>0;
+        const isWin=t.resolved&&bid.id===t.winnerId;
+        const isLose=t.resolved&&bid.id!==t.winnerId;
+        const {cls,w}=peekInfo(sc,bid.id);
+        return h('div',{key:bid.id,className:'bid'+(isWin?' bid-win':isLose?' bid-lose':'')},
+          h('div',{className:'bid-head'},
+            h('div',null,
+              h('div',{className:'bid-claimant'},bid.claimant),
+              h('div',{className:'bid-seconder'},h('em',null,'sec. '),bid.seconder),
+              def&&h('div',{className:'defend-note'},'+3 regent defence')
+            ),
+            h('div',{className:'bid-score-block'},
+              !peek&&h('div',{className:'bid-score '+(isWin?'s-win':isMax?'s-lead':'')},sc),
+              !peek&&h('div',{className:'bid-score-sub'},'influence'),
+              isWin&&h('div',{className:'win-badge'},'Winner')
+            )
+          ),
+          peek&&h('div',{className:'peek-row'},
+            h('div',{className:'peek-word pw-'+cls},w),
+            h('div',{className:'peek-track'},h('div',{className:'peek-fill'+(isMax?' pf-lead':''),style:{width:Math.round(Math.min(100,sc/gmax*100))+'%'}}))
+          ),
+          bid.backing.length>0&&h('div',{className:'back-list'},
+            bid.backing.map(bk=>h('div',{key:bk.id,className:'back-row'},
+              h('span',{className:'back-name'},bk.player),
+              h('div',{className:'back-right'},
+                h('span',{className:'back-amt'},'+'+bk.amount),
+                !t.resolved&&h('button',{className:'back-del',onClick:()=>onRmBack(bid.id,bk.id),title:'Remove'},'×')
+              )
+            ))
+          ),
+          !t.resolved&&h('div',{className:'ruler-row'},
+            h('span',{className:'ruler-lbl'},"Ruler's adj."),
+            h('button',{className:'adj',onClick:()=>onAdj(bid.id,-1)},'−'),
+            !peek&&h('span',{className:'adj-val '+(bid.rulerAdjust>0?'av-pos':bid.rulerAdjust<0?'av-neg':'av-zero')},(bid.rulerAdjust>=0?'+':'')+bid.rulerAdjust),
+            peek&&h('span',{className:'adj-val av-zero'},'·'),
+            h('button',{className:'adj',onClick:()=>onAdj(bid.id,+1)},'+'),
+            !peek&&bid.rulerAdjust!==0&&h('button',{className:'btn-sm',style:{padding:'3px 8px',marginLeft:4},onClick:()=>onAdj(bid.id,-bid.rulerAdjust)},'Reset')
+          ),
+          !t.resolved&&h('div',{className:'bid-acts'},
+            h('button',{className:'btn-primary btn-sm',onClick:()=>onBack(bid.id)},'+ Influence'),
+            h('button',{className:'btn-danger btn-sm',onClick:()=>onRmBid(bid.id)},'Remove')
+          )
+        );
+      })
+    ),
+    !t.resolved&&h('div',{className:'tc-foot'},
+      h('button',{style:{flex:1},onClick:onBid},'+ Open Bid'),
+      t.bids.length>=1&&h('button',{className:'btn-primary',style:{flex:1},onClick:onResolve},t.bids.length===1?'Resolve (uncontested)':'Resolve')
+    ),
+    t.resolved&&h('div',{className:'res-bar'},
+      h('span',null,winner?winner.claimant+' seizes the territory':'No winner'),
+      h('button',{className:'btn-sm',style:{color:'var(--text3)',borderColor:'var(--text3)'},onClick:onUnres},'Reopen')
+    )
+  );
+}
+
+function Modal({modal,territories,onClose,onAddBid,onAddBack}){
+  const[vals,setV]=useState({});const[err,setE]=useState('');
+  const set=k=>ev=>setV(p=>({...p,[k]:ev.target.value}));
+  const terr=territories.find(t=>t.id===modal.tid);
+  const bid=modal.type==='back'?terr?.bids.find(b=>b.id===modal.bid):null;
+  const submit=()=>{
+    if(modal.type==='bid'){
+      if(!vals.cl?.trim())return setE('Claimant name required.');
+      if(!vals.sc?.trim())return setE('Seconder name required.');
+      onAddBid(modal.tid,vals.cl.trim(),vals.sc.trim());
+    }else{
+      if(!vals.pl?.trim())return setE('Player name required.');
+      const a=parseInt(vals.am);if(!a||a<1)return setE('Enter a positive amount.');
+      onAddBack(modal.tid,modal.bid,vals.pl.trim(),a);
+    }
+  };
+  return h('div',{className:'overlay',onClick:ev=>ev.target===ev.currentTarget&&onClose()},
+    h('div',{className:'modal'},
+      h('div',{className:'modal-title'},modal.type==='bid'?'New Bid — '+modal.tname:'Add Influence — '+(bid?.claimant||'')),
+      h('div',{className:'modal-sub'},modal.type==='bid'?'Claimant and seconder must hold City Status 2 or higher.':'Enter the player committing influence to this bid.'),
+      modal.type==='bid'?h(React.Fragment,null,
+        h('div',{className:'field'},h('label',null,'Claimant'),h('input',{placeholder:'Character name',value:vals.cl||'',onChange:set('cl'),autoFocus:true,onKeyDown:ev=>ev.key==='Enter'&&document.getElementById('sc')?.focus()})),
+        h('div',{className:'field'},h('label',null,'Seconder'),h('input',{id:'sc',placeholder:'Character name',value:vals.sc||'',onChange:set('sc'),onKeyDown:ev=>ev.key==='Enter'&&submit()}))
+      ):h(React.Fragment,null,
+        h('div',{className:'field'},h('label',null,'Player / Character'),h('input',{placeholder:'Name',value:vals.pl||'',onChange:set('pl'),autoFocus:true,onKeyDown:ev=>ev.key==='Enter'&&document.getElementById('ai')?.focus()})),
+        h('div',{className:'field'},h('label',null,'Influence Amount'),h('input',{id:'ai',type:'number',min:1,placeholder:'0',value:vals.am||'',onChange:set('am'),onKeyDown:ev=>ev.key==='Enter'&&submit()}))
+      ),
+      err&&h('div',{className:'modal-err'},err),
+      h('div',{className:'modal-btns'},
+        h('button',{onClick:onClose},'Cancel'),
+        h('button',{className:'btn-primary btn-sm',onClick:submit},modal.type==='bid'?'Open Bid':'Add Influence')
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+
+
+</body></html>
