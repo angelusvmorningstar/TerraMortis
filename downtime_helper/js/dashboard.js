@@ -58,11 +58,10 @@ function countBy(arr, keyFn) {
  */
 function dicePoolDisplay(pool) {
   if (!pool || !pool.expression) return null;
-  const hasStatedTotal = /=/.test(pool.expression);
-  if (pool.size != null && !hasStatedTotal) {
-    return `${pool.expression} <span style="color:var(--muted)">· ${pool.size} dice</span>`;
-  }
-  return pool.expression;
+  const badge = pool.size != null
+    ? `<span class="dice-size-badge">${pool.size}d</span>`
+    : '';
+  return `<span class="dice-pool-expr">${pool.expression}</span>${badge}`;
 }
 
 /**

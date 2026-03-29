@@ -488,6 +488,25 @@ section + section { margin-top: 2.5rem; }
   font-size: 0.78rem;
   color: #8ab4d4;
   margin-bottom: 0.2rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.dice-pool-expr {
+  flex: 1;
+  min-width: 0;
+}
+.dice-size-badge {
+  flex-shrink: 0;
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 0.8rem;
+  color: var(--gold2);
+  background: rgba(224,196,122,0.12);
+  border: 1px solid rgba(224,196,122,0.35);
+  border-radius: 3px;
+  padding: 0.05rem 0.45rem;
+  letter-spacing: 0.04em;
 }
 .action-outcome {
   font-size: 0.82rem;
