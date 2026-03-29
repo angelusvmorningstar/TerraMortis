@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find '/d/Terra Mortis/TM Suite' -maxdepth 3 -type f \\\\\\(-name package.json -o -name pyproject.toml -o -name Cargo.toml -o -name Makefile -o -name README.md -o -name CLAUDE.md -o -name .cursorrules -o -name *.config.* \\\\\\))"
+      "Bash(find '/d/Terra Mortis/TM Suite' -maxdepth 3 -type f \\\\\\(-name package.json -o -name pyproject.toml -o -name Cargo.toml -o -name Makefile -o -name README.md -o -name CLAUDE.md -o -name .cursorrules -o -name *.config.* \\\\\\))",
+      "WebFetch(domain:terramortislarp-website.netlify.app)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
