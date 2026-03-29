@@ -59,7 +59,10 @@ function countBy(arr, keyFn) {
 function dicePoolDisplay(pool) {
   if (!pool || !pool.expression) return null;
   const badge = pool.size != null
-    ? `<span class="dice-size-badge">${pool.size}d</span>`
+    ? `<button class="dice-size-badge" title="Roll ${pool.size} dice"
+         data-pool-size="${pool.size}"
+         data-pool-expr="${(pool.expression || '').replace(/"/g, '&quot;')}"
+       >${pool.size}d</button>`
     : '';
   return `<span class="dice-pool-expr">${pool.expression}</span>${badge}`;
 }
