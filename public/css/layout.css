@@ -1,0 +1,26 @@
+/* ══════════════════════════════════════════
+   LAYOUT — Structural layout and resets
+   ══════════════════════════════════════════ */
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --bg:#0D0B09;--surf:#161210;--surf2:#1E1A16;--surf3:#252018;
+  --bdr:rgba(201,169,98,.18);--bdr2:rgba(201,169,98,.35);--bdr3:rgba(201,169,98,.55);
+  --gold:#C9A962;--gold2:#E0C47A;--gdim:#8A7040;
+  --crim:#8B0000;--crim2:#A81010;
+  --txt:#E8E0D0;--txt2:#C4B49A;--txt3:#8A7A6A;
+  --fh:'Cinzel',serif;--fhd:'Cinzel Decorative',serif;--fb:'Lora',serif;
+  --green:#5A8A5A;--green2:#7EC8A0;
+}
+
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--fb);-webkit-tap-highlight-color:transparent;}
+body{display:flex;flex-direction:column;min-height:100dvh;}
+
+/* App container and view switching */
+#app{flex:1;overflow:hidden;position:relative;}
+.view{position:absolute;inset:0;overflow-y:auto;display:none;padding:24px;}
+.view.active{display:block;}
+
+/* Utility */
+.hidden{display:none!important;}
