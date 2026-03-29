@@ -75,11 +75,13 @@ function dicePoolDisplay(pool, rollCtx, existingRoll) {
          data-roll-source="${rollCtx.source}" data-roll-index="${rollCtx.index}"
          data-existing-roll="${JSON.stringify(existingRoll).replace(/"/g, '&quot;')}"`
       : '';
+    const roteTag = existingRoll.rote_other
+      ? ` <span class="roll-inline-rote">rote</span>` : '';
     return `<span class="dice-pool-expr">${expr}</span>
       <button class="dice-size-badge rolled" title="View stored roll" ${ctxAttrs}>${pool.size ?? '?'}d ✓</button>
       <span class="roll-inline-result">
         <span class="roll-inline-string">${existingRoll.dice_string}</span>
-        <span class="roll-inline-count">${existingRoll.successes} succ</span>
+        <span class="roll-inline-count">${existingRoll.successes} succ${roteTag}</span>
       </span>`;
   }
 

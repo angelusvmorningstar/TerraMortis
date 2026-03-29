@@ -543,6 +543,16 @@ section + section { margin-top: 2.5rem; }
   color: var(--gold2);
   letter-spacing: 0.04em;
 }
+.roll-inline-rote {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  color: var(--muted);
+  border: 1px solid var(--surf4);
+  border-radius: 2px;
+  padding: 0 0.25rem;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+}
 
 /* ── Roll modal ── */
 .roll-overlay {
@@ -706,6 +716,40 @@ section + section { margin-top: 2.5rem; }
   display: flex;
   gap: 0.75rem;
   justify-content: center;
+}
+
+/* Rote two-column dice layout */
+.roll-rote-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.roll-dice-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.roll-dice-block.dimmed .roll-die         { opacity: 0.4; }
+.roll-dice-block.dimmed .roll-dice-wrap   { background: var(--surf1); }
+.roll-dice-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.roll-dice-label.winner { color: #7fbf8f; }
+.rote-tag {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--gold1);
+  border: 1px solid var(--gold1);
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+}
+.roll-rote-toggle {
+  cursor: pointer;
+  color: var(--gold1) !important;
+  border-color: rgba(196,168,90,0.4) !important;
 }
 .action-outcome {
   font-size: 0.82rem;
