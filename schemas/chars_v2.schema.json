@@ -1,0 +1,618 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chars_v2.schema.json",
+  "title": "Terra Mortis Character Array (v2)",
+  "description": "Array of Vampire: The Requiem 2e characters in the TM Suite v2 schema.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/Character"
+  },
+  "$defs": {
+    "DotBonus": {
+      "description": "An attribute or derived stat stored as dots + situational bonus.",
+      "type": "object",
+      "required": [
+        "dots",
+        "bonus"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "dots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "examples": [
+        {
+          "dots": 3,
+          "bonus": 0
+        }
+      ]
+    },
+    "Skill": {
+      "description": "A skill entry with dot rating, bonus, specialisations, and nine-again flag.",
+      "type": "object",
+      "required": [
+        "dots",
+        "bonus",
+        "specs",
+        "nine_again"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "dots": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "bonus": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "specs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nine_again": {
+          "type": "boolean"
+        }
+      },
+      "examples": [
+        {
+          "dots": 2,
+          "bonus": 0,
+          "specs": [
+            "Forgery"
+          ],
+          "nine_again": false
+        }
+      ]
+    },
+    "PowerDiscipline": {
+      "description": "A standard Discipline power (e.g. Celerity 1, Obfuscate 3).",
+      "type": "object",
+      "required": [
+        "category",
+        "discipline",
+        "rank",
+        "name",
+        "stats",
+        "pool_size",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "const": "discipline"
+        },
+        "discipline": {
+          "type": "string",
+          "examples": [
+            "Resilience"
+          ]
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "name": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "string"
+        },
+        "pool_size": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "effect": {
+          "type": "string"
+        }
+      }
+    },
+    "PowerRite": {
+      "description": "A Cruac or Theban Sorcery ritual.",
+      "type": "object",
+      "required": [
+        "category",
+        "tradition",
+        "level",
+        "name",
+        "stats",
+        "pool_size",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "const": "rite"
+        },
+        "tradition": {
+          "type": "string",
+          "examples": [
+            "Cruac",
+            "Theban Sorcery"
+          ]
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "name": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "string"
+        },
+        "pool_size": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "effect": {
+          "type": "string"
+        }
+      }
+    },
+    "PowerDevotion": {
+      "description": "A Devotion (cross-discipline power, often bloodline-exclusive).",
+      "type": "object",
+      "required": [
+        "category",
+        "name",
+        "stats",
+        "pool_size",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "const": "devotion"
+        },
+        "name": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "string"
+        },
+        "pool_size": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "effect": {
+          "type": "string"
+        }
+      }
+    },
+    "PowerPact": {
+      "description": "An Invictus oath or similar covenant pact. No pool or stats — narrative effect only.",
+      "type": "object",
+      "required": [
+        "category",
+        "name",
+        "rank",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "const": "pact"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "effect": {
+          "type": "string"
+        }
+      }
+    },
+    "Power": {
+      "description": "A discipline power, ritual, devotion, or pact. Discriminated by 'category'.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PowerDiscipline"
+        },
+        {
+          "$ref": "#/$defs/PowerRite"
+        },
+        {
+          "$ref": "#/$defs/PowerDevotion"
+        },
+        {
+          "$ref": "#/$defs/PowerPact"
+        }
+      ]
+    },
+    "Merit": {
+      "description": "A single merit entry. Optional fields depend on category.",
+      "type": "object",
+      "required": [
+        "category",
+        "name",
+        "rating"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "general",
+            "influence",
+            "domain",
+            "standing",
+            "manoeuvre"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "area": {
+          "type": "string",
+          "description": "Scope of an influence/domain merit.",
+          "examples": [
+            "Finance"
+          ]
+        },
+        "qualifier": {
+          "type": "string",
+          "description": "Specialisation for some general merits.",
+          "examples": [
+            "History"
+          ]
+        },
+        "rank_name": {
+          "type": "string",
+          "description": "Named rank within a manoeuvre chain.",
+          "examples": [
+            "Ravage"
+          ]
+        },
+        "cult_name": {
+          "type": "string",
+          "description": "Name of the Mystery Cult for standing merits.",
+          "examples": [
+            "The Ashen Path"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "description": "Professional role for Professional Training standing merits.",
+          "examples": [
+            "Enforcer"
+          ]
+        }
+      }
+    },
+    "Touchstone": {
+      "type": "object",
+      "required": [
+        "humanity",
+        "name",
+        "desc"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "humanity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Humanity level this touchstone is tied to."
+        },
+        "name": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        }
+      },
+      "examples": [
+        {
+          "humanity": 7,
+          "name": "A Mortal Friend",
+          "desc": "old colleague"
+        }
+      ]
+    },
+    "Bane": {
+      "type": "object",
+      "required": [
+        "name",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "effect": {
+          "type": "string"
+        }
+      }
+    },
+    "Character": {
+      "type": "object",
+      "required": [
+        "name",
+        "player",
+        "concept",
+        "clan",
+        "covenant",
+        "mask",
+        "dirge",
+        "apparent_age",
+        "features",
+        "willpower",
+        "aspirations",
+        "blood_potency",
+        "humanity",
+        "xp_total",
+        "xp_spent",
+        "status",
+        "covenant_standings",
+        "attributes",
+        "skills",
+        "disciplines",
+        "powers",
+        "merits",
+        "touchstones",
+        "banes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "player": {
+          "type": "string"
+        },
+        "concept": {
+          "type": "string"
+        },
+        "pronouns": {
+          "type": "string"
+        },
+        "clan": {
+          "type": "string",
+          "enum": [
+            "Daeva",
+            "Gangrel",
+            "Mekhet",
+            "Nosferatu",
+            "Ventrue"
+          ]
+        },
+        "bloodline": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "covenant": {
+          "type": "string",
+          "enum": [
+            "Carthian Movement",
+            "Circle of the Crone",
+            "Invictus",
+            "Lancea et Sanctum",
+            "Ordo Dracul",
+            "Unaligned"
+          ]
+        },
+        "mask": {
+          "type": "string"
+        },
+        "dirge": {
+          "type": "string"
+        },
+        "court_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "apparent_age": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "features": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "willpower": {
+          "type": "object",
+          "required": [
+            "mask_1wp",
+            "mask_all",
+            "dirge_1wp",
+            "dirge_all"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "mask_1wp": {
+              "type": "string"
+            },
+            "mask_all": {
+              "type": "string"
+            },
+            "dirge_1wp": {
+              "type": "string"
+            },
+            "dirge_all": {
+              "type": "string"
+            }
+          }
+        },
+        "aspirations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blood_potency": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "humanity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "xp_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "xp_spent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "object",
+          "required": [
+            "city",
+            "clan",
+            "covenant"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "city": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "clan": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "covenant": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "covenant_standings": {
+          "description": "Diplomatic standing with covenants the character does not belong to. Keys are short covenant labels; the character's own covenant is excluded — its standing is tracked in status.covenant.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "propertyNames": {
+            "enum": ["Carthian", "Crone", "Invictus", "Lance", "Ordo"]
+          }
+        },
+        "attributes": {
+          "description": "The nine core attributes, each always present as a DotBonus object.",
+          "type": "object",
+          "required": [
+            "Intelligence",
+            "Wits",
+            "Resolve",
+            "Strength",
+            "Dexterity",
+            "Stamina",
+            "Presence",
+            "Manipulation",
+            "Composure"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "Intelligence": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Wits": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Resolve": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Strength": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Dexterity": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Stamina": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Presence": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Manipulation": {
+              "$ref": "#/$defs/DotBonus"
+            },
+            "Composure": {
+              "$ref": "#/$defs/DotBonus"
+            }
+          }
+        },
+        "skills": {
+          "description": "Variable set of skills the character has ratings in. Keys are skill names.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Skill"
+          }
+        },
+        "disciplines": {
+          "description": "Discipline dot totals keyed by discipline name. Derived dots use xpToDots() at render time.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "powers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Power"
+          }
+        },
+        "merits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Merit"
+          }
+        },
+        "touchstones": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Touchstone"
+          }
+        },
+        "banes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Bane"
+          }
+        }
+      }
+    }
+  }
+}

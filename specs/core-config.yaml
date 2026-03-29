@@ -1,0 +1,43 @@
+# ============================================================
+# specs/core-config.yaml — Project Configuration for BMad Agents
+# ============================================================
+# This file tells SM, Dev, and QA agents where to find project
+# documents and how they are structured. Required for story
+# creation, development, and quality gate workflows.
+# ============================================================
+
+# --- PRD Configuration ---
+prd:
+  prdFile: "specs/prd.md"
+  prdVersion: "v4"
+  prdSharded: true
+  prdShardedLocation: "specs/prd"
+  epicFilePattern: "epic-{n}*.md"
+
+# --- Architecture Configuration ---
+architecture:
+  architectureFile: "specs/architecture.md"
+  architectureVersion: "v4"
+  architectureSharded: true
+  architectureShardedLocation: "specs/architecture"
+
+# --- Frontend Configuration ---
+frontend:
+  frontEndSpec: null
+  frontEndArchitecture: null
+
+# --- Workflow Configuration ---
+workflow:
+  devStoryLocation: "specs/stories"
+  qaLocation: "specs/qa"
+  storyFilePattern: "{epicNum}.{storyNum}.story.md"
+
+# --- Developer Configuration ---
+dev-config:
+  devLoadAlwaysFiles: []
+  devDebugLog: "specs/dev-debug.log"
+  agentCoreDump: "specs/agent-core-dump.md"
+
+# --- Tools Configuration ---
+tools:
+  markdownExploder: null
