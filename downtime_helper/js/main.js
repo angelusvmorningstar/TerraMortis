@@ -10,7 +10,6 @@ const dropZone   = document.getElementById('drop-zone');
 const fileInput  = document.getElementById('file-input');
 const fileStatus = document.getElementById('file-status');
 const parseError = document.getElementById('parse-error');
-const browseBtn  = document.getElementById('browse-btn');
 
 // ── File handling ─────────────────────────────────────────────────────────────
 
@@ -67,26 +66,30 @@ function showError(msg) {
 
 // ── Drag and drop ─────────────────────────────────────────────────────────────
 
+// Prevent the browser from navigating to the file when drag misses the drop zone
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop',     (e) => e.preventDefault());
+
 dropZone.addEventListener('dragover', (e) => {
   e.preventDefault();
+  e.stopPropagation();
   dropZone.classList.add('drag-over');
 });
 
-dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drag-over');
+dropZone.addEventListener('dragleave', (e) => {
+  // Only remove highlight when leaving the drop zone itself, not a child element
+  if (!dropZone.contains(e.relatedTarget)) {
+    dropZone.classList.remove('drag-over');
+  }
 });
 
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
+  e.stopPropagation();
   dropZone.classList.remove('drag-over');
   handleFile(e.dataTransfer.files[0]);
 });
 
-dropZone.addEventListener('click', () => fileInput.click());
-
-browseBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  fileInput.click();
-});
+// ── File input (wired via <label for="file-input"> in HTML -- no JS needed) ──
 
 fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
