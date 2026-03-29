@@ -329,6 +329,181 @@ section + section { margin-top: 2.5rem; }
 .meta-pill span { color: var(--gold1); margin-left: 0.25rem; }
 .meta-pill.regent { border-color: var(--gold1); color: var(--gold2); }
 
+/* ── Tabs ── */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0.6rem 1.5rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab-btn:hover   { color: var(--text); }
+.tab-btn.active  { color: var(--gold2); border-bottom-color: var(--gold2); }
+
+.tab-pane        { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Players layout ── */
+.player-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.player-menu {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+/* Scrollbar for player menu */
+.player-menu::-webkit-scrollbar       { width: 4px; }
+.player-menu::-webkit-scrollbar-track { background: var(--surf1); }
+.player-menu::-webkit-scrollbar-thumb { background: var(--surf4); border-radius: 2px; }
+
+.player-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.player-menu-item:hover             { background: var(--surf2); }
+.player-menu-item.active            { border-color: var(--gold1); background: var(--surf2); }
+.player-menu-item .char-name        { font-size: 0.8rem; }
+.player-menu-item .player-name      { font-size: 0.7rem; }
+
+/* ── Player detail pane ── */
+.player-detail {
+  min-width: 0; /* prevent grid blowout */
+}
+
+.player-detail-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.player-detail-header .char-name  { font-size: 1.1rem; }
+.player-detail-header .player-name{ font-size: 0.85rem; margin-top: 0.2rem; }
+
+/* Collapsible sections using native <details> */
+.player-section {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.6rem;
+  overflow: hidden;
+}
+.player-section > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold1);
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s;
+}
+.player-section > summary::-webkit-details-marker { display: none; }
+.player-section > summary::after {
+  content: '▸';
+  font-size: 0.7rem;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+.player-section[open] > summary { background: var(--surf2); }
+.player-section[open] > summary::after { transform: rotate(90deg); }
+.player-section > summary:hover { background: var(--surf2); }
+
+.player-section-count {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 0.75rem;
+  color: var(--gold2);
+  margin-left: auto;
+  margin-right: 0.75rem;
+}
+
+.player-section-body {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Individual action items within player detail */
+.action-item {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--surf3);
+  font-size: 0.88rem;
+}
+.action-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+.action-type {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--gold2);
+  margin-bottom: 0.25rem;
+}
+.action-merit {
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+.action-pool {
+  font-size: 0.78rem;
+  color: #8ab4d4;
+  margin-bottom: 0.2rem;
+}
+.action-outcome {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-style: italic;
+  margin-bottom: 0.2rem;
+}
+.action-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  margin-top: 0.2rem;
+}
+
+/* ── Error state ── */
 /* Error state */
 #parse-error {
   display: none;

@@ -512,6 +512,239 @@ function renderTerritoryActions(submissions, container) {
   }
 }
 
+// ── Players panel ─────────────────────────────────────────────────────────────
+
+function renderPlayerMenu(submissions, menuContainer, detailContainer) {
+  menuContainer.innerHTML = '';
+
+  const sorted = [...submissions].sort((a, b) =>
+    a.submission.character_name.localeCompare(b.submission.character_name)
+  );
+
+  let firstBtn = null;
+
+  for (const s of sorted) {
+    const btn = document.createElement('button');
+    btn.className = 'player-menu-item';
+    const attended = s.submission.attended_last_game;
+    btn.innerHTML = `
+      <span class="char-name">${s.submission.character_name}</span>
+      <span class="player-name">${s.submission.player_name}</span>
+      <span class="attended-badge ${attended ? 'yes' : 'no'}"
+        style="font-size:0.58rem;margin-top:0.2rem">${attended ? 'Attended' : 'Absent'}</span>`;
+
+    btn.addEventListener('click', () => {
+      menuContainer.querySelectorAll('.player-menu-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPlayerDetail(s, detailContainer);
+    });
+
+    menuContainer.appendChild(btn);
+    if (!firstBtn) firstBtn = btn;
+  }
+
+  if (firstBtn) firstBtn.click();
+}
+
+function renderPlayerDetail(s, container) {
+  container.innerHTML = '';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'player-detail-header';
+  const attended = s.submission.attended_last_game;
+  header.innerHTML = `
+    <div>
+      <div class="char-name">${s.submission.character_name}</div>
+      <div class="player-name">${s.submission.player_name}</div>
+    </div>
+    <span class="attended-badge ${attended ? 'yes' : 'no'}">${attended ? 'Attended' : 'Absent'}</span>`;
+  container.appendChild(header);
+
+  // Helper: create a <details> collapsible section
+  function section(title, count, renderFn, openByDefault) {
+    const el = document.createElement('details');
+    if (openByDefault) el.open = true;
+    el.className = 'player-section';
+
+    const sum = document.createElement('summary');
+    sum.innerHTML = `${title}
+      ${count != null ? `<span class="player-section-count">${count}</span>` : ''}`;
+    el.appendChild(sum);
+
+    const body = document.createElement('div');
+    body.className = 'player-section-body';
+    renderFn(body);
+    el.appendChild(body);
+    container.appendChild(el);
+  }
+
+  // ── Projects ──
+  if (s.projects.length) {
+    section('Projects', s.projects.length, body => {
+      for (const p of s.projects) {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `
+          <div class="action-type">${cleanActionType(p.action_type)}</div>
+          ${p.primary_pool   ? `<div class="action-pool">Pool: ${p.primary_pool}</div>` : ''}
+          ${p.secondary_pool ? `<div class="action-pool" style="color:var(--muted)">Secondary: ${p.secondary_pool}</div>` : ''}
+          ${p.desired_outcome ? `<div class="action-outcome">${p.desired_outcome}</div>` : ''}
+          ${p.description     ? `<div class="action-desc">${p.description}</div>` : ''}`;
+        body.appendChild(div);
+      }
+    }, true);
+  }
+
+  // ── Sphere Actions ──
+  if (s.sphere_actions.length) {
+    section('Sphere Actions', s.sphere_actions.length, body => {
+      for (const a of s.sphere_actions) {
+        const dir = ambienceDirection(a.action_type);
+        const dirBadge = dir === 'increase'
+          ? '<span style="color:#7fbf8f;font-size:0.7rem">▲ Increase</span>'
+          : dir === 'decrease'
+          ? '<span style="color:var(--crim2);font-size:0.7rem">▼ Decrease</span>'
+          : '';
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `
+          <div class="action-type" style="display:flex;justify-content:space-between;align-items:center">
+            <span>${cleanActionType(a.action_type)}</span>${dirBadge}
+          </div>
+          <div class="action-merit">${a.merit_type}</div>
+          ${a.desired_outcome ? `<div class="action-outcome">${a.desired_outcome}</div>` : ''}
+          ${a.description     ? `<div class="action-desc">${a.description}</div>` : ''}`;
+        body.appendChild(div);
+      }
+    }, true);
+  }
+
+  // ── Contacts ──
+  if (s.contact_actions.requests.length) {
+    section('Contacts', s.contact_actions.requests.length, body => {
+      for (const req of s.contact_actions.requests) {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `<div class="action-desc">${req}</div>`;
+        body.appendChild(div);
+      }
+    });
+  }
+
+  // ── Retainers ──
+  if (s.retainer_actions.actions.length) {
+    section('Retainers', s.retainer_actions.actions.length, body => {
+      for (const act of s.retainer_actions.actions) {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `<div class="action-desc">${act}</div>`;
+        body.appendChild(div);
+      }
+    });
+  }
+
+  // ── Acquisitions ──
+  if (s.acquisitions.has_acquisitions) {
+    section('Acquisitions', null, body => {
+      if (s.acquisitions.resource_acquisitions) {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `<div class="action-type">Resources</div>
+          <div class="action-desc">${s.acquisitions.resource_acquisitions}</div>`;
+        body.appendChild(div);
+      }
+      if (s.acquisitions.skill_acquisitions) {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `<div class="action-type">Skills</div>
+          <div class="action-desc">${s.acquisitions.skill_acquisitions}</div>`;
+        body.appendChild(div);
+      }
+    });
+  }
+
+  // ── Ritual Casting ──
+  if (s.ritual_casting.has_rituals) {
+    section('Ritual Casting', null, body => {
+      const div = document.createElement('div');
+      div.className = 'action-item';
+      div.innerHTML = `<div class="action-desc">${s.ritual_casting.casting || '(no detail provided)'}</div>`;
+      body.appendChild(div);
+    });
+  }
+
+  // ── Regency ──
+  if (s.regency.is_regent) {
+    section('Regency', null, body => {
+      const div = document.createElement('div');
+      div.className = 'action-item';
+      let html = `<div class="action-type">${s.regency.territory || '(unknown territory)'}</div>`;
+      if (s.regency.regency_action) html += `<div class="action-desc">${s.regency.regency_action}</div>`;
+      if (s.regency.residency_grants.length) {
+        html += `<div class="action-pool" style="margin-top:0.35rem">Residency grants: ${s.regency.residency_grants.join(', ')}</div>`;
+      }
+      div.innerHTML = html;
+      body.appendChild(div);
+    });
+  }
+
+  // ── Narrative ──
+  const narrativeFields = [
+    ['Game Recount',    s.narrative.game_recount],
+    ['Travel',          s.narrative.travel_description],
+    ['IC Correspondence', s.narrative.ic_correspondence],
+    ['Aspirations',     s.narrative.aspirations],
+    ['Most Trusted',    s.narrative.most_trusted_pc],
+    ['Actively Harming',s.narrative.actively_harming_pc],
+    ['Standout RP',     s.narrative.standout_rp],
+  ].filter(([, v]) => v);
+
+  if (narrativeFields.length) {
+    section('Narrative', null, body => {
+      for (const [label, val] of narrativeFields) {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `<div class="action-type">${label}</div>
+          <div class="action-desc">${val}</div>`;
+        body.appendChild(div);
+      }
+    });
+  }
+
+  // ── ST Notes & Meta ──
+  const metaFields = [
+    ['ST Notes',       s.meta.st_notes],
+    ['XP Spend',       s.meta.xp_spend],
+    ['Lore Questions', s.meta.lore_questions],
+  ].filter(([, v]) => v);
+
+  if (metaFields.length) {
+    section('ST Notes & Meta', null, body => {
+      for (const [label, val] of metaFields) {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `<div class="action-type">${label}</div>
+          <div class="action-desc">${val}</div>`;
+        body.appendChild(div);
+      }
+    });
+  }
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+}
+
 // ── Action search ─────────────────────────────────────────────────────────────
 
 let _searchSubmissions = [];
@@ -624,11 +857,22 @@ function renderSearchResults(query, filter) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 function renderDashboard(submissions) {
-  renderStats(           submissions, document.getElementById('stat-grid'));
-  renderBreakdowns(      submissions, document.getElementById('breakdown-grid'));
+  // Summary tab
+  renderStats(      submissions, document.getElementById('stat-grid'));
+  renderBreakdowns( submissions, document.getElementById('breakdown-grid'));
+  initSearch(submissions);
+
+  // Territories tab
   renderTerritoryActions(submissions, document.getElementById('territory-actions-section'));
   renderTerritoryTable(  submissions, document.getElementById('territory-section'));
-  renderCharCards(       submissions, document.getElementById('char-grid'));
-  initSearch(submissions);
+
+  // Players tab
+  renderPlayerMenu(
+    submissions,
+    document.getElementById('player-menu'),
+    document.getElementById('player-detail')
+  );
+
+  initTabs();
   document.getElementById('dashboard').style.display = 'block';
 }
