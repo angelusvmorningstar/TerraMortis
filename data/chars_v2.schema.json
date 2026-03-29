@@ -200,8 +200,34 @@
         }
       }
     },
+    "PowerPact": {
+      "description": "An Invictus oath or similar covenant pact. No pool or stats — narrative effect only.",
+      "type": "object",
+      "required": [
+        "category",
+        "name",
+        "rank",
+        "effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "const": "pact"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "effect": {
+          "type": "string"
+        }
+      }
+    },
     "Power": {
-      "description": "A discipline power, ritual, or devotion. Discriminated by 'category'.",
+      "description": "A discipline power, ritual, devotion, or pact. Discriminated by 'category'.",
       "oneOf": [
         {
           "$ref": "#/$defs/PowerDiscipline"
@@ -211,6 +237,9 @@
         },
         {
           "$ref": "#/$defs/PowerDevotion"
+        },
+        {
+          "$ref": "#/$defs/PowerPact"
         }
       ]
     },
@@ -260,6 +289,20 @@
           "description": "Named rank within a manoeuvre chain.",
           "examples": [
             "Ravage"
+          ]
+        },
+        "cult_name": {
+          "type": "string",
+          "description": "Name of the Mystery Cult for standing merits.",
+          "examples": [
+            "The Ashen Path"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "description": "Professional role for Professional Training standing merits.",
+          "examples": [
+            "Enforcer"
           ]
         }
       }
@@ -475,31 +518,14 @@
           }
         },
         "covenant_standings": {
+          "description": "Diplomatic standing with covenants the character does not belong to. Keys are short covenant labels; the character's own covenant is excluded — its standing is tracked in status.covenant.",
           "type": "object",
-          "required": [
-            "Carthian",
-            "Invictus",
-            "Lancea",
-            "Crone"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "Carthian": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "Invictus": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "Lancea": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "Crone": {
-              "type": "integer",
-              "minimum": 0
-            }
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "propertyNames": {
+            "enum": ["Carthian", "Crone", "Invictus", "Lance", "Ordo"]
           }
         },
         "attributes": {
