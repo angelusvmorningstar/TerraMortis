@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "downtime_v1.schema.json",
+  "title": "Terra Mortis Downtime Submission (v1)",
+  "description": "A single downtime submission. Converted from the Google Forms CSV export (YUSUF.csv). Repeating column groups (Projects 1-4, Sphere Actions 1-5, etc.) are collapsed into typed arrays. Duplicate gate questions (cols 71/72, 79/80, 86/87, 90/91) are merged to a single boolean.",
+  "type": "object",
+  "required": [
+    "submission",
+    "narrative",
+    "regency",
+    "feeding",
+    "influence",
+    "projects",
+    "sphere_actions",
+    "contact_actions",
+    "retainer_actions",
+    "acquisitions",
+    "ritual_casting",
+    "meta"
+  ],
+  "additionalProperties": false,
+  "properties": {
+
+    "submission": {
+      "description": "Form submission metadata (cols 1-5).",
+      "type": "object",
+      "required": ["timestamp", "player_name", "character_name", "attended_last_game"],
+      "additionalProperties": false,
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "description": "ISO 8601 datetime of form submission. Col 1.",
+          "examples": ["2026-03-28T22:26:00"]
+        },
+        "email": {
+          "type": ["string", "null"],
+          "format": "email",
+          "description": "Player email address. Col 2."
+        },
+        "player_name": {
+          "type": "string",
+          "description": "Real name of the submitting player. Col 3."
+        },
+        "character_name": {
+          "type": "string",
+          "description": "In-game character name. Col 4."
+        },
+        "attended_last_game": {
+          "type": "boolean",
+          "description": "Whether the player attended the previous game session. Col 5."
+        }
+      }
+    },
+
+    "narrative": {
+      "description": "Roleplay and narrative fields (cols 6-12).",
+      "type": "object",
+      "required": [],
+      "additionalProperties": false,
+      "properties": {
+        "travel_description": {
+          "type": ["string", "null"],
+          "description": "How the character travelled to/from Court and precautions taken. Col 6."
+        },
+        "game_recount": {
+          "type": ["string", "null"],
+          "description": "Player's summary of what their character did at the last game session. Col 7."
+        },
+        "standout_rp": {
+          "type": ["string", "null"],
+          "description": "One or two players/characters who gave standout RP moments. Col 8."
+        },
+        "ic_correspondence": {
+          "type": ["string", "null"],
+          "description": "Short in-character letter to an NPC back home (Dear X format). Col 9."
+        },
+        "most_trusted_pc": {
+          "type": ["string", "null"],
+          "description": "The PC the character currently trusts most. Col 10."
+        },
+        "actively_harming_pc": {
+          "type": ["string", "null"],
+          "description": "The PC the character is currently trying to harm or hamper. Col 11."
+        },
+        "aspirations": {
+          "type": ["string", "null"],
+          "description": "Short, medium, and long-term aspirations as freetext. Col 12. Not parsed -- player formats freely."
+        }
+      }
+    },
+
+    "regency": {
+      "description": "Territory regency and residency grants (cols 13-17).",
+      "type": "object",
+      "required": ["is_regent"],
+      "additionalProperties": false,
+      "properties": {
+        "is_regent": {
+          "type": "boolean",
+          "description": "Whether the character is currently a Territory Regent. Col 13."
+        },
+        "territory": {
+          "type": ["string", "null"],
+          "description": "Name of the territory this character is Regent of. Null if not a Regent. Col 14.",
+          "examples": ["The City Harbour", "The Docklands", "The Academy"]
+        },
+        "residency_grants": {
+          "type": "array",
+          "description": "List of PC names granted Residency (Feeding Rights) this month. Col 15.",
+          "items": { "type": "string" },
+          "examples": [["Einar TechnoViking", "Reed Justice"]]
+        },
+        "total_residency_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Total PCs granted Residency including the Regent. Col 16."
+        },
+        "regency_action": {
+          "type": ["string", "null"],
+          "description": "Freetext description of the Regent's downtime action for the territory. Col 17."
+        }
+      }
+    },
+
+    "feeding": {
+      "description": "Character feeding activity this month (cols 18-24).",
+      "type": "object",
+      "required": ["method"],
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": ["string", "null"],
+          "description": "How the character fed from the city (not Herd) this month. Freetext. Col 18."
+        },
+        "territories": {
+          "description": "Per-territory feeding status. Col 19-24. Key is territory name; value is the character's feeding activity there.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "The Academy":        { "$ref": "#/$defs/FeedingStatus" },
+            "The City Harbour":   { "$ref": "#/$defs/FeedingStatus" },
+            "The Docklands":      { "$ref": "#/$defs/FeedingStatus" },
+            "The Second City":    { "$ref": "#/$defs/FeedingStatus" },
+            "The Northern Shore": { "$ref": "#/$defs/FeedingStatus" },
+            "The Barrens":        { "$ref": "#/$defs/FeedingStatus" }
+          }
+        }
+      }
+    },
+
+    "influence": {
+      "description": "Influence spending requests per territory (cols 25-29). Integer value is the amount of Influence the player wants to spend there this downtime.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "The Academy":    { "type": "integer", "minimum": 0, "default": 0 },
+        "The Harbour":    { "type": "integer", "minimum": 0, "default": 0 },
+        "The Docklands":  { "type": "integer", "minimum": 0, "default": 0 },
+        "The Second City":{ "type": "integer", "minimum": 0, "default": 0 },
+        "The Shore":      { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+
+    "projects": {
+      "description": "Downtime projects (cols 30-49). Up to 4 in the Google Form; collapsed from repeating column groups into an array. Omit entries where action_type is blank or NO ACTION TAKEN.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/Project" }
+    },
+
+    "sphere_actions": {
+      "description": "Actions using Allies, Mortal Status, or Mystery Cult Initiate merits (cols 50-70). Up to 5 in the Google Form; collapsed into an array. The gate question (col 50) is implicit -- array being non-empty means yes.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/SphereAction" }
+    },
+
+    "contact_actions": {
+      "description": "Information requests via Contacts merit (cols 71-78). Up to 6 freetext requests. The duplicate gate questions (cols 71, 72) are merged to a single boolean.",
+      "type": "object",
+      "required": ["has_contacts"],
+      "additionalProperties": false,
+      "properties": {
+        "has_contacts": {
+          "type": "boolean",
+          "description": "Whether the player indicated they have Contacts to use."
+        },
+        "requests": {
+          "type": "array",
+          "description": "Individual contact information requests. Each entry is the freetext from one Contact Action field.",
+          "minItems": 0,
+          "maxItems": 6,
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "retainer_actions": {
+      "description": "Actions assigned to Retainers (cols 79-85). Up to 5. Duplicate gate questions (cols 79, 80) merged to one boolean.",
+      "type": "object",
+      "required": ["has_retainers"],
+      "additionalProperties": false,
+      "properties": {
+        "has_retainers": {
+          "type": "boolean",
+          "description": "Whether the player indicated they have Retainers to use."
+        },
+        "actions": {
+          "type": "array",
+          "description": "Individual retainer task descriptions.",
+          "minItems": 0,
+          "maxItems": 5,
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "acquisitions": {
+      "description": "Attempts to acquire items using Resources or Skills (cols 86-89). Duplicate gate questions (cols 86, 87) merged to one boolean.",
+      "type": "object",
+      "required": ["has_acquisitions"],
+      "additionalProperties": false,
+      "properties": {
+        "has_acquisitions": {
+          "type": "boolean",
+          "description": "Whether the player indicated they want to acquire anything."
+        },
+        "resource_acquisitions": {
+          "type": ["string", "null"],
+          "description": "Freetext: what the character is trying to acquire using their Resources merit. Col 88."
+        },
+        "skill_acquisitions": {
+          "type": ["string", "null"],
+          "description": "Freetext: what the character is trying to acquire using Skills. Col 89."
+        }
+      }
+    },
+
+    "ritual_casting": {
+      "description": "Theban Sorcery or Cruac casting during downtime (cols 90-92). Duplicate gate questions (cols 90, 91) merged to one boolean.",
+      "type": "object",
+      "required": ["has_rituals"],
+      "additionalProperties": false,
+      "properties": {
+        "has_rituals": {
+          "type": "boolean",
+          "description": "Whether the player indicated they have rituals to cast."
+        },
+        "casting": {
+          "type": ["string", "null"],
+          "description": "Freetext: what ritual(s) the character is casting and any context. Col 92."
+        }
+      }
+    },
+
+    "meta": {
+      "description": "ST notes, XP spend, lore questions, and form feedback (cols 93-97).",
+      "type": "object",
+      "required": [],
+      "additionalProperties": false,
+      "properties": {
+        "st_notes": {
+          "type": ["string", "null"],
+          "description": "Anything the player wants the STs to know about other character activities not covered above. Col 93."
+        },
+        "xp_spend": {
+          "type": ["string", "null"],
+          "description": "Freetext XP spend declaration (what was spent, on what, total). Col 94."
+        },
+        "lore_questions": {
+          "type": ["string", "null"],
+          "description": "Game rules, elements, or lore the player wants more information about. Col 95."
+        },
+        "form_rating": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Player rating of the downtime form for clarity and ease of use (1-10). Col 96."
+        },
+        "form_comments": {
+          "type": ["string", "null"],
+          "description": "Player comments or recommendations on the downtime form or process. Col 97."
+        }
+      }
+    }
+
+  },
+
+  "$defs": {
+
+    "FeedingStatus": {
+      "description": "A character's feeding activity in a given territory for this downtime period.",
+      "type": ["string", "null"],
+      "enum": [
+        "Resident",
+        "Poaching",
+        "Feeding",
+        "Not feeding here",
+        null
+      ]
+    },
+
+    "Project": {
+      "description": "A single downtime project action. Derived from one repeating column group (Project N: cols 30-34, 35-39, 40-44, 45-49).",
+      "type": "object",
+      "required": ["action_type", "desired_outcome", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "action_type": {
+          "type": "string",
+          "description": "Selected action type from the dropdown. Known values from current form: 'XP Spend: Grow your character', 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects', 'Feed: Dedicate extra time to feeding', 'Support: Assists any other action type by you or another', 'Investigate: Gather information or research a topic', 'Build/Establish: Create or develop something lasting'.",
+          "examples": [
+            "XP Spend: Grow your character",
+            "Hide/Protect: Attempt to secure actions, merits, holdings, or projects",
+            "Feed: Dedicate extra time to feeding",
+            "Support: Assists any other action type by you or another"
+          ]
+        },
+        "primary_pool": {
+          "type": ["string", "null"],
+          "description": "Primary dice pool expression and any relevant powers. Freetext as entered by the player, e.g. 'Presence 4 + Empathy 3 + Obfuscate 5 = 12'."
+        },
+        "secondary_pool": {
+          "type": ["string", "null"],
+          "description": "Secondary dice pool for opposed or extended rolls. Freetext. May be blank."
+        },
+        "desired_outcome": {
+          "type": "string",
+          "description": "Brief statement of what the character is trying to achieve."
+        },
+        "description": {
+          "type": "string",
+          "description": "Full narrative description of the project: who is involved, what they do, any merits or XP referenced."
+        }
+      }
+    },
+
+    "SphereAction": {
+      "description": "A single action using an Allies, Mortal Status, or Mystery Cult Initiate merit. Derived from one repeating column group (Sphere Action N: cols 51-54, 55-58, 59-62, 63-66, 67-70).",
+      "type": "object",
+      "required": ["merit_type", "action_type", "desired_outcome", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "merit_type": {
+          "type": "string",
+          "description": "The specific merit being activated, including rating where relevant, e.g. 'Allies 3 (Finance)', 'Mystery Cult Initiate 5', 'Allies 2 (Underworld)'.",
+          "examples": [
+            "Allies 3 (Finance)",
+            "Allies 2 (Underworld)",
+            "Allies 2 (Politics)",
+            "Mystery Cult Initiate 5"
+          ]
+        },
+        "action_type": {
+          "type": "string",
+          "description": "Action type from the dropdown. Known values: 'Ambience Change (Increase): Make a Territory delicious', 'Ambience Change (Decrease): Make a Territory hostile', 'Patrol/Scout: Attempt to monitor a given Territory or area', 'Acquisition: Use your standing in Status/Mystery Cult to procure an item', 'Diplomatic: Engage in social or political manoeuvring', 'Information: Gather intelligence through your sphere'.",
+          "examples": [
+            "Ambience Change (Increase): Make a Territory delicious",
+            "Patrol/Scout: Attempt to monitor a given Territory or area",
+            "Acquisition: Use your standing in Status/Mystery Cult to procure an item"
+          ]
+        },
+        "desired_outcome": {
+          "type": "string",
+          "description": "Brief statement of what this sphere action is trying to achieve."
+        },
+        "description": {
+          "type": "string",
+          "description": "Full narrative description of how the merit is being used and the intended effect."
+        }
+      }
+    }
+
+  }
+}
