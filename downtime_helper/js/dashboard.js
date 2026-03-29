@@ -267,20 +267,37 @@ function renderCharCards(submissions, container) {
 
 // ── Territory actions ─────────────────────────────────────────────────────────
 
-const TERRITORY_NAMES = [
-  'Academy', 'Harbour', 'Docklands', 'Second City', 'Northern Shore', 'Shore', 'Barrens'
+/**
+ * Ordered list of territory matchers.
+ * More specific patterns (Northern Shore) must precede their subsets (Shore).
+ * Handles common misspellings and abbreviations from freetext player input.
+ */
+const TERRITORY_MATCHERS = [
+  // Academy
+  { name: 'The Academy',        re: /academ/i },
+  // Harbour -- handles British "harbour", American "harbor", "city harbour"
+  { name: 'The Harbour',        re: /harbou?r/i },
+  // Docklands -- "docks", "dockland", "docklands"
+  { name: 'The Docklands',      re: /\bdocks?\b|dockland/i },
+  // Second City -- "second city", "2nd city", "2nd city", "the 2nd"
+  { name: 'The Second City',    re: /\b2nd\s+city\b|second\s+city/i },
+  // Northern Shore -- must precede generic Shore match
+  { name: 'The Northern Shore', re: /north(?:ern)?\s+shore|northern/i },
+  // Shore -- bare "shore" after Northern Shore is already handled
+  { name: 'The Shore',          re: /\bshore\b/i },
+  // Barrens
+  { name: 'The Barrens',        re: /\bbarren/i },
 ];
 
+/**
+ * Extracts a canonical territory name from freetext.
+ * Tries both the full text and individual sentences/phrases for robustness.
+ */
 function extractTerritory(text) {
   if (!text) return null;
-  const u = text.toUpperCase();
-  if (u.includes('ACADEMY'))      return 'The Academy';
-  if (u.includes('HARBOUR'))      return 'The Harbour';
-  if (u.includes('DOCKLAND'))     return 'The Docklands';
-  if (u.includes('SECOND'))       return 'The Second City';
-  if (u.includes('NORTHERN') || (u.includes('SHORE') && u.includes('NORTH'))) return 'The Northern Shore';
-  if (u.includes('SHORE'))        return 'The Shore';
-  if (u.includes('BARREN'))       return 'The Barrens';
+  for (const { name, re } of TERRITORY_MATCHERS) {
+    if (re.test(text)) return name;
+  }
   return null;
 }
 
@@ -299,10 +316,70 @@ function actionCategory(actionType) {
   return 'other';
 }
 
+/**
+ * Renders a per-territory ambience score summary grid.
+ * +1 per increase-ambience action, -1 per decrease-ambience action.
+ * Scans both sphere_actions and projects.
+ */
+function renderAmbienceScores(rows, container) {
+  const scores = {};
+  for (const r of rows) {
+    if (!r.territory || r.direction === null) continue;
+    if (!scores[r.territory]) scores[r.territory] = { inc: 0, dec: 0 };
+    if (r.direction === 'increase') scores[r.territory].inc++;
+    if (r.direction === 'decrease') scores[r.territory].dec++;
+  }
+
+  const scored = Object.entries(scores)
+    .filter(([, v]) => v.inc + v.dec > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+
+  if (!scored.length) return;
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-family:"Cinzel",serif;font-size:0.7rem;letter-spacing:0.1em;' +
+    'color:var(--muted);text-transform:uppercase;margin-bottom:0.75rem';
+  title.textContent = 'Ambience Score by Territory';
+  container.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));' +
+    'gap:0.6rem;margin-bottom:1.75rem';
+
+  for (const [territory, { inc, dec }] of scored) {
+    const net      = inc - dec;
+    const netColor = net > 0 ? '#7fbf8f' : net < 0 ? 'var(--crim2)' : 'var(--muted)';
+    const netStr   = net > 0 ? `+${net}` : String(net);
+    const barW     = Math.max(inc, dec) > 0 ? Math.round((Math.abs(net) / Math.max(inc, dec)) * 100) : 0;
+
+    const card = document.createElement('div');
+    card.style.cssText =
+      'background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);' +
+      'padding:0.6rem 0.75rem;position:relative;overflow:hidden';
+    card.innerHTML = `
+      <div style="font-family:'Cinzel',serif;font-size:0.68rem;color:var(--gold1);
+        letter-spacing:0.06em;margin-bottom:0.45rem;white-space:nowrap;overflow:hidden;
+        text-overflow:ellipsis">${territory.replace('The ', '')}</div>
+      <div style="display:flex;align-items:baseline;gap:0.6rem">
+        <span style="color:#7fbf8f;font-size:0.82rem" title="Increase actions">▲&thinsp;${inc}</span>
+        <span style="color:var(--crim2);font-size:0.82rem" title="Decrease actions">▼&thinsp;${dec}</span>
+        <span style="color:${netColor};font-family:'Cinzel',serif;font-size:1.15rem;
+          font-weight:700;margin-left:auto" title="Net ambience score">${netStr}</span>
+      </div>
+      <div style="margin-top:0.35rem;height:3px;background:var(--surf3);border-radius:2px">
+        <div style="height:100%;width:${barW}%;background:${netColor};border-radius:2px;
+          transition:width 0.3s ease"></div>
+      </div>`;
+    grid.appendChild(card);
+  }
+
+  container.appendChild(grid);
+}
+
 function renderTerritoryActions(submissions, container) {
   container.innerHTML = '';
 
-  // Collect all sphere actions with territory + direction
+  // Collect sphere actions with territory + direction
   const rows = [];
   for (const s of submissions) {
     for (const a of s.sphere_actions) {
@@ -311,6 +388,7 @@ function renderTerritoryActions(submissions, container) {
       const direction = ambienceDirection(a.action_type);
       const category  = actionCategory(a.action_type);
       rows.push({
+        source: 'sphere',
         character: s.submission.character_name,
         merit_type: a.merit_type,
         action_type: a.action_type,
@@ -321,12 +399,33 @@ function renderTerritoryActions(submissions, container) {
         category,
       });
     }
+    // Also pull projects that have an ambience direction in their action_type
+    for (const p of s.projects) {
+      const direction = ambienceDirection(p.action_type);
+      if (!direction) continue;
+      const territory = extractTerritory(p.desired_outcome) ||
+                        extractTerritory(p.description) || null;
+      rows.push({
+        source: 'project',
+        character: s.submission.character_name,
+        merit_type: '(Project)',
+        action_type: p.action_type,
+        desired_outcome: p.desired_outcome,
+        description: p.description,
+        territory,
+        direction,
+        category: 'ambience',
+      });
+    }
   }
 
   if (!rows.length) {
     container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem">No sphere actions this cycle.</p>';
     return;
   }
+
+  // Ambience score summary at the top
+  renderAmbienceScores(rows, container);
 
   // Group by territory, then by direction/category
   const byTerritory = {};
@@ -362,9 +461,13 @@ function renderTerritoryActions(submissions, container) {
 
     const tbody = document.createElement('tbody');
 
+    const srcTag = (r) => r.source === 'project'
+      ? '<span style="font-size:0.65rem;color:var(--muted);vertical-align:super;margin-left:0.2rem">proj</span>'
+      : '';
+
     const typeLabel = (r) => {
-      if (r.direction === 'increase') return '<span style="color:#7fbf8f">▲ Increase</span>';
-      if (r.direction === 'decrease') return '<span style="color:var(--crim2)">▼ Decrease</span>';
+      if (r.direction === 'increase') return `<span style="color:#7fbf8f">▲ Increase${srcTag(r)}</span>`;
+      if (r.direction === 'decrease') return `<span style="color:var(--crim2)">▼ Decrease${srcTag(r)}</span>`;
       if (r.category  === 'patrol')   return '<span style="color:var(--gold1)">👁 Patrol</span>';
       if (r.category  === 'acquisition') return '<span style="color:#8ab4d4">Acquisition</span>';
       return `<span style="color:var(--muted)">${cleanActionType(r.action_type)}</span>`;
