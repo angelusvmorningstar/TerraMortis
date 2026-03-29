@@ -48,8 +48,36 @@
     </section>
 
     <section>
+      <div class="section-title">Territory Actions</div>
+      <div id="territory-actions-section"></div>
+    </section>
+
+    <section>
       <div class="section-title">Territories</div>
       <div id="territory-section"></div>
+    </section>
+
+    <section>
+      <div class="section-title">Action Search</div>
+      <div id="search-section">
+        <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+          <input id="search-input" type="text" placeholder="Search actions, descriptions, characters..."
+            style="flex:1;min-width:200px;background:var(--surf2);border:1px solid var(--border);
+                   border-radius:var(--radius);padding:0.5rem 0.75rem;color:var(--text);
+                   font-family:'Lora',serif;font-size:0.9rem;outline:none">
+          <select id="search-filter"
+            style="background:var(--surf2);border:1px solid var(--border);border-radius:var(--radius);
+                   padding:0.5rem 0.75rem;color:var(--text);font-family:'Cinzel',serif;font-size:0.75rem">
+            <option value="all">All action types</option>
+            <option value="projects">Projects only</option>
+            <option value="sphere">Sphere actions only</option>
+            <option value="ambience">Ambience changes</option>
+            <option value="patrol">Patrol / Scout</option>
+            <option value="contacts">Contacts</option>
+          </select>
+        </div>
+        <div id="search-results"></div>
+      </div>
     </section>
 
     <section>

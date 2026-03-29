@@ -265,12 +265,267 @@ function renderCharCards(submissions, container) {
   }
 }
 
+// ── Territory actions ─────────────────────────────────────────────────────────
+
+const TERRITORY_NAMES = [
+  'Academy', 'Harbour', 'Docklands', 'Second City', 'Northern Shore', 'Shore', 'Barrens'
+];
+
+function extractTerritory(text) {
+  if (!text) return null;
+  const u = text.toUpperCase();
+  if (u.includes('ACADEMY'))      return 'The Academy';
+  if (u.includes('HARBOUR'))      return 'The Harbour';
+  if (u.includes('DOCKLAND'))     return 'The Docklands';
+  if (u.includes('SECOND'))       return 'The Second City';
+  if (u.includes('NORTHERN') || (u.includes('SHORE') && u.includes('NORTH'))) return 'The Northern Shore';
+  if (u.includes('SHORE'))        return 'The Shore';
+  if (u.includes('BARREN'))       return 'The Barrens';
+  return null;
+}
+
+function ambienceDirection(actionType) {
+  if (/increase/i.test(actionType)) return 'increase';
+  if (/decrease/i.test(actionType)) return 'decrease';
+  return null;
+}
+
+function actionCategory(actionType) {
+  if (/ambience/i.test(actionType))         return 'ambience';
+  if (/patrol|scout/i.test(actionType))     return 'patrol';
+  if (/acquisition/i.test(actionType))      return 'acquisition';
+  if (/diplomatic/i.test(actionType))       return 'diplomatic';
+  if (/information/i.test(actionType))      return 'information';
+  return 'other';
+}
+
+function renderTerritoryActions(submissions, container) {
+  container.innerHTML = '';
+
+  // Collect all sphere actions with territory + direction
+  const rows = [];
+  for (const s of submissions) {
+    for (const a of s.sphere_actions) {
+      const territory = extractTerritory(a.desired_outcome) ||
+                        extractTerritory(a.description) || null;
+      const direction = ambienceDirection(a.action_type);
+      const category  = actionCategory(a.action_type);
+      rows.push({
+        character: s.submission.character_name,
+        merit_type: a.merit_type,
+        action_type: a.action_type,
+        desired_outcome: a.desired_outcome,
+        description: a.description,
+        territory,
+        direction,
+        category,
+      });
+    }
+  }
+
+  if (!rows.length) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem">No sphere actions this cycle.</p>';
+    return;
+  }
+
+  // Group by territory, then by direction/category
+  const byTerritory = {};
+  const noTerritory = [];
+
+  for (const r of rows) {
+    if (r.territory) {
+      if (!byTerritory[r.territory]) byTerritory[r.territory] = [];
+      byTerritory[r.territory].push(r);
+    } else {
+      noTerritory.push(r);
+    }
+  }
+
+  // Render each territory block
+  for (const [territory, actions] of Object.entries(byTerritory).sort()) {
+    const increases = actions.filter(a => a.direction === 'increase');
+    const decreases = actions.filter(a => a.direction === 'decrease');
+    const patrols   = actions.filter(a => a.category  === 'patrol');
+    const others    = actions.filter(a => a.direction === null && a.category !== 'patrol');
+
+    const block = document.createElement('div');
+    block.style.cssText = 'margin-bottom:1.5rem';
+
+    block.innerHTML = `<h4 style="font-family:'Cinzel',serif;font-size:0.8rem;letter-spacing:0.08em;
+      color:var(--gold2);margin-bottom:0.6rem;text-transform:uppercase">${territory}</h4>`;
+
+    const table = document.createElement('table');
+    table.className = 'territory-table';
+    table.innerHTML = `<thead><tr>
+      <th>Type</th><th>Character</th><th>Merit</th><th>Desired Outcome</th>
+    </tr></thead>`;
+
+    const tbody = document.createElement('tbody');
+
+    const typeLabel = (r) => {
+      if (r.direction === 'increase') return '<span style="color:#7fbf8f">▲ Increase</span>';
+      if (r.direction === 'decrease') return '<span style="color:var(--crim2)">▼ Decrease</span>';
+      if (r.category  === 'patrol')   return '<span style="color:var(--gold1)">👁 Patrol</span>';
+      if (r.category  === 'acquisition') return '<span style="color:#8ab4d4">Acquisition</span>';
+      return `<span style="color:var(--muted)">${cleanActionType(r.action_type)}</span>`;
+    };
+
+    for (const r of [...increases, ...decreases, ...patrols, ...others]) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${typeLabel(r)}</td>
+        <td style="font-family:'Cinzel',serif;font-size:0.8rem">${r.character}</td>
+        <td style="font-size:0.78rem;color:var(--muted)">${r.merit_type}</td>
+        <td style="font-size:0.82rem">${r.desired_outcome || '--'}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    block.appendChild(table);
+    container.appendChild(block);
+  }
+
+  // Unassigned territory block
+  if (noTerritory.length) {
+    const block = document.createElement('div');
+    block.innerHTML = `<h4 style="font-family:'Cinzel',serif;font-size:0.8rem;letter-spacing:0.08em;
+      color:var(--muted);margin-bottom:0.6rem;text-transform:uppercase">No Territory Identified</h4>`;
+    const table = document.createElement('table');
+    table.className = 'territory-table';
+    table.innerHTML = `<thead><tr><th>Action Type</th><th>Character</th><th>Merit</th><th>Desired Outcome</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+    for (const r of noTerritory) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:var(--muted);font-size:0.8rem">${cleanActionType(r.action_type)}</td>
+        <td style="font-family:'Cinzel',serif;font-size:0.8rem">${r.character}</td>
+        <td style="font-size:0.78rem;color:var(--muted)">${r.merit_type}</td>
+        <td style="font-size:0.82rem">${r.desired_outcome || '--'}</td>`;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    block.appendChild(table);
+    container.appendChild(block);
+  }
+}
+
+// ── Action search ─────────────────────────────────────────────────────────────
+
+let _searchSubmissions = [];
+
+function initSearch(submissions) {
+  _searchSubmissions = submissions;
+  const input  = document.getElementById('search-input');
+  const filter = document.getElementById('search-filter');
+  const runSearch = () => renderSearchResults(input.value.trim(), filter.value);
+  input.addEventListener('input', runSearch);
+  filter.addEventListener('change', runSearch);
+}
+
+function renderSearchResults(query, filter) {
+  const container = document.getElementById('search-results');
+  container.innerHTML = '';
+
+  if (!query && filter === 'all') {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem">Type to search across all actions.</p>';
+    return;
+  }
+
+  const q = query.toLowerCase();
+  const results = [];
+
+  for (const s of _searchSubmissions) {
+    const char = s.submission.character_name;
+
+    const matchesText = (text) => !q || (text || '').toLowerCase().includes(q);
+
+    // Projects
+    if (filter === 'all' || filter === 'projects') {
+      for (const p of s.projects) {
+        if (matchesText(p.action_type) || matchesText(p.desired_outcome) || matchesText(p.description)) {
+          results.push({ kind: 'project', char, data: p });
+        }
+      }
+    }
+
+    // Sphere actions
+    if (filter === 'all' || filter === 'sphere' || filter === 'ambience' || filter === 'patrol') {
+      for (const a of s.sphere_actions) {
+        const cat = actionCategory(a.action_type);
+        if (filter === 'ambience' && cat !== 'ambience') continue;
+        if (filter === 'patrol'   && cat !== 'patrol')   continue;
+        if (matchesText(a.action_type) || matchesText(a.desired_outcome) ||
+            matchesText(a.description) || matchesText(a.merit_type)) {
+          results.push({ kind: 'sphere', char, data: a });
+        }
+      }
+    }
+
+    // Contacts
+    if (filter === 'all' || filter === 'contacts') {
+      for (const req of s.contact_actions.requests) {
+        if (matchesText(req)) {
+          results.push({ kind: 'contact', char, data: req });
+        }
+      }
+    }
+  }
+
+  if (!results.length) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem">No matching actions.</p>';
+    return;
+  }
+
+  const kindColour = { project: 'var(--gold1)', sphere: '#7fbf8f', contact: '#8ab4d4' };
+  const kindLabel  = { project: 'Project', sphere: 'Sphere', contact: 'Contact' };
+
+  const table = document.createElement('table');
+  table.className = 'territory-table';
+  table.innerHTML = `<thead><tr><th>Type</th><th>Character</th><th>Action / Merit</th><th>Desired Outcome / Request</th></tr></thead>`;
+  const tbody = document.createElement('tbody');
+
+  for (const r of results) {
+    const tr = document.createElement('tr');
+    if (r.kind === 'contact') {
+      const m = r.data.match(/contact\s+type\s*:\s*([^\n]+)/i);
+      tr.innerHTML = `
+        <td><span style="color:${kindColour.contact};font-family:'Cinzel',serif;font-size:0.7rem">${kindLabel.contact}</span></td>
+        <td style="font-family:'Cinzel',serif;font-size:0.8rem">${r.char}</td>
+        <td style="font-size:0.78rem;color:var(--muted)">${m ? m[1].trim() : '(unspecified)'}</td>
+        <td style="font-size:0.82rem">${r.data.replace(/\n.*/s, '').trim()}</td>`;
+    } else if (r.kind === 'sphere') {
+      tr.innerHTML = `
+        <td><span style="color:${kindColour.sphere};font-family:'Cinzel',serif;font-size:0.7rem">${kindLabel.sphere}</span></td>
+        <td style="font-family:'Cinzel',serif;font-size:0.8rem">${r.char}</td>
+        <td style="font-size:0.78rem;color:var(--muted)">${r.data.merit_type}<br>
+          <span style="color:var(--text)">${cleanActionType(r.data.action_type)}</span></td>
+        <td style="font-size:0.82rem">${r.data.desired_outcome || '--'}</td>`;
+    } else {
+      tr.innerHTML = `
+        <td><span style="color:${kindColour.project};font-family:'Cinzel',serif;font-size:0.7rem">${kindLabel.project}</span></td>
+        <td style="font-family:'Cinzel',serif;font-size:0.8rem">${r.char}</td>
+        <td style="font-size:0.78rem;color:var(--text)">${cleanActionType(r.data.action_type)}</td>
+        <td style="font-size:0.82rem">${r.data.desired_outcome || '--'}</td>`;
+    }
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+  const count = document.createElement('p');
+  count.style.cssText = 'font-family:"Cinzel",serif;font-size:0.7rem;color:var(--muted);margin-bottom:0.5rem';
+  count.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
+  container.appendChild(count);
+  container.appendChild(table);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 function renderDashboard(submissions) {
-  renderStats(      submissions, document.getElementById('stat-grid'));
-  renderBreakdowns( submissions, document.getElementById('breakdown-grid'));
-  renderTerritoryTable(submissions, document.getElementById('territory-section'));
-  renderCharCards(  submissions, document.getElementById('char-grid'));
+  renderStats(           submissions, document.getElementById('stat-grid'));
+  renderBreakdowns(      submissions, document.getElementById('breakdown-grid'));
+  renderTerritoryActions(submissions, document.getElementById('territory-actions-section'));
+  renderTerritoryTable(  submissions, document.getElementById('territory-section'));
+  renderCharCards(       submissions, document.getElementById('char-grid'));
+  initSearch(submissions);
   document.getElementById('dashboard').style.display = 'block';
 }
