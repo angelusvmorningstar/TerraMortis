@@ -319,12 +319,12 @@
           ]
         },
         "primary_pool": {
-          "type": ["string", "null"],
-          "description": "Primary dice pool expression and any relevant powers. Freetext as entered by the player, e.g. 'Presence 4 + Empathy 3 + Obfuscate 5 = 12'."
+          "description": "Primary dice pool as entered by the player. Null if not provided.",
+          "oneOf": [{ "$ref": "#/$defs/DicePool" }, { "type": "null" }]
         },
         "secondary_pool": {
-          "type": ["string", "null"],
-          "description": "Secondary dice pool for opposed or extended rolls. Freetext. May be blank."
+          "description": "Secondary pool for opposed or extended rolls. Null if not provided.",
+          "oneOf": [{ "$ref": "#/$defs/DicePool" }, { "type": "null" }]
         },
         "desired_outcome": {
           "type": "string",
@@ -333,6 +333,14 @@
         "description": {
           "type": "string",
           "description": "Full narrative description of the project: who is involved, what they do, any merits or XP referenced."
+        },
+        "primary_roll": {
+          "$ref": "#/$defs/DicePoolResult",
+          "description": "ST-resolved roll against primary_pool. Absent until resolved."
+        },
+        "secondary_roll": {
+          "$ref": "#/$defs/DicePoolResult",
+          "description": "ST-resolved roll against secondary_pool (e.g. resistance roll). Absent until resolved."
         }
       }
     },
@@ -369,6 +377,67 @@
         "description": {
           "type": "string",
           "description": "Full narrative description of how the merit is being used and the intended effect."
+        },
+        "dice_pool": {
+          "description": "Auto-populated at parse time from the merit_type rating (e.g. 'Allies 3 (Finance)' → size 3). May be overridden by the ST if modifiers apply.",
+          "oneOf": [{ "$ref": "#/$defs/DicePool" }, { "type": "null" }]
+        },
+        "roll": {
+          "$ref": "#/$defs/DicePoolResult",
+          "description": "ST-resolved roll against dice_pool. Absent until resolved."
+        }
+      }
+    },
+
+    "DicePool": {
+      "description": "A dice pool definition: the freetext expression as entered plus a computed integer size. Size is derived by taking the stated total after '=' if present, otherwise by summing all integer tokens in the expression string.",
+      "type": "object",
+      "required": ["expression", "size"],
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "type": ["string", "null"],
+          "description": "Freetext pool as entered, e.g. 'Presence 4 + Empathy 3 + Obfuscate 5 = 12', 'Allies 3 (Finance)', 'Wits + Occult'."
+        },
+        "size": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of dice to roll. Null when the expression contains no numeric values (e.g. 'Wits + Occult' without dot counts stated)."
+        }
+      }
+    },
+
+    "DicePoolResult": {
+      "description": "The recorded outcome of a single dice pool roll, set once by the ST when resolving an action. Never overwritten after recording.",
+      "type": "object",
+      "required": ["dice_string", "successes", "rolled_at"],
+      "additionalProperties": false,
+      "properties": {
+        "dice_string": {
+          "type": "string",
+          "description": "Encoded roll result. Comma-separated die values inside square brackets. 0 represents a face-10 result. A '>' separates a die that triggered a 10-again re-roll from its re-roll result. E.g. '[8,3,0>3,0>8,1,4]' means: 8 (success), 3 (fail), 10→reroll→3 (success+fail), 10→reroll→8 (success+success), 1 (fail), 4 (fail) = 4 successes.",
+          "examples": ["[8,3,0>3,0>8,1,4]", "[7,5,0>6,2]", "[1,1,3]"]
+        },
+        "successes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Pre-calculated count of successes (dice showing 8, 9, or 10/0). Stored to avoid re-parsing the dice_string. For 10-again, both the original 10 and its re-roll are counted if they show 8+."
+        },
+        "rolled_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the ST performed and recorded the roll.",
+          "examples": ["2026-03-29T19:45:00Z"]
+        },
+        "rote_other": {
+          "description": "Present only on rote rolls. Holds the discarded roll (the one with fewer successes). The top-level dice_string and successes always represent the winner.",
+          "type": "object",
+          "required": ["dice_string", "successes"],
+          "additionalProperties": false,
+          "properties": {
+            "dice_string": { "type": "string" },
+            "successes":   { "type": "integer", "minimum": 0 }
+          }
         }
       }
     }
