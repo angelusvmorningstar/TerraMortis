@@ -92,22 +92,28 @@ function breakdownCard(title, entries, total) {
   return card;
 }
 
+function contactType(request) {
+  // Requests are freetext but typically start with "Contact Type: POLICE\n..."
+  const m = request.match(/contact\s+type\s*:\s*([^\n]+)/i);
+  return m ? m[1].trim() : '(unspecified)';
+}
+
 function renderBreakdowns(submissions, container) {
   container.innerHTML = '';
 
-  const allProjects     = submissions.flatMap(s => s.projects);
-  const allSphere       = submissions.flatMap(s => s.sphere_actions);
+  const allProjects  = submissions.flatMap(s => s.projects);
+  const allSphere    = submissions.flatMap(s => s.sphere_actions);
+  const allContacts  = submissions.flatMap(s => s.contact_actions.requests);
 
-  const projectTypes = countBy(allProjects, p => p.action_type);
-  const sphereTypes  = countBy(allSphere,  p => p.action_type);
-  const meritTypes   = countBy(allSphere,  p => {
-    // Normalise "Allies 3 (Finance)" → "Allies (Finance)" for grouping
-    return p.merit_type.replace(/\s+\d+\s*/, ' ').trim();
-  });
+  const projectTypes  = countBy(allProjects, p => p.action_type);
+  const sphereTypes   = countBy(allSphere,   p => p.action_type);
+  const meritTypes    = countBy(allSphere,   p => p.merit_type.replace(/\s+\d+\s*/, ' ').trim());
+  const contactTypes  = countBy(allContacts, contactType);
 
-  container.appendChild(breakdownCard('Project Action Types', projectTypes, allProjects.length));
-  container.appendChild(breakdownCard('Sphere Action Types',  sphereTypes,  allSphere.length));
-  container.appendChild(breakdownCard('Sphere Merit Types',   meritTypes,   allSphere.length));
+  container.appendChild(breakdownCard('Project Action Types',  projectTypes, allProjects.length));
+  container.appendChild(breakdownCard('Sphere Action Types',   sphereTypes,  allSphere.length));
+  container.appendChild(breakdownCard('Sphere Merit Types',    meritTypes,   allSphere.length));
+  container.appendChild(breakdownCard('Contact Enquiries',     contactTypes, allContacts.length));
 }
 
 // ── Territory table ───────────────────────────────────────────────────────────
