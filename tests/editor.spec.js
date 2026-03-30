@@ -38,7 +38,7 @@ test.describe('Editor — List View', () => {
 
   test('search filters characters', async ({ page }) => {
     const countBefore = await page.locator('.char-grid > *').count();
-    await page.fill('.list-search', 'Whisper');
+    await page.fill('.list-search', 'Nox');
     const countAfter = await page.locator('.char-grid > *').count();
     expect(countAfter).toBeLessThan(countBefore);
     expect(countAfter).toBeGreaterThan(0);
