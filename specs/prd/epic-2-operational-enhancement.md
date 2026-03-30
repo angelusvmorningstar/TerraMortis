@@ -1,6 +1,8 @@
 # Epic 2: Operational Enhancement
 
-**Status:** Backlog
+> **Superseded** by [Epic Restructure Proposal](epic-restructure-proposal.md) (31 March 2026). This file is kept for reference. The restructured Epic 2 covers ST Administration Features; downtime stories moved to Epic 3; story 2.8 (GitHub API) dropped.
+
+**Status:** Superseded
 **Priority:** High
 **Phase:** 2 (Growth)
 **Soft Deadline:** Downtime system by 8 April 2026 (Peter investigating)
