@@ -11,6 +11,7 @@ import {
   stGetTracker, stSetTracker, stMaxVitae,
   stGetActive, toast
 } from './tracker.js';
+import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 
 // ══════════════════════════════════════════════
 //  FEEDING CONSTANTS
@@ -136,16 +137,15 @@ function feedBuildPool() {
   // Best attribute
   let bestAttrVal = 0, bestAttrName = '';
   m.attrs.forEach(a => {
-    const v = c.attributes[a] || 0;
+    const v = getAttrVal(c, a);
     if (v > bestAttrVal) { bestAttrVal = v; bestAttrName = a; }
   });
 
   // Best skill
   let bestSkillVal = 0, bestSkillName = 'none', bestSkillSpec = null;
   m.skills.forEach(s => {
-    const sk = c.skills[s];
-    const v = sk ? (sk.dots || sk) : 0;
-    if (v > bestSkillVal) { bestSkillVal = v; bestSkillName = s; bestSkillSpec = sk ? sk.spec || null : null; }
+    const v = skDots(c, s);
+    if (v > bestSkillVal) { bestSkillVal = v; bestSkillName = s; bestSkillSpec = skSpecStr(c, s) || null; }
   });
 
   // Territory ambience

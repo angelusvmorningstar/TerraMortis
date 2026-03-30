@@ -41,10 +41,19 @@ function toast(msg) { _toast(msg); }
 export function loadChars() {
   let data = CHARS_DATA;
   try {
-    const stored = localStorage.getItem('tm_import_chars');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length) data = parsed;
+    // Prefer v2 format from Editor (tm_chars_db), fall back to import key
+    const v2Stored = localStorage.getItem('tm_chars_db');
+    if (v2Stored) {
+      const parsed = JSON.parse(v2Stored);
+      if (parsed && parsed.v === 2 && Array.isArray(parsed.chars) && parsed.chars.length) {
+        data = parsed.chars;
+      }
+    } else {
+      const stored = localStorage.getItem('tm_import_chars');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length) data = parsed;
+      }
     }
   } catch (e) { /* ignore */ }
   const chars = data.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -141,27 +150,16 @@ export function openPanel(mode) {
     } else {
       const powers = state.rollChar.powers || [];
       const groups = {};
+      const SORCERY_THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
       powers.forEach(p => {
-        const pi = getPool(state.rollChar, p.name);
-        let disc = 'Other';
-        if (p.name.includes('|')) {
-          const prefix = p.name.split('|')[0];
-          const di = prefix.search(/[\u25CF\u25CB]/);
-          disc = di > 0 ? prefix.substring(0, di).trim() : prefix.trim();
-          if (disc === 'Blood Sorcery') {
-            const rest = p.name.split('|')[1].trim();
-            const tm = rest.match(/^(Creation|Destruction|Divination|Protection|Transmutation)/);
-            disc = tm ? tm[1] + ' (Sorcery)' : 'Blood Sorcery';
-          }
-        } else {
-          const di = p.name.search(/[\u25CF\u25CB]/);
-          disc = di > 0 ? p.name.substring(0, di).trim() : 'Other';
-        }
+        // v2 powers have category/discipline/name fields
+        const lookupKey = p.name || '';
+        const pi = getPool(state.rollChar, lookupKey);
+        let disc = p.discipline || p.category || 'Other';
+        if (SORCERY_THEMES.includes(disc)) disc = disc + ' (Sorcery)';
         if (!groups[disc]) groups[disc] = [];
-        let dispName = p.name;
-        if (p.name.includes('|')) dispName = p.name.split('|')[1].trim();
-        dispName = dispName.replace(/\s*[\u25CF\u25CB]+\s*$/, '').trim() || dispName;
-        groups[disc].push({ raw: p.name, disp: dispName, pi });
+        const dispName = p.name || '';
+        groups[disc].push({ raw: lookupKey, disp: dispName, pi });
       });
 
       Object.entries(groups).forEach(([disc, items]) => {

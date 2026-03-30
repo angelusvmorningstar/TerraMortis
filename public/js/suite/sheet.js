@@ -17,6 +17,11 @@ import {
   toggleExp, toggleDisc, expRow
 } from './sheet-helpers.js';
 
+import {
+  influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
+  influenceTotal, calcSize, calcSpeed, calcDefence, calcWillpowerMax, calcVitaeMax, xpLeft
+} from '../data/accessors.js';
+
 // ── Sheet character selection ──
 
 export function onSheetChar(name) {
@@ -62,7 +67,7 @@ export function renderSheet() {
     <div class="sh-char-name">${c.name}</div>
     <div class="sh-player-row">
       <span class="sh-char-player">${c.player || ''}</span>
-      <span class="sh-xp-badge">XP ${c.xp_left != null ? c.xp_left : '?'}/${c.xp_total != null ? c.xp_total : '?'}</span>
+      <span class="sh-xp-badge">XP ${xpLeft(c)}/${c.xp_total != null ? c.xp_total : '?'}</span>
     </div>
   </div>
   <div class="sh-char-body">
@@ -73,13 +78,13 @@ export function renderSheet() {
   // Mask
   if (c.mask) {
     const body = (wp.mask_1wp ? `<div><span class="exp-wp-lbl">1 WP</span> ${wp.mask_1wp}</div>` : '') +
-                 (wp.mask_all_wp ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.mask_all_wp}</div>` : '');
+                 (wp.mask_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.mask_all}</div>` : '');
     html += expRow('mask', 'Mask', c.mask, body);
   }
   // Dirge
   if (c.dirge) {
     const body = (wp.dirge_1wp ? `<div><span class="exp-wp-lbl">1 WP</span> ${wp.dirge_1wp}</div>` : '') +
-                 (wp.dirge_all_wp ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.dirge_all_wp}</div>` : '');
+                 (wp.dirge_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.dirge_all}</div>` : '');
     html += expRow('dirge', 'Dirge', c.dirge, body);
   }
   // Curse
@@ -146,13 +151,14 @@ export function renderSheet() {
   html += `</div></div>`; // end sh-char-body, sh-char-hdr
 
   // ── COVENANT STRIP ──
-  const covS = (c.covenant_standings || []).slice(1);
-  if (covS.length) {
+  const covStandings = c.covenant_standings || {};
+  const covSEntries = Object.entries(covStandings).filter(([, v]) => v !== undefined);
+  if (covSEntries.length) {
     html += `<div class="cov-strip">`;
-    covS.forEach(cs => {
-      const active = cs.status > 0;
+    covSEntries.forEach(([label, status]) => {
+      const active = status > 0;
       html += `<div class="cov-strip-cell">
-        <span class="cov-strip-name${active ? ' active' : ''}">${cs.label}</span>
+        <span class="cov-strip-name${active ? ' active' : ''}">${label}</span>
         <span class="cov-strip-dot${active ? ' active' : ''}">${active ? '\u25CB' : '\u2013'}</span>
       </div>`;
     });
@@ -163,16 +169,16 @@ export function renderSheet() {
   html += `<div class="sh-stats-strip">
     <div class="sh-stat-cell"><div class="sh-stat-icon">${BP_SVG}<span class="sh-stat-n">${c.blood_potency || 1}</span></div><div class="sh-stat-lbl">BP</div></div>
     <div class="sh-stat-cell"><div class="sh-stat-icon">${HUM_SVG}<span class="sh-stat-n">${c.humanity || 0}</span></div><div class="sh-stat-lbl">Humanity</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${c.size || 5}</span></div><div class="sh-stat-lbl">Size</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${c.speed || 0}</span></div><div class="sh-stat-lbl">Speed</div></div>
-    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${c.defence || 0}</span></div><div class="sh-stat-lbl">Defence</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSize(c)}</span></div><div class="sh-stat-lbl">Size</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcSpeed(c)}</span></div><div class="sh-stat-lbl">Speed</div></div>
+    <div class="sh-stat-cell"><div class="sh-stat-icon">${STAT_SVG}<span class="sh-stat-n">${calcDefence(c)}</span></div><div class="sh-stat-lbl">Defence</div></div>
   </div>`;
 
   // ── TRACKERS ──
-  const maxV = 9 + (c.blood_potency || 1);
-  const maxWP = (getAttrDots(c, 'Resolve') || 0) + (getAttrDots(c, 'Composure') || 0);
-  const infl = c.influence || [];
-  const maxInf = infl.reduce((s, x) => s + (x.dots || 0), 0);
+  const maxV = calcVitaeMax(c);
+  const maxWP = calcWillpowerMax(c);
+  const infl = influenceMerits(c);
+  const maxInf = influenceTotal(c);
 
   // Load or seed persisted state
   const tKey = 'tm_tracker_' + c.name;
@@ -232,8 +238,8 @@ export function renderSheet() {
       const s = col[ri];
       const sk = c.skills ? c.skills[s] : null;
       const d = skillDots(sk), sp = skillSpec(sk);
-      const bn = typeof sk === 'object' ? (sk.bonus_dots || 0) : 0;
-      const na = typeof sk === 'object' && sk.nine_again;
+      const bn = sk ? (sk.bonus || 0) : 0;
+      const na = sk && sk.nine_again;
       const hasDots = d > 0 || bn > 0;
       const dotStr = hasDots ? dotsWithBonus(d, bn) : '\u2013';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
@@ -259,7 +265,7 @@ export function renderSheet() {
       const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
       let drawerHtml = '';
       discPowers.forEach(p => {
-        const pname = p.name.includes('|') ? p.name.split('|')[1].trim() : p.name;
+        const pname = p.name || '';
         drawerHtml += `<div class="disc-power">
           <div class="disc-power-name">${pname}</div>
           ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -294,11 +300,11 @@ export function renderSheet() {
 
     // 2. Devotions
     const others = otherPowers(c);
-    const devotions = others.filter(p => p.name.trim().startsWith('Devotion'));
-    if (devotions.length) {
+    const devotionPowers = others.filter(p => p.category === 'devotion');
+    if (devotionPowers.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">`;
-      devotions.forEach((p, i) => {
-        const pname = p.name.includes('|') ? p.name.split('|')[1].trim() : p.name.replace(/^Devotion\s*\|\s*/i, '');
+      devotionPowers.forEach((p, i) => {
+        const pname = p.name || '';
         const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">
           <div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">${pname}</span></div>
@@ -326,7 +332,7 @@ export function renderSheet() {
     }
 
     // 4. Pacts (Oaths + Carthian Law)
-    const pacts = others.filter(p => !p.name.trim().startsWith('Devotion'));
+    const pacts = others.filter(p => p.category === 'pact' || p.category === 'rite');
     if (pacts.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">`;
       pacts.forEach((p, i) => {
@@ -347,69 +353,41 @@ export function renderSheet() {
   }
 
   // ── Influence Merits ──
-  const inflNew = c.influence || [];
-  if (inflNew.length) {
+  const inflMerits = influenceMerits(c);
+  if (inflMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Influence Merits</div><div class="merit-list">`;
-    let inflIdx = 0;
-    inflNew.forEach(x => {
-      const area = (x.area && x.area.trim()) ? x.area.trim() : null;
-      const mStr = (area ? `${x.type} (${area})` : x.type) + (x.dots ? ' ' + dots(x.dots) : '');
-      html += renderMeritRow(mStr, 'infl', inflIdx++);
+    inflMerits.forEach((m, i) => {
+      html += renderMeritRow(m, 'infl', i);
     });
     html += `</div></div>`;
   }
 
   // ── Domain Merits ──
-  const dom = c.domain || {};
-  const domEntries = [
-    { key: 'safe_place', label: 'Safe Place' },
-    { key: 'haven', label: 'Haven' },
-    { key: 'feeding_grounds', label: 'Feeding Grounds' },
-    { key: 'herd', label: 'Herd' },
-  ].filter(e => dom[e.key]);
-  if (domEntries.length) {
+  const domMerits = domainMerits(c);
+  if (domMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">`;
-    domEntries.forEach(e => {
-      html += `<div class="merit-plain"><span class="merit-name">${e.label}</span><span class="merit-dots">${dots(dom[e.key])}</span></div>`;
+    domMerits.forEach(m => {
+      html += `<div class="merit-plain"><span class="merit-name">${m.name}</span><span class="merit-dots">${dots(m.rating || 0)}</span></div>`;
     });
     html += `</div></div>`;
   }
 
   // ── Standing Merits ──
-  const stnd = c.standing || {};
-  const hasMC = stnd.mystery_cult && stnd.mystery_cult.dots;
-  const hasPT = stnd.prof_training && stnd.prof_training.dots;
-  if (hasMC || hasPT) {
+  const stndMerits = standingMerits(c);
+  if (stndMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="stand-list">`;
-    if (hasMC) {
+    stndMerits.forEach(m => {
       html += `<div class="stand-row">
-        <div class="stand-name-row"><span class="stand-label">Mystery Cult Initiation</span><span class="stand-dots">${dots(stnd.mystery_cult.dots)}</span></div>
-        ${stnd.mystery_cult.name ? `<div class="stand-sub">${stnd.mystery_cult.name}</div>` : ''}
+        <div class="stand-name-row"><span class="stand-label">${m.name}</span><span class="stand-dots">${dots(m.rating || 0)}</span></div>
+        ${m.qualifier ? `<div class="stand-sub">${m.qualifier}</div>` : ''}
       </div>`;
-    }
-    if (hasPT) {
-      html += `<div class="stand-row">
-        <div class="stand-name-row"><span class="stand-label">Professional Training</span><span class="stand-dots">${dots(stnd.prof_training.dots)}</span></div>
-        ${stnd.prof_training.role ? `<div class="stand-sub">${stnd.prof_training.role}</div>` : ''}
-      </div>`;
-    }
+    });
     html += `</div></div>`;
   }
 
   // ── Other Merits + Manoeuvres ──
-  const allMerits = c.merits || [];
-  const DOMAIN_NAMES = ['Safe Place', 'Haven', 'Feeding Grounds', 'Herd'];
-  const STD_NAMES = ['Mystery Cult', 'Mystery Cult Initiation', 'Professional Training', 'Prof. Training'];
-
-  function isMeritDomain(s) { return DOMAIN_NAMES.some(d => meritBase(s) === d); }
-  function isMeritStanding(s) { return STD_NAMES.some(d => meritBase(s).startsWith(d)); }
-  function isMeritManoeuvre(s) {
-    const suf = meritSuffix(s);
-    return !!(suf && MAN_DB[suf.toLowerCase()]);
-  }
-
-  const otherMerits = allMerits.filter(m => !isMeritDomain(m) && !isMeritStanding(m) && !isMeritManoeuvre(m));
-  const manMerits = allMerits.filter(m => isMeritManoeuvre(m));
+  const otherMerits = generalMerits(c);
+  const manMerits = manoeuvres(c);
 
   function renderMeritRow(m, idPrefix, i) {
     const base = meritBase(m);
@@ -447,19 +425,19 @@ export function renderSheet() {
   if (manMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div><div class="man-list">`;
     manMerits.forEach((m, i) => {
-      const suf = meritSuffix(m);
+      const manName = m.manoeuvre || m.name;
       const base = meritBase(m);
-      const rank = meritDotCount(m);
-      const db = suf ? MAN_DB[suf.toLowerCase()] : null;
+      const rank = m.rating || 0;
+      const db = manName ? MAN_DB[manName.toLowerCase()] : null;
       const id = 'man' + i;
       const body = db ? `<div class="man-exp-body">
         <div class="man-style">${db.style} \u2014 Rank ${db.rank}</div>
         <div>${db.effect || ''}</div>
         ${db.prereq ? `<div class="man-prereq">Prerequisite: ${db.prereq}</div>` : ''}
-      </div>` : `<div>${suf || m}</div>`;
+      </div>` : `<div>${manName || base}</div>`;
       html += `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">
         <div style="flex:1;min-width:0">
-          <div class="merit-name">${suf || base}</div>
+          <div class="merit-name">${manName || base}</div>
           <div class="merit-sub">${base} \u2014 Rank ${rank}</div>
         </div>
         <span class="exp-arr">\u203A</span>
@@ -509,8 +487,8 @@ document.addEventListener('click', function(e){
     }).join('');
   }
   // num shows true max (might exceed 15 display boxes for influence)
-  const trueMax = type==='vitae'?(9+(state.sheetChar.blood_potency||1))
-                : type==='wp'?((state.sheetChar.attributes&&(state.sheetChar.attributes['Resolve']||0)+(state.sheetChar.attributes['Composure']||0))||max)
-                : (state.sheetChar.influence||[]).reduce((s,x)=>s+(x.dots||0),0);
+  const trueMax = type==='vitae'? calcVitaeMax(state.sheetChar)
+                : type==='wp'? calcWillpowerMax(state.sheetChar)
+                : influenceTotal(state.sheetChar);
   if(numEl) numEl.textContent = tState[type]+'/'+trueMax;
 });

@@ -5,6 +5,7 @@
 import state from './data.js';
 
 import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
+import { skSpecs, skNineAgain } from '../data/accessors.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -101,12 +102,10 @@ export function updPool() {
 
   if (pi.skill && state.rollChar) {
     const rc = state.rollChar;
-    const sk = rc.skills ? rc.skills[pi.skill] : null;
-    const spec = sk && typeof sk === 'object' ? sk.spec : '';
-    const na = sk && typeof sk === 'object' && sk.nine_again;
-    if (spec) {
-      const specList = spec.split(',').map(s => s.trim()).filter(Boolean);
-      html += '<div class="effpool-specs">' + specList.map(s =>
+    const specs = skSpecs(rc, pi.skill);
+    const na = skNineAgain(rc, pi.skill);
+    if (specs.length) {
+      html += '<div class="effpool-specs">' + specs.map(s =>
         '<span class="effpool-spec">' + s +
         ' <span class="effpool-spec-bonus">+' + (na ? '2 (9-again)' : '1') +
         '</span></span>'

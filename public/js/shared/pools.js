@@ -1,6 +1,7 @@
 /* Shared pool string parser — resolves discipline keys to dice pools */
 
 import { DISC, SORCERY_THEMES, RITUAL_DISCS } from '../suite/data.js';
+import { getAttrVal, skDots } from '../data/accessors.js';
 
 /**
  * Check if a raw pool string targets a Sorcery theme.
@@ -32,9 +33,8 @@ export function getPool(char, raw) {
   const theme = isSorceryTheme(raw);
   if (theme) {
     const td = char.disciplines ? char.disciplines[theme] || 0 : 0;
-    const intel = char.attributes ? char.attributes['Intelligence'] || 0 : 0;
-    const os = char.skills ? char.skills['Occult'] : null;
-    const occ = os ? (typeof os === 'object' ? os.dots || 0 : os) : 0;
+    const intel = getAttrVal(char, 'Intelligence');
+    const occ = skDots(char, 'Occult');
     return {
       total: intel + occ + td,
       attr: 'Intelligence', attrV: intel,
@@ -49,9 +49,8 @@ export function getPool(char, raw) {
   const info = DISC[key];
   if (!info) return null;
   if (!info.a || !info.s) return { noRoll: true, info };
-  const attrV = char.attributes ? char.attributes[info.a] || 0 : 0;
-  const sk = char.skills ? char.skills[info.s] : null;
-  const skillV = sk ? (typeof sk === 'object' ? sk.dots || 0 : sk) : 0;
+  const attrV = getAttrVal(char, info.a);
+  const skillV = skDots(char, info.s);
   const discV = info.d ? (char.disciplines ? char.disciplines[info.d] || 0 : 0) : 0;
   return {
     total: attrV + skillV + discV,

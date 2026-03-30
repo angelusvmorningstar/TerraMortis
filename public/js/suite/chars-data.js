@@ -1,3 +1,4131 @@
-/* Suite character data — extracted from index.html */
-
-export const CHARS_DATA = [{"name":"Alice Vunder","player":"Katherine H","clan":"Mekhet","bloodline":null,"covenant":"Circle of the Crone","concept":"Curious archivist","pronouns":"she/her","mask":"Follower","dirge":"Scholar","court_title":null,"apparent_age":null,"blood_potency":1,"humanity":6,"size":5,"speed":9,"defence":3,"xp_total":32,"xp_left":9,"status":{"city":2,"clan":1,"covenant":1},"attributes":{"Intelligence":4,"Wits":3,"Resolve":2,"Strength":1,"Dexterity":3,"Stamina":2,"Presence":3,"Manipulation":2,"Composure":2},"skills":{"Academics":{"dots":2,"spec":"Research"},"Computer":{"dots":3,"spec":"Hacking"},"Investigation":3,"Occult":3,"Larceny":2,"Stealth":2,"Empathy":{"dots":2,"spec":"Motives"},"Expression":3,"Socialise":2},"disciplines":{"Auspex":1,"Celerity":1,"Obfuscate":3,"Cruac":1,"Creation":1,"Divination":1,"Protection":1},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Obfuscate \u25cf\u25cf | Touch of Shadow","stats":"Cost: 1 V  \u2022  Pool: 8  \u2022  Instant  \u2022  Scene","pool_size":8,"effect":"Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."},{"name":"Obfuscate \u25cf\u25cf\u25cf | Cloak of Night","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  None","effect":"Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."}],"merits":["Hobbyist Clique \u25cf","Library (Occult) \u25cf\u25cf","Viral Mythology \u25cf\u25cf\u25cf"],"influence":[{"type":"Allies","area":"Health","dots":3},{"type":"Allies","area":"Politics","dots":3},{"type":"Allies","area":"Transportation","dots":3},{"type":"Allies","area":"Underworld","dots":3},{"type":"Contacts","area":"Street, Occult, Industry","dots":3}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."},{"name":"Rat King/Queen","effect":"Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."}],"aspirations":[],"willpower":{"mask_1wp":"Follow a directive blindly, for the sake of following.","mask_all_wp":"Follow a dangerous directive without hesitation.","dirge_1wp":"Uncover a lost piece of information.","dirge_all_wp":"Uncover forbidden knowledge."},"covenant_standings":[{"label":"Crone","status":1},{"label":"Carthian","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Sister","desc":"unnamed"},{"humanity":5,"name":"One parent","desc":"unnamed"}],"influence_total":8},{"name":"Anichka","player":"Katie H","clan":"Mekhet","bloodline":null,"covenant":"Circle of the Crone","concept":"Feral Oracular Darling","pronouns":"she/her","mask":"Questioner","dirge":"Scholar","court_title":null,"apparent_age":"early 20s","blood_potency":1,"humanity":6,"size":5,"speed":9,"defence":4,"xp_total":28,"xp_left":2,"status":{"city":1,"clan":2,"covenant":4},"attributes":{"Intelligence":2,"Wits":3,"Resolve":3,"Strength":2,"Dexterity":2,"Stamina":2,"Presence":2,"Manipulation":3,"Composure":3},"skills":{"Occult":{"dots":4,"spec":"prophecy & omens, dreams"},"Athletics":2,"Stealth":2,"Survival":{"dots":3,"spec":"Living off the land"},"Animal Ken":2,"Empathy":3,"Expression":2,"Persuasion":2,"Socialise":1,"Streetwise":1},"disciplines":{"Auspex":2,"Obfuscate":1,"Protean":1,"Cruac":3,"Creation":1,"Divination":3,"Protection":1},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Divination \u25cf\u25cf","effect":"Ask specific questions about a target. Sense supernatural concealment on objects. Detect lies."},{"name":"Blood Sorcery | Divination \u25cf\u25cf\u25cf","effect":"View past events (limited by Fog of Eternity). Locate hidden targets. Prophetic omens about near future."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Cruac \u25cf | The Pool of Forbidden Truths","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 10  \u2022  Ritual  \u2022  Instant","pool_size":10,"effect":"Blood pool reveals subject's greatest fear or deepest desire"}],"merits":["Dream Visions \u25cf","Language \u25cf","Language \u25cf","Tolerance for Biology \u25cf","What You've Done For Her Lately \u25cf"],"influence":[{"type":"Retainer","area":"family","dots":3}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."}],"aspirations":[],"willpower":{"mask_1wp":"Challenge an accepted truth.","mask_all_wp":"Put a long-believed truth to the test, at your own peril.","dirge_1wp":"Uncover a lost piece of information.","dirge_all_wp":"Uncover forbidden knowledge."},"covenant_standings":[{"label":"Crone","status":4},{"label":"Carthian","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"features":"smells like animals","touchstones":[{"humanity":6,"name":"Kateryna","desc":"grand-niece"}],"influence_total":7},{"name":"Brandy LaRoux","player":"Ashley K","clan":"Gangrel","bloodline":null,"covenant":"Circle of the Crone","concept":"Trailer Royalty","pronouns":"she/her","mask":"Perfectionist","dirge":"Monster","court_title":"Harpy","apparent_age":null,"blood_potency":1,"humanity":5,"size":5,"speed":10,"defence":2,"xp_total":46,"xp_left":1,"status":{"city":4,"clan":2,"covenant":2},"attributes":{"Intelligence":2,"Wits":2,"Resolve":3,"Strength":3,"Dexterity":2,"Stamina":3,"Presence":3,"Manipulation":2,"Composure":3},"skills":{"Crafts":1,"Occult":{"dots":3,"spec":"Vodun"},"Brawl":{"dots":5,"spec":"Tooth & Claw"},"Stealth":1,"Survival":1,"Empathy":3,"Expression":2,"Intimidation":3,"Persuasion":1,"Socialise":1,"Subterfuge":{"dots":1,"spec":"Put on airs"}},"disciplines":{"Majesty":1,"Protean":3,"Cruac":1,"Creation":1,"Destruction":1,"Protection":1},"powers":[{"name":"Majesty \u25cf | Awe","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Become centre of attention. Subjects become Awed."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Protean \u25cf\u25cf | Predatory Aspect","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Take on animal traits."},{"name":"Protean \u25cf\u25cf\u25cf | Beast's Skin","stats":"Cost: 2 V  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Transform into predatory animal."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Destruction \u25cf","effect":"Upgrade bashing to lethal. Produce poisons (Toxicity = Potency)."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Cruac \u25cf | Mantle of Amorous Fire","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 6  \u2022  Ritual  \u2022  Scene","pool_size":6,"effect":"Dance to exhaustion. Add Cruac as a Presence bonus for the night."}],"merits":["Defensive Combat (Brawl) \u25cf","Indomitable \u25cf\u25cf","Inspiring \u25cf\u25cf\u25cf","Meditative Mind \u25cf\u25cf","Secret Society Junkie \u25cf","Table Turner \u25cf","Viral Mythology \u25cf\u25cf\u25cf","Riding the Wave \u25cf | Ravage","Riding the Wave \u25cf\u25cf | Primal Strength","Riding the Wave \u25cf\u25cf\u25cf | In the Zone","Riding the Wave \u25cf\u25cf\u25cf\u25cf | Unyielding"],"influence":[{"type":"Allies","area":"High Society","dots":3},{"type":"Allies","area":"Media","dots":3},{"type":"Allies","area":"Police","dots":3},{"type":"Allies","area":"Underworld","dots":3},{"type":"Resources","area":"","dots":5}],"banes":[{"name":"Feral Curse","effect":"Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."}],"aspirations":[],"willpower":{"mask_1wp":"Revisit an already successful action to hammer out a flaw.","mask_all_wp":"Stick with a failed and dangerous plan in order to fix what went wrong.","dirge_1wp":"Cause pain for the sole intention of causing pain.","dirge_all_wp":"Commit a capital crime without additional motive."},"covenant_standings":[{"label":"Crone","status":2},{"label":"Carthian","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Tod Graves","desc":"husband"},{"humanity":5,"name":"Good Luck Molly","desc":"alligator"}],"influence_total":11},{"name":"Carver","player":"Archer","clan":"Ventrue","bloodline":"Lasombra","covenant":"Lancea et Sanctum","concept":"Lance Lore Nerd","pronouns":"he/him","mask":"Scholar","dirge":"Authoritarian","court_title":null,"apparent_age":"mid 40s","blood_potency":2,"humanity":6,"size":5,"speed":9,"defence":2,"xp_total":50,"xp_left":2,"status":{"city":1,"clan":2,"covenant":3},"attributes":{"Intelligence":3,"Wits":2,"Resolve":3,"Strength":2,"Dexterity":2,"Stamina":{"dots":2,"bonus_dots":2},"Presence":3,"Manipulation":2,"Composure":3},"skills":{"Academics":{"dots":4,"spec":"law"},"Investigation":2,"Occult":{"dots":4,"spec":"artefacts"},"Politics":1,"Larceny":2,"Stealth":2,"Empathy":{"dots":3,"spec":"motives"},"Intimidation":2,"Persuasion":2},"disciplines":{"Nightmare":4,"Resilience":2},"powers":[{"name":"Nightmare \u25cf | Dread Presence","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."},{"name":"Nightmare \u25cf\u25cf | Face of the Beast","stats":"Cost: 1 V  \u2022  Pool: 10  v Composure + BP  \u2022  Contested  \u2022  Instant","pool_size":10,"effect":"Impose Frightened Condition. Cause fleeing."},{"name":"Nightmare \u25cf\u25cf\u25cf | Grand Delusion","stats":"Cost: 2 V  \u2022  Pool: 9  v Composure + BP  \u2022  Contested  \u2022  1 night","pool_size":9,"effect":"Impose Delusional Condition."},{"name":"Nightmare \u25cf\u25cf\u25cf\u25cf | Waking Nightmare","stats":"Cost: 1 V  \u2022  Pool: 10  v highest Composure + BP  \u2022  Contested  \u2022  Scene","pool_size":10,"effect":"Create and control hallucinations."},{"name":"Resilience \u25cf\u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."},{"name":"Devotion  | Skim the Void","stats":"Cost: 1 V (Lasombra Only)  \u2022  Pool: 6  \u2022  Instant  \u2022  Instant","pool_size":6,"effect":"Step into any visible shadow and out of another instantly. Can carry objects but not people or animals. Torpid Kindred do not count as objects."}],"merits":["Acute Senses \u25cf","Eidetic Memory \u25cf","Esoteric Armoury \u25cf","Library (Academic) \u25cf\u25cf\u25cf","Library (Occult) \u25cf\u25cf\u25cf","Lorekeeper \u25cf"],"influence":[{"type":"Contacts","area":"Occult, University, Beuracracy, Church, Legal","dots":5},{"type":"Resources","area":"","dots":3},{"type":"Retainer","area":"Nicole - EA","dots":3}],"banes":[{"name":"Aloof Curse","effect":"First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."}],"aspirations":[],"willpower":{"mask_1wp":"Uncover a lost piece of information.","mask_all_wp":"Uncover forbidden knowledge.","dirge_1wp":"Cow someone into submission.","dirge_all_wp":"Commit a widespread hit against a rival's mortal connections."},"covenant_standings":[{"label":"Lance","status":3},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"touchstones":[{"humanity":7,"name":"James","desc":"Crowley descendant"}],"influence_total":7},{"name":"Casamir 'Cazz'","player":"Brae C","clan":"Ventrue","bloodline":"Malkovians","covenant":"Carthian Movement","concept":"The Mad Dog","pronouns":"he/they","mask":"Scholar","dirge":"Jester","court_title":null,"apparent_age":"mid 30s","blood_potency":2,"humanity":6,"size":5,"speed":11,"defence":8,"xp_total":34,"xp_left":4,"status":{"city":1,"clan":1,"covenant":1},"attributes":{"Intelligence":3,"Wits":3,"Resolve":3,"Strength":3,"Dexterity":3,"Stamina":{"dots":3,"bonus_dots":1},"Presence":2,"Manipulation":2,"Composure":2},"skills":{"Academics":2,"Crafts":1,"Investigation":1,"Occult":{"dots":2,"spec":"ley lines"},"Science":1,"Athletics":{"dots":5,"spec":"endurance"},"Firearms":{"dots":3,"spec":"archery"},"Larceny":1,"Stealth":1,"Survival":1,"Empathy":1,"Intimidation":1,"Subterfuge":2},"disciplines":{"Auspex":1,"Celerity":1,"Obfuscate":1,"Resilience":1},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Resilience \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."}],"merits":["Quick Draw (Bow) \u25cf","Combat Archery \u25cf | Rapid Nock","Combat Archery \u25cf\u25cf | Reflex Aiming","Combat Archery \u25cf\u25cf\u25cf | Parthian Shot","Combat Archery \u25cf\u25cf\u25cf\u25cf | Rain of Arrows","Combat Archery \u25cf\u25cf\u25cf\u25cf\u25cf | Trick Shot"],"influence":[],"banes":[{"name":"Aloof Curse","effect":"First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."}],"aspirations":[],"willpower":{"mask_1wp":"Uncover a lost piece of information.","mask_all_wp":"Uncover forbidden knowledge.","dirge_1wp":"Point out an absurdity in the current state of affairs to lighten the tone.","dirge_all_wp":"Favour wit and cunning over direct self-defence in a situation of serious danger."},"covenant_standings":[{"label":"Carthian","status":1},{"label":"Crone","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":7,"name":"University testamur","desc":"Simulacrum"}],"influence_total":2},{"name":"Charles Mercer-Willows","player":"Leo T","clan":"Ventrue","bloodline":"Gorgons","covenant":"Circle of the Crone","concept":"Cult Leader","pronouns":"he/him","mask":"Nurturer","dirge":"Cult Leader","court_title":null,"apparent_age":"mid 30s","blood_potency":1,"humanity":5,"size":5,"speed":9,"defence":3,"xp_total":30,"xp_left":1,"status":{"city":2,"clan":2,"covenant":3},"attributes":{"Intelligence":2,"Wits":3,"Resolve":3,"Strength":2,"Dexterity":2,"Stamina":2,"Presence":3,"Manipulation":3,"Composure":2},"skills":{"Computer":1,"Crafts":{"dots":3,"spec":"sculpting"},"Occult":{"dots":3,"spec":"Judeo-Christian Lore"},"Athletics":1,"Firearms":{"dots":2,"spec":"rifles"},"Larceny":1,"Animal Ken":1,"Empathy":1,"Expression":{"dots":4,"spec":"oratory"},"Persuasion":3,"Socialise":1,"Subterfuge":2},"disciplines":{"Animalism":1,"Dominate":2,"Protean":2,"Cruac":2,"Creation":2,"Protection":1,"Transmutation":1},"powers":[{"name":"Animalism \u25cf | Feral Whispers","stats":"Cost: -  \u2022  Pool: 5  \u2022  Instant  \u2022  Scene (may persist)","pool_size":5,"effect":"Speak with and command animals."},{"name":"Dominate \u25cf | Mesmerise","stats":"Cost: - -3 in combat unless Blinded  \u2022  Pool: 8  v Resolve + BP  \u2022  Instant  \u2022  Instant","pool_size":8,"effect":"Impose Mesmerised Condition. Control with short commands."},{"name":"Dominate \u25cf\u25cf | Iron Edict","stats":"Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  \u2022  Pool: -  \u2022  Instant  \u2022  Instant","effect":"Impose Dominated Condition. Give long, detailed commands."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Protean \u25cf\u25cf | Predatory Aspect","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Take on animal traits."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Creation \u25cf\u25cf","effect":"Summon living insects, vermin, amphibians, fungi, plants, drugs, gases. Under mental command while concentrating."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Blood Sorcery | Transmutation \u25cf","effect":"Minor cosmetic changes to living subjects. Warp dead matter. Animate liquids."},{"name":"Cruac \u25cf | Fires of Inspiration","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 8  \u2022  Ritual  \u2022  1 night","pool_size":8,"effect":"Gain dots in Cruac to Craft or Expression to create a specific work of art, but penalises all other such actions outside that."},{"name":"Cruac \u25cf\u25cf | Wisdom of the Soul","stats":"Cost: 1 V 2 Successes  \u2022  Pool: 8  \u2022  Ritual  \u2022  Instant","pool_size":8,"effect":"Reveal if mortal/vampire/ghoul; Humanity rating; diablerie"}],"merits":["Closed Book \u25cf","Inspiring \u25cf\u25cf\u25cf","Secret Society Junkie \u25cf","Viral Mythology \u25cf\u25cf\u25cf"],"influence":[{"type":"Allies","area":"Legal","dots":3},{"type":"Allies","area":"Media","dots":3},{"type":"Allies","area":"Occult","dots":3},{"type":"Allies","area":"Underworld","dots":3},{"type":"Resources","area":"","dots":1}],"banes":[{"name":"Aloof Curse","effect":"First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."}],"aspirations":[],"willpower":{"mask_1wp":"Put yourself out to help another succeed.","mask_all_wp":"Take full responsibility for another's dangerous mistake.","dirge_1wp":"Convince someone to deny logic because of your word.","dirge_all_wp":"Risk exile or death to defend your cult's belief system."},"covenant_standings":[{"label":"Crone","status":3},{"label":"Carthian","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":7,"name":"Ezekiel","desc":"Son"},{"humanity":6,"name":"Unnamed congregant","desc":null}],"influence_total":5},{"name":"Charlie Ballsack","player":"Kurtis W","clan":"Nosferatu","bloodline":"Order of Sir Martin","covenant":"Invictus","concept":"Putrescent Invictus secret police","pronouns":"it/it","mask":"Conformist","dirge":"Rebel","court_title":null,"apparent_age":"indeterminate","blood_potency":1,"humanity":4,"size":5,"speed":11,"defence":5,"xp_total":62,"xp_left":0,"status":{"city":1,"clan":2,"covenant":3},"attributes":{"Intelligence":1,"Wits":3,"Resolve":3,"Strength":3,"Dexterity":3,"Stamina":3,"Presence":2,"Manipulation":2,"Composure":3},"skills":{"Crafts":{"dots":4,"spec":"Smithing","nine_again":true},"Athletics":2,"Larceny":2,"Stealth":{"dots":3,"spec":"Coward Punch","nine_again":true},"Weaponry":{"dots":4,"bonus_dots":1,"spec":"Lgt Weapons +2, Weapon & Shield +2","nine_again":true},"Empathy":{"dots":2,"nine_again":true},"Intimidation":{"dots":2,"spec":"Interrogation","nine_again":true},"Socialise":3},"disciplines":{"Celerity":1,"Nightmare":1,"Obfuscate":5},"powers":[{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Nightmare \u25cf | Dread Presence","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Obfuscate \u25cf\u25cf | Touch of Shadow","stats":"Cost: 1 V  \u2022  Pool: 10  \u2022  Instant  \u2022  Scene","pool_size":10,"effect":"Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."},{"name":"Obfuscate \u25cf\u25cf\u25cf | Cloak of Night","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  None","effect":"Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."},{"name":"Obfuscate \u25cf\u25cf\u25cf\u25cf | The Familiar Stranger","stats":"Cost: 2 V  \u2022  Pool: -  \u2022  None","effect":"Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."},{"name":"Obfuscate \u25cf\u25cf\u25cf\u25cf\u25cf | Oubliette","stats":"Cost: Free (Haven) / 3-9 V & 1 WP  \u2022  Pool: -  \u2022  Instant  \u2022  1 week per BP","effect":"Always active on Haven/Safe Place at no cost. Further uses at standard cost. Use Obfuscate at distance on anything in area."},{"name":"Devotion  | Repulsive Mien","stats":"Cost: 1 V (Order of Sir Martin Only); only affects other Leper Knights with concrete reasons for mistrust  \u2022  Pool: -  \u2022  Reflexive  \u2022  Scene","effect":"As Dread Presence but -3 to all actions against the Knight. Targets cannot spend WP to enhance actions against Knight. Victims can lash out with Beast to end the effect. Reflexive brief illusions affecting Knight's person (narrative only)."},{"name":"Oath of Fealty \u25cf","effect":"Draw Invictus Status in Vitae weekly from liege without feeding. Liege knows when you lie."},{"name":"Oath of the Hard Motherfucker \u25cf\u25cf","effect":"Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."},{"name":"Oath of the Safe Word \u25cf\u25cf","effect":"Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."},{"name":"Oath of the True Knight \u25cf\u25cf\u25cf\u25cf","effect":"Impartial covenant defender. Can't consume Vitae from any source; can't be woken from torpor by blood. Invictus Status protects from mental Disciplines and Kindred/ghoul attacks."}],"merits":["Area of Expertise (Coward Punch) \u25cf","Area of Expertise (Light Weapons) \u25cf","Area of Expertise (Weapon & Shield) \u25cf","Closed Book \u25cf\u25cf\u25cf","Defensive Combat (Weaponry) \u25cf","Friends in High Places \u25cf","Indomitable \u25cf\u25cf","Interdisciplinary Specialty (Coward Punch) \u25cf","Invested \u25cf","Secret Society Junkie \u25cf","Courtoisie \u25cf | Establish the Duel","Courtoisie \u25cf\u25cf\u25cf | Demanding Attention","Light Weapons \u25cf\u25cf | Thrust","Light Weapons \u25cf\u25cf\u25cf\u25cf | Flurry","Strength Performance \u25cf | Strength Tricks","Strength Performance \u25cf\u25cf | Lifting","Strength Performance \u25cf\u25cf\u25cf | Push/Pull","Strength Performance \u25cf\u25cf\u25cf\u25cf | Stronger Than You","Weapon and Shield \u25cf | Shield Bash","Weapon and Shield \u25cf\u25cf\u25cf | Pin Weapon"],"influence":[{"type":"Allies","area":"Police","dots":1},{"type":"Contacts","area":"Street, Underworld, Police","dots":3},{"type":"Resources","area":"","dots":5}],"banes":[{"name":"Lonely Curse","effect":"With mortals, Humanity counts \u20132; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."},{"name":"Rat King/Queen","effect":"Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."}],"aspirations":[],"willpower":{"mask_1wp":"Choose an obviously disadvantageous path because it fits with protocol.","mask_all_wp":"Stand by the losing side with shield at the ready, because it is your side.","dirge_1wp":"Openly flout a tradition.","dirge_all_wp":"Openly flout a Kindred Tradition or a covenant taboo."},"covenant_standings":[{"label":"Invictus","status":3},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Priya","desc":"saved assailant"}],"influence_total":5},{"name":"Conrad Sondergaard","player":"Arnold W","clan":"Mekhet","bloodline":null,"covenant":"Lancea et Sanctum","concept":"Occult gentleman detective","pronouns":"he/him","mask":"Follower","dirge":"Spy","court_title":null,"apparent_age":"late 20s","blood_potency":2,"humanity":7,"size":5,"speed":9,"defence":3,"xp_total":40,"xp_left":0,"status":{"city":2,"clan":2,"covenant":3},"attributes":{"Intelligence":4,"Wits":3,"Resolve":2,"Strength":1,"Dexterity":3,"Stamina":2,"Presence":2,"Manipulation":2,"Composure":3},"skills":{"Academics":{"dots":4,"spec":"Criminology"},"Investigation":{"dots":3,"spec":"Crime Scene","nine_again":true},"Occult":4,"Firearms":{"dots":1,"spec":"Pistols"},"Stealth":{"dots":3,"spec":"Stalking","nine_again":true},"Empathy":{"dots":3,"bonus_dots":1,"spec":"Motives","nine_again":true},"Subterfuge":1},"disciplines":{"Auspex":5,"Obfuscate":1,"Theban":4,"Divination":1,"Protection":4,"Transmutation":1},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf | Spirit's Touch","stats":"Cost: Free (1 WP for clash / 1 V for Insight)  \u2022  Pool: - v Resolve + Stealth + Obf  \u2022  Reflexive  \u2022  Immediate","effect":"Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf\u25cf | Lay Open the Mind","stats":"Cost: 1 V  \u2022  Pool: 8  v Resolve + BP  \u2022  Instant  \u2022  Scene","pool_size":8,"effect":"Telepathy and mind-reading. Invoke Conditions."},{"name":"Auspex \u25cf\u25cf\u25cf\u25cf\u25cf | Twilight Projection","stats":"Cost: 2 V  \u2022  Pool: 13  \u2022  Instant  \u2022  Scene (while projected)","pool_size":13,"effect":"Project senses into Twilight. May use Auspex 1-3 once per scene; cannot spend blood for additional uses."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Blood Sorcery | Protection \u25cf\u25cf","effect":"Grant armour. Ward environmental hazards. Resist frenzy."},{"name":"Blood Sorcery | Protection \u25cf\u25cf\u25cf","effect":"Render untouchable or unable to be fed from. Ward physical Discipline effects. Protect from staking. Heal lethal in vampires."},{"name":"Blood Sorcery | Protection \u25cf\u25cf\u25cf\u25cf","effect":"Ward mental Discipline effects (Majesty, Dominate). Protect from Vinculum. Remain active during day (Potency turns)."},{"name":"Blood Sorcery | Transmutation \u25cf","effect":"Minor cosmetic changes to living subjects. Warp dead matter. Animate liquids."}],"merits":["Acute Senses \u25cf"],"influence":[{"type":"Contacts","area":"Police, Underworld","dots":2}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."}],"aspirations":[],"willpower":{"mask_1wp":"Follow a directive blindly, for the sake of following.","mask_all_wp":"Follow a dangerous directive without hesitation.","dirge_1wp":"Build a new identity or uncover a secret.","dirge_all_wp":"Uncover a damning secret that could end someone."},"covenant_standings":[{"label":"Lance","status":3},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"touchstones":[{"humanity":6,"name":"Elise","desc":"Granddaughter"}],"influence_total":5},{"name":"Cyrus Reynolds","player":"Bill C","clan":"Daeva","bloodline":null,"covenant":"Circle of the Crone","concept":"Globetrotting DJ","pronouns":"he/him","mask":"Courtesan","dirge":"Social Chameleon","court_title":null,"apparent_age":"mid 30s","blood_potency":1,"humanity":6,"size":5,"speed":10,"defence":6,"xp_total":26,"xp_left":10,"status":{"city":2,"clan":2,"covenant":1},"attributes":{"Intelligence":2,"Wits":3,"Resolve":2,"Strength":2,"Dexterity":3,"Stamina":2,"Presence":3,"Manipulation":2,"Composure":3},"skills":{"Computer":2,"Occult":2,"Athletics":3,"Brawl":2,"Firearms":1,"Stealth":1,"Empathy":3,"Expression":3,"Socialise":3,"Streetwise":2},"disciplines":{"Celerity":1,"Majesty":2,"Cruac":1,"Creation":1,"Divination":1,"Protection":1},"powers":[{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Majesty \u25cf | Awe","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Become centre of attention. Subjects become Awed."},{"name":"Majesty \u25cf\u25cf | Confidant","stats":"Cost: - (req: Awed)   \u2022  Pool: 8  v Resolve + BP  \u2022  Contested","pool_size":8,"effect":"Impose Charmed Condition."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Cruac \u25cf | Taste of Knowledge","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 5  \u2022  Ritual  \u2022  1 night","pool_size":5,"effect":"Absorb one Skill at rating 1 (or +1) from vessel's blood"}],"merits":["Casual User \u25cf","Fame \u25cf","Language (German) \u25cf","Language (Spanish) \u25cf"],"influence":[{"type":"Allies","area":"Street","dots":2},{"type":"Contacts","area":"","dots":2},{"type":"Resources","area":"","dots":1},{"type":"Retainer","area":"Melody","dots":1},{"type":"Retainer","area":"Rhythm","dots":1}],"banes":[{"name":"Wanton Curse","effect":"Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."},{"name":"Rat King/Queen","effect":"Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."}],"aspirations":[],"willpower":{"mask_1wp":"Put yourself out for another's pleasure.","mask_all_wp":"Be the last one dancing when the party is on fire.","dirge_1wp":"Ingratiate yourself to a new social clique.","dirge_all_wp":"Burn an important bridge to guarantee acceptance in a new group."},"covenant_standings":[{"label":"Crone","status":1},{"label":"Carthian","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"features":"Fame","touchstones":[{"humanity":6,"name":"One living parent","desc":"unnamed"},{"humanity":5,"name":"Unnamed venue regular","desc":null}],"influence_total":3},{"name":"Edna Judge","player":"Arlo V","clan":"Nosferatu","bloodline":null,"covenant":"Lancea et Sanctum","concept":"Mother Heretic","pronouns":"she/her","mask":"Visionary","dirge":"Authoritarian","court_title":"Primogen","apparent_age":"late 50s","blood_potency":1,"humanity":4,"size":5,"speed":8,"defence":2,"xp_total":46,"xp_left":11,"status":{"city":2,"clan":2,"covenant":4},"attributes":{"Intelligence":2,"Wits":3,"Resolve":2,"Strength":1,"Dexterity":2,"Stamina":3,"Presence":3,"Manipulation":2,"Composure":4},"skills":{"Academics":{"dots":4,"spec":"Religion"},"Crafts":2,"Occult":2,"Politics":3,"Larceny":{"dots":2,"spec":"Concealment"},"Stealth":2,"Empathy":{"dots":2,"spec":"Prosetylisation"},"Expression":3,"Intimidation":3,"Subterfuge":2},"disciplines":{"Nightmare":2,"Obfuscate":2,"Theban":1,"Divination":1,"Protection":1,"Transmutation":1},"powers":[{"name":"Nightmare \u25cf | Dread Presence","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."},{"name":"Nightmare \u25cf\u25cf | Face of the Beast","stats":"Cost: 1 V  \u2022  Pool: 7  v Composure + BP  \u2022  Contested  \u2022  Instant","pool_size":7,"effect":"Impose Frightened Condition. Cause fleeing."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Obfuscate \u25cf\u25cf | Touch of Shadow","stats":"Cost: 1 V  \u2022  Pool: 7  \u2022  Instant  \u2022  Scene","pool_size":7,"effect":"Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Blood Sorcery | Transmutation \u25cf","effect":"Minor cosmetic changes to living subjects. Warp dead matter. Animate liquids."}],"merits":["Flock \u25cf\u25cf\u25cf","Stigmata \u25cf"],"influence":[{"type":"Retainer","area":"ghoul","dots":1}],"banes":[{"name":"Lonely Curse","effect":"With mortals, Humanity counts \u20132; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."}],"aspirations":[],"willpower":{"mask_1wp":"Help someone by sharing your vision with them.","mask_all_wp":"Put yourself at risk to show a group the power of your vision.","dirge_1wp":"Cow someone into submission.","dirge_all_wp":"Commit a widespread hit against a rival's mortal connections."},"covenant_standings":[{"label":"Lance","status":4},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"influence_total":6},{"name":"Einar Solveig","player":"Nathan H","clan":"Ventrue","bloodline":"Rotgrafen","covenant":"Carthian Movement","concept":"Techno Viking","pronouns":"he/him","mask":"Junkie","dirge":"Competitor","court_title":null,"apparent_age":"late 30s","blood_potency":2,"humanity":5,"size":5,"speed":12,"defence":3,"xp_total":54,"xp_left":1,"status":{"city":2,"clan":2,"covenant":2},"attributes":{"Intelligence":3,"Wits":2,"Resolve":3,"Strength":{"dots":3,"bonus_dots":2},"Dexterity":2,"Stamina":{"dots":2,"bonus_dots":1},"Presence":2,"Manipulation":2,"Composure":3},"skills":{"Crafts":{"dots":1,"spec":"Carpentry"},"Investigation":3,"Athletics":1,"Brawl":{"dots":5,"spec":"Claws (+2)"},"Stealth":1,"Empathy":1,"Expression":3,"Intimidation":{"dots":3,"spec":"Direct Threats"},"Persuasion":1,"Streetwise":2,"Subterfuge":1},"disciplines":{"Dominate":1,"Protean":4,"Resilience":1,"Vigour":2},"powers":[{"name":"Dominate \u25cf | Mesmerise","stats":"Cost: - -3 in combat unless Blinded  \u2022  Pool: 7  v Resolve + BP  \u2022  Instant  \u2022  Instant","pool_size":7,"effect":"Impose Mesmerised Condition. Control with short commands."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Protean \u25cf\u25cf | Predatory Aspect","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Take on animal traits."},{"name":"Protean \u25cf\u25cf\u25cf | Beast's Skin","stats":"Cost: 2 V  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Transform into predatory animal."},{"name":"Protean \u25cf\u25cf\u25cf\u25cf | Unnatural Aspect","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  None  \u2022  Scene","effect":"Take on a horrific trait. Barbed Hands damage is not lethal to vampires."},{"name":"Resilience \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."},{"name":"Vigour \u25cf\u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Improve Strength. Add Vigour dots as bonus successes only if at least one net success achieved."},{"name":"Devotion  | Rime of Salt","stats":"Cost: Free (Ratgrafen Only)  \u2022  Pool: -  \u2022  Reflexive  \u2022  Permanent","effect":"Protean weapons imbued with ocean salt. Wounded targets suffer -2 on their next action."}],"merits":["Area of Expertise (Claws) \u25cf","Claws of the Unholy \u25cf","Defensive Combat (Brawl) \u25cf","Indomitable \u25cf\u25cf","Swarm Form \u25cf\u25cf","Mobilise Outrage \u25cf | Strike to Preempt","Mobilise Outrage \u25cf\u25cf | Unbreakable","Mobilise Outrage \u25cf\u25cf\u25cf | Dying on Your Feet","Riding the Wave \u25cf | Ravage","Riding the Wave \u25cf\u25cf | Primal Strength","Riding the Wave \u25cf\u25cf\u25cf | In the Zone","Riding the Wave \u25cf\u25cf\u25cf\u25cf | Unyielding"],"influence":[],"banes":[{"name":"Aloof Curse","effect":"First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."}],"aspirations":[],"willpower":{"mask_1wp":"Ignore a problem or responsibility in favour of immediate gratification.","mask_all_wp":"Abandon an important relationship over your pursuit of pleasure.","dirge_1wp":"Challenge someone clearly your superior.","dirge_all_wp":"Risk Final Death to prove you can handle something."},"covenant_standings":[{"label":"Carthian","status":2},{"label":"Crone","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":7,"name":"\"Kyle\"","desc":null}],"influence_total":4},{"name":"Eve Lockridge","player":"Jamie","clan":"Daeva","bloodline":null,"covenant":"Carthian Movement","concept":"Benevolent Millionaire","pronouns":"they/them","mask":null,"dirge":null,"court_title":"Premier","apparent_age":"mid 20s","blood_potency":1,"humanity":6,"size":5,"speed":9,"defence":5,"xp_total":24,"xp_left":2,"status":{"city":3,"clan":2,"covenant":3},"attributes":{"Intelligence":2,"Wits":3,"Resolve":2,"Strength":1,"Dexterity":3,"Stamina":2,"Presence":3,"Manipulation":3,"Composure":3},"skills":{"Computer":2,"Investigation":2,"Politics":3,"Athletics":2,"Firearms":2,"Empathy":3,"Expression":2,"Persuasion":3,"Socialise":3},"disciplines":{"Celerity":1,"Dominate":1,"Majesty":3},"powers":[{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Dominate \u25cf | Mesmerise","stats":"Cost: - -3 in combat unless Blinded  \u2022  Pool: 5  v Resolve + BP  \u2022  Instant  \u2022  Instant","pool_size":5,"effect":"Impose Mesmerised Condition. Control with short commands."},{"name":"Majesty \u25cf | Awe","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Become centre of attention. Subjects become Awed."},{"name":"Majesty \u25cf\u25cf | Confidant","stats":"Cost: - (req: Awed)   \u2022  Pool: 9  v Resolve + BP  \u2022  Contested","pool_size":9,"effect":"Impose Charmed Condition."},{"name":"Majesty \u25cf\u25cf\u25cf | Green Eyes","stats":"Cost: 1 V (req: Charmed / Enthralled)   \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Shift emotions (1 V, any number of Charmed/Enthralled targets); rage/fear causes frenzy with no resist roll (Ride the Wave normal). Requests: 1 V per target, must be spoken and heard."}],"merits":["Carthian Pull \u25cf","Fixer \u25cf\u25cf","Fucking Thief (Secret Society Junkie) \u25cf","Honey With Vinegar \u25cf","Picket Line \u25cf\u25cf","Secret Society Junkie \u25cf"],"influence":[{"type":"Allies","area":"Underworld","dots":3},{"type":"Contacts","area":"bureaucracy, industry","dots":2},{"type":"Resources","area":"","dots":5},{"type":"Status","area":"LGL - Logistics","dots":5}],"banes":[{"name":"Wanton Curse","effect":"Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."}],"aspirations":[],"willpower":{"mask_1wp":null,"mask_all_wp":null,"dirge_1wp":null,"dirge_all_wp":null},"covenant_standings":[{"label":"Carthian","status":3},{"label":"Crone","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Bill Manchester","desc":null}],"influence_total":11},{"name":"Ivana Horvat","player":"Lyn","clan":"Gangrel","bloodline":"Scions of the First City","covenant":"Circle of the Crone","concept":"Trauma Survivor","pronouns":"she/her","mask":"Child","dirge":"Competitor","court_title":null,"apparent_age":null,"blood_potency":1,"humanity":5,"size":5,"speed":10,"defence":5,"xp_total":54,"xp_left":4,"status":{"city":1,"clan":1,"covenant":1},"attributes":{"Intelligence":3,"Wits":3,"Resolve":2,"Strength":2,"Dexterity":3,"Stamina":2,"Presence":1,"Manipulation":4,"Composure":2},"skills":{"Investigation":1,"Occult":3,"Athletics":2,"Firearms":{"dots":3,"spec":"Crossbow"},"Larceny":2,"Stealth":{"dots":0,"spec":"Hiding"},"Animal Ken":{"dots":3,"spec":"Training"},"Empathy":3,"Intimidation":3,"Socialise":2},"disciplines":{"Auspex":5,"Obfuscate":2,"Cruac":2,"Creation":1,"Divination":1,"Protection":2},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf | Spirit's Touch","stats":"Cost: Free (1 WP for clash / 1 V for Insight)  \u2022  Pool: - v Resolve + Stealth + Obf  \u2022  Reflexive  \u2022  Immediate","effect":"Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf\u25cf | Lay Open the Mind","stats":"Cost: 1 V  \u2022  Pool: 10  v Resolve + BP  \u2022  Instant  \u2022  Scene","pool_size":10,"effect":"Telepathy and mind-reading. Invoke Conditions."},{"name":"Auspex \u25cf\u25cf\u25cf\u25cf\u25cf | Twilight Projection","stats":"Cost: 2 V  \u2022  Pool: 11  \u2022  Instant  \u2022  Scene (while projected)","pool_size":11,"effect":"Project senses into Twilight. May use Auspex 1-3 once per scene; cannot spend blood for additional uses."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Obfuscate \u25cf\u25cf | Touch of Shadow","stats":"Cost: 1 V  \u2022  Pool: 7  \u2022  Instant  \u2022  Scene","pool_size":7,"effect":"Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."},{"name":"Devotion  | City Attunement","stats":"Cost: 1 V (Scion of the First City Only); city must have 10,000+ inhabitants  \u2022  Pool: -  \u2022  Instant  \u2022  1 night","effect":"Touch building or street to attune to city for the night. One city at a time. Must attune before using other Scion devotions."},{"name":"Devotion  | Incriminating Evidence","stats":"Cost: Free / 1 V (Scion of the First City Only); must have touched target that night; must be outdoors  \u2022  Pool: 11  \u2022  Instant  \u2022  Instant","pool_size":11,"effect":"Focus on a previously touched person. City guides to evidence of wrongdoing; clues equal to successes. Leads to general location only, not specific doors. Clash of Wills vs Obfuscate."},{"name":"Devotion  | Our Mother's Mind","stats":"Cost: 2 V (Scion of the First City Only); walk barefoot, Vitae on feet  \u2022  Pool: 11  v Resolve + BP  \u2022  Contested  \u2022  Until found","pool_size":11,"effect":"Declare a target. City guides BP blocks per success toward target. Target's non-combat pools and Speed reduced by 1 per success. Must sacrifice access to a level of Contacts, Allies, Retainer, or Resources per success (returns after 1 week)."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Blood Sorcery | Protection \u25cf\u25cf","effect":"Grant armour. Ward environmental hazards. Resist frenzy."},{"name":"Cruac \u25cf\u25cf | Blood Witness","stats":"Cost: 1 V 2 Successes  \u2022  Pool: 9  \u2022  Ritual  \u2022  1 day per extra Vitae","pool_size":9,"effect":"Smear Vitae on an area. Remotely observe through the spilled blood for one day per extra Vitae spent."},{"name":"Cruac \u25cf\u25cf | Shed the Virulent Bowels","stats":"Cost: 1 V 2 Successes  \u2022  Pool: 9  \u2022  Ritual  \u2022  Scene","pool_size":9,"effect":"Use a lock of hair or sympathetic link to hang a curse over a living victim for a month. Trigger the curse to cause enough lethal damage to fill the victim's Health."}],"merits":["Mandragora Garden (Shared (Keeper)) \u25cf\u25cf\u25cf","Opening the Void \u25cf\u25cf","The Mother-Daughter Bond \u25cf","Falconry \u25cf | Predator's Vigil","Falconry \u25cf\u25cf | Flyby","K-9 \u25cf | Detection","K-9 \u25cf\u25cf | Targeted Bite","K-9 \u25cf\u25cf\u25cf | Tactical Positioning","Powered Projectile \u25cf | Quick Reload","Powered Projectile \u25cf\u25cf | Intercept Shot","Powered Projectile \u25cf\u25cf\u25cf | Penetration","Powered Projectile \u25cf\u25cf\u25cf\u25cf | Skewer"],"influence":[{"type":"Mentor","area":"Baba Grozda","dots":2},{"type":"Retainer","area":"Void-Bird","dots":1},{"type":"Retainer","area":"Void-Dog","dots":1}],"banes":[{"name":"Feral Curse","effect":"Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."}],"aspirations":[],"willpower":{"mask_1wp":"Find someone to take responsibility for your mistake.","mask_all_wp":"Commit a terrible crime to see how authority might react.","dirge_1wp":"Challenge someone clearly your superior.","dirge_all_wp":"Risk Final Death to prove you can handle something."},"covenant_standings":[{"label":"Crone","status":1},{"label":"Carthian","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Lady Di","desc":null}],"influence_total":2},{"name":"Jack Fallow","player":"George T","clan":"Mekhet","bloodline":null,"covenant":"Circle of the Crone","concept":"Failed Adult Film Director","pronouns":"he/him","mask":"Spy","dirge":"Monster","court_title":null,"apparent_age":"Mid 40's","blood_potency":1,"humanity":4,"size":5,"speed":8,"defence":3,"xp_total":40,"xp_left":1,"status":{"city":2,"clan":2,"covenant":3},"attributes":{"Intelligence":2,"Wits":3,"Resolve":3,"Strength":1,"Dexterity":2,"Stamina":3,"Presence":3,"Manipulation":3,"Composure":2},"skills":{"Computer":{"dots":3,"spec":"Hacking"},"Crafts":2,"Investigation":{"dots":1,"spec":"Surveillance"},"Medicine":{"dots":2,"spec":"Backroom"},"Occult":3,"Athletics":1,"Larceny":2,"Stealth":1,"Empathy":2,"Expression":2,"Persuasion":1,"Socialise":1,"Subterfuge":1},"disciplines":{"Auspex":4,"Celerity":1,"Obfuscate":1,"Cruac":2,"Creation":1,"Divination":1,"Protection":1,"Transmutation":2},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf | Spirit's Touch","stats":"Cost: Free (1 WP for clash / 1 V for Insight)  \u2022  Pool: - v Resolve + Stealth + Obf  \u2022  Reflexive  \u2022  Immediate","effect":"Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf\u25cf | Lay Open the Mind","stats":"Cost: 1 V  \u2022  Pool: 7  v Resolve + BP  \u2022  Instant  \u2022  Scene","pool_size":7,"effect":"Telepathy and mind-reading. Invoke Conditions."},{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Blood Sorcery | Transmutation \u25cf","effect":"Minor cosmetic changes to living subjects. Warp dead matter. Animate liquids."},{"name":"Blood Sorcery | Transmutation \u25cf\u25cf","effect":"Disguise living/vampiric subjects. Transform dead matter completely. Animate gases and plants. Alter speech. Grant 9-again or WP/Vitae above maximum."},{"name":"Cruac \u25cf | Mantle of Amorous Fire","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 8  \u2022  Ritual  \u2022  Scene","pool_size":8,"effect":"Dance to exhaustion. Add Cruac as a Presence bonus for the night."}],"merits":["Eye for the Strange \u25cf\u25cf","Indomitable \u25cf\u25cf","Mandragora Garden \u25cf","Secret Society Junkie \u25cf","Trained Observer \u25cf","Viral Mythology \u25cf\u25cf\u25cf","Cacophony Savvy \u25cf | Gettin' Up","Cacophony Savvy \u25cf\u25cf | Backpacker"],"influence":[{"type":"Allies","area":"High Society","dots":3},{"type":"Allies","area":"Media","dots":3},{"type":"Allies","area":"Occult","dots":3},{"type":"Allies","area":"Police","dots":3}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."},{"name":"Plague of Purity","effect":"Touch by Integrity 8+ mortal causes (10 \u2013 Humanity) bashing damage."}],"aspirations":["Build blackmail material dossier on Kindred","Establish Crone Praxis / Film Kindred","Dilute adherance to the Traditions / Subvert Moulding Room"],"willpower":{"mask_1wp":"Build a new identity or uncover a secret.","mask_all_wp":"Uncover a damning secret that could end someone.","dirge_1wp":"Cause pain for the sole intention of causing pain.","dirge_all_wp":"Commit a capital crime without additional motive."},"covenant_standings":[{"label":"Crone","status":3},{"label":"Carthian","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"influence_total":10},{"name":"Jelle 'Gel' Dunneweld","player":"Stefan S","clan":"Daeva","bloodline":null,"covenant":"Invictus","concept":"Former Beat Cop","pronouns":"he/him","mask":"Follower","dirge":"Idealist","court_title":null,"apparent_age":"mid 30s","blood_potency":1,"humanity":7,"size":5,"speed":9,"defence":3,"xp_total":14,"xp_left":0,"status":{"city":1,"clan":1,"covenant":1},"attributes":{"Intelligence":2,"Wits":3,"Resolve":2,"Strength":2,"Dexterity":2,"Stamina":2,"Presence":2,"Manipulation":3,"Composure":4},"skills":{"Computer":2,"Investigation":{"dots":4,"bonus_dots":1,"spec":"crime scene","nine_again":true},"Occult":{"dots":3,"spec":"mysteries"},"Science":2,"Athletics":1,"Brawl":{"dots":2,"spec":"street fighting","nine_again":true},"Weaponry":1,"Empathy":{"dots":1,"spec":"motives","nine_again":true},"Intimidation":{"dots":1,"spec":"command"},"Persuasion":1,"Subterfuge":1},"disciplines":{"Celerity":2,"Majesty":1},"powers":[{"name":"Celerity \u25cf\u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Majesty \u25cf | Awe","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Become centre of attention. Subjects become Awed."}],"merits":["Police Tactics \u25cf | Compliance Hold","Police Tactics \u25cf\u25cf | Weapon Retention"],"influence":[{"type":"Allies","area":"Police","dots":3},{"type":"Allies","area":"Underworld","dots":1},{"type":"Contacts","area":"Police, Street, Underworld","dots":2}],"banes":[{"name":"Wanton Curse","effect":"Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."}],"aspirations":[],"willpower":{"mask_1wp":"Follow a directive blindly, for the sake of following.","mask_all_wp":"Follow a dangerous directive without hesitation.","dirge_1wp":"Deny a compromise that would water down your ideal.","dirge_all_wp":"Refuse safety for fear of abandoning your ideal's purity."},"covenant_standings":[{"label":"Invictus","status":1},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Lance","status":0}],"influence_total":3},{"name":"Keeper","player":"Symon","clan":"Mekhet","bloodline":"Mnemosyne","covenant":"Circle of the Crone","concept":"Fallen Elder","pronouns":"he/she/they","mask":"Junkie","dirge":"Masochist","court_title":null,"apparent_age":"Late 40s","blood_potency":2,"humanity":3,"size":5,"speed":9,"defence":7,"xp_total":62,"xp_left":1,"status":{"city":1,"clan":3,"covenant":3},"attributes":{"Intelligence":4,"Wits":2,"Resolve":2,"Strength":2,"Dexterity":2,"Stamina":2,"Presence":3,"Manipulation":3,"Composure":2},"skills":{"Occult":4,"Athletics":{"dots":5,"spec":"Archery"},"Stealth":2,"Empathy":{"dots":3,"spec":"Sin-Eater"},"Expression":{"dots":4,"spec":"Mesmerise"},"Intimidation":1,"Socialise":1,"Subterfuge":2},"disciplines":{"Auspex":1,"Celerity":1,"Dominate":4,"Obfuscate":1,"Cruac":4,"Creation":1,"Protection":1,"Transmutation":4},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Dominate \u25cf | Mesmerise","stats":"Cost: - -3 in combat unless Blinded  \u2022  Pool: 12  v Resolve + BP  \u2022  Instant  \u2022  Instant","pool_size":12,"effect":"Impose Mesmerised Condition. Control with short commands."},{"name":"Dominate \u25cf\u25cf | Iron Edict","stats":"Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  \u2022  Pool: -  \u2022  Instant  \u2022  Instant","effect":"Impose Dominated Condition. Give long, detailed commands."},{"name":"Dominate \u25cf\u25cf\u25cf | Entombed Command","stats":"Cost: - (req: Mesmerised)   \u2022  Pool: 10  - Resolve  \u2022  Instant  \u2022  1 week/success (1 month bonded)","pool_size":10,"effect":"Establish triggers for other Dominate powers."},{"name":"Dominate \u25cf\u25cf\u25cf\u25cf | The Lying Mind","stats":"Cost: 2 V (req: Mesmerised)   \u2022  Pool: -  \u2022  Instant  \u2022  Permanent","effect":"Impose Amnesia or False Memories Condition."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Devotion  | The Taste of Things Lived","stats":"Cost: 1 V (reflexive for insight) (Mnemosyne Only)  \u2022  Pool: 7  \u2022  Reflexive  \u2022  Scene","pool_size":7,"effect":"Feeding creates artificial blood ties (+2 Social vs target; Twice Removed for Blood Sympathy). Sever for 1 WP. Can effect blood ties with Touch of Shadow. Spend 1 V: +1 Mental per applicable human/vampire within 100 metres."},{"name":"Devotion  | The Exchange of Things Past","stats":"Cost: 1 V (Mnemosyne Only); blood tie to target; replaces The Lying Mind  \u2022  Pool: 12  v Resolve + BP  \u2022  Contested  \u2022  Scene / Permanent (elective)","pool_size":12,"effect":"Exchange memories with target. For each memory taken, must give one of equal length. Both gain False Memories condition. After scene, own memories return but exchanged memories remain, or elect to make permanent. Traumatic memories: vampire rolls Fear Frenzy, mortal Resolve + Composure or Shaken."},{"name":"Blood Sorcery | Creation \u25cf","effect":"Summon liquids, dead organic matter, sensory phenomena. Bonus/penalty = Potency."},{"name":"Blood Sorcery | Protection \u25cf","effect":"Subtract Potency from ritual rolls targeting subject. Heal bashing in vampires. Protect from the Kiss (add Potency to resistance)."},{"name":"Blood Sorcery | Transmutation \u25cf","effect":"Minor cosmetic changes to living subjects. Warp dead matter. Animate liquids."},{"name":"Blood Sorcery | Transmutation \u25cf\u25cf","effect":"Disguise living/vampiric subjects. Transform dead matter completely. Animate gases and plants. Alter speech. Grant 9-again or WP/Vitae above maximum."},{"name":"Blood Sorcery | Transmutation \u25cf\u25cf\u25cf","effect":"Grant physical properties of other creatures to living/vampiric subjects. Change inorganic appearances. Animate animals. Bless/curse actions (Potency modifier)."},{"name":"Blood Sorcery | Transmutation \u25cf\u25cf\u25cf\u25cf","effect":"Transform one living thing into another. Animate the dead (zombies). Force physical actions on sentient subjects. Grant material properties between objects. Neutralise blood."},{"name":"Cruac \u25cf | Mantle of Amorous Fire","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 11  \u2022  Ritual  \u2022  Scene","pool_size":11,"effect":"Dance to exhaustion. Add Cruac as a Presence bonus for the night."},{"name":"Cruac \u25cf\u25cf | Wisdom of the Soul","stats":"Cost: 1 V 2 Successes  \u2022  Pool: 11  \u2022  Ritual  \u2022  Instant","pool_size":11,"effect":"Reveal if mortal/vampire/ghoul; Humanity rating; diablerie"},{"name":"Cruac \u25cf | Deflection of Wooden Doom","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 11  \u2022  Ritual  \u2022  Scene","pool_size":11,"effect":"Caster becomes immune to staking for one night."},{"name":"Cruac \u25cf\u25cf\u25cf\u25cf | Willful Vitae","stats":"Cost: 2 V 4 Successes  \u2022  Pool: 11  \u2022  Ritual  \u2022  Until used","pool_size":11,"effect":"Prevent the onset of blood addiction or the Vinculum for the night."},{"name":"Oath of the Safe Word \u25cf\u25cf","effect":"Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."}],"merits":["Closed Book \u25cf\u25cf\u25cf","Eidetic Memory \u25cf","Empath \u25cf\u25cf","Indomitable \u25cf\u25cf","Mandragora Garden (Shared (Ivana)) \u25cf\u25cf\u25cf","Peacemaker \u25cf\u25cf\u25cf","Secret Society Junkie \u25cf","Table Turner \u25cf"],"influence":[{"type":"Resources","area":"","dots":5}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."},{"name":"Hated by Beasts","effect":"Animals react violently; Animal Ken/Animalism suffer (10 \u2013 Humanity) penalty."}],"aspirations":["Proliferate Blood-Ties","Collect Memories","Become desiered in society again"],"willpower":{"mask_1wp":"Ignore a problem or responsibility in favour of immediate gratification.","mask_all_wp":"Abandon an important relationship over your pursuit of pleasure.","dirge_1wp":"Find and experience a new source of hurt.","dirge_all_wp":"Willingly explore pain beyond the point of safety and reason."},"covenant_standings":[{"label":"Crone","status":3},{"label":"Carthian","status":0},{"label":"Invictus","status":1},{"label":"Lance","status":0}],"features":"Inhumanly high presence","touchstones":[{"humanity":6,"name":"Odeliese","desc":"Dead Wife"}],"influence_total":10},{"name":"Kirk Grimm","player":"Phillip G","clan":"Gangrel","bloodline":null,"covenant":"Lancea et Sanctum","concept":"Church Grim","pronouns":"he/him","mask":"Idealist","dirge":"Penitent","court_title":null,"apparent_age":null,"blood_potency":2,"humanity":6,"size":5,"speed":10,"defence":3,"xp_total":53,"xp_left":10,"status":{"city":1,"clan":3,"covenant":2},"attributes":{"Intelligence":2,"Wits":2,"Resolve":3,"Strength":3,"Dexterity":2,"Stamina":{"dots":4,"bonus_dots":2},"Presence":3,"Manipulation":1,"Composure":3},"skills":{"Computer":1,"Crafts":{"dots":1,"spec":"carpentry"},"Medicine":1,"Occult":2,"Politics":1,"Athletics":1,"Brawl":2,"Firearms":1,"Stealth":1,"Survival":1,"Weaponry":5,"Animal Ken":{"dots":2,"spec":"canine"},"Empathy":1,"Intimidation":2,"Streetwise":{"dots":1,"spec":"gangs"},"Subterfuge":1},"disciplines":{"Animalism":1,"Protean":1,"Resilience":2},"powers":[{"name":"Animalism \u25cf | Feral Whispers","stats":"Cost: -  \u2022  Pool: 4  \u2022  Instant  \u2022  Scene (may persist)","pool_size":4,"effect":"Speak with and command animals."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Resilience \u25cf\u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."}],"merits":["Sorcerous Eunuch \u25cf","Crusade \u25cf | Shield Against Sorcery","Crusade \u25cf\u25cf | Silence","Kindred Dueling \u25cf | Hamstring","Kindred Dueling \u25cf\u25cf | Taunt"],"influence":[],"banes":[{"name":"Feral Curse","effect":"Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."}],"aspirations":[],"willpower":{"mask_1wp":"Deny a compromise that would water down your ideal.","mask_all_wp":"Refuse safety for fear of abandoning your ideal's purity.","dirge_1wp":"Punish yourself for a mistake.","dirge_all_wp":"Risk death to correct an egregious error in judgement."},"covenant_standings":[{"label":"Lance","status":2},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"touchstones":[{"humanity":6,"name":"Unnamed Dockworker","desc":null},{"humanity":5,"name":"Bastard sword","desc":"object"},{"humanity":4,"name":"Star of David pendant","desc":"object"}],"influence_total":5},{"name":"Livia","player":"Clair H","clan":"Daeva","bloodline":null,"covenant":"Lancea et Sanctum","concept":"Health Guru","pronouns":"she/her","mask":"Guru","dirge":"Scholar","court_title":null,"apparent_age":null,"blood_potency":1,"humanity":6,"size":5,"speed":9,"defence":5,"xp_total":20,"xp_left":3,"status":{"city":1,"clan":2,"covenant":1},"attributes":{"Intelligence":3,"Wits":2,"Resolve":3,"Strength":2,"Dexterity":2,"Stamina":2,"Presence":3,"Manipulation":3,"Composure":2},"skills":{"Academics":4,"Investigation":1,"Medicine":{"dots":2,"spec":"Holistic Awareness"},"Occult":2,"Science":{"dots":2,"spec":"Blood"},"Athletics":3,"Stealth":1,"Empathy":{"dots":2,"spec":"Burried Feelings"},"Persuasion":{"dots":3,"spec":"Inspiring"},"Subterfuge":2},"disciplines":{"Celerity":1,"Majesty":3,"Theban":2,"Divination":1,"Transmutation":1},"powers":[{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Majesty \u25cf | Awe","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Become centre of attention. Subjects become Awed."},{"name":"Majesty \u25cf\u25cf | Confidant","stats":"Cost: - (req: Awed)   \u2022  Pool: 8  v Resolve + BP  \u2022  Contested","pool_size":8,"effect":"Impose Charmed Condition."},{"name":"Majesty \u25cf\u25cf\u25cf | Green Eyes","stats":"Cost: 1 V (req: Charmed / Enthralled)   \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Shift emotions (1 V, any number of Charmed/Enthralled targets); rage/fear causes frenzy with no resist roll (Ride the Wave normal). Requests: 1 V per target, must be spoken and heard."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Transmutation \u25cf","effect":"Minor cosmetic changes to living subjects. Warp dead matter. Animate liquids."},{"name":"Theban \u25cf | Vitae Reliquary","stats":"Cost: 1 V 1 Successes  \u2022  Pool: 5  \u2022  Ritual  \u2022  1 lunar month","pool_size":5,"effect":"Store Vitae equal to Potency in object (Size 3 or smaller)"},{"name":"Theban \u25cf\u25cf\u25cf\u25cf | Damned Radiance","stats":"Cost: 1 WP 4 Successes  \u2022  Pool: 9  v Stamina + BP  \u2022  Ritual  \u2022  1 night","pool_size":9,"effect":"Vampire appears mortal, -2 Disciplines"}],"merits":["Closed Book \u25cf\u25cf","Indomitable \u25cf\u25cf","Inspiring \u25cf\u25cf\u25cf","Library (Academics) \u25cf\u25cf\u25cf","Lorekeeper \u25cf","Striking Looks \u25cf"],"influence":[{"type":"Allies","area":"Health","dots":3}],"banes":[{"name":"Wanton Curse","effect":"Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."}],"aspirations":[],"willpower":{"mask_1wp":"Give advice that someone uses to succeed.","mask_all_wp":"Give protected, dangerous information without asking for payment.","dirge_1wp":"Uncover a lost piece of information.","dirge_all_wp":"Uncover forbidden knowledge."},"covenant_standings":[{"label":"Lance","status":1},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"features":"Striking Looks","touchstones":[{"humanity":6,"name":"Undefined","desc":null}],"influence_total":5},{"name":"Ludica Lachramore","player":"Sky K","clan":"Mekhet","bloodline":null,"covenant":"Invictus","concept":"Information Broker","pronouns":"she/her","mask":"Scholar","dirge":"Spy","court_title":null,"apparent_age":"mid 20s","blood_potency":1,"humanity":5,"size":5,"speed":9,"defence":5,"xp_total":30,"xp_left":3,"status":{"city":2,"clan":1,"covenant":1},"attributes":{"Intelligence":2,"Wits":4,"Resolve":3,"Strength":1,"Dexterity":3,"Stamina":2,"Presence":2,"Manipulation":3,"Composure":2},"skills":{"Academics":2,"Investigation":{"dots":4,"spec":"spycraft"},"Occult":{"dots":3,"spec":"bloodlines"},"Politics":2,"Athletics":2,"Stealth":2,"Empathy":3,"Intimidation":{"dots":2,"spec":"blackmail"},"Socialise":2,"Subterfuge":1},"disciplines":{"Auspex":4,"Obfuscate":1},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf | Spirit's Touch","stats":"Cost: Free (1 WP for clash / 1 V for Insight)  \u2022  Pool: - v Resolve + Stealth + Obf  \u2022  Reflexive  \u2022  Immediate","effect":"Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf\u25cf | Lay Open the Mind","stats":"Cost: 1 V  \u2022  Pool: 8  v Resolve + BP  \u2022  Instant  \u2022  Scene","pool_size":8,"effect":"Telepathy and mind-reading. Invoke Conditions."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."}],"merits":["Alternate Identity \u25cf\u25cf\u25cf","Crowdsourcing \u25cf\u25cf\u25cf","Information Network \u25cf","Peacemaker \u25cf\u25cf\u25cf","Secret Society Junkie \u25cf","Cacophony Savvy \u25cf | Gettin' Up"],"influence":[{"type":"Allies","area":"Underworld","dots":3},{"type":"Contacts","area":"high society, occult, politics","dots":3},{"type":"Resources","area":"","dots":5}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."}],"aspirations":[],"willpower":{"mask_1wp":"Uncover a lost piece of information.","mask_all_wp":"Uncover forbidden knowledge.","dirge_1wp":"Build a new identity or uncover a secret.","dirge_all_wp":"Uncover a damning secret that could end someone."},"covenant_standings":[{"label":"Invictus","status":1},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Former/Current Lover","desc":null}],"influence_total":6},{"name":"Macheath 'Mac'","player":"Charlie BC","clan":"Mekhet","bloodline":"Norvegi","covenant":"Carthian Movement","concept":"Urban Gorilla","pronouns":"he/him","mask":"Rebel","dirge":"Idealist","court_title":null,"apparent_age":null,"blood_potency":2,"humanity":5,"size":5,"speed":14,"defence":6,"xp_total":54,"xp_left":2,"status":{"city":2,"clan":2,"covenant":3},"attributes":{"Intelligence":2,"Wits":3,"Resolve":3,"Strength":{"dots":3,"bonus_dots":3},"Dexterity":3,"Stamina":2,"Presence":2,"Manipulation":1,"Composure":3},"skills":{"Crafts":1,"Investigation":{"dots":2,"nine_again":true},"Occult":1,"Athletics":3,"Brawl":{"dots":4,"bonus_dots":1,"spec":"grappling","nine_again":true},"Larceny":2,"Stealth":{"dots":2,"spec":"shadowing","nine_again":true},"Empathy":{"dots":2,"spec":"weakness"},"Intimidation":{"dots":2,"spec":"direct threats"},"Streetwise":2,"Subterfuge":{"dots":1,"spec":"hiding emotion"}},"disciplines":{"Auspex":3,"Celerity":1,"Obfuscate":1,"Protean":1,"Vigour":3},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf | Spirit's Touch","stats":"Cost: Free (1 WP for clash / 1 V for Insight)  \u2022  Pool: - v Resolve + Stealth + Obf  \u2022  Reflexive  \u2022  Immediate","effect":"Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."},{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Vigour \u25cf\u25cf\u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Improve Strength. Add Vigour dots as bonus successes only if at least one net success achieved."},{"name":"Devotion  | Vitae Spines","stats":"Cost: 1 V per effect Norvegi Bloodline  \u2022  Pool: -  \u2022  Reflexive  \u2022  Scene","effect":"Choose one: feed through fingertip spines as if by fangs (requires touch or grapple; leaves dry, calloused skin); or extend organic blades (1L supernatural weapon, Strength + Brawl to attack, -2 to Dexterity-based manipulation; fine manipulation impossible)."}],"merits":["Carthian Pull \u25cf","Mobilise Outrage \u25cf | Strike to Preempt","Mobilise Outrage \u25cf\u25cf | Unbreakable","Mobilise Outrage \u25cf\u25cf\u25cf | Dying on Your Feet","Regular \u25cf | Clinch Strike"],"influence":[{"type":"Allies","area":"street","dots":1},{"type":"Contacts","area":"street, transport, underworld","dots":3}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."}],"aspirations":[],"willpower":{"mask_1wp":"Openly flout a tradition.","mask_all_wp":"Openly flout a Kindred Tradition or a covenant taboo.","dirge_1wp":"Deny a compromise that would water down your ideal.","dirge_all_wp":"Refuse safety for fear of abandoning your ideal's purity."},"covenant_standings":[{"label":"Carthian","status":3},{"label":"Crone","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Fiona (conditional) or union activist","desc":null}],"influence_total":5},{"name":"Magda","player":"Tiana C","clan":"Nosferatu","bloodline":null,"covenant":"Lancea et Sanctum","concept":"Faithful Militant","pronouns":"she/her","mask":"Martyr","dirge":"Masochist","court_title":null,"apparent_age":null,"blood_potency":1,"humanity":7,"size":5,"speed":10,"defence":2,"xp_total":17,"xp_left":0,"status":{"city":1,"clan":1,"covenant":2},"attributes":{"Intelligence":3,"Wits":2,"Resolve":3,"Strength":2,"Dexterity":3,"Stamina":2,"Presence":3,"Manipulation":2,"Composure":2},"skills":{"Academics":{"dots":4,"spec":"theban"},"Crafts":1,"Investigation":1,"Occult":1,"Brawl":2,"Firearms":{"dots":3,"spec":"rifles"},"Larceny":2,"Stealth":2,"Weaponry":{"dots":2,"spec":"swords"},"Empathy":{"dots":2,"spec":"motives"},"Intimidation":2},"disciplines":{"Nightmare":1,"Obfuscate":1,"Theban":4,"Divination":1,"Transmutation":1},"powers":[{"name":"Nightmare \u25cf | Dread Presence","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Blood Sorcery | Divination \u25cf","effect":"Glimpse fragmented details about intended actions. Learn basic info about a target."},{"name":"Blood Sorcery | Transmutation \u25cf","effect":"Minor cosmetic changes to living subjects. Warp dead matter. Animate liquids."}],"merits":["Danger Sense \u25cf\u25cf","Fighting Finesse (Weaponry) \u25cf\u25cf","Flock \u25cf\u25cf"],"influence":[],"banes":[{"name":"Lonely Curse","effect":"With mortals, Humanity counts \u20132; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."}],"aspirations":[],"willpower":{"mask_1wp":"Take another's burden upon yourself without expecting recompense.","mask_all_wp":"Put yourself at risk to save someone else or an ideology.","dirge_1wp":"Find and experience a new source of hurt.","dirge_all_wp":"Willingly explore pain beyond the point of safety and reason."},"covenant_standings":[{"label":"Lance","status":2},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"touchstones":[{"humanity":6,"name":"Catholic Priest","desc":null}],"influence_total":3},{"name":"Margaret 'Doc' Kane","player":"Jessica BC","clan":"Gangrel","bloodline":"Kerberos","covenant":"Carthian Movement","concept":"Ex-Millitary Night Doctor","pronouns":"she/her","mask":"Authoritarian","dirge":"Rebel","court_title":"Protector","apparent_age":null,"blood_potency":2,"humanity":6,"size":5,"speed":9,"defence":4,"xp_total":20,"xp_left":3,"status":{"city":2,"clan":1,"covenant":2},"attributes":{"Intelligence":3,"Wits":2,"Resolve":2,"Strength":2,"Dexterity":2,"Stamina":{"dots":2,"bonus_dots":1},"Presence":3,"Manipulation":3,"Composure":3},"skills":{"Medicine":{"dots":3,"spec":"Surgery","nine_again":true},"Politics":{"dots":3,"spec":"Carthian Movement"},"Science":1,"Athletics":2,"Brawl":2,"Empathy":{"dots":3,"spec":"Weakness, Confidant","nine_again":true},"Intimidation":{"dots":3,"spec":"Veiled Threats","nine_again":true},"Persuasion":2,"Streetwise":1,"Subterfuge":2},"disciplines":{"Majesty":3,"Protean":1,"Resilience":1},"powers":[{"name":"Majesty \u25cf | Awe","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Become centre of attention. Subjects become Awed."},{"name":"Majesty \u25cf\u25cf | Confidant","stats":"Cost: - (req: Awed)   \u2022  Pool: 9  v Resolve + BP  \u2022  Contested","pool_size":9,"effect":"Impose Charmed Condition."},{"name":"Majesty \u25cf\u25cf\u25cf | Green Eyes","stats":"Cost: 1 V (req: Charmed / Enthralled)   \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Shift emotions (1 V, any number of Charmed/Enthralled targets); rage/fear causes frenzy with no resist roll (Ride the Wave normal). Requests: 1 V per target, must be spoken and heard."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Resilience \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."},{"name":"Devotion  | Enfeebling Aura","stats":"Cost: 1 V  \u2022  Pool: 9  v Composure + BP  \u2022  Contested  \u2022  Scene","pool_size":9,"effect":"Sacrifice Majesty dots for the scene to remove equal dots of victim's Celerity, Resilience, or Vigour (any combination), up to successes."}],"merits":["Carthian Pull \u25cf","Night Doctor Surgery \u25cf\u25cf\u25cf","Three Heads of Kerberos \u25cf | Honing - Competitive","Three Heads of Kerberos \u25cf\u25cf | Internalising - Competitive","Three Heads of Kerberos \u25cf\u25cf\u25cf | Cowing - Competitive"],"influence":[{"type":"Contacts","area":"health, politics","dots":2}],"banes":[{"name":"Feral Curse","effect":"Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."},{"name":"Rat King/Queen","effect":"Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."}],"aspirations":[],"willpower":{"mask_1wp":"Cow someone into submission.","mask_all_wp":"Commit a widespread hit against a rival's mortal connections.","dirge_1wp":"Openly flout a tradition.","dirge_all_wp":"Openly flout a Kindred Tradition or a covenant taboo."},"covenant_standings":[{"label":"Carthian","status":2},{"label":"Crone","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"influence_total":3},{"name":"Reed Justice","player":"Conan F","clan":"Ventrue","bloodline":null,"covenant":"Invictus","concept":"Opportunistic Predator","pronouns":"he/him","mask":"Visionary","dirge":"Authoritarian","court_title":null,"apparent_age":"late 30s","blood_potency":1,"humanity":6,"size":5,"speed":9,"defence":3,"xp_total":30,"xp_left":2,"status":{"city":2,"clan":2,"covenant":2},"attributes":{"Intelligence":5,"Wits":2,"Resolve":2,"Strength":2,"Dexterity":2,"Stamina":{"dots":2,"bonus_dots":1},"Presence":2,"Manipulation":3,"Composure":2},"skills":{"Academics":2,"Computer":{"dots":3,"spec":"LLM/AI"},"Politics":2,"Athletics":1,"Drive":1,"Firearms":2,"Expression":{"dots":4,"spec":"speeches"},"Intimidation":2,"Persuasion":1,"Streetwise":1,"Subterfuge":{"dots":4,"spec":"doublespeak"}},"disciplines":{"Dominate":5,"Resilience":1},"powers":[{"name":"Dominate \u25cf | Mesmerise","stats":"Cost: - -3 in combat unless Blinded  \u2022  Pool: 14  v Resolve + BP  \u2022  Instant  \u2022  Instant","pool_size":14,"effect":"Impose Mesmerised Condition. Control with short commands."},{"name":"Dominate \u25cf\u25cf | Iron Edict","stats":"Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  \u2022  Pool: -  \u2022  Instant  \u2022  Instant","effect":"Impose Dominated Condition. Give long, detailed commands."},{"name":"Dominate \u25cf\u25cf\u25cf | Entombed Command","stats":"Cost: - (req: Mesmerised)   \u2022  Pool: 14  - Resolve  \u2022  Instant  \u2022  1 week/success (1 month bonded)","pool_size":14,"effect":"Establish triggers for other Dominate powers."},{"name":"Dominate \u25cf\u25cf\u25cf\u25cf | The Lying Mind","stats":"Cost: 2 V (req: Mesmerised)   \u2022  Pool: -  \u2022  Instant  \u2022  Permanent","effect":"Impose Amnesia or False Memories Condition."},{"name":"Dominate \u25cf\u25cf\u25cf\u25cf\u25cf | Possession","stats":"Cost: 1 V & 1 WP (req: Mesmerised); -3 in combat unless Blinded  \u2022  Pool: 12  - Resolve + Supernatural Tolerance  \u2022  Instant  \u2022  1 scene per success","pool_size":12,"effect":"Control victim's body. Only walk in sun if victim normally can."},{"name":"Resilience \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."}],"merits":[],"influence":[{"type":"Resources","area":"","dots":5},{"type":"Status","area":"finance","dots":3},{"type":"Status","area":"high society","dots":3},{"type":"Status","area":"underworld","dots":3}],"banes":[{"name":"Aloof Curse","effect":"First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."}],"aspirations":[],"willpower":{"mask_1wp":"Help someone by sharing your vision with them.","mask_all_wp":"Put yourself at risk to show a group the power of your vision.","dirge_1wp":"Cow someone into submission.","dirge_all_wp":"Commit a widespread hit against a rival's mortal connections."},"covenant_standings":[{"label":"Invictus","status":2},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":7,"name":"Artwork of Mother","desc":null}],"influence_total":9},{"name":"Ren\u00e9 Meyer","player":"Luca V","clan":"Daeva","bloodline":"Zelani","covenant":"Carthian Movement","concept":"Insurgent","pronouns":"she/her","mask":"Nurturer","dirge":"Idealist","court_title":null,"apparent_age":"late 20s","blood_potency":1,"humanity":5,"size":5,"speed":10,"defence":5,"xp_total":56,"xp_left":2,"status":{"city":1,"clan":2,"covenant":2},"attributes":{"Intelligence":2,"Wits":3,"Resolve":3,"Strength":{"dots":1,"bonus_dots":1},"Dexterity":3,"Stamina":2,"Presence":2,"Manipulation":3,"Composure":3},"skills":{"Occult":{"dots":2,"spec":"Supernatural Compulsions"},"Politics":{"dots":2,"spec":"Activism"},"Athletics":2,"Firearms":2,"Larceny":3,"Empathy":{"dots":3,"nine_again":true},"Persuasion":2,"Streetwise":{"dots":3,"spec":"Rumours","nine_again":true},"Subterfuge":3},"disciplines":{"Auspex":3,"Celerity":3,"Majesty":1,"Obfuscate":1,"Vigour":1},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf\u25cf | Spirit's Touch","stats":"Cost: Free (1 WP for clash / 1 V for Insight)  \u2022  Pool: - v Resolve + Stealth + Obf  \u2022  Reflexive  \u2022  Immediate","effect":"Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."},{"name":"Celerity \u25cf\u25cf\u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Majesty \u25cf | Awe","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Become centre of attention. Subjects become Awed."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Vigour \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Improve Strength. Add Vigour dots as bonus successes only if at least one net success achieved."},{"name":"Devotion  | Turn of Phrase","stats":"Cost: Free (Zelani Only)  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Add Majesty dots to social pools for non-face-to-face communication (art, phone, letters, etc)."},{"name":"Devotion  | Quicken Sight","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Examine fast-moving details. Apply Defence to ranged attacks. Benefit from aiming instantly."},{"name":"Devotion  | Hold my Beer","stats":"Cost: 1 WP (optional +1 V) (Zelani Only)  \u2022  Pool: 8  \u2022  Reflexive  \u2022  Scene","pool_size":8,"effect":"Distribute successes as dots among unskilled Skills (max 2 per Skill). +1 V: convert any Chance Die to a pool of 3 dice."}],"merits":["Finger on the Pulse \u25cf","Fucking Thief (Sorcerous Eunuch) \u25cf","Honey With Vinegar \u25cf","Indomitable \u25cf\u25cf","Sorcerous Eunuch \u25cf","Table Turner \u25cf","Cacophony Savvy \u25cf | Gettin' Up","Cacophony Savvy \u25cf\u25cf | Backpacker","Fast-Talking \u25cf | Always Be Closing","Marksmanship \u25cf | Through the Crosshairs"],"influence":[{"type":"Contacts","area":"industry, politics, underworld, legal","dots":4},{"type":"Status","area":"media","dots":2}],"banes":[{"name":"Wanton Curse","effect":"Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."}],"aspirations":[],"willpower":{"mask_1wp":"Put yourself out to help another succeed.","mask_all_wp":"Take full responsibility for another's dangerous mistake.","dirge_1wp":"Deny a compromise that would water down your ideal.","dirge_all_wp":"Refuse safety for fear of abandoning your ideal's purity."},"covenant_standings":[{"label":"Carthian","status":2},{"label":"Crone","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"influence_total":7},{"name":"Ren\u00e9 St. Dominique","player":"Matt B","clan":"Ventrue","bloodline":"Apollinaire","covenant":"Invictus","concept":"Dillitant","pronouns":"he/him","mask":"Courtesan","dirge":"Deviant","court_title":"Primogen","apparent_age":null,"blood_potency":2,"humanity":5,"size":5,"speed":9,"defence":2,"xp_total":30,"xp_left":6,"status":{"city":1,"clan":2,"covenant":4},"attributes":{"Intelligence":3,"Wits":3,"Resolve":3,"Strength":2,"Dexterity":3,"Stamina":{"dots":1,"bonus_dots":1},"Presence":3,"Manipulation":2,"Composure":2},"skills":{"Crafts":4,"Occult":{"dots":5,"spec":"A9A Voudun"},"Politics":{"dots":1,"spec":"Invictus lore"},"Larceny":2,"Stealth":2,"Expression":{"dots":5,"spec":"A9A something"},"Intimidation":2,"Persuasion":{"dots":3,"spec":"A9A something"},"Subterfuge":3},"disciplines":{"Dominate":3,"Obfuscate":2,"Resilience":1},"powers":[{"name":"Dominate \u25cf | Mesmerise","stats":"Cost: - -3 in combat unless Blinded  \u2022  Pool: 8  v Resolve + BP  \u2022  Instant  \u2022  Instant","pool_size":8,"effect":"Impose Mesmerised Condition. Control with short commands."},{"name":"Dominate \u25cf\u25cf | Iron Edict","stats":"Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  \u2022  Pool: -  \u2022  Instant  \u2022  Instant","effect":"Impose Dominated Condition. Give long, detailed commands."},{"name":"Dominate \u25cf\u25cf\u25cf | Entombed Command","stats":"Cost: - (req: Mesmerised)   \u2022  Pool: 8  - Resolve  \u2022  Instant  \u2022  1 week/success (1 month bonded)","pool_size":8,"effect":"Establish triggers for other Dominate powers."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Obfuscate \u25cf\u25cf | Touch of Shadow","stats":"Cost: 1 V  \u2022  Pool: 7  \u2022  Instant  \u2022  Scene","pool_size":7,"effect":"Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."},{"name":"Resilience \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."},{"name":"Devotion  | Govi Trap","stats":"Cost: 1 V (Apollinaire Only); ghost within sight; small container with lid  \u2022  Pool: 7  v Finesse + Resistance  \u2022  Contested  \u2022  1 hour per Dominate dot","pool_size":7,"effect":"Compel a ghost to enter and remain in a govi (container). Released if lid removed or container broken."},{"name":"Devotion  | Skeleton Key","stats":"Cost: 1 V (Apollinaire Only)  \u2022  Pool: 7  \u2022  Instant  \u2022  Instant / Permanent","pool_size":7,"effect":"Open any door regardless of locks/security without triggering alarms. Or lock any door until destroyed or Skeleton Key used again. +1 V prevents other Gatekeepers using Skeleton Key on it."},{"name":"Devotion  | Veve Passageway","stats":"Cost: 1 V (Apollinaire Only); white chalk  \u2022  Pool: 7  \u2022  Instant  \u2022  1 hour per success","pool_size":7,"effect":"Draw a door on a wall. It becomes a real door opening to nearest room or empty space (up to 1 mile behind the drawing)."}],"merits":["Notary \u25cf\u25cf"],"influence":[{"type":"Allies","area":"","dots":1},{"type":"Contacts","area":"","dots":3},{"type":"Resources","area":"","dots":1},{"type":"Retainer","area":"","dots":5}],"banes":[{"name":"Aloof Curse","effect":"First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."}],"aspirations":[],"willpower":{"mask_1wp":"Put yourself out for another's pleasure.","mask_all_wp":"Be the last one dancing when the party is on fire.","dirge_1wp":"Commit a crime against your recognised society.","dirge_all_wp":"Commit a high crime in plain view of an authority."},"covenant_standings":[{"label":"Invictus","status":4},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":7,"name":"Unnamed lawyer/clerk","desc":null}],"influence_total":9},{"name":"Ryan Ambrose","player":"Patrick T","clan":"Gangrel","bloodline":null,"covenant":"Invictus","concept":"Ruthless Rising Star","pronouns":null,"mask":"Competitor","dirge":"Follower","court_title":null,"apparent_age":null,"blood_potency":1,"humanity":7,"size":5,"speed":11,"defence":5,"xp_total":16,"xp_left":1,"status":{"city":1,"clan":2,"covenant":0},"attributes":{"Intelligence":1,"Wits":3,"Resolve":3,"Strength":4,"Dexterity":2,"Stamina":{"dots":2,"bonus_dots":1},"Presence":3,"Manipulation":2,"Composure":3},"skills":{"Computer":2,"Investigation":1,"Politics":1,"Athletics":3,"Brawl":3,"Drive":{"dots":1,"spec":"speeding"},"Firearms":1,"Expression":2,"Intimidation":{"dots":3,"spec":"veiled threats"},"Persuasion":1,"Socialise":2,"Streetwise":{"dots":3,"spec":"Navigation"}},"disciplines":{"Protean":3,"Resilience":1},"powers":[{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Protean \u25cf\u25cf | Predatory Aspect","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Take on animal traits."},{"name":"Protean \u25cf\u25cf\u25cf | Beast's Skin","stats":"Cost: 2 V  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Transform into predatory animal."},{"name":"Resilience \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."},{"name":"Oath of the Hard Motherfucker \u25cf\u25cf","effect":"Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."}],"merits":["Riding the Wave \u25cf | Ravage","Riding the Wave \u25cf\u25cf | Primal Strength","Riding the Wave \u25cf\u25cf\u25cf | In the Zone"],"influence":[{"type":"Resources","area":"","dots":1},{"type":"Staff","area":"Larceny","dots":1}],"banes":[{"name":"Feral Curse","effect":"Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."}],"aspirations":[],"willpower":{"mask_1wp":"Challenge someone clearly your superior.","mask_all_wp":"Risk Final Death to prove you can handle something.","dirge_1wp":"Follow a directive blindly, for the sake of following.","dirge_all_wp":"Follow a dangerous directive without hesitation."},"covenant_standings":[{"label":"Invictus","status":0},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Lance","status":0}],"influence_total":2},{"name":"Sister Hazel","player":"Marni K","clan":"Ventrue","bloodline":null,"covenant":"Lancea et Sanctum","concept":"Dogmatic Nun Bruiser","pronouns":"she/her","mask":"Penitent","dirge":"Authoritarian","court_title":null,"apparent_age":null,"blood_potency":2,"humanity":4,"size":5,"speed":10,"defence":2,"xp_total":28,"xp_left":0,"status":{"city":1,"clan":2,"covenant":1},"attributes":{"Intelligence":4,"Wits":2,"Resolve":3,"Strength":3,"Dexterity":2,"Stamina":2,"Presence":2,"Manipulation":1,"Composure":3},"skills":{"Investigation":2,"Occult":2,"Stealth":2,"Weaponry":{"dots":5,"spec":"Swords"},"Empathy":1,"Expression":3,"Persuasion":1,"Subterfuge":3},"disciplines":{"Celerity":1,"Dominate":3},"powers":[{"name":"Celerity \u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."},{"name":"Dominate \u25cf | Mesmerise","stats":"Cost: - -3 in combat unless Blinded  \u2022  Pool: 10  v Resolve + BP  \u2022  Instant  \u2022  Instant","pool_size":10,"effect":"Impose Mesmerised Condition. Control with short commands."},{"name":"Dominate \u25cf\u25cf | Iron Edict","stats":"Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  \u2022  Pool: -  \u2022  Instant  \u2022  Instant","effect":"Impose Dominated Condition. Give long, detailed commands."},{"name":"Dominate \u25cf\u25cf\u25cf | Entombed Command","stats":"Cost: - (req: Mesmerised)   \u2022  Pool: 10  - Resolve  \u2022  Instant  \u2022  1 week/success (1 month bonded)","pool_size":10,"effect":"Establish triggers for other Dominate powers."}],"merits":["Anointed \u25cf\u25cf","Defensive Combat (Weaponry) \u25cf","Flock \u25cf\u25cf","Quick Draw (Swords) \u25cf","Stigmata \u25cf","Kindred Dueling \u25cf | Hamstring","Kindred Dueling \u25cf\u25cf | Taunt","Kindred Dueling \u25cf\u25cf\u25cf | Carving","Kindred Dueling \u25cf\u25cf\u25cf\u25cf | Pincushion","Kindred Dueling \u25cf\u25cf\u25cf\u25cf\u25cf | Spray"],"influence":[{"type":"Allies","area":"Church","dots":3},{"type":"Retainer","area":"","dots":2}],"banes":[{"name":"Aloof Curse","effect":"First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."}],"aspirations":[],"willpower":{"mask_1wp":"Punish yourself for a mistake.","mask_all_wp":"Risk death to correct an egregious error in judgement.","dirge_1wp":"Cow someone into submission.","dirge_all_wp":"Commit a widespread hit against a rival's mortal connections."},"covenant_standings":[{"label":"Lance","status":1},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"touchstones":[{"humanity":7,"name":"Unnamed laity member","desc":null}],"influence_total":4},{"name":"Tegan Groves","player":"Alana W","clan":"Gangrel","bloodline":null,"covenant":"Lancea et Sanctum","concept":null,"pronouns":"she/her","mask":"Nurturer","dirge":"Survivor","court_title":null,"apparent_age":"mid 20s","blood_potency":1,"humanity":6,"size":5,"speed":10,"defence":3,"xp_total":42,"xp_left":4,"status":{"city":2,"clan":2,"covenant":1},"attributes":{"Intelligence":1,"Wits":3,"Resolve":3,"Strength":3,"Dexterity":2,"Stamina":{"dots":4,"bonus_dots":2},"Presence":2,"Manipulation":3,"Composure":3},"skills":{"Computer":1,"Crafts":1,"Investigation":2,"Athletics":1,"Brawl":2,"Drive":1,"Stealth":1,"Survival":2,"Animal Ken":2,"Empathy":1,"Expression":2,"Persuasion":3,"Socialise":1,"Streetwise":1,"Subterfuge":2},"disciplines":{"Animalism":1,"Protean":2,"Resilience":2},"powers":[{"name":"Animalism \u25cf | Feral Whispers","stats":"Cost: -  \u2022  Pool: 6  \u2022  Instant  \u2022  Scene (may persist)","pool_size":6,"effect":"Speak with and command animals."},{"name":"Protean \u25cf | Unmarked Grave","stats":"Cost: Varies  \u2022  Pool: -  \u2022  Instant  \u2022  Indefinite","effect":"Merge with soil."},{"name":"Protean \u25cf\u25cf | Predatory Aspect","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Take on animal traits."},{"name":"Resilience \u25cf\u25cf","stats":"Cost: 1 V per effect  \u2022  Pool: -  \u2022  Reflexive  \u2022  1 turn","effect":"Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."}],"merits":["Indomitable \u25cf\u25cf","Iron Stamina \u25cf\u25cf","Language (Hindi) \u25cf","Pusher \u25cf"],"influence":[{"type":"Allies","area":"transportation","dots":3}],"banes":[{"name":"Feral Curse","effect":"Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."}],"aspirations":[],"willpower":{"mask_1wp":"Put yourself out to help another succeed.","mask_all_wp":"Take full responsibility for another's dangerous mistake.","dirge_1wp":"Favour the safe path over the higher risk, higher reward path.","dirge_all_wp":"Abandon a social group or relationship in order to stay safe."},"covenant_standings":[{"label":"Lance","status":1},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Invictus","status":0}],"touchstones":[{"humanity":6,"name":"Sister Tahliah","desc":null},{"humanity":5,"name":"Old Pine Log","desc":null}],"influence_total":4},{"name":"Wan Yelong","player":"Michael V","clan":"Mekhet","bloodline":null,"covenant":"Invictus","concept":"Handler","pronouns":"he/him","mask":"Scholar","dirge":"Spy","court_title":null,"apparent_age":null,"blood_potency":1,"humanity":6,"size":5,"speed":10,"defence":4,"xp_total":20,"xp_left":0,"status":{"city":2,"clan":1,"covenant":2},"attributes":{"Intelligence":3,"Wits":3,"Resolve":3,"Strength":2,"Dexterity":3,"Stamina":1,"Presence":3,"Manipulation":3,"Composure":1},"skills":{"Academics":{"dots":2,"spec":"history","nine_again":true},"Computer":1,"Investigation":2,"Occult":{"dots":4,"bonus_dots":1,"spec":"symbolism, societies","nine_again":true},"Politics":{"dots":2,"spec":"fine arts, diplomacy","nine_again":true},"Athletics":1,"Stealth":3,"Empathy":3,"Socialise":1,"Subterfuge":3},"disciplines":{"Auspex":2,"Obfuscate":5},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Auspex \u25cf\u25cf | Uncanny Perception","stats":"Cost: Free (1 V for Insight) Must perceive target  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Obfuscate \u25cf\u25cf | Touch of Shadow","stats":"Cost: 1 V  \u2022  Pool: 7  \u2022  Instant  \u2022  Scene","pool_size":7,"effect":"Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."},{"name":"Obfuscate \u25cf\u25cf\u25cf | Cloak of Night","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  None","effect":"Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."},{"name":"Obfuscate \u25cf\u25cf\u25cf\u25cf | The Familiar Stranger","stats":"Cost: 2 V  \u2022  Pool: -  \u2022  None","effect":"Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."},{"name":"Obfuscate \u25cf\u25cf\u25cf\u25cf\u25cf | Oubliette","stats":"Cost: Free (Haven) / 3-9 V & 1 WP  \u2022  Pool: -  \u2022  Instant  \u2022  1 week per BP","effect":"Always active on Haven/Safe Place at no cost. Further uses at standard cost. Use Obfuscate at distance on anything in area."}],"merits":["Encyclopaedic Knowledge \u25cf","Friends in High Places \u25cf","Indomitable \u25cf\u25cf","Multilingual (Mandarin, Mongolian) \u25cf"],"influence":[{"type":"Contacts","area":"high society, politics","dots":2},{"type":"Resources","area":"","dots":1},{"type":"Status","area":"Academia","dots":1}],"banes":[{"name":"Tenebrous Curse","effect":"Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts \u20131 for all Humanity-based banes."}],"aspirations":[],"willpower":{"mask_1wp":"Uncover a lost piece of information.","mask_all_wp":"Uncover forbidden knowledge.","dirge_1wp":"Build a new identity or uncover a secret.","dirge_all_wp":"Uncover a damning secret that could end someone."},"covenant_standings":[{"label":"Invictus","status":2},{"label":"Carthian","status":0},{"label":"Crone","status":0},{"label":"Lance","status":0}],"touchstones":[{"humanity":6,"name":"Unnamed staffer/academic","desc":null}],"influence_total":3},{"name":"Yusuf 'Mammon' Kalusicj","player":"Peter K","clan":"Nosferatu","bloodline":null,"covenant":"Carthian Movement","concept":"Nightmate Shadow Broker","pronouns":"he/him","mask":"Cult Leader","dirge":"Penitent","court_title":null,"apparent_age":"indeterminate","blood_potency":2,"humanity":4,"size":5,"speed":9,"defence":4,"xp_total":54,"xp_left":0,"status":{"city":2,"clan":2,"covenant":1},"attributes":{"Intelligence":2,"Wits":2,"Resolve":3,"Strength":1,"Dexterity":3,"Stamina":2,"Presence":4,"Manipulation":3,"Composure":2},"skills":{"Investigation":{"dots":3,"spec":"Forensic Accounting"},"Occult":2,"Politics":2,"Athletics":2,"Stealth":2,"Empathy":{"dots":4,"spec":"Motives"},"Intimidation":{"dots":4,"spec":"Veiled Threats"},"Subterfuge":3},"disciplines":{"Auspex":1,"Nightmare":4,"Obfuscate":4},"powers":[{"name":"Auspex \u25cf | Beast's Hackles","stats":"Cost: Free (1 V for Insight)  \u2022  Pool: - - Composure & Closed Book  \u2022  Instant  \u2022  Scene","effect":"Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."},{"name":"Nightmare \u25cf | Dread Presence","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."},{"name":"Nightmare \u25cf\u25cf | Face of the Beast","stats":"Cost: 1 V  \u2022  Pool: 12  v Composure + BP  \u2022  Contested  \u2022  Instant","pool_size":12,"effect":"Impose Frightened Condition. Cause fleeing."},{"name":"Nightmare \u25cf\u25cf\u25cf | Grand Delusion","stats":"Cost: 2 V  \u2022  Pool: 11  v Composure + BP  \u2022  Contested  \u2022  1 night","pool_size":11,"effect":"Impose Delusional Condition."},{"name":"Nightmare \u25cf\u25cf\u25cf\u25cf | Waking Nightmare","stats":"Cost: 1 V  \u2022  Pool: 12  v highest Composure + BP  \u2022  Contested  \u2022  Scene","pool_size":12,"effect":"Create and control hallucinations."},{"name":"Obfuscate \u25cf | Face in the Crowd","stats":"Cost: -  \u2022  Pool: -  \u2022  Instant  \u2022  Scene","effect":"Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."},{"name":"Obfuscate \u25cf\u25cf | Touch of Shadow","stats":"Cost: 1 V  \u2022  Pool: 5  \u2022  Instant  \u2022  Scene","pool_size":5,"effect":"Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."},{"name":"Obfuscate \u25cf\u25cf\u25cf | Cloak of Night","stats":"Cost: 1 V  \u2022  Pool: -  \u2022  None","effect":"Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."},{"name":"Obfuscate \u25cf\u25cf\u25cf\u25cf | The Familiar Stranger","stats":"Cost: 2 V  \u2022  Pool: -  \u2022  None","effect":"Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."}],"merits":["Air of Menace \u25cf\u25cf","Fucking Thief \u25cf","Honey With Vinegar \u25cf","Indomitable \u25cf\u25cf","Secret Society Junkie \u25cf"],"influence":[{"type":"Allies","area":"Finance","dots":3},{"type":"Allies","area":"Politics","dots":2},{"type":"Allies","area":"Underworld","dots":2},{"type":"Contacts","area":"Police, High Society, Occult, Media, Street","dots":5},{"type":"Resources","area":"","dots":3}],"banes":[{"name":"Lonely Curse","effect":"With mortals, Humanity counts \u20132; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."},{"name":"Plague of Purity","effect":"Touch by Integrity 8+ mortal causes (10 \u2013 Humanity) bashing damage."}],"aspirations":[],"willpower":{"mask_1wp":"Convince someone to deny logic because of your word.","mask_all_wp":"Risk exile or death to defend your cult's belief system.","dirge_1wp":"Punish yourself for a mistake.","dirge_all_wp":"Risk death to correct an egregious error in judgement."},"covenant_standings":[{"label":"Carthian","status":1},{"label":"Crone","status":0},{"label":"Invictus","status":0},{"label":"Lance","status":0}],"features":"High Presence","touchstones":[{"humanity":6,"name":"Portrait of my Wife","desc":null},{"humanity":5,"name":"Turkish Laundrette Woman","desc":null}],"influence_total":10}];
+export const CHARS_DATA = [
+  {
+    "name": "Jade Moreno",
+    "player": "Test Player E",
+    "concept": "Swamp Royalty",
+    "pronouns": "she/her",
+    "clan": "Gangrel",
+    "bloodline": null,
+    "covenant": "Circle of the Crone",
+    "mask": "Perfectionist",
+    "dirge": "Monster",
+    "court_title": "Harpy",
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Revisit an already successful action to hammer out a flaw.",
+      "mask_all": "Stick with a failed and dangerous plan in order to fix what went wrong.",
+      "dirge_1wp": "Cause pain for the sole intention of causing pain.",
+      "dirge_all": "Commit a capital crime without additional motive."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 5,
+    "xp_total": 26,
+    "xp_spent": 25,
+    "status": {
+      "city": 4,
+      "clan": 2,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Crafts": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Vodun"
+        ],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "Tooth & Claw"
+        ],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Survival": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "Put on airs"
+        ],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Majesty": 1,
+      "Protean": 3,
+      "Cruac": 1,
+      "Creation": 1,
+      "Destruction": 1,
+      "Protection": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 1,
+        "name": "Awe",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Become centre of attention. Subjects become Awed."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 2,
+        "name": "Predatory Aspect",
+        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Take on animal traits."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 3,
+        "name": "Beast's Skin",
+        "stats": "Cost: 2 V  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Transform into predatory animal."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Mantle of Amorous Fire",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 6  •  Ritual  •  Scene",
+        "pool_size": 6,
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "High Society"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Media"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Police"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Underworld"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 5
+      },
+      {
+        "category": "general",
+        "name": "Defensive Combat",
+        "rating": 1,
+        "qualifier": "Brawl"
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Inspiring",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Meditative Mind",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Table Turner",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Viral Mythology",
+        "rating": 3
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Riding the Wave",
+        "rating": 1,
+        "rank_name": "Ravage"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Riding the Wave",
+        "rating": 2,
+        "rank_name": "Primal Strength"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Riding the Wave",
+        "rating": 3,
+        "rank_name": "In the Zone"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Riding the Wave",
+        "rating": 4,
+        "rank_name": "Unyielding"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Verdant Circle",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Rex Calloway",
+        "desc": "husband"
+      },
+      {
+        "humanity": 5,
+        "name": "Copper",
+        "desc": "pit viper"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Feral Curse",
+        "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "humanity_drop": 4,
+        "ordeals": 9,
+        "game": 3,
+        "starting": 10
+      },
+      "spent": {
+        "attributes": 4,
+        "skills": 0,
+        "merits": 14,
+        "powers": 7,
+        "special": 0
+      }
+    },
+    "ordeals": [
+      {
+        "name": "Questionnaire",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "History",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Rules",
+        "complete": false,
+        "xp": 0
+      },
+      {
+        "name": "Lore",
+        "complete": false,
+        "xp": 0
+      },
+      {
+        "name": "Covenant",
+        "complete": true,
+        "xp": 3
+      }
+    ],
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "clan_attribute": "Stamina",
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      },
+      "Majesty": {
+        "cp": 0,
+        "free": 0,
+        "xp": 4
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      }
+    ]
+  },
+  {
+    "name": "Marcus Webb",
+    "player": "Test Player D",
+    "concept": "Occult investigator",
+    "pronouns": "he/him",
+    "clan": "Mekhet",
+    "bloodline": null,
+    "covenant": "Lancea et Sanctum",
+    "mask": "Follower",
+    "dirge": "Spy",
+    "court_title": null,
+    "apparent_age": "late 20s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Follow a directive blindly, for the sake of following.",
+      "mask_all": "Follow a dangerous directive without hesitation.",
+      "dirge_1wp": "Build a new identity or uncover a secret.",
+      "dirge_all": "Uncover a damning secret that could end someone."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 7,
+    "xp_total": 40,
+    "xp_spent": 40,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Criminology"
+        ],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Crime Scene"
+        ],
+        "nine_again": true
+      },
+      "Occult": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "Pistols"
+        ],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Stalking"
+        ],
+        "nine_again": true
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 1,
+        "specs": [
+          "Motives"
+        ],
+        "nine_again": true
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 5,
+      "Obfuscate": 1,
+      "Theban": 4,
+      "Divination": 1,
+      "Protection": 4,
+      "Transmutation": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 3,
+        "name": "Spirit's Touch",
+        "stats": "Cost: Free (1 WP for clash / 1 V for Insight)  •  Pool: - v Resolve + Stealth + Obf  •  Reflexive  •  Immediate",
+        "pool_size": null,
+        "effect": "Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 4,
+        "name": "Lay Open the Mind",
+        "stats": "Cost: 1 V  •  Pool: 8  v Resolve + BP  •  Instant  •  Scene",
+        "pool_size": 8,
+        "effect": "Telepathy and mind-reading. Invoke Conditions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 5,
+        "name": "Twilight Projection",
+        "stats": "Cost: 2 V  •  Pool: 13  •  Instant  •  Scene (while projected)",
+        "pool_size": 13,
+        "effect": "Project senses into Twilight. May use Auspex 1-3 once per scene; cannot spend blood for additional uses."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Police",
+        "granted_by": "Professional Training"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Underworld",
+        "granted_by": "Professional Training"
+      },
+      {
+        "category": "general",
+        "name": "Acute Senses",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "Private Investigator",
+        "asset_skills": [
+          "Investigation",
+          "Stealth",
+          "Empathy"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1,
+        "granted_by": "Lorekeeper"
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Sophie",
+        "desc": "Granddaughter"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "humanity_drop": 0,
+        "ordeals": 12,
+        "game": 3,
+        "starting": 10
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 1,
+        "powers": 24,
+        "special": 0
+      }
+    },
+    "ordeals": [
+      {
+        "name": "Questionnaire",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "History",
+        "complete": false,
+        "xp": 0
+      },
+      {
+        "name": "Rules",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Lore",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Covenant",
+        "complete": true,
+        "xp": 3
+      }
+    ],
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "clan_attribute": "Intelligence",
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 2,
+        "free": 0,
+        "xp": 9
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ]
+  },
+  {
+    "name": "Selene Varga",
+    "player": "Test Player B",
+    "concept": "Feral Oracle",
+    "pronouns": "she/her",
+    "clan": "Gangrel",
+    "bloodline": "Scions of the First City",
+    "covenant": "Circle of the Crone",
+    "mask": "Child",
+    "dirge": "Competitor",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Find someone to take responsibility for your mistake.",
+      "mask_all": "Commit a terrible crime to see how authority might react.",
+      "dirge_1wp": "Challenge someone clearly your superior.",
+      "dirge_all": "Risk Final Death to prove you can handle something."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 5,
+    "xp_total": 54,
+    "xp_spent": 50,
+    "status": {
+      "city": 1,
+      "clan": 1,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Investigation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Crossbow"
+        ],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 0,
+        "bonus": 0,
+        "specs": [
+          "Hiding"
+        ],
+        "nine_again": false
+      },
+      "Animal Ken": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Training"
+        ],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 5,
+      "Obfuscate": 2,
+      "Cruac": 2,
+      "Creation": 1,
+      "Divination": 1,
+      "Protection": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 3,
+        "name": "Spirit's Touch",
+        "stats": "Cost: Free (1 WP for clash / 1 V for Insight)  •  Pool: - v Resolve + Stealth + Obf  •  Reflexive  •  Immediate",
+        "pool_size": null,
+        "effect": "Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 4,
+        "name": "Lay Open the Mind",
+        "stats": "Cost: 1 V  •  Pool: 10  v Resolve + BP  •  Instant  •  Scene",
+        "pool_size": 10,
+        "effect": "Telepathy and mind-reading. Invoke Conditions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 5,
+        "name": "Twilight Projection",
+        "stats": "Cost: 2 V  •  Pool: 11  •  Instant  •  Scene (while projected)",
+        "pool_size": 11,
+        "effect": "Project senses into Twilight. May use Auspex 1-3 once per scene; cannot spend blood for additional uses."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 7  •  Instant  •  Scene",
+        "pool_size": 7,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "devotion",
+        "name": "City Attunement",
+        "stats": "Cost: 1 V (Scion of the First City Only); city must have 10,000+ inhabitants  •  Pool: -  •  Instant  •  1 night",
+        "pool_size": null,
+        "effect": "Touch building or street to attune to city for the night. One city at a time. Must attune before using other Scion devotions."
+      },
+      {
+        "category": "devotion",
+        "name": "Incriminating Evidence",
+        "stats": "Cost: Free / 1 V (Scion of the First City Only); must have touched target that night; must be outdoors  •  Pool: 11  •  Instant  •  Instant",
+        "pool_size": 11,
+        "effect": "Focus on a previously touched person. City guides to evidence of wrongdoing; clues equal to successes. Leads to general location only, not specific doors. Clash of Wills vs Obfuscate."
+      },
+      {
+        "category": "devotion",
+        "name": "Our Mother's Mind",
+        "stats": "Cost: 2 V (Scion of the First City Only); walk barefoot, Vitae on feet  •  Pool: 11  v Resolve + BP  •  Contested  •  Until found",
+        "pool_size": 11,
+        "effect": "Declare a target. City guides BP blocks per success toward target. Target's non-combat pools and Speed reduced by 1 per success. Must sacrifice access to a level of Contacts, Allies, Retainer, or Resources per success (returns after 1 week)."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 2,
+        "name": "Blood Witness",
+        "stats": "Cost: 1 V 2 Successes  •  Pool: 9  •  Ritual  •  1 day per extra Vitae",
+        "pool_size": 9,
+        "effect": "Smear Vitae on an area. Remotely observe through the spilled blood for one day per extra Vitae spent."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 2,
+        "name": "Shed the Virulent Bowels",
+        "stats": "Cost: 1 V 2 Successes  •  Pool: 9  •  Ritual  •  Scene",
+        "pool_size": 9,
+        "effect": "Use a lock of hair or sympathetic link to hang a curse over a living victim for a month. Trigger the curse to cause enough lethal damage to fill the victim's Health."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Mentor",
+        "rating": 2,
+        "area": "Elder Mirela"
+      },
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 1,
+        "area": "Shadow-Hawk",
+        "granted_by": "Falconry"
+      },
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 1,
+        "area": "Shadow-Hound",
+        "granted_by": "K-9"
+      },
+      {
+        "category": "general",
+        "name": "Mandragora Garden",
+        "rating": 3,
+        "qualifier": "Shared (Keeper)"
+      },
+      {
+        "category": "general",
+        "name": "Opening the Void",
+        "rating": 2,
+        "granted_by": "MDB"
+      },
+      {
+        "category": "general",
+        "name": "The Mother-Daughter Bond",
+        "rating": 1
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Falconry",
+        "rating": 1,
+        "rank_name": "Predator's Vigil",
+        "granted_by": "MCI 2"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Falconry",
+        "rating": 2,
+        "rank_name": "Flyby",
+        "granted_by": "MCI 4"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "K-9",
+        "rating": 1,
+        "rank_name": "Detection",
+        "granted_by": "MCI 4"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "K-9",
+        "rating": 2,
+        "rank_name": "Targeted Bite",
+        "granted_by": "MCI 4"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "K-9",
+        "rating": 3,
+        "rank_name": "Tactical Positioning",
+        "granted_by": "Corpses"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Powered Projectile",
+        "rating": 1,
+        "rank_name": "Quick Reload"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Powered Projectile",
+        "rating": 2,
+        "rank_name": "Intercept Shot"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Powered Projectile",
+        "rating": 3,
+        "rank_name": "Penetration"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Powered Projectile",
+        "rating": 4,
+        "rank_name": "Skewer"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 4,
+        "cult_name": "The Iron Accord",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 0,
+        "shared_with": [
+          "Viktor Ashwood",
+          "Whisper"
+        ],
+        "notes_col_d": "MCI 1"
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1,
+        "shared_with": [
+          "Viktor Ashwood",
+          "Whisper"
+        ]
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Lady Nyx",
+        "desc": null
+      }
+    ],
+    "banes": [
+      {
+        "name": "Feral Curse",
+        "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "humanity_drop": 4,
+        "ordeals": 15,
+        "game": 3,
+        "starting": 10
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 5,
+        "powers": 23,
+        "special": 0
+      }
+    },
+    "ordeals": [
+      {
+        "name": "Questionnaire",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "History",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Rules",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Lore",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Covenant",
+        "complete": true,
+        "xp": 3
+      }
+    ],
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "clan_attribute": "Stamina",
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 2,
+        "free": 0,
+        "xp": 9
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Divination": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ]
+  },
+  {
+    "name": "Solomon 'Shade' Katz",
+    "player": "Test Player F",
+    "concept": "Nightmare Broker",
+    "pronouns": "he/him",
+    "clan": "Nosferatu",
+    "bloodline": null,
+    "covenant": "Carthian Movement",
+    "mask": "Cult Leader",
+    "dirge": "Penitent",
+    "court_title": null,
+    "apparent_age": "indeterminate",
+    "features": "High Presence",
+    "willpower": {
+      "mask_1wp": "Convince someone to deny logic because of your word.",
+      "mask_all": "Risk exile or death to defend your cult's belief system.",
+      "dirge_1wp": "Punish yourself for a mistake.",
+      "dirge_all": "Risk death to correct an egregious error in judgement."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 4,
+    "xp_total": 54,
+    "xp_spent": 54,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Investigation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Forensic Accounting"
+        ],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Motives"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Veiled Threats"
+        ],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 1,
+      "Nightmare": 4,
+      "Obfuscate": 4
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 1,
+        "name": "Dread Presence",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 2,
+        "name": "Face of the Beast",
+        "stats": "Cost: 1 V  •  Pool: 12  v Composure + BP  •  Contested  •  Instant",
+        "pool_size": 12,
+        "effect": "Impose Frightened Condition. Cause fleeing."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 3,
+        "name": "Grand Delusion",
+        "stats": "Cost: 2 V  •  Pool: 11  v Composure + BP  •  Contested  •  1 night",
+        "pool_size": 11,
+        "effect": "Impose Delusional Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 4,
+        "name": "Waking Nightmare",
+        "stats": "Cost: 1 V  •  Pool: 12  v highest Composure + BP  •  Contested  •  Scene",
+        "pool_size": 12,
+        "effect": "Create and control hallucinations."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 5  •  Instant  •  Scene",
+        "pool_size": 5,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 3,
+        "name": "Cloak of Night",
+        "stats": "Cost: 1 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 4,
+        "name": "The Familiar Stranger",
+        "stats": "Cost: 2 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Finance",
+        "granted_by": "MCI x3"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 2,
+        "area": "Politics"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 2,
+        "area": "Underworld"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Police",
+        "granted_by": "MCI x1"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "High Society",
+        "granted_by": "MCI x1"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Occult",
+        "granted_by": "MCI x1"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Media",
+        "granted_by": "MCI x1"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Street",
+        "granted_by": "MCI x1"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 3,
+        "granted_by": "MCI x3"
+      },
+      {
+        "category": "general",
+        "name": "Air of Menace",
+        "rating": 2,
+        "granted_by": "MCI"
+      },
+      {
+        "category": "general",
+        "name": "Fucking Thief",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Honey With Vinegar",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Obsidian Ledger",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Portrait of Mother",
+        "desc": null
+      },
+      {
+        "humanity": 5,
+        "name": "Old Turkish Barber",
+        "desc": null
+      }
+    ],
+    "banes": [
+      {
+        "name": "Lonely Curse",
+        "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      },
+      {
+        "name": "Plague of Purity",
+        "effect": "Touch by Integrity 8+ mortal causes (10 – Humanity) bashing damage."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "humanity_drop": 6,
+        "ordeals": 15,
+        "game": 1,
+        "starting": 10
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 14,
+        "powers": 18,
+        "special": 0
+      }
+    },
+    "ordeals": [
+      {
+        "name": "Questionnaire",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "History",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Rules",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Lore",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Covenant",
+        "complete": true,
+        "xp": 3
+      }
+    ],
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "clan_attribute": "Composure",
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Nightmare": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 5,
+        "xp": 0
+      }
+    ]
+  },
+  {
+    "name": "Viktor Ashwood",
+    "player": "Test Player A",
+    "concept": "Obsidian enforcer",
+    "pronouns": "he/him",
+    "clan": "Nosferatu",
+    "bloodline": "Order of Sir Martin",
+    "covenant": "Invictus",
+    "mask": "Conformist",
+    "dirge": "Rebel",
+    "court_title": null,
+    "apparent_age": "indeterminate",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Choose an obviously disadvantageous path because it fits with protocol.",
+      "mask_all": "Stand by the losing side with shield at the ready, because it is your side.",
+      "dirge_1wp": "Openly flout a tradition.",
+      "dirge_all": "Openly flout a Kindred Tradition or a covenant taboo."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 4,
+    "xp_total": 62,
+    "xp_spent": 62,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Crafts": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Smithing"
+        ],
+        "nine_again": true
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Coward Punch"
+        ],
+        "nine_again": true
+      },
+      "Weaponry": {
+        "dots": 4,
+        "bonus": 1,
+        "specs": [
+          "Light Weapons",
+          "Weapon & Shield"
+        ],
+        "nine_again": true
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": true
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Interrogation"
+        ],
+        "nine_again": true
+      },
+      "Socialise": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Celerity": 1,
+      "Nightmare": 1,
+      "Obfuscate": 5
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 1,
+        "name": "Dread Presence",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 10  •  Instant  •  Scene",
+        "pool_size": 10,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 3,
+        "name": "Cloak of Night",
+        "stats": "Cost: 1 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 4,
+        "name": "The Familiar Stranger",
+        "stats": "Cost: 2 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 5,
+        "name": "Oubliette",
+        "stats": "Cost: Free (Haven) / 3-9 V & 1 WP  •  Pool: -  •  Instant  •  1 week per BP",
+        "pool_size": null,
+        "effect": "Always active on Haven/Safe Place at no cost. Further uses at standard cost. Use Obfuscate at distance on anything in area."
+      },
+      {
+        "category": "devotion",
+        "name": "Repulsive Mien",
+        "stats": "Cost: 1 V (Order of Sir Martin Only); only affects other Leper Knights with concrete reasons for mistrust  •  Pool: -  •  Reflexive  •  Scene",
+        "pool_size": null,
+        "effect": "As Dread Presence but -3 to all actions against the Knight. Targets cannot spend WP to enhance actions against Knight. Victims can lash out with Beast to end the effect. Reflexive brief illusions affecting Knight's person (narrative only)."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of Fealty",
+        "rank": 1,
+        "stats": null,
+        "effect": "Draw Invictus Status in Vitae weekly from liege without feeding. Liege knows when you lie."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the Hard Motherfucker",
+        "rank": 2,
+        "stats": null,
+        "effect": "Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the Safe Word",
+        "rank": 2,
+        "stats": null,
+        "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the True Knight",
+        "rank": 4,
+        "stats": null,
+        "effect": "Impartial covenant defender. Can't consume Vitae from any source; can't be woken from torpor by blood. Invictus Status protects from mental Disciplines and Kindred/ghoul attacks."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 1,
+        "area": "Police"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Street"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Underworld"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 1,
+        "area": "Police"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 5
+      },
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 1,
+        "qualifier": "Coward Punch"
+      },
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 1,
+        "qualifier": "Light Weapons"
+      },
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 1,
+        "qualifier": "Weapon & Shield"
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Defensive Combat",
+        "rating": 1,
+        "qualifier": "Weaponry",
+        "granted_by": "Mystery Cult Initiation"
+      },
+      {
+        "category": "general",
+        "name": "Friends in High Places",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2,
+        "granted_by": "Mystery Cult Initiation"
+      },
+      {
+        "category": "general",
+        "name": "Interdisciplinary Specialty",
+        "rating": 1,
+        "qualifier": "Coward Punch"
+      },
+      {
+        "category": "general",
+        "name": "Invested",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Courtoisie",
+        "rating": 1,
+        "rank_name": "Establish the Duel",
+        "granted_by": "Oath of the Hard Motherfucker"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Courtoisie",
+        "rating": 3,
+        "rank_name": "Demanding Attention",
+        "granted_by": "Oath of the Hard Motherfucker"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Light Weapons",
+        "rating": 2,
+        "rank_name": "Thrust",
+        "granted_by": "Oath of the Hard Motherfucker"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Light Weapons",
+        "rating": 4,
+        "rank_name": "Flurry",
+        "granted_by": "Oath of the Hard Motherfucker"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Strength Performance",
+        "rating": 1,
+        "rank_name": "Strength Tricks",
+        "granted_by": "Oath of the Hard Motherfucker"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Strength Performance",
+        "rating": 2,
+        "rank_name": "Lifting",
+        "granted_by": "Oath of the Hard Motherfucker"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Strength Performance",
+        "rating": 3,
+        "rank_name": "Push/Pull",
+        "granted_by": "Mystery Cult Initiation"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Strength Performance",
+        "rating": 4,
+        "rank_name": "Stronger Than You",
+        "granted_by": "Mystery Cult Initiation"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Weapon and Shield",
+        "rating": 1,
+        "rank_name": "Shield Bash",
+        "granted_by": "Mystery Cult Initiation"
+      },
+      {
+        "category": "manoeuvre",
+        "name": "Weapon and Shield",
+        "rating": 3,
+        "rank_name": "Pin Weapon",
+        "granted_by": "Mystery Cult Initiation"
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "",
+        "asset_skills": [
+          "Crafts",
+          "Stealth",
+          "Weaponry",
+          "Empathy",
+          "Intimidation"
+        ]
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Iron Accord",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 0,
+        "shared_with": [
+          "Selene Varga",
+          "Whisper"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1,
+        "shared_with": [
+          "Selene Varga",
+          "Whisper"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5
+      },
+      {
+        "category": "general",
+        "name": "Quick Draw",
+        "rating": 1,
+        "qualifier": "Light Weapons",
+        "granted_by": "Oath of the Hard Motherfucker"
+      },
+      {
+        "category": "general",
+        "name": "Support Network",
+        "rating": 1,
+        "qualifier": "Whisper",
+        "granted_by": "Oath of the Safe Word"
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Dmitri",
+        "desc": "rescued informant"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Lonely Curse",
+        "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      },
+      {
+        "name": "Rat King/Queen",
+        "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "humanity_drop": 6,
+        "ordeals": 15,
+        "game": 3,
+        "starting": 10
+      },
+      "spent": {
+        "attributes": 4,
+        "skills": 0,
+        "merits": 16,
+        "powers": 14,
+        "special": 0
+      }
+    },
+    "ordeals": [
+      {
+        "name": "Questionnaire",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "History",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Rules",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Lore",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Covenant",
+        "complete": true,
+        "xp": 3
+      }
+    ],
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    },
+    "clan_attribute": "Strength",
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      }
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Nightmare": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 4,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 4
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 5
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 5,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ]
+  },
+  {
+    "name": "Whisper",
+    "player": "Test Player C",
+    "concept": "Memory Thief",
+    "pronouns": "they/them",
+    "clan": "Mekhet",
+    "bloodline": "Mnemosyne",
+    "covenant": "Circle of the Crone",
+    "mask": "Junkie",
+    "dirge": "Masochist",
+    "court_title": null,
+    "apparent_age": "Late 40s",
+    "features": "Inhumanly high presence",
+    "willpower": {
+      "mask_1wp": "Ignore a problem or responsibility in favour of immediate gratification.",
+      "mask_all": "Abandon an important relationship over your pursuit of pleasure.",
+      "dirge_1wp": "Find and experience a new source of hurt.",
+      "dirge_all": "Willingly explore pain beyond the point of safety and reason."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 3,
+    "xp_total": 62,
+    "xp_spent": 61,
+    "status": {
+      "city": 1,
+      "clan": 3,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 1,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Occult": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "Archery"
+        ],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Sin-Eater"
+        ],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Mesmerise"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 1,
+      "Celerity": 1,
+      "Dominate": 4,
+      "Obfuscate": 1,
+      "Cruac": 4,
+      "Creation": 1,
+      "Protection": 1,
+      "Transmutation": 4
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 12  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 12,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 2,
+        "name": "Iron Edict",
+        "stats": "Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  •  Pool: -  •  Instant  •  Instant",
+        "pool_size": null,
+        "effect": "Impose Dominated Condition. Give long, detailed commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 3,
+        "name": "Entombed Command",
+        "stats": "Cost: - (req: Mesmerised)   •  Pool: 10  - Resolve  •  Instant  •  1 week/success (1 month bonded)",
+        "pool_size": 10,
+        "effect": "Establish triggers for other Dominate powers."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 4,
+        "name": "The Lying Mind",
+        "stats": "Cost: 2 V (req: Mesmerised)   •  Pool: -  •  Instant  •  Permanent",
+        "pool_size": null,
+        "effect": "Impose Amnesia or False Memories Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "devotion",
+        "name": "The Taste of Things Lived",
+        "stats": "Cost: 1 V (reflexive for insight) (Mnemosyne Only)  •  Pool: 7  •  Reflexive  •  Scene",
+        "pool_size": 7,
+        "effect": "Feeding creates artificial blood ties (+2 Social vs target; Twice Removed for Blood Sympathy). Sever for 1 WP. Can effect blood ties with Touch of Shadow. Spend 1 V: +1 Mental per applicable human/vampire within 100 metres."
+      },
+      {
+        "category": "devotion",
+        "name": "The Exchange of Things Past",
+        "stats": "Cost: 1 V (Mnemosyne Only); blood tie to target; replaces The Lying Mind  •  Pool: 12  v Resolve + BP  •  Contested  •  Scene / Permanent (elective)",
+        "pool_size": 12,
+        "effect": "Exchange memories with target. For each memory taken, must give one of equal length. Both gain False Memories condition. After scene, own memories return but exchanged memories remain, or elect to make permanent. Traumatic memories: vampire rolls Fear Frenzy, mortal Resolve + Composure or Shaken."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Mantle of Amorous Fire",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
+        "pool_size": 11,
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 2,
+        "name": "Wisdom of the Soul",
+        "stats": "Cost: 1 V 2 Successes  •  Pool: 11  •  Ritual  •  Instant",
+        "pool_size": 11,
+        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie"
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Deflection of Wooden Doom",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
+        "pool_size": 11,
+        "effect": "Caster becomes immune to staking for one night."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 4,
+        "name": "Willful Vitae",
+        "stats": "Cost: 2 V 4 Successes  •  Pool: 11  •  Ritual  •  Until used",
+        "pool_size": 11,
+        "effect": "Prevent the onset of blood addiction or the Vinculum for the night."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the Safe Word",
+        "rank": 2,
+        "stats": null,
+        "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 5,
+        "granted_by": "Safe Word"
+      },
+      {
+        "category": "general",
+        "name": "Empath",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Mandragora Garden",
+        "rating": 3,
+        "qualifier": "Shared (Ivana)"
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Hollow Archive",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Eidetic Memory",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Table Turner",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Indomitable",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Peacemaker",
+            "rating": 3
+          },
+          {
+            "category": "general",
+            "name": "Closed Book",
+            "rating": 3
+          }
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1,
+        "shared_with": [
+          "Viktor Ashwood",
+          "Selene Varga"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 0,
+        "shared_with": [
+          "Viktor Ashwood",
+          "Selene Varga"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "notes_col_d": "SSJ"
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Marguerite",
+        "desc": "Dead Wife"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      },
+      {
+        "name": "Hated by Beasts",
+        "effect": "Animals react violently; Animal Ken/Animalism suffer (10 – Humanity) penalty."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "humanity_drop": 8,
+        "ordeals": 15,
+        "game": 3,
+        "starting": 10
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 7,
+        "powers": 28,
+        "special": 0
+      }
+    },
+    "ordeals": [
+      {
+        "name": "Questionnaire",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "History",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Rules",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Lore",
+        "complete": true,
+        "xp": 3
+      },
+      {
+        "name": "Covenant",
+        "complete": true,
+        "xp": 3
+      }
+    ],
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "clan_attribute": "Intelligence",
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Dominate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Transmutation": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 5,
+        "xp": 0
+      }
+    ]
+  }
+];

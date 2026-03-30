@@ -8,21 +8,17 @@
 
 import state from './data.js';
 import { feedClearState, feedInit } from './tracker-feed.js';
+import { getAttrVal, influenceTotal, calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
 
 // ══════════════════════════════════════════════
 //  STATE HELPERS
 // ══════════════════════════════════════════════
 
-function stMaxVitae(c) { return 9 + (c.blood_potency || 1); }
+function stMaxVitae(c) { return calcVitaeMax(c); }
 
-function stMaxWP(c) {
-  const a = c.attributes || {};
-  return (a['Resolve'] || 0) + (a['Composure'] || 0);
-}
+function stMaxWP(c) { return calcWillpowerMax(c); }
 
-function stMaxInf(c) {
-  return (c.influence || []).reduce((s, x) => s + (x.dots || 0), 0);
-}
+function stMaxInf(c) { return influenceTotal(c); }
 
 function stGetTracker(c) {
   const key = 'tm_tracker_' + c.name;
@@ -118,7 +114,7 @@ function renderPrestige() {
     const clan = st.clan || 0;
     const cov = st.covenant || 0;
     const prestige = clan + cov;
-    const influence = c.influence_total || 0;
+    const influence = influenceTotal(c);
     return { name: c.name, clan, cov, prestige, influence };
   }).sort((a, b) => b.prestige - a.prestige || b.influence - a.influence).slice(0, 6);
 
