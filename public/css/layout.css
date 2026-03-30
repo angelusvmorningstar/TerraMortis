@@ -1,0 +1,18 @@
+/* ══════════════════════════════════════════
+   LAYOUT — Structural layout and resets
+   ══════════════════════════════════════════ */
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+
+
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--fb);-webkit-tap-highlight-color:transparent;}
+body{display:flex;flex-direction:column;min-height:100dvh;}
+
+/* App container and view switching */
+#app{flex:1;overflow:hidden;position:relative;}
+.view{position:absolute;inset:0;overflow-y:auto;display:none;padding:24px;}
+.view.active{display:block;}
+
+/* Utility */
+.hidden{display:none!important;}

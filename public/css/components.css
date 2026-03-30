@@ -1,0 +1,82 @@
+/* ══════════════════════════════════════════
+   COMPONENTS — Shared UI components
+   Used by both Editor and Suite
+   ══════════════════════════════════════════ */
+
+/* ── Character cards ── */
+.char-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
+.char-card{background:var(--surf);border:1px solid var(--bdr);border-radius:8px;padding:14px 18px;cursor:pointer;transition:border-color .15s,background .15s;display:flex;flex-direction:column;gap:6px;}
+.char-card:hover{border-color:var(--bdr2);background:var(--surf2);}
+.char-card.dirty{border-left:3px solid var(--gold);}
+.cc-top{display:flex;align-items:center;gap:10px;}
+.cc-icon{width:28px;height:28px;flex-shrink:0;opacity:.7;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);}
+.cc-identity{flex:1;min-width:0;}
+.cc-name{font-family:var(--fh);font-size:15px;color:var(--gold2);letter-spacing:.02em;}
+.cc-player{font-size:12px;color:var(--txt3);}
+.cc-mid{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.cc-tag{font-family:var(--fh);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);background:var(--surf2);border:0.5px solid var(--bdr);border-radius:10px;padding:2px 8px;display:flex;align-items:center;gap:4px;}
+.cc-tag img{width:14px;height:14px;opacity:.6;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);}
+.cc-tag.clan{color:var(--txt2);}
+.cc-tag.cov{color:var(--gdim);}
+.cc-tag.title{color:var(--gold);border-color:var(--bdr2);}
+.cc-bot{display:flex;gap:16px;font-size:12px;color:var(--txt3);}
+.cc-bot span{white-space:nowrap;}
+.cc-bot .val{color:var(--txt2);}
+
+/* ── Form elements ── */
+.form-section{margin-bottom:28px;}
+.form-section-title{font-family:var(--fh);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--gdim);margin-bottom:14px;padding-bottom:6px;border-bottom:1px solid var(--bdr);}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px 20px;}
+.form-row{display:flex;flex-direction:column;gap:4px;}
+.form-label{font-family:var(--fh);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);}
+.form-input{background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;padding:8px 12px;font-family:var(--fb);font-size:14px;color:var(--txt);outline:none;transition:border-color .15s;}
+.form-input:focus{border-color:var(--bdr3);}
+.form-select{background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;padding:8px 12px;font-family:var(--fb);font-size:14px;color:var(--txt);outline:none;cursor:pointer;}
+.form-select:focus{border-color:var(--bdr3);}
+.form-select option{background:var(--surf);color:var(--txt);}
+
+/* ── Dot steppers ── */
+.dot-stepper{display:flex;gap:2px;align-items:center;}
+.dot{width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;user-select:none;-webkit-tap-highlight-color:transparent;transition:opacity .1s;}
+.dot.filled{color:var(--gold);}
+.dot.bonus{color:var(--gdim);}
+.dot.empty{color:var(--txt3);opacity:.3;}
+.dot:hover{opacity:1;}
+
+/* ── Expandable rows ── */
+.exp-row{display:flex;justify-content:space-between;align-items:center;padding:10px 10px;min-height:44px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;cursor:pointer;margin-bottom:3px;user-select:none;-webkit-user-select:none;}
+.exp-row.open{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;margin-bottom:0;}
+.exp-lbl{font-family:var(--fh);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);flex-shrink:0;}
+.exp-lbl.labeled{min-width:54px;}
+.exp-val{font-family:var(--fh);font-size:11px;color:var(--txt2);flex:1;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.exp-arr{font-size:11px;color:var(--txt3);transition:transform .15s;flex-shrink:0;}
+.exp-body{display:none;background:var(--surf3);border:0.5px solid var(--bdr);border-top:none;border-radius:0 0 4px 4px;padding:9px 10px;margin-bottom:3px;font-family:var(--fb);font-size:11px;color:var(--txt2);line-height:1.6;}
+.exp-body.visible{display:block;}
+.exp-wp-lbl{font-family:var(--fh);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-right:4px;}
+.exp-ts-row{margin-bottom:5px;}
+.exp-ts-hum{font-family:var(--fh);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);display:block;margin-bottom:2px;}
+.exp-ts-name{font-family:var(--fh);font-size:11px;color:var(--txt);}
+.exp-ts-desc{font-family:var(--fh);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+
+/* ── Shared icon filters ── */
+.topbar-logo{width:28px;height:28px;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);opacity:.8;}
+.edit-icon{width:22px;height:22px;opacity:.7;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);}
+
+/* ── Search and filter toolbar ── */
+.list-toolbar{display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;}
+.list-search{flex:1;min-width:200px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:8px 14px;font-family:var(--fb);font-size:14px;color:var(--txt);outline:none;}
+.list-search:focus{border-color:var(--bdr3);}
+.list-search::placeholder{color:var(--txt3);}
+.list-filter{background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:8px 12px;font-family:var(--fb);font-size:13px;color:var(--txt);cursor:pointer;outline:none;}
+.list-filter:focus{border-color:var(--bdr3);}
+.list-count{font-family:var(--fh);font-size:11px;color:var(--txt3);letter-spacing:.06em;}
+
+/* ── Merit breakdown row ── */
+.merit-bd-row{display:flex;align-items:center;gap:6px;background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 5px 5px;padding:5px 8px;font-size:9px;font-family:var(--fb);}
+.merit-bd-row .bd-lbl{color:var(--txt3);}
+.merit-bd-input{width:28px;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:9px;text-align:center;padding:1px 2px;outline:none;}
+.merit-bd-input:focus{border-color:var(--gold);}
+.bd-total{font-size:9px;font-family:var(--fb);color:var(--txt3);margin-left:auto;}
+.bd-up{color:var(--err)!important;}
+.bd-up-input{border-color:var(--err-a40)!important;}
+.bd-up-warn{color:var(--err);font-style:italic;margin-left:2px;}
