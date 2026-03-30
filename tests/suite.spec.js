@@ -1,37 +1,45 @@
 const { test, expect } = require('@playwright/test');
 
-test.describe('Suite — Load & Navigation', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/index.html');
-    await page.waitForSelector('#n-roll');
-  });
+// Helper: navigate to a tab in the unified SPA
+async function openTab(page, tabName) {
+  await page.goto('/index.html');
+  await page.waitForSelector('#bnav');
+  if (tabName !== 'chars') {
+    await page.click(`#n-${tabName}`);
+  }
+}
 
+test.describe('Suite — Load & Navigation', () => {
   test('no console errors on load', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto('/index.html');
-    await page.waitForSelector('#n-roll');
+    await page.waitForSelector('#bnav');
     expect(errors).toHaveLength(0);
   });
 
   test('character dropdown is populated', async ({ page }) => {
-    const options = page.locator('#char-sel option');
+    await openTab(page, 'st');
+    const options = page.locator('#st-char-sel option');
     const count = await options.count();
     expect(count).toBeGreaterThan(1);
   });
 
   test('tab navigation works', async ({ page }) => {
-    await page.click('#n-sheets');
-    await expect(page.locator('#t-sheets')).toHaveClass(/active/);
+    await openTab(page, 'chars');
+
+    await page.click('#n-roll');
+    await expect(page.locator('#t-roll')).toHaveClass(/active/);
 
     await page.click('#n-st');
     await expect(page.locator('#t-st')).toHaveClass(/active/);
 
-    await page.click('#n-roll');
-    await expect(page.locator('#t-roll')).toHaveClass(/active/);
+    await page.click('#n-chars');
+    await expect(page.locator('#t-chars')).toHaveClass(/active/);
   });
 
   test('theme.css loads and defines custom properties', async ({ page }) => {
+    await page.goto('/index.html');
     const bg = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
     );
@@ -41,8 +49,7 @@ test.describe('Suite — Load & Navigation', () => {
 
 test.describe('Suite — Roll Tab', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/index.html');
-    await page.waitForSelector('#roll-btn');
+    await openTab(page, 'roll');
   });
 
   test('pool display shows initial value', async ({ page }) => {
@@ -54,7 +61,7 @@ test.describe('Suite — Roll Tab', () => {
 
   test('pool increment/decrement works', async ({ page }) => {
     const before = await page.locator('#pval').textContent();
-    await page.locator('button', { hasText: '+' }).first().click();
+    await page.locator('#t-roll button', { hasText: '+' }).first().click();
     const after = await page.locator('#pval').textContent();
     expect(parseInt(after)).toBe(parseInt(before) + 1);
   });
@@ -100,39 +107,9 @@ test.describe('Suite — Roll Tab', () => {
   });
 });
 
-test.describe('Suite — Sheet Tab', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/index.html');
-    await page.waitForSelector('#n-sheets');
-    await page.click('#n-sheets');
-  });
-
-  test('selecting a character renders sheet', async ({ page }) => {
-    const options = await page.locator('#char-sel option').allTextContents();
-    const charName = options.find(o => o !== '\u2014 Select character \u2014');
-    if (charName) {
-      await page.selectOption('#char-sel', charName);
-      const content = page.locator('#sh-content');
-      await expect(content).not.toBeEmpty();
-    }
-  });
-
-  test('sheet displays character name', async ({ page }) => {
-    const options = await page.locator('#char-sel option').allTextContents();
-    const charName = options.find(o => o !== '\u2014 Select character \u2014');
-    if (charName) {
-      await page.selectOption('#char-sel', charName);
-      const text = await page.locator('#sh-content').textContent();
-      expect(text).toContain(charName.split(' ')[0]);
-    }
-  });
-});
-
 test.describe('Suite — Tracker Tab', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/index.html');
-    await page.waitForSelector('#n-st');
-    await page.click('#n-st');
+    await openTab(page, 'st');
   });
 
   test('tracker character dropdown is populated', async ({ page }) => {
@@ -163,9 +140,7 @@ test.describe('Suite — Tracker Tab', () => {
 
 test.describe('Suite — Territory Tab', () => {
   test('territory tab renders React component', async ({ page }) => {
-    await page.goto('/index.html');
-    await page.waitForSelector('#n-territory');
-    await page.click('#n-territory');
+    await openTab(page, 'territory');
     const container = page.locator('#terr-root');
     await expect(container).not.toBeEmpty();
   });

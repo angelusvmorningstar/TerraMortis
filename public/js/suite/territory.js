@@ -1,11 +1,13 @@
 /**
- * territory.js — Territory Bids tab (React component).
+ * territory.js — Territory Bids tab (vanilla JS).
  *
  * Manages territory bidding, influence allocation, and resolution
- * for the five city territories. Uses React 18 via CDN (window.React/ReactDOM).
+ * for the five city territories. No framework dependencies.
  */
 
-const { createElement: h, useState, useEffect, useRef, Component } = window.React;
+// ══════════════════════════════════════════════
+//  CONSTANTS & DATA
+// ══════════════════════════════════════════════
 
 const TERRS = [
   { id: 'academy', name: 'The Academy', defaultRegent: 'Jack Fallow', ambience: 'Curated', ambienceMod: +3 },
@@ -18,6 +20,15 @@ const TERRS = [
 const KEY = 'tm_bids_v2';
 let _id = Date.now();
 const uid = () => String(++_id);
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+
+let state = null;
+let modal = null;
+let saving = false;
+let _saveTimer = null;
 
 function dflt() {
   return {
@@ -35,10 +46,27 @@ function load() {
   return dflt();
 }
 
+function persist() {
+  clearTimeout(_saveTimer);
+  saving = true;
+  render();
+  _saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ phase: state.phase, peek: state.peek, territories: state.territories }));
+    } catch (e) { /* ignore */ }
+    saving = false;
+    render();
+  }, 500);
+}
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+
 const _fuzz = {};
 function peekInfo(n, bidId) {
   if (n <= 0) return { approx: 0 };
-  if (!_fuzz[bidId]) _fuzz[bidId] = (Math.random() * 0.3) - 0.15; // +/-15%
+  if (!_fuzz[bidId]) _fuzz[bidId] = (Math.random() * 0.3) - 0.15;
   const approx = Math.max(0, Math.round(n * (1 + _fuzz[bidId])));
   return { approx };
 }
@@ -47,292 +75,383 @@ function total(bid) {
   return bid.backing.reduce((s, b) => s + b.amount, 0) + bid.rulerAdjust;
 }
 
-// ══════════════════════════════════════════════
-//  APP COMPONENT
-// ══════════════════════════════════════════════
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
-class App extends Component {
-  constructor(p) {
-    super(p);
-    this.state = { ...load(), modal: null, saving: false };
-    this._t = null;
-  }
+function nameOpts(sel) {
+  const names = window._charNames || [];
+  return names.map(n => `<option value="${esc(n)}"${n === sel ? ' selected' : ''}>${esc(n)}</option>`).join('');
+}
 
-  _save(ns) {
-    clearTimeout(this._t);
-    this.setState({ saving: true });
-    this._t = setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify({ phase: ns.phase, peek: ns.peek, territories: ns.territories }));
-      } catch (e) { /* ignore */ }
-      this.setState({ saving: false });
-    }, 500);
-  }
-
-  set(fn) {
-    this.setState(s => {
-      const ns = fn(s);
-      this._save(ns);
-      return ns;
-    });
-  }
-
-  ut(id, fn) {
-    this.set(s => ({ ...s, territories: s.territories.map(t => t.id === id ? fn(t) : t) }));
-  }
-
-  addBid(tid, cl, sc) {
-    this.ut(tid, t => {
-      const newBid = { id: uid(), claimant: cl, seconder: sc, backing: [], rulerAdjust: 0 };
-      const bids = [...t.bids, newBid];
-      // Auto-add regent defensive bid if regent exists and not already bidding
-      if (t.regent && !t.bids.some(b => b.claimant.trim().toLowerCase() === t.regent.trim().toLowerCase()) && cl.trim().toLowerCase() !== t.regent.trim().toLowerCase()) {
-        const regBid = { id: uid(), claimant: t.regent, seconder: '(Regent — automatic)', backing: [], rulerAdjust: 0 };
-        return { ...t, bids: [...bids, regBid] };
-      }
-      return { ...t, bids };
-    });
-  }
-
-  rmBid(tid, bid) {
-    this.ut(tid, t => ({ ...t, bids: t.bids.filter(b => b.id !== bid), resolved: false, winnerId: null }));
-  }
-
-  addBack(tid, bid, pl, amt) {
-    this.ut(tid, t => ({ ...t, bids: t.bids.map(b => b.id === bid ? { ...b, backing: [...b.backing, { id: uid(), player: pl, amount: amt }] } : b) }));
-  }
-
-  rmBack(tid, bid, bk) {
-    this.ut(tid, t => ({ ...t, bids: t.bids.map(b => b.id === bid ? { ...b, backing: b.backing.filter(x => x.id !== bk) } : b) }));
-  }
-
-  adj(tid, bid, d) {
-    this.ut(tid, t => ({ ...t, bids: t.bids.map(b => b.id === bid ? { ...b, rulerAdjust: b.rulerAdjust + d } : b) }));
-  }
-
-  resolve(tid) {
-    this.ut(tid, t => {
-      if (!t.bids.length) return t;
-      let best = null, bs = -Infinity, bestName = null;
-      t.bids.forEach(b => {
-        const def = t.regent && b.claimant.trim().toLowerCase() === t.regent.trim().toLowerCase();
-        const sc = total(b) + (def ? 3 : 0);
-        if (sc > bs) { bs = sc; best = b.id; bestName = b.claimant.trim(); }
-      });
-      return { ...t, resolved: true, winnerId: best, regent: bestName || t.regent, regentInput: bestName || t.regentInput };
-    });
-  }
-
-  unres(tid) {
-    this.ut(tid, t => ({ ...t, resolved: false, winnerId: null }));
-  }
-
-  reset() {
-    const cur = this.state.territories;
-    const ns = dflt();
-    ns.territories = ns.territories.map(t => {
-      const existing = cur.find(c => c.id === t.id);
-      return existing ? { ...t, regent: existing.regent, regentInput: existing.regentInput } : t;
-    });
-    this.setState({ ...ns, modal: null, saving: false });
-    try { localStorage.setItem(KEY, JSON.stringify(ns)); } catch (e) { /* ignore */ }
-  }
-
-  render() {
-    const { phase, peek, territories, modal, saving } = this.state;
-    const totBids = territories.reduce((s, t) => s + t.bids.length, 0);
-    const totInf = territories.reduce((s, t) => s + t.bids.reduce((s2, b) => s2 + b.backing.reduce((s3, bk) => s3 + bk.amount, 0), 0), 0);
-    const res = territories.filter(t => t.resolved).length;
-    const nextPhase = { open: 'Call Final Commitments', final: 'Reveal Tallies' };
-    const prevPhase = { final: 'Re-open Bidding', reveal: 'Back to Final Commitments' };
-    return h(window.React.Fragment, null,
-
-      h('div', null,
-        h('div', { className: 'toolbar' },
-          h('div', { className: 'toolbar-l' },
-            h('div', { className: 'phase-pill phase-' + phase }, h('span', { className: 'phase-dot' }), phase === 'open' ? 'Bidding Open' : phase === 'final' ? 'Final Commitments' : 'Tallies Revealed'),
-            h('span', { className: 'save-dot ' + (saving ? 'save-busy' : 'save-ok') }, saving ? 'Saving\u2026' : 'Saved')
-          ),
-          h('div', { className: 'toolbar-r' },
-            phase !== 'reveal' && h('button', { className: 'btn-primary btn-sm', onClick: () => this.set(s => ({ ...s, phase: phase === 'open' ? 'final' : 'reveal' })) }, nextPhase[phase]),
-            phase === 'reveal' && h('button', { className: 'btn-sm', onClick: () => this.set(s => ({ ...s, phase: 'final' })) }, prevPhase.reveal),
-            phase === 'final' && h('button', { className: 'btn-sm', onClick: () => this.set(s => ({ ...s, phase: 'open' })) }, prevPhase.final),
-            h('button', { className: 'btn-danger btn-sm', onClick: () => this.reset() }, 'Reset All')
-          )
-        ),
-        h('div', { className: 'summary' },
-          h('div', { className: 'sum-item' }, h('div', { className: 'sum-val' }, totBids), h('div', { className: 'sum-lbl' }, 'Open Bids')),
-          h('div', { className: 'sum-item' }, h('div', { className: 'sum-val' }, totInf), h('div', { className: 'sum-lbl' }, 'Influence In')),
-          h('div', { className: 'sum-item' }, h('div', { className: 'sum-val' }, res + '/5'), h('div', { className: 'sum-lbl' }, 'Resolved'))
-        ),
-        h('div', { className: 'peek-strip' },
-          h('div', { className: 'peek-info' }, h('strong', null, "Prince's Peek"), ' \u2014 show approximate tallies without revealing exact numbers'),
-          h('label', { className: 'peek-toggle-label' },
-            h('input', { type: 'checkbox', checked: peek, onChange: () => this.set(s => ({ ...s, peek: !s.peek })) }),
-            peek ? 'Peek on (approximate)' : 'Peek off (exact)'
-          )
-        ),
-        h('div', { className: 'terr-grid' },
-          territories.map(t => h(TCard, {
-            key: t.id, t, peek,
-            onBid: () => this.setState({ modal: { type: 'bid', tid: t.id, tname: t.name } }),
-            onBack: bid => this.setState({ modal: { type: 'back', tid: t.id, bid } }),
-            onRmBack: (bid, bk) => this.rmBack(t.id, bid, bk),
-            onAdj: (bid, d) => this.adj(t.id, bid, d),
-            onRmBid: bid => { if (confirm('Remove this bid?')) this.rmBid(t.id, bid); },
-            onResolve: () => this.resolve(t.id),
-            onUnres: () => this.unres(t.id),
-            onRegIn: v => this.ut(t.id, x => ({ ...x, regentInput: v })),
-            onRegSet: v => this.ut(t.id, x => ({ ...x, regent: v, regentInput: v })),
-          }))
-        )
-      ),
-      modal && h(Modal, {
-        modal, territories, onClose: () => this.setState({ modal: null }),
-        onAddBid: (tid, cl, sc) => { this.addBid(tid, cl, sc); this.setState({ modal: null }); },
-        onAddBack: (tid, bid, pl, am) => { this.addBack(tid, bid, pl, am); this.setState({ modal: null }); },
-      })
-    );
-  }
+function ut(tid, fn) {
+  state.territories = state.territories.map(t => t.id === tid ? fn(t) : t);
+  persist();
+  render();
 }
 
 // ══════════════════════════════════════════════
-//  TERRITORY CARD
+//  ACTIONS (exposed on window for onclick)
 // ══════════════════════════════════════════════
 
-function TCard({ t, peek, onBid, onBack, onRmBack, onAdj, onRmBid, onResolve, onUnres, onRegIn, onRegSet }) {
+window.terrAdvance = function () {
+  if (state.phase === 'open') state.phase = 'final';
+  else if (state.phase === 'final') state.phase = 'reveal';
+  persist(); render();
+};
+
+window.terrBack = function (to) {
+  state.phase = to;
+  persist(); render();
+};
+
+window.terrTogglePeek = function () {
+  state.peek = !state.peek;
+  persist(); render();
+};
+
+window.terrResetAll = function () {
+  const cur = state.territories;
+  const ns = dflt();
+  ns.territories = ns.territories.map(t => {
+    const existing = cur.find(c => c.id === t.id);
+    return existing ? { ...t, regent: existing.regent, regentInput: existing.regentInput } : t;
+  });
+  state = ns;
+  modal = null;
+  saving = false;
+  try { localStorage.setItem(KEY, JSON.stringify(ns)); } catch (e) { /* ignore */ }
+  render();
+};
+
+window.terrSetRegent = function (tid, val) {
+  ut(tid, t => ({ ...t, regent: val, regentInput: val }));
+};
+
+window.terrOpenBidModal = function (tid, tname) {
+  modal = { type: 'bid', tid, tname };
+  render();
+};
+
+window.terrOpenBackModal = function (tid, bidId) {
+  modal = { type: 'back', tid, bid: bidId };
+  render();
+};
+
+window.terrAddBid = function (tid, cl, sc) {
+  ut(tid, t => {
+    const newBid = { id: uid(), claimant: cl, seconder: sc, backing: [], rulerAdjust: 0 };
+    const bids = [...t.bids, newBid];
+    if (t.regent && !t.bids.some(b => b.claimant.trim().toLowerCase() === t.regent.trim().toLowerCase()) && cl.trim().toLowerCase() !== t.regent.trim().toLowerCase()) {
+      const regBid = { id: uid(), claimant: t.regent, seconder: '(Regent \u2014 automatic)', backing: [], rulerAdjust: 0 };
+      return { ...t, bids: [...bids, regBid] };
+    }
+    return { ...t, bids };
+  });
+};
+
+window.terrRmBid = function (tid, bidId) {
+  if (!confirm('Remove this bid?')) return;
+  ut(tid, t => ({ ...t, bids: t.bids.filter(b => b.id !== bidId), resolved: false, winnerId: null }));
+};
+
+window.terrAddBack = function (tid, bidId, pl, amt) {
+  ut(tid, t => ({ ...t, bids: t.bids.map(b => b.id === bidId ? { ...b, backing: [...b.backing, { id: uid(), player: pl, amount: amt }] } : b) }));
+};
+
+window.terrRmBack = function (tid, bidId, bkId) {
+  ut(tid, t => ({ ...t, bids: t.bids.map(b => b.id === bidId ? { ...b, backing: b.backing.filter(x => x.id !== bkId) } : b) }));
+};
+
+window.terrAdj = function (tid, bidId, d) {
+  ut(tid, t => ({ ...t, bids: t.bids.map(b => b.id === bidId ? { ...b, rulerAdjust: b.rulerAdjust + d } : b) }));
+};
+
+window.terrAdjReset = function (tid, bidId) {
+  ut(tid, t => ({ ...t, bids: t.bids.map(b => b.id === bidId ? { ...b, rulerAdjust: 0 } : b) }));
+};
+
+window.terrResolve = function (tid) {
+  ut(tid, t => {
+    if (!t.bids.length) return t;
+    let best = null, bs = -Infinity, bestName = null;
+    t.bids.forEach(b => {
+      const def = t.regent && b.claimant.trim().toLowerCase() === t.regent.trim().toLowerCase();
+      const sc = total(b) + (def ? 3 : 0);
+      if (sc > bs) { bs = sc; best = b.id; bestName = b.claimant.trim(); }
+    });
+    return { ...t, resolved: true, winnerId: best, regent: bestName || t.regent, regentInput: bestName || t.regentInput };
+  });
+};
+
+window.terrUnres = function (tid) {
+  ut(tid, t => ({ ...t, resolved: false, winnerId: null }));
+};
+
+window.terrCloseModal = function () {
+  modal = null;
+  render();
+};
+
+window.terrModalSubmit = function () {
+  const m = modal;
+  if (!m) return;
+  if (m.type === 'bid') {
+    const cl = document.getElementById('modal-cl')?.value;
+    const sc = document.getElementById('modal-sc')?.value;
+    if (!cl) { document.getElementById('modal-err').textContent = 'Claimant required.'; return; }
+    if (!sc) { document.getElementById('modal-err').textContent = 'Seconder required.'; return; }
+    if (cl === sc) { document.getElementById('modal-err').textContent = 'Claimant and seconder must be different characters.'; return; }
+    const terr = state.territories.find(t => t.id === m.tid);
+    if (terr && terr.bids.some(b => b.claimant.trim().toLowerCase() === cl.trim().toLowerCase())) {
+      document.getElementById('modal-err').textContent = cl.split(' ')[0] + ' already has a bid in this territory.'; return;
+    }
+    window.terrAddBid(m.tid, cl, sc);
+  } else {
+    const pl = document.getElementById('modal-pl')?.value;
+    const am = parseInt(document.getElementById('modal-am')?.value);
+    if (!pl) { document.getElementById('modal-err').textContent = 'Player name required.'; return; }
+    if (!am || am < 1) { document.getElementById('modal-err').textContent = 'Enter a positive amount.'; return; }
+    window.terrAddBack(m.tid, m.bid, pl, am);
+  }
+  modal = null;
+  render();
+};
+
+window.terrOverlayClick = function (ev) {
+  if (ev.target.classList.contains('overlay')) { modal = null; render(); }
+};
+
+// ══════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════
+
+function renderBid(t, bid, i, scores, maxScore) {
+  const def = t.regent && bid.claimant.trim().toLowerCase() === t.regent.trim().toLowerCase();
+  const sc = scores[i];
+  const isMax = sc === maxScore && sc > 0;
+  const isWin = t.resolved && bid.id === t.winnerId;
+  const isLose = t.resolved && bid.id !== t.winnerId;
+  const { approx } = peekInfo(sc, bid.id);
+  const cls = 'bid' + (isWin ? ' bid-win' : isLose ? ' bid-lose' : '');
+
+  let backHtml = '';
+  if (bid.backing.length > 0) {
+    backHtml = `<div class="back-list">${bid.backing.map(bk => `
+      <div class="back-row">
+        <span class="back-name">${esc(bk.player)}</span>
+        <div class="back-right">
+          <span class="back-amt">+${bk.amount}</span>
+          ${!t.resolved ? `<button class="back-del" onclick="terrRmBack('${t.id}','${bid.id}','${bk.id}')" title="Remove">\u00d7</button>` : ''}
+        </div>
+      </div>`).join('')}</div>`;
+  }
+
+  let rulerHtml = '';
+  if (!t.resolved) {
+    const avCls = bid.rulerAdjust > 0 ? 'av-pos' : bid.rulerAdjust < 0 ? 'av-neg' : 'av-zero';
+    const valDisp = state.peek ? '\u00b7' : (bid.rulerAdjust >= 0 ? '+' : '') + bid.rulerAdjust;
+    const valCls = state.peek ? 'av-zero' : avCls;
+    const resetBtn = !state.peek && bid.rulerAdjust !== 0
+      ? `<button class="btn-sm" style="padding:3px 8px;margin-left:4px" onclick="terrAdjReset('${t.id}','${bid.id}')">Reset</button>` : '';
+    rulerHtml = `<div class="ruler-row">
+      <span class="ruler-lbl">Ruler's adj.</span>
+      <button class="adj" onclick="terrAdj('${t.id}','${bid.id}',-1)">\u2212</button>
+      <span class="adj-val ${valCls}">${valDisp}</span>
+      <button class="adj" onclick="terrAdj('${t.id}','${bid.id}',1)">+</button>
+      ${resetBtn}
+    </div>`;
+  }
+
+  let actsHtml = '';
+  if (!t.resolved) {
+    actsHtml = `<div class="bid-acts">
+      <button class="btn-primary btn-sm" onclick="terrOpenBackModal('${t.id}','${bid.id}')">+ Influence</button>
+      <button class="btn-danger btn-sm" onclick="terrRmBid('${t.id}','${bid.id}')">Remove</button>
+    </div>`;
+  }
+
+  const scoreCls = 'bid-score ' + (isWin ? 's-win' : isMax ? 's-lead' : '');
+  const scoreVal = state.peek ? '~' + approx : sc;
+  const scoreSub = state.peek ? 'approx.' : 'influence';
+
+  return `<div class="${cls}">
+    <div class="bid-head">
+      <div>
+        <div class="bid-claimant">${esc(bid.claimant)}</div>
+        <div class="bid-seconder"><em>sec. </em>${esc(bid.seconder)}</div>
+        ${def ? '<div class="defend-note">+3 regent defence</div>' : ''}
+      </div>
+      <div class="bid-score-block">
+        <div class="${scoreCls}">${scoreVal}</div>
+        <div class="bid-score-sub">${scoreSub}</div>
+        ${isWin ? '<div class="win-badge">Winner</div>' : ''}
+      </div>
+    </div>
+    ${backHtml}
+    ${rulerHtml}
+    ${actsHtml}
+  </div>`;
+}
+
+function renderCard(t) {
   const scores = t.bids.map(b => {
     const def = t.regent && b.claimant.trim().toLowerCase() === t.regent.trim().toLowerCase();
     return total(b) + (def ? 3 : 0);
   });
   const maxScore = Math.max(0, ...scores);
   const winner = t.resolved ? t.bids.find(b => b.id === t.winnerId) : null;
-  return h('div', { className: 'tc' + (t.resolved ? ' tc-resolved' : '') },
-    h('div', { className: 'tc-head' },
-      h('span', { className: 'tc-name' }, t.name),
-      t.regent && h('span', { className: 'regent-tag' }, 'Regent: ' + t.regent)
-    ),
-    h('div', { className: 'ambience-strip' },
-      h('span', { className: 'amb-label' }, 'Ambience'),
-      h('span', { className: 'amb-name' }, t.ambience || '\u2014'),
-      h('span', { className: 'amb-mod ' + (t.ambienceMod > 0 ? 'amb-pos' : t.ambienceMod < 0 ? 'amb-neg' : 'amb-zero') },
-        t.ambienceMod > 0 ? '+' + t.ambienceMod : String(t.ambienceMod)
-      ),
-      h('span', { className: 'amb-hint' }, 'vitae feeding')
-    ),
-    h('div', { className: 'regent-row' },
-      h('span', { className: 'regent-lbl' }, 'Regent:'),
-      h('select', { className: 'regent-sel', value: t.regent || '',
-        onChange: ev => onRegSet(ev.target.value) },
-        h('option', { value: '' }, '\u2014 none \u2014'),
-        (window._charNames || []).map(n => h('option', { key: n, value: n }, n))
-      )
-    ),
-    h('div', { className: 'tc-body' },
-      t.bids.length === 0 ? h('div', { className: 'no-bids-msg' }, 'No bids declared yet.') :
-      t.bids.map((bid, i) => {
-        const def = t.regent && bid.claimant.trim().toLowerCase() === t.regent.trim().toLowerCase();
-        const sc = scores[i];
-        const isMax = sc === maxScore && sc > 0;
-        const isWin = t.resolved && bid.id === t.winnerId;
-        const isLose = t.resolved && bid.id !== t.winnerId;
-        const { approx } = peekInfo(sc, bid.id);
-        return h('div', { key: bid.id, className: 'bid' + (isWin ? ' bid-win' : isLose ? ' bid-lose' : '') },
-          h('div', { className: 'bid-head' },
-            h('div', null,
-              h('div', { className: 'bid-claimant' }, bid.claimant),
-              h('div', { className: 'bid-seconder' }, h('em', null, 'sec. '), bid.seconder),
-              def && h('div', { className: 'defend-note' }, '+3 regent defence')
-            ),
-            h('div', { className: 'bid-score-block' },
-              h('div', { className: 'bid-score ' + (isWin ? 's-win' : isMax ? 's-lead' : '') }, peek ? '~' + approx : sc),
-              h('div', { className: 'bid-score-sub' }, peek ? 'approx.' : 'influence'),
-              isWin && h('div', { className: 'win-badge' }, 'Winner')
-            )
-          ),
-          bid.backing.length > 0 && h('div', { className: 'back-list' },
-            bid.backing.map(bk => h('div', { key: bk.id, className: 'back-row' },
-              h('span', { className: 'back-name' }, bk.player),
-              h('div', { className: 'back-right' },
-                h('span', { className: 'back-amt' }, '+' + bk.amount),
-                !t.resolved && h('button', { className: 'back-del', onClick: () => onRmBack(bid.id, bk.id), title: 'Remove' }, '\u00d7')
-              )
-            ))
-          ),
-          !t.resolved && h('div', { className: 'ruler-row' },
-            h('span', { className: 'ruler-lbl' }, "Ruler's adj."),
-            h('button', { className: 'adj', onClick: () => onAdj(bid.id, -1) }, '\u2212'),
-            !peek && h('span', { className: 'adj-val ' + (bid.rulerAdjust > 0 ? 'av-pos' : bid.rulerAdjust < 0 ? 'av-neg' : 'av-zero') }, (bid.rulerAdjust >= 0 ? '+' : '') + bid.rulerAdjust),
-            peek && h('span', { className: 'adj-val av-zero' }, '\u00b7'),
-            h('button', { className: 'adj', onClick: () => onAdj(bid.id, +1) }, '+'),
-            !peek && bid.rulerAdjust !== 0 && h('button', { className: 'btn-sm', style: { padding: '3px 8px', marginLeft: 4 }, onClick: () => onAdj(bid.id, -bid.rulerAdjust) }, 'Reset')
-          ),
-          !t.resolved && h('div', { className: 'bid-acts' },
-            h('button', { className: 'btn-primary btn-sm', onClick: () => onBack(bid.id) }, '+ Influence'),
-            h('button', { className: 'btn-danger btn-sm', onClick: () => onRmBid(bid.id) }, 'Remove')
-          )
-        );
-      })
-    ),
-    !t.resolved && h('div', { className: 'tc-foot' },
-      h('button', { style: { flex: 1 }, onClick: onBid }, '+ Open Bid'),
-      t.bids.length >= 1 && h('button', { className: 'btn-primary', style: { flex: 1 }, onClick: onResolve }, t.bids.length === 1 ? 'Resolve (uncontested)' : 'Resolve')
-    ),
-    t.resolved && h('div', { className: 'res-bar' },
-      h('span', null, winner ? winner.claimant + ' seizes the territory' : 'No winner'),
-      h('button', { className: 'btn-sm', style: { color: 'var(--text3)', borderColor: 'var(--text3)' }, onClick: onUnres }, 'Reopen')
-    )
-  );
+
+  const ambCls = 'amb-mod ' + (t.ambienceMod > 0 ? 'amb-pos' : t.ambienceMod < 0 ? 'amb-neg' : 'amb-zero');
+  const ambVal = t.ambienceMod > 0 ? '+' + t.ambienceMod : String(t.ambienceMod);
+
+  let bidsHtml;
+  if (t.bids.length === 0) {
+    bidsHtml = '<div class="no-bids-msg">No bids declared yet.</div>';
+  } else {
+    bidsHtml = t.bids.map((bid, i) => renderBid(t, bid, i, scores, maxScore)).join('');
+  }
+
+  let footHtml = '';
+  if (!t.resolved) {
+    const resolveBtn = t.bids.length >= 1
+      ? `<button class="btn-primary" style="flex:1" onclick="terrResolve('${t.id}')">${t.bids.length === 1 ? 'Resolve (uncontested)' : 'Resolve'}</button>` : '';
+    footHtml = `<div class="tc-foot">
+      <button style="flex:1" onclick="terrOpenBidModal('${t.id}','${esc(t.name)}')">+ Open Bid</button>
+      ${resolveBtn}
+    </div>`;
+  }
+
+  let resHtml = '';
+  if (t.resolved) {
+    resHtml = `<div class="res-bar">
+      <span>${winner ? esc(winner.claimant) + ' seizes the territory' : 'No winner'}</span>
+      <button class="btn-sm" style="color:var(--text3);border-color:var(--text3)" onclick="terrUnres('${t.id}')">Reopen</button>
+    </div>`;
+  }
+
+  return `<div class="tc${t.resolved ? ' tc-resolved' : ''}">
+    <div class="tc-head">
+      <span class="tc-name">${esc(t.name)}</span>
+      ${t.regent ? `<span class="regent-tag">Regent: ${esc(t.regent)}</span>` : ''}
+    </div>
+    <div class="ambience-strip">
+      <span class="amb-label">Ambience</span>
+      <span class="amb-name">${esc(t.ambience || '\u2014')}</span>
+      <span class="${ambCls}">${ambVal}</span>
+      <span class="amb-hint">vitae feeding</span>
+    </div>
+    <div class="regent-row">
+      <span class="regent-lbl">Regent:</span>
+      <select class="regent-sel" onchange="terrSetRegent('${t.id}',this.value)">
+        <option value="">\u2014 none \u2014</option>
+        ${nameOpts(t.regent || '')}
+      </select>
+    </div>
+    <div class="tc-body">${bidsHtml}</div>
+    ${footHtml}
+    ${resHtml}
+  </div>`;
 }
 
-// ══════════════════════════════════════════════
-//  MODAL
-// ══════════════════════════════════════════════
+function renderModal() {
+  if (!modal) return '';
+  const m = modal;
+  const terr = state.territories.find(t => t.id === m.tid);
+  const bid = m.type === 'back' ? terr?.bids.find(b => b.id === m.bid) : null;
+  const title = m.type === 'bid' ? 'New Bid \u2014 ' + esc(m.tname) : 'Add Influence \u2014 ' + esc(bid?.claimant || '');
+  const sub = m.type === 'bid'
+    ? 'Claimant and seconder must hold City Status 2 or higher.'
+    : 'Enter the player committing influence to this bid.';
+  const selStyle = 'width:100%;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt2);font-family:var(--fh);font-size:12px;padding:6px 8px;outline:none';
 
-function Modal({ modal, territories, onClose, onAddBid, onAddBack }) {
-  const [vals, setV] = useState({});
-  const [err, setE] = useState('');
-  const set = k => ev => setV(p => ({ ...p, [k]: ev.target.value }));
-  const terr = territories.find(t => t.id === modal.tid);
-  const bid = modal.type === 'back' ? terr?.bids.find(b => b.id === modal.bid) : null;
-  const names = window._charNames || [];
-  const selStyle = { width: '100%', background: 'var(--surf2)', border: '1px solid var(--bdr)', borderRadius: '4px', color: 'var(--txt2)', fontFamily: 'var(--fh)', fontSize: '12px', padding: '6px 8px', outline: 'none' };
-  const charSel = (k, lbl) => h('div', { className: 'field' },
-    h('label', null, lbl),
-    h('select', { value: vals[k] || '', onChange: set(k), style: selStyle },
-      h('option', { value: '' }, '\u2014 select \u2014'),
-      names.map(n => h('option', { key: n, value: n }, n))
-    )
-  );
-  const submit = () => {
-    if (modal.type === 'bid') {
-      if (!vals.cl) return setE('Claimant required.');
-      if (!vals.sc) return setE('Seconder required.');
-      onAddBid(modal.tid, vals.cl, vals.sc);
-    } else {
-      if (!vals.pl) return setE('Player name required.');
-      const a = parseInt(vals.am); if (!a || a < 1) return setE('Enter a positive amount.');
-      onAddBack(modal.tid, modal.bid, vals.pl, a);
-    }
-  };
-  return h('div', { className: 'overlay', onClick: ev => ev.target === ev.currentTarget && onClose() },
-    h('div', { className: 'modal' },
-      h('div', { className: 'modal-title' }, modal.type === 'bid' ? 'New Bid \u2014 ' + modal.tname : 'Add Influence \u2014 ' + (bid?.claimant || '')),
-      h('div', { className: 'modal-sub' }, modal.type === 'bid' ? 'Claimant and seconder must hold City Status 2 or higher.' : 'Enter the player committing influence to this bid.'),
-      modal.type === 'bid' ? h(window.React.Fragment, null,
-        charSel('cl', 'Claimant'),
-        charSel('sc', 'Seconder')
-      ) : h(window.React.Fragment, null,
-        charSel('pl', 'Player / Character'),
-        h('div', { className: 'field' }, h('label', null, 'Influence Amount'), h('input', { type: 'number', min: 1, placeholder: '0', value: vals.am || '', onChange: set('am'), style: { ...selStyle, boxSizing: 'border-box' } }))
-      ),
-      err && h('div', { className: 'modal-err' }, err),
-      h('div', { className: 'modal-btns' },
-        h('button', { onClick: onClose }, 'Cancel'),
-        h('button', { className: 'btn-primary btn-sm', onClick: submit }, modal.type === 'bid' ? 'Open Bid' : 'Add Influence')
-      )
-    )
-  );
+  let fieldsHtml;
+  if (m.type === 'bid') {
+    fieldsHtml = `
+      <div class="field"><label>Claimant</label>
+        <select id="modal-cl" style="${selStyle}"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
+      </div>
+      <div class="field"><label>Seconder</label>
+        <select id="modal-sc" style="${selStyle}"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
+      </div>`;
+  } else {
+    fieldsHtml = `
+      <div class="field"><label>Player / Character</label>
+        <select id="modal-pl" style="${selStyle}"><option value="">\u2014 select \u2014</option>${nameOpts('')}</select>
+      </div>
+      <div class="field"><label>Influence Amount</label>
+        <input id="modal-am" type="number" min="1" placeholder="0" style="${selStyle};box-sizing:border-box">
+      </div>`;
+  }
+
+  const submitLabel = m.type === 'bid' ? 'Open Bid' : 'Add Influence';
+
+  return `<div class="overlay" onclick="terrOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-title">${title}</div>
+      <div class="modal-sub">${sub}</div>
+      ${fieldsHtml}
+      <div id="modal-err" class="modal-err"></div>
+      <div class="modal-btns">
+        <button onclick="terrCloseModal()">Cancel</button>
+        <button class="btn-primary btn-sm" onclick="terrModalSubmit()">${submitLabel}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function render() {
+  const root = document.getElementById('terr-root');
+  if (!root) return;
+  const { phase, peek, territories } = state;
+  const totBids = territories.reduce((s, t) => s + t.bids.length, 0);
+  const totInf = territories.reduce((s, t) => s + t.bids.reduce((s2, b) => s2 + b.backing.reduce((s3, bk) => s3 + bk.amount, 0), 0), 0);
+  const res = territories.filter(t => t.resolved).length;
+
+  const phaseLbl = phase === 'open' ? 'Bidding Open' : phase === 'final' ? 'Final Commitments' : 'Tallies Revealed';
+  const saveLbl = saving ? 'Saving\u2026' : 'Saved';
+  const saveCls = saving ? 'save-busy' : 'save-ok';
+
+  let advBtn = '';
+  if (phase === 'open') advBtn = `<button class="btn-primary btn-sm" onclick="terrAdvance()">Call Final Commitments</button>`;
+  else if (phase === 'final') advBtn = `<button class="btn-primary btn-sm" onclick="terrAdvance()">Reveal Tallies</button>`;
+
+  let backBtns = '';
+  if (phase === 'reveal') backBtns = `<button class="btn-sm" onclick="terrBack('final')">Back to Final Commitments</button>`;
+  if (phase === 'final') backBtns = `<button class="btn-sm" onclick="terrBack('open')">Re-open Bidding</button>`;
+
+  root.innerHTML = `
+    <div>
+      <div class="toolbar">
+        <div class="toolbar-l">
+          <div class="phase-pill phase-${phase}"><span class="phase-dot"></span>${phaseLbl}</div>
+          <span class="save-dot ${saveCls}">${saveLbl}</span>
+        </div>
+        <div class="toolbar-r">
+          ${advBtn}
+          ${backBtns}
+          <button class="btn-danger btn-sm" onclick="terrResetAll()">Reset All</button>
+        </div>
+      </div>
+      <div class="summary">
+        <div class="sum-item"><div class="sum-val">${totBids}</div><div class="sum-lbl">Open Bids</div></div>
+        <div class="sum-item"><div class="sum-val">${totInf}</div><div class="sum-lbl">Influence In</div></div>
+        <div class="sum-item"><div class="sum-val">${res}/5</div><div class="sum-lbl">Resolved</div></div>
+      </div>
+      <div class="peek-strip">
+        <div class="peek-info"><strong>Prince's Peek</strong> \u2014 show approximate tallies without revealing exact numbers</div>
+        <label class="peek-toggle-label">
+          <input type="checkbox" ${peek ? 'checked' : ''} onchange="terrTogglePeek()">
+          ${peek ? 'Peek on (approximate)' : 'Peek off (exact)'}
+        </label>
+      </div>
+      <div class="terr-grid">
+        ${territories.map(t => renderCard(t)).join('')}
+      </div>
+    </div>
+    ${renderModal()}`;
 }
 
 // ══════════════════════════════════════════════
@@ -344,6 +463,6 @@ let _terrMounted = false;
 export function mountTerr() {
   if (_terrMounted) return;
   _terrMounted = true;
-  const el = document.getElementById('terr-root');
-  if (el && window.ReactDOM) window.ReactDOM.createRoot(el).render(window.React.createElement(App));
+  state = load();
+  render();
 }
