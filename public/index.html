@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Terra Mortis — ST Suite</title>
+<title>Terra Mortis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
@@ -16,20 +16,67 @@
 </head>
 <body>
 <div id="app">
+
+  <!-- ══ HEADER ══ -->
   <div id="hdr">
     <div>
       <div class="hdr-title">Terra Mortis</div>
-      <div class="hdr-sub">ST Suite</div>
+      <div class="hdr-sub" id="hdr-sub">Characters</div>
     </div>
     <div id="pool-banner"></div>
+    <div class="topbar-right" id="topbar-right" style="display:none">
+      <button class="topbar-action" onclick="saveAll()" id="btn-save">Save All</button>
+    </div>
   </div>
 
   <div class="tab-wrap">
 
-    <!-- ═══ ROLL TAB ═══ -->
-    <div id="t-roll" class="tab active">
+    <!-- ═══ CHARACTERS TAB (Editor list) ═══ -->
+    <div id="t-chars" class="tab active">
+      <div class="list-toolbar">
+        <input class="list-search" type="text" placeholder="Search characters..." oninput="filterList()">
+        <select class="list-filter" id="filter-clan" onchange="filterList()">
+          <option value="">All Clans</option>
+          <option>Daeva</option><option>Gangrel</option><option>Mekhet</option><option>Nosferatu</option><option>Ventrue</option>
+        </select>
+        <select class="list-filter" id="filter-cov" onchange="filterList()">
+          <option value="">All Covenants</option>
+          <option>Carthian Movement</option><option>Circle of the Crone</option><option>Invictus</option><option>Lancea et Sanctum</option><option>Ordo Dracul</option>
+        </select>
+        <span class="list-count" id="list-count"></span>
+      </div>
+      <div class="char-grid" id="char-grid"></div>
+    </div>
 
-      <!-- Character / Discipline shortcut row -->
+    <!-- ═══ EDITOR SHEET TAB ═══ -->
+    <div id="t-editor" class="tab">
+      <div class="sheet-topbar">
+        <button onclick="goTab('chars')">&larr; Back</button>
+        <button class="sheet-edit-btn" onclick="editFromSheet()">Edit</button>
+      </div>
+      <div id="sh-content"></div>
+    </div>
+
+    <!-- ═══ EDITOR EDIT TAB ═══ -->
+    <div id="t-edit" class="tab">
+      <div class="edit-header">
+        <button class="edit-back" onclick="goTab('chars')" title="Back to list">&larr;</button>
+        <img class="edit-icon" id="edit-clan-icon" alt="" style="display:none">
+        <span class="edit-charname" id="edit-charname">No character selected</span>
+        <div class="edit-tabs">
+          <button class="edit-tab on" onclick="showEditTab('identity')" data-tab="identity">Identity</button>
+          <button class="edit-tab" onclick="showEditTab('attrs')" data-tab="attrs">Attributes &amp; Skills</button>
+        </div>
+        <span class="edit-dirty" id="edit-dirty">UNSAVED</span>
+      </div>
+      <div class="edit-body" id="edit-body">
+        <div class="etab active" id="et-identity"></div>
+        <div class="etab" id="et-attrs"></div>
+      </div>
+    </div>
+
+    <!-- ═══ ROLL TAB ═══ -->
+    <div id="t-roll" class="tab">
       <div class="shortcut-row">
         <button class="sc-btn" id="sc-char" onclick="openPanel('char')">
           <span class="sc-label" id="sc-char-lbl">Character</span>
@@ -40,34 +87,30 @@
           <span class="sc-val" id="sc-disc-val"></span>
         </button>
       </div>
-
       <div>
         <div class="slabel">Dice pool</div>
         <div class="crow">
-          <button class="cbtn" onclick="chgPool(-1)">−</button>
+          <button class="cbtn" onclick="chgPool(-1)">&minus;</button>
           <div class="cval" id="pval">5</div>
           <button class="cbtn" onclick="chgPool(1)">+</button>
         </div>
         <div class="effline" id="effline">Effective pool: <span>5 dice</span></div>
       </div>
-
       <div>
         <div class="slabel">Bonus / Penalty</div>
         <div class="crow">
-          <button class="bbtn" onclick="chgMod(-1)">−</button>
+          <button class="bbtn" onclick="chgMod(-1)">&minus;</button>
           <div class="bval" id="mval">0</div>
           <button class="bbtn" onclick="chgMod(1)">+</button>
         </div>
       </div>
-
       <div id="resist-sec" style="display:none;">
         <div class="slabel" id="resist-lbl">Resistance</div>
         <select id="resist-sel" class="resist-sel" onchange="updResist()">
-          <option value="">— select target —</option>
+          <option value="">&#8212; select target &#8212;</option>
         </select>
         <div id="resist-line" class="resist-line"></div>
       </div>
-
       <div>
         <div class="slabel">Again rule</div>
         <div class="arow">
@@ -76,19 +119,15 @@
           <button class="abtn on" id="a10" onclick="setAgain(10)">10-again</button>
         </div>
       </div>
-
       <div class="mrow">
         <button class="mchip" id="rote-c" onclick="togMod('rote')">Rote</button>
         <button class="mchip" id="na-c" onclick="togMod('na')">No Again</button>
       </div>
-
       <button id="roll-btn" onclick="doRoll()">Roll the Dice</button>
-
       <div id="res-area">
         <div id="res-hdr"></div>
         <div id="dice-area"><div class="empty-d">No rolls yet</div></div>
       </div>
-
       <div>
         <div class="hist-hdr">
           <div class="slabel" style="margin:0;">History</div>
@@ -96,34 +135,10 @@
         </div>
         <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
       </div>
+    </div>
 
-    </div><!-- /t-roll -->
-
-    <!-- ═══ SHEETS TAB ═══ -->
-    <div id="t-sheets" class="tab">
-      <div class="sh-top">
-        <div class="slabel">Character</div>
-        <div class="sel-wrap">
-          <select class="sh-char-sel" id="char-sel" onchange="onSheetChar(this.value)">
-            <option value="">— Select character —</option>
-          </select>
-          <div class="sel-arr">▾</div>
-        </div>
-      </div>
-      <div class="sh-body">
-        <div id="sh-empty">Select a character to view their sheet</div>
-        <div id="sh-content"></div>
-      </div>
-    </div><!-- /t-sheets -->
-
-
-    <!-- ═══ TERRITORY TAB ═══ -->
-
-
-    <!-- ═══ ST OVERVIEW TAB ═══ -->
+    <!-- ═══ TRACKER TAB ═══ -->
     <div id="t-st" class="tab">
-
-      <!-- Single character picker -->
       <div class="st-pick-row">
         <div class="sel-wrap" style="flex:1;">
           <select class="sh-char-sel" id="st-char-sel" onchange="stPickChar(this.value)">
@@ -132,21 +147,14 @@
           <div class="sel-arr">&#9662;</div>
         </div>
       </div>
-
       <div id="st-empty-msg" class="st-empty-msg">Select a character above.</div>
-
-      <!-- Character card -->
       <div id="st-char-list"></div>
-
-      <!-- Feeding test — shown when a character is selected -->
       <div class="feed-section" id="feed-section" style="display:none">
         <button class="feed-toggle" onclick="feedToggle()">
           <span class="feed-toggle-label">Feeding Test</span>
           <span id="feed-chev">&#9662;</span>
         </button>
         <div id="feed-panel" class="feed-panel" style="display:none">
-
-          <!-- Territory selector -->
           <div class="feed-row">
             <div class="sel-wrap" style="flex:1">
               <select class="sh-char-sel" id="feed-terr" onchange="feedBuildPool()">
@@ -155,10 +163,7 @@
               <div class="sel-arr">&#9662;</div>
             </div>
           </div>
-
           <div class="feed-methods" id="feed-methods"></div>
-
-          <!-- Pool + roll -->
           <div id="feed-pool-section" style="display:none">
             <div class="feed-pool-box">
               <div class="feed-pool-breakdown" id="feed-breakdown"></div>
@@ -178,21 +183,15 @@
             </div>
             <button class="feed-roll-btn" onclick="feedRoll()">Roll Feeding</button>
           </div>
-
-          <!-- Results -->
           <div id="feed-result-section" style="display:none">
             <div class="feed-result-box" id="feed-result-box"></div>
             <div class="feed-vessel-row" id="feed-vessel-row"></div>
             <div class="feed-push-row" id="feed-push-row"></div>
             <button class="feed-reset-btn" onclick="feedReset()">New Roll</button>
           </div>
-
         </div>
       </div>
-
-      <!-- Prestige Leaderboard -->
       <div id="st-prestige"></div>
-
       <div class="st-controls">
         <button class="st-ctrl-btn btn-gold" onclick="stResetAll()">Reset All Trackers</button>
         <button class="st-ctrl-btn btn-crim" onclick="stApplyDowntime()">Apply Downtime Expenditure</button>
@@ -201,45 +200,43 @@
         <button class="st-ctrl-btn" onclick="document.getElementById('import-dt-file').click()">Import Downtime Data</button>
         <input type="file" id="import-dt-file" accept=".xlsx" style="display:none" onchange="handleDtImport(this)">
       </div>
-
       <div id="import-banner" style="display:none"></div>
-
-    </div><!-- /t-st -->
-
+    </div>
 
     <!-- ═══ TERRITORY TAB ═══ -->
     <div id="t-territory" class="tab">
       <div id="terr-root"></div>
-    </div><!-- /t-territory -->
+    </div>
 
   </div><!-- /tab-wrap -->
 
+  <!-- ═══ BOTTOM NAV ═══ -->
   <nav id="bnav">
-    <button class="nbtn on" id="n-roll" onclick="goTab('roll')">
+    <button class="nbtn on" id="n-chars" onclick="goTab('chars')">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.19 13.89 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      Characters
+    </button>
+    <button class="nbtn" id="n-roll" onclick="goTab('roll')">
       <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>
       Roll
     </button>
-    <button class="nbtn" id="n-sheets" onclick="goTab('sheets')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
-      Sheet
-    </button>
     <button class="nbtn" id="n-st" onclick="goTab('st')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      ST
+      Tracker
     </button>
     <button class="nbtn" id="n-territory" onclick="goTab('territory')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
       Territory
     </button>
   </nav>
-</div><!-- /app -->
+</div>
 
 <!-- PICKER PANEL -->
 <div id="panel-overlay" onclick="overlayClick(event)">
   <div id="panel">
     <div class="panel-hdr">
       <span class="panel-title" id="panel-title">Select</span>
-      <button class="panel-close" onclick="closePanel()">✕ Close</button>
+      <button class="panel-close" onclick="closePanel()">&#10005; Close</button>
     </div>
     <div class="panel-body" id="panel-body"></div>
   </div>
@@ -247,8 +244,6 @@
 
 <div id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-<script type="module" src="js/suite/main.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

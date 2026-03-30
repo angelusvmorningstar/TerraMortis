@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 
 test.describe('Editor — List View', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/tm_editor.html');
+    await page.goto('/index.html');
     await page.waitForSelector('.char-grid');
   });
 
@@ -16,7 +16,7 @@ test.describe('Editor — List View', () => {
   test('no console errors on load', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto('/tm_editor.html');
+    await page.goto('/index.html');
     await page.waitForSelector('.char-grid');
     expect(errors).toHaveLength(0);
   });
@@ -38,7 +38,7 @@ test.describe('Editor — List View', () => {
 
   test('search filters characters', async ({ page }) => {
     const countBefore = await page.locator('.char-grid > *').count();
-    await page.fill('.list-search', 'Whisper');
+    await page.fill('.list-search', 'Nox');
     const countAfter = await page.locator('.char-grid > *').count();
     expect(countAfter).toBeLessThan(countBefore);
     expect(countAfter).toBeGreaterThan(0);
@@ -47,13 +47,13 @@ test.describe('Editor — List View', () => {
 
 test.describe('Editor — Sheet View', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/tm_editor.html');
+    await page.goto('/index.html');
     await page.waitForSelector('.char-grid');
   });
 
   test('clicking a character opens sheet view', async ({ page }) => {
     await page.locator('.char-grid > *').first().click();
-    await expect(page.locator('#v-sheet')).toHaveClass(/active/);
+    await expect(page.locator('#t-editor')).toHaveClass(/active/);
     await expect(page.locator('#sh-content')).not.toBeEmpty();
   });
 
@@ -82,18 +82,18 @@ test.describe('Editor — Sheet View', () => {
 
   test('back button returns to list', async ({ page }) => {
     await page.locator('.char-grid > *').first().click();
-    await expect(page.locator('#v-sheet')).toHaveClass(/active/);
+    await expect(page.locator('#t-editor')).toHaveClass(/active/);
     await page.locator('.sheet-topbar button', { hasText: 'Back' }).click();
-    await expect(page.locator('#v-list')).toHaveClass(/active/);
+    await expect(page.locator('#t-chars')).toHaveClass(/active/);
   });
 });
 
 test.describe('Editor — Edit Mode', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/tm_editor.html');
+    await page.goto('/index.html');
     await page.waitForSelector('.char-grid');
     await page.locator('.char-grid > *').first().click();
-    await expect(page.locator('#v-sheet')).toHaveClass(/active/);
+    await expect(page.locator('#t-editor')).toHaveClass(/active/);
   });
 
   test('edit button toggles edit mode', async ({ page }) => {
@@ -112,8 +112,11 @@ test.describe('Editor — Edit Mode', () => {
 
 test.describe('Editor — Save & Persist', () => {
   test('save persists to localStorage', async ({ page }) => {
-    await page.goto('/tm_editor.html');
+    await page.goto('/index.html');
     await page.waitForSelector('.char-grid');
+    // Navigate to editor to make Save button visible
+    await page.locator('.char-grid > *').first().click();
+    await expect(page.locator('#btn-save')).toBeVisible();
     await page.click('#btn-save');
     const stored = await page.evaluate(() => localStorage.getItem('tm_chars_db'));
     expect(stored).toBeTruthy();
@@ -123,7 +126,7 @@ test.describe('Editor — Save & Persist', () => {
 
 test.describe('Editor — CSS Theme', () => {
   test('theme.css loads and defines custom properties', async ({ page }) => {
-    await page.goto('/tm_editor.html');
+    await page.goto('/index.html');
     const bg = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
     );
@@ -131,7 +134,7 @@ test.describe('Editor — CSS Theme', () => {
   });
 
   test('gold accent variable is applied', async ({ page }) => {
-    await page.goto('/tm_editor.html');
+    await page.goto('/index.html');
     const gold2 = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--gold2').trim()
     );

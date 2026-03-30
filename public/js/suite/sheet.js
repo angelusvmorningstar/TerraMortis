@@ -28,7 +28,7 @@ export function onSheetChar(name) {
   if (!name) {
     state.sheetChar = null;
     document.getElementById('sh-empty').style.display = '';
-    document.getElementById('sh-content').style.display = 'none';
+    document.getElementById('sh-content-suite').style.display = 'none';
     return;
   }
   state.sheetChar = state.chars.find(c => c.name === name) || null;
@@ -42,7 +42,7 @@ export function onSheetChar(name) {
 export function renderSheet() {
   state.openExpId = null;
   const c = state.sheetChar;
-  const el = document.getElementById('sh-content');
+  const el = document.getElementById('sh-content-suite');
   if (!c) { el.innerHTML = ''; return; }
 
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '';
