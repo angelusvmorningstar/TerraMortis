@@ -6,3 +6,5 @@ Terra Mortis Treatment.pdf
 .claude/settings.local.json
 private/*
 !private/.gitkeep
+node_modules/
+test-results/

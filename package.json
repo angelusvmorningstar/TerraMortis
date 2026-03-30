@@ -1,0 +1,25 @@
+{
+  "name": "tm-suite",
+  "version": "1.0.0",
+  "description": "A browser-based character management system for a **Vampire: The Requiem 2nd Edition** campaign. Two self-contained HTML applications — no backend, no build system, no dependencies.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/angelusvmorningstar/TerraMortis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/angelusvmorningstar/TerraMortis/issues"
+  },
+  "homepage": "https://github.com/angelusvmorningstar/TerraMortis#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "serve": "^14.2.6"
+  }
+}
