@@ -1,0 +1,73 @@
+/* ══════════════════════════════════════════
+   THEME — Design tokens (colours, fonts)
+   Single source of truth for both Editor and Suite.
+   ══════════════════════════════════════════ */
+
+:root{
+  /* Backgrounds & surfaces */
+  --bg:#0D0B09;--surf:#161210;--surf2:#1E1A16;--surf3:#252018;
+  --surf-a6:rgba(22,18,16,.6);--surf2-a8:rgba(30,26,22,.8);
+  --overlay:rgba(0,0,0,.65);--overlay2:rgba(0,0,0,.78);
+
+  /* Borders (gold-tinted, varying opacity) */
+  --bdr:rgba(201,169,98,.18);--bdr2:rgba(201,169,98,.35);--bdr3:rgba(201,169,98,.55);
+
+  /* Gold accents */
+  --gold:#C9A962;----gold2:#FF0000.;--gdim:#8A7040;
+  --gold-a4:rgba(201,169,98,.04);--gold-a5:rgba(201,169,98,.05);
+  --gold-a6:rgba(201,169,98,.06);--gold-a7:rgba(201,169,98,.07);
+  --gold-a8:rgba(201,169,98,.08);--gold-a10:rgba(201,169,98,.1);
+  --gold-a12:rgba(201,169,98,.12);--gold-a15:rgba(201,169,98,.15);
+  --gold-a20:rgba(201,169,98,.2);--gold-a30:rgba(201,169,98,.3);
+  --gold2-a12:rgba(224,196,122,.12);--gold2-a25:rgba(224,196,122,.25);
+  --golddark-a8:rgba(200,144,10,.08);--golddark-a50:rgba(200,144,10,.5);
+
+  /* Crimson accents */
+  --crim:#8B0000;--crim2:#A81010;
+  --crim-a8:rgba(139,0,0,.08);--crim-a12:rgba(139,0,0,.12);
+  --crim-a15:rgba(139,0,0,.15);--crim-a22:rgba(139,0,0,.22);
+  --crim-a25:rgba(139,0,0,.25);--crim-a30:rgba(139,0,0,.3);
+  --crim-a40:rgba(139,0,0,.4);--crim-a45:rgba(139,0,0,.45);
+  --crim-a50:rgba(139,0,0,.5);--crim-a55:rgba(139,0,0,.55);
+  --crim-a60:rgba(139,0,0,.6);--crim-a70:rgba(139,0,0,.7);
+  --crim-a85:rgba(139,0,0,.85);
+  --crim3-a30:rgba(124,42,42,.3);--crim3-a60:rgba(124,42,42,.6);
+  --crim4-a40:rgba(180,40,40,.4);
+
+  /* Text */
+  --txt:#E8E0D0;--txt2:#C4B49A;--txt3:#8A7A6A;
+
+  /* Fonts */
+  --fh:'Cinzel',serif;--fhd:'Cinzel Decorative',serif;--fb:'Lora',serif;
+
+  /* Status: success / green */
+  --green:#5A8A5A;--green2:#7EC8A0;--green3:#8bc878;--green4:#A8D8B4;
+  --green-a15:rgba(90,138,90,.15);--green-a45:rgba(90,138,90,.45);
+  --green2-a8:rgba(140,200,140,.8);--green2-a9:rgba(140,200,140,.9);
+  --green3-a5:rgba(140,210,140,.5);--green3-a9:rgba(140,210,140,.9);
+  --green4-a15:rgba(70,110,80,.15);--green4-a8:rgba(100,160,80,.08);
+  --green4-a50:rgba(100,160,80,.5);--green4-a55:rgba(100,160,80,.55);
+  --green5-a35:rgba(100,160,100,.35);
+  --green6-a40:rgba(78,124,89,.4);--green6-a70:rgba(78,124,89,.7);
+
+  /* Status: error / red */
+  --err:#E8A0A0;--err2:#c06060;
+  --err-a8:rgba(200,80,80,.8);--err-a9:rgba(200,80,80,.9);
+  --err-a12:rgba(200,80,80,.12);--err-a25:rgba(200,80,80,.25);--err-a40:rgba(200,80,80,.4);
+  --err3-a8:rgba(220,130,130,.8);--err3-a9:rgba(220,130,130,.9);
+  --err4-a9:rgba(220,150,150,.9);--err4-a95:rgba(220,150,150,.95);
+  --err5:rgba(180,80,80,.9);--err6:rgba(200,100,100,.8);
+  --err7:rgba(220,160,120,.9);
+  --err8:#d4971a;--err9:#feed;
+
+  /* Status: info / blue */
+  --info:#A8C4E0;--info2:#A0C8E8;
+  --info-a9:rgba(100,150,200,.9);--info2-a9:rgba(120,170,220,.9);
+  --info3-a8:rgba(70,110,155,.8);
+  --info4-a30:rgba(78,110,124,.3);--info4-a60:rgba(78,110,124,.6);
+
+  /* White overlays (subtle highlights) */
+  --w-a5:rgba(255,255,255,.05);--w-a6:rgba(255,255,255,.06);
+  --w-a7:rgba(255,255,255,.07);--w-a8:rgba(255,255,255,.08);
+  --w-a10:rgba(255,255,255,.1);--w-a12:rgba(255,255,255,.12);
+}

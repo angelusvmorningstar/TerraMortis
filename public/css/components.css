@@ -77,6 +77,6 @@
 .merit-bd-input{width:28px;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:9px;text-align:center;padding:1px 2px;outline:none;}
 .merit-bd-input:focus{border-color:var(--gold);}
 .bd-total{font-size:9px;font-family:var(--fb);color:var(--txt3);margin-left:auto;}
-.bd-up{color:#E8A0A0!important;}
-.bd-up-input{border-color:rgba(200,80,80,.4)!important;}
-.bd-up-warn{color:#E8A0A0;font-style:italic;margin-left:2px;}
+.bd-up{color:var(--err)!important;}
+.bd-up-input{border-color:var(--err-a40)!important;}
+.bd-up-warn{color:var(--err);font-style:italic;margin-left:2px;}
