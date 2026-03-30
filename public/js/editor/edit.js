@@ -57,6 +57,11 @@ export function shEdit(field, val) {
   if (state.editIdx < 0) return;
   state.chars[state.editIdx][field] = val || null;
   _markDirty();
+  // Re-render for fields that affect derived display (title bonus, regent territory, clan bane)
+  if (field === 'court_title' || field === 'regent_territory') {
+    _renderSheet(state.chars[state.editIdx]);
+    return;
+  }
   // If clan changed, update curse bane
   if (field === 'clan') {
     const c = state.chars[state.editIdx];
@@ -121,6 +126,78 @@ export function shAddBane() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   TOUCHSTONES
+══════════════════════════════════════════════════════════ */
+
+export function shEditTouchstone(i, field, val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.touchstones || !c.touchstones[i]) return;
+  c.touchstones[i][field] = field === 'humanity' ? (parseInt(val) || 1) : val;
+  _markDirty();
+}
+
+export function shAddTouchstone() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.touchstones) c.touchstones = [];
+  c.touchstones.push({ humanity: 1, name: '', desc: '' });
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shRemoveTouchstone(i) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.touchstones) return;
+  c.touchstones.splice(i, 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
+   BLOOD POTENCY & HUMANITY
+══════════════════════════════════════════════════════════ */
+
+export function shEditBP(val) {
+  if (state.editIdx < 0) return;
+  const n = Math.max(0, Math.min(10, parseInt(val) || 0));
+  state.chars[state.editIdx].blood_potency = n;
+  _markDirty();
+  _renderSheet(state.chars[state.editIdx]);
+}
+
+export function shEditHumanity(val) {
+  if (state.editIdx < 0) return;
+  const n = Math.max(0, Math.min(10, parseInt(val) || 0));
+  state.chars[state.editIdx].humanity = n;
+  _markDirty();
+  _renderSheet(state.chars[state.editIdx]);
+}
+
+/* ══════════════════════════════════════════════════════════
+   STATUS UP/DOWN
+══════════════════════════════════════════════════════════ */
+
+export function shStatusUp(key) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.status) c.status = {};
+  c.status[key] = Math.min(5, (c.status[key] || 0) + 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shStatusDown(key) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.status) c.status = {};
+  c.status[key] = Math.max(0, (c.status[key] || 0) - 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
    ATTRIBUTE PRIORITIES & CREATION POINTS
 ══════════════════════════════════════════════════════════ */
 
@@ -165,19 +242,11 @@ export function shEditAttrPt(attr, field, val) {
   const newDots = attrBase + xpToDots(cr.xp || 0, attrBase, 4);
   if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0 };
   c.attributes[attr].dots = newDots;
-  // Recalculate xp_log.spent.attributes: VtR 2e cost = (new rating) x 4 per dot
+  // Recalculate xp_log.spent.attributes: flat sum of all attr XP costs
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
   let attrXpTotal = 0;
   const NINE_ATTRS = ['Intelligence', 'Wits', 'Resolve', 'Strength', 'Dexterity', 'Stamina', 'Presence', 'Manipulation', 'Composure'];
-  NINE_ATTRS.forEach(a => {
-    const acr = (c.attr_creation || {})[a] || {};
-    const st = c.clan_attribute === a ? 2 : 1;
-    const baseBeforeXp = st + (acr.cp || 0) + (acr.free || 0);
-    const xpDots = acr.xp || 0;
-    for (let d = 0; d < xpDots; d++) {
-      attrXpTotal += (baseBeforeXp + d + 1) * 4;
-    }
-  });
+  NINE_ATTRS.forEach(a => { attrXpTotal += ((c.attr_creation || {})[a] || {}).xp || 0; });
   c.xp_log.spent.attributes = attrXpTotal;
   c.xp_total = xpEarned(c);
   c.xp_spent = xpSpent(c);
@@ -334,14 +403,7 @@ export function shEditSkillPt(skill, field, val) {
   // Recalculate XP spent on skills
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
   let skXpTotal = 0;
-  ALL_SKILLS.forEach(s => {
-    const scr = (c.skill_creation || {})[s] || {};
-    const baseBeforeXp = (scr.cp || 0) + (scr.free || 0);
-    const xpDots = scr.xp || 0;
-    for (let d = 0; d < xpDots; d++) {
-      skXpTotal += (baseBeforeXp + d + 1) * 2;
-    }
-  });
+  ALL_SKILLS.forEach(s => { skXpTotal += ((c.skill_creation || {})[s] || {}).xp || 0; });
   c.xp_log.spent.skills = skXpTotal;
   c.xp_total = xpEarned(c);
   c.xp_spent = xpSpent(c);
