@@ -700,3 +700,19 @@ body {
   padding: 2px 8px;
   border-radius: 3px;
 }
+
+.dt-sub-unmatched { border-color: var(--crim, #8B0000); }
+
+.dt-match-icon { color: #6a6; font-size: 12px; }
+.dt-unmatch-icon { color: var(--crim2, #B22222); font-size: 12px; }
+
+.dt-match-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.dt-match-ok { color: #6a6; }
+.dt-match-warn { color: var(--crim2, #B22222); }

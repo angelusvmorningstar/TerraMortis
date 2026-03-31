@@ -1,12 +1,15 @@
 /**
  * Downtime domain views — admin app.
- * CSV upload, cycle management, and submission overview.
+ * CSV upload, cycle management, submission overview, and character data bridge.
  */
 
+import { apiGet } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getActiveCycle, getCycles, createCycle, getSubmissionsForCycle, upsertCycle } from '../downtime/db.js';
 
 let submissions = [];
+let characters = [];
+let charMap = new Map(); // lowercase name → character object
 let activeCycle = null;
 
 export async function initDowntimeView() {
@@ -21,6 +24,7 @@ export async function initDowntimeView() {
   document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
   document.getElementById('dt-new-cycle').addEventListener('click', handleNewCycle);
 
+  await loadCharacters();
   await loadActiveCycle();
 }
 
@@ -37,8 +41,29 @@ function buildShell() {
     </div>
     <div id="dt-cycle-info" class="dt-cycle-info"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
+    <div id="dt-match-summary"></div>
     <div id="dt-submissions" class="dt-submissions"></div>`;
 }
+
+// ── Character data bridge ───────────────────────────────────────────────────
+
+async function loadCharacters() {
+  try {
+    characters = await apiGet('/api/characters');
+    charMap = new Map(characters.map(c => [(c.name || '').toLowerCase().trim(), c]));
+  } catch {
+    characters = [];
+    charMap = new Map();
+  }
+}
+
+/** Find a character by submission name (case-insensitive, trimmed). */
+export function findCharacter(submissionName) {
+  if (!submissionName) return null;
+  return charMap.get(submissionName.toLowerCase().trim()) || null;
+}
+
+// ── Cycle loading ───────────────────────────────────────────────────────────
 
 async function loadActiveCycle() {
   const infoEl = document.getElementById('dt-cycle-info');
@@ -48,6 +73,7 @@ async function loadActiveCycle() {
   if (!activeCycle) {
     infoEl.innerHTML = '<span class="placeholder">No active cycle. Upload a CSV or create a new cycle.</span>';
     subEl.innerHTML = '';
+    document.getElementById('dt-match-summary').innerHTML = '';
     return;
   }
 
@@ -55,8 +81,29 @@ async function loadActiveCycle() {
     <span class="domain-count">${activeCycle.submission_count || 0} submissions</span>`;
 
   submissions = await getSubmissionsForCycle(activeCycle._id);
+  renderMatchSummary();
   renderSubmissions();
 }
+
+// ── Match summary ───────────────────────────────────────────────────────────
+
+function renderMatchSummary() {
+  const el = document.getElementById('dt-match-summary');
+  if (!submissions.length) { el.innerHTML = ''; return; }
+
+  const matched = submissions.filter(s => findCharacter(s.character_name));
+  const unmatched = submissions.filter(s => !findCharacter(s.character_name));
+
+  let h = `<div class="dt-match-bar">`;
+  h += `<span class="dt-match-ok">${matched.length} matched</span>`;
+  if (unmatched.length) {
+    h += `<span class="dt-match-warn">${unmatched.length} unmatched: ${unmatched.map(s => esc(s.character_name || '?')).join(', ')}</span>`;
+  }
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+// ── Submission rendering ────────────────────────────────────────────────────
 
 function renderSubmissions() {
   const el = document.getElementById('dt-submissions');
@@ -76,13 +123,19 @@ function renderSubmissions() {
     const attended = sub.attended_last_game ? '\u2713' : '\u2717';
     const attendedClass = sub.attended_last_game ? 'dt-attended' : 'dt-absent';
 
-    return `<div class="dt-sub-card">
+    const char = findCharacter(s.character_name);
+    const matchIcon = char ? '<span class="dt-match-icon" title="Matched">\u2713</span>' : '<span class="dt-unmatch-icon" title="No matching character">\u26A0</span>';
+    const clan = char ? esc(char.clan || '') : '';
+
+    return `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}">
       <div class="dt-sub-top">
+        ${matchIcon}
         <span class="dt-sub-name">${esc(s.character_name || '?')}</span>
         <span class="dt-sub-player">${esc(s.player_name || '')}</span>
         <span class="${attendedClass}">${attended}</span>
       </div>
       <div class="dt-sub-stats">
+        ${clan ? `<span class="dt-sub-tag">${clan}</span>` : ''}
         ${projects ? `<span class="dt-sub-tag">${projects} project${projects > 1 ? 's' : ''}</span>` : ''}
         ${spheres ? `<span class="dt-sub-tag">${spheres} sphere</span>` : ''}
         ${feeding ? `<span class="dt-sub-tag">${esc(feeding)}</span>` : ''}
@@ -90,6 +143,8 @@ function renderSubmissions() {
     </div>`;
   }).join('') + '</div>';
 }
+
+// ── File handling ───────────────────────────────────────────────────────────
 
 function handleFileSelect(e) {
   const file = e.target.files[0];
