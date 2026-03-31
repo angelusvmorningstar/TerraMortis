@@ -100,15 +100,15 @@ export function shRenderSkills(c,editMode) {
       h+='<div class="sh-attr-pri"><select onchange="shSetSkillPriority(\''+cat+'\',this.value)">'+PRI_LABELS.map(p=>'<option'+(curPri===p?' selected':'')+'>'+p+'</option>').join('')+'</select><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span></div>';});
     h+='</div>';
     const totalSpecs=Object.values(c.skills||{}).reduce((s,sk)=>s+((sk&&sk.specs)?sk.specs.length:0),0);
-    const ptM=(c.merits||[]).find(m=>m.name==='Professional Training'),ptB=(ptM&&ptM.rating>=2)?2:0,freeS=3+ptB;
+    const ptM=(c.merits||[]).find(m=>m.name==='Professional Training'),ptB=(ptM&&ptM.rating>=3)?2:0,freeS=3+ptB;
     const scCls=totalSpecs>freeS?'sc-over':totalSpecs===freeS?'sc-full':'sc-val';
-    h+='<div class="sh-spec-counter">Specialisations <span class="'+scCls+'">'+totalSpecs+' / '+freeS+' free</span>'+(ptB?' <span style="font-size:8px;color:var(--txt3)">(incl. '+ptB+' from Prof. Training)</span>':'')+'</div>';
+    h+='<div class="sh-spec-counter">Specialisations <span class="'+scCls+'">'+totalSpecs+' / '+freeS+' free</span>'+(ptB?' <span style="font-size:8px;color:var(--txt3)">(incl. '+ptB+' from Prof. Training \u25CF\u25CF\u25CF)</span>':'')+'</div>';
   }
   h+='<div class="skills-3col">';
   if(editMode){
     SKILL_COLS.forEach(col=>{h+='<div>';col.forEach(s=>{
-      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
-      h+='<div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':'')+'</div></div>';
+      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
+      h+='<div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
       const cr=(c.skill_creation||{})[s]||{cp:0,free:0,xp:0},sE=s.replace(/'/g,"\\'"),sb=(cr.cp||0)+(cr.free||0),sxd=xpToDots(cr.xp||0,sb,2),st2=sb+sxd;
       h+='<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+st2+'</span></div></div>';
       const specs=sk.specs||[];
@@ -118,8 +118,8 @@ export function shRenderSkills(c,editMode) {
     });h+='</div>';});
   } else {
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
-      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
-      h+='<div class="sh-skill-row'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':'')+'</div></div>';
+      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
+      h+='<div class="sh-skill-row'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
     });}
   }
   h+='</div></div>';
@@ -265,12 +265,25 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
 }
 function _renderPT(c,m,si,rIdx,mc,dd,editMode) {
   const as=m.asset_skills||[],eDots=editMode?dd:m.rating,mx=Math.min(5,Math.max(2,eDots));
+  const dots=['\u25CF','\u25CF\u25CF','\u25CF\u25CF\u25CF','\u25CF\u25CF\u25CF\u25CF','\u25CF\u25CF\u25CF\u25CF\u25CF'];
+  const PT_BENEFITS=[
+    'Networking: 2 dots Contacts ('+(m.role||'field')+')',
+    'Continuing Education: 9-again on Asset Skills',
+    'Breadth of Knowledge: third Asset Skill + 2 Specialisations',
+    'On the Job Training: +1 Skill dot in an Asset Skill',
+    'The Routine: spend WP for rote quality on an Asset Skill'
+  ];
   let h='<div class="pt-block"><div class="pt-header"><span class="merit-name-sh">'+esc(m.name)+'</span>';
   if(editMode) h+='<input type="text" class="stand-name-input" value="'+esc(m.role||'')+'" placeholder="Role" onchange="shEditStandMerit('+si+',\'role\',this.value)">';
   else if(m.role) h+='<span class="merit-sub-sh">'+esc(m.role)+'</span>';
   h+='<span class="merit-dots-sh">'+shDots(eDots)+'</span></div>';
   if(editMode){h+=meritBdRow(rIdx,mc);h+='<div class="pt-skills-edit">';for(let s=0;s<mx;s++){const cur=as[s]||'';h+='<select class="pt-skill-sel" onchange="shEditStandAssetSkill('+si+','+s+',this.value)"><option value="">'+(cur?'':'\u2014 skill \u2014')+'</option>'+ALL_SKILLS.map(sk=>'<option'+(cur===sk?' selected':'')+'>'+sk+'</option>').join('')+'</select>';}h+='</div>';}
-  else if(as.filter(Boolean).length) h+='<div class="pt-assets">'+as.filter(Boolean).map(s=>'<span class="pt-skill-tag">'+esc(s)+'</span>').join('')+'</div>';
+  else {
+    if(as.filter(Boolean).length) h+='<div class="pt-assets">'+as.filter(Boolean).map(s=>'<span class="pt-skill-tag">'+esc(s)+'</span>').join('')+'</div>';
+    for(let d=0;d<eDots&&d<5;d++){
+      h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span><span class="mci-benefit-text">'+esc(PT_BENEFITS[d])+'</span></div>';
+    }
+  }
   h+='</div>';return h;
 }
 
