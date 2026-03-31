@@ -1,0 +1,128 @@
+/* Admin app layout — desktop-first, sidebar + content */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--fb);
+  min-height: 100vh;
+}
+
+#admin-app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+
+#sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--surf);
+  border-right: 1px solid var(--bdr);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.sidebar-header {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.sidebar-title {
+  font-family: var(--fhd);
+  font-size: 18px;
+  color: var(--gold2);
+  letter-spacing: 1px;
+}
+
+.sidebar-sub {
+  font-family: var(--fh);
+  font-size: 11px;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+}
+
+.sidebar-btn {
+  background: none;
+  border: none;
+  color: var(--txt2);
+  font-family: var(--fh);
+  font-size: 14px;
+  text-align: left;
+  padding: 12px 20px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.sidebar-btn:hover {
+  background: var(--surf2);
+  color: var(--txt);
+}
+
+.sidebar-btn.on {
+  color: var(--gold2);
+  border-left-color: var(--gold2);
+  background: var(--surf2);
+}
+
+/* ── Content area ── */
+
+#content {
+  flex: 1;
+  padding: 32px 40px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.domain {
+  display: none;
+}
+
+.domain.active {
+  display: block;
+}
+
+.domain-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.domain-header h2 {
+  font-family: var(--fh);
+  font-size: 22px;
+  color: var(--gold2);
+  font-weight: 600;
+}
+
+.domain-count {
+  font-size: 13px;
+  color: var(--txt3);
+}
+
+.placeholder {
+  color: var(--txt3);
+  font-style: italic;
+  padding: 40px 0;
+}
+
+/* ── Character grid — desktop widths ── */
+
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}

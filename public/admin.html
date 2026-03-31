@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terra Mortis — ST Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/admin-layout.css">
+</head>
+<body>
+
+<div id="admin-app">
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Terra Mortis</div>
+      <div class="sidebar-sub">ST Admin</div>
+    </div>
+    <div class="sidebar-nav">
+      <button class="sidebar-btn on" data-domain="player">Player</button>
+      <button class="sidebar-btn" data-domain="city">City</button>
+      <button class="sidebar-btn" data-domain="downtime">Downtime</button>
+      <button class="sidebar-btn" data-domain="engine">Engine</button>
+    </div>
+  </nav>
+
+  <!-- Content area -->
+  <main id="content">
+
+    <!-- Player domain -->
+    <section id="d-player" class="domain active">
+      <div class="domain-header">
+        <h2>Characters</h2>
+        <span id="char-count" class="domain-count"></span>
+      </div>
+      <div id="char-grid" class="char-grid"></div>
+    </section>
+
+    <!-- City domain -->
+    <section id="d-city" class="domain">
+      <div class="domain-header"><h2>City</h2></div>
+      <p class="placeholder">Territory management and city dynamics. Coming soon.</p>
+    </section>
+
+    <!-- Downtime domain -->
+    <section id="d-downtime" class="domain">
+      <div class="domain-header"><h2>Downtime</h2></div>
+      <p class="placeholder">Downtime processing dashboard. Coming soon.</p>
+    </section>
+
+    <!-- Engine domain -->
+    <section id="d-engine" class="domain">
+      <div class="domain-header"><h2>Engine</h2></div>
+      <p class="placeholder">Dice roller, session log, and tools. Coming soon.</p>
+    </section>
+
+  </main>
+
+</div>
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>

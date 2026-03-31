@@ -57,7 +57,7 @@ development_status:
   2-1-express-api-server-mongodb-connection: review
   2-2-discord-auth: backlog  # deferred — not needed until player access
   2-3-characters-crud-api-data-migration: review
-  2-4-admin-app-shell: backlog
+  2-4-admin-app-shell: review
   2-5-remaining-collection-apis: backlog
   2-6-game-app-api-integration: backlog
   epic-2-retrospective: optional
