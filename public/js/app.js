@@ -42,6 +42,7 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
+import { printSheet } from './editor/print.js';
 
 // ══════════════════════════════════════════════
 //  SUITE IMPORTS
@@ -398,6 +399,7 @@ Object.assign(window, {
 
   // Editor sheet view (prefixed where needed)
   editFromSheet,
+  printSheet,
   renderSheet: editorRenderSheet,
   toggleExp: editorToggleExp,
   toggleDisc: editorToggleDisc,

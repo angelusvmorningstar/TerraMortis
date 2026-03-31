@@ -12,8 +12,8 @@ export const SKILLS_SOCIAL = ['Animal Ken','Empathy','Expression','Intimidation'
 export const ALL_SKILLS = [...SKILLS_MENTAL,...SKILLS_PHYSICAL,...SKILLS_SOCIAL];
 export const SKILL_CATS = {Mental:SKILLS_MENTAL, Physical:SKILLS_PHYSICAL, Social:SKILLS_SOCIAL};
 export const MASKS_DIRGES = ['Authoritarian','Child','Competitor','Conformist','Conspirator','Courtesan','Cult Leader','Deviant','Follower','Guru','Idealist','Jester','Junkie','Martyr','Masochist','Monster','Nurturer','Penitent','Perfectionist','Questioner','Rebel','Scholar','Social Chameleon','Spy','Survivor','Visionary'];
-export const COURT_TITLES = ['','Head of State','Socialite','Primogen','Enforcer','Administrator','Premier','Protector','Harpy','Regent'];
-export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1,'Regent':0,'Premier':0,'Protector':0,'Harpy':0};
+export const COURT_TITLES = ['','Head of State','Primogen','Socialite','Enforcer','Administrator','Regent'];
+export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1,'Regent':0};
 
 
 export const BLOODLINE_DISCS = {
