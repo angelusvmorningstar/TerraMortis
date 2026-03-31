@@ -4,6 +4,7 @@ import { apiGet } from './data/api.js';
 import { esc, clanIcon, covIcon, shortCov } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
+import { initSessionLog } from './admin/session-log.js';
 
 let chars = [];
 
@@ -69,6 +70,8 @@ function switchDomain(domain) {
   const btn = document.querySelector(`.sidebar-btn[data-domain="${domain}"]`);
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('on');
+
+  if (domain === 'engine') initSessionLog();
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {

@@ -239,3 +239,119 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
 }
+
+/* ── Session log — Engine domain ── */
+
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.log-date-label {
+  font-size: 13px;
+  color: var(--txt2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-date-input {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.log-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.log-input {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 120px;
+}
+
+.log-input-wide { flex: 1; min-width: 200px; }
+
+.log-input::placeholder { color: var(--txt3); }
+
+.log-add-btn {
+  background: var(--gold2);
+  color: var(--bg);
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-family: var(--fh);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.log-add-btn:hover { opacity: 0.9; }
+
+.log-list { display: flex; flex-direction: column; gap: 6px; }
+
+.log-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 14px;
+  gap: 12px;
+}
+
+.log-entry-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.log-entry-char {
+  font-family: var(--fh);
+  font-weight: 600;
+  color: var(--gold2);
+  white-space: nowrap;
+}
+
+.log-entry-desc { color: var(--txt); }
+
+.log-entry-result {
+  font-weight: 600;
+  color: var(--txt2);
+  white-space: nowrap;
+}
+
+.log-entry-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.log-entry-time {
+  font-size: 11px;
+  color: var(--txt3);
+  font-family: monospace;
+}
+
+.log-entry-st {
+  font-size: 11px;
+  color: var(--txt3);
+}
