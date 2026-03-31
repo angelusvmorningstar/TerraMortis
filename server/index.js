@@ -5,6 +5,10 @@ import { connectDb, closeDb, isConnected } from './db.js';
 import authRouter from './routes/auth.js';
 import { requireAuth } from './middleware/auth.js';
 import charactersRouter from './routes/characters.js';
+import territoriesRouter from './routes/territories.js';
+import trackerRouter from './routes/tracker.js';
+import sessionsRouter from './routes/sessions.js';
+import { cyclesRouter, submissionsRouter } from './routes/downtime.js';
 
 const app = express();
 
@@ -35,6 +39,11 @@ app.use('/api/auth', authRouter);
 
 // Protected routes — require valid ST Discord token
 app.use('/api/characters', requireAuth, charactersRouter);
+app.use('/api/territories', requireAuth, territoriesRouter);
+app.use('/api/tracker_state', requireAuth, trackerRouter);
+app.use('/api/session_logs', requireAuth, sessionsRouter);
+app.use('/api/downtime_cycles', requireAuth, cyclesRouter);
+app.use('/api/downtime_submissions', requireAuth, submissionsRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable
