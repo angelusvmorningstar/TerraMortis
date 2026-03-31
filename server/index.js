@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
 import { connectDb, closeDb, isConnected } from './db.js';
+import charactersRouter from './routes/characters.js';
 
 const app = express();
 
@@ -27,7 +28,8 @@ app.get('/api/health', (req, res) => {
   res.status(httpStatus).json({ status: dbStatus === 'connected' ? 'ok' : 'error', db: dbStatus });
 });
 
-// Future route mounting goes here (stories 2.3+)
+// Route mounting
+app.use('/api/characters', charactersRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

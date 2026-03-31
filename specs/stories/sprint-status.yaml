@@ -55,8 +55,8 @@ development_status:
   # Epic 2: Backend Foundation
   epic-2: in-progress
   2-1-express-api-server-mongodb-connection: review
-  2-2-discord-auth: backlog
-  2-3-characters-crud-api-data-migration: backlog
+  2-2-discord-auth: backlog  # deferred — not needed until player access
+  2-3-characters-crud-api-data-migration: review
   2-4-admin-app-shell: backlog
   2-5-remaining-collection-apis: backlog
   2-6-game-app-api-integration: backlog
