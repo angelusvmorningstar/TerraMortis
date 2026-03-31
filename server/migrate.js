@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-// Seed chars_test.json into MongoDB characters collection.
+// Seed character data into MongoDB characters collection.
+// Defaults to chars_v2.json (30 real characters). Pass --test for test data.
 // Idempotent — drops existing characters and re-inserts.
 //
-// Usage: cd server && node migrate.js
+// Usage: cd server && node migrate.js          (real data)
+//        cd server && node migrate.js --test   (test data)
 
 import { readFileSync } from 'node:fs';
 import { MongoClient } from 'mongodb';
@@ -15,7 +17,8 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-const DATA_PATH = new URL('../data/chars_test.json', import.meta.url);
+const useTest = process.argv.includes('--test');
+const DATA_PATH = new URL(useTest ? '../data/chars_test.json' : '../data/chars_v2.json', import.meta.url);
 
 async function migrate() {
   const raw = readFileSync(DATA_PATH, 'utf-8');

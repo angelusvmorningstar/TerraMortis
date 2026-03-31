@@ -272,8 +272,22 @@ body {
   color: var(--txt3);
 }
 
-.cd-close {
+.cd-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+
+.cd-dirty-badge {
+  font-size: 11px;
+  color: var(--gold2);
+  background: rgba(224, 196, 122, 0.12);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.cd-close {
   background: none;
   border: none;
   color: var(--txt3);
@@ -336,6 +350,121 @@ body {
 }
 
 .cd-save:hover { opacity: 0.9; }
+
+.cd-sheet { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--bdr); }
+
+/* ── Desktop character sheet: 3-column layout ── */
+.cd-sheet #sh-content,
+.char-detail #sh-content { max-width: none !important; }
+
+.sh-desktop {
+  display: grid;
+  grid-template-columns: 650px 1fr 1fr;
+  gap: 0 24px;
+  align-items: start;
+}
+.sh-dcol { min-width: 0; overflow: hidden; }
+
+/* Hide duplicate name row — panel header already shows it */
+.sh-desktop .sh-namerow { display: none; }
+
+/* Stats strip wraps within column */
+.sh-desktop .sh-stats-strip { flex-wrap: wrap; }
+
+/* ── Desktop edit mode: scale up inputs and controls ── */
+
+/* Breakdown inputs (CP/Fr/XP/UP) — larger on desktop */
+.sh-desktop .attr-bd-input,
+.sh-desktop .merit-bd-input,
+.sh-desktop .sk-bd-row .attr-bd-input,
+.sh-desktop .disc-bd-row .attr-bd-input {
+  width: 44px;
+  font-size: 11px;
+  padding: 3px 4px;
+}
+
+/* Breakdown row labels */
+.sh-desktop .bd-lbl { font-size: 10px; }
+.sh-desktop .bd-val { font-size: 11px; }
+
+/* Attribute grid: let cards breathe — switch to auto-fill */
+.sh-desktop .attr-grid,
+.sh-desktop .sh-sec .attr-grid {
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+/* Skill grid: same treatment */
+.sh-desktop .skills-3col {
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+/* Select dropdowns — wider on desktop */
+.sh-desktop .sh-edit-select {
+  font-size: 13px;
+  padding: 5px 8px;
+}
+
+/* Text inputs — wider on desktop */
+.sh-desktop .sh-edit-input {
+  font-size: 13px;
+  padding: 5px 8px;
+}
+
+/* Mask/Dirge/Bane labels */
+.sh-desktop .exp-lbl { font-size: 11px; }
+
+/* Touchstone inputs */
+.sh-desktop .sh-ts-edit-row input {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.sh-desktop .sh-ts-hum {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+/* Influence/merit edit rows — more padding */
+.sh-desktop .infl-edit-row {
+  padding: 6px 10px;
+  gap: 8px;
+}
+.sh-desktop .infl-edit-row select,
+.sh-desktop .infl-edit-row input[type=text] {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* General merit edit rows */
+.sh-desktop .gen-edit-row {
+  padding: 6px 10px;
+  gap: 8px;
+}
+.sh-desktop .gen-name-select,
+.sh-desktop .gen-qual-input {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* Skill spec inputs */
+.sh-desktop .sk-spec-input {
+  font-size: 11px;
+  padding: 3px 6px;
+}
+
+/* Discipline edit rows */
+.sh-desktop .disc-bd-panel {
+  padding: 4px 8px;
+}
+
+/* Add buttons */
+.sh-desktop .dev-add-btn,
+.sh-desktop .sh-bane-add,
+.sh-desktop .sk-spec-add {
+  font-size: 11px;
+  padding: 6px 14px;
+}
 
 .cd-status { font-size: 13px; }
 .cd-saved { color: #6a6; }
@@ -575,4 +704,382 @@ body {
 .infl-total {
   font-weight: 700;
   color: var(--gold2);
+}
+
+/* ── Downtime domain ── */
+
+.dt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.dt-drop-zone {
+  flex: 1;
+  min-width: 250px;
+  border: 2px dashed var(--bdr);
+  border-radius: 8px;
+  padding: 16px 20px;
+  text-align: center;
+  color: var(--txt3);
+  font-size: 13px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.dt-drop-zone.drag-over {
+  border-color: var(--gold2);
+  background: rgba(224, 196, 122, 0.05);
+}
+
+.dt-file-label {
+  color: var(--gold2);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.dt-btn {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-family: var(--fh);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dt-btn:hover { border-color: var(--gold2); }
+
+.dt-cycle-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dt-cycle-sel {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: var(--fh);
+  font-size: 13px;
+  min-width: 200px;
+}
+
+.dt-cycle-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dt-cycle-info {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dt-cycle-label {
+  font-family: var(--fh);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold2);
+}
+
+.dt-warnings { margin-bottom: 12px; }
+
+.dt-warn {
+  color: var(--crim2, #B22222);
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.dt-success {
+  color: #6a6;
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.dt-sub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.dt-sub-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.dt-sub-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dt-sub-name {
+  font-family: var(--fh);
+  font-weight: 600;
+  color: var(--gold2);
+  font-size: 13px;
+}
+
+.dt-sub-player {
+  font-size: 12px;
+  color: var(--txt3);
+  flex: 1;
+}
+
+.dt-attended { color: #6a6; font-size: 13px; }
+.dt-absent { color: var(--crim2, #B22222); font-size: 13px; }
+
+.dt-sub-stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dt-sub-tag {
+  font-size: 11px;
+  color: var(--txt2);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.dt-sub-list { display: flex; flex-direction: column; gap: 8px; }
+
+.dt-sub-clickable { cursor: pointer; }
+.dt-sub-card:hover { border-color: var(--gold2); }
+.dt-sub-expanded { border-color: var(--gold2); }
+.dt-sub-unmatched { border-color: var(--crim, #8B0000); }
+
+.dt-match-icon { color: #6a6; font-size: 12px; }
+.dt-unmatch-icon { color: var(--crim2, #B22222); font-size: 12px; }
+
+.dt-match-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.dt-match-ok { color: #6a6; }
+.dt-match-warn { color: var(--crim2, #B22222); }
+
+.dt-btn-gold { background: var(--gold2); color: var(--bg); font-weight: 600; }
+.dt-btn-gold:hover { opacity: 0.9; border-color: var(--gold2); }
+
+.dt-roll-badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+.dt-roll-badge.rolled { background: rgba(106, 170, 106, 0.15); color: #6a6; }
+.dt-roll-badge.unrolled { background: var(--bg); color: var(--txt3); }
+
+.dt-feed-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
+.dt-feed-header {
+  font-family: var(--fh);
+  font-size: 12px;
+  color: var(--gold2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.dt-feed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--txt2);
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.dt-feed-lbl {
+  font-size: 11px;
+  color: var(--txt3);
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.dt-feed-roll-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.dt-pool-input {
+  width: 50px;
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.dt-feed-roll-btn { padding: 4px 12px; font-size: 12px; }
+
+.dt-feed-result {
+  font-weight: 600;
+  font-size: 13px;
+}
+.dt-feed-result.normal { color: var(--txt); }
+.dt-feed-result.exceptional { color: var(--gold2); }
+.dt-feed-result.failure { color: var(--crim2, #B22222); }
+
+.dt-feed-dice {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.dt-feed-vessels {
+  font-size: 12px;
+  color: var(--txt2);
+}
+
+.dt-method-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dt-method-btn {
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  color: var(--txt2);
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.dt-method-btn:hover { border-color: var(--gold2); }
+.dt-method-btn.selected { border-color: var(--gold2); color: var(--gold2); background: rgba(224, 196, 122, 0.08); }
+
+.dt-pool-breakdown {
+  font-size: 13px;
+  color: var(--txt2);
+}
+
+.dt-pool-breakdown b { color: var(--gold2); }
+
+/* ── Approval status ── */
+.dt-status-badge {
+  font-family: var(--fh);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.dt-status-pending { background: rgba(138, 126, 110, 0.15); color: var(--txt3); }
+.dt-status-approved { background: rgba(106, 170, 106, 0.15); color: #6a6; }
+.dt-status-modified { background: rgba(224, 196, 122, 0.15); color: var(--gold2); }
+.dt-status-rejected { background: rgba(178, 34, 34, 0.15); color: var(--crim2, #B22222); }
+
+.dt-sub-approved { border-left: 3px solid #6a6; }
+.dt-sub-modified { border-left: 3px solid var(--gold2); }
+.dt-sub-rejected { border-left: 3px solid var(--crim2, #B22222); }
+
+.dt-approval-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
+.dt-approval-btns {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dt-approval-btn {
+  font-family: var(--fh);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 5px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--bdr);
+  background: var(--bg);
+  color: var(--txt3);
+  cursor: pointer;
+}
+
+.dt-approval-btn:hover { border-color: var(--txt3); }
+
+.dt-appr-approved.active { background: rgba(106, 170, 106, 0.15); color: #6a6; border-color: #6a6; }
+.dt-appr-modified.active { background: rgba(224, 196, 122, 0.15); color: var(--gold2); border-color: var(--gold2); }
+.dt-appr-rejected.active { background: rgba(178, 34, 34, 0.15); color: var(--crim2); border-color: var(--crim2); }
+.dt-appr-pending.active { background: rgba(138, 126, 110, 0.15); color: var(--txt3); border-color: var(--txt3); }
+
+/* ── ST Notes ── */
+.dt-notes-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
+.dt-notes-csv {
+  font-size: 12px;
+  color: var(--txt3);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.dt-notes-input {
+  width: 100%;
+  min-height: 60px;
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-family: var(--fb);
+  font-size: 12px;
+  resize: vertical;
+}
+
+.dt-notes-input:focus { border-color: var(--gold2); outline: none; }
+
+.dt-notes-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.dt-notes-vis {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+
+.dt-notes-xp {
+  font-size: 12px;
+  color: var(--txt2);
+  margin-top: 8px;
 }

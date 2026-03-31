@@ -1,4 +1,4 @@
-/* Admin app entry point — auth gate, sidebar routing, API data loading */
+/* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 
 import { apiGet, apiPut } from './data/api.js';
 import { esc, clanIcon, covIcon, shortCov } from './data/helpers.js';
@@ -6,6 +6,35 @@ import { xpLeft, xpEarned } from './editor/xp.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
+import { initDowntimeView } from './admin/downtime-views.js';
+import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
+import {
+  editFromSheet, shEdit, shEditStatus,
+  shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
+  shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
+  shEditBP, shEditHumanity,
+  shStatusUp, shStatusDown,
+  shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
+  shSetSkillPriority, shEditSkillPt,
+  shEditSpec, shRemoveSpec, shAddSpec,
+  shEditDiscPt, shShowDevSelect, shAddDevotion, shRemoveDevotion,
+  shEditInflMerit, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
+  shAddDomainPartner, shRemoveDomainPartner,
+  shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
+  shEditStandMerit, shEditStandAssetSkill,
+  shToggleMCI, shEditMCIGrant,
+  shEditMeritPt, shEditXP,
+  registerCallbacks as registerEditCallbacks
+} from './editor/edit.js';
+import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
+import {
+  renderAttrsTab, clickAttrDot, adjAttrBonus,
+  clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
+  registerCallbacks as registerAttrsCallbacks
+} from './editor/attrs-tab.js';
+import { printSheet } from './editor/print.js';
+import editorState from './data/state.js';
 
 const CLANS = ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue'];
 const COVENANTS = ['Carthian Movement', 'Circle of the Crone', 'Invictus', 'Lancea et Sanctum', 'Ordo Dracul'];
@@ -14,6 +43,20 @@ const REGENT_TERRITORIES = ['The Academy', 'The North Shore', 'The Dockyards', '
 
 let chars = [];
 let selectedChar = null;
+
+// ── Editor wiring ──
+
+function markDirty(idx) {
+  if (idx === undefined) idx = editorState.editIdx;
+  if (idx < 0) return;
+  editorState.dirty.add(idx);
+  const badge = document.getElementById('cd-dirty-badge');
+  if (badge) badge.style.display = editorState.dirty.size > 0 ? '' : 'none';
+}
+
+registerEditCallbacks(markDirty, renderSheet);
+registerIdentityCallbacks(markDirty, xpLeft);
+registerAttrsCallbacks(markDirty);
 
 // ── Auth gate ──
 
@@ -75,6 +118,7 @@ function switchDomain(domain) {
 
   if (domain === 'engine') initSessionLog();
   if (domain === 'city') initCityView();
+  if (domain === 'downtime') initDowntimeView();
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
@@ -119,7 +163,6 @@ function renderCharGrid() {
 
   count.textContent = sorted.length + ' characters';
 
-  // Card click handler
   grid.addEventListener('click', e => {
     const card = e.target.closest('.char-card');
     if (!card) return;
@@ -133,124 +176,80 @@ function renderCharGrid() {
 
 function openCharDetail(c) {
   selectedChar = c;
-  const panel = document.getElementById('char-detail');
-  const st = c.status || {};
-  const isRegent = c.court_title === 'Regent';
+  editorState.chars = chars;
+  editorState.editIdx = chars.indexOf(c);
+  editorState.editMode = false;
+  editorState.dirty.clear();
 
-  const opts = (arr, current, allowEmpty) => {
-    let h = allowEmpty ? '<option value="">\u2014</option>' : '';
-    h += arr.map(v => `<option${v === current ? ' selected' : ''}>${esc(v)}</option>`).join('');
-    return h;
-  };
+  const panel = document.getElementById('char-detail');
 
   panel.innerHTML = `
     <div class="cd-header">
       <h3 class="cd-name">${esc(c.name)}</h3>
       <span class="cd-player">${esc(c.player || '')}</span>
-      <button class="cd-close" id="cd-close">&times;</button>
+      <div class="cd-header-actions">
+        <span class="cd-dirty-badge" id="cd-dirty-badge" style="display:none">Unsaved</span>
+        <button class="dt-btn" id="cd-edit-toggle">Edit</button>
+        <button class="dt-btn" id="cd-print">Print</button>
+        <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
+        <button class="cd-close" id="cd-close">&times;</button>
+      </div>
     </div>
-    <div class="cd-grid">
-      <label class="cd-field">
-        <span class="cd-label">Clan</span>
-        <select id="cd-clan">${opts(CLANS, c.clan)}</select>
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">Covenant</span>
-        <select id="cd-covenant">${opts(COVENANTS, c.covenant)}</select>
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">Bloodline</span>
-        <input type="text" id="cd-bloodline" value="${esc(c.bloodline || '')}">
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">Court Title</span>
-        <select id="cd-title">${opts(COURT_TITLES, c.court_title || '', true)}</select>
-      </label>
-      <label class="cd-field ${isRegent ? '' : 'cd-hidden'}" id="cd-territory-field">
-        <span class="cd-label">Regent Territory</span>
-        <select id="cd-territory"><option value="">\u2014</option>${REGENT_TERRITORIES.map(t => `<option${t === c.regent_territory ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">Blood Potency</span>
-        <input type="number" id="cd-bp" min="0" max="10" value="${c.blood_potency || 1}">
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">Humanity</span>
-        <input type="number" id="cd-humanity" min="0" max="10" value="${c.humanity != null ? c.humanity : 7}">
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">City Status</span>
-        <input type="number" id="cd-city" min="0" max="5" value="${st.city || 0}">
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">Clan Status</span>
-        <input type="number" id="cd-clan-status" min="0" max="5" value="${st.clan || 0}">
-      </label>
-      <label class="cd-field">
-        <span class="cd-label">Covenant Status</span>
-        <input type="number" id="cd-cov-status" min="0" max="5" value="${st.covenant || 0}">
-      </label>
-    </div>
-    <div class="cd-actions">
-      <button class="cd-save" id="cd-save">Save</button>
-      <span class="cd-status" id="cd-status"></span>
-    </div>`;
+    <div id="sh-content" class="cd-sheet"></div>`;
 
   panel.style.display = '';
-
-  // Show/hide territory field when title changes
-  document.getElementById('cd-title').addEventListener('change', e => {
-    const field = document.getElementById('cd-territory-field');
-    field.classList.toggle('cd-hidden', e.target.value !== 'Regent');
-  });
+  renderSheet(c);
 
   document.getElementById('cd-close').addEventListener('click', closeCharDetail);
-  document.getElementById('cd-save').addEventListener('click', saveCharDetail);
+  document.getElementById('cd-print').addEventListener('click', () => printSheet());
+  document.getElementById('cd-edit-toggle').addEventListener('click', () => {
+    editorState.editMode = !editorState.editMode;
+    const btn = document.getElementById('cd-edit-toggle');
+    const saveBtn = document.getElementById('cd-save-api');
+    btn.textContent = editorState.editMode ? 'View' : 'Edit';
+    saveBtn.style.display = editorState.editMode ? '' : 'none';
+    renderSheet(chars[editorState.editIdx]);
+  });
+  document.getElementById('cd-save-api').addEventListener('click', saveCharToApi);
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function closeCharDetail() {
+  if (editorState.dirty.size > 0) {
+    if (!confirm('You have unsaved changes. Close anyway?')) return;
+  }
   selectedChar = null;
+  editorState.editMode = false;
+  editorState.dirty.clear();
   document.getElementById('char-detail').style.display = 'none';
 }
 
-async function saveCharDetail() {
-  if (!selectedChar) return;
-  const statusEl = document.getElementById('cd-status');
-  const title = document.getElementById('cd-title').value;
+async function saveCharToApi() {
+  const idx = editorState.editIdx;
+  const c = chars[idx];
+  if (!c || !c._id) return;
 
-  const updates = {
-    clan: document.getElementById('cd-clan').value,
-    covenant: document.getElementById('cd-covenant').value,
-    bloodline: document.getElementById('cd-bloodline').value || null,
-    court_title: title || null,
-    regent_territory: title === 'Regent' ? (document.getElementById('cd-territory').value || null) : null,
-    blood_potency: parseInt(document.getElementById('cd-bp').value) || 1,
-    humanity: parseInt(document.getElementById('cd-humanity').value),
-    status: {
-      ...(selectedChar.status || {}),
-      city: parseInt(document.getElementById('cd-city').value) || 0,
-      clan: parseInt(document.getElementById('cd-clan-status').value) || 0,
-      covenant: parseInt(document.getElementById('cd-cov-status').value) || 0,
-    },
-  };
+  const saveBtn = document.getElementById('cd-save-api');
+  saveBtn.textContent = 'Saving...';
 
   try {
-    const updated = await apiPut('/api/characters/' + selectedChar._id, updates);
-    // Update local cache
-    const idx = chars.findIndex(c => c._id === selectedChar._id);
-    if (idx !== -1) Object.assign(chars[idx], updated);
-    selectedChar = updated;
+    const { _id, ...body } = c;
+    const updated = await apiPut('/api/characters/' + _id, body);
+    Object.assign(chars[idx], updated);
+    selectedChar = chars[idx];
+    editorState.dirty.clear();
 
-    statusEl.textContent = 'Saved';
-    statusEl.className = 'cd-status cd-saved';
-    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    const badge = document.getElementById('cd-dirty-badge');
+    if (badge) badge.style.display = 'none';
+    saveBtn.textContent = 'Saved \u2713';
+    setTimeout(() => { saveBtn.textContent = 'Save to DB'; }, 2000);
 
     renderCharGrid();
   } catch (err) {
-    statusEl.textContent = 'Error: ' + err.message;
-    statusEl.className = 'cd-status cd-error';
+    saveBtn.textContent = 'Error';
+    console.error('Save failed:', err.message);
+    setTimeout(() => { saveBtn.textContent = 'Save to DB'; }, 2000);
   }
 }
 
@@ -266,5 +265,34 @@ async function init() {
       `<p class="placeholder">Failed to load characters from API. Is the server running?</p>`;
   }
 }
+
+// ── Window registrations (needed by inline onclick in rendered sheet HTML) ──
+
+Object.assign(window, {
+  toggleExp, toggleDisc, renderSheet, editFromSheet: () => {
+    editorState.editMode = true;
+    document.getElementById('cd-edit-toggle').textContent = 'View';
+    document.getElementById('cd-save-api').style.display = '';
+    renderSheet(chars[editorState.editIdx]);
+  },
+  markDirty, printSheet,
+  shEdit, shEditStatus,
+  shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
+  shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
+  shEditBP, shEditHumanity, shStatusUp, shStatusDown,
+  shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
+  shSetSkillPriority, shEditSkillPt,
+  shEditSpec, shRemoveSpec, shAddSpec,
+  shEditDiscPt, shShowDevSelect, shAddDevotion, shRemoveDevotion,
+  shEditInflMerit, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
+  shAddDomainPartner, shRemoveDomainPartner,
+  shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
+  shEditStandMerit, shEditStandAssetSkill,
+  shToggleMCI, shEditMCIGrant, shEditMeritPt, shEditXP,
+  clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
+  updField, updStatus,
+  renderIdentityTab, renderAttrsTab,
+});
 
 boot();

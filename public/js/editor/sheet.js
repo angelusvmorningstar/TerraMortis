@@ -337,6 +337,9 @@ export function renderSheet(c) {
   const clanImg=ICONS[CLAN_ICON_KEY[c.clan]||'']||'',covImg=ICONS[COV_ICON_KEY[c.covenant]||'']||'';
   const allB=c.banes||[],curseIdx=allB.findIndex(b=>b.name.toLowerCase().includes('curse')),curse=curseIdx>=0?allB[curseIdx]:null,regB=allB.filter((_,i)=>i!==curseIdx);
   let h='';
+  // Desktop layout hint — admin CSS uses this for 3-col grid
+  const isDesktop = el.closest('.cd-sheet');
+  if (isDesktop) h += '<div class="sh-desktop"><div class="sh-dcol sh-dcol-left">';
   // Header
   h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(c.name))+'</div>';
   h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
@@ -380,7 +383,16 @@ export function renderSheet(c) {
   const covLbls=['Carthian','Crone','Invictus','Lance'],covSM={'Carthian Movement':'Carthian','Circle of the Crone':'Crone','Invictus':'Invictus','Lancea et Sanctum':'Lance'},pLbl=covSM[c.covenant]||c.covenant;
   const covS=covLbls.filter(l=>l!==pLbl).map(l=>({label:l,status:(c.covenant_standings||{})[l]||0}));
   if(covS.length){h+='<div class="cov-strip">';covS.forEach(cs=>{const a=cs.status>0;h+='<div class="cov-strip-cell"><span class="cov-strip-name'+(a?' active':'')+'">'+esc(cs.label)+'</span><span class="cov-strip-dot'+(a?' active':'')+'">'+(a?'\u25CB':'\u2013')+'</span></div>';});h+='</div>';}
-  h+=shRenderStatsStrip(c)+'<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderManoeuvres(c)+'</div>';
+  h+=shRenderStatsStrip(c);
+  if (isDesktop) {
+    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+'</div>';
+    h+='</div>'; // end sh-dcol-left
+    h+='<div class="sh-dcol sh-dcol-mid"><div class="sh-body">'+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderManoeuvres(c)+'</div></div>';
+    h+='<div class="sh-dcol sh-dcol-right"><div class="sh-body">'+shRenderDisciplines(c,editMode)+'</div></div>';
+    h+='</div>'; // end sh-desktop
+  } else {
+    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderManoeuvres(c)+'</div>';
+  }
   const _scrollEl=el.closest('.sh-wrap')||el.parentElement||document.documentElement,_scrollTop=_scrollEl.scrollTop;
   el.innerHTML=h;_scrollEl.scrollTop=_scrollTop;
 }
