@@ -1,6 +1,6 @@
 # Story 2.5: Remaining Collection APIs
 
-**Status:** In Progress
+**Status:** done
 
 **Epic:** 2 — Backend Foundation
 

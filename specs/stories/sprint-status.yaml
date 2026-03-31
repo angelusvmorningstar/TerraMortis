@@ -1,5 +1,5 @@
-# generated: 2026-03-31
-# last_updated: 2026-03-31T21:00:00Z
+# generated: 2026-04-01
+# last_updated: 2026-04-01T12:00:00Z
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -13,8 +13,8 @@
 #   - done: All stories in epic completed
 #
 # Epic Status Transitions:
-#   - backlog → in-progress: Automatically when first story is created (via create-story)
-#   - in-progress → done: Manually when all stories reach 'done' status
+#   - backlog -> in-progress: Automatically when first story is created (via create-story)
+#   - in-progress -> done: Manually when all stories reach 'done' status
 #
 # Story Status:
 #   - backlog: Story only exists in epic file
@@ -34,32 +34,35 @@
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 #
-# LEGACY NOTE:
-# ============
-# Stories 2.1 (Character Administration) and 2.2 (MCI Benefit Grants) were completed
-# under the old numbering scheme before the epic restructure. They are character admin
-# features that carry forward. Old story files: 2.1.story.md, 2.2.story.md.
+# RESTRUCTURE NOTE (v3):
+# ======================
+# Epic 4 stories 4.1-4.6 completed on dev branch ahead of schedule.
+# Story 4.7 absorbed into Epic 5 (Player Access Layer).
+# Old Epic 5 (Live Game App) renumbered to Epic 6.
+# Old Epic 6 (Player Portal) replaced by Epic 5 (Player Access Layer) with new architecture.
+# Epic 7 (Public Website) split from old Epic 6.
+# Legacy story files from old numbering (2.x.story.md) retained for reference.
 
-generated: 2026-03-31
-last_updated: 2026-03-31T21:00:00Z
+generated: 2026-04-01
+last_updated: 2026-04-01T12:00:00Z
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
 story_location: specs/stories
 
 development_status:
-  # Epic 1: Foundation Restructure — DONE
+  # Epic 1: Foundation Restructure -- DONE
   epic-1: done
   epic-1-retrospective: optional
 
   # Epic 2: Backend Foundation
-  epic-2: in-progress
-  2-1-express-api-server-mongodb-connection: review
-  2-2-discord-auth: backlog  # deferred — not needed until player access
-  2-3-characters-crud-api-data-migration: review
-  2-4-admin-app-shell: review
-  2-5-remaining-collection-apis: backlog
-  2-6-game-app-api-integration: backlog
+  epic-2: done
+  2-1-express-api-server-mongodb-connection: done
+  2-2-discord-auth: done
+  2-3-characters-crud-api-data-migration: done
+  2-4-admin-app-shell: done
+  2-5-remaining-collection-apis: done
+  2-6-game-app-api-integration: done
   epic-2-retrospective: optional
 
   # Epic 3: ST Admin Features
@@ -70,34 +73,41 @@ development_status:
   3-4-city-domain-views: backlog
   epic-3-retrospective: optional
 
-  # Epic 4: Downtime System
-  epic-4: backlog
-  4-1-module-conversion: backlog
-  4-2-character-data-bridge: backlog
-  4-3-feeding-roll-resolution: backlog
-  4-4-st-notes-hidden-annotations: backlog
-  4-5-outcome-approval-application: backlog
-  4-6-cycle-history-comparison: backlog
-  4-7-discord-auth-access-control: backlog
+  # Epic 4: Downtime System -- DONE
+  epic-4: done
+  4-1-module-conversion: done
+  4-2-character-data-bridge: done
+  4-3-feeding-roll-resolution: done
+  4-4-st-notes-hidden-annotations: done
+  4-5-outcome-approval-application: done
+  4-6-cycle-history-comparison: done
   epic-4-retrospective: optional
 
-  # Epic 5: Live Game App
+  # Epic 5: Player Access Layer
   epic-5: backlog
-  5-1-game-mode-shell-navigation: backlog
-  5-2-read-only-character-sheet: backlog
-  5-3-quick-roll-workflows: backlog
-  5-4-downtime-lookup: backlog
-  5-5-live-status-tracker: backlog
-  5-6-rules-quick-reference: backlog
+  5-1-players-collection-role-middleware: backlog
+  5-2-player-html-shell-auth-redirect: backlog
+  5-3-read-only-character-sheet: backlog
+  5-4-downtime-submission-form-level-1: backlog
+  5-5-st-publish-workflow: backlog
+  5-6-ordeals-story-tab-archive: backlog
+  5-7-character-creator-wizard: backlog
+  5-8-downtime-form-levels-2-3: backlog
   epic-5-retrospective: optional
 
-  # Epic 6: Player Portal and Website
+  # Epic 6: Live Game App
   epic-6: backlog
-  6-1-public-landing-page: backlog
-  6-2-player-login-character-view: backlog
-  6-3-downtime-submission: backlog
-  6-4-downtime-outcomes: backlog
-  6-5-lore-library: backlog
-  6-6-character-drafting-ordeal-tracking: backlog
-  6-7-st-admin-panel-website-backend: backlog
+  6-1-game-mode-shell-navigation: backlog
+  6-2-read-only-character-sheet: backlog
+  6-3-quick-roll-workflows: backlog
+  6-4-downtime-lookup: backlog
+  6-5-live-status-tracker: backlog
+  6-6-rules-quick-reference: backlog
   epic-6-retrospective: optional
+
+  # Epic 7: Public Website
+  epic-7: backlog
+  7-1-public-landing-page: backlog
+  7-2-player-resources-portal: backlog
+  7-3-lore-library: backlog
+  epic-7-retrospective: optional
