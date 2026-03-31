@@ -960,3 +960,51 @@ body {
 }
 
 .dt-pool-breakdown b { color: var(--gold2); }
+
+/* ── ST Notes ── */
+.dt-notes-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
+.dt-notes-csv {
+  font-size: 12px;
+  color: var(--txt3);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.dt-notes-input {
+  width: 100%;
+  min-height: 60px;
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-family: var(--fb);
+  font-size: 12px;
+  resize: vertical;
+}
+
+.dt-notes-input:focus { border-color: var(--gold2); outline: none; }
+
+.dt-notes-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.dt-notes-vis {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+
+.dt-notes-xp {
+  font-size: 12px;
+  color: var(--txt2);
+  margin-top: 8px;
+}

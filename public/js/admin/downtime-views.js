@@ -189,6 +189,7 @@ function renderSubmissions() {
 
     if (isExpanded) {
       h += renderFeedingDetail(s, raw, char);
+      h += renderStNotes(s, raw);
     }
 
     h += '</div>';
@@ -212,6 +213,11 @@ function renderSubmissions() {
       const sub = submissions.find(s => s._id === btn.dataset.subId);
       if (sub) { sub._feed_method = btn.dataset.method; renderSubmissions(); }
     });
+  });
+
+  // Notes save delegation
+  el.querySelectorAll('.dt-notes-save').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); handleSaveNotes(btn.dataset.subId); });
   });
 
   // Roll button delegation
@@ -311,6 +317,58 @@ async function handleFeedingRoll(subId, poolSize) {
     renderSubmissions();
   } catch (err) {
     console.error('Failed to save feeding roll:', err.message);
+  }
+}
+
+// ── ST Notes ────────────────────────────────────────────────────────────────
+
+function renderStNotes(s, raw) {
+  const csvNotes = raw.meta?.st_notes || '';
+  const savedNotes = s.st_notes || '';
+  const currentNotes = savedNotes || csvNotes;
+  const xpSpend = raw.meta?.xp_spend || '';
+
+  let h = '<div class="dt-notes-detail">';
+  h += '<div class="dt-feed-header">ST Notes</div>';
+
+  if (csvNotes && !savedNotes) {
+    h += `<div class="dt-notes-csv"><span class="dt-feed-lbl">From CSV</span> ${esc(csvNotes)}</div>`;
+  }
+
+  h += `<textarea class="dt-notes-input" data-sub-id="${s._id}" placeholder="ST notes (hidden from players)">${esc(currentNotes)}</textarea>`;
+  h += `<div class="dt-notes-actions">
+    <button class="dt-btn dt-notes-save" data-sub-id="${s._id}">Save Notes</button>
+    <span class="dt-notes-vis">Visibility: ST only</span>
+  </div>`;
+
+  if (xpSpend) {
+    h += `<div class="dt-notes-xp"><span class="dt-feed-lbl">XP Spend</span> ${esc(xpSpend)}</div>`;
+  }
+
+  h += '</div>';
+  return h;
+}
+
+async function handleSaveNotes(subId) {
+  const textarea = document.querySelector(`.dt-notes-input[data-sub-id="${subId}"]`);
+  if (!textarea) return;
+
+  const notes = textarea.value.trim();
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+
+  try {
+    await updateSubmission(subId, {
+      st_notes: notes,
+      st_notes_visibility: 'st_only',
+      st_notes_updated: new Date().toISOString(),
+    });
+    sub.st_notes = notes;
+
+    const btn = document.querySelector(`.dt-notes-save[data-sub-id="${subId}"]`);
+    if (btn) { btn.textContent = 'Saved \u2713'; setTimeout(() => { btn.textContent = 'Save Notes'; }, 1500); }
+  } catch (err) {
+    console.error('Failed to save notes:', err.message);
   }
 }
 
