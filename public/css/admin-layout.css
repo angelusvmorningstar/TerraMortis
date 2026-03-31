@@ -353,6 +353,119 @@ body {
 
 .cd-sheet { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--bdr); }
 
+/* ── Desktop character sheet: 3-column layout ── */
+.cd-sheet #sh-content,
+.char-detail #sh-content { max-width: none !important; }
+
+.sh-desktop {
+  display: grid;
+  grid-template-columns: 650px 1fr 1fr;
+  gap: 0 24px;
+  align-items: start;
+}
+.sh-dcol { min-width: 0; overflow: hidden; }
+
+/* Hide duplicate name row — panel header already shows it */
+.sh-desktop .sh-namerow { display: none; }
+
+/* Stats strip wraps within column */
+.sh-desktop .sh-stats-strip { flex-wrap: wrap; }
+
+/* ── Desktop edit mode: scale up inputs and controls ── */
+
+/* Breakdown inputs (CP/Fr/XP/UP) — larger on desktop */
+.sh-desktop .attr-bd-input,
+.sh-desktop .merit-bd-input,
+.sh-desktop .sk-bd-row .attr-bd-input,
+.sh-desktop .disc-bd-row .attr-bd-input {
+  width: 44px;
+  font-size: 11px;
+  padding: 3px 4px;
+}
+
+/* Breakdown row labels */
+.sh-desktop .bd-lbl { font-size: 10px; }
+.sh-desktop .bd-val { font-size: 11px; }
+
+/* Attribute grid: let cards breathe — switch to auto-fill */
+.sh-desktop .attr-grid,
+.sh-desktop .sh-sec .attr-grid {
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+/* Skill grid: same treatment */
+.sh-desktop .skills-3col {
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+/* Select dropdowns — wider on desktop */
+.sh-desktop .sh-edit-select {
+  font-size: 13px;
+  padding: 5px 8px;
+}
+
+/* Text inputs — wider on desktop */
+.sh-desktop .sh-edit-input {
+  font-size: 13px;
+  padding: 5px 8px;
+}
+
+/* Mask/Dirge/Bane labels */
+.sh-desktop .exp-lbl { font-size: 11px; }
+
+/* Touchstone inputs */
+.sh-desktop .sh-ts-edit-row input {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.sh-desktop .sh-ts-hum {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+/* Influence/merit edit rows — more padding */
+.sh-desktop .infl-edit-row {
+  padding: 6px 10px;
+  gap: 8px;
+}
+.sh-desktop .infl-edit-row select,
+.sh-desktop .infl-edit-row input[type=text] {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* General merit edit rows */
+.sh-desktop .gen-edit-row {
+  padding: 6px 10px;
+  gap: 8px;
+}
+.sh-desktop .gen-name-select,
+.sh-desktop .gen-qual-input {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* Skill spec inputs */
+.sh-desktop .sk-spec-input {
+  font-size: 11px;
+  padding: 3px 6px;
+}
+
+/* Discipline edit rows */
+.sh-desktop .disc-bd-panel {
+  padding: 4px 8px;
+}
+
+/* Add buttons */
+.sh-desktop .dev-add-btn,
+.sh-desktop .sh-bane-add,
+.sh-desktop .sk-spec-add {
+  font-size: 11px;
+  padding: 6px 14px;
+}
+
 .cd-status { font-size: 13px; }
 .cd-saved { color: #6a6; }
 .cd-error { color: var(--err, #c44); }

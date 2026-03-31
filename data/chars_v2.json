@@ -258,7 +258,265 @@
         "name": "Rat King/Queen",
         "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Divination": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 3,
+        "powers": 9,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Anichka",
@@ -500,7 +758,255 @@
         "name": "Tenebrous Curse",
         "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 0,
+        "free": 0,
+        "xp": 4
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 8
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Divination": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 2,
+        "powers": 15,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Brandy LaRoux",
@@ -811,7 +1317,300 @@
         "name": "Feral Curse",
         "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Majesty": {
+        "cp": 0,
+        "free": 0,
+        "xp": 4
+      },
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Destruction": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 4
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 4,
+        "skills": 0,
+        "merits": 13,
+        "powers": 7,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Carver",
@@ -1068,7 +1867,245 @@
         "name": "Aloof Curse",
         "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Nightmare": {
+        "cp": 1,
+        "free": 0,
+        "xp": 9
+      },
+      "Resilience": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 5
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 17,
+        "powers": 11,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Casamir 'Cazz'",
@@ -1322,7 +2359,240 @@
         "name": "Aloof Curse",
         "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 8,
+        "skills": 0,
+        "merits": 3,
+        "powers": 3,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Charles Mercer-Willows",
@@ -1620,7 +2890,270 @@
         "name": "Aloof Curse",
         "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Animalism": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Dominate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      },
+      "Creation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Transmutation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 2,
+        "powers": 15,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Charlie Ballsack",
@@ -2008,7 +3541,320 @@
         "name": "Rat King/Queen",
         "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Nightmare": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 4,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 4,
+        "skills": 0,
+        "merits": 16,
+        "powers": 14,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Conrad Sondergaard",
@@ -2225,7 +4071,230 @@
         "name": "Tenebrous Curse",
         "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 2,
+        "free": 0,
+        "xp": 9
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      },
+      "Divination": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Transmutation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 1,
+        "powers": 24,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Cyrus Reynolds",
@@ -2480,7 +4549,265 @@
         "name": "Rat King/Queen",
         "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Divination": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 5,
+        "powers": 3,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Edna Judge",
@@ -2692,7 +5019,235 @@
         "name": "Lonely Curse",
         "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Nightmare": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Divination": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 1,
+        "free": 0,
+        "xp": 2
+      },
+      "Transmutation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 6,
+        "merits": 0,
+        "powers": 8,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Einar Solveig",
@@ -3001,7 +5556,270 @@
         "name": "Aloof Curse",
         "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Dominate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Resilience": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Vigour": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 13,
+        "powers": 18,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Eve Lockridge",
@@ -3251,7 +6069,255 @@
         "name": "Wanton Curse",
         "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Dominate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 9,
+        "powers": 6,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Ivana Horvat",
@@ -3607,7 +6673,295 @@
         "name": "Feral Curse",
         "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 2,
+        "free": 0,
+        "xp": 9
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Divination": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 5,
+        "powers": 23,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Jack Fallow",
@@ -3924,7 +7278,290 @@
         "name": "Plague of Purity",
         "effect": "Touch by Integrity 8+ mortal causes (10 – Humanity) bashing damage."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 9
+      },
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Divination": {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Transmutation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 6,
+        "powers": 18,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Jelle 'Gel' Dunneweld",
@@ -4138,7 +7775,225 @@
         "name": "Wanton Curse",
         "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 4,
+        "merits": 6,
+        "powers": 0,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Keeper",
@@ -4468,7 +8323,275 @@
         "name": "Hated by Beasts",
         "effect": "Animals react violently; Animal Ken/Animalism suffer (10 – Humanity) penalty."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Dominate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      },
+      "Creation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Protection": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Transmutation": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 5,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 7,
+        "powers": 28,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Kirk Grimm",
@@ -4733,7 +8856,230 @@
         "name": "Feral Curse",
         "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 5
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Animalism": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Resilience": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 5,
+        "skills": 4,
+        "merits": 3,
+        "powers": 3,
+        "special": 2
+      }
+    }
   },
   {
     "name": "Livia",
@@ -4991,7 +9337,250 @@
         "name": "Wanton Curse",
         "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      },
+      "Divination": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Transmutation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 2,
+        "powers": 10,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Ludica Lachramore",
@@ -5246,7 +9835,245 @@
         "name": "Tenebrous Curse",
         "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 3,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 4
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 11,
+        "powers": 6,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Macheath 'Mac'",
@@ -5532,7 +10359,250 @@
         "name": "Tenebrous Curse",
         "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 9
+      },
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Vigour": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 7,
+        "powers": 23,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Magda",
@@ -5739,7 +10809,230 @@
         "name": "Lonely Curse",
         "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Nightmare": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      },
+      "Divination": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Transmutation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 1,
+        "merits": 0,
+        "powers": 12,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Margaret 'Doc' Kane",
@@ -5989,7 +11282,235 @@
         "name": "Rat King/Queen",
         "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 3,
+        "powers": 9,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Reed Justice",
@@ -6234,7 +11755,220 @@
         "name": "Aloof Curse",
         "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 4,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      "Subterfuge": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Dominate": {
+        "cp": 3,
+        "free": 0,
+        "xp": 6
+      },
+      "Resilience": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 2,
+        "merits": 6,
+        "powers": 9,
+        "special": 0
+      }
+    }
   },
   {
     "name": "René Meyer",
@@ -6538,7 +12272,275 @@
         "name": "Wanton Curse",
         "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Majesty": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Vigour": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 8,
+        "powers": 23,
+        "special": 0
+      }
+    }
   },
   {
     "name": "René St. Dominique",
@@ -6797,7 +12799,230 @@
         "name": "Aloof Curse",
         "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 1,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 4
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Dominate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Resilience": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 5,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 4,
+        "merits": 6,
+        "powers": 13,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Ryan Ambrose",
@@ -7037,7 +13262,230 @@
         "name": "Feral Curse",
         "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Strength": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 2
+      },
+      "Brawl": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Vigour": {
+        "cp": 0,
+        "free": 0,
+        "xp": 8
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 4,
+        "skills": 2,
+        "merits": 5,
+        "powers": 11,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Sister Hazel",
@@ -7287,7 +13735,260 @@
         "name": "Aloof Curse",
         "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Dominate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 16,
+        "powers": 3,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Tegan Groves",
@@ -7542,7 +14243,230 @@
         "name": "Feral Curse",
         "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 4
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 1,
+        "free": 0,
+        "xp": 2
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Animalism": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 8,
+        "skills": 2,
+        "merits": 1,
+        "powers": 6,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Wan Yelong",
@@ -7807,7 +14731,235 @@
         "name": "Tenebrous Curse",
         "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 9
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 3,
+        "powers": 12,
+        "special": 0
+      }
+    }
   },
   {
     "name": "Yusuf 'Mammon' Kalusicj",
@@ -8102,6 +15254,254 @@
         "name": "Plague of Purity",
         "effect": "Touch by Integrity 8+ mortal causes (10 – Humanity) bashing damage."
       }
-    ]
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Nightmare": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 4
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {},
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 14,
+        "powers": 18,
+        "special": 0
+      }
+    }
   }
 ]
