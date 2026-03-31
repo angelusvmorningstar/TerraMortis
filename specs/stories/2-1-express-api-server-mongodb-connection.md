@@ -1,6 +1,6 @@
 # Story 2.1: Express API Server + MongoDB Connection
 
-**Status:** ready-for-dev
+**Status:** review
 
 ## Story
 
@@ -21,26 +21,26 @@ so that all three STs can access and modify the same character data from any dev
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Server project setup (AC: #3, #5, #7, #8)
-  - [ ] Create `server/package.json` with `"type": "module"` and dependencies
-  - [ ] Create `.env.example` with `MONGODB_URI`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`
-  - [ ] Add `.env` to root `.gitignore` (currently missing)
-  - [ ] Create `server/config.js` — load env vars via dotenv, export config object
-- [ ] Task 2: MongoDB connection (AC: #1, #2, #6)
-  - [ ] Create `server/db.js` — `MongoClient` connection with retry, export `getDb()` and collection accessors
-  - [ ] Connection string from `config.js`, never hardcoded
-  - [ ] Graceful shutdown: close MongoDB connection on `SIGINT`/`SIGTERM`
-- [ ] Task 3: Express app setup (AC: #1, #4, #6)
-  - [ ] Create `server/index.js` — Express app, CORS middleware, JSON body parser, route mounting, listen
-  - [ ] CORS: allow origins from `config.CORS_ORIGIN` (comma-separated list for dev + prod)
-  - [ ] `GET /api/health` route returning DB connection status
-- [ ] Task 4: Directory scaffolding (AC: #5)
-  - [ ] Create empty `server/routes/` directory with a placeholder comment in `index.js` for future route files
-  - [ ] Create empty `server/middleware/` directory (auth.js comes in story 2.2)
-- [ ] Task 5: Verify end-to-end (AC: #1, #6)
-  - [ ] `cd server && npm install && npm run dev` starts the server
-  - [ ] `curl http://localhost:3000/api/health` returns `{ "status": "ok", "db": "connected" }`
-  - [ ] Server logs connection success/failure to console
+- [x] Task 1: Server project setup (AC: #3, #5, #7, #8)
+  - [x] Create `server/package.json` with `"type": "module"` and dependencies
+  - [x] Create `.env.example` with `MONGODB_URI`, `PORT`, `NODE_ENV`, `CORS_ORIGIN`
+  - [x] Add `.env` to root `.gitignore` (currently missing)
+  - [x] Create `server/config.js` — load env vars via dotenv, export config object
+- [x] Task 2: MongoDB connection (AC: #1, #2, #6)
+  - [x] Create `server/db.js` — `MongoClient` connection with retry, export `getDb()` and collection accessors
+  - [x] Connection string from `config.js`, never hardcoded
+  - [x] Graceful shutdown: close MongoDB connection on `SIGINT`/`SIGTERM`
+- [x] Task 3: Express app setup (AC: #1, #4, #6)
+  - [x] Create `server/index.js` — Express app, CORS middleware, JSON body parser, route mounting, listen
+  - [x] CORS: allow origins from `config.CORS_ORIGIN` (comma-separated list for dev + prod)
+  - [x] `GET /api/health` route returning DB connection status
+- [x] Task 4: Directory scaffolding (AC: #5)
+  - [x] Create empty `server/routes/` directory with a placeholder comment in `index.js` for future route files
+  - [x] Create empty `server/middleware/` directory (auth.js comes in story 2.2)
+- [x] Task 5: Verify end-to-end (AC: #1, #6)
+  - [x] `cd server && npm install && npm run dev` starts the server
+  - [x] `curl http://localhost:3000/api/health` returns `{ "status": "ok", "db": "connected" }`
+  - [x] Server logs connection success/failure to console
 
 ## Dev Notes
 
@@ -193,8 +193,30 @@ No automated test framework for the server. Manual verification:
 
 ### Agent Model Used
 
+Claude Opus 4.6 (1M context)
+
 ### Debug Log References
+
+- Initial implementation had `connectDb()` blocking server startup — server would not respond to health checks until MongoDB connection timed out. Fixed by starting the HTTP server first, then attempting DB connection asynchronously.
+- Added `serverSelectionTimeoutMS: 5000` to MongoClient options so failed connections fail fast rather than hanging.
 
 ### Completion Notes List
 
+- Express 5.2.1 server with ES modules (`"type": "module"`)
+- MongoDB driver 7.1.0 with 5-second connection timeout
+- CORS supports multiple comma-separated origins from env var
+- Health endpoint returns 200 + `{"status":"ok","db":"connected"}` when DB is live, 503 + `{"status":"error","db":"disconnected"}` when not
+- Server starts immediately regardless of DB availability — health check reports actual status
+- Graceful shutdown on SIGINT/SIGTERM closes MongoDB connection
+- `node --watch` for dev mode (built-in Node.js file watcher, no nodemon dependency)
+
 ### File List
+
+- `server/package.json` — NEW
+- `server/index.js` — NEW
+- `server/db.js` — NEW
+- `server/config.js` — NEW
+- `server/routes/.gitkeep` — NEW
+- `server/middleware/.gitkeep` — NEW
+- `.env.example` — NEW
+- `.gitignore` — MODIFIED (added `.env`)
