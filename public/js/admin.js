@@ -1,10 +1,63 @@
-/* Admin app entry point — sidebar routing, API data loading */
+/* Admin app entry point — auth gate, sidebar routing, API data loading */
 
 import { apiGet } from './data/api.js';
 import { esc, clanIcon, covIcon, shortCov } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
 
 let chars = [];
+
+// ── Auth gate ──
+
+async function boot() {
+  const loginScreen = document.getElementById('login-screen');
+  const app = document.getElementById('admin-app');
+  const errorEl = document.getElementById('login-error');
+
+  // Handle OAuth callback (page loaded with ?code=...)
+  try {
+    const wasCallback = await handleCallback();
+    if (wasCallback) {
+      // Successfully exchanged code — fall through to show app
+    }
+  } catch (err) {
+    errorEl.textContent = err.message;
+    return;
+  }
+
+  // Check if we have a valid token
+  if (isLoggedIn()) {
+    const valid = await validateToken();
+    if (valid) {
+      loginScreen.style.display = 'none';
+      app.style.display = 'flex';
+      renderSidebarUser();
+      init();
+      return;
+    }
+  }
+
+  // Not authenticated — show login screen
+  loginScreen.style.display = '';
+  document.getElementById('login-btn').addEventListener('click', login);
+}
+
+function renderSidebarUser() {
+  const user = getUser();
+  if (!user) return;
+
+  const el = document.getElementById('sidebar-user');
+  const name = esc(user.global_name || user.username);
+  const avatarUrl = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
+    : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
+
+  el.innerHTML = `<img class="sidebar-avatar" src="${avatarUrl}" alt="">` +
+    `<span class="sidebar-username">${name}</span>` +
+    `<button class="sidebar-logout" id="logout-btn">Log out</button>`;
+
+  document.getElementById('logout-btn').addEventListener('click', logout);
+}
 
 // ── Domain switching ──
 
@@ -74,4 +127,4 @@ async function init() {
   }
 }
 
-init();
+boot();

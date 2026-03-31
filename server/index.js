@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
 import { connectDb, closeDb, isConnected } from './db.js';
+import authRouter from './routes/auth.js';
+import { requireAuth } from './middleware/auth.js';
 import charactersRouter from './routes/characters.js';
 
 const app = express();
@@ -28,8 +30,11 @@ app.get('/api/health', (req, res) => {
   res.status(httpStatus).json({ status: dbStatus === 'connected' ? 'ok' : 'error', db: dbStatus });
 });
 
-// Route mounting
-app.use('/api/characters', charactersRouter);
+// Auth routes (public — no middleware)
+app.use('/api/auth', authRouter);
+
+// Protected routes — require valid ST Discord token
+app.use('/api/characters', requireAuth, charactersRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable
