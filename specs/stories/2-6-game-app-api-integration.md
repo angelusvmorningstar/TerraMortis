@@ -1,6 +1,6 @@
 # Story 2.6: Game App API Integration
 
-**Status:** In Progress
+**Status:** done
 
 **Epic:** 2 — Backend Foundation
 
