@@ -57,7 +57,7 @@ export function manoeuvres(c) { return meritsByCategory(c, 'manoeuvre'); }
 // ── Influence total ──
 
 export function influenceTotal(c) {
-  return influenceMerits(c).reduce((s, m) => s + (m.rating || 0), 0);
+  return influenceMerits(c).filter(m => !m.prereq_failed).reduce((s, m) => s + (m.rating || 0), 0);
 }
 
 // ── Domain shortcuts ──
@@ -140,4 +140,16 @@ export { BP_TABLE };
 
 export function calcVitaeMax(c) {
   return (BP_TABLE[c.blood_potency || 0] || BP_TABLE[1]).vitae;
+}
+
+// ── City Status (base + title bonus) ──
+
+import { TITLE_STATUS_BONUS } from './constants.js';
+
+export function titleStatusBonus(c) {
+  return TITLE_STATUS_BONUS[c.court_title] || 0;
+}
+
+export function calcCityStatus(c) {
+  return (c.status?.city || 0) + titleStatusBonus(c);
 }

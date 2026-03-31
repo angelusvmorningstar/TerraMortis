@@ -6,7 +6,7 @@ import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE } from '../data/helpers.js';
-import { getAttrVal, getAttrBonus, getSkillObj } from '../data/accessors.js';
+import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, buildMeritOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
@@ -15,6 +15,20 @@ import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, 
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
+
+function _cityStatusDots(base,titleBonus) {
+  if(!base&&!titleBonus) return '';
+  return '<div class="sh-city-dots">'+'<span class="sh-city-dot crim">\u25CF</span>'.repeat(base)+'<span class="sh-city-dot gold">\u25CF</span>'.repeat(titleBonus)+'</div>';
+}
+function _cityStatusPip(editMode,base,total,titleBonus) {
+  if(editMode) return '<div class="sh-stat-pip sh-stat-pip-edit"><button class="sh-stat-adj" onclick="shStatusDown(\'city\')">&#x25BC;</button><div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div><button class="sh-stat-adj" onclick="shStatusUp(\'city\')">&#x25B2;</button><div class="sh-status-lbl">City</div></div>';
+  return '<div class="sh-stat-pip"><div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div><div class="sh-status-lbl">City</div></div>';
+}
+
+function _statusPip(editMode,svg,val,lbl,key) {
+  if(editMode) return '<div class="sh-stat-pip sh-stat-pip-edit"><button class="sh-stat-adj" onclick="shStatusDown(\''+key+'\')">&#x25BC;</button><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><button class="sh-stat-adj" onclick="shStatusUp(\''+key+'\')">&#x25B2;</button><div class="sh-status-lbl">'+lbl+'</div></div>';
+  return '<div class="sh-stat-pip"><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><div class="sh-status-lbl">'+lbl+'</div></div>';
+}
 
 export function toggleExp(id) {
   const row=document.getElementById('exp-row-'+id), body=document.getElementById('exp-body-'+id);
@@ -38,8 +52,13 @@ export function expRow(id,lbl,val,bodyHtml) {
 }
 
 export function shRenderStatsStrip(c) {
+  const {editMode}=state;
   const s=(i,v,l)=>'<div class="sh-stat-cell"><div class="sh-stat-icon">'+i+'<span class="sh-stat-n">'+v+'</span></div><div class="sh-stat-lbl">'+l+'</div></div>';
-  return '<div class="sh-stats-strip">'+s(BP_SVG,c.blood_potency||1,'BP')+s(HUM_SVG,c.humanity||0,'Humanity')+s(HEALTH_SVG,calcHealth(c),'Health')+s(WP_SVG,calcWillpowerMax(c),'Willpower')+s(STAT_SVG,calcSize(c),'Size')+s(STAT_SVG,calcSpeed(c),'Speed')+s(STAT_SVG,calcDefence(c),'Defence')+'</div>';
+  const sEdit=(i,v,l,fnDown,fnUp)=>'<div class="sh-stat-cell sh-stat-editable"><div class="sh-stat-icon">'+i+'<span class="sh-stat-n">'+v+'</span></div><div class="sh-stat-edit-row"><button class="sh-stat-adj" onclick="'+fnDown+'">&#x25BC;</button><div class="sh-stat-lbl">'+l+'</div><button class="sh-stat-adj" onclick="'+fnUp+'">&#x25B2;</button></div></div>';
+  const bp=c.blood_potency||0,hm=c.humanity||0;
+  const bpCell=editMode?sEdit(BP_SVG,bp,'BP','shEditBP('+(bp-1)+')','shEditBP('+(bp+1)+')'):s(BP_SVG,bp||1,'BP');
+  const humCell=editMode?sEdit(HUM_SVG,hm,'Humanity','shEditHumanity('+(hm-1)+')','shEditHumanity('+(hm+1)+')'):s(HUM_SVG,hm,'Humanity');
+  return '<div class="sh-stats-strip">'+bpCell+humCell+s(HEALTH_SVG,calcHealth(c),'Health')+s(WP_SVG,calcWillpowerMax(c),'Willpower')+s(STAT_SVG,calcSize(c),'Size')+s(STAT_SVG,calcSpeed(c),'Speed')+s(STAT_SVG,calcDefence(c),'Defence')+'</div>';
 }
 
 export function shRenderAttributes(c,editMode) {
@@ -229,7 +248,10 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
   let h='<div class="mci-block'+(inactive?' mci-inactive':'')+'"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">'+esc(m.name)+'</span>';
   if(editMode) h+='<input type="text" class="stand-name-input" value="'+esc(m.cult_name||'')+'" placeholder="Cult name" onchange="shEditStandMerit('+si+',\'cult_name\',this.value)">';
   else if(m.cult_name) h+='<span class="merit-sub-sh mci-cult-name">'+esc(m.cult_name)+'</span>';
-  h+='</div><div class="mci-header-right"><button class="mci-toggle-btn" onclick="shToggleMCI('+si+')" title="'+(inactive?'Activate cult':'Suspend cult')+'">'+(inactive?'Suspended':'Active')+'</button><span class="merit-dots-sh">'+shDots(eDots)+'</span></div></div>';
+  h+='</div><div class="mci-header-right">';
+  if(editMode) h+='<button class="mci-toggle-btn" onclick="shToggleMCI('+si+')" title="'+(inactive?'Activate cult':'Suspend cult')+'">'+(inactive?'Suspended':'Active')+'</button>';
+  else if(inactive) h+='<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
+  h+='<span class="merit-dots-sh">'+shDots(eDots)+'</span></div></div>';
   if(editMode){
     h+=meritBdRow(rIdx,mc);if(!m.benefit_grants)m.benefit_grants=[null,null,null,null,null];
     for(let d=0;d<5&&d<eDots;d++){const g=m.benefit_grants[d],gN=(g&&g.name)||'',gR=(g&&g.rating)||0,gQ=(g&&g.qualifier)||'',mO=buildMeritOptions(c,gN),b=ben[d]||'',db=gN?MERITS_DB[gN.toLowerCase()]:null,mx=db&&db.rating?parseInt((db.rating+'').split('\u2013').pop().split('\u2014').pop())||5:5;
@@ -237,7 +259,7 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
       if(gN) h+='<input class="merit-bd-input" type="number" min="1" max="'+mx+'" value="'+gR+'" style="width:32px" title="Rating (max '+mx+')" onchange="shEditMCIGrant('+si+','+d+',\'rating\',+this.value)"><input type="text" class="mci-benefit-input" style="flex:0.6" value="'+esc(gQ)+'" placeholder="Qualifier" onchange="shEditMCIGrant('+si+','+d+',\'qualifier\',this.value)">';
       h+='</div><input type="text" class="mci-benefit-input" value="'+esc(b)+'" placeholder="Description" onchange="shEditStandMerit('+si+',\'benefit\',\''+d+'|\'+this.value)"></div></div>';}
   } else if(!inactive){const grants=m.benefit_grants||[];
-    for(let d=0;d<m.rating;d++){const b=(ben[d]||'').trim(),g=grants[d],gl=g?esc(g.name)+(g.qualifier?' ('+esc(g.qualifier)+')':'')+(g.rating?' '+shDots(g.rating):''):'';
+    for(let d=0;d<m.rating;d++){const b=(ben[d]||'').trim(),entry=grants[d],gArr=Array.isArray(entry)?entry:(entry&&entry.name?[entry]:[]),gl=gArr.map(g=>esc(g.name)+(g.qualifier?' ('+esc(g.qualifier)+')':'')+(g.rating?' '+shDots(g.rating):'')).join(', ');
       h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span>'+(gl?'<span class="mci-benefit-text"><span class="gen-granted-tag-view" style="margin-right:4px">Grant</span>'+gl+(b?' \u2014 '+esc(b):'')+'</span>':'<span class="mci-benefit-text">'+(b?esc(b):'<span class="mci-benefit-empty">\u2014</span>')+'</span>')+'</div>';}}
   h+='</div>';return h;
 }
@@ -317,21 +339,29 @@ export function renderSheet(c) {
   if(curse) h+=expRow('curse','Curse',esc(curse.name),'<div>'+esc(curse.effect||'')+'</div>');
   if(editMode){regB.forEach((b,bi)=>{const ri=allB.indexOf(b);h+='<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName('+ri+',this.value)"><option value="">(select)</option>'+BANE_LIST.map(bn=>'<option'+(b.name===bn?' selected':'')+'>'+esc(bn)+'</option>').join('')+'</select><button class="sh-bane-rm" onclick="shRemoveBane('+ri+')" title="Remove">&times;</button></div><input class="sh-edit-input" value="'+esc(b.effect||'')+'" onchange="shEditBaneEffect('+ri+',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>';});h+='<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>';}
   else regB.forEach((b,i)=>{h+=expRow('bane'+i,'Bane',esc(b.name),'<div>'+esc(b.effect||'')+'</div>');});
+  // Features (read-only display)
+  if(c.features) h+='<div class="sh-features"><span class="exp-lbl labeled">Features</span><span class="sh-features-text">'+esc(c.features)+'</span></div>';
+  // Touchstones
   const ts=c.touchstones||[];
-  if(ts.length){const hum=c.humanity||0;h+=expRow('touchstones','Touchstones','',ts.map(t=>{const att=hum>=t.humanity;return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity '+t.humanity+' \u2014 <span style="color:'+(att?'rgba(140,200,140,.9)':'var(--txt3)')+';font-style:normal">'+(att?'Attached':'Detached')+'</span></span><span class="exp-ts-name">'+esc(t.name)+(t.desc?' <span class="exp-ts-desc">('+esc(t.desc)+')</span>':'')+'</span></div>';}).join(''));}
+  if(editMode){
+    h+='<div class="sh-touchstones-edit"><div class="sh-sec-title" style="font-size:11px;margin:8px 0 4px">Touchstones</div>';
+    ts.forEach((t,i)=>{h+='<div class="sh-ts-edit-row"><select class="sh-ts-hum" onchange="shEditTouchstone('+i+',\'humanity\',+this.value)">';for(let n=1;n<=10;n++)h+='<option'+(t.humanity===n?' selected':'')+'>'+n+'</option>';h+='</select><input class="sh-edit-input" value="'+esc(t.name||'')+'" onchange="shEditTouchstone('+i+',\'name\',this.value)" placeholder="Name" style="flex:2"><input class="sh-edit-input" value="'+esc(t.desc||'')+'" onchange="shEditTouchstone('+i+',\'desc\',this.value)" placeholder="Description" style="flex:3"><button class="sh-bane-rm" onclick="shRemoveTouchstone('+i+')" title="Remove">&times;</button></div>';});
+    h+='<button class="sh-bane-add" onclick="shAddTouchstone()">+ Add Touchstone</button></div>';
+  } else if(ts.length){const hum=c.humanity||0;h+=expRow('touchstones','Touchstones','',ts.map(t=>{const att=hum>=t.humanity;return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity '+t.humanity+' \u2014 <span style="color:'+(att?'rgba(140,200,140,.9)':'var(--txt3)')+';font-style:normal">'+(att?'Attached':'Detached')+'</span></span><span class="exp-ts-name">'+esc(t.name)+(t.desc?' <span class="exp-ts-desc">('+esc(t.desc)+')</span>':'')+'</span></div>';}).join(''));}
   h+='</div>'; // end left
   // Right panel
   h+='<div class="sh-hdr-right">';
   const tOpts=COURT_TITLES.map(t=>'<option'+(c.court_title===t?' selected':'')+'>'+esc(t||'(none)')+'</option>').join(''),trOpts=REGENT_TERRITORIES.map(t=>'<option'+(c.regent_territory===t?' selected':'')+'>'+esc(t)+'</option>').join('');
   h+='<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
-  if(editMode){h+='<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>';if(c.court_title==='Regent')h+='<select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'regent_territory\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no territory)</option>'+trOpts+'</select>';}
+  if(editMode){h+='<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">'+tOpts+'</select>';if(c.court_title==='Regent')h+='<select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'regent_territory\',this.value||null)"><option value="">(no territory)</option>'+trOpts+'</select>';}
   else h+='<div class="sh-faction-label">'+esc(c.court_title||'\u2014')+'</div>'+(c.court_title==='Regent'&&c.regent_territory?'<div class="sh-faction-bloodline">'+esc(c.regent_territory)+'</div>':'');
-  h+='<div class="sh-faction-sub">Title</div></div><div class="sh-stat-pip"><div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+(st.city||0)+'</span></div><div class="sh-status-lbl">City</div></div></div>';
-  const covRow=(img,editH,viewH,sub,svg,sVal,sLbl)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div><div class="sh-stat-pip"><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+sVal+'</span></div><div class="sh-status-lbl">'+sLbl+'</div></div></div>';};
-  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>','Covenant',OTHER_SVG,st.covenant||0,'Cov.');
+  const cityBase=st.city||0,titleBonus=titleStatusBonus(c),cityTotal=cityBase+titleBonus;
+  h+='<div class="sh-faction-sub">Title</div>'+_cityStatusDots(cityBase,titleBonus)+'</div>'+_cityStatusPip(editMode,cityBase,cityTotal,titleBonus)+'</div>';
+  const covRow=(img,editH,viewH,sub,svg,sVal,sLbl,sKey)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div>'+_statusPip(editMode,svg,sVal,sLbl,sKey)+'</div>';};
+  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>','Covenant',OTHER_SVG,st.covenant||0,'Cov.','covenant');
   if(editMode){const cOpts=CLANS.map(cl=>'<option'+(c.clan===cl?' selected':'')+'>'+cl+'</option>').join(''),bls=(BLOODLINE_CLANS[c.clan]||[]).slice().sort(),blO=bls.map(b=>'<option'+(c.bloodline===b?' selected':'')+'>'+b+'</option>').join('');
-    covRow(clanImg,'<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">'+cOpts+'</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>'+blO+'</select>','','Clan / Bloodline',OTHER_SVG,st.clan||0,'Clan');}
-  else covRow(clanImg,'','<div class="sh-faction-label">'+esc(c.clan||'\u2014')+'</div>'+(bl?'<div class="sh-faction-bloodline">'+esc(bl)+'</div>':''),'Clan',OTHER_SVG,st.clan||0,'Clan');
+    covRow(clanImg,'<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">'+cOpts+'</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>'+blO+'</select>','','Clan / Bloodline',OTHER_SVG,st.clan||0,'Clan','clan');}
+  else covRow(clanImg,'','<div class="sh-faction-label">'+esc(c.clan||'\u2014')+'</div>'+(bl?'<div class="sh-faction-bloodline">'+esc(bl)+'</div>':''),'Clan',OTHER_SVG,st.clan||0,'Clan','clan');
   h+='</div></div></div>'; // end right, body, hdr
   // Covenant strip
   const covLbls=['Carthian','Crone','Invictus','Lance'],covSM={'Carthian Movement':'Carthian','Circle of the Crone':'Crone','Invictus':'Invictus','Lancea et Sanctum':'Lance'},pLbl=covSM[c.covenant]||c.covenant;

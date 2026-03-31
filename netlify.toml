@@ -1,0 +1,16 @@
+[build]
+  publish = "public"
+
+# Proxy API requests to the Render-hosted Express server.
+# Update the 'to' URL when the Render service is deployed.
+[[redirects]]
+  from = "/api/*"
+  to = "https://tm-suite-api.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback — serve index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

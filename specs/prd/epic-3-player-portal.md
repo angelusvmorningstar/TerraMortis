@@ -1,6 +1,8 @@
 # Epic 3: Player Portal
 
-**Status:** Backlog
+> **Superseded** by [Epic Restructure Proposal](epic-restructure-proposal.md) (31 March 2026). This file is kept for reference. The player portal is now Epic 6, depends on Epic 5 (backend infrastructure), and is last priority.
+
+**Status:** Superseded
 **Priority:** Vision
 **Phase:** 3 (Player-Facing)
 

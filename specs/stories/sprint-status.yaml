@@ -1,0 +1,103 @@
+# generated: 2026-03-31
+# last_updated: 2026-03-31T21:00:00Z
+# project: TM Suite
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: specs/stories
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+#
+# LEGACY NOTE:
+# ============
+# Stories 2.1 (Character Administration) and 2.2 (MCI Benefit Grants) were completed
+# under the old numbering scheme before the epic restructure. They are character admin
+# features that carry forward. Old story files: 2.1.story.md, 2.2.story.md.
+
+generated: 2026-03-31
+last_updated: 2026-03-31T21:00:00Z
+project: TM Suite
+project_key: NOKEY
+tracking_system: file-system
+story_location: specs/stories
+
+development_status:
+  # Epic 1: Foundation Restructure — DONE
+  epic-1: done
+  epic-1-retrospective: optional
+
+  # Epic 2: Backend Foundation
+  epic-2: in-progress
+  2-1-express-api-server-mongodb-connection: review
+  2-2-discord-auth: backlog  # deferred — not needed until player access
+  2-3-characters-crud-api-data-migration: review
+  2-4-admin-app-shell: review
+  2-5-remaining-collection-apis: backlog
+  2-6-game-app-api-integration: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: ST Admin Features
+  epic-3: backlog
+  3-1-professional-training-grant-system: backlog
+  3-2-print-character-sheet: backlog
+  3-3-session-log: backlog
+  3-4-city-domain-views: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Downtime System
+  epic-4: backlog
+  4-1-module-conversion: backlog
+  4-2-character-data-bridge: backlog
+  4-3-feeding-roll-resolution: backlog
+  4-4-st-notes-hidden-annotations: backlog
+  4-5-outcome-approval-application: backlog
+  4-6-cycle-history-comparison: backlog
+  4-7-discord-auth-access-control: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Live Game App
+  epic-5: backlog
+  5-1-game-mode-shell-navigation: backlog
+  5-2-read-only-character-sheet: backlog
+  5-3-quick-roll-workflows: backlog
+  5-4-downtime-lookup: backlog
+  5-5-live-status-tracker: backlog
+  5-6-rules-quick-reference: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Player Portal and Website
+  epic-6: backlog
+  6-1-public-landing-page: backlog
+  6-2-player-login-character-view: backlog
+  6-3-downtime-submission: backlog
+  6-4-downtime-outcomes: backlog
+  6-5-lore-library: backlog
+  6-6-character-drafting-ordeal-tracking: backlog
+  6-7-st-admin-panel-website-backend: backlog
+  epic-6-retrospective: optional
