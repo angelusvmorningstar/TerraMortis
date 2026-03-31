@@ -5,14 +5,16 @@
 
 import { apiGet } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getActiveCycle, createCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj } from '../data/accessors.js';
 
 let submissions = [];
 let characters = [];
 let charMap = new Map();
+let allCycles = [];
 let activeCycle = null;
+let selectedCycleId = null;
 let expandedId = null;
 
 export async function initDowntimeView() {
@@ -26,8 +28,13 @@ export async function initDowntimeView() {
   document.getElementById('dt-drop-zone').addEventListener('dragleave', e => { e.currentTarget.classList.remove('drag-over'); });
   document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
   document.getElementById('dt-new-cycle').addEventListener('click', handleNewCycle);
+  document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
+  document.getElementById('dt-cycle-sel').addEventListener('change', e => {
+    selectedCycleId = e.target.value;
+    loadCycleById(selectedCycleId);
+  });
   await loadCharacters();
-  await loadActiveCycle();
+  await loadAllCycles();
 }
 
 function buildShell() {
@@ -40,8 +47,12 @@ function buildShell() {
         </label>
       </div>
       <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
+      <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
     </div>
-    <div id="dt-cycle-info" class="dt-cycle-info"></div>
+    <div id="dt-cycle-bar" class="dt-cycle-bar">
+      <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
+      <span id="dt-cycle-status" class="dt-cycle-status"></span>
+    </div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
     <div id="dt-submissions" class="dt-submissions"></div>`;
@@ -103,22 +114,52 @@ function buildFeedingPool(char, methodId, ambienceMod) {
 
 // ── Cycle loading ───────────────────────────────────────────────────────────
 
-async function loadActiveCycle() {
-  const infoEl = document.getElementById('dt-cycle-info');
-  const subEl = document.getElementById('dt-submissions');
+async function loadAllCycles() {
+  allCycles = await getCycles();
+  allCycles.sort((a, b) => (b.loaded_at || '').localeCompare(a.loaded_at || ''));
 
-  activeCycle = await getActiveCycle();
-  if (!activeCycle) {
-    infoEl.innerHTML = '<span class="placeholder">No active cycle. Upload a CSV or create a new cycle.</span>';
-    subEl.innerHTML = '';
+  const sel = document.getElementById('dt-cycle-sel');
+  sel.innerHTML = '<option value="">\u2014 Select cycle \u2014</option>';
+  allCycles.forEach(c => {
+    const label = (c.label || 'Unnamed') + (c.status === 'active' ? ' (active)' : '');
+    sel.innerHTML += `<option value="${c._id}">${esc(label)}</option>`;
+  });
+
+  // Auto-select active cycle
+  activeCycle = allCycles.find(c => c.status === 'active') || null;
+  if (activeCycle) {
+    selectedCycleId = activeCycle._id;
+    sel.value = activeCycle._id;
+    await loadCycleById(activeCycle._id);
+  } else if (allCycles.length) {
+    selectedCycleId = allCycles[0]._id;
+    sel.value = allCycles[0]._id;
+    await loadCycleById(allCycles[0]._id);
+  } else {
+    document.getElementById('dt-submissions').innerHTML = '<p class="placeholder">No cycles. Upload a CSV or create a new cycle.</p>';
     document.getElementById('dt-match-summary').innerHTML = '';
+    document.getElementById('dt-close-cycle').style.display = 'none';
+  }
+}
+
+async function loadCycleById(cycleId) {
+  const subEl = document.getElementById('dt-submissions');
+  const statusEl = document.getElementById('dt-cycle-status');
+  const closeBtn = document.getElementById('dt-close-cycle');
+
+  const cycle = allCycles.find(c => c._id === cycleId);
+  if (!cycle) {
+    subEl.innerHTML = '<p class="placeholder">Cycle not found.</p>';
     return;
   }
 
-  infoEl.innerHTML = `<span class="dt-cycle-label">${esc(activeCycle.label || 'Active Cycle')}</span>
-    <span class="domain-count">${activeCycle.submission_count || 0} submissions</span>`;
+  const isActive = cycle.status === 'active';
+  statusEl.innerHTML = `<span class="dt-status-badge dt-status-${isActive ? 'pending' : 'approved'}">${isActive ? 'active' : 'closed'}</span>` +
+    `<span class="domain-count">${cycle.submission_count || 0} submissions</span>`;
+  closeBtn.style.display = isActive ? '' : 'none';
 
-  submissions = await getSubmissionsForCycle(activeCycle._id);
+  expandedId = null;
+  submissions = await getSubmissionsForCycle(cycleId);
   renderMatchSummary();
   renderSubmissions();
 }
@@ -463,14 +504,23 @@ async function processFile(file) {
   const result = await upsertCycle(parsed, file.name.replace('.csv', ''));
   warnEl.innerHTML = `<div class="dt-success">Loaded ${result.created} new, ${result.updated} updated submissions.</div>`;
 
-  await loadActiveCycle();
+  await loadAllCycles();
 }
 
 async function handleNewCycle() {
   const label = prompt('Cycle label (e.g. "March 2026"):');
   if (!label) return;
   await createCycle(label);
-  await loadActiveCycle();
+  await loadAllCycles();
+}
+
+async function handleCloseCycle() {
+  if (!selectedCycleId) return;
+  const cycle = allCycles.find(c => c._id === selectedCycleId);
+  if (!cycle || cycle.status !== 'active') return;
+  if (!confirm(`Close cycle "${cycle.label || 'Unnamed'}"? This cannot be undone.`)) return;
+  await closeCycle(selectedCycleId);
+  await loadAllCycles();
 }
 
 function esc(s) {

@@ -25,6 +25,14 @@ export async function createCycle(label) {
   });
 }
 
+export async function updateCycle(id, updates) {
+  return apiPut('/api/downtime_cycles/' + id, updates);
+}
+
+export async function closeCycle(id) {
+  return updateCycle(id, { status: 'closed', closed_at: new Date().toISOString() });
+}
+
 // ── Submissions ─────────────────────────────────────────────────────────────
 
 export async function getSubmissionsForCycle(cycleId) {

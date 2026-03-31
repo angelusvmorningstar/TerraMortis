@@ -752,6 +752,30 @@ body {
 
 .dt-btn:hover { border-color: var(--gold2); }
 
+.dt-cycle-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dt-cycle-sel {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: var(--fh);
+  font-size: 13px;
+  min-width: 200px;
+}
+
+.dt-cycle-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .dt-cycle-info {
   display: flex;
   align-items: baseline;
