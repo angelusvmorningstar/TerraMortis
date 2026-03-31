@@ -961,6 +961,57 @@ body {
 
 .dt-pool-breakdown b { color: var(--gold2); }
 
+/* ── Approval status ── */
+.dt-status-badge {
+  font-family: var(--fh);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.dt-status-pending { background: rgba(138, 126, 110, 0.15); color: var(--txt3); }
+.dt-status-approved { background: rgba(106, 170, 106, 0.15); color: #6a6; }
+.dt-status-modified { background: rgba(224, 196, 122, 0.15); color: var(--gold2); }
+.dt-status-rejected { background: rgba(178, 34, 34, 0.15); color: var(--crim2, #B22222); }
+
+.dt-sub-approved { border-left: 3px solid #6a6; }
+.dt-sub-modified { border-left: 3px solid var(--gold2); }
+.dt-sub-rejected { border-left: 3px solid var(--crim2, #B22222); }
+
+.dt-approval-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
+.dt-approval-btns {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dt-approval-btn {
+  font-family: var(--fh);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 5px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--bdr);
+  background: var(--bg);
+  color: var(--txt3);
+  cursor: pointer;
+}
+
+.dt-approval-btn:hover { border-color: var(--txt3); }
+
+.dt-appr-approved.active { background: rgba(106, 170, 106, 0.15); color: #6a6; border-color: #6a6; }
+.dt-appr-modified.active { background: rgba(224, 196, 122, 0.15); color: var(--gold2); border-color: var(--gold2); }
+.dt-appr-rejected.active { background: rgba(178, 34, 34, 0.15); color: var(--crim2); border-color: var(--crim2); }
+.dt-appr-pending.active { background: rgba(138, 126, 110, 0.15); color: var(--txt3); border-color: var(--txt3); }
+
 /* ── ST Notes ── */
 .dt-notes-detail {
   margin-top: 10px;

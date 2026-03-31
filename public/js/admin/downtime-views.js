@@ -133,11 +133,18 @@ function renderMatchSummary() {
   const unmatched = submissions.filter(s => !findCharacter(s.character_name));
   const rolled = submissions.filter(s => s.feeding_roll);
 
+  const approved = submissions.filter(s => s.approval_status === 'approved').length;
+  const modified = submissions.filter(s => s.approval_status === 'modified').length;
+  const rejected = submissions.filter(s => s.approval_status === 'rejected').length;
+  const pending = submissions.length - approved - modified - rejected;
+
   let h = '<div class="dt-match-bar">';
   h += `<span class="dt-match-ok">${matched.length} matched</span>`;
-  h += `<span class="domain-count">${rolled.length}/${submissions.length} feeding rolled</span>`;
+  h += `<span class="domain-count">${rolled.length}/${submissions.length} fed</span>`;
+  h += `<span class="domain-count">${approved + modified}/${submissions.length} resolved</span>`;
+  if (pending) h += `<span class="dt-status-badge dt-status-pending">${pending} pending</span>`;
   if (unmatched.length) {
-    h += `<span class="dt-match-warn">${unmatched.length} unmatched: ${unmatched.map(s => esc(s.character_name || '?')).join(', ')}</span>`;
+    h += `<span class="dt-match-warn">${unmatched.length} unmatched</span>`;
   }
   h += '</div>';
   el.innerHTML = h;
@@ -171,13 +178,16 @@ function renderSubmissions() {
     const rollBadge = rollResult
       ? `<span class="dt-roll-badge rolled">${rollResult.successes} succ</span>`
       : '<span class="dt-roll-badge unrolled">No roll</span>';
+    const status = s.approval_status || 'pending';
+    const statusBadge = `<span class="dt-status-badge dt-status-${status}">${status}</span>`;
 
-    let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''}" data-id="${s._id}">
+    let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''} dt-sub-${status}" data-id="${s._id}">
       <div class="dt-sub-top dt-sub-clickable">
         ${matchIcon}
         <span class="dt-sub-name">${esc(s.character_name || '?')}</span>
         <span class="dt-sub-player">${esc(s.player_name || '')}</span>
         <span class="${attendedClass}">${attended}</span>
+        ${statusBadge}
         ${rollBadge}
       </div>
       <div class="dt-sub-stats">
@@ -190,6 +200,7 @@ function renderSubmissions() {
     if (isExpanded) {
       h += renderFeedingDetail(s, raw, char);
       h += renderStNotes(s, raw);
+      h += renderApproval(s);
     }
 
     h += '</div>';
@@ -218,6 +229,11 @@ function renderSubmissions() {
   // Notes save delegation
   el.querySelectorAll('.dt-notes-save').forEach(btn => {
     btn.addEventListener('click', e => { e.stopPropagation(); handleSaveNotes(btn.dataset.subId); });
+  });
+
+  // Approval button delegation
+  el.querySelectorAll('.dt-approval-btn').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); handleApproval(btn.dataset.subId, btn.dataset.status); });
   });
 
   // Roll button delegation
@@ -369,6 +385,48 @@ async function handleSaveNotes(subId) {
     if (btn) { btn.textContent = 'Saved \u2713'; setTimeout(() => { btn.textContent = 'Save Notes'; }, 1500); }
   } catch (err) {
     console.error('Failed to save notes:', err.message);
+  }
+}
+
+// ── Approval ────────────────────────────────────────────────────────────────
+
+const APPROVAL_STATUSES = ['pending', 'approved', 'modified', 'rejected'];
+
+function renderApproval(s) {
+  const status = s.approval_status || 'pending';
+  const resolution = s.resolution_note || '';
+
+  let h = '<div class="dt-approval-detail">';
+  h += '<div class="dt-feed-header">Outcome</div>';
+  h += '<div class="dt-approval-btns">';
+  for (const st of APPROVAL_STATUSES) {
+    h += `<button class="dt-approval-btn dt-appr-${st}${status === st ? ' active' : ''}" data-sub-id="${s._id}" data-status="${st}">${st}</button>`;
+  }
+  h += '</div>';
+  h += `<textarea class="dt-notes-input dt-resolution-input" data-sub-id="${s._id}" placeholder="Resolution note (visible to player when approved)">${esc(resolution)}</textarea>`;
+  h += '</div>';
+  return h;
+}
+
+async function handleApproval(subId, newStatus) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+
+  const textarea = document.querySelector(`.dt-resolution-input[data-sub-id="${subId}"]`);
+  const resolution = textarea ? textarea.value.trim() : '';
+
+  try {
+    await updateSubmission(subId, {
+      approval_status: newStatus,
+      resolution_note: resolution,
+      approval_updated: new Date().toISOString(),
+    });
+    sub.approval_status = newStatus;
+    sub.resolution_note = resolution;
+    renderMatchSummary();
+    renderSubmissions();
+  } catch (err) {
+    console.error('Failed to save approval:', err.message);
   }
 }
 
