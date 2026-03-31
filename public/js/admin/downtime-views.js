@@ -1,16 +1,19 @@
 /**
  * Downtime domain views — admin app.
- * CSV upload, cycle management, submission overview, and character data bridge.
+ * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
 
 import { apiGet } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getActiveCycle, getCycles, createCycle, getSubmissionsForCycle, upsertCycle } from '../downtime/db.js';
+import { getActiveCycle, createCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { rollPool } from '../downtime/roller.js';
+import { getAttrVal, getSkillObj } from '../data/accessors.js';
 
 let submissions = [];
 let characters = [];
-let charMap = new Map(); // lowercase name → character object
+let charMap = new Map();
 let activeCycle = null;
+let expandedId = null;
 
 export async function initDowntimeView() {
   const container = document.getElementById('downtime-content');
@@ -23,7 +26,6 @@ export async function initDowntimeView() {
   document.getElementById('dt-drop-zone').addEventListener('dragleave', e => { e.currentTarget.classList.remove('drag-over'); });
   document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
   document.getElementById('dt-new-cycle').addEventListener('click', handleNewCycle);
-
   await loadCharacters();
   await loadActiveCycle();
 }
@@ -57,10 +59,46 @@ async function loadCharacters() {
   }
 }
 
-/** Find a character by submission name (case-insensitive, trimmed). */
 export function findCharacter(submissionName) {
   if (!submissionName) return null;
   return charMap.get(submissionName.toLowerCase().trim()) || null;
+}
+
+const FEED_METHODS = [
+  { id: 'seduction', name: 'Seduction', attrs: ['Presence', 'Manipulation'], skills: ['Empathy', 'Socialise', 'Persuasion'] },
+  { id: 'stalking', name: 'Stalking', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Athletics'] },
+  { id: 'force', name: 'By Force', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'] },
+  { id: 'familiar', name: 'Familiar Face', attrs: ['Manipulation', 'Presence'], skills: ['Persuasion', 'Subterfuge'] },
+  { id: 'intimidation', name: 'Intimidation', attrs: ['Strength', 'Manipulation'], skills: ['Intimidation', 'Subterfuge'] },
+];
+
+function buildFeedingPool(char, methodId, ambienceMod) {
+  if (!char) return null;
+  const method = FEED_METHODS.find(m => m.id === methodId);
+  if (!method) return null;
+
+  let bestAttr = 0, bestAttrName = '';
+  for (const a of method.attrs) {
+    const v = getAttrVal(char, a);
+    if (v > bestAttr) { bestAttr = v; bestAttrName = a; }
+  }
+
+  let bestSkill = 0, bestSkillName = '';
+  for (const s of method.skills) {
+    const sk = getSkillObj(char, s);
+    const v = sk.dots + (sk.bonus || 0);
+    if (v > bestSkill) { bestSkill = v; bestSkillName = s; }
+  }
+
+  const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
+  const fgVal = fg ? (fg.rating || 0) : 0;
+  const amb = ambienceMod || 0;
+  const total = Math.max(0, bestAttr + bestSkill + fgVal + amb);
+
+  return {
+    total,
+    breakdown: { attr: bestAttrName, attrVal: bestAttr, skill: bestSkillName, skillVal: bestSkill, fg: fgVal, ambience: amb },
+  };
 }
 
 // ── Cycle loading ───────────────────────────────────────────────────────────
@@ -93,9 +131,11 @@ function renderMatchSummary() {
 
   const matched = submissions.filter(s => findCharacter(s.character_name));
   const unmatched = submissions.filter(s => !findCharacter(s.character_name));
+  const rolled = submissions.filter(s => s.feeding_roll);
 
-  let h = `<div class="dt-match-bar">`;
+  let h = '<div class="dt-match-bar">';
   h += `<span class="dt-match-ok">${matched.length} matched</span>`;
+  h += `<span class="domain-count">${rolled.length}/${submissions.length} feeding rolled</span>`;
   if (unmatched.length) {
     h += `<span class="dt-match-warn">${unmatched.length} unmatched: ${unmatched.map(s => esc(s.character_name || '?')).join(', ')}</span>`;
   }
@@ -114,34 +154,164 @@ function renderSubmissions() {
 
   const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
 
-  el.innerHTML = '<div class="dt-sub-grid">' + sorted.map(s => {
+  el.innerHTML = '<div class="dt-sub-list">' + sorted.map(s => {
     const raw = s._raw || {};
     const sub = raw.submission || {};
     const projects = (raw.projects || []).length;
     const spheres = (raw.sphere_actions || []).length;
-    const feeding = raw.feeding?.method || '';
+    const feedMethod = raw.feeding?.method || '';
     const attended = sub.attended_last_game ? '\u2713' : '\u2717';
     const attendedClass = sub.attended_last_game ? 'dt-attended' : 'dt-absent';
 
     const char = findCharacter(s.character_name);
-    const matchIcon = char ? '<span class="dt-match-icon" title="Matched">\u2713</span>' : '<span class="dt-unmatch-icon" title="No matching character">\u26A0</span>';
+    const matchIcon = char ? '<span class="dt-match-icon">\u2713</span>' : '<span class="dt-unmatch-icon">\u26A0</span>';
     const clan = char ? esc(char.clan || '') : '';
+    const isExpanded = expandedId === s._id;
+    const rollResult = s.feeding_roll;
+    const rollBadge = rollResult
+      ? `<span class="dt-roll-badge rolled">${rollResult.successes} succ</span>`
+      : '<span class="dt-roll-badge unrolled">No roll</span>';
 
-    return `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}">
-      <div class="dt-sub-top">
+    let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''}" data-id="${s._id}">
+      <div class="dt-sub-top dt-sub-clickable">
         ${matchIcon}
         <span class="dt-sub-name">${esc(s.character_name || '?')}</span>
         <span class="dt-sub-player">${esc(s.player_name || '')}</span>
         <span class="${attendedClass}">${attended}</span>
+        ${rollBadge}
       </div>
       <div class="dt-sub-stats">
         ${clan ? `<span class="dt-sub-tag">${clan}</span>` : ''}
         ${projects ? `<span class="dt-sub-tag">${projects} project${projects > 1 ? 's' : ''}</span>` : ''}
         ${spheres ? `<span class="dt-sub-tag">${spheres} sphere</span>` : ''}
-        ${feeding ? `<span class="dt-sub-tag">${esc(feeding)}</span>` : ''}
-      </div>
-    </div>`;
+        ${feedMethod ? `<span class="dt-sub-tag">${esc(feedMethod)}</span>` : ''}
+      </div>`;
+
+    if (isExpanded) {
+      h += renderFeedingDetail(s, raw, char);
+    }
+
+    h += '</div>';
+    return h;
   }).join('') + '</div>';
+
+  // Card click delegation
+  el.querySelectorAll('.dt-sub-clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const card = row.closest('.dt-sub-card');
+      const id = card.dataset.id;
+      expandedId = expandedId === id ? null : id;
+      renderSubmissions();
+    });
+  });
+
+  // Method button delegation
+  el.querySelectorAll('.dt-method-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const sub = submissions.find(s => s._id === btn.dataset.subId);
+      if (sub) { sub._feed_method = btn.dataset.method; renderSubmissions(); }
+    });
+  });
+
+  // Roll button delegation
+  el.querySelectorAll('.dt-feed-roll-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.subId;
+      const sub = submissions.find(s => s._id === id);
+      const char = sub ? findCharacter(sub.character_name) : null;
+
+      let poolSize;
+      if (char && sub._feed_method) {
+        const pool = buildFeedingPool(char, sub._feed_method, 0);
+        poolSize = pool ? pool.total : 1;
+      } else {
+        const input = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-input');
+        poolSize = input ? parseInt(input.value) || 1 : 1;
+      }
+      handleFeedingRoll(id, poolSize);
+    });
+  });
+}
+
+function renderFeedingDetail(s, raw, char) {
+  const feed = raw.feeding || {};
+  const territories = feed.territories || {};
+  const rollResult = s.feeding_roll;
+
+  let h = '<div class="dt-feed-detail">';
+  h += '<div class="dt-feed-header">Feeding</div>';
+
+  if (feed.method) h += `<div class="dt-feed-row"><span class="dt-feed-lbl">Submitted</span> ${esc(feed.method)}</div>`;
+
+  // Territory feeding status
+  const activeTerrs = Object.entries(territories).filter(([, v]) => v && v !== 'Not feeding here');
+  if (activeTerrs.length) {
+    h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Territories</span>';
+    h += activeTerrs.map(([t, status]) => `<span class="dt-sub-tag">${esc(t)}: ${esc(status)}</span>`).join(' ');
+    h += '</div>';
+  }
+
+  // Method selection + pool building (only if character matched)
+  if (char) {
+    h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Hunt method</span>';
+    h += '<div class="dt-method-btns">';
+    const selectedMethod = s._feed_method || '';
+    FEED_METHODS.forEach(m => {
+      h += `<button class="dt-method-btn${selectedMethod === m.id ? ' selected' : ''}" data-method="${m.id}" data-sub-id="${s._id}">${esc(m.name)}</button>`;
+    });
+    h += '</div></div>';
+
+    // Show pool breakdown if method selected
+    if (selectedMethod) {
+      const pool = buildFeedingPool(char, selectedMethod, 0);
+      if (pool) {
+        const bd = pool.breakdown;
+        h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
+        h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
+        if (bd.fg) h += ` + ${bd.fg} FG`;
+        h += ` = <b>${pool.total}</b></span></div>`;
+      }
+    }
+  } else {
+    // Manual pool for unmatched characters
+    h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
+    h += `<input type="number" class="dt-pool-input" min="1" max="30" value="${rollResult?.params?.size || 5}">`;
+    h += '</div>';
+  }
+
+  // Roll button + result
+  h += '<div class="dt-feed-roll-row">';
+  h += `<button class="dt-btn dt-feed-roll-btn" data-sub-id="${s._id}">${rollResult ? 'Re-roll' : 'Roll'}</button>`;
+
+  if (rollResult) {
+    const rc = rollResult.exceptional ? 'exceptional' : rollResult.successes === 0 ? 'failure' : 'normal';
+    const vessels = rollResult.successes;
+    h += `<span class="dt-feed-result ${rc}">${rollResult.successes} ${rollResult.exceptional ? 'Exceptional' : rollResult.successes === 1 ? 'success' : 'successes'}</span>`;
+    if (vessels > 0) h += `<span class="dt-feed-vessels">${vessels} vessel${vessels > 1 ? 's' : ''} \u00B7 ${vessels * 2} Vitae safe</span>`;
+    h += `<span class="dt-feed-dice">${esc(rollResult.dice_string || '')}</span>`;
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
+// ── Feeding rolls ───────────────────────────────────────────────────────────
+
+async function handleFeedingRoll(subId, poolSize) {
+  const result = rollPool(poolSize);
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+
+  try {
+    await updateSubmission(subId, { feeding_roll: result });
+    sub.feeding_roll = result;
+    renderMatchSummary();
+    renderSubmissions();
+  } catch (err) {
+    console.error('Failed to save feeding roll:', err.message);
+  }
 }
 
 // ── File handling ───────────────────────────────────────────────────────────
