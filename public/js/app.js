@@ -54,6 +54,7 @@ import {
   handleDtImport as _handleDtImport,
   setImportCallbacks,
 } from './suite/import.js';
+import { loadCharsFromApi } from './data/loader.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -185,9 +186,15 @@ function populateSuiteDropdowns(chars) {
   }
 }
 
-function loadAllData() {
-  // 1. Load editor data (populates editorState.chars from localStorage or embedded)
-  loadDB();
+async function loadAllData() {
+  // 1. Try API first (cache-first mode: fetches from API, caches to localStorage, falls back)
+  const apiChars = await loadCharsFromApi();
+  if (apiChars) {
+    editorState.chars = apiChars;
+  } else {
+    // API unreachable and no cached data — fall back to localStorage/embedded
+    loadDB();
+  }
 
   // 2. Copy to suite state
   const sortedChars = editorState.chars.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -520,8 +527,9 @@ Object.assign(window, {
 //  INIT
 // ══════════════════════════════════════════════
 
-loadAllData();
+loadAllData().then(() => {
+  renderList();
+  renderImportBanner();
+});
 const logo = document.getElementById('topbar-logo');
 if (logo) logo.src = ICONS.TM_logo;
-renderList();
-renderImportBanner();
