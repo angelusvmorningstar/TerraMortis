@@ -6,6 +6,7 @@ import { xpLeft, xpEarned } from './editor/xp.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
+import { initDowntimeView } from './admin/downtime-views.js';
 
 const CLANS = ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue'];
 const COVENANTS = ['Carthian Movement', 'Circle of the Crone', 'Invictus', 'Lancea et Sanctum', 'Ordo Dracul'];
@@ -75,6 +76,7 @@ function switchDomain(domain) {
 
   if (domain === 'engine') initSessionLog();
   if (domain === 'city') initCityView();
+  if (domain === 'downtime') initDowntimeView();
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {

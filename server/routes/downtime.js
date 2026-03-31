@@ -34,6 +34,14 @@ cyclesRouter.post('/', async (req, res) => {
 export const submissionsRouter = Router();
 const submissions = () => getCollection('downtime_submissions');
 
+// POST /api/downtime_submissions — create submission
+submissionsRouter.post('/', async (req, res) => {
+  const doc = req.body;
+  const result = await submissions().insertOne(doc);
+  const created = await submissions().findOne({ _id: result.insertedId });
+  res.status(201).json(created);
+});
+
 // GET /api/downtime_submissions — list all, optionally filter by cycle_id
 submissionsRouter.get('/', async (req, res) => {
   const filter = {};
