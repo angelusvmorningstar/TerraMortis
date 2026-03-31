@@ -22,18 +22,20 @@ export function applyDerivedMerits(c) {
   }
 
   // MCI grants
-  const mci = (c.merits || []).find(m => m.name === 'Mystery Cult Initiation');
-  if (mci && mci.active !== false && mci.benefit_grants) {
+  const mcis = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation');
+  for (const mci of mcis) {
+    if (mci.active === false || !mci.benefit_grants) continue;
     const dots = mci.rating || 0;
     for (let d = 0; d < Math.min(dots, mci.benefit_grants.length); d++) {
-      const grant = mci.benefit_grants[d];
-      if (!grant || !grant.name) continue;
-      // Check prereqs from MERITS_DB
-      const dbEntry = MERITS_DB ? MERITS_DB[grant.name.toLowerCase()] : null;
-      if (dbEntry && dbEntry.prereq && !meritQualifies(c, dbEntry.prereq)) {
-        addMerit(c, Object.assign({}, grant, { derived: true, granted_by: 'MCI L' + (d + 1), prereq_failed: true }));
-      } else {
-        addMerit(c, Object.assign({}, grant, { derived: true, granted_by: 'MCI L' + (d + 1) }));
+      const entry = mci.benefit_grants[d];
+      if (!entry) continue;
+      // Each level can be a single grant or an array of grants
+      const grants = Array.isArray(entry) ? entry : (entry.name ? [entry] : []);
+      for (const grant of grants) {
+        if (!grant || !grant.name) continue;
+        const dbEntry = MERITS_DB ? MERITS_DB[grant.name.toLowerCase()] : null;
+        const failed = dbEntry && dbEntry.prereq && !meritQualifies(c, dbEntry.prereq);
+        addMerit(c, Object.assign({}, grant, { derived: true, granted_by: 'MCI L' + (d + 1), ...(failed ? { prereq_failed: true } : {}) }));
       }
     }
   }

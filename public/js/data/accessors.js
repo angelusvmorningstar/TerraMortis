@@ -57,7 +57,7 @@ export function manoeuvres(c) { return meritsByCategory(c, 'manoeuvre'); }
 // ── Influence total ──
 
 export function influenceTotal(c) {
-  return influenceMerits(c).reduce((s, m) => s + (m.rating || 0), 0);
+  return influenceMerits(c).filter(m => !m.prereq_failed).reduce((s, m) => s + (m.rating || 0), 0);
 }
 
 // ── Domain shortcuts ──

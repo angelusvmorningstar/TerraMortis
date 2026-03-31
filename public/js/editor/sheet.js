@@ -248,7 +248,10 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
   let h='<div class="mci-block'+(inactive?' mci-inactive':'')+'"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">'+esc(m.name)+'</span>';
   if(editMode) h+='<input type="text" class="stand-name-input" value="'+esc(m.cult_name||'')+'" placeholder="Cult name" onchange="shEditStandMerit('+si+',\'cult_name\',this.value)">';
   else if(m.cult_name) h+='<span class="merit-sub-sh mci-cult-name">'+esc(m.cult_name)+'</span>';
-  h+='</div><div class="mci-header-right"><button class="mci-toggle-btn" onclick="shToggleMCI('+si+')" title="'+(inactive?'Activate cult':'Suspend cult')+'">'+(inactive?'Suspended':'Active')+'</button><span class="merit-dots-sh">'+shDots(eDots)+'</span></div></div>';
+  h+='</div><div class="mci-header-right">';
+  if(editMode) h+='<button class="mci-toggle-btn" onclick="shToggleMCI('+si+')" title="'+(inactive?'Activate cult':'Suspend cult')+'">'+(inactive?'Suspended':'Active')+'</button>';
+  else if(inactive) h+='<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
+  h+='<span class="merit-dots-sh">'+shDots(eDots)+'</span></div></div>';
   if(editMode){
     h+=meritBdRow(rIdx,mc);if(!m.benefit_grants)m.benefit_grants=[null,null,null,null,null];
     for(let d=0;d<5&&d<eDots;d++){const g=m.benefit_grants[d],gN=(g&&g.name)||'',gR=(g&&g.rating)||0,gQ=(g&&g.qualifier)||'',mO=buildMeritOptions(c,gN),b=ben[d]||'',db=gN?MERITS_DB[gN.toLowerCase()]:null,mx=db&&db.rating?parseInt((db.rating+'').split('\u2013').pop().split('\u2014').pop())||5:5;
@@ -256,7 +259,7 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
       if(gN) h+='<input class="merit-bd-input" type="number" min="1" max="'+mx+'" value="'+gR+'" style="width:32px" title="Rating (max '+mx+')" onchange="shEditMCIGrant('+si+','+d+',\'rating\',+this.value)"><input type="text" class="mci-benefit-input" style="flex:0.6" value="'+esc(gQ)+'" placeholder="Qualifier" onchange="shEditMCIGrant('+si+','+d+',\'qualifier\',this.value)">';
       h+='</div><input type="text" class="mci-benefit-input" value="'+esc(b)+'" placeholder="Description" onchange="shEditStandMerit('+si+',\'benefit\',\''+d+'|\'+this.value)"></div></div>';}
   } else if(!inactive){const grants=m.benefit_grants||[];
-    for(let d=0;d<m.rating;d++){const b=(ben[d]||'').trim(),g=grants[d],gl=g?esc(g.name)+(g.qualifier?' ('+esc(g.qualifier)+')':'')+(g.rating?' '+shDots(g.rating):''):'';
+    for(let d=0;d<m.rating;d++){const b=(ben[d]||'').trim(),entry=grants[d],gArr=Array.isArray(entry)?entry:(entry&&entry.name?[entry]:[]),gl=gArr.map(g=>esc(g.name)+(g.qualifier?' ('+esc(g.qualifier)+')':'')+(g.rating?' '+shDots(g.rating):'')).join(', ');
       h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span>'+(gl?'<span class="mci-benefit-text"><span class="gen-granted-tag-view" style="margin-right:4px">Grant</span>'+gl+(b?' \u2014 '+esc(b):'')+'</span>':'<span class="mci-benefit-text">'+(b?esc(b):'<span class="mci-benefit-empty">\u2014</span>')+'</span>')+'</div>';}}
   h+='</div>';return h;
 }
