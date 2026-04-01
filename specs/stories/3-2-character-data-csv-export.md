@@ -1,6 +1,6 @@
 # Story 3.2: Character Data CSV Export
 
-**Status:** review
+**Status:** done
 
 ## Story
 
@@ -65,10 +65,10 @@ A full HTML-rendered printable character sheet is a future story. This story foc
   - [x] Trigger browser download with dated filename (AC 17)
   - [x] Add "Download CSV" button to admin Player domain header
 
-- [ ] Task 4: Verify against reference (AC: 2, 15-16)
-  - [ ] Compare output for 2-3 characters against `Character Data Export.csv` values
-  - [ ] Verify `¬` used for empty fields (AC 15)
-  - [ ] Verify icon path format (AC 16)
+- [x] Task 4: Verify against reference (AC: 2, 15-16)
+  - [x] Compare output for 2-3 characters against `Character Data Export.csv` values
+  - [x] Verify `¬` used for empty fields (AC 15)
+  - [x] Verify icon path format (AC 16)
 
 ## Dev Notes
 
