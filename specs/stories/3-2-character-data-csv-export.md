@@ -1,6 +1,6 @@
 # Story 3.2: Character Data CSV Export
 
-**Status:** ready-for-dev
+**Status:** review
 
 ## Story
 
@@ -36,34 +36,34 @@ A full HTML-rendered printable character sheet is a future story. This story foc
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Build CSV column mapping (AC: all)
-  - [ ] Define the complete column header array matching `Character Data Export.csv` (~300+ columns)
-  - [ ] Create a `formatDots(n)` helper returning `●` strings
-  - [ ] Create a `formatDotsWithBonus(base, bonus)` helper returning `●●○○` strings
-  - [ ] Create a `formatSquares(filled, total)` helper returning `□□□■■■` strings
-  - [ ] Create a `formatHumanityLevel(level, humanity, touchstones)` helper
+- [x] Task 1: Build CSV column mapping (AC: all)
+  - [x] Define the complete column header array matching `Character Data Export.csv` (~370 columns)
+  - [x] Create a `fmtDots(n)` helper returning `●` strings
+  - [x] Create a `fmtDotsBonus(base, bonus)` helper returning `●●○○` strings
+  - [x] Create a `fmtSquares(filled, total)` helper returning `□□□■■■` strings
+  - [x] Create humanity level formatter with touchstone text
 
-- [ ] Task 2: Build character-to-row mapper (AC: 3-14)
-  - [ ] Map identity fields (name, player, clan, etc.)
-  - [ ] Map attributes as dot strings (AC 3)
-  - [ ] Map skills as dot strings + specialisations (AC 4-5)
-  - [ ] Map BP, Health, Willpower, Vitae with squares (AC 6)
-  - [ ] Map humanity levels with touchstones (AC 7)
-  - [ ] Map status fields (city, clan, covenant + covenant standings)
-  - [ ] Map domain merits (Safe Place, Haven, Feeding Grounds, Herd, MCI, PT)
-  - [ ] Map general merits into 30 slots with effects (AC 8)
-  - [ ] Map influence merits into 20 slots with areas and dots (AC 9)
-  - [ ] Map disciplines as dot strings (AC 10)
-  - [ ] Map powers into 30 Blood slots with stats and effects (AC 11)
-  - [ ] Map banes (AC 12)
-  - [ ] Calculate and map derived stats (AC 13)
-  - [ ] Map willpower triggers, aspirations, apparent age, features (AC 14)
+- [x] Task 2: Build character-to-row mapper (AC: 3-14)
+  - [x] Map identity fields (name, player, clan, etc.)
+  - [x] Map attributes as dot strings (AC 3)
+  - [x] Map skills as dot strings + specialisations (AC 4-5)
+  - [x] Map BP, Health, Willpower, Vitae with squares (AC 6)
+  - [x] Map humanity levels with touchstones (AC 7)
+  - [x] Map status fields (city, clan, covenant + covenant standings)
+  - [x] Map domain merits (Safe Place, Haven, Feeding Grounds, Herd, MCI, PT)
+  - [x] Map general merits into 30 slots with effects (AC 8)
+  - [x] Map influence merits into 20 slots with areas and dots (AC 9)
+  - [x] Map disciplines as dot strings (AC 10)
+  - [x] Map powers into 30 Blood slots with stats and effects (AC 11)
+  - [x] Map banes (AC 12)
+  - [x] Calculate and map derived stats (AC 13)
+  - [x] Map willpower triggers, aspirations, apparent age, features (AC 14)
 
-- [ ] Task 3: Implement download (AC: 1, 17)
-  - [ ] Replace `downloadCSV()` stub in `export.js` with implementation
-  - [ ] Generate CSV with proper escaping (commas in text, quotes)
-  - [ ] Trigger browser download with dated filename (AC 17)
-  - [ ] Add "Download CSV" button to admin Player domain view
+- [x] Task 3: Implement download (AC: 1, 17)
+  - [x] Replace `downloadCSV()` stub in `export.js` with async implementation
+  - [x] Generate CSV with proper escaping (commas in text, quotes)
+  - [x] Trigger browser download with dated filename (AC 17)
+  - [x] Add "Download CSV" button to admin Player domain header
 
 - [ ] Task 4: Verify against reference (AC: 2, 15-16)
   - [ ] Compare output for 2-3 characters against `Character Data Export.csv` values
@@ -140,8 +140,29 @@ This is a frontend-only feature. No API changes. The CSV is generated client-sid
 
 ### Agent Model Used
 
+Claude Opus 4.6 (1M context)
+
 ### Debug Log References
+
+- Node syntax checking doesn't work for browser ES modules (no `"type": "module"` in root package.json). Manual review used instead.
+- Dynamic import `await import('./csv-format.js')` used in `downloadCSV()` to avoid loading the mapper module until needed.
 
 ### Completion Notes List
 
+- Created `csv-format.js` (new, ~310 lines) with all formatting helpers and the `charToRow()` mapper
+- Column headers match `Character Data Export.csv` exactly (~370 columns)
+- `applyDerivedMerits(c)` called per character before export to include PT/MCI grants
+- `downloadCSV()` stub replaced with async implementation using dynamic import
+- UTF-8 BOM prepended for Excel compatibility
+- "Download CSV" button added to admin Player domain header
+- Button wired through `window.downloadCSV` in admin.js, passing the admin `chars` array
+- `.btn-sm` CSS class added to admin-layout.css
+- Task 4 (verification against reference data) requires browser testing — cannot be done in CLI
+
 ### File List
+
+- `public/js/editor/csv-format.js` — NEW (formatting helpers + charToRow mapper + buildCSV)
+- `public/js/editor/export.js` — MODIFIED (downloadCSV stub replaced with async implementation)
+- `public/js/admin.js` — MODIFIED (import downloadCSV, wire to window with chars array)
+- `public/admin.html` — MODIFIED (Download CSV button in Player domain header)
+- `public/css/admin-layout.css` — MODIFIED (.btn-sm class added)

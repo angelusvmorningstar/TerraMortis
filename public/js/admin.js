@@ -1,6 +1,7 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 
 import { apiGet, apiPut } from './data/api.js';
+import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
@@ -275,6 +276,7 @@ Object.assign(window, {
     document.getElementById('cd-save-api').style.display = '';
     renderSheet(chars[editorState.editIdx]);
   },
+  downloadCSV: () => downloadCSV(chars),
   markDirty, printSheet,
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
