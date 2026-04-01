@@ -576,6 +576,10 @@ body {
   white-space: pre-line;
 }
 
+/* ── Downtime gated sections ── */
+
+.dt-gated-hidden { display: none; }
+
 /* ── Responsive ── */
 
 @media (min-width: 600px) {

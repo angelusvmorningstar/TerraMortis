@@ -5,6 +5,7 @@ import { esc, displayName } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
+import { renderDowntimeTab } from './player/downtime-form.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -108,6 +109,7 @@ function selectCharacter(idx) {
   state.editIdx = idx;
   renderSheet(activeChar);
   initOrdeals(activeChar, chars);
+  renderDowntimeTab(document.getElementById('tab-downtime'), activeChar);
 }
 
 // ── Tab switching ──
