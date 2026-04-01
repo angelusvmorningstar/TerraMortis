@@ -149,7 +149,7 @@ export async function renderQuestionnaire(targetEl, char) {
     editing = false;
   }
 
-  targetEl.innerHTML = `<div id="qf-container"></div>`;
+  targetEl.innerHTML = `<div id="qf-container" class="reading-pane"></div>`;
   renderForm(document.getElementById('qf-container'));
 }
 

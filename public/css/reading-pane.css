@@ -1,0 +1,167 @@
+/* Reading pane — warm parchment surface for document-heavy content.
+ * Use on questionnaires, downtimes, dossiers, and any long-form text.
+ * Wrap content in <div class="reading-pane"> to activate. */
+
+.reading-pane {
+  background: #F0E6D4;
+  color: #2A1F14;
+  border: 1px solid rgba(139,0,0,.18);
+  border-radius: 8px;
+  padding: 24px 20px;
+}
+
+@media (min-width: 600px) {
+  .reading-pane { padding: 32px 28px; }
+}
+
+/* ── Headings ── */
+
+.reading-pane h3,
+.reading-pane .qf-title {
+  color: #5A1A1A;
+}
+
+.reading-pane h4,
+.reading-pane .qf-section-title {
+  color: #5A1A1A;
+}
+
+/* ── Body text ── */
+
+.reading-pane p,
+.reading-pane .qf-intro,
+.reading-pane .qf-section-intro,
+.reading-pane .qf-desc {
+  color: #3A2A1A;
+}
+
+.reading-pane .qf-label {
+  color: #2A1F14;
+}
+
+.reading-pane .qf-readonly-value {
+  color: #2A1F14;
+}
+
+/* ── Form inputs (editing mode) ── */
+
+.reading-pane .qf-input,
+.reading-pane .qf-textarea,
+.reading-pane .qf-select {
+  background: #FFF8EE;
+  color: #2A1F14;
+  border-color: rgba(139,0,0,.2);
+}
+
+.reading-pane .qf-input:focus,
+.reading-pane .qf-textarea:focus,
+.reading-pane .qf-select:focus {
+  border-color: #8B0000;
+}
+
+.reading-pane .qf-input::placeholder,
+.reading-pane .qf-textarea::placeholder {
+  color: #9A8A70;
+}
+
+/* ── Locked fields (from character sheet) ── */
+
+.reading-pane .qf-locked-value {
+  background: #E8DCC8;
+  color: #2A1F14;
+  border-color: rgba(139,0,0,.15);
+}
+
+.reading-pane .qf-locked-note {
+  color: #7A6A50;
+}
+
+/* ── Radio and select ── */
+
+.reading-pane .qf-radio-label {
+  color: #2A1F14;
+}
+
+.reading-pane .qf-radio-label:hover {
+  background: rgba(139,0,0,.06);
+}
+
+.reading-pane .qf-radio-label input[type="radio"] {
+  accent-color: #8B0000;
+}
+
+/* ── Badges ── */
+
+.reading-pane .qf-badge-draft {
+  background: rgba(139,0,0,.1);
+  color: #8B0000;
+  border-color: rgba(139,0,0,.3);
+}
+
+.reading-pane .qf-badge-submitted {
+  background: rgba(139,0,0,.1);
+  color: #8B0000;
+  border-color: rgba(139,0,0,.3);
+}
+
+.reading-pane .qf-badge-approved {
+  background: rgba(60,100,60,.12);
+  color: #2A6A2A;
+  border-color: rgba(60,100,60,.3);
+}
+
+.reading-pane .qf-save-status {
+  color: #7A6A50;
+}
+
+/* ── Required marker ── */
+
+.reading-pane .qf-req {
+  color: #8B0000;
+}
+
+/* ── Section dividers ── */
+
+.reading-pane .qf-section {
+  border-bottom-color: rgba(139,0,0,.12);
+}
+
+/* ── Buttons ── */
+
+.reading-pane .qf-btn-save {
+  background: #E8DCC8;
+  color: #3A2A1A;
+  border-color: rgba(139,0,0,.2);
+}
+
+.reading-pane .qf-btn-save:hover {
+  border-color: #8B0000;
+}
+
+.reading-pane .qf-btn-submit {
+  background: #8B0000;
+  color: #F0E6D4;
+}
+
+.reading-pane .qf-btn-edit {
+  background: #E8DCC8;
+  color: #5A1A1A;
+  border-color: rgba(139,0,0,.3);
+}
+
+.reading-pane .qf-btn-edit:hover {
+  background: rgba(139,0,0,.1);
+}
+
+.reading-pane .qf-btn-approve {
+  background: #3A7A3A;
+  color: #fff;
+}
+
+/* ── Icon filter override (dark bg icons need to be dark on light bg) ── */
+
+.reading-pane .qf-radio-icon img,
+.reading-pane .qf-locked-value img {
+  filter: sepia(1) brightness(.3) saturate(2) !important;
+  opacity: .8 !important;
+}
