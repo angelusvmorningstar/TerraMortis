@@ -13,6 +13,7 @@ const ICON_FN = { clan: clanIcon, covenant: covIcon };
 const SHEET_FIELDS = {
   player_name:    c => c.player || '',
   character_name: c => [c.honorific, c.moniker || c.name].filter(Boolean).join(' '),
+  high_concept:   c => c.concept || '',
   clan:           c => c.clan || '',
   covenant:       c => c.covenant || '',
   bloodline:      c => c.bloodline || '',
