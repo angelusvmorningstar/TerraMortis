@@ -165,6 +165,8 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 #tab-bar::-webkit-scrollbar { display: none; }
