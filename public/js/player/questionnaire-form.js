@@ -1,8 +1,11 @@
 /* Questionnaire form — renders questions from data, saves to API, supports draft/submit */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, clanIcon, covIcon } from '../data/helpers.js';
 import { QUESTIONNAIRE_SECTIONS } from './questionnaire-data.js';
+
+// Maps question keys to icon helper functions
+const ICON_FN = { clan: clanIcon, covenant: covIcon };
 
 let responseDoc = null;
 let currentCharId = null;
@@ -186,17 +189,21 @@ function renderQuestion(q, value) {
       h += `<textarea id="q-${q.key}" class="qf-textarea" rows="4">${esc(value)}</textarea>`;
       break;
 
-    case 'radio':
+    case 'radio': {
+      const iconFn = ICON_FN[q.key];
       h += `<div class="qf-radio-group" id="q-${q.key}">`;
       for (const opt of q.options) {
         const checked = value === opt.value ? ' checked' : '';
+        const icon = iconFn ? iconFn(opt.value, 20) : '';
         h += `<label class="qf-radio-label">`;
         h += `<input type="radio" name="q-${q.key}" value="${esc(opt.value)}"${checked}>`;
+        if (icon) h += `<span class="qf-radio-icon">${icon}</span>`;
         h += `<span>${esc(opt.label)}</span>`;
         h += `</label>`;
       }
       h += '</div>';
       break;
+    }
 
     case 'select':
       h += `<select id="q-${q.key}" class="qf-select">`;

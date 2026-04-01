@@ -479,6 +479,12 @@ body {
   accent-color: var(--gold2);
 }
 
+.qf-radio-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .qf-actions {
   display: flex;
   gap: 12px;
