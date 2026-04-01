@@ -338,6 +338,17 @@ body {
 
 /* ── Questionnaire form ── */
 
+#qf-container {
+  background: #1E1810;
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 24px 20px;
+}
+
+@media (min-width: 600px) {
+  #qf-container { padding: 32px 28px; }
+}
+
 .qf-header { margin-bottom: 24px; }
 
 .qf-title {
@@ -388,9 +399,8 @@ body {
 
 .qf-intro {
   font-size: 14px;
-  color: var(--txt);
+  color: #C8B8A0;
   line-height: 1.6;
-  opacity: .8;
 }
 
 .qf-req { color: var(--crim2); font-weight: 700; }
@@ -398,7 +408,7 @@ body {
 .qf-section {
   margin-bottom: 28px;
   padding-bottom: 20px;
-  border-bottom: 1px solid var(--bdr);
+  border-bottom: 1px solid rgba(201,169,98,.12);
 }
 
 .qf-section:last-of-type { border-bottom: none; }
@@ -413,10 +423,9 @@ body {
 
 .qf-section-intro {
   font-size: 14px;
-  color: var(--txt);
+  color: #C8B8A0;
   margin-bottom: 20px;
   line-height: 1.6;
-  opacity: .8;
 }
 
 .qf-field { margin-bottom: 22px; }
@@ -432,11 +441,10 @@ body {
 
 .qf-desc {
   font-size: 14px;
-  color: var(--txt);
+  color: #C8B8A0;
   line-height: 1.6;
   margin-bottom: 10px;
   white-space: pre-line;
-  opacity: .8;
 }
 
 .qf-input, .qf-textarea, .qf-select {
@@ -572,10 +580,10 @@ body {
 
 .qf-readonly-value {
   padding: 8px 0;
-  color: var(--txt);
+  color: #D8CCBA;
   font-family: var(--fb);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.7;
   white-space: pre-line;
 }
 
