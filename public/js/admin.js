@@ -4,7 +4,7 @@ import { apiGet, apiPut } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
 import { initDowntimeView } from './admin/downtime-views.js';
@@ -78,6 +78,13 @@ async function boot() {
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
+      // Player-only users get redirected to the player portal
+      const info = getPlayerInfo();
+      if (info && info.role === 'player') {
+        window.location.href = '/player';
+        return;
+      }
+
       loginScreen.style.display = 'none';
       app.style.display = 'flex';
       renderSidebarUser();
@@ -100,8 +107,14 @@ function renderSidebarUser() {
     ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
     : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
 
+  const info = getPlayerInfo();
+  const playerLink = info?.is_dual_role
+    ? `<a href="player" class="sidebar-player-link">My Character</a>`
+    : '';
+
   el.innerHTML = `<img class="sidebar-avatar" src="${avatarUrl}" alt="">` +
     `<span class="sidebar-username">${name}</span>` +
+    `${playerLink}` +
     `<button class="sidebar-logout" id="logout-btn">Log out</button>`;
 
   document.getElementById('logout-btn').addEventListener('click', logout);

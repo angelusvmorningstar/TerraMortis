@@ -3,6 +3,7 @@
 // Role-aware: stores role, player_id, character_ids from the server response.
 
 const DISCORD_CLIENT_ID = '1488404820917223484';
+// All OAuth callbacks land on /admin — admin.js redirects players to /player after auth
 const REDIRECT_URI = location.origin + '/admin';
 const SCOPES = 'identify';
 

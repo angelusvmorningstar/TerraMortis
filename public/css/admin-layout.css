@@ -244,6 +244,20 @@ body {
   background: var(--crim-a12);
 }
 
+.sidebar-player-link {
+  display: block;
+  font-family: var(--fh);
+  font-size: 11px;
+  color: var(--gold);
+  text-decoration: none;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  opacity: .7;
+  transition: opacity .2s;
+}
+
+.sidebar-player-link:hover { opacity: 1; }
+
 /* ── Character grid — desktop widths ── */
 
 .char-grid {
