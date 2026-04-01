@@ -1121,3 +1121,166 @@ body {
   color: var(--txt2);
   margin-top: 8px;
 }
+
+/* ── Attendance & Finance ── */
+
+.att-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.att-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.att-label {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--txt2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.att-select {
+  background: var(--surf2);
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--fb);
+}
+
+.att-btn {
+  background: var(--surf2);
+  color: var(--gold2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-family: var(--fh);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.att-btn:hover { border-color: var(--gold2); }
+
+.att-save-btn {
+  background: var(--crim);
+  color: var(--txt);
+  border-color: var(--crim);
+}
+.att-save-btn:hover { opacity: 0.9; }
+
+.att-summary {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 0 12px;
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--txt2);
+  border-bottom: 1px solid var(--bdr);
+  margin-bottom: 8px;
+}
+
+.att-stat strong { color: var(--gold2); }
+
+.att-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.att-table thead th {
+  font-family: var(--fh);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--txt3);
+  padding: 8px 6px;
+  text-align: center;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.att-name-col { text-align: left; min-width: 160px; }
+.att-check-col { width: 70px; }
+.att-num-col { width: 60px; }
+.att-xp-col { width: 50px; }
+.att-pay-col { width: 120px; }
+
+.att-row { border-bottom: 1px solid var(--bdr); }
+.att-row:hover { background: var(--surf2); }
+.att-row.att-absent { opacity: 0.45; }
+
+.att-name {
+  font-family: var(--fh);
+  color: var(--gold2);
+  padding: 8px 6px;
+  text-align: left;
+}
+
+.att-check {
+  text-align: center;
+  padding: 8px 6px;
+}
+
+.att-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--gold2);
+}
+
+.att-num {
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.att-num input {
+  width: 40px;
+  background: var(--surf2);
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  text-align: center;
+  padding: 3px;
+  font-size: 12px;
+}
+
+.att-xp {
+  text-align: center;
+  padding: 8px 6px;
+  font-family: var(--fh);
+  color: var(--gold2);
+  font-weight: 600;
+}
+
+.att-pay {
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.att-pay select {
+  background: var(--surf2);
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 12px;
+  width: 100%;
+}
+
+.att-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--txt3);
+  font-family: var(--fh);
+  font-size: 14px;
+}

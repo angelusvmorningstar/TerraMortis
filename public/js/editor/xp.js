@@ -38,8 +38,9 @@ export function xpOrdeals(c) {
   return ((c.ordeals || []).filter(o => o.complete).length) * 3;
 }
 
-/** XP from game attendance (stored manually until attendance tracker exists). */
+/** XP from game attendance. Uses cached _gameXP from sessions if available, falls back to xp_log. */
 export function xpGame(c) {
+  if (c._gameXP != null) return c._gameXP;
   return ((c.xp_log || {}).earned || {}).game || 0;
 }
 

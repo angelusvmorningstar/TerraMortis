@@ -8,6 +8,7 @@ import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } fro
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
 import { initDowntimeView } from './admin/downtime-views.js';
+import { initAttendance } from './admin/attendance.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
@@ -120,6 +121,7 @@ function switchDomain(domain) {
   if (domain === 'engine') initSessionLog();
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
+  if (domain === 'attendance') initAttendance(chars);
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
@@ -293,9 +295,33 @@ async function saveCharToApi() {
 
 // ── Init ──
 
+/**
+ * Compute game XP per character from game_sessions attendance data.
+ * Caches result as c._gameXP for use by xpGame().
+ */
+async function loadGameXP() {
+  try {
+    const sessions = await apiGet('/api/game_sessions');
+    const totals = {};
+    for (const s of sessions) {
+      for (const a of s.attendance || []) {
+        const key = a.character_id || a.name;
+        const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
+        totals[key] = (totals[key] || 0) + xp;
+      }
+    }
+    for (const c of chars) {
+      c._gameXP = totals[c._id] || totals[c.name] || 0;
+    }
+  } catch (err) {
+    console.warn('Could not load game sessions for XP:', err.message);
+  }
+}
+
 async function init() {
   try {
     chars = await apiGet('/api/characters');
+    await loadGameXP();
     renderCharGrid();
   } catch (err) {
     console.error('Failed to load characters:', err.message);
