@@ -301,17 +301,23 @@ async function saveCharToApi() {
  */
 async function loadGameXP() {
   try {
-    const sessions = await apiGet('/api/game_sessions');
-    const totals = {};
-    for (const s of sessions) {
+    const gameSessions = await apiGet('/api/game_sessions');
+    for (const c of chars) c._gameXP = 0;
+
+    for (const s of gameSessions) {
       for (const a of s.attendance || []) {
-        const key = a.character_id || a.character_name || a.name;
         const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
-        totals[key] = (totals[key] || 0) + xp;
+        if (xp === 0) continue;
+
+        // Find matching character by any available key
+        const c = chars.find(ch =>
+          (a.character_id && ch._id === a.character_id) ||
+          ch.name === a.character_name ||
+          ch.name === a.name ||
+          displayName(ch) === (a.display_name || a.character_display)
+        );
+        if (c) c._gameXP += xp;
       }
-    }
-    for (const c of chars) {
-      c._gameXP = totals[c._id] || totals[c.name] || 0;
     }
   } catch (err) {
     console.warn('Could not load game sessions for XP:', err.message);
