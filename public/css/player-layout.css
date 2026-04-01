@@ -378,8 +378,9 @@ body {
 
 .qf-intro {
   font-size: 14px;
-  color: var(--txt2);
+  color: var(--txt);
   line-height: 1.6;
+  opacity: .8;
 }
 
 .qf-req { color: var(--crim2); font-weight: 700; }
@@ -402,9 +403,10 @@ body {
 
 .qf-section-intro {
   font-size: 14px;
-  color: var(--txt2);
+  color: var(--txt);
   margin-bottom: 20px;
   line-height: 1.6;
+  opacity: .8;
 }
 
 .qf-field { margin-bottom: 22px; }
@@ -419,11 +421,12 @@ body {
 }
 
 .qf-desc {
-  font-size: 13px;
-  color: var(--txt2);
-  line-height: 1.5;
-  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--txt);
+  line-height: 1.6;
+  margin-bottom: 10px;
   white-space: pre-line;
+  opacity: .8;
 }
 
 .qf-input, .qf-textarea, .qf-select {
