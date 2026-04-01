@@ -82,11 +82,25 @@ router.put('/:id', async (req, res) => {
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
 
+  // Players cannot edit approved questionnaires
+  if (req.user.role === 'player' && existing.status === 'approved') {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Approved questionnaire is locked' });
+  }
+
   const updates = { updated_at: new Date().toISOString() };
   if (req.body.responses !== undefined) updates.responses = req.body.responses;
+
   if (req.body.status === 'submitted') {
     updates.status = 'submitted';
     updates.submitted_at = updates.updated_at;
+  } else if (req.body.status === 'approved' && req.user.role === 'st') {
+    updates.status = 'approved';
+    updates.approved_at = updates.updated_at;
+  } else if (req.body.status === 'draft') {
+    // Only allow reverting to draft if not approved (or if ST)
+    if (existing.status !== 'approved' || req.user.role === 'st') {
+      updates.status = 'draft';
+    }
   }
 
   const result = await col().findOneAndUpdate(

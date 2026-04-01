@@ -296,7 +296,11 @@ body {
 
 .ordeal-card.done .ordeal-state { color: var(--green2); }
 .ordeal-card.pending .ordeal-state { color: var(--gold2); }
+.ordeal-card.draft .ordeal-state { color: var(--txt2); }
 .ordeal-card.incomplete .ordeal-state { color: var(--txt3); }
+
+.ordeal-card.draft { border-color: var(--bdr2); }
+.ordeal-card.draft .ordeal-icon { color: var(--txt2); }
 
 .ordeal-xp {
   font-size: 11px;
@@ -366,6 +370,12 @@ body {
 }
 
 .qf-badge-submitted {
+  background: var(--gold-a15);
+  color: var(--gold2);
+  border: 1px solid var(--gold);
+}
+
+.qf-badge-approved {
   background: var(--green-a15);
   color: var(--green2);
   border: 1px solid var(--green);
@@ -529,6 +539,13 @@ body {
 
 .qf-btn-edit:hover { background: var(--gold-a10); }
 
+.qf-btn-approve {
+  background: var(--green);
+  color: #fff;
+}
+
+.qf-btn-approve:hover { opacity: .85; }
+
 /* Locked fields — character sheet is authoritative */
 
 .qf-field-locked { opacity: .85; }
@@ -551,6 +568,15 @@ body {
   color: var(--txt3);
   margin-top: 4px;
   font-style: italic;
+}
+
+.qf-readonly-value {
+  padding: 8px 0;
+  color: var(--txt);
+  font-family: var(--fb);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-line;
 }
 
 /* ── Responsive ── */

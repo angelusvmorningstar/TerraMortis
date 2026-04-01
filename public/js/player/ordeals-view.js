@@ -1,5 +1,6 @@
 /* Ordeals tab — shows player-level and character-level ordeal status.
- * Clicking Questionnaire or History opens the questionnaire form. */
+ * Clicking Questionnaire or History opens the questionnaire form.
+ * Status for form-backed ordeals comes from the questionnaire_responses collection. */
 
 import { apiGet } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
@@ -23,19 +24,21 @@ const CHAR_ORDEALS = [
 
 let playerDoc = null;
 let currentChar = null;
+let questionnaireStatus = null; // from questionnaire_responses collection
 
 export async function initOrdeals(char, chars) {
   const el = document.getElementById('tab-ordeals');
   if (!el) return;
   currentChar = char;
 
-  if (!playerDoc) {
-    try {
-      playerDoc = await apiGet('/api/players/me');
-    } catch {
-      playerDoc = { ordeals: {} };
-    }
-  }
+  // Fetch player doc and questionnaire status in parallel
+  const [pDoc, qDoc] = await Promise.all([
+    playerDoc ? Promise.resolve(playerDoc) : apiGet('/api/players/me').catch(() => ({ ordeals: {} })),
+    apiGet(`/api/questionnaire?character_id=${char._id}`).catch(() => null),
+  ]);
+
+  playerDoc = pDoc;
+  questionnaireStatus = qDoc?.status || null;
 
   renderOrdealsList(el, char);
 }
@@ -50,7 +53,7 @@ function renderOrdealsList(el, char) {
   h += '<div class="ordeals-section">';
   h += `<h3 class="ordeals-heading">${esc(displayName(char))}</h3>`;
   for (const def of CHAR_ORDEALS) {
-    const status = cOrdeals[def.key] || { status: 'not_started' };
+    const status = getOrdealStatus(def, cOrdeals);
     h += ordealCard(def, status);
   }
   h += '</div>';
@@ -67,14 +70,22 @@ function renderOrdealsList(el, char) {
   h += '</div>';
   el.innerHTML = h;
 
-  // Wire click handlers for form-backed ordeals
   el.querySelectorAll('.ordeal-card[data-form]').forEach(card => {
     card.addEventListener('click', () => openForm(el));
   });
 }
 
+// Derive ordeal status from questionnaire_responses when available
+function getOrdealStatus(def, cOrdeals) {
+  if (def.hasForm && questionnaireStatus) {
+    // Map questionnaire_responses status to ordeal display status
+    return { status: questionnaireStatus };
+  }
+  // Fall back to character sheet ordeal data
+  return cOrdeals[def.key] || { status: 'not_started' };
+}
+
 function openForm(el) {
-  // Show back button + form
   let h = '<div class="ordeals-container">';
   h += '<button class="qf-back-btn" id="qf-back">&larr; Back to Ordeals</button>';
   h += '<div id="qf-target"></div>';
@@ -89,14 +100,16 @@ function openForm(el) {
 }
 
 function ordealCard(def, status) {
-  const done = status.status === 'approved' || status.complete === true;
-  const pending = status.status === 'pending';
-  const stateClass = done ? 'done' : pending ? 'pending' : 'incomplete';
-  const stateLabel = done ? 'Complete' : pending ? 'Pending Review' : 'Not Started';
-  const icon = done ? '&#10003;' : pending ? '&#9679;' : '&#9675;';
+  const s = status.status || 'not_started';
+  const done = s === 'approved' || status.complete === true;
+  const submitted = s === 'submitted';
+  const draft = s === 'draft';
+  const stateClass = done ? 'done' : submitted ? 'pending' : draft ? 'draft' : 'incomplete';
+  const stateLabel = done ? 'Approved' : submitted ? 'Submitted' : draft ? 'In Progress' : 'Not Started';
+  const icon = done ? '&#10003;' : submitted ? '&#9679;' : draft ? '&#9998;' : '&#9675;';
   const xp = done ? '+3 XP' : '';
   const formAttr = def.hasForm ? ' data-form="true"' : '';
-  const clickHint = def.hasForm ? '<span class="ordeal-action">Open Form &rarr;</span>' : '';
+  const clickHint = def.hasForm ? '<span class="ordeal-action">Open &rarr;</span>' : '';
 
   return `<div class="ordeal-card ${stateClass}"${formAttr}>
     <div class="ordeal-icon">${icon}</div>

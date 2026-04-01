@@ -1,15 +1,18 @@
 /* Questionnaire form — renders questions from data, saves to API, supports draft/submit.
- * Fields that overlap with the character sheet are read-only — the sheet is authoritative. */
+ * Fields that overlap with the character sheet are read-only — the sheet is authoritative.
+ *
+ * Lifecycle: draft → submitted (read-only, player can edit) → approved (locked, ST only)
+ */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName, clanIcon, covIcon } from '../data/helpers.js';
 import { QUESTIONNAIRE_SECTIONS } from './questionnaire-data.js';
+import { getRole } from '../auth/discord.js';
 
 // Maps question keys to icon helper functions
 const ICON_FN = { clan: clanIcon, covenant: covIcon };
 
 // Fields where the character sheet is the source of truth.
-// key = questionnaire field, value = function to extract from character doc.
 const SHEET_FIELDS = {
   player_name:    c => c.player || '',
   character_name: c => [c.honorific, c.moniker || c.name].filter(Boolean).join(' '),
@@ -28,8 +31,8 @@ let currentChar = null;
 let currentCharId = null;
 let sheetValues = {};
 let saveTimer = null;
+let editing = false; // true when actively editing (draft mode or player clicked Edit)
 
-// Debounced auto-save (2 seconds after last input)
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveDraft(), 2000);
@@ -39,7 +42,6 @@ function collectResponses() {
   const responses = {};
   for (const section of QUESTIONNAIRE_SECTIONS) {
     for (const q of section.questions) {
-      // Sheet-authoritative fields are not in the form — use sheet value
       if (SHEET_FIELDS[q.key] && sheetValues[q.key]) {
         responses[q.key] = sheetValues[q.key];
         continue;
@@ -58,6 +60,7 @@ function collectResponses() {
 }
 
 async function saveDraft() {
+  if (!editing) return;
   const responses = collectResponses();
   const statusEl = document.getElementById('qf-save-status');
 
@@ -80,7 +83,6 @@ async function saveDraft() {
 async function submitForm() {
   const responses = collectResponses();
 
-  // Check required fields (skip sheet-authoritative fields — they're always filled)
   const missing = [];
   for (const section of QUESTIONNAIRE_SECTIONS) {
     for (const q of section.questions) {
@@ -107,6 +109,7 @@ async function submitForm() {
       responses,
       status: 'submitted',
     });
+    editing = false;
     renderForm(document.getElementById('qf-container'));
   } catch (err) {
     const statusEl = document.getElementById('qf-save-status');
@@ -119,18 +122,16 @@ export async function renderQuestionnaire(targetEl, char) {
   currentCharId = char._id;
   responseDoc = null;
 
-  // Build sheet-authoritative values from the character
   sheetValues = {};
   for (const [key, fn] of Object.entries(SHEET_FIELDS)) {
     sheetValues[key] = fn(char);
   }
 
-  // Load existing response
   try {
     responseDoc = await apiGet(`/api/questionnaire?character_id=${char._id}`);
   } catch { /* no existing response */ }
 
-  // Auto-populate from auth only if this is the player's own character
+  // Auto-populate Discord only for player's own character with no saved response
   autoFill.discord_nickname = '';
   if (!responseDoc) {
     const user = JSON.parse(localStorage.getItem('tm_auth_user') || '{}');
@@ -138,6 +139,14 @@ export async function renderQuestionnaire(targetEl, char) {
     if (ownCharIds.includes(String(char._id))) {
       autoFill.discord_nickname = user.username || '';
     }
+  }
+
+  // Determine initial editing state
+  const status = responseDoc?.status || 'new';
+  if (status === 'new' || status === 'draft') {
+    editing = true;
+  } else {
+    editing = false;
   }
 
   targetEl.innerHTML = `<div id="qf-container"></div>`;
@@ -148,7 +157,13 @@ const autoFill = { discord_nickname: '' };
 
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
-  const isSubmitted = responseDoc?.status === 'submitted';
+  const status = responseDoc?.status || 'new';
+  const role = getRole();
+  const isST = role === 'st';
+  const isApproved = status === 'approved';
+  const isSubmitted = status === 'submitted';
+  const canPlayerEdit = !isApproved; // players can edit draft + submitted, not approved
+  const readOnly = !editing;
 
   let h = '';
 
@@ -156,28 +171,41 @@ function renderForm(container) {
   h += '<div class="qf-header">';
   h += '<h3 class="qf-title">Character Questionnaire</h3>';
   h += '<div class="qf-meta">';
-  if (isSubmitted) {
+  if (isApproved) {
+    h += '<span class="qf-badge qf-badge-approved">Approved</span>';
+  } else if (isSubmitted) {
     h += '<span class="qf-badge qf-badge-submitted">Submitted</span>';
-  } else {
+  } else if (status === 'draft') {
     h += '<span class="qf-badge qf-badge-draft">Draft</span>';
+  } else {
+    h += '<span class="qf-badge qf-badge-draft">Not Started</span>';
   }
   h += '<span id="qf-save-status" class="qf-save-status"></span>';
   h += '</div>';
-  h += '<p class="qf-intro">Required questions are marked with <span class="qf-req">*</span>. Your responses auto-save as you type. Complete all optional questions with thoughtful responses to qualify for the 3 XP Ordeal bonus.</p>';
+
+  if (editing) {
+    h += '<p class="qf-intro">Required questions are marked with <span class="qf-req">*</span>. Your responses auto-save as you type. Complete all optional questions with thoughtful responses to qualify for the 3 XP Ordeal bonus.</p>';
+  } else if (isApproved) {
+    h += '<p class="qf-intro">This questionnaire has been approved and is locked. +3 XP awarded.</p>';
+  } else if (isSubmitted) {
+    h += '<p class="qf-intro">Your questionnaire has been submitted for review.</p>';
+  }
   h += '</div>';
 
   // Sections
   for (const section of QUESTIONNAIRE_SECTIONS) {
     h += `<div class="qf-section">`;
     h += `<h4 class="qf-section-title">${esc(section.title)}</h4>`;
-    if (section.intro) {
+    if (section.intro && editing) {
       h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
     }
 
     for (const q of section.questions) {
-      // Sheet-authoritative fields render as read-only with character data
       if (SHEET_FIELDS[q.key] && sheetValues[q.key]) {
         h += renderLockedField(q, sheetValues[q.key]);
+      } else if (readOnly) {
+        const val = saved[q.key] || '';
+        h += renderReadOnlyField(q, val);
       } else {
         const val = saved[q.key] || autoFill[q.key] || '';
         h += renderQuestion(q, val);
@@ -186,21 +214,28 @@ function renderForm(container) {
     h += '</div>';
   }
 
-  // Submit button
+  // Actions
   h += '<div class="qf-actions">';
-  if (isSubmitted) {
-    h += '<button class="qf-btn qf-btn-edit" id="qf-btn-edit">Edit Responses</button>';
-  } else {
+  if (editing) {
     h += '<button class="qf-btn qf-btn-save" id="qf-btn-save">Save Draft</button>';
-    h += '<button class="qf-btn qf-btn-submit" id="qf-btn-submit">Submit Questionnaire</button>';
+    h += '<button class="qf-btn qf-btn-submit" id="qf-btn-submit">Submit</button>';
+  } else if (isApproved && isST) {
+    h += '<button class="qf-btn qf-btn-edit" id="qf-btn-edit">Edit (ST)</button>';
+  } else if (isSubmitted && canPlayerEdit) {
+    h += '<button class="qf-btn qf-btn-edit" id="qf-btn-edit">Edit Responses</button>';
+  }
+  if (isSubmitted && isST) {
+    h += '<button class="qf-btn qf-btn-approve" id="qf-btn-approve">Approve Ordeal</button>';
   }
   h += '</div>';
 
   container.innerHTML = h;
 
   // Wire events
-  container.addEventListener('input', scheduleSave);
-  container.addEventListener('change', scheduleSave);
+  if (editing) {
+    container.addEventListener('input', scheduleSave);
+    container.addEventListener('change', scheduleSave);
+  }
 
   const btnSave = document.getElementById('qf-btn-save');
   if (btnSave) btnSave.addEventListener('click', saveDraft);
@@ -209,13 +244,25 @@ function renderForm(container) {
   if (btnSubmit) btnSubmit.addEventListener('click', submitForm);
 
   const btnEdit = document.getElementById('qf-btn-edit');
-  if (btnEdit) btnEdit.addEventListener('click', async () => {
-    responseDoc = await apiPut(`/api/questionnaire/${responseDoc._id}`, { status: 'draft' });
+  if (btnEdit) btnEdit.addEventListener('click', () => {
+    editing = true;
     renderForm(container);
+  });
+
+  const btnApprove = document.getElementById('qf-btn-approve');
+  if (btnApprove) btnApprove.addEventListener('click', async () => {
+    try {
+      responseDoc = await apiPut(`/api/questionnaire/${responseDoc._id}`, { status: 'approved' });
+      editing = false;
+      renderForm(container);
+    } catch (err) {
+      const statusEl = document.getElementById('qf-save-status');
+      if (statusEl) statusEl.textContent = 'Approve failed: ' + err.message;
+    }
   });
 }
 
-// Render a field that's locked to the character sheet value
+// Render a field locked to the character sheet value
 function renderLockedField(q, value) {
   const iconFn = ICON_FN[q.key];
   const icon = iconFn ? iconFn(value, 18) : '';
@@ -224,6 +271,17 @@ function renderLockedField(q, value) {
   h += `<label class="qf-label">${esc(q.label)}</label>`;
   h += `<div class="qf-locked-value">${icon}<span>${esc(value)}</span></div>`;
   h += `<p class="qf-locked-note">From character sheet</p>`;
+  h += '</div>';
+  return h;
+}
+
+// Render a field as read-only (showing saved response)
+function renderReadOnlyField(q, value) {
+  if (!value) return ''; // hide empty fields in read-only view
+
+  let h = `<div class="qf-field">`;
+  h += `<label class="qf-label">${esc(q.label)}</label>`;
+  h += `<div class="qf-readonly-value">${esc(value)}</div>`;
   h += '</div>';
   return h;
 }
@@ -275,4 +333,9 @@ function renderQuestion(q, value) {
 
   h += '</div>';
   return h;
+}
+
+// Expose the current status for ordeal cards
+export function getQuestionnaireStatus() {
+  return responseDoc?.status || null;
 }
