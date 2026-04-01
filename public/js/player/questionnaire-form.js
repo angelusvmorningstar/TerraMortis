@@ -104,9 +104,21 @@ export async function renderQuestionnaire(targetEl, char) {
     responseDoc = await apiGet(`/api/questionnaire?character_id=${char._id}`);
   } catch { /* no existing response */ }
 
+  // Auto-populate player info from auth if no saved response yet
+  if (!responseDoc) {
+    const user = JSON.parse(localStorage.getItem('tm_auth_user') || '{}');
+    autoFill.player_name = user.global_name || user.username || '';
+    autoFill.discord_nickname = user.username || '';
+  } else {
+    autoFill.player_name = '';
+    autoFill.discord_nickname = '';
+  }
+
   targetEl.innerHTML = `<div id="qf-container"></div>`;
   renderForm(document.getElementById('qf-container'));
 }
+
+const autoFill = { player_name: '', discord_nickname: '' };
 
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
@@ -137,7 +149,8 @@ function renderForm(container) {
     }
 
     for (const q of section.questions) {
-      h += renderQuestion(q, saved[q.key] || '');
+      const val = saved[q.key] || autoFill[q.key] || '';
+      h += renderQuestion(q, val);
     }
     h += '</div>';
   }
