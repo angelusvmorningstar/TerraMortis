@@ -80,6 +80,14 @@ async function boot() {
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
+      // Check if user was logging in from another page (index, player)
+      const returnTo = localStorage.getItem('tm_auth_return');
+      localStorage.removeItem('tm_auth_return');
+      if (returnTo && returnTo !== '/admin' && returnTo !== '/admin.html') {
+        window.location.href = returnTo;
+        return;
+      }
+
       // Player-only users get redirected to the player portal
       const info = getPlayerInfo();
       if (info && info.role === 'player') {

@@ -43,6 +43,7 @@ import {
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
 import { printSheet } from './editor/print.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole } from './auth/discord.js';
 
 // ══════════════════════════════════════════════
 //  SUITE IMPORTS
@@ -188,13 +189,16 @@ function populateSuiteDropdowns(chars) {
 }
 
 async function loadAllData() {
-  // 1. Try API first (cache-first mode: fetches from API, caches to localStorage, falls back)
+  // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();
   if (apiChars) {
     editorState.chars = apiChars;
-  } else {
-    // API unreachable and no cached data — fall back to localStorage/embedded
+  } else if (getRole() === 'st') {
+    // Only fall back to embedded data for STs
     loadDB();
+  } else {
+    // Player with no API — show nothing rather than leak all characters
+    editorState.chars = [];
   }
 
   // 2. Copy to suite state
@@ -528,12 +532,82 @@ Object.assign(window, {
 });
 
 // ══════════════════════════════════════════════
-//  INIT
+//  AUTH GATE + INIT
 // ══════════════════════════════════════════════
 
-loadAllData().then(() => {
-  renderList();
-  renderImportBanner();
-});
+async function boot() {
+  const loginScreen = document.getElementById('login-screen');
+  const app = document.getElementById('app');
+  const errorEl = document.getElementById('login-error');
+
+  try {
+    await handleCallback();
+  } catch (err) {
+    if (errorEl) errorEl.textContent = err.message;
+  }
+
+  if (isLoggedIn()) {
+    const valid = await validateToken();
+    if (valid) {
+      loginScreen.style.display = 'none';
+      app.style.display = '';
+      applyRoleRestrictions();
+      await loadAllData();
+      renderList();
+      renderImportBanner();
+      renderUserHeader();
+      goTab('roll');
+      return;
+    }
+  }
+
+  // Show login screen
+  loginScreen.style.display = '';
+  app.style.display = 'none';
+  document.getElementById('login-btn').addEventListener('click', login);
+}
+
+/** Hide ST-only UI for player role. */
+function applyRoleRestrictions() {
+  const role = getRole();
+  const isST = role === 'st';
+
+  // Territory tab — ST only
+  const terrNav = document.getElementById('n-territory');
+  if (terrNav && !isST) terrNav.style.display = 'none';
+
+  // Tracker tab — ST only (feeding is in Roll for admin, tracker is being retired)
+  const stNav = document.getElementById('n-st');
+  if (stNav && !isST) stNav.style.display = 'none';
+
+  // Hide Save All / import controls for players
+  const topbarRight = document.getElementById('topbar-right');
+  if (topbarRight && !isST) topbarRight.style.display = 'none';
+}
+
+/** Show logged-in user in header. */
+function renderUserHeader() {
+  const user = getUser();
+  if (!user) return;
+  const hdr = document.getElementById('hdr');
+  if (!hdr) return;
+  let userEl = document.getElementById('hdr-user');
+  if (!userEl) {
+    userEl = document.createElement('div');
+    userEl.id = 'hdr-user';
+    userEl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt3);';
+    hdr.appendChild(userEl);
+  }
+  const name = user.global_name || user.username;
+  const avatarUrl = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`
+    : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
+  userEl.innerHTML = `<img src="${avatarUrl}" style="width:24px;height:24px;border-radius:50%;"><span>${name}</span><button onclick="logout()" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;font-family:var(--fh);">Log out</button>`;
+}
+
+// Expose logout to onclick
+window.logout = logout;
+
+boot();
 const logo = document.getElementById('topbar-logo');
 if (logo) logo.src = ICONS.TM_logo;
