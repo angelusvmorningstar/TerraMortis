@@ -371,7 +371,7 @@ body {
 
 .sh-desktop {
   display: grid;
-  grid-template-columns: 650px 1fr 1fr;
+  grid-template-columns: 4fr 3fr 3fr;
   gap: 0 24px;
   align-items: start;
 }

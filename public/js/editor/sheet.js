@@ -69,23 +69,29 @@ export function shRenderAttributes(c,editMode) {
     const caOpts=(CLAN_ATTR_OPTIONS[c.clan]||[]).map(a=>'<option'+(c.clan_attribute===a?' selected':'')+'>'+a+'</option>').join('');
     h+='<div class="sh-clan-attr-row">Favoured Attribute <select onchange="shSetClanAttr(this.value)">'+caOpts+'</select></div>';
     const pri=c.attribute_priorities||{};
+    if(!pri.Mental&&!pri.Physical&&!pri.Social){pri.Mental='Primary';pri.Physical='Secondary';pri.Social='Tertiary';}
     h+='<div class="sh-attr-col-hdr">';
-    catOrder.forEach(cat=>{const curPri=pri[cat]||'Primary',budget=PRI_BUDGETS[curPri]||5,usedCP=(ATTR_CATS[cat]||[]).reduce((s,a)=>s+(((c.attr_creation||{})[a]||{}).cp||0),0),rem=budget-usedCP;
+    catOrder.forEach(cat=>{const curPri=pri[cat]||'Tertiary',budget=PRI_BUDGETS[curPri]||3,usedCP=(ATTR_CATS[cat]||[]).reduce((s,a)=>s+(((c.attr_creation||{})[a]||{}).cp||0),0),rem=budget-usedCP;
       h+='<div class="sh-attr-pri"><select onchange="shSetPriority(\''+cat+'\',this.value)">'+PRI_LABELS.map(p=>'<option'+(curPri===p?' selected':'')+'>'+p+'</option>').join('')+'</select><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span></div>';});
     h+='</div>';
   }
   h+='<div class="sh-attr-grid">';
-  ATTR_ROWS.forEach(row=>row.forEach(a=>{
-    const base=getAttrVal(c,a),bonus=getAttrBonus(c,a),isClan=c.clan_attribute===a;
-    if(editMode) h+='<div>';
-    h+='<div class="attr-cell'+(editMode?' attr-cell-edit':'')+'"><div class="attr-name-sh">'+a+(editMode&&isClan?'<span class="attr-clan-star">\u2605</span>':'')+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
-    if(editMode){
+  if(editMode){
+    const ATTR_COLS=[ATTR_CATS.Mental,ATTR_CATS.Physical,ATTR_CATS.Social];
+    ATTR_COLS.forEach(col=>{h+='<div>';col.forEach(a=>{
+      const base=getAttrVal(c,a),bonus=getAttrBonus(c,a),isClan=c.clan_attribute===a;
+      h+='<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">'+a+(isClan?'<span class="attr-clan-star">\u2605</span>':'')+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
       const cr=(c.attr_creation||{})[a]||{cp:0,free:0,xp:0},aE=a.replace(/'/g,"\\'"),ab=(cr.cp||0)+(cr.free||0),xd=xpToDots(cr.xp||0,ab,4),tot=ab+xd;
       h+='<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+tot+'</span></div></div>';
       if(bonus>0){const src=BONUS_SOURCE[a]||'';h+='<div class="attr-derived-row"><span class="bd-src">+'+bonus+'</span>'+(src?'<span class="bd-src-lbl">('+src+')</span>':'')+'<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">'+(tot+bonus)+'</span></div></div>';}
       h+='</div></div>';
-    }
-  }));
+    });h+='</div>';});
+  } else {
+    ATTR_ROWS.forEach(row=>row.forEach(a=>{
+      const base=getAttrVal(c,a),bonus=getAttrBonus(c,a);
+      h+='<div class="attr-cell"><div class="attr-name-sh">'+a+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
+    }));
+  }
   h+='</div></div>';
   return h;
 }
@@ -95,8 +101,9 @@ export function shRenderSkills(c,editMode) {
   let h='<div class="sh-sec"><div class="sh-sec-title">Skills</div>';
   if(editMode){
     const sPri=c.skill_priorities||{};
+    if(!sPri.Mental&&!sPri.Physical&&!sPri.Social){sPri.Mental='Primary';sPri.Physical='Secondary';sPri.Social='Tertiary';}
     h+='<div class="sh-attr-col-hdr">';
-    skillCatOrder.forEach(cat=>{const curPri=sPri[cat]||'Primary',budget=SKILL_PRI_BUDGETS[curPri]||11,usedCP=(SKILL_CATS[cat]||[]).reduce((s,sk)=>s+(((c.skill_creation||{})[sk]||{}).cp||0),0),rem=budget-usedCP;
+    skillCatOrder.forEach(cat=>{const curPri=sPri[cat]||'Tertiary',budget=SKILL_PRI_BUDGETS[curPri]||4,usedCP=(SKILL_CATS[cat]||[]).reduce((s,sk)=>s+(((c.skill_creation||{})[sk]||{}).cp||0),0),rem=budget-usedCP;
       h+='<div class="sh-attr-pri"><select onchange="shSetSkillPriority(\''+cat+'\',this.value)">'+PRI_LABELS.map(p=>'<option'+(curPri===p?' selected':'')+'>'+p+'</option>').join('')+'</select><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span></div>';});
     h+='</div>';
     const totalSpecs=Object.values(c.skills||{}).reduce((s,sk)=>s+((sk&&sk.specs)?sk.specs.length:0),0);
@@ -106,16 +113,17 @@ export function shRenderSkills(c,editMode) {
   }
   h+='<div class="skills-3col">';
   if(editMode){
-    SKILL_COLS.forEach(col=>{h+='<div>';col.forEach(s=>{
+    for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
+      const s=col[ri];
       const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
-      h+='<div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
+      h+='<div class="sk-edit-cell"><div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
       const cr=(c.skill_creation||{})[s]||{cp:0,free:0,xp:0},sE=s.replace(/'/g,"\\'"),sb=(cr.cp||0)+(cr.free||0),sxd=xpToDots(cr.xp||0,sb,2),st2=sb+sxd;
       h+='<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+st2+'</span></div></div>';
       const specs=sk.specs||[];
       h+='<div class="sk-spec-list">';
       specs.forEach((sp2,si)=>{h+='<div class="sk-spec-row"><input class="sk-spec-input" value="'+esc(sp2)+'" onchange="shEditSpec(\''+sE+'\','+si+',this.value)" placeholder="Specialisation">'+(hasAoE(c,sp2)?'<span style="color:rgba(140,200,140,.8);font-size:8px;font-family:var(--fh);white-space:nowrap">+2</span>':'')+'<button class="sk-spec-rm" onclick="shRemoveSpec(\''+sE+'\','+si+')" title="Remove">&times;</button></div>';});
-      h+='<button class="sk-spec-add" onclick="shAddSpec(\''+sE+'\')">+ spec</button></div></div>';
-    });h+='</div>';});
+      h+='<button class="sk-spec-add" onclick="shAddSpec(\''+sE+'\')">+ spec</button></div></div></div>';
+    });}
   } else {
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
       const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
@@ -348,6 +356,7 @@ export function renderSheet(c) {
     const ords=c.ordeals||[];if(ords.length){h+='<div class="sh-ordeals">';ords.forEach((o,oi)=>{h+='<label class="sh-ordeal'+(o.complete?' done':'')+'"><input type="checkbox"'+(o.complete?' checked':'')+' onchange="shToggleOrdeal('+oi+',this.checked)"><span class="sh-ordeal-label">'+esc(o.name)+'</span></label>';});h+='</div>';}}
   h+='<div class="sh-char-body"><div class="sh-char-left">';
   if(editMode||c.concept) h+='<div class="sh-char-concept">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.concept||'')+'" onchange="shEdit(\'concept\',this.value)" placeholder="Concept">':esc(c.concept))+'</div>';
+  if(editMode||c.pronouns) h+='<div class="sh-char-concept">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.pronouns||'')+'" onchange="shEdit(\'pronouns\',this.value)" placeholder="Pronouns">':esc(c.pronouns))+'</div>';
   if(editMode){h+='<div class="exp-row"><span class="exp-lbl labeled">Mask</span><select class="sh-edit-select" style="flex:1;margin:0 6px" onchange="shEdit(\'mask\',this.value)"><option value="">(none)</option>'+MASKS_DIRGES.map(m2=>'<option'+(c.mask===m2?' selected':'')+'>'+esc(m2)+'</option>').join('')+'</select></div>';}
   else if(c.mask){h+=expRow('mask','Mask',esc(c.mask),(wp.mask_1wp?'<div><span class="exp-wp-lbl">1 WP</span> '+esc(wp.mask_1wp)+'</div>':'')+(wp.mask_all?'<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> '+esc(wp.mask_all)+'</div>':''));}
   if(editMode){h+='<div class="exp-row"><span class="exp-lbl labeled">Dirge</span><select class="sh-edit-select" style="flex:1;margin:0 6px" onchange="shEdit(\'dirge\',this.value)"><option value="">(none)</option>'+MASKS_DIRGES.map(m2=>'<option'+(c.dirge===m2?' selected':'')+'>'+esc(m2)+'</option>').join('')+'</select></div>';}
