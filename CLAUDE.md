@@ -72,9 +72,8 @@ Key design rules:
 
 ## Key data files
 
-- `chars_v2.json` — 30 characters in v2 format (also embedded as `CHARS_DATA` in editor)
-- `tm_characters.json` — 30 characters in old format (used by Suite)
-- `HANDOVER_v3.md` — Latest implementation notes and known data issues
+- `data/chars_v2.json` — 31 characters in v2 format (source of truth, seeded to MongoDB)
+- `archive/tm_characters.json` — 31 characters in old format (migrated, kept for reference)
 - `schema_v2_proposal.md` — Full v2 schema specification
 
 ## Known data issues (from HANDOVER_v3.md)

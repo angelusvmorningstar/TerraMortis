@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const old = JSON.parse(fs.readFileSync(path.join(ROOT, 'tm_characters.json'), 'utf8'));
+const old = JSON.parse(fs.readFileSync(path.join(ROOT, 'archive', 'tm_characters.json'), 'utf8'));
 const chars = old.characters || old;
 const julia = chars.find(c => c.name === 'Lady Julia');
 if (!julia) { console.error('Lady Julia not found in tm_characters.json'); process.exit(1); }

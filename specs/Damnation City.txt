@@ -1,0 +1,380 @@
+Damnation City: Territory and Status System
+How This System Works
+Damnation City provides two interconnected layers of political gameplay: territorial control and social status.
+Territory drives the Scramble for Sydney. Five territories offer feeding rights, Sites (generating Influence and XP), and mechanical advantages. Vampires bid Influence in blind auctions at Court to claim territories, becoming Regents who control feeding access and distribute Sites to supporters. Territories have Ambience ratings that improve or degrade based on vampire activity, affecting how much blood Regents and residents can gather each session. Vagrants without territory suffer severe penalties.
+Status measures political standing in three forms: City (domain-wide influence), Clan (lineage reputation), and Covenant (faction authority). City Status provides social bonuses and can be altered by officials (Head of State, Socialites, Primogen, Enforcers) who spend Status points each session. Clan and Covenant Status change through factional consensus votes. High Status grants mechanical advantages but makes vampires targets. The leading clan and covenant each session become Eminent/Ascendant, granting bonuses to members.
+The Loop: Vampires generate Influence monthly from Status and Merits. They spend Influence to bid on territories, improve territories, or advance political goals. Controlling territory provides Sites that generate more Influence. Status enables both territorial conquest and status manipulation. Unspent influence resets monthly, creating constant competition.
+Use this document to understand mechanics, resolve challenges at Court, and adjudicate Status changes between sessions.
+
+Territory
+Sydney contains 5 pre-defined territories. This fixed number prevents sprawl and forces competition for limited resources.
+Starting Territories
+All territories begin at Neglected (Ambience -3):
+The Second City (Parramatta/Westmead)
+The Academy (USYD/UTS/Newtown/Glebe)
+The Harbour (Rocks/Pyrmont/Darling Harbour)
+The Shore (North Sydney/Mosman/St Leonards)
+The Port (Botany Bay/Alexandria/Mascot)
+Ambience Ratings
+Territories have an Ambience rating reflecting their quality as hunting grounds:
+Ambience
+Vitae 
+Modifier
+PC 
+Cap
+XP per 
+Month
+Feeding Grounds Merit Limit
+Effective City 
+Status
+Hostile
+-5
+n/a
+-2
+0
+-2
+Barrens
+-4
+n/a
+n/a
+n/a
+n/a
+Neglected
+-3
+4
+-1
+0
+-1
+Untended
+-2
+5
+0
+0
+-1
+Settled
+0
+6
+0
+1
+0
+Tended
++2
+6
++1
+2
+0
+Curated
++3
+7
++1
+3
++1
+Verdant
++4
+7
++1/?
+4
++1
+The Rack
++5
+8
++1/?
+5
++2
+
+Notes:
+Barrens: Areas outside territories (too dangerous or sparse for vampires to Hunt with impunity)
+Hostile: Territory claimed by non-vampire supernatural entities or deliberately degraded by a hostile force PC or Non-PC.
+The Rack: A maximum of one territory can hold this rating
+Poaching: Feeding in a territory without its Regent’s permission incurs -2 Vitae penalty
+Ambience Changes
+Territories naturally decay towards Neglected at one step per month if no downtime activities are taken to improve the territory. Calculate monthly changes by weighing all influences on the territory.
+Monthly Change Calculation:
+Tally all positive and negative influences on the territory
+No change if positive and negative influences are equal
++1 step if positive influences exceed negative
+-1 step if negative influences exceed positive
+-2 steps if negative influences exceed positive by 5 or more
+Sources of Influence on Ambience:
+Entropy: -1 per month (automatic)
+Underfeeding: +1 per vampire below territory capacity
+Overfeeding: -1 per vampire above territory capacity
+Personal Action: +/-1 per success on Attribute + Skill + Discipline roll (requires explanation and a downtime action)
+Merits (3-4 dots): +/-1 (exhausts merit for the month; Allies/Retainer/Mentor/Mortal Status/Resources)
+Merits (5 dots): +/-2 (exhausts merit for the month; Allies/Retainer/Mentor/Mortal Status/Resources)
+Spent Influence: +/-1 per Influence spent (reduces total starting Influence next game)
+
+Spheres of Control
+"Spheres of Control" is a colloquial term describing different areas of mortal society where Kindred can have status, contacts, and allies. These 16 areas represent the types of mortal institutions that exist in the city. This is distinct from "Influence", the currency used in territorial mechanics. The list of areas is intended to be exhaustive. The components are not, and there may very well be some areas of overlap. Under some circumstances, PCs may be approved narrow, specialist mortal status not covered below, with limited reach and special rules.
+Bureaucracy: Government administration, legislation enabled NGOs 
+Church: Religious institutions and charities
+Finance: Banking and corporate money, venture capital
+Health: Medical facilities, doctors, and vets
+High Society: Elite social circles, upper echelon subcultures, benefactors 
+Industry: Factories, farming, utilities, and unions
+Legal: Courts and lawyers
+Media: Television, radio, print, and major social media
+Military: Armed forces
+Occult: Mystical resources, cults, esoteric subcultures
+Police: Law enforcement
+Politics: Elected officials, parties registered or otherwise, organised grassroots movements
+Street: Gangs and street crime, homeless, hoi polloi subcultures
+Transportation: Shipping and logistics, taxis, ride share 
+Underworld: Organised crime, and adjacent 
+University: Academic institutions and Think-Tanks
+Not all territories provide access to all types of spheres of control. Territory Sites determine which spheres are available in each location.
+
+Territory Sites
+Each territory contains 3 Sites representing key locations that provide mechanical benefits. Sites are specific mortal institutions within territories (police stations, hospitals, nightclub strips). Sites start at 1 dot but can be improved using XP generated by the territory. Not all territories have access to all types of Sites.
+Site Tiers
+Sites exist in three tiers reflecting their importance and rarity in the city:
+(treat as a status or ally in its AoI)
+Elite (•••••): Only 1 per territory can exist. Generates 2 Influence per month.
+Major (•••): Typically one per territory (local institutions), Generates 1 Influence per month.
+Standard (••): Common locations (neighbourhood businesses)
+ 
+Universal:
+Street • (every site sheet includes this)
+
+Influence Currency
+Influence represents political capital used to bid on territories, affect Ambience, and pursue political goals. It's generated monthly and must be spent by the end of each game session or it's lost.
+Sources (per month):
+Clan Status: 1 per dot
+Covenant Status: 1 per dot
+Allies/Retainer/Mentor/Resources/Staff/Contacts/Mortal Status (3-4 dots): 1 Influence
+Allies/Retainer/Mentor/Resources/Staff/Contacts/Mortal Status (5 dots): 2 Influence
+Mystery Cult Initiate/Narrow or Specialist Mortal Status (5 dots): 1 Influence
+Elite Sites (•••••): 2 Influence per Site accessed
+Major Sites (•••): 1 Influence per Site accessed
+Spending Influence:
+Territorial Challenges: Bid to claim, defend or support territories challenges
+Ambience Improvement: Spend Influence to improve a territory by one step
+Masquerade Protection: Suppress breaches or investigations
+
+Starting Blood
+At the beginning of each session, vampires roll to determine starting Vitae, representing how well they've fed since the last gathering.
+Formula: Attribute + Skill + Feeding Grounds. At the player’s discretion, they may add a relevant discipline, but any failure becomes dramatic failure. Once the pool is determined and locked, STs may reveal hidden modifiers.
+Each success produces one vessel upon which the character can feed. Two vitae can be safely taken per vessel. Taking any more comes with risks, to be determined by the STs.
+Starting Vitae is blood taken from hunting vessels (with Territory Ambiance + Herd adding to this)
+Vagrant Penalty: Vampires without territory suffer -4 Vitae modifier.
+
+Claiming Territory
+Territory claims unfold as public theatre at Court, transforming political manoeuvring into dramatic confrontation.
+Challenge Declaration
+Challenger announces their challenge to the Ruler (challenger must hold City Status •• to have claims recognised; this requirement is waived if the territory has no current Regent)
+Each challenger must be seconded by another recognised (City Status ••) vampire
+Other parties may declare interest in the same territory (each requiring a second)
+The Praxis holder cannot forbid or block a challenge. By custom, they are permitted to place conditions upon the victor (but there is no special authority to do so).
+Challenge posted publicly on board or displayed at Court.
+The Blind Bid (Throughout Court)
+Once declared, the challenge becomes a shadow war of negotiation:
+Players secretly commit Influence to their chosen side
+Chits/tokens dropped into the appropriate side’s box
+No one knows current tallies, creating uncertainty and paranoia
+Last-minute betrayals and desperate deals proliferate
+Whispered negotiations determine outcomes
+Resolution (30 Minutes Before Court Ends)
+The Ruler calls for final commitments:
+Last chance for players to put bids in before bids are closed
+Arbiter reveals all bids
+Ruler tallies each side publicly
+Ruler's Authority: Before the tallies are revealed, the ruler may peek into relevant boxes and transfer up to their effective City Status of chits/tokens between any boxes
+Final Count
+Highest total Influence wins
+Incumbency and Ambience Modifiers: +3 Influence to Regent, and add/subtract Ambience modifier to Regent’s tally.
+Ties broken by Ruler's decision
+Victory
+Winner becomes Regent
+Other bidders gain nothing (Influence spent regardless)
+
+Regent Benefits
+The vampire controlling a territory gains the title Regent and the following benefits:
+Effective City Status: Modifier based on territory Ambience (applies to Social rolls)
+Feeding Rights: Legal authority to control who may feed in the territory
+Sites: Control of special locations within the territory
+XP Generation: Monthly XP based on territory Ambience (spendable only on territory assets; see character sheets for costs)
+Feeding Grounds Cap: Higher-quality territories support larger Feeding Grounds Merit
+Feeding Grounds Limitation: The Feeding Grounds Merit is limited by territory Ambience rating.
+
+Absentee Management
+Miss 1 Session: Regent may appoint a lieutenant to defend their territory in their absence.
+Miss 2 Consecutive Sessions: Territory becomes contestable without a defender. The Regent loses automatic defensive bonuses.
+
+Vagrant Status
+Vampires without territory are considered Vagrants and suffer significant penalties:
+-4 Vitae penalty to starting blood rolls
+Cannot purchase Feeding Grounds Merit
+May still poach in other territories(but suffer -2 Vitae penalty and political consequences if discovered)
+
+Status
+Kindred Status
+Three types of Status exist: City, Clan, and Covenant. City Status functions within the assigned city, Clan Status within the designated clan, and Covenant Status within the chosen covenant.
+No form of Kindred Status can be purchased with Experience after or during character creation. All Status must be earned through play.
+City Status (• to •••••+)
+City Status reflects a vampire's sway in the city, combining inherent standing with official positions.
+Inherent Status: One to five dots representing personal influence and reputation.
+Official Titles: Each title grants an additional one to three dots. Status of six or higher requires holding a position within the domain's hierarchy.
+A newly appointed ruler might have only three dots of inherent Status but gain additional dots from their title. An elder might wield five dots of inherent Status without holding any official position.
+Clan Status (• to •••••)
+Clan Status reflects notoriety and recognition within the clan in this city. High Clan Status makes a character iconic within their local clan. Low Status indicates merely a collaborator within clan circles.
+A character may not gain Status in a clan to which they do not belong.
+Note: Kindred who haven't demonstrated their commitment publicly may be rejected by the masses. The Storyteller may ask characters to better demonstrate their Status to justify their standing.
+Covenant Status (• to •••••)
+Covenant Status is tied to positions and direct authority within the local covenant structure. Five dots indicates a leader within the city's covenant; one dot indicates minor responsibilities. Each covenant has Merits that scale with Covenant Status dots.
+(A vampire may hold Status in multiple covenants, but the combined total cannot exceed five dots, and cannot hold status in other covenants that equal to or greater than their own Covenant status).
+Note: Kindred who haven't demonstrated their commitment publicly may be rejected by the masses. The Storyteller may ask characters to better demonstrate their Status to justify their standing.
+Determining Status
+City Status is publicly known information. Clan and Covenant information is generally known within those circles. A player may always ask about another character's rating in any Status in which they have at least one dot and have it confirmed. Kindred instinctively recognise the standing and influence of those around them.
+Using Status
+When making Social rolls, Status provides a bonus against those of lower Status equal to the difference between Status ratings. Conversely, characters suffer a penalty equal to the difference when acting against those of higher Status.
+These modifiers only apply within the relevant group where the Status holds meaning. They do not apply to supernatural powers.
+Speaking About Status
+"Status" is an out-of-character game term. No Kindred would describe themselves as having "Status 2". Players should avoid such terms.
+Status Appellations:
+0
+No standing (outsider, newcomer, or stripped of status)
+0.5
+The Great Unwashed: Plebiean kindred given leave to exist in the city
+1
+Acknowledged: Barely accepted; their existence is formally noted
+2
+Recognised: Of some standing; their name is known in the domain
+3
+Valued: Considered useful and dependable; a fixture of local society
+4
+Respected: Commands regard; their words and actions carry weight
+5
+Admired: Held in esteem; peers look to them as an example
+6
+Honoured: Elevated above most; their presence defines the stage
+7
+Revered: Their name is spoken with awe, their deeds preserved.
+8
+Venerated: Approached with deference; reputation verges on legend
+9
+Glorified: Their reputation sacred; they are beyond reproach
+10
+Exalted: Untouchable, peerless; their standing borders on mythic
+
+Use in-character terminology: "William Scott is Acknowledged by Clan Gangrel", "Dillon Radley is Respected in the domain of Sydney", or "In the eyes of the Invictus, none is more Admired than Joshua Musgrove himself".
+
+Power Structure
+More Kindred exist in the city than those who appear at game. Only those who attend court have actual City Status. The "great unwashed" who lack political competence or ambition exist effectively at 0.5 Status. Each dot of Clan and Covenant Status represents influence over approximately five of these unnamed Kindred.
+All player characters start with City Status 1, Clan Status 1, and Covenant Status 1. Storytellers may award additional dots in any of these Status types based on backstory.
+Pyramid Structure
+The domain follows a pyramid structure for inherent City Status. There must always be more people of lower inherent Status than higher Status.
+Status 0.5 (Great Unwashed): Numerous unnamed NPCs who do not attend court
+Status 1: Player characters and court attendees; no maximum
+Status 2: Player characters and court attendees; no maximum
+Status 3: At least one more Status 2 character than Status 3
+Status 4: At least one more Status 3 character than Status 4
+Status 5: At least one more Status 4 character than Status 5
+Ladder Structure
+Clan and Covenant Status follow a ladder structure. There must be at least as many characters at lower Status as at higher Status within each group.
+For example, you could have 2 characters with Clan Status 4 and 2 characters with Clan Status 3, as long as there are at least 2 characters with Status 2 and 2 with Status 1.
+Universal Rule: Only one character may hold Status 5 in any single group (clan or covenant).
+Changing Status
+City Status is the most fluid of the three Status types. Losses and gains occur through domain officials and the passage of time. Clan and Covenant Status changes are adjudicated by the Storyteller based on actions supporting faction values and the esteem exhibited by others of the relevant group.
+Announcing Status Changes
+
+Status Points System
+Certain positions carry authority to alter City Status. These officials wield Status points equal to their current City Status refreshing at the beginning of each session. All Status point expenditures follow these universal rules:
+Rules:
+A character cannot have their Status changed by the same official position more than once per session
+Status changes are one for one. A Praxis holder with eight Status can make a total of eight changes in a single session.
+All Status changes are immediate and public
+Status increases must respect pyramid structure requirements. Status removal can disrupt the pyramid structure requirements. This may result in further status losses at ST discretion. Overt manipulation of the court structure in this way is frowned upon and may come with IC consequences.
+Court Positions
+Head of State: +3 Effective City Status
+Common Titles: Archbishop, Oracle, Prince, Premier
+May raise or lower another character's City Status by one dot per expenditure. Possesses Status points equal to their own effective City Status. Cannot affect their own Status.
+May strip a character's last dot of City Status, casting them out from the domain. May grant the first dot of City Status to newcomers at no cost.
+Defined as whoever holds praxis over the domain. In the event of a Senate or other distributed power structure, any member of the group may perform the action, but each instance counts as one expenditure for each member.
+Socialite: +1 Effective City Status
+Common Titles: Harpy, Tribune, Penitent, Trickster, Fool
+May raise or lower another character's City Status by one dot per expenditure. Possesses Status points equal to their own effective City Status. Cannot affect their own Status or serve in other major positions simultaneously.
+Typically two Socialites exist: one representing elite interests, one representing the people.
+Elite Socialite (Harpy): Appointed by the Head of State and Primogen.
+Popular Socialite: Established through public assent, acclaim, or vote. Names vary by covenant (Tribune for Invictus, Penitent for Lancea et Sanctum, Trickster for Circle of the Crone, Fool for Carthian Movement).
+Primogen: + 2 Effective City Status
+The pre-eminent Kindred of the city (clan representatives, covenant leaders, or most influential vampires). Those members of court with the highest combined clan and covenant status. Where necessary, ties are broken by the Story Tellers informed by the state of play.
+May raise or lower another character's City Status by one dot, once per session. May permanently sacrifice one of their own City Status dots to make a second Status change in the same session. Cannot affect their own Status.
+Enforcer: +1 Effective City Status
+Common Titles: Sheriff, Hound, Master of Elysium, Reeve, Constable
+Maintain order within specific spheres (domain law, sacred spaces, Traditions).
+May lower someone's City Status by one dot when that character breaches what they enforce. The breach must have public support (violating Elysium, challenging legitimate authority, breaking the Traditions).
+Always appointed by the Head of State.
+Administrator: +1 Effective City Status
+Common Titles: Seneschal, Arbiter, Legate, Keeper of Records, Chancellor
+Handle bureaucratic functions and administrative duties within the domain.
+Administrators do not possess Status points and cannot directly alter City Status. However, they often control access to resources, information, and processes that make them influential advisors and gatekeepers.  As such, they can cite an obscure technicality in order to block a change in status once per session. When doing so, they may also declare the target of that change to be unaffected for the night by further Status increases, decreases or both.
+Always appointed by the Head of State.
+
+Status and Deeds
+Certain actions consistently affect City Status. Domain officials should use these as guidelines.
+Adjudicating Status Changes
+City Status is fluid and managed by those holding positions of authority. The conventions below provide general guidance, but politicking remains natural in Kindred society. No formal restrictions prevent officials from granting or stripping Status as they see fit, though most provide a public pretence. Favouritism and rivalry are expected.
+Example Sins Against the City
+City Status Lost
+Sin
+5 dots
+Publicly defaming the city or its leadership
+3 dots
+Skipping required gatherings; causing disruption
+3 dots
+Blocking key resources; unjustified mortal killings; demonstrably gross Status manipulation
+2 dots
+Publicly breaking Traditions; intentional private violations; killing influential mortals; defying elders
+1 dot
+Openly breaking Traditions; reckless destruction; aiding external threats
+
+Example Praiseworthy Deeds
+City Status Gained
+Deed
+5 dots
+Greatly expanding the city's power, resources, or reputation; assuming a major leadership role
+4 dots
+Modestly increasing the city's power, resources, or reputation; eliminating a major threat
+3 dots
+Advancing elder objectives through strategic planning or exceptional service
+2 dots
+Promoting loyalty to city elders; consistently obeying their directives
+1 dot
+Defending the city from external threats; attending gatherings without causing disruption
+
+The Passage of Time
+Regular attendance at Court builds Status over time, while absence erodes it.
+Activity Rewards:
+Three consecutive sessions: Gain inherent City Status 2 (if not already at that level)
+Absence Penalties: 
+Extended absence results in Status loss. A character may miss a number of consecutive sessions equal to 6 minus their inherent City Status before losing a dot. For example, a character with Status 5 loses a dot after missing 2 consecutive sessions, while a character with Status 2 loses a dot after missing 5 consecutive sessions.
+Blood Hunts
+The Head of State can call a blood hunt on any Kindred in their domain, temporarily removing all of the subject's City Status dots until the matter is settled. The Head of State or their successor can reinstate Status and end the hunt at no cost in Status points.
+By convention, a new Praxis is often marked by the suspension or cancellation of extant bloodhunts. However, this is not automatic - the expectation is that the new Head of State will rule on a case-by-case basis as a matter of priority. 
+A Primogen can call a blood hunt on a character who lacks City Status dots. If the Head of State disapproves, they may protect the target and, in extremis and at the risk of suffering political fallout for doing so, punish the Primogen.
+Clan and Covenant Status Changes
+Unlike City Status, which changes through political manoeuvring and official decree, Clan and Covenant Status change through consensus of the clan or covenant.
+The Storyteller takes a poll of the representatives. This doesn't represent a physical vote of the characters, but an expression of assent by players. It should be considered strictly out of character and is therefore not subject to vote manipulation through any IC means. Each character’s vote is weighted according to their Clan or Covenant Status combined with an element of ST interpretation. If the votes equal or exceed half of the total Status within that clan or covenant, the character can increase or decrease Status (provided it follows Ladder Structure rules).
+Status increases when a character embodies their faction's ideals publicly, achieves victories that reflect well on the group, or gains recognition from faction leaders. Status decreases through actions that shame the faction or betray its principles.
+
+Eminence and Ascendancy
+Clan and Covenant Status measure an individual's standing within their lineage or sect, while Eminence and Ascendancy reflect a faction's overall influence in a domain.
+Calculation
+During downtime between game sessions, the Storytellers calculate which clans and covenants wield the most aggregate influence in the domain. The calculation is based on combined Status dots within each faction. The leading factions gain benefits that take effect at the next game session and last until the subsequent downtime calculation.
+A character's City Status contributes to both their clan and covenant totals, with infiltrators contributing to their assumed faction. Bonus Status from previous Eminence or Ascendancy doesn't count towards new calculations. The Head of State's influence does not factor into this calculation.
+Once influence is tallied, factions are ranked by their total power:
+Clans:
+First place: Eminent
+Second place: Rival
+Covenants:
+First place: Ascendant
+Second place: Contender
+Benefits
+Eminent Clan / Ascendant Covenant:
+Members gain +1 City Effective Status if their faction leads by a margin of 5 or more
+If the margin of victory is less than 5, no bonus is granted
+These bonuses affect social interactions and Status-based mechanics but do not count towards pyramid structure limits or the next downtime's calculations
+Rival Clan / Contender Covenant:
+Members gain +1 Influence at downtime
+If the margin of loss is less than 5, no bonus is granted
+Members gain protection against Status manipulation: If a Head of State or Socialite from an Eminent clan or Ascendant covenant wants to remove a dot of City Status from a Rival or Contender Kindred, they must spend twice the Status points they normally would

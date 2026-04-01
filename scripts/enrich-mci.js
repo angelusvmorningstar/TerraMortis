@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const old = JSON.parse(fs.readFileSync(path.join(ROOT, 'tm_characters.json'), 'utf8'));
+const old = JSON.parse(fs.readFileSync(path.join(ROOT, 'archive', 'tm_characters.json'), 'utf8'));
 const v2 = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'chars_v2.json'), 'utf8'));
 const oldChars = old.characters || old;
 
