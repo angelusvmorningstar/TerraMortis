@@ -44,13 +44,13 @@ app.use('/api/auth', authRouter);
 app.use('/api/characters', requireAuth, charactersRouter);
 app.use('/api/downtime_cycles', requireAuth, cyclesRouter);
 app.use('/api/downtime_submissions', requireAuth, submissionsRouter);
+app.use('/api/players', requireAuth, playersRouter);
 
 // ST-only routes — require both auth and ST role
 app.use('/api/territories', requireAuth, requireRole('st'), territoriesRouter);
 app.use('/api/tracker_state', requireAuth, requireRole('st'), trackerRouter);
 app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
 app.use('/api/game_sessions', requireAuth, requireRole('st'), gameSessionsRouter);
-app.use('/api/players', requireAuth, requireRole('st'), playersRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

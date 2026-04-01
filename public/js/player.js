@@ -4,6 +4,7 @@ import { apiGet } from './data/api.js';
 import { esc, displayName } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
+import { initOrdeals } from './player/ordeals-view.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -106,6 +107,7 @@ function selectCharacter(idx) {
   activeChar = chars[idx];
   state.editIdx = idx;
   renderSheet(activeChar);
+  initOrdeals(activeChar, chars);
 }
 
 // ── Tab switching ──

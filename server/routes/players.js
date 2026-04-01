@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
+import { requireRole } from '../middleware/auth.js';
 
 const router = Router();
 const col = () => getCollection('players');
@@ -13,14 +14,21 @@ function parseId(id) {
   }
 }
 
-// GET /api/players — list all players
-router.get('/', async (req, res) => {
+// GET /api/players/me — current user's own player doc (any authenticated role)
+router.get('/me', async (req, res) => {
+  const player = await col().findOne({ _id: req.user.player_id });
+  if (!player) return res.status(404).json({ error: 'NOT_FOUND', message: 'Player not found' });
+  res.json(player);
+});
+
+// GET /api/players — list all players (ST only)
+router.get('/', requireRole('st'), async (req, res) => {
   const players = await col().find().toArray();
   res.json(players);
 });
 
-// GET /api/players/:id — get one player
-router.get('/:id', async (req, res) => {
+// GET /api/players/:id — get one player (ST only)
+router.get('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid player ID format' });
 
@@ -30,8 +38,8 @@ router.get('/:id', async (req, res) => {
   res.json(player);
 });
 
-// POST /api/players — create a player
-router.post('/', async (req, res) => {
+// POST /api/players — create a player (ST only)
+router.post('/', requireRole('st'), async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.discord_id) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'discord_id' is required" });
@@ -59,8 +67,8 @@ router.post('/', async (req, res) => {
   res.status(201).json(created);
 });
 
-// PUT /api/players/:id — update a player
-router.put('/:id', async (req, res) => {
+// PUT /api/players/:id — update a player (ST only)
+router.put('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid player ID format' });
 
@@ -81,8 +89,8 @@ router.put('/:id', async (req, res) => {
   res.json(result);
 });
 
-// DELETE /api/players/:id — delete a player
-router.delete('/:id', async (req, res) => {
+// DELETE /api/players/:id — delete a player (ST only)
+router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid player ID format' });
 
