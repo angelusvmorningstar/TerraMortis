@@ -19,11 +19,17 @@
 .reading-pane h3,
 .reading-pane .qf-title {
   color: #5A1A1A;
+  font-weight: 700;
 }
 
 .reading-pane h4,
 .reading-pane .qf-section-title {
   color: #5A1A1A;
+  font-weight: 700;
+}
+
+.reading-pane .qf-label {
+  font-weight: 700;
 }
 
 /* ── Body text ── */
