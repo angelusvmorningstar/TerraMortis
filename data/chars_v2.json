@@ -23,7 +23,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 32,
+    "xp_total": 21,
     "xp_spent": 23,
     "status": {
       "city": 2,
@@ -577,7 +577,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -585,7 +587,30 @@
         "powers": 9,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Anichka",
@@ -611,7 +636,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 28,
+    "xp_total": 18,
     "xp_spent": 26,
     "status": {
       "city": 1,
@@ -1084,7 +1109,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -1092,7 +1119,30 @@
         "powers": 15,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Brandy LaRoux",
@@ -1118,7 +1168,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 46,
+    "xp_total": 26,
     "xp_spent": 45,
     "status": {
       "city": 4,
@@ -1745,7 +1795,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 4,
         "skills": 0,
@@ -1753,7 +1805,30 @@
         "powers": 7,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Carver",
@@ -1779,7 +1854,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 50,
+    "xp_total": 30,
     "xp_spent": 48,
     "status": {
       "city": 1,
@@ -2267,7 +2342,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -2275,7 +2352,30 @@
         "powers": 11,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Casamir",
@@ -2301,7 +2401,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 34,
+    "xp_total": 18,
     "xp_spent": 30,
     "status": {
       "city": 1,
@@ -2766,7 +2866,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 8,
         "skills": 0,
@@ -2774,7 +2876,30 @@
         "powers": 3,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Charles Mercer-Willows",
@@ -2800,7 +2925,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 30,
+    "xp_total": 20,
     "xp_spent": 29,
     "status": {
       "city": 2,
@@ -3390,7 +3515,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -3398,7 +3525,30 @@
         "powers": 15,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Charlie Ballsack",
@@ -3424,7 +3574,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 4,
-    "xp_total": 62,
+    "xp_total": 34,
     "xp_spent": 62,
     "status": {
       "city": 1,
@@ -4205,7 +4355,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 4,
         "skills": 0,
@@ -4213,7 +4365,30 @@
         "powers": 14,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Conrad Sondergaard",
@@ -4239,7 +4414,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 7,
-    "xp_total": 40,
+    "xp_total": 25,
     "xp_spent": 40,
     "status": {
       "city": 2,
@@ -4680,7 +4855,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -4688,7 +4865,30 @@
         "powers": 24,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Cyrus Reynolds",
@@ -4714,7 +4914,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 26,
+    "xp_total": 18,
     "xp_spent": 16,
     "status": {
       "city": 2,
@@ -5210,7 +5410,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -5218,7 +5420,30 @@
         "powers": 3,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Edna Judge",
@@ -5244,7 +5469,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 4,
-    "xp_total": 46,
+    "xp_total": 25,
     "xp_spent": 35,
     "status": {
       "city": 2,
@@ -5667,7 +5892,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 6,
@@ -5675,7 +5902,30 @@
         "powers": 8,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Einar Solveig",
@@ -5701,7 +5951,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 5,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 53,
     "status": {
       "city": 2,
@@ -6259,7 +6509,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -6267,7 +6519,30 @@
         "powers": 18,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Eve Lockridge",
@@ -6293,7 +6568,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 24,
+    "xp_total": 18,
     "xp_spent": 22,
     "status": {
       "city": 3,
@@ -6813,7 +7088,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -6821,7 +7098,30 @@
         "powers": 6,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Ivana Horvat",
@@ -6847,7 +7147,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 50,
     "status": {
       "city": 1,
@@ -7525,7 +7825,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -7533,7 +7835,30 @@
         "powers": 23,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Jack Fallow",
@@ -7563,7 +7888,7 @@
     ],
     "blood_potency": 1,
     "humanity": 4,
-    "xp_total": 40,
+    "xp_total": 25,
     "xp_spent": 39,
     "status": {
       "city": 2,
@@ -8184,7 +8509,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -8192,7 +8519,30 @@
         "powers": 18,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Jelle Dunneweld",
@@ -8218,7 +8568,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
-    "xp_total": 14,
+    "xp_total": 10,
     "xp_spent": 14,
     "status": {
       "city": 1,
@@ -8661,7 +9011,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 0
+      },
       "spent": {
         "attributes": 0,
         "skills": 4,
@@ -8669,7 +9021,30 @@
         "powers": 0,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Keeper",
@@ -8699,7 +9074,7 @@
     ],
     "blood_potency": 2,
     "humanity": 3,
-    "xp_total": 62,
+    "xp_total": 36,
     "xp_spent": 61,
     "status": {
       "city": 1,
@@ -9335,7 +9710,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -9343,7 +9720,30 @@
         "powers": 28,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Kirk Grimm",
@@ -9369,7 +9769,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 53,
+    "xp_total": 25,
     "xp_spent": 43,
     "status": {
       "city": 1,
@@ -9835,7 +10235,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 4
+      },
       "spent": {
         "attributes": 5,
         "skills": 4,
@@ -9844,7 +10246,30 @@
         "special": 2
       }
     },
-    "retired": true
+    "retired": true,
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Livia",
@@ -9870,7 +10295,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 20,
+    "xp_total": 15,
     "xp_spent": 17,
     "status": {
       "city": 1,
@@ -10395,7 +10820,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -10403,7 +10830,30 @@
         "powers": 10,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Ludica Lachramore",
@@ -10429,7 +10879,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 30,
+    "xp_total": 20,
     "xp_spent": 27,
     "status": {
       "city": 2,
@@ -10948,7 +11398,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -10956,7 +11408,30 @@
         "powers": 6,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Macheath",
@@ -10982,7 +11457,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 5,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 52,
     "status": {
       "city": 2,
@@ -11502,7 +11977,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -11510,7 +11987,30 @@
         "powers": 23,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Magda",
@@ -11536,7 +12036,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
-    "xp_total": 17,
+    "xp_total": 13,
     "xp_spent": 17,
     "status": {
       "city": 1,
@@ -11957,7 +12457,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 1,
@@ -11965,7 +12467,30 @@
         "powers": 12,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Margaret Kane",
@@ -11991,7 +12516,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 20,
+    "xp_total": 15,
     "xp_spent": 17,
     "status": {
       "city": 2,
@@ -12461,7 +12986,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -12469,7 +12996,30 @@
         "powers": 9,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Reed Justice",
@@ -12495,7 +13045,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 30,
+    "xp_total": 19,
     "xp_spent": 28,
     "status": {
       "city": 2,
@@ -12931,7 +13481,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 4
+      },
       "spent": {
         "attributes": 0,
         "skills": 2,
@@ -12939,7 +13491,30 @@
         "powers": 9,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "René Meyer",
@@ -12965,7 +13540,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 56,
+    "xp_total": 33,
     "xp_spent": 54,
     "status": {
       "city": 1,
@@ -13541,7 +14116,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 4
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -13549,7 +14126,30 @@
         "powers": 23,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "René St. Dominique",
@@ -13575,7 +14175,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 5,
-    "xp_total": 30,
+    "xp_total": 23,
     "xp_spent": 24,
     "status": {
       "city": 1,
@@ -14067,7 +14667,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 4,
@@ -14075,7 +14677,30 @@
         "powers": 13,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Ryan Ambrose",
@@ -14101,7 +14726,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
-    "xp_total": 16,
+    "xp_total": 22,
     "xp_spent": 15,
     "status": {
       "city": 1,
@@ -14542,7 +15167,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 0
+      },
       "spent": {
         "attributes": 4,
         "skills": 2,
@@ -14550,7 +15177,30 @@
         "powers": 11,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Hazel",
@@ -14576,7 +15226,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 4,
-    "xp_total": 28,
+    "xp_total": 19,
     "xp_spent": 28,
     "status": {
       "city": 1,
@@ -15071,7 +15721,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -15079,7 +15731,30 @@
         "powers": 3,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Tegan Groves",
@@ -15105,7 +15780,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 42,
+    "xp_total": 21,
     "xp_spent": 38,
     "status": {
       "city": 2,
@@ -15561,7 +16236,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 8,
         "skills": 2,
@@ -15569,7 +16246,30 @@
         "powers": 6,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Wan Yelong",
@@ -15595,7 +16295,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 20,
+    "xp_total": 15,
     "xp_spent": 20,
     "status": {
       "city": 2,
@@ -16084,7 +16784,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -16092,7 +16794,30 @@
         "powers": 12,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Yusuf Kalusicj",
@@ -16118,7 +16843,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 4,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 54,
     "status": {
       "city": 2,
@@ -16689,7 +17414,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 1
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -16697,7 +17424,30 @@
         "powers": 18,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Julia",
@@ -16723,7 +17473,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
-    "xp_total": 0,
+    "xp_total": 10,
     "xp_spent": 8,
     "status": {
       "city": 0,
@@ -16791,6 +17541,35 @@
       {
         "name": "Lonely Curse",
         "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 0
+      },
+      "spent": {}
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
       }
     ]
   }

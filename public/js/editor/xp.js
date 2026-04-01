@@ -25,24 +25,75 @@ export function dotsToXP(numDots, baseBeforeXP, costPerDot) {
   return (numDots || 0) * costPerDot;
 }
 
+/** Starting XP awarded on character creation. */
+export function xpStarting() { return 10; }
+
+/** XP from voluntary humanity drops: 2 per dot lost. */
+export function xpHumanityDrop(c) {
+  return Math.max(0, (c.humanity_base || 7) - (c.humanity || 0)) * 2;
+}
+
+/** XP from completed ordeals: 3 per ordeal. */
+export function xpOrdeals(c) {
+  return ((c.ordeals || []).filter(o => o.complete).length) * 3;
+}
+
+/** XP from game attendance (stored manually until attendance tracker exists). */
+export function xpGame(c) {
+  return ((c.xp_log || {}).earned || {}).game || 0;
+}
+
 /**
- * Total XP earned by a character (all sources).
+ * Total XP earned by a character (all sources, derived dynamically).
  * @param {object} c - character object
  * @returns {number}
  */
 export function xpEarned(c) {
-  const e = (c.xp_log || {}).earned || {};
-  return (e.starting || 0) + (e.humanity_drop || 0) + (e.ordeals || 0) + (e.game || 0);
+  return xpStarting() + xpHumanityDrop(c) + xpOrdeals(c) + xpGame(c);
+}
+
+/** Sum XP from a creation object (e.g. attr_creation, skill_creation). */
+function sumCreationXP(obj) {
+  if (!obj) return 0;
+  return Object.values(obj).reduce((t, v) => t + (v.xp || 0), 0);
+}
+
+/** Sum XP from a creation object, with fallback to xp_log.spent value. */
+function creationOrFallback(c, creationKey, spentKey) {
+  const fromCreation = sumCreationXP(c[creationKey]);
+  const fromLog = ((c.xp_log || {}).spent || {})[spentKey] || 0;
+  return Math.max(fromCreation, fromLog);
+}
+
+/** XP spent on attributes. */
+export function xpSpentAttrs(c) { return creationOrFallback(c, 'attr_creation', 'attributes'); }
+
+/** XP spent on skills. */
+export function xpSpentSkills(c) { return creationOrFallback(c, 'skill_creation', 'skills'); }
+
+/** XP spent on merits. */
+export function xpSpentMerits(c) {
+  const fromCreation = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
+  const fromLog = ((c.xp_log || {}).spent || {}).merits || 0;
+  return Math.max(fromCreation, fromLog);
+}
+
+/** XP spent on powers — disciplines + devotions. */
+export function xpSpentPowers(c) { return creationOrFallback(c, 'disc_creation', 'powers'); }
+
+/** XP spent on special items (manual, stored in xp_log). */
+export function xpSpentSpecial(c) {
+  return ((c.xp_log || {}).spent || {}).special || 0;
 }
 
 /**
  * Total XP spent by a character (all categories).
+ * Derives from _creation objects where available, falls back to xp_log.spent.
  * @param {object} c - character object
  * @returns {number}
  */
 export function xpSpent(c) {
-  const s = (c.xp_log || {}).spent || {};
-  return (s.attributes || 0) + (s.skills || 0) + (s.merits || 0) + (s.powers || 0) + (s.special || 0);
+  return xpSpentAttrs(c) + xpSpentSkills(c) + xpSpentMerits(c) + xpSpentPowers(c) + xpSpentSpecial(c);
 }
 
 /**
