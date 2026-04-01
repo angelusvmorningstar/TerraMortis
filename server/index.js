@@ -11,6 +11,7 @@ import sessionsRouter from './routes/sessions.js';
 import { cyclesRouter, submissionsRouter } from './routes/downtime.js';
 import gameSessionsRouter from './routes/game-sessions.js';
 import playersRouter from './routes/players.js';
+import questionnaireRouter from './routes/questionnaire.js';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/characters', requireAuth, charactersRouter);
 app.use('/api/downtime_cycles', requireAuth, cyclesRouter);
 app.use('/api/downtime_submissions', requireAuth, submissionsRouter);
 app.use('/api/players', requireAuth, playersRouter);
+app.use('/api/questionnaire', requireAuth, questionnaireRouter);
 
 // ST-only routes — require both auth and ST role
 app.use('/api/territories', requireAuth, requireRole('st'), territoriesRouter);
