@@ -1157,6 +1157,17 @@ body {
   font-family: var(--fb);
 }
 
+.att-date-input {
+  background: var(--surf2);
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-family: var(--fb);
+  color-scheme: dark;
+}
+
 .att-btn {
   background: var(--surf2);
   color: var(--gold2);

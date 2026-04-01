@@ -46,6 +46,7 @@ function renderToolbar(el) {
       <select class="att-select" id="att-session-sel">
         ${sessions.map(s => `<option value="${s._id}">${esc(s.session_date)}${s.title ? ' — ' + esc(s.title) : ''}</option>`).join('')}
       </select>
+      <input type="date" class="att-date-input" id="att-new-date">
       <button class="att-btn" id="att-new-btn">+ New Session</button>
     </div>
     <div class="att-toolbar-right">
@@ -87,9 +88,12 @@ function markDirty() {
 }
 
 async function createNewSession() {
-  const date = prompt('Session date (YYYY-MM-DD):');
-  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-  const title = prompt('Session title (optional):') || '';
+  const dateInput = document.getElementById('att-new-date');
+  const date = dateInput.value;
+  if (!date) { dateInput.focus(); return; }
+
+  const gameNumber = sessions.length + 1;
+  const title = 'Game ' + gameNumber;
 
   // Pre-populate with all active characters
   const attendance = chars.map(c => ({
