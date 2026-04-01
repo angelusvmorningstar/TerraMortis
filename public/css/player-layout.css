@@ -338,17 +338,6 @@ body {
 
 /* ── Questionnaire form ── */
 
-#qf-container {
-  background: #1E1810;
-  border: 1px solid var(--bdr);
-  border-radius: 8px;
-  padding: 24px 20px;
-}
-
-@media (min-width: 600px) {
-  #qf-container { padding: 32px 28px; }
-}
-
 .qf-header { margin-bottom: 24px; }
 
 .qf-title {
