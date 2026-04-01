@@ -5,8 +5,9 @@ import {
   meritsByCategory, influenceMerits, domainMerits, standingMerits, generalMerits,
   influenceTotal, domainRating,
   calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
-  xpLeft, BP_TABLE
+  BP_TABLE
 } from '../data/accessors.js';
+import { xpLeft, xpEarned } from './xp.js';
 import { applyDerivedMerits } from './mci.js';
 import {
   ALL_SKILLS, CLAN_BANES, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES
@@ -135,7 +136,7 @@ export function charToRow(c) {
   row.push(`tblCharData${(c.name || '').replace(/\s+/g, '')}`); // Sheet
   row.push(dateStr);
   row.push(xpLeft(c));
-  row.push(c.xp_total || 0);
+  row.push(xpEarned(c));
   row.push(v(c.player));
   row.push(v(c.name));
   row.push(v(c.concept));
