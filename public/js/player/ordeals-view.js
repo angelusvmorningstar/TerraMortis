@@ -5,6 +5,7 @@
 import { apiGet } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
 import { renderQuestionnaire } from './questionnaire-form.js';
+import { renderHistory } from './history-form.js';
 
 const PLAYER_ORDEALS = [
   { key: 'setting', label: 'Setting', altKey: 'lore',
@@ -24,21 +25,23 @@ const CHAR_ORDEALS = [
 
 let playerDoc = null;
 let currentChar = null;
-let questionnaireStatus = null; // from questionnaire_responses collection
+let questionnaireStatus = null;
+let historyStatus = null;
 
 export async function initOrdeals(char, chars) {
   const el = document.getElementById('tab-ordeals');
   if (!el) return;
   currentChar = char;
 
-  // Fetch player doc and questionnaire status in parallel
-  const [pDoc, qDoc] = await Promise.all([
+  const [pDoc, qDoc, hDoc] = await Promise.all([
     playerDoc ? Promise.resolve(playerDoc) : apiGet('/api/players/me').catch(() => ({ ordeals: {} })),
     apiGet(`/api/questionnaire?character_id=${char._id}`).catch(() => null),
+    apiGet(`/api/history?character_id=${char._id}`).catch(() => null),
   ]);
 
   playerDoc = pDoc;
   questionnaireStatus = qDoc?.status || null;
+  historyStatus = hDoc?.status || null;
 
   renderOrdealsList(el, char);
 }
@@ -71,21 +74,22 @@ function renderOrdealsList(el, char) {
   el.innerHTML = h;
 
   el.querySelectorAll('.ordeal-card[data-form]').forEach(card => {
-    card.addEventListener('click', () => openForm(el));
+    card.addEventListener('click', () => openForm(el, card.dataset.form));
   });
 }
 
-// Derive ordeal status from questionnaire_responses when available
+// Derive ordeal status from the matching response collection
 function getOrdealStatus(def, cOrdeals) {
-  if (def.hasForm && questionnaireStatus) {
-    // Map questionnaire_responses status to ordeal display status
+  if (def.key === 'questionnaire' && questionnaireStatus) {
     return { status: questionnaireStatus };
   }
-  // Fall back to character sheet ordeal data
+  if (def.key === 'history' && historyStatus) {
+    return { status: historyStatus };
+  }
   return cOrdeals[def.key] || { status: 'not_started' };
 }
 
-function openForm(el) {
+function openForm(el, formType) {
   let h = '<div class="ordeals-container">';
   h += '<button class="qf-back-btn" id="qf-back">&larr; Back to Ordeals</button>';
   h += '<div id="qf-target"></div>';
@@ -96,7 +100,11 @@ function openForm(el) {
     renderOrdealsList(el, currentChar);
   });
 
-  renderQuestionnaire(document.getElementById('qf-target'), currentChar);
+  if (formType === 'history') {
+    renderHistory(document.getElementById('qf-target'), currentChar);
+  } else {
+    renderQuestionnaire(document.getElementById('qf-target'), currentChar);
+  }
 }
 
 function ordealCard(def, status) {
@@ -108,7 +116,7 @@ function ordealCard(def, status) {
   const stateLabel = done ? 'Approved' : submitted ? 'Submitted' : draft ? 'In Progress' : 'Not Started';
   const icon = done ? '&#10003;' : submitted ? '&#9679;' : draft ? '&#9998;' : '&#9675;';
   const xp = done ? '+3 XP' : '';
-  const formAttr = def.hasForm ? ' data-form="true"' : '';
+  const formAttr = def.hasForm ? ` data-form="${def.key}"` : '';
   const clickHint = def.hasForm ? '<span class="ordeal-action">Open &rarr;</span>' : '';
 
   return `<div class="ordeal-card ${stateClass}"${formAttr}>
