@@ -305,7 +305,7 @@ async function loadGameXP() {
     const totals = {};
     for (const s of sessions) {
       for (const a of s.attendance || []) {
-        const key = a.character_id || a.name;
+        const key = a.character_id || a.character_name || a.name;
         const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
         totals[key] = (totals[key] || 0) + xp;
       }

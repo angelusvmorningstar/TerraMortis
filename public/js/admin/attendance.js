@@ -1,10 +1,11 @@
 /**
- * Attendance & Finance — per-session attendance, XP awards, and payment tracking.
+ * Attendance & Finance — per-session player attendance, XP awards, and payment tracking.
+ * Player-centric: each row is a player with their linked character.
  * Renders into #attendance-content in the admin app.
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { displayName, sortName } from '../data/helpers.js';
+import { displayName } from '../data/helpers.js';
 
 let chars = [];
 let sessions = [];
@@ -95,18 +96,21 @@ async function createNewSession() {
   const gameNumber = sessions.length + 1;
   const title = 'Game ' + gameNumber;
 
-  // Pre-populate with all active characters
-  const attendance = chars.map(c => ({
-    character_id: c._id,
-    name: c.name,
-    display_name: displayName(c),
-    attended: false,
-    costuming: false,
-    downtime: false,
-    extra: 0,
-    paid: false,
-    payment_method: ''
-  }));
+  // Pre-populate with all active players (1:1 with characters)
+  const attendance = chars
+    .map(c => ({
+      player: c.player || '',
+      character_id: c._id,
+      character_name: c.name,
+      character_display: displayName(c),
+      attended: false,
+      costuming: false,
+      downtime: false,
+      extra: 0,
+      paid: false,
+      payment_method: ''
+    }))
+    .sort((a, b) => a.player.localeCompare(b.player));
 
   try {
     const session = await apiPost('/api/game_sessions', {
@@ -115,11 +119,10 @@ async function createNewSession() {
       attendance
     });
     sessions.unshift(session);
-    // Update dropdown
     const sel = document.getElementById('att-session-sel');
     const opt = document.createElement('option');
     opt.value = session._id;
-    opt.textContent = date + (title ? ' — ' + title : '');
+    opt.textContent = date + ' — ' + title;
     sel.prepend(opt);
     sel.value = session._id;
     selectSession(session);
@@ -134,17 +137,11 @@ function renderGrid() {
 
   const att = activeSession.attendance || [];
 
-  // Build sorted index (sort by moniker/name like the character grid)
+  // Sort by player name for display (keep original indices for updates)
   const sorted = att.map((a, i) => ({ a, i }));
-  sorted.sort((x, y) => {
-    const cx = chars.find(c => c._id === x.a.character_id || c.name === x.a.name);
-    const cy = chars.find(c => c._id === y.a.character_id || c.name === y.a.name);
-    const sx = cx ? sortName(cx) : (x.a.display_name || x.a.name || '').toLowerCase();
-    const sy = cy ? sortName(cy) : (y.a.display_name || y.a.name || '').toLowerCase();
-    return sx.localeCompare(sy);
-  });
+  sorted.sort((x, y) => (x.a.player || '').localeCompare(y.a.player || ''));
 
-  // XP summary
+  // Summaries
   const totalAttended = att.filter(a => a.attended).length;
   const totalPaid = att.filter(a => a.paid).length;
 
@@ -156,7 +153,8 @@ function renderGrid() {
 
   html += `<table class="att-table">
     <thead><tr>
-      <th class="att-name-col">Character</th>
+      <th class="att-name-col">Player</th>
+      <th class="att-char-col">Character</th>
       <th class="att-check-col">Attended</th>
       <th class="att-check-col">Costume</th>
       <th class="att-check-col">Downtime</th>
@@ -167,20 +165,20 @@ function renderGrid() {
     </tr></thead><tbody>`;
 
   for (const { a, i } of sorted) {
-    const c = chars.find(ch => ch._id === a.character_id || ch.name === a.name);
-    const dName = c ? displayName(c) : (a.display_name || a.name);
-    const player = c ? (c.player || '') : '';
+    const c = chars.find(ch => ch._id === a.character_id || ch.name === a.character_name || ch.name === a.name);
+    const charDisplay = c ? displayName(c) : (a.character_display || a.display_name || a.name || '');
     const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
     const absentClass = a.attended ? '' : ' att-absent';
 
     html += `<tr class="att-row${absentClass}">
-      <td class="att-name">${esc(dName)} <span class="att-player">${esc(player)}</span></td>
+      <td class="att-player-name">${esc(a.player)}</td>
+      <td class="att-char-name">${esc(charDisplay)}</td>
       <td class="att-check"><input type="checkbox" ${a.attended ? 'checked' : ''} onchange="attUpdate(${i},'attended',this.checked)"></td>
       <td class="att-check"><input type="checkbox" ${a.costuming ? 'checked' : ''} onchange="attUpdate(${i},'costuming',this.checked)"></td>
       <td class="att-check"><input type="checkbox" ${a.downtime ? 'checked' : ''} onchange="attUpdate(${i},'downtime',this.checked)"></td>
       <td class="att-num"><input type="number" min="0" max="5" value="${a.extra || 0}" onchange="attUpdate(${i},'extra',+this.value)"></td>
       <td class="att-xp">${xp}</td>
-      <td class="att-pay"><select onchange="attUpdate(${i},'payment_method',this.value)">${PAYMENT_METHODS.map(m => `<option${a.payment_method === m ? ' selected' : ''}>${esc(m || '—')}</option>`).join('')}</select></td>
+      <td class="att-pay"><select onchange="attUpdate(${i},'payment_method',this.value)">${PAYMENT_METHODS.map(m => `<option${a.payment_method === m ? ' selected' : ''}>${esc(m || '\u2014')}</option>`).join('')}</select></td>
       <td class="att-check"><input type="checkbox" ${a.paid ? 'checked' : ''} onchange="attUpdate(${i},'paid',this.checked)"></td>
     </tr>`;
   }

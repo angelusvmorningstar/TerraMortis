@@ -1220,7 +1220,8 @@ body {
   border-bottom: 1px solid var(--bdr);
 }
 
-.att-name-col { text-align: left; min-width: 160px; }
+.att-name-col { text-align: left; min-width: 130px; }
+.att-char-col { text-align: left; min-width: 140px; }
 .att-check-col { width: 70px; }
 .att-num-col { width: 60px; }
 .att-xp-col { width: 50px; }
@@ -1230,18 +1231,20 @@ body {
 .att-row:hover { background: var(--surf2); }
 .att-row.att-absent { opacity: 0.45; }
 
-.att-name {
+.att-player-name {
+  font-family: var(--fb);
+  color: var(--txt);
+  padding: 8px 6px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.att-char-name {
   font-family: var(--fh);
   color: var(--gold2);
   padding: 8px 6px;
   text-align: left;
-}
-
-.att-player {
-  font-family: var(--fb);
-  font-size: 11px;
-  color: var(--txt3);
-  margin-left: 6px;
+  font-size: 12px;
 }
 
 .att-check {
