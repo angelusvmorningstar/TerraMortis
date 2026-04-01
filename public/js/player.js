@@ -56,13 +56,20 @@ function renderHeaderUser() {
     ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
     : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
 
-  const info = getPlayerInfo();
-  const adminLink = info?.is_dual_role
-    ? `<a href="admin" class="header-admin-link">ST Admin</a>`
-    : '';
+  const role = getUser()?.role;
+
+  // ST Admin button — alongside char selector, not buried in header
+  const selectorArea = document.querySelector('.header-controls');
+  if (role === 'st' && selectorArea && !document.getElementById('st-admin-btn')) {
+    const btn = document.createElement('a');
+    btn.id = 'st-admin-btn';
+    btn.href = 'admin.html';
+    btn.className = 'st-admin-btn';
+    btn.textContent = 'ST Admin';
+    selectorArea.insertBefore(btn, selectorArea.firstChild);
+  }
 
   el.innerHTML =
-    `${adminLink}` +
     `<img class="header-avatar" src="${avatarUrl}" alt="">` +
     `<span class="header-username">${name}</span>` +
     `<button class="header-logout" id="logout-btn">Log out</button>`;

@@ -3,14 +3,14 @@
  * Displays, creates, and filters session log entries via the API.
  */
 
-import { apiGet, apiPost } from '../data/api.js';
+import { apiGet, apiPost, apiDelete } from '../data/api.js';
 
 let currentDate = new Date().toISOString().slice(0, 10);
 let entries = [];
 
 /** Render the session log UI into the Engine domain container. */
 export async function initSessionLog() {
-  const container = document.getElementById('engine-content');
+  const container = document.getElementById('engine-right') || document.getElementById('engine-content');
   if (!container) return;
 
   container.innerHTML = buildShell();
@@ -65,6 +65,19 @@ async function loadEntries() {
   }
 
   list.innerHTML = entries.map(renderEntry).join('');
+
+  // Wire delete buttons
+  list.querySelectorAll('[data-delete-log]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.deleteLog;
+      try {
+        await apiDelete(`/api/session_logs/${id}`);
+        await loadEntries();
+      } catch (err) {
+        console.error('Failed to delete log entry:', err.message);
+      }
+    });
+  });
 }
 
 function renderEntry(e) {
@@ -83,6 +96,7 @@ function renderEntry(e) {
     <div class="log-entry-meta">
       ${time ? '<span class="log-entry-time">' + time + '</span>' : ''}
       ${st ? '<span class="log-entry-st">' + st + '</span>' : ''}
+      <button class="log-delete-btn" data-delete-log="${e._id}">&times;</button>
     </div>
   </div>`;
 }

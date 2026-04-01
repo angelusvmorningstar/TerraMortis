@@ -22,7 +22,7 @@ const PROJECT_ACTIONS = [
 ];
 
 // Action type options for sphere (social merit) slots
-const SPHERE_ACTIONS = [
+export const SPHERE_ACTIONS = [
   { value: '', label: '— No Action Taken —' },
   { value: 'ambience_increase', label: 'Ambience Change (Increase): Make a Territory delicious' },
   { value: 'ambience_decrease', label: 'Ambience Change (Decrease): Make Territory not delicious' },
@@ -38,7 +38,7 @@ const SPHERE_ACTIONS = [
   { value: 'acquisition', label: 'Acquisition: Use your standing in Status/Mystery Cult to procure an item' },
 ];
 
-const TERRITORIES = [
+export const FEEDING_TERRITORIES = [
   'The Academy',
   'The City Harbour',
   'The Docklands',
@@ -47,12 +47,26 @@ const TERRITORIES = [
   'The Barrens (No Territory)',
 ];
 
-const REGENT_TERRITORIES = [
-  'The Academy',
-  'The Dockyards',
-  'The Harbour',
-  'The North Shore',
-  'The Second City',
+// Ambience rating → PC feeding cap (from Damnation City rules)
+export const AMBIENCE_CAP = {
+  'Hostile':   0,
+  'Barrens':   0,
+  'Neglected': 4,
+  'Untended':  5,
+  'Settled':   6,
+  'Tended':    6,
+  'Curated':   7,
+  'Verdant':   7,
+  'The Rack':  8,
+};
+
+// Territory definitions with current ambience (mirrors city-views.js)
+export const TERRITORY_DATA = [
+  { id: 'academy',    name: 'The Academy',    ambience: 'Curated' },
+  { id: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled' },
+  { id: 'harbour',    name: 'The Harbour',    ambience: 'Untended' },
+  { id: 'northshore', name: 'The North Shore', ambience: 'Tended' },
+  { id: 'secondcity', name: 'The Second City', ambience: 'Tended' },
 ];
 
 // Helper: generate select options for a numeric range (inclusive)
@@ -63,112 +77,16 @@ function numRange(min, max) {
   });
 }
 
-// Helper: build repeating project slot questions (4 slots)
-function buildProjectSlots() {
-  const questions = [];
-  for (let n = 1; n <= 4; n++) {
-    questions.push(
-      {
-        key: `project_${n}_action`,
-        label: `Project ${n}: Action Type`,
-        type: 'select',
-        required: n === 1,
-        desc: null,
-        options: PROJECT_ACTIONS,
-      },
-      {
-        key: `project_${n}_pool`,
-        label: `Project ${n}: Primary Dice Pool + Powers`,
-        type: 'text',
-        required: false,
-        desc: 'Attribute + Skill + Relevant Specialty (optional) + Discipline (optional) = Total',
-      },
-      {
-        key: `project_${n}_pool2`,
-        label: `Project ${n}: Secondary Dice Pool + Powers`,
-        type: 'text',
-        required: false,
-        desc: 'Optional secondary dice pool',
-      },
-      {
-        key: `project_${n}_outcome`,
-        label: `Project ${n}: Desired Outcome`,
-        type: 'text',
-        required: false,
-        desc: 'Each Project must aim to achieve ONE clear thing.',
-      },
-      {
-        key: `project_${n}_description`,
-        label: `Project ${n}: Description`,
-        type: 'textarea',
-        required: false,
-        desc: 'Project Name:\nCharacters involved:\nMerits & Bonuses:\nXP Spend:\nProject description:',
-      },
-    );
-  }
-  return questions;
-}
+export { PROJECT_ACTIONS };
 
-// Helper: build repeating sphere slot questions (5 slots)
-function buildSphereSlots() {
-  const questions = [];
-  for (let n = 1; n <= 5; n++) {
-    questions.push(
-      {
-        key: `sphere_${n}_merit`,
-        label: `Sphere Action ${n}: Merit Type`,
-        type: 'text',
-        required: false,
-        desc: 'e.g. Allies 3 (Finance) or Status 2 (Media)',
-      },
-      {
-        key: `sphere_${n}_action`,
-        label: `Sphere Action ${n}: Action Type`,
-        type: 'select',
-        required: n === 1,
-        desc: null,
-        options: SPHERE_ACTIONS,
-      },
-      {
-        key: `sphere_${n}_outcome`,
-        label: `Sphere Action ${n}: Desired Outcome`,
-        type: 'text',
-        required: false,
-        desc: null,
-      },
-      {
-        key: `sphere_${n}_description`,
-        label: `Sphere Action ${n}: Description`,
-        type: 'textarea',
-        required: false,
-        desc: null,
-      },
-    );
-  }
-  return questions;
-}
-
-// Helper: build repeating contact slot questions (6 slots)
-function buildContactSlots() {
-  return Array.from({ length: 6 }, (_, i) => ({
-    key: `contact_${i + 1}`,
-    label: `Contact Action: Information Request ${i + 1}`,
-    type: 'textarea',
-    required: false,
-    desc: 'Contact Type:\nSupporting Info:\nRequest:',
-  }));
-}
-
-// Helper: build repeating retainer slot questions (5 slots)
-function buildRetainerSlots() {
-  return Array.from({ length: 5 }, (_, i) => ({
-    key: `retainer_${i + 1}`,
-    label: `Retainer Action ${i + 1}`,
-    type: 'textarea',
-    required: false,
-    desc: 'Retainer Name:\nRetainer Dot Rating:\nArea of Expertise:\nSupporting Info:\nRequest:',
-  }));
-}
+export const FEED_METHODS = [
+  { id: 'seduction', name: 'Seduction', desc: 'Lure a vessel close', attrs: ['Presence', 'Manipulation'], skills: ['Empathy', 'Socialise', 'Persuasion'], discs: ['Majesty', 'Dominate'] },
+  { id: 'stalking', name: 'Stalking', desc: 'Prey on a target unseen', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Athletics'], discs: ['Protean', 'Obfuscate'] },
+  { id: 'force', name: 'By Force', desc: 'Overpower and drain', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'], discs: ['Vigour', 'Nightmare'] },
+  { id: 'familiar', name: 'Familiar Face', desc: 'Exploit an existing acquaintance', attrs: ['Manipulation', 'Presence'], skills: ['Persuasion', 'Subterfuge'], discs: ['Dominate', 'Majesty'] },
+  { id: 'intimidation', name: 'Intimidation', desc: 'Compel through fear', attrs: ['Strength', 'Manipulation'], skills: ['Intimidation', 'Subterfuge'], discs: ['Nightmare', 'Dominate'] },
+  { id: 'other', name: 'Other', desc: 'Custom method (subject to ST approval)', attrs: [], skills: [], discs: [] },
+];
 
 export const DOWNTIME_SECTIONS = [
   // 1. Court — gated: only shown if the player attended last game
@@ -195,7 +113,7 @@ export const DOWNTIME_SECTIONS = [
       {
         key: 'rp_shoutout',
         label: 'Name one or two players/characters who gave you standout roleplay moments.',
-        type: 'textarea',
+        type: 'shoutout_picks',
         required: true,
         desc: 'Acknowledge peers whose performance or collaboration made the session memorable for you.',
       },
@@ -231,35 +149,13 @@ export const DOWNTIME_SECTIONS = [
   },
 
   // 2. Regency — gated: only shown if the player is a current Regent
+  // Residency grid is rendered dynamically by downtime-form.js (renderRegencyGrid)
   {
     key: 'regency',
     title: 'Regency: The Hand that Feeds',
     gate: 'is_regent',
     intro: null,
     questions: [
-      {
-        key: 'regent_territory',
-        label: 'Which Territory are you the Regent of?',
-        type: 'select',
-        required: true,
-        desc: null,
-        options: REGENT_TERRITORIES.map(t => ({ value: t, label: t })),
-      },
-      {
-        key: 'residency_grants',
-        label: 'Which PCs have been granted Residency (Feeding Rights) this month?',
-        type: 'textarea',
-        required: true,
-        desc: 'List character names. Residency grants the recipient access to your territory\'s feeding pools without it counting as poaching.',
-      },
-      {
-        key: 'residency_count',
-        label: 'Total PCs granted Residency including you:',
-        type: 'select',
-        required: true,
-        desc: null,
-        options: numRange(1, 20),
-      },
       {
         key: 'regency_action',
         label: 'Regency Action',
@@ -278,70 +174,43 @@ export const DOWNTIME_SECTIONS = [
     intro: null,
     questions: [
       {
-        key: 'feeding_description',
-        label: 'How did your character feed from the city this month?',
-        type: 'textarea',
+        key: 'feeding_method',
+        label: 'How does your character hunt?',
+        type: 'feeding_method',
         required: true,
-        desc: 'Primary Feeding Pool: Attribute + Skill (+ Discipline, optional)\nBlood Type: Cold/Animal/Human/Kindred\nFeeding Style: Short description\n\nExample: "Manipulation + Socialise (Wits, Auspex optional). Human. She frequents late-night bars in the Docklands, charming lonely patrons into quiet corners."',
+        desc: null,
       },
       {
         key: 'feeding_territories',
         label: 'Which Territory does your character feed or poach in?',
-        type: 'textarea',
+        type: 'territory_grid',
         required: true,
-        desc: 'List territories and whether you are Resident or Poaching in each.\n\nExample: "The Docklands — Resident. The Second City — Poaching."',
+        desc: 'Residents must have express permission from a Regent to feed in their Territory.',
       },
       {
         key: 'influence_spend',
         label: 'Which Territories would you like to spend Influence on, if at all?',
-        type: 'textarea',
+        type: 'influence_grid',
         required: false,
-        desc: 'You may only spend as much Influence as you have on your sheet. State the Territory and the amount of Influence spent.',
+        desc: 'Positive values improve a Territory\'s Ambience. Negative values degrade it. Each point spent (positive or negative) costs 1 Influence from your monthly budget.',
       },
     ],
   },
 
-  // 4. Projects — always shown, 4 repeating slots
+  // 4. Projects — always shown, 4 slots rendered dynamically by downtime-form.js
   {
     key: 'projects',
     title: 'Projects: Personal Actions',
     gate: null,
-    slots: 4,
     intro: 'You have up to four Project slots this Downtime. Each Project must aim to achieve one clear outcome. The first Project is required; the rest are optional.',
-    questions: buildProjectSlots(),
+    questions: [], // rendered dynamically as project_slots
+    projectSlots: 4,
   },
 
-  // 5. Spheres of Influence — gated, 5 repeating slots
-  {
-    key: 'spheres',
-    title: 'Spheres of Influence',
-    gate: 'has_spheres',
-    slots: 5,
-    intro: 'Use this section to direct your Allies, mortal Status, or Mystery Cult Initiate merits. You have up to five Sphere Action slots.',
-    questions: buildSphereSlots(),
-  },
+  // 5–7: Spheres, Contacts, Retainers — now rendered dynamically from character merits
+  // (see downtime-form.js renderMeritSections)
 
-  // 6. Contacts — gated, 6 repeating slots
-  {
-    key: 'contacts',
-    title: 'Contacts: Requests for Information',
-    gate: 'has_contacts',
-    slots: 6,
-    intro: 'Each Contact can be tasked with a single information request per Downtime. Provide as much supporting context as possible to help the STs adjudicate the result.',
-    questions: buildContactSlots(),
-  },
-
-  // 7. Retainers — gated, 5 repeating slots
-  {
-    key: 'retainers',
-    title: 'Retainers: Task Delegation',
-    gate: 'has_retainers',
-    slots: 5,
-    intro: 'Retainers act independently on your behalf. Their dot rating determines the scope and reliability of their actions. Provide clear instructions and context.',
-    questions: buildRetainerSlots(),
-  },
-
-  // 8. Acquisitions — gated
+  // 8. Acquisitions — manual gate (anyone can attempt skill-based acquisitions)
   {
     key: 'acquisitions',
     title: 'Acquisition: Resources and Skills',
@@ -365,21 +234,14 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 9. Blood Sorcery — gated
+  // 9. Blood Sorcery — auto-gated by disciplines, rendered dynamically
   {
     key: 'blood_sorcery',
     title: 'Blood Sorcery: Theban and Cruac',
     gate: 'has_sorcery',
-    intro: null,
-    questions: [
-      {
-        key: 'sorcery_casting',
-        label: 'What are you casting?',
-        type: 'textarea',
-        required: false,
-        desc: 'Ritual Name/Level:\nCaster/s:\nTarget/s:\nDuration:\nEffects and page reference:\nVitae/Willpower Spent:\n\nExample: "Rite of Surcease (Theban 2). Caster: Sister Agatha. Target: Self. Duration: One month. Effects: Suppress a persistent Condition (p. 184). Vitae Spent: 2."',
-      },
-    ],
+    intro: 'Select the rites you wish to cast this Downtime. Ritual details are pre-filled from your character sheet.',
+    questions: [], // rendered dynamically by downtime-form.js
+    sorcerySlots: 3,
   },
 
   // 10. Vamping — always shown
@@ -409,9 +271,9 @@ export const DOWNTIME_SECTIONS = [
       {
         key: 'xp_spend',
         label: 'XP Spend',
-        type: 'textarea',
+        type: 'xp_grid',
         required: false,
-        desc: 'XP Claimed: Game Attendance 1, Costuming/Immersion 1, Downtime 1\nTotal XP Spent:\nFree Spend:\n\nExample: "XP Claimed: 3. Spent 2 on Persuasion (Skills 2 XP/dot). Free Spend: 1 remaining."',
+        desc: null,
       },
       {
         key: 'lore_request',
@@ -441,44 +303,8 @@ export const DOWNTIME_SECTIONS = [
 
 export const DOWNTIME_GATES = [
   {
-    key: 'attended',
-    label: 'Did you attend last game?',
-    type: 'radio',
-    options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
-  },
-  {
-    key: 'is_regent',
-    label: 'Are you the current Regent of a Territory?',
-    type: 'radio',
-    options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
-  },
-  {
-    key: 'has_spheres',
-    label: 'Do you have Allies, Mortal Status or Mystery Cult Initiate you would like to use?',
-    type: 'radio',
-    options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
-  },
-  {
-    key: 'has_contacts',
-    label: 'Do you have Contacts you would like to use?',
-    type: 'radio',
-    options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
-  },
-  {
-    key: 'has_retainers',
-    label: 'Do you have Retainers you would like to use?',
-    type: 'radio',
-    options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
-  },
-  {
     key: 'has_acquisitions',
     label: 'Do you want to use Resources or Skills to attempt to acquire anything?',
-    type: 'radio',
-    options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
-  },
-  {
-    key: 'has_sorcery',
-    label: 'Do you have Theban or Cruac you wish to use during Downtime?',
     type: 'radio',
     options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
   },

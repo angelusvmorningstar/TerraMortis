@@ -80,12 +80,24 @@ async function run() {
   const qRows = parseCSV(qRaw);
   const qDataRows = qRows.slice(1);
 
+  // Manual email → character name overrides for unmatched entries
+  const MANUAL_EMAIL_MAP = {
+    'george.tomossy@gmail.com': 'Jack Fallow',
+    'andrewgrech990@gmail.com': 'Kirk Grimm',
+    'm.bennett87@gmail.com': 'René St. Dominique',
+    'pkalt1970@gmail.com': 'Yusuf Kalusicj',
+    'arnie.walsh2@gmail.com': 'Conrad Sondergaard',
+  };
+
   // Build email → character name from questionnaire CSV
   const emailToCharName = new Map();
+  for (const [email, name] of Object.entries(MANUAL_EMAIL_MAP)) {
+    emailToCharName.set(email.toLowerCase(), name);
+  }
   for (const row of qDataRows) {
     const email = (row[1] || '').trim().toLowerCase();
     const charName = (row[7] || '').trim(); // column 7 = character name
-    if (email && charName) emailToCharName.set(email, charName);
+    if (email && charName && !emailToCharName.has(email)) emailToCharName.set(email, charName);
   }
 
   // Build character name → { charId, playerId } lookup (same as questionnaire import)

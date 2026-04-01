@@ -9,6 +9,8 @@ import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
 import { initDowntimeView } from './admin/downtime-views.js';
 import { initAttendance } from './admin/attendance.js';
+import { initDiceEngine } from './admin/dice-engine.js';
+import { initFeedingEngine } from './admin/feeding-engine.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
@@ -131,7 +133,7 @@ function switchDomain(domain) {
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('on');
 
-  if (domain === 'engine') initSessionLog();
+  if (domain === 'engine') { initDiceEngine(chars); initFeedingEngine(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);
@@ -217,6 +219,7 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
         <button class="dt-btn" id="cd-print">Print</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
+        <a class="dt-btn cd-player-view" href="player.html" id="cd-player-view">Player View</a>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
         <button class="cd-close" id="cd-close">&times;</button>
       </div>
