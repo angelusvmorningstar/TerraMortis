@@ -3,13 +3,14 @@ import cors from 'cors';
 import { config } from './config.js';
 import { connectDb, closeDb, isConnected } from './db.js';
 import authRouter from './routes/auth.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireAuth, requireRole } from './middleware/auth.js';
 import charactersRouter from './routes/characters.js';
 import territoriesRouter from './routes/territories.js';
 import trackerRouter from './routes/tracker.js';
 import sessionsRouter from './routes/sessions.js';
 import { cyclesRouter, submissionsRouter } from './routes/downtime.js';
 import gameSessionsRouter from './routes/game-sessions.js';
+import playersRouter from './routes/players.js';
 
 const app = express();
 
@@ -38,14 +39,18 @@ app.get('/api/health', (req, res) => {
 // Auth routes (public — no middleware)
 app.use('/api/auth', authRouter);
 
-// Protected routes — require valid ST Discord token
+// Protected routes — require valid token (role resolved from players collection)
+// Characters and downtime submissions have internal role filtering (ST vs player)
 app.use('/api/characters', requireAuth, charactersRouter);
-app.use('/api/territories', requireAuth, territoriesRouter);
-app.use('/api/tracker_state', requireAuth, trackerRouter);
-app.use('/api/session_logs', requireAuth, sessionsRouter);
 app.use('/api/downtime_cycles', requireAuth, cyclesRouter);
 app.use('/api/downtime_submissions', requireAuth, submissionsRouter);
-app.use('/api/game_sessions', requireAuth, gameSessionsRouter);
+
+// ST-only routes — require both auth and ST role
+app.use('/api/territories', requireAuth, requireRole('st'), territoriesRouter);
+app.use('/api/tracker_state', requireAuth, requireRole('st'), trackerRouter);
+app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
+app.use('/api/game_sessions', requireAuth, requireRole('st'), gameSessionsRouter);
+app.use('/api/players', requireAuth, requireRole('st'), playersRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

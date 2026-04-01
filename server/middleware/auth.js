@@ -1,4 +1,4 @@
-import { config } from '../config.js';
+import { getCollection } from '../db.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -32,21 +32,37 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'AUTH_ERROR', message: 'Invalid or expired token' });
   }
 
-  const user = await userRes.json();
+  const discordUser = await userRes.json();
 
-  // Check ST whitelist
-  if (!config.ST_IDS.includes(user.id)) {
-    return res.status(403).json({ error: 'FORBIDDEN', message: 'Access restricted to Storytellers' });
+  // Look up player in the players collection
+  const player = await getCollection('players').findOne({ discord_id: discordUser.id });
+
+  if (!player) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'No player record found — contact an ST' });
   }
 
   const userInfo = {
-    id: user.id,
-    username: user.username,
-    global_name: user.global_name,
-    avatar: user.avatar,
+    id: discordUser.id,
+    username: discordUser.username,
+    global_name: discordUser.global_name,
+    avatar: discordUser.avatar,
+    role: player.role,
+    player_id: player._id,
+    character_ids: player.character_ids || [],
+    is_dual_role: player.role === 'st' && (player.character_ids || []).length > 0,
   };
 
   tokenCache.set(token, { user: userInfo, expiresAt: Date.now() + CACHE_TTL });
   req.user = userInfo;
   next();
+}
+
+// Role gate middleware — use after requireAuth
+export function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Insufficient role' });
+    }
+    next();
+  };
 }
