@@ -1,11 +1,17 @@
-/* Player portal entry point — auth gate, tab routing, character loading */
+/* Player portal entry point — auth gate, tab routing, character loading, read-only sheet */
 
 import { apiGet } from './data/api.js';
 import { esc, displayName } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
+import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
+import state from './data/state.js';
 
 let chars = [];
 let activeChar = null;
+
+// Expose sheet helpers to onclick handlers in rendered HTML
+window.toggleExp = toggleExp;
+window.toggleDisc = toggleDisc;
 
 // ── Auth gate ──
 
@@ -68,16 +74,20 @@ async function loadCharacters() {
   try {
     chars = await apiGet('/api/characters');
   } catch (err) {
-    document.getElementById('tab-sheet').innerHTML =
+    document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">Failed to load characters: ${esc(err.message)}</p>`;
     return;
   }
 
   if (!chars.length) {
-    document.getElementById('tab-sheet').innerHTML =
+    document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">No characters found. Contact an ST to get started.</p>`;
     return;
   }
+
+  // Populate shared state so renderSheet can access chars
+  state.chars = chars;
+  state.editMode = false;
 
   // Character selector (shown if multiple characters)
   const selector = document.getElementById('char-selector');
@@ -94,11 +104,8 @@ async function loadCharacters() {
 
 function selectCharacter(idx) {
   activeChar = chars[idx];
-  const name = displayName(activeChar);
-
-  // Update sheet tab with basic character info (full sheet comes in story 5.3)
-  document.getElementById('tab-sheet').innerHTML =
-    `<p class="placeholder-msg">Character sheet for <strong>${esc(name)}</strong> will render here in the next story.</p>`;
+  state.editIdx = idx;
+  renderSheet(activeChar);
 }
 
 // ── Tab switching ──
