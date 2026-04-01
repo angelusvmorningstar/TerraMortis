@@ -129,12 +129,14 @@ export async function renderQuestionnaire(targetEl, char) {
     responseDoc = await apiGet(`/api/questionnaire?character_id=${char._id}`);
   } catch { /* no existing response */ }
 
-  // Auto-populate from auth if no saved response
+  // Auto-populate from auth only if this is the player's own character
+  autoFill.discord_nickname = '';
   if (!responseDoc) {
     const user = JSON.parse(localStorage.getItem('tm_auth_user') || '{}');
-    autoFill.discord_nickname = user.username || '';
-  } else {
-    autoFill.discord_nickname = '';
+    const ownCharIds = (user.character_ids || []).map(id => String(id));
+    if (ownCharIds.includes(String(char._id))) {
+      autoFill.discord_nickname = user.username || '';
+    }
   }
 
   targetEl.innerHTML = `<div id="qf-container"></div>`;
