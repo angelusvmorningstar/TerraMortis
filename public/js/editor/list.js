@@ -1,7 +1,7 @@
 /* List view — character grid rendering and filtering */
 
 import state from '../data/state.js';
-import { esc, clanIcon, covIcon, shortCov } from '../data/helpers.js';
+import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from '../data/helpers.js';
 import { xpLeft, xpEarned } from './xp.js';
 
 /**
@@ -18,13 +18,13 @@ export function renderList() {
     if (clanF && c.clan !== clanF) return false;
     if (covF && c.covenant !== covF) return false;
     if (search) {
-      const hay = (c.name + ' ' + c.player + ' ' + (c.concept || '') + ' ' + (c.bloodline || '')).toLowerCase();
+      const hay = (c.name + ' ' + (c.moniker || '') + ' ' + (c.honorific || '') + ' ' + c.player + ' ' + (c.concept || '') + ' ' + (c.bloodline || '')).toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;
   });
 
-  filtered.sort((a, b) => a.c.name.localeCompare(b.c.name));
+  filtered.sort((a, b) => sortName(a.c).localeCompare(sortName(b.c)));
 
   grid.innerHTML = filtered.map(({ c, i }) => {
     const bp = c.blood_potency || 1;
@@ -37,7 +37,7 @@ export function renderList() {
     return `<div class="char-card${isDirty}" onclick="openChar(${i})">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
-        <div class="cc-identity"><span class="cc-name">${esc(c.name)}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
+        <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
       </div>
       <div class="cc-mid">
         <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>

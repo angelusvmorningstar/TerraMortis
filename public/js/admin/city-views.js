@@ -6,6 +6,7 @@
 import { apiGet } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
+import { displayName, sortName } from '../data/helpers.js';
 
 const TERRITORIES = [
   { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
@@ -54,7 +55,7 @@ function renderTerritories() {
     h += `<div class="terr-card">
       <div class="terr-name">${esc(t.name)}</div>
       <div class="terr-ambience">${esc(t.ambience)} (${modSign}${t.ambienceMod})</div>
-      <div class="terr-regent">${regent ? esc(regent.name) : '<span class="terr-vacant">Vacant</span>'}</div>
+      <div class="terr-regent">${regent ? esc(displayName(regent)) : '<span class="terr-vacant">Vacant</span>'}</div>
     </div>`;
   }
 
@@ -68,7 +69,7 @@ function renderCourt() {
     const bi = TITLE_ORDER.indexOf(b.court_title);
     const orderDiff = (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     if (orderDiff !== 0) return orderDiff;
-    return a.name.localeCompare(b.name);
+    return sortName(a).localeCompare(sortName(b));
   });
 
   if (!titled.length) return '';
@@ -79,7 +80,7 @@ function renderCourt() {
     const territory = c.court_title === 'Regent' && c.regent_territory ? ' — ' + esc(c.regent_territory) : '';
     h += `<div class="court-row">
       <span class="court-title">${esc(gameName)}</span>
-      <span class="court-name">${esc(c.name)}</span>
+      <span class="court-name">${esc(displayName(c))}</span>
       <span class="court-detail">${esc(c.clan || '')}${territory}</span>
     </div>`;
   }
@@ -89,7 +90,7 @@ function renderCourt() {
 
 function renderInfluence() {
   const ranked = chars.map(c => ({
-    name: c.name,
+    name: displayName(c),
     clan: c.clan || '',
     covenant: c.covenant || '',
     influence: calcTotalInfluence(c),

@@ -254,6 +254,30 @@ body {
 
 .char-card { cursor: pointer; transition: border-color 0.15s; }
 .char-card:hover { border-color: var(--gold2); }
+.char-card.retired { opacity: 0.5; }
+.char-card.retired:hover { opacity: 0.75; }
+
+.retired-divider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--txt3);
+  font-family: var(--fh);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.retired-divider::before,
+.retired-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--bdr);
+}
+
+.retire-btn { font-size: 12px; }
 
 /* ── Character detail panel ── */
 
@@ -377,8 +401,10 @@ body {
 }
 .sh-dcol { min-width: 0; overflow: hidden; }
 
-/* Hide duplicate name row — panel header already shows it */
+/* Hide name row in view mode — panel header already shows it.
+   In edit mode (.sh-editing), show it for name/honorific/moniker inputs. */
 .sh-desktop .sh-namerow { display: none; }
+.sh-desktop.sh-editing .sh-namerow { display: block; }
 
 /* Stats strip wraps within column */
 .sh-desktop .sh-stats-strip { flex-wrap: wrap; }

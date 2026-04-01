@@ -2,7 +2,7 @@
 
 import state from '../data/state.js';
 import { APPROVED_BLOODLINES, MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
-import { esc } from '../data/helpers.js';
+import { esc, displayName } from '../data/helpers.js';
 
 let _markDirty, _xpLeft;
 export function registerCallbacks(markDirty, xpLeft) {
@@ -28,6 +28,14 @@ export function renderIdentityTab(c) {
         <div class="form-row">
           <label class="form-label">Character Name</label>
           <input class="form-input" value="${esc(c.name || '')}" onchange="updField('name',this.value)">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Honorific</label>
+          <input class="form-input" value="${esc(c.honorific || '')}" onchange="updField('honorific',this.value||null)" placeholder="e.g. Lord, Lady, Doctor, Sister">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Moniker</label>
+          <input class="form-input" value="${esc(c.moniker || '')}" onchange="updField('moniker',this.value||null)" placeholder="Overrides name for display">
         </div>
         <div class="form-row">
           <label class="form-label">Player Name</label>
@@ -141,7 +149,9 @@ export function updField(key, val) {
   state.chars[state.editIdx][key] = val;
   _markDirty();
   // Update header name
-  if (key === 'name') document.getElementById('edit-charname').textContent = val || 'Unnamed';
+  if (key === 'name' || key === 'honorific' || key === 'moniker') {
+    document.getElementById('edit-charname').textContent = displayName(state.chars[state.editIdx]) || 'Unnamed';
+  }
 }
 
 export function updStatus(key, val) {

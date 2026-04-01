@@ -42,6 +42,17 @@ export function shDotsWithBonus(base, bonus) {
   return '\u25CF'.repeat(base) + '\u25CB'.repeat(bonus);
 }
 
+/** Display name: honorific + (moniker || name) */
+export function displayName(c) {
+  const base = c.moniker || c.name;
+  return c.honorific ? c.honorific + ' ' + base : base;
+}
+
+/** Sort key: moniker || name (no honorific) */
+export function sortName(c) {
+  return (c.moniker || c.name).toLowerCase();
+}
+
 export function esc(s) {
   return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
