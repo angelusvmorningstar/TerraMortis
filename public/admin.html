@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terra Mortis — ST Admin</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
@@ -40,6 +41,7 @@
       <button class="sidebar-btn on" data-domain="player">Player</button>
       <button class="sidebar-btn" data-domain="city">City</button>
       <button class="sidebar-btn" data-domain="downtime">Downtime</button>
+      <button class="sidebar-btn" data-domain="attendance">Attendance</button>
       <button class="sidebar-btn" data-domain="engine">Engine</button>
     </div>
     <div class="sidebar-user" id="sidebar-user"></div>
@@ -69,6 +71,12 @@
     <section id="d-downtime" class="domain">
       <div class="domain-header"><h2>Downtime</h2></div>
       <div id="downtime-content"></div>
+    </section>
+
+    <!-- Attendance domain -->
+    <section id="d-attendance" class="domain">
+      <div class="domain-header"><h2>Attendance &amp; Finance</h2></div>
+      <div id="attendance-content"></div>
     </section>
 
     <!-- Engine domain -->

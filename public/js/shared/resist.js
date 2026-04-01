@@ -79,7 +79,7 @@ export function showResistSec() {
   sel.innerHTML = '<option value="">\u2014 select target \u2014</option>';
   (window._charNames || []).slice().sort().forEach(n => {
     const opt = document.createElement('option');
-    opt.value = n; opt.textContent = n;
+    opt.value = n; opt.textContent = (window._charDisplayMap || {})[n] || n;
     if (n === cur) opt.selected = true;
     sel.appendChild(opt);
   });

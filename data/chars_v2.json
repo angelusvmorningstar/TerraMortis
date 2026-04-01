@@ -1,6 +1,8 @@
 [
   {
     "name": "Alice Vunder",
+    "honorific": null,
+    "moniker": null,
     "player": "Katherine H",
     "concept": "Curious archivist",
     "pronouns": "she/her",
@@ -21,7 +23,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 32,
+    "xp_total": 21,
     "xp_spent": 23,
     "status": {
       "city": 2,
@@ -194,36 +196,42 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Health"
+        "area": "Health",
+        "granted_by": "MCI 4"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Politics"
+        "area": "Politics",
+        "granted_by": "MCI 5"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Transportation"
+        "area": "Transportation",
+        "granted_by": "VM"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Underworld"
+        "area": "Underworld",
+        "granted_by": "VM"
       },
       {
         "category": "influence",
         "name": "Contacts",
         "rating": 3,
-        "area": "Street, Occult, Industry"
+        "area": "Street, Occult, Industry",
+        "granted_by": "MCI 3"
       },
       {
         "category": "general",
         "name": "Hobbyist Clique",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "MCI 1"
       },
       {
         "category": "general",
@@ -235,6 +243,67 @@
         "category": "general",
         "name": "Viral Mythology",
         "rating": 3
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1,
+        "granted_by": "MCI 2"
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Archive",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Hobbyist Clique",
+            "rating": 1
+          },
+          {
+            "category": "domain",
+            "name": "Safe Place",
+            "rating": 1
+          },
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 3,
+            "qualifier": "Street, Occult, Industry"
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Health"
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Politics"
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -508,7 +577,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -516,10 +587,35 @@
         "powers": 9,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Anichka",
+    "honorific": null,
+    "moniker": null,
     "player": "Katie H",
     "concept": "Feral Oracular Darling",
     "pronouns": "she/her",
@@ -540,7 +636,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 28,
+    "xp_total": 18,
     "xp_spent": 26,
     "status": {
       "city": 1,
@@ -744,6 +840,21 @@
         "category": "general",
         "name": "What You've Done For Her Lately",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
       }
     ],
     "touchstones": [
@@ -998,7 +1109,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -1006,10 +1119,35 @@
         "powers": 15,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Brandy LaRoux",
+    "honorific": null,
+    "moniker": null,
     "player": "Ashley K",
     "concept": "Trailer Royalty",
     "pronouns": "she/her",
@@ -1030,7 +1168,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 46,
+    "xp_total": 26,
     "xp_spent": 45,
     "status": {
       "city": 4,
@@ -1220,24 +1358,28 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Media"
+        "area": "Media",
+        "granted_by": "VM"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Police"
+        "area": "Police",
+        "granted_by": "VM"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Underworld"
+        "area": "Underworld",
+        "granted_by": "MCI 5"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 5
+        "rating": 5,
+        "granted_by": "MCI 2"
       },
       {
         "category": "general",
@@ -1248,12 +1390,14 @@
       {
         "category": "general",
         "name": "Indomitable",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MCI 3"
       },
       {
         "category": "general",
         "name": "Inspiring",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI 4"
       },
       {
         "category": "general",
@@ -1268,12 +1412,19 @@
       {
         "category": "general",
         "name": "Table Turner",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "MCI 1"
       },
       {
         "category": "general",
         "name": "Viral Mythology",
         "rating": 3
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
       },
       {
         "category": "manoeuvre",
@@ -1298,6 +1449,48 @@
         "name": "Riding the Wave",
         "rating": 4,
         "rank_name": "Unyielding"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "Ducen Ducibus",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Table Turner",
+            "rating": 1
+          },
+          {
+            "category": "influence",
+            "name": "Resources",
+            "rating": 5
+          },
+          {
+            "category": "general",
+            "name": "Indomitable",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Inspiring",
+            "rating": 3
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Underworld"
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -1602,7 +1795,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 4,
         "skills": 0,
@@ -1610,10 +1805,35 @@
         "powers": 7,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Carver",
+    "honorific": null,
+    "moniker": null,
     "player": "Archer",
     "concept": "Lance Lore Nerd",
     "pronouns": "he/him",
@@ -1634,7 +1854,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 50,
+    "xp_total": 30,
     "xp_spent": 48,
     "status": {
       "city": 1,
@@ -1820,7 +2040,8 @@
         "category": "influence",
         "name": "Retainer",
         "rating": 3,
-        "area": "Nicole - EA"
+        "area": "Nicole - EA",
+        "granted_by": "Lorekeeper"
       },
       {
         "category": "general",
@@ -1853,6 +2074,30 @@
         "category": "general",
         "name": "Lorekeeper",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "shared_with": [
+          "Hazel",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Hazel",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 3,
+        "granted_by": "Lorekeeper"
       }
     ],
     "touchstones": [
@@ -2097,7 +2342,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -2105,10 +2352,35 @@
         "powers": 11,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
-    "name": "Casamir 'Cazz'",
+    "name": "Casamir",
+    "honorific": null,
+    "moniker": "Cazz",
     "player": "Brae C",
     "concept": "The Mad Dog",
     "pronouns": "he/they",
@@ -2129,7 +2401,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 34,
+    "xp_total": 18,
     "xp_spent": 30,
     "status": {
       "city": 1,
@@ -2315,6 +2587,16 @@
         "name": "Quick Draw",
         "rating": 1,
         "qualifier": "Bow"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1
       },
       {
         "category": "manoeuvre",
@@ -2584,7 +2866,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 8,
         "skills": 0,
@@ -2592,10 +2876,35 @@
         "powers": 3,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Charles Mercer-Willows",
+    "honorific": null,
+    "moniker": null,
     "player": "Leo T",
     "concept": "Cult Leader",
     "pronouns": "he/him",
@@ -2616,7 +2925,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 30,
+    "xp_total": 20,
     "xp_spent": 29,
     "status": {
       "city": 2,
@@ -2827,25 +3136,29 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Legal"
+        "area": "Legal",
+        "granted_by": "VM"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Media"
+        "area": "Media",
+        "granted_by": "MCI 5"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Occult"
+        "area": "Occult",
+        "granted_by": "MCI 2&3"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Underworld"
+        "area": "Underworld",
+        "granted_by": "VM"
       },
       {
         "category": "influence",
@@ -2855,12 +3168,14 @@
       {
         "category": "general",
         "name": "Closed Book",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "MCI 1"
       },
       {
         "category": "general",
         "name": "Inspiring",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI 4"
       },
       {
         "category": "general",
@@ -2871,6 +3186,61 @@
         "category": "general",
         "name": "Viral Mythology",
         "rating": 3
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "<NAME REQUIRED>",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Closed Book",
+            "rating": 1
+          },
+          null,
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Occult"
+          },
+          {
+            "category": "general",
+            "name": "Inspiring",
+            "rating": 3
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Media"
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -3145,7 +3515,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -3153,10 +3525,35 @@
         "powers": 15,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Charlie Ballsack",
+    "honorific": "Lord",
+    "moniker": null,
     "player": "Kurtis W",
     "concept": "Putrescent Invictus secret police",
     "pronouns": "it/it",
@@ -3177,7 +3574,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 4,
-    "xp_total": 62,
+    "xp_total": 34,
     "xp_spent": 62,
     "status": {
       "city": 1,
@@ -3396,24 +3793,28 @@
         "category": "influence",
         "name": "Allies",
         "rating": 1,
-        "area": "Police"
+        "area": "Police",
+        "granted_by": "OotHM"
       },
       {
         "category": "influence",
         "name": "Contacts",
         "rating": 3,
-        "area": "Street, Underworld, Police"
+        "area": "Street, Underworld, Police",
+        "granted_by": "OotHM/2*PT"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 5
+        "rating": 5,
+        "granted_by": "1 OotHM/3 Invested"
       },
       {
         "category": "general",
         "name": "Area of Expertise",
         "rating": 1,
-        "qualifier": "Coward Punch"
+        "qualifier": "Coward Punch",
+        "granted_by": "MCI L4 1/3"
       },
       {
         "category": "general",
@@ -3430,34 +3831,40 @@
       {
         "category": "general",
         "name": "Closed Book",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "Safe Word"
       },
       {
         "category": "general",
         "name": "Defensive Combat",
         "rating": 1,
-        "qualifier": "Weaponry"
+        "qualifier": "Weaponry",
+        "granted_by": "MCI L1"
       },
       {
         "category": "general",
         "name": "Friends in High Places",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "Oath of HM"
       },
       {
         "category": "general",
         "name": "Indomitable",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MCI L3"
       },
       {
         "category": "general",
         "name": "Interdisciplinary Specialty",
         "rating": 1,
-        "qualifier": "Coward Punch"
+        "qualifier": "Coward Punch",
+        "granted_by": "MCI L4 1/3"
       },
       {
         "category": "general",
         "name": "Invested",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "Prof Train: Skill Rebate"
       },
       {
         "category": "general",
@@ -3465,64 +3872,166 @@
         "rating": 1
       },
       {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 3,
+        "granted_by": "MCI L2",
+        "shared_with": [
+          "Ivana Horvat",
+          "Keeper"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Ivana Horvat",
+          "Keeper"
+        ],
+        "granted_by": "Invested"
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
         "category": "manoeuvre",
         "name": "Courtoisie",
         "rating": 1,
-        "rank_name": "Establish the Duel"
+        "rank_name": "Establish the Duel",
+        "granted_by": "Oath of the Scapegoat"
       },
       {
         "category": "manoeuvre",
         "name": "Courtoisie",
         "rating": 3,
-        "rank_name": "Demanding Attention"
+        "rank_name": "Demanding Attention",
+        "granted_by": "Oath of the Scapegoat"
       },
       {
         "category": "manoeuvre",
         "name": "Light Weapons",
         "rating": 2,
-        "rank_name": "Thrust"
+        "rank_name": "Thrust",
+        "granted_by": "Oath of the Scapegoat"
       },
       {
         "category": "manoeuvre",
         "name": "Light Weapons",
         "rating": 4,
-        "rank_name": "Flurry"
+        "rank_name": "Flurry",
+        "granted_by": "Oath of the Scapegoat"
       },
       {
         "category": "manoeuvre",
         "name": "Strength Performance",
         "rating": 1,
-        "rank_name": "Strength Tricks"
+        "rank_name": "Strength Tricks",
+        "granted_by": "Oath of the Scapegoat"
       },
       {
         "category": "manoeuvre",
         "name": "Strength Performance",
         "rating": 2,
-        "rank_name": "Lifting"
+        "rank_name": "Lifting",
+        "granted_by": "Oath of the Scapegoat"
       },
       {
         "category": "manoeuvre",
         "name": "Strength Performance",
         "rating": 3,
-        "rank_name": "Push/Pull"
+        "rank_name": "Push/Pull",
+        "granted_by": "MCI 4"
       },
       {
         "category": "manoeuvre",
         "name": "Strength Performance",
         "rating": 4,
-        "rank_name": "Stronger Than You"
+        "rank_name": "Stronger Than You",
+        "granted_by": "MCI 5"
       },
       {
         "category": "manoeuvre",
         "name": "Weapon and Shield",
         "rating": 1,
-        "rank_name": "Shield Bash"
+        "rank_name": "Shield Bash",
+        "granted_by": "MCI 5, Weap&Shiel 1"
       },
       {
         "category": "manoeuvre",
         "name": "Weapon and Shield",
         "rating": 3,
-        "rank_name": "Pin Weapon"
+        "rank_name": "Pin Weapon",
+        "granted_by": "MCI 5, Weap&Shiel 3"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Ashen Path",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Defensive Combat",
+            "rating": 1,
+            "qualifier": "Weaponry"
+          },
+          {
+            "category": "domain",
+            "name": "Safe Place",
+            "rating": 3
+          },
+          {
+            "category": "general",
+            "name": "Indomitable",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Area of Expertise",
+            "rating": 1,
+            "qualifier": "Coward Punch"
+          },
+          {
+            "category": "manoeuvre",
+            "name": "Stronger Than You",
+            "rating": 1,
+            "rank_name": "Stronger Than You"
+          }
+        ]
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [
@@ -3846,7 +4355,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 4,
         "skills": 0,
@@ -3854,10 +4365,35 @@
         "powers": 14,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Conrad Sondergaard",
+    "honorific": null,
+    "moniker": null,
     "player": "Arnold W",
     "concept": "Occult gentleman detective",
     "pronouns": "he/him",
@@ -3878,7 +4414,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 7,
-    "xp_total": 40,
+    "xp_total": 25,
     "xp_spent": 40,
     "status": {
       "city": 2,
@@ -4051,12 +4587,45 @@
         "category": "influence",
         "name": "Contacts",
         "rating": 2,
-        "area": "Police, Underworld"
+        "area": "Police, Underworld",
+        "granted_by": "Prof. Training"
       },
       {
         "category": "general",
         "name": "Acute Senses",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "Private Investigator",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 2,
+            "qualifier": "Police, Underworld"
+          },
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [
@@ -4286,7 +4855,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -4294,10 +4865,35 @@
         "powers": 24,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Cyrus Reynolds",
+    "honorific": null,
+    "moniker": null,
     "player": "Bill C",
     "concept": "Globetrotting DJ",
     "pronouns": "he/him",
@@ -4318,7 +4914,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 26,
+    "xp_total": 18,
     "xp_spent": 16,
     "status": {
       "city": 2,
@@ -4526,6 +5122,21 @@
         "name": "Language",
         "rating": 1,
         "qualifier": "Spanish"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
       }
     ],
     "touchstones": [
@@ -4799,7 +5410,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -4807,10 +5420,35 @@
         "powers": 3,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Edna Judge",
+    "honorific": null,
+    "moniker": null,
     "player": "Arlo V",
     "concept": "Mother Heretic",
     "pronouns": "she/her",
@@ -4831,7 +5469,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 4,
-    "xp_total": 46,
+    "xp_total": 25,
     "xp_spent": 35,
     "status": {
       "city": 2,
@@ -5011,6 +5649,21 @@
         "category": "general",
         "name": "Stigmata",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 3
       }
     ],
     "touchstones": [],
@@ -5239,7 +5892,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 6,
@@ -5247,10 +5902,35 @@
         "powers": 8,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Einar Solveig",
+    "honorific": null,
+    "moniker": null,
     "player": "Nathan H",
     "concept": "Techno Viking",
     "pronouns": "he/him",
@@ -5271,7 +5951,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 5,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 53,
     "status": {
       "city": 2,
@@ -5500,6 +6180,24 @@
         "category": "general",
         "name": "Swarm Form",
         "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 2,
+        "shared_with": [
+          "René Meyer"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1
       },
       {
         "category": "manoeuvre",
@@ -5811,7 +6509,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -5819,10 +6519,35 @@
         "powers": 18,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Eve Lockridge",
+    "honorific": null,
+    "moniker": null,
     "player": "Jamie",
     "concept": "Benevolent Millionaire",
     "pronouns": "they/them",
@@ -5843,7 +6568,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 24,
+    "xp_total": 18,
     "xp_spent": 22,
     "status": {
       "city": 3,
@@ -6006,18 +6731,21 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Underworld"
+        "area": "Underworld",
+        "granted_by": "MCI 4"
       },
       {
         "category": "influence",
         "name": "Contacts",
         "rating": 2,
-        "area": "bureaucracy, industry"
+        "area": "bureaucracy, industry",
+        "granted_by": "MCI 1&2"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 5
+        "rating": 5,
+        "granted_by": "MCI 5"
       },
       {
         "category": "influence",
@@ -6033,7 +6761,8 @@
       {
         "category": "general",
         "name": "Fixer",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MCI 3"
       },
       {
         "category": "general",
@@ -6055,6 +6784,56 @@
         "category": "general",
         "name": "Secret Society Junkie",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 2,
+            "qualifier": "bureaucracy, industry"
+          },
+          {
+            "category": "general",
+            "name": "Fixer",
+            "rating": 2
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Underworld"
+          },
+          {
+            "category": "influence",
+            "name": "Resources",
+            "rating": 5
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -6309,7 +7088,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -6317,10 +7098,35 @@
         "powers": 6,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Ivana Horvat",
+    "honorific": null,
+    "moniker": null,
     "player": "Lyn",
     "concept": "Trauma Survivor",
     "pronouns": "she/her",
@@ -6341,7 +7147,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 50,
     "status": {
       "city": 1,
@@ -6582,29 +7388,52 @@
         "category": "influence",
         "name": "Retainer",
         "rating": 1,
-        "area": "Void-Bird"
+        "area": "Void-Bird",
+        "granted_by": "Falconry"
       },
       {
         "category": "influence",
         "name": "Retainer",
         "rating": 1,
-        "area": "Void-Dog"
+        "area": "Void-Dog",
+        "granted_by": "K-9"
       },
       {
         "category": "general",
         "name": "Mandragora Garden",
         "rating": 3,
-        "qualifier": "Shared (Keeper)"
+        "qualifier": "Shared (Keeper)",
+        "granted_by": "Crone Status"
       },
       {
         "category": "general",
         "name": "Opening the Void",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MDB"
       },
       {
         "category": "general",
         "name": "The Mother-Daughter Bond",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 3,
+        "granted_by": "MCI 1",
+        "shared_with": [
+          "Charlie Ballsack",
+          "Keeper"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Charlie Ballsack",
+          "Keeper"
+        ]
       },
       {
         "category": "manoeuvre",
@@ -6640,25 +7469,68 @@
         "category": "manoeuvre",
         "name": "Powered Projectile",
         "rating": 1,
-        "rank_name": "Quick Reload"
+        "rank_name": "Quick Reload",
+        "granted_by": "MCI 2"
       },
       {
         "category": "manoeuvre",
         "name": "Powered Projectile",
         "rating": 2,
-        "rank_name": "Intercept Shot"
+        "rank_name": "Intercept Shot",
+        "granted_by": "MCI 4"
       },
       {
         "category": "manoeuvre",
         "name": "Powered Projectile",
         "rating": 3,
-        "rank_name": "Penetration"
+        "rank_name": "Penetration",
+        "granted_by": "MCI 4"
       },
       {
         "category": "manoeuvre",
         "name": "Powered Projectile",
         "rating": 4,
-        "rank_name": "Skewer"
+        "rank_name": "Skewer",
+        "granted_by": "MCI 4"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 4,
+        "cult_name": "The Ashen Path",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "domain",
+            "name": "Safe Place",
+            "rating": 3
+          },
+          {
+            "category": "manoeuvre",
+            "name": "Quick Reload",
+            "rating": 1,
+            "rank_name": "Quick Reload"
+          },
+          {
+            "category": "general",
+            "name": "Indomitable",
+            "rating": 2
+          },
+          {
+            "category": "manoeuvre",
+            "name": "Intercept Shot",
+            "rating": 1,
+            "rank_name": "Intercept Shot"
+          },
+          null
+        ]
       }
     ],
     "touchstones": [
@@ -6953,7 +7825,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -6961,10 +7835,35 @@
         "powers": 23,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Jack Fallow",
+    "honorific": null,
+    "moniker": null,
     "player": "George T",
     "concept": "Failed Adult Film Director",
     "pronouns": "he/him",
@@ -6989,7 +7888,7 @@
     ],
     "blood_potency": 1,
     "humanity": 4,
-    "xp_total": 40,
+    "xp_total": 25,
     "xp_spent": 39,
     "status": {
       "city": 2,
@@ -7211,24 +8110,28 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Media"
+        "area": "Media",
+        "granted_by": "MCI L4"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Occult"
+        "area": "Occult",
+        "granted_by": "VM"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Police"
+        "area": "Police",
+        "granted_by": "VM"
       },
       {
         "category": "general",
         "name": "Eye for the Strange",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MCI L3"
       },
       {
         "category": "general",
@@ -7248,7 +8151,8 @@
       {
         "category": "general",
         "name": "Trained Observer",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "MCI L2"
       },
       {
         "category": "general",
@@ -7256,16 +8160,68 @@
         "rating": 3
       },
       {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
         "category": "manoeuvre",
         "name": "Cacophony Savvy",
         "rating": 1,
-        "rank_name": "Gettin' Up"
+        "rank_name": "Gettin' Up",
+        "granted_by": "MCI 5"
       },
       {
         "category": "manoeuvre",
         "name": "Cacophony Savvy",
         "rating": 2,
-        "rank_name": "Backpacker"
+        "rank_name": "Backpacker",
+        "granted_by": "MCI 5"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Moulding Room",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          {
+            "category": "general",
+            "name": "Trained Observer",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Eye for the Strange",
+            "rating": 2
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Media"
+          },
+          {
+            "category": "manoeuvre",
+            "name": "Gettin' Up",
+            "rating": 1,
+            "rank_name": "Gettin' Up"
+          }
+        ]
       }
     ],
     "touchstones": [],
@@ -7553,7 +8509,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -7561,10 +8519,35 @@
         "powers": 18,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
-    "name": "Jelle 'Gel' Dunneweld",
+    "name": "Jelle Dunneweld",
+    "honorific": "Lord",
+    "moniker": "Gel",
     "player": "Stefan S",
     "concept": "Former Beat Cop",
     "pronouns": "he/him",
@@ -7585,7 +8568,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
-    "xp_total": 14,
+    "xp_total": 10,
     "xp_spent": 14,
     "status": {
       "city": 1,
@@ -7754,7 +8737,23 @@
         "category": "influence",
         "name": "Contacts",
         "rating": 2,
-        "area": "Police, Street, Underworld"
+        "area": "Police, Street, Underworld",
+        "granted_by": "Prof. Training"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
       },
       {
         "category": "manoeuvre",
@@ -7767,6 +8766,33 @@
         "name": "Police Tactics",
         "rating": 2,
         "rank_name": "Weapon Retention"
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "Police",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 2,
+            "qualifier": "Police, Street, Underworld"
+          },
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [],
@@ -7985,7 +9011,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 0
+      },
       "spent": {
         "attributes": 0,
         "skills": 4,
@@ -7993,10 +9021,35 @@
         "powers": 0,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Keeper",
+    "honorific": null,
+    "moniker": null,
     "player": "Symon",
     "concept": "Fallen Elder",
     "pronouns": "he/she/they",
@@ -8021,7 +9074,7 @@
     ],
     "blood_potency": 2,
     "humanity": 3,
-    "xp_total": 62,
+    "xp_total": 36,
     "xp_spent": 61,
     "status": {
       "city": 1,
@@ -8263,17 +9316,20 @@
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 5
+        "rating": 5,
+        "granted_by": "Safe Word"
       },
       {
         "category": "general",
         "name": "Closed Book",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI L5"
       },
       {
         "category": "general",
         "name": "Eidetic Memory",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "MCI L1"
       },
       {
         "category": "general",
@@ -8283,18 +9339,21 @@
       {
         "category": "general",
         "name": "Indomitable",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MCI L3"
       },
       {
         "category": "general",
         "name": "Mandragora Garden",
         "rating": 3,
-        "qualifier": "Shared (Ivana)"
+        "qualifier": "Shared (Ivana)",
+        "granted_by": "Crone Status"
       },
       {
         "category": "general",
         "name": "Peacemaker",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI L4"
       },
       {
         "category": "general",
@@ -8304,7 +9363,75 @@
       {
         "category": "general",
         "name": "Table Turner",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "MCI L2"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 3,
+        "shared_with": [
+          "Charlie Ballsack",
+          "Ivana Horvat"
+        ],
+        "granted_by": "Crone Status"
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 2,
+        "shared_with": [
+          "Charlie Ballsack",
+          "Ivana Horvat"
+        ],
+        "granted_by": "Crone Status"
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Remembrance of the Lidles Eye",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Eidetic Memory",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Table Turner",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Indomitable",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Peacemaker",
+            "rating": 3
+          },
+          {
+            "category": "general",
+            "name": "Closed Book",
+            "rating": 3
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -8583,7 +9710,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -8591,10 +9720,35 @@
         "powers": 28,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Kirk Grimm",
+    "honorific": null,
+    "moniker": null,
     "player": "Phillip G",
     "concept": "Church Grim",
     "pronouns": "he/him",
@@ -8615,7 +9769,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 53,
+    "xp_total": 25,
     "xp_spent": 43,
     "status": {
       "city": 1,
@@ -8808,6 +9962,16 @@
         "category": "general",
         "name": "Sorcerous Eunuch",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
       },
       {
         "category": "manoeuvre",
@@ -9071,7 +10235,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 4
+      },
       "spent": {
         "attributes": 5,
         "skills": 4,
@@ -9079,10 +10245,36 @@
         "powers": 3,
         "special": 2
       }
-    }
+    },
+    "retired": true,
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Livia",
+    "honorific": null,
+    "moniker": null,
     "player": "Clair H",
     "concept": "Health Guru",
     "pronouns": "she/her",
@@ -9103,7 +10295,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 20,
+    "xp_total": 15,
     "xp_spent": 17,
     "status": {
       "city": 1,
@@ -9291,12 +10483,14 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Health"
+        "area": "Health",
+        "granted_by": "MCI 5"
       },
       {
         "category": "general",
         "name": "Closed Book",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MCI 3"
       },
       {
         "category": "general",
@@ -9306,7 +10500,8 @@
       {
         "category": "general",
         "name": "Inspiring",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI 4"
       },
       {
         "category": "general",
@@ -9322,7 +10517,60 @@
       {
         "category": "general",
         "name": "Striking Looks",
+        "rating": 1,
+        "granted_by": "MCI 2"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 3,
+        "granted_by": "Lorekeeper"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "",
+        "benefits": [
+          "Specialisation: Holistic Awareness",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "specialisation",
+            "name": "Holistic Awareness"
+          },
+          {
+            "category": "general",
+            "name": "Striking Looks",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Closed Book",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Inspiring",
+            "rating": 3
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Health"
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -9572,7 +10820,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -9580,10 +10830,35 @@
         "powers": 10,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Ludica Lachramore",
+    "honorific": "Lady",
+    "moniker": null,
     "player": "Sky K",
     "concept": "Information Broker",
     "pronouns": "she/her",
@@ -9604,7 +10879,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 30,
+    "xp_total": 20,
     "xp_spent": 27,
     "status": {
       "city": 2,
@@ -9784,17 +11059,20 @@
         "category": "influence",
         "name": "Contacts",
         "rating": 3,
-        "area": "high society, occult, politics"
+        "area": "high society, occult, politics",
+        "granted_by": "MCI L2"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 5
+        "rating": 5,
+        "granted_by": "MCI L1"
       },
       {
         "category": "general",
         "name": "Alternate Identity",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI L4"
       },
       {
         "category": "general",
@@ -9809,7 +11087,8 @@
       {
         "category": "general",
         "name": "Peacemaker",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI L5"
       },
       {
         "category": "general",
@@ -9817,10 +11096,64 @@
         "rating": 1
       },
       {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
         "category": "manoeuvre",
         "name": "Cacophony Savvy",
         "rating": 1,
         "rank_name": "Gettin' Up"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "<NAME REQUIRED>",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "influence",
+            "name": "Resources",
+            "rating": 5
+          },
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 3,
+            "qualifier": "high society, occult, politics"
+          },
+          null,
+          {
+            "category": "general",
+            "name": "Alternate Identity",
+            "rating": 3
+          },
+          {
+            "category": "general",
+            "name": "Peacemaker",
+            "rating": 3
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -10065,7 +11398,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -10073,10 +11408,35 @@
         "powers": 6,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
-    "name": "Macheath 'Mac'",
+    "name": "Macheath",
+    "honorific": null,
+    "moniker": "Mac",
     "player": "Charlie BC",
     "concept": "Urban Gorilla",
     "pronouns": "he/him",
@@ -10097,7 +11457,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 5,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 52,
     "status": {
       "city": 2,
@@ -10315,7 +11675,8 @@
         "category": "influence",
         "name": "Contacts",
         "rating": 3,
-        "area": "street, transport, underworld"
+        "area": "street, transport, underworld",
+        "granted_by": "Prof Training"
       },
       {
         "category": "general",
@@ -10345,6 +11706,28 @@
         "name": "Regular",
         "rating": 1,
         "rank_name": "Clinch Strike"
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 5,
+        "role": "Urban Gurrilla",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [
@@ -10594,7 +11977,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -10602,10 +11987,35 @@
         "powers": 23,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Magda",
+    "honorific": null,
+    "moniker": null,
     "player": "Tiana C",
     "concept": "Faithful Militant",
     "pronouns": "she/her",
@@ -10626,7 +12036,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
-    "xp_total": 17,
+    "xp_total": 13,
     "xp_spent": 17,
     "status": {
       "city": 1,
@@ -10794,6 +12204,29 @@
       {
         "category": "general",
         "name": "Flock",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "shared_with": [
+          "Carver",
+          "Hazel"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Carver",
+          "Hazel"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
         "rating": 2
       }
     ],
@@ -11024,7 +12457,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 1,
@@ -11032,10 +12467,35 @@
         "powers": 12,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
-    "name": "Margaret 'Doc' Kane",
+    "name": "Margaret Kane",
+    "honorific": "Doctor",
+    "moniker": "Doc",
     "player": "Jessica BC",
     "concept": "Ex-Millitary Night Doctor",
     "pronouns": "she/her",
@@ -11056,7 +12516,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 6,
-    "xp_total": 20,
+    "xp_total": 15,
     "xp_spent": 17,
     "status": {
       "city": 2,
@@ -11241,7 +12701,8 @@
         "category": "influence",
         "name": "Contacts",
         "rating": 2,
-        "area": "health, politics"
+        "area": "health, politics",
+        "granted_by": "Prof Training"
       },
       {
         "category": "general",
@@ -11251,7 +12712,8 @@
       {
         "category": "general",
         "name": "Night Doctor Surgery",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "Carthian Status"
       },
       {
         "category": "manoeuvre",
@@ -11270,6 +12732,28 @@
         "name": "Three Heads of Kerberos",
         "rating": 3,
         "rank_name": "Cowing - Competitive"
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 3,
+        "role": "Combat Medic",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [],
@@ -11502,7 +12986,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -11510,10 +12996,35 @@
         "powers": 9,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Reed Justice",
+    "honorific": "Lord",
+    "moniker": null,
     "player": "Conan F",
     "concept": "Opportunistic Predator",
     "pronouns": "he/him",
@@ -11534,7 +13045,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 30,
+    "xp_total": 19,
     "xp_spent": 28,
     "status": {
       "city": 2,
@@ -11741,6 +13252,16 @@
         "name": "Status",
         "rating": 3,
         "area": "underworld"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
       }
     ],
     "touchstones": [
@@ -11960,7 +13481,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 4
+      },
       "spent": {
         "attributes": 0,
         "skills": 2,
@@ -11968,10 +13491,35 @@
         "powers": 9,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "René Meyer",
+    "honorific": null,
+    "moniker": null,
     "player": "Luca V",
     "concept": "Insurgent",
     "pronouns": "she/her",
@@ -11992,7 +13540,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 56,
+    "xp_total": 33,
     "xp_spent": 54,
     "status": {
       "city": 1,
@@ -12202,7 +13750,8 @@
         "category": "influence",
         "name": "Contacts",
         "rating": 4,
-        "area": "industry, politics, underworld, legal"
+        "area": "industry, politics, underworld, legal",
+        "granted_by": "Prof Training"
       },
       {
         "category": "influence",
@@ -12242,6 +13791,19 @@
         "rating": 1
       },
       {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 2,
+        "shared_with": [
+          "Einar Solveig"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
         "category": "manoeuvre",
         "name": "Cacophony Savvy",
         "rating": 1,
@@ -12264,6 +13826,28 @@
         "name": "Marksmanship",
         "rating": 1,
         "rank_name": "Through the Crosshairs"
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 2,
+        "role": "",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [],
@@ -12532,7 +14116,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 4
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -12540,10 +14126,35 @@
         "powers": 23,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "René St. Dominique",
+    "honorific": "Lord",
+    "moniker": null,
     "player": "Matt B",
     "concept": "Dillitant",
     "pronouns": "he/him",
@@ -12564,7 +14175,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 5,
-    "xp_total": 30,
+    "xp_total": 23,
     "xp_spent": 24,
     "status": {
       "city": 1,
@@ -12764,27 +14375,69 @@
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "HM"
       },
       {
         "category": "influence",
         "name": "Contacts",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "HM, PT"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 1
+        "rating": 1,
+        "granted_by": "HM"
       },
       {
         "category": "influence",
         "name": "Retainer",
-        "rating": 5
+        "rating": 5,
+        "granted_by": "Invested+PT rebate"
       },
       {
         "category": "general",
         "name": "Notary",
         "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "granted_by": "Invested"
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "Voudun Priest",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [
@@ -13014,7 +14667,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 4,
@@ -13022,13 +14677,38 @@
         "powers": 13,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
     "name": "Ryan Ambrose",
+    "honorific": "Lord",
+    "moniker": null,
     "player": "Patrick T",
     "concept": "Ruthless Rising Star",
-    "pronouns": null,
+    "pronouns": "he/him",
     "clan": "Gangrel",
     "bloodline": null,
     "covenant": "Invictus",
@@ -13046,7 +14726,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
-    "xp_total": 16,
+    "xp_total": 22,
     "xp_spent": 15,
     "status": {
       "city": 1,
@@ -13236,6 +14916,16 @@
         "name": "Staff",
         "rating": 1,
         "area": "Larceny"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
       },
       {
         "category": "manoeuvre",
@@ -13477,7 +15167,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 0
+      },
       "spent": {
         "attributes": 4,
         "skills": 2,
@@ -13485,10 +15177,35 @@
         "powers": 11,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
   },
   {
-    "name": "Sister Hazel",
+    "name": "Hazel",
+    "honorific": "Sister",
+    "moniker": null,
     "player": "Marni K",
     "concept": "Dogmatic Nun Bruiser",
     "pronouns": "she/her",
@@ -13509,7 +15226,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 4,
-    "xp_total": 28,
+    "xp_total": 19,
     "xp_spent": 28,
     "status": {
       "city": 1,
@@ -13691,6 +15408,30 @@
         "category": "general",
         "name": "Stigmata",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "shared_with": [
+          "Carver",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Carver",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 4,
+        "granted_by": "Flock"
       },
       {
         "category": "manoeuvre",
@@ -13980,7 +15721,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -13988,10 +15731,35 @@
         "powers": 3,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Tegan Groves",
+    "honorific": null,
+    "moniker": null,
     "player": "Alana W",
     "concept": null,
     "pronouns": "she/her",
@@ -14012,7 +15780,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 42,
+    "xp_total": 21,
     "xp_spent": 38,
     "status": {
       "city": 2,
@@ -14223,6 +15991,16 @@
       {
         "category": "general",
         "name": "Pusher",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
         "rating": 1
       }
     ],
@@ -14458,7 +16236,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 8,
         "skills": 2,
@@ -14466,10 +16246,35 @@
         "powers": 6,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
     "name": "Wan Yelong",
+    "honorific": "Lord",
+    "moniker": null,
     "player": "Michael V",
     "concept": "Handler",
     "pronouns": "he/him",
@@ -14490,7 +16295,7 @@
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
-    "xp_total": 20,
+    "xp_total": 15,
     "xp_spent": 20,
     "status": {
       "city": 2,
@@ -14684,7 +16489,8 @@
         "category": "influence",
         "name": "Contacts",
         "rating": 2,
-        "area": "high society, politics"
+        "area": "high society, politics",
+        "granted_by": "Prof Training"
       },
       {
         "category": "influence",
@@ -14717,6 +16523,33 @@
         "name": "Multilingual",
         "rating": 1,
         "qualifier": "Mandarin, Mongolian"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 5,
+        "role": "Diplomatic Attache",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
       }
     ],
     "touchstones": [
@@ -14951,7 +16784,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 3
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -14959,10 +16794,35 @@
         "powers": 12,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   },
   {
-    "name": "Yusuf 'Mammon' Kalusicj",
+    "name": "Yusuf Kalusicj",
+    "honorific": null,
+    "moniker": "Mammon",
     "player": "Peter K",
     "concept": "Nightmate Shadow Broker",
     "pronouns": "he/him",
@@ -14983,7 +16843,7 @@
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 4,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 54,
     "status": {
       "city": 2,
@@ -15182,7 +17042,8 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Finance"
+        "area": "Finance",
+        "granted_by": "MCI 4"
       },
       {
         "category": "influence",
@@ -15194,23 +17055,27 @@
         "category": "influence",
         "name": "Allies",
         "rating": 2,
-        "area": "Underworld"
+        "area": "Underworld",
+        "granted_by": "MCI 2"
       },
       {
         "category": "influence",
         "name": "Contacts",
         "rating": 5,
-        "area": "Police, High Society, Occult, Media, Street"
+        "area": "Police, High Society, Occult, Media, Street",
+        "granted_by": "MCI 1"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 3
+        "rating": 3,
+        "granted_by": "MCI 5"
       },
       {
         "category": "general",
         "name": "Air of Menace",
-        "rating": 2
+        "rating": 2,
+        "granted_by": "MCI 3"
       },
       {
         "category": "general",
@@ -15231,6 +17096,61 @@
         "category": "general",
         "name": "Secret Society Junkie",
         "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 1,
+            "qualifier": "Police, High Society, Occult, Media, Street"
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 1,
+            "qualifier": "Underworld"
+          },
+          {
+            "category": "general",
+            "name": "Air of Menace",
+            "rating": 2
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Finance"
+          },
+          {
+            "category": "influence",
+            "name": "Resources",
+            "rating": 3
+          }
+        ]
       }
     ],
     "touchstones": [
@@ -15494,7 +17414,9 @@
       }
     ],
     "xp_log": {
-      "earned": {},
+      "earned": {
+        "game": 1
+      },
       "spent": {
         "attributes": 0,
         "skills": 0,
@@ -15502,6 +17424,153 @@
         "powers": 18,
         "special": 0
       }
-    }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ]
+  },
+  {
+    "name": "Julia",
+    "honorific": "Lady",
+    "moniker": null,
+    "player": "Amelia Inglis",
+    "concept": "Renfield's EA",
+    "pronouns": null,
+    "clan": "Nosferatu",
+    "bloodline": null,
+    "covenant": "Invictus",
+    "mask": null,
+    "dirge": null,
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": null,
+      "mask_all": null,
+      "dirge_1wp": null,
+      "dirge_all": null
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 7,
+    "xp_total": 10,
+    "xp_spent": 8,
+    "status": {
+      "city": 0,
+      "clan": 0,
+      "covenant": 0
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 1,
+        "bonus": 0
+      }
+    },
+    "skills": {},
+    "disciplines": {
+      "Celerity": 1,
+      "Nightmare": 1,
+      "Obfuscate": 3
+    },
+    "powers": [
+      {
+        "category": "devotion",
+        "name": "Wraith's Presence"
+      }
+    ],
+    "merits": [],
+    "touchstones": [],
+    "banes": [
+      {
+        "name": "Lonely Curse",
+        "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 0
+      },
+      "spent": {}
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ]
   }
 ]

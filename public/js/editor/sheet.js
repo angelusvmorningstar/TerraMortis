@@ -5,10 +5,10 @@
 import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
-import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE } from '../data/helpers.js';
+import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
-import { xpToDots, xpEarned, xpSpent, xpLeft, meritBdRow } from './xp.js';
+import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, buildMeritOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence } from './domain.js';
@@ -69,23 +69,29 @@ export function shRenderAttributes(c,editMode) {
     const caOpts=(CLAN_ATTR_OPTIONS[c.clan]||[]).map(a=>'<option'+(c.clan_attribute===a?' selected':'')+'>'+a+'</option>').join('');
     h+='<div class="sh-clan-attr-row">Favoured Attribute <select onchange="shSetClanAttr(this.value)">'+caOpts+'</select></div>';
     const pri=c.attribute_priorities||{};
+    if(!pri.Mental&&!pri.Physical&&!pri.Social){pri.Mental='Primary';pri.Physical='Secondary';pri.Social='Tertiary';}
     h+='<div class="sh-attr-col-hdr">';
-    catOrder.forEach(cat=>{const curPri=pri[cat]||'Primary',budget=PRI_BUDGETS[curPri]||5,usedCP=(ATTR_CATS[cat]||[]).reduce((s,a)=>s+(((c.attr_creation||{})[a]||{}).cp||0),0),rem=budget-usedCP;
+    catOrder.forEach(cat=>{const curPri=pri[cat]||'Tertiary',budget=PRI_BUDGETS[curPri]||3,usedCP=(ATTR_CATS[cat]||[]).reduce((s,a)=>s+(((c.attr_creation||{})[a]||{}).cp||0),0),rem=budget-usedCP;
       h+='<div class="sh-attr-pri"><select onchange="shSetPriority(\''+cat+'\',this.value)">'+PRI_LABELS.map(p=>'<option'+(curPri===p?' selected':'')+'>'+p+'</option>').join('')+'</select><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span></div>';});
     h+='</div>';
   }
   h+='<div class="sh-attr-grid">';
-  ATTR_ROWS.forEach(row=>row.forEach(a=>{
-    const base=getAttrVal(c,a),bonus=getAttrBonus(c,a),isClan=c.clan_attribute===a;
-    if(editMode) h+='<div>';
-    h+='<div class="attr-cell'+(editMode?' attr-cell-edit':'')+'"><div class="attr-name-sh">'+a+(editMode&&isClan?'<span class="attr-clan-star">\u2605</span>':'')+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
-    if(editMode){
+  if(editMode){
+    const ATTR_COLS=[ATTR_CATS.Mental,ATTR_CATS.Physical,ATTR_CATS.Social];
+    ATTR_COLS.forEach(col=>{h+='<div>';col.forEach(a=>{
+      const base=getAttrVal(c,a),bonus=getAttrBonus(c,a),isClan=c.clan_attribute===a;
+      h+='<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">'+a+(isClan?'<span class="attr-clan-star">\u2605</span>':'')+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
       const cr=(c.attr_creation||{})[a]||{cp:0,free:0,xp:0},aE=a.replace(/'/g,"\\'"),ab=(cr.cp||0)+(cr.free||0),xd=xpToDots(cr.xp||0,ab,4),tot=ab+xd;
       h+='<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+tot+'</span></div></div>';
       if(bonus>0){const src=BONUS_SOURCE[a]||'';h+='<div class="attr-derived-row"><span class="bd-src">+'+bonus+'</span>'+(src?'<span class="bd-src-lbl">('+src+')</span>':'')+'<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">'+(tot+bonus)+'</span></div></div>';}
       h+='</div></div>';
-    }
-  }));
+    });h+='</div>';});
+  } else {
+    ATTR_ROWS.forEach(row=>row.forEach(a=>{
+      const base=getAttrVal(c,a),bonus=getAttrBonus(c,a);
+      h+='<div class="attr-cell"><div class="attr-name-sh">'+a+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
+    }));
+  }
   h+='</div></div>';
   return h;
 }
@@ -95,8 +101,9 @@ export function shRenderSkills(c,editMode) {
   let h='<div class="sh-sec"><div class="sh-sec-title">Skills</div>';
   if(editMode){
     const sPri=c.skill_priorities||{};
+    if(!sPri.Mental&&!sPri.Physical&&!sPri.Social){sPri.Mental='Primary';sPri.Physical='Secondary';sPri.Social='Tertiary';}
     h+='<div class="sh-attr-col-hdr">';
-    skillCatOrder.forEach(cat=>{const curPri=sPri[cat]||'Primary',budget=SKILL_PRI_BUDGETS[curPri]||11,usedCP=(SKILL_CATS[cat]||[]).reduce((s,sk)=>s+(((c.skill_creation||{})[sk]||{}).cp||0),0),rem=budget-usedCP;
+    skillCatOrder.forEach(cat=>{const curPri=sPri[cat]||'Tertiary',budget=SKILL_PRI_BUDGETS[curPri]||4,usedCP=(SKILL_CATS[cat]||[]).reduce((s,sk)=>s+(((c.skill_creation||{})[sk]||{}).cp||0),0),rem=budget-usedCP;
       h+='<div class="sh-attr-pri"><select onchange="shSetSkillPriority(\''+cat+'\',this.value)">'+PRI_LABELS.map(p=>'<option'+(curPri===p?' selected':'')+'>'+p+'</option>').join('')+'</select><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span></div>';});
     h+='</div>';
     const totalSpecs=Object.values(c.skills||{}).reduce((s,sk)=>s+((sk&&sk.specs)?sk.specs.length:0),0);
@@ -106,16 +113,17 @@ export function shRenderSkills(c,editMode) {
   }
   h+='<div class="skills-3col">';
   if(editMode){
-    SKILL_COLS.forEach(col=>{h+='<div>';col.forEach(s=>{
+    for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
+      const s=col[ri];
       const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
-      h+='<div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
+      h+='<div class="sk-edit-cell"><div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
       const cr=(c.skill_creation||{})[s]||{cp:0,free:0,xp:0},sE=s.replace(/'/g,"\\'"),sb=(cr.cp||0)+(cr.free||0),sxd=xpToDots(cr.xp||0,sb,2),st2=sb+sxd;
       h+='<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+st2+'</span></div></div>';
       const specs=sk.specs||[];
       h+='<div class="sk-spec-list">';
       specs.forEach((sp2,si)=>{h+='<div class="sk-spec-row"><input class="sk-spec-input" value="'+esc(sp2)+'" onchange="shEditSpec(\''+sE+'\','+si+',this.value)" placeholder="Specialisation">'+(hasAoE(c,sp2)?'<span style="color:rgba(140,200,140,.8);font-size:8px;font-family:var(--fh);white-space:nowrap">+2</span>':'')+'<button class="sk-spec-rm" onclick="shRemoveSpec(\''+sE+'\','+si+')" title="Remove">&times;</button></div>';});
-      h+='<button class="sk-spec-add" onclick="shAddSpec(\''+sE+'\')">+ spec</button></div></div>';
-    });h+='</div>';});
+      h+='<button class="sk-spec-add" onclick="shAddSpec(\''+sE+'\')">+ spec</button></div></div></div>';
+    });}
   } else {
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
       const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
@@ -183,7 +191,7 @@ export function shRenderInfluenceMerits(c,editMode) {
   const inflM=(c.merits||[]).filter(m=>m.category==='influence');
   if(!editMode&&!inflM.length) return '';
   const totalInfl=calcTotalInfluence(c);
-  let h='<div class="sh-sec"><div class="sh-sec-title">Influence Merits</div><div class="merit-list">';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits</div><div class="merit-list">';
   if(editMode){
     const cInf=calcContactsInfluence(c),cTD=Math.min(5,inflM.filter(m=>m.name==='Contacts').reduce((s,m)=>s+(m.rating||0),0));
     inflM.forEach((m,idx)=>{const isC=m.name==='Contacts',inf=isC?0:calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
@@ -215,7 +223,7 @@ function _inflArea(m,idx,isC) {
 export function shRenderDomainMerits(c,editMode) {
   const chars=state.chars,domM=(c.merits||[]).filter(m=>m.category==='domain');
   if(!editMode&&!domM.length) return '';
-  let h='<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits</div><div class="merit-list">';
   if(editMode){
     domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
       h+='<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit('+di+',\'name\',this.value)">'+tOpts+'</select><span class="dom-contrib-lbl">My dots: '+shDots(dd)+'</span><span class="dom-total-lbl" title="Total across all contributors">Total: '+shDots(eT)+'</span><button class="dev-rm-btn" onclick="shRemoveDomMerit('+di+')" title="Remove">&times;</button></div>';
@@ -234,13 +242,21 @@ export function shRenderDomainMerits(c,editMode) {
 export function shRenderStandingMerits(c,editMode) {
   const standM=(c.merits||[]).filter(m=>m.category==='standing');
   if(!editMode&&!standM.length) return '';
-  let h='<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="merit-list">';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Standing Merits</div><div class="merit-list">';
   standM.forEach((m,si)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
     if(m.name==='Mystery Cult Initiation') h+=_renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB);
     else if(m.name==='Professional Training') h+=_renderPT(c,m,si,rIdx,mc,dd,editMode);
     else if(editMode){h+='<div class="infl-edit-row"><input type="text" class="gen-name-input" value="'+esc(m.name)+'" placeholder="Merit name" onchange="shEditStandMerit('+si+',\'name\',this.value)"><span class="infl-dots-derived">'+shDots(dd)+'</span></div>';h+=meritBdRow(rIdx,mc);}
     else{const sub=m.cult_name||m.role||'',assets=m.asset_skills&&m.asset_skills.length?m.asset_skills.join(', '):'';h+='<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">'+esc(m.name)+'</div>'+(sub?'<div class="merit-sub-sh">'+esc(sub)+'</div>':'')+(assets?'<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: '+esc(assets)+'</div>':'')+'</div><span class="merit-dots-sh">'+shDots(m.rating)+'</span></div>';}
   });
+  if(editMode){
+    const hasMCI=standM.some(m=>m.name==='Mystery Cult Initiation');
+    const hasPT=standM.some(m=>m.name==='Professional Training');
+    h+='<div class="dev-add-row">';
+    if(!hasMCI) h+='<button class="dev-add-btn" onclick="shAddStandMCI()">+ Add MCI</button>';
+    if(!hasPT) h+='<button class="dev-add-btn" onclick="shAddStandPT()">+ Add Prof. Training</button>';
+    h+='</div>';
+  }
   h+='</div></div>';return h;
 }
 function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
@@ -339,15 +355,17 @@ export function renderSheet(c) {
   let h='';
   // Desktop layout hint — admin CSS uses this for 3-col grid
   const isDesktop = el.closest('.cd-sheet');
-  if (isDesktop) h += '<div class="sh-desktop"><div class="sh-dcol sh-dcol-left">';
+  if (isDesktop) h += '<div class="sh-desktop'+(editMode?' sh-editing':'')+'"><div class="sh-dcol sh-dcol-left">';
   // Header
-  h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(c.name))+'</div>';
+  h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(displayName(c)))+'</div>';
+  if(editMode){h+='<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.honorific||'')+'" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.moniker||'')+'" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';}
   h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
-  if(editMode){const xl=c.xp_log||{earned:{},spent:{}},e=xl.earned||{},s=xl.spent||{},eT=xpEarned(c),sT=xpSpent(c);
-    h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+(e.starting||10)+'</td><td>Attributes</td><td>'+(s.attributes||0)+'</td></tr><tr><td>Humanity Drop</td><td>'+(e.humanity_drop||0)+'</td><td>Skills</td><td>'+(s.skills||0)+'</td></tr><tr><td>Ordeals</td><td>'+(e.ordeals||0)+'</td><td>Merits</td><td>'+(s.merits||0)+'</td></tr><tr><td>Game</td><td>'+(e.game||0)+'</td><td>Powers</td><td>'+(s.powers||0)+'</td></tr><tr><td></td><td></td><td>Special</td><td>'+(s.special||0)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
+  if(editMode){const eT=xpEarned(c),sT=xpSpent(c);
+    h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+xpStarting()+'</td><td>Attributes</td><td>'+xpSpentAttrs(c)+'</td></tr><tr><td>Humanity Drop</td><td>'+xpHumanityDrop(c)+'</td><td>Skills</td><td>'+xpSpentSkills(c)+'</td></tr><tr><td>Ordeals</td><td>'+xpOrdeals(c)+'</td><td>Merits</td><td>'+xpSpentMerits(c)+'</td></tr><tr><td>Game</td><td>'+xpGame(c)+'</td><td>Powers</td><td>'+xpSpentPowers(c)+'</td></tr><tr><td></td><td></td><td>Special</td><td>'+xpSpentSpecial(c)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
     const ords=c.ordeals||[];if(ords.length){h+='<div class="sh-ordeals">';ords.forEach((o,oi)=>{h+='<label class="sh-ordeal'+(o.complete?' done':'')+'"><input type="checkbox"'+(o.complete?' checked':'')+' onchange="shToggleOrdeal('+oi+',this.checked)"><span class="sh-ordeal-label">'+esc(o.name)+'</span></label>';});h+='</div>';}}
   h+='<div class="sh-char-body"><div class="sh-char-left">';
   if(editMode||c.concept) h+='<div class="sh-char-concept">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.concept||'')+'" onchange="shEdit(\'concept\',this.value)" placeholder="Concept">':esc(c.concept))+'</div>';
+  if(editMode||c.pronouns) h+='<div class="sh-char-concept">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.pronouns||'')+'" onchange="shEdit(\'pronouns\',this.value)" placeholder="Pronouns">':esc(c.pronouns))+'</div>';
   if(editMode){h+='<div class="exp-row"><span class="exp-lbl labeled">Mask</span><select class="sh-edit-select" style="flex:1;margin:0 6px" onchange="shEdit(\'mask\',this.value)"><option value="">(none)</option>'+MASKS_DIRGES.map(m2=>'<option'+(c.mask===m2?' selected':'')+'>'+esc(m2)+'</option>').join('')+'</select></div>';}
   else if(c.mask){h+=expRow('mask','Mask',esc(c.mask),(wp.mask_1wp?'<div><span class="exp-wp-lbl">1 WP</span> '+esc(wp.mask_1wp)+'</div>':'')+(wp.mask_all?'<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> '+esc(wp.mask_all)+'</div>':''));}
   if(editMode){h+='<div class="exp-row"><span class="exp-lbl labeled">Dirge</span><select class="sh-edit-select" style="flex:1;margin:0 6px" onchange="shEdit(\'dirge\',this.value)"><option value="">(none)</option>'+MASKS_DIRGES.map(m2=>'<option'+(c.dirge===m2?' selected':'')+'>'+esc(m2)+'</option>').join('')+'</select></div>';}
@@ -387,11 +405,11 @@ export function renderSheet(c) {
   if (isDesktop) {
     h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+'</div>';
     h+='</div>'; // end sh-dcol-left
-    h+='<div class="sh-dcol sh-dcol-mid"><div class="sh-body">'+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderManoeuvres(c)+'</div></div>';
+    h+='<div class="sh-dcol sh-dcol-mid"><div class="sh-body">'+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c)+'</div></div>';
     h+='<div class="sh-dcol sh-dcol-right"><div class="sh-body">'+shRenderDisciplines(c,editMode)+'</div></div>';
     h+='</div>'; // end sh-desktop
   } else {
-    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderManoeuvres(c)+'</div>';
+    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c)+'</div>';
   }
   const _scrollEl=el.closest('.sh-wrap')||el.parentElement||document.documentElement,_scrollTop=_scrollEl.scrollTop;
   el.innerHTML=h;_scrollEl.scrollTop=_scrollTop;

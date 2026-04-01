@@ -2,12 +2,13 @@
 
 import { apiGet, apiPut } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
-import { esc, clanIcon, covIcon, shortCov } from './data/helpers.js';
+import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
 import { initDowntimeView } from './admin/downtime-views.js';
+import { initAttendance } from './admin/attendance.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
@@ -24,7 +25,7 @@ import {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shToggleMCI, shEditMCIGrant,
+  shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shEditXP,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
@@ -120,6 +121,7 @@ function switchDomain(domain) {
   if (domain === 'engine') initSessionLog();
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
+  if (domain === 'attendance') initAttendance(chars);
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
@@ -134,19 +136,21 @@ function renderCharGrid() {
   const grid = document.getElementById('char-grid');
   const count = document.getElementById('char-count');
 
-  const sorted = [...chars].sort((a, b) => a.name.localeCompare(b.name));
+  const sorted = [...chars].sort((a, b) => sortName(a).localeCompare(sortName(b)));
+  const active = sorted.filter(c => !c.retired);
+  const retired = sorted.filter(c => c.retired);
 
-  grid.innerHTML = sorted.map((c, i) => {
+  function charCard(c) {
     const bp = c.blood_potency || 1;
     const hum = c.humanity != null ? c.humanity : '?';
     const xpL = xpLeft(c);
     const title = c.court_title ? `<span class="cc-tag title">${esc(c.court_title)}</span>` : '';
     const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
 
-    return `<div class="char-card" data-id="${c._id}">
+    return `<div class="char-card${c.retired ? ' retired' : ''}" data-id="${c._id}">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
-        <div class="cc-identity"><span class="cc-name">${esc(c.name)}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
+        <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
       </div>
       <div class="cc-mid">
         <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>
@@ -160,9 +164,16 @@ function renderCharGrid() {
         <span>XP <span class="val">${xpL}/${xpEarned(c)}</span></span>
       </div>
     </div>`;
-  }).join('');
+  }
 
-  count.textContent = sorted.length + ' characters';
+  let html = active.map(charCard).join('');
+  if (retired.length) {
+    html += `<div class="retired-divider"><span>Retired</span></div>`;
+    html += retired.map(charCard).join('');
+  }
+  grid.innerHTML = html;
+
+  count.textContent = active.length + ' active' + (retired.length ? ', ' + retired.length + ' retired' : '');
 
   grid.addEventListener('click', e => {
     const card = e.target.closest('.char-card');
@@ -186,13 +197,14 @@ function openCharDetail(c) {
 
   panel.innerHTML = `
     <div class="cd-header">
-      <h3 class="cd-name">${esc(c.name)}</h3>
+      <h3 class="cd-name">${esc(displayName(c))}</h3>
       <span class="cd-player">${esc(c.player || '')}</span>
       <div class="cd-header-actions">
         <span class="cd-dirty-badge" id="cd-dirty-badge" style="display:none">Unsaved</span>
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
         <button class="dt-btn" id="cd-print">Print</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
+        <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
         <button class="cd-close" id="cd-close">&times;</button>
       </div>
     </div>
@@ -212,8 +224,35 @@ function openCharDetail(c) {
     renderSheet(chars[editorState.editIdx]);
   });
   document.getElementById('cd-save-api').addEventListener('click', saveCharToApi);
+  document.getElementById('cd-retire').addEventListener('click', toggleRetire);
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function toggleRetire() {
+  const idx = editorState.editIdx;
+  const c = chars[idx];
+  if (!c || !c._id) return;
+
+  const newState = !c.retired;
+  const action = newState ? 'retire' : 'unretire';
+  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${displayName(c)}?`)) return;
+
+  const btn = document.getElementById('cd-retire');
+  btn.textContent = 'Saving...';
+
+  try {
+    c.retired = newState || undefined;
+    const { _id, ...body } = c;
+    const updated = await apiPut('/api/characters/' + _id, body);
+    Object.assign(chars[idx], updated);
+    btn.textContent = newState ? 'Unretire' : 'Retire';
+    renderCharGrid();
+  } catch (err) {
+    c.retired = !newState || undefined;
+    btn.textContent = newState ? 'Retire' : 'Unretire';
+    console.error('Retire failed:', err.message);
+  }
 }
 
 function closeCharDetail() {
@@ -256,9 +295,39 @@ async function saveCharToApi() {
 
 // ── Init ──
 
+/**
+ * Compute game XP per character from game_sessions attendance data.
+ * Caches result as c._gameXP for use by xpGame().
+ */
+async function loadGameXP() {
+  try {
+    const gameSessions = await apiGet('/api/game_sessions');
+    for (const c of chars) c._gameXP = 0;
+
+    for (const s of gameSessions) {
+      for (const a of s.attendance || []) {
+        const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
+        if (xp === 0) continue;
+
+        // Find matching character by any available key
+        const c = chars.find(ch =>
+          (a.character_id && ch._id === a.character_id) ||
+          ch.name === a.character_name ||
+          ch.name === a.name ||
+          displayName(ch) === (a.display_name || a.character_display)
+        );
+        if (c) c._gameXP += xp;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load game sessions for XP:', err.message);
+  }
+}
+
 async function init() {
   try {
     chars = await apiGet('/api/characters');
+    await loadGameXP();
     renderCharGrid();
   } catch (err) {
     console.error('Failed to load characters:', err.message);
@@ -291,7 +360,7 @@ Object.assign(window, {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shToggleMCI, shEditMCIGrant, shEditMeritPt, shEditXP,
+  shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT, shEditMeritPt, shEditXP,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

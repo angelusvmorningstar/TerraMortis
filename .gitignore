@@ -9,3 +9,15 @@ private/*
 .env
 node_modules/
 test-results/
+
+# IDE
+.vscode/
+
+# Generated/exported files
+Character Data Export.csv
+Character Template.csv
+TM Characters.pdf
+Terra Mortis Character Master*.xlsx
+
+# Temp backups
+data/chars_v2_backup.json

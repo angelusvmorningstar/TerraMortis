@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Desktop Character Sheet — Layout Mockup v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0D0B09; --surf: #1A1714; --surf2: #241F1B; --surf3: #2E2823;
+  --bdr: #3A3230; --gold1: #C4A85A; --gold2: #E0C47A; --gold3: #F0D898;
+  --crim: #8B0000; --crim2: #B22222; --txt: #E8DCC8; --txt2: #BFB5A3; --txt3: #8A7E6E;
+  --fh: 'Cinzel', serif; --fb: 'Lora', serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--txt); font-family: var(--fb); font-size: 13px; padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+/* ═══ TOP HALF: 3 columns ═══ */
+.top-row { display: grid; grid-template-columns: 1fr 280px 1fr; gap: 24px; margin-bottom: 24px; }
+
+/* ── Left: Identity ── */
+.identity { }
+.char-name { font-family: 'Cinzel Decorative', var(--fh); font-size: 28px; color: var(--gold2); font-weight: 700; margin-bottom: 2px; }
+.char-sub { margin-bottom: 16px; }
+.char-sub-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 3px; }
+.char-label { font-family: var(--fh); font-size: 10px; color: var(--txt3); text-transform: uppercase; letter-spacing: 0.5px; min-width: 60px; }
+.char-val { color: var(--txt2); font-size: 13px; }
+
+.faction-block { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.faction-row { display: flex; align-items: center; gap: 10px; }
+.faction-name { font-family: var(--fh); font-size: 16px; color: var(--txt); font-weight: 600; }
+.faction-sub { font-size: 12px; color: var(--txt3); }
+
+.status-row { display: flex; gap: 12px; margin-top: 16px; }
+.status-diamond {
+  width: 52px; height: 52px; position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--crim); transform: rotate(45deg); border-radius: 4px;
+}
+.status-diamond-inner { transform: rotate(-45deg); text-align: center; }
+.status-diamond-val { font-family: var(--fh); font-size: 18px; color: var(--txt); font-weight: 700; }
+.status-diamond-lbl { font-size: 8px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+
+/* ── Centre: Humanity + Narrative ── */
+.centre-col { }
+.sec-title {
+  font-family: var(--fh); font-size: 12px; color: var(--gold1); text-transform: uppercase;
+  letter-spacing: 1px; border-bottom: 1px solid var(--bdr); padding-bottom: 4px; margin-bottom: 8px;
+}
+.hum-track { margin-bottom: 16px; }
+.hum-row { display: flex; align-items: baseline; gap: 6px; padding: 2px 0; font-size: 12px; }
+.hum-num { font-family: var(--fh); color: var(--txt3); min-width: 20px; text-align: right; font-size: 11px; }
+.hum-dot { color: var(--gold2); }
+.hum-empty { color: var(--txt3); }
+.hum-touch { color: var(--txt2); font-size: 11px; }
+.hum-touch-desc { color: var(--txt3); font-style: italic; font-size: 10px; }
+
+.narr-block { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+.narr-label { font-family: var(--fh); font-size: 10px; color: var(--gold1); text-transform: uppercase; margin-bottom: 4px; }
+.narr-text { color: var(--txt2); font-size: 11px; line-height: 1.5; }
+.narr-text b { color: var(--gold2); font-family: var(--fh); font-size: 10px; }
+
+.bane-block { margin-top: 12px; }
+.bane-name { color: var(--crim2); font-size: 12px; font-weight: 600; font-family: var(--fh); }
+.bane-effect { color: var(--txt2); font-size: 11px; margin-top: 2px; line-height: 1.4; }
+
+/* ── Right: Disciplines + Combat Stats ── */
+.right-col { }
+
+.disc-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid rgba(58,50,48,0.3); }
+.disc-name { color: var(--txt2); font-size: 12px; }
+.disc-dots { font-family: var(--fh); color: var(--gold2); font-size: 11px; letter-spacing: 1px; }
+.disc-none { color: var(--txt3); font-size: 11px; }
+
+.power-row { padding: 3px 0 3px 10px; border-bottom: 1px solid rgba(58,50,48,0.15); }
+.power-name { color: var(--txt); font-size: 11px; font-weight: 500; }
+.power-stats { color: var(--txt3); font-size: 10px; }
+
+.combat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.combat-block { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 12px; }
+.combat-label { font-size: 9px; color: var(--txt3); text-transform: uppercase; font-family: var(--fh); letter-spacing: 0.5px; }
+.combat-val { font-family: var(--fh); font-size: 16px; color: var(--gold2); font-weight: 700; }
+.combat-track { font-family: monospace; font-size: 13px; color: var(--txt2); letter-spacing: 2px; margin-top: 2px; }
+
+.derived-row { display: flex; gap: 12px; margin-top: 12px; }
+.derived-pip {
+  flex: 1; text-align: center; background: var(--surf); border: 1px solid var(--bdr);
+  border-radius: 6px; padding: 8px 4px;
+}
+.derived-val { font-family: var(--fh); font-size: 18px; color: var(--gold2); font-weight: 700; }
+.derived-lbl { font-size: 9px; color: var(--txt3); text-transform: uppercase; }
+
+.influence-sec { margin-top: 16px; }
+.infl-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid rgba(58,50,48,0.3); font-size: 12px; }
+.infl-name { color: var(--txt2); }
+.infl-area { color: var(--txt3); font-size: 11px; font-style: italic; margin-left: 6px; }
+.infl-dots { font-family: var(--fh); color: var(--gold2); font-size: 11px; }
+
+.domain-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+.domain-name { color: var(--txt2); }
+.domain-val { color: var(--txt3); }
+
+.standing-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+.standing-name { color: var(--txt2); }
+.standing-sub { color: var(--gold1); font-size: 11px; font-style: italic; margin-left: 6px; }
+.standing-dots { font-family: var(--fh); color: var(--gold2); font-size: 11px; }
+
+/* ═══ BOTTOM HALF: Attributes + Skills full width ═══ */
+.banner {
+  font-family: var(--fh); font-size: 14px; text-transform: uppercase; letter-spacing: 2px;
+  text-align: center; padding: 6px 0; margin: 24px 0 12px;
+  background: linear-gradient(90deg, transparent, var(--surf3), var(--surf2), var(--surf3), transparent);
+  color: var(--gold2); font-weight: 600;
+}
+
+.attr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 32px; margin-bottom: 8px; }
+.attr-col-title {
+  font-family: var(--fh); font-size: 11px; color: var(--txt3); text-transform: uppercase;
+  text-align: center; letter-spacing: 1px; margin-bottom: 6px;
+}
+.attr-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(58,50,48,0.4); }
+.attr-name { color: var(--txt2); font-size: 13px; }
+.attr-dots { font-family: var(--fh); color: var(--gold2); font-size: 12px; letter-spacing: 1px; }
+.attr-bonus { color: var(--gold3); font-size: 10px; margin-left: 4px; }
+
+.skill-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 32px; }
+.skill-col-title {
+  font-family: var(--fh); font-size: 11px; color: var(--txt3); text-transform: uppercase;
+  text-align: center; letter-spacing: 1px; margin-bottom: 6px;
+}
+.skill-col-penalty { font-size: 9px; color: var(--crim2); display: block; }
+.skill-row { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; border-bottom: 1px solid rgba(58,50,48,0.25); }
+.skill-row.has-dots .skill-name { color: var(--txt); }
+.skill-name { color: var(--txt3); font-size: 12px; }
+.skill-spec { display: block; font-size: 10px; color: var(--gold1); font-style: italic; padding-left: 12px; }
+.skill-dots { font-family: var(--fh); color: var(--gold2); font-size: 11px; letter-spacing: 1px; }
+.skill-zero { color: var(--txt3); font-size: 11px; }
+.skill-na { font-size: 9px; color: var(--gold1); margin-left: 4px; }
+
+/* ═══ BOTTOM: Merits + Manoeuvres ═══ */
+.merit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
+.merit-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(58,50,48,0.3); }
+.merit-name { color: var(--txt2); font-size: 12px; }
+.merit-qual { color: var(--txt3); font-size: 11px; font-style: italic; }
+.merit-dots { font-family: var(--fh); color: var(--gold2); font-size: 11px; }
+.merit-tag { font-size: 9px; color: var(--gold1); background: rgba(224,196,122,0.08); padding: 1px 6px; border-radius: 2px; }
+
+.man-row { padding: 3px 0; border-bottom: 1px solid rgba(58,50,48,0.3); }
+.man-style { color: var(--txt2); font-size: 12px; }
+.man-rank { color: var(--txt3); font-size: 11px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOP ROW: Identity (left) | Humanity+Narrative (centre) | Disciplines+Stats (right)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="top-row">
+
+  <!-- LEFT: Identity -->
+  <div class="identity">
+    <div class="char-name">Alice Vunder</div>
+    <div class="char-sub">
+      <div class="char-sub-row"><span class="char-label">Player</span><span class="char-val">Katherine H</span></div>
+      <div class="char-sub-row"><span class="char-label">Concept</span><span class="char-val">Curious archivist</span></div>
+      <div class="char-sub-row"><span class="char-label">XP</span><span class="char-val">9 / 32</span></div>
+    </div>
+
+    <div class="faction-block">
+      <div class="faction-row">
+        <span class="faction-name">Circle of the Crone</span>
+      </div>
+      <div class="faction-row">
+        <span class="faction-name">Mekhet</span>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <div class="status-diamond"><div class="status-diamond-inner"><div class="status-diamond-val">2</div><div class="status-diamond-lbl">City</div></div></div>
+      <div class="status-diamond"><div class="status-diamond-inner"><div class="status-diamond-val">1</div><div class="status-diamond-lbl">Cov</div></div></div>
+      <div class="status-diamond"><div class="status-diamond-inner"><div class="status-diamond-val">1</div><div class="status-diamond-lbl">Clan</div></div></div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="sec-title">Kindred Status</div>
+      <div class="domain-row"><span class="domain-name">Crone</span><span class="domain-val">●</span></div>
+      <div class="domain-row"><span class="domain-name">Carthian</span><span class="domain-val">&ndash;</span></div>
+      <div class="domain-row"><span class="domain-name">Invictus</span><span class="domain-val">&ndash;</span></div>
+      <div class="domain-row"><span class="domain-name">Lance</span><span class="domain-val">&ndash;</span></div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="sec-title">Domain</div>
+      <div class="domain-row"><span class="domain-name">Safe Place</span><span class="domain-val">&ndash;</span></div>
+      <div class="domain-row"><span class="domain-name">Haven</span><span class="domain-val">●</span></div>
+      <div class="domain-row"><span class="domain-name">Feeding Grounds</span><span class="domain-val">&ndash;</span></div>
+      <div class="domain-row"><span class="domain-name">Herd</span><span class="domain-val">&ndash;</span></div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="sec-title">Standing</div>
+      <div class="standing-row"><span class="standing-name">Mystery Cult<span class="standing-sub">The Archive</span></span><span class="standing-dots">●●●●●</span></div>
+      <div class="standing-row"><span class="standing-name">Prof. Training</span><span class="standing-dots">&ndash;</span></div>
+    </div>
+  </div>
+
+  <!-- CENTRE: Humanity + Narrative -->
+  <div class="centre-col">
+    <div class="sec-title">Humanity</div>
+    <div class="hum-track">
+      <div class="hum-row"><span class="hum-num">10:</span><span class="hum-empty">○</span></div>
+      <div class="hum-row"><span class="hum-num">9:</span><span class="hum-empty">○</span></div>
+      <div class="hum-row"><span class="hum-num">8:</span><span class="hum-dot">●</span></div>
+      <div class="hum-row"><span class="hum-num">7:</span><span class="hum-empty">○</span></div>
+      <div class="hum-row"><span class="hum-num">6:</span><span class="hum-dot">●</span> <span class="hum-touch">Sister (unnamed)</span></div>
+      <div class="hum-row"><span class="hum-num">5:</span><span class="hum-dot">●</span> <span class="hum-touch">One parent (unnamed)</span></div>
+      <div class="hum-row"><span class="hum-num">4:</span><span class="hum-dot">●</span></div>
+      <div class="hum-row"><span class="hum-num">3:</span><span class="hum-dot">●</span></div>
+      <div class="hum-row"><span class="hum-num">2:</span><span class="hum-dot">●</span></div>
+      <div class="hum-row"><span class="hum-num">1:</span><span class="hum-dot">●</span></div>
+    </div>
+
+    <div class="narr-block">
+      <div class="narr-label">Mask: Follower</div>
+      <div class="narr-text"><b>1 WP:</b> Follow a directive blindly, for the sake of following.</div>
+      <div class="narr-text"><b>All WP:</b> Follow a dangerous directive without hesitation.</div>
+    </div>
+    <div class="narr-block">
+      <div class="narr-label">Dirge: Scholar</div>
+      <div class="narr-text"><b>1 WP:</b> Uncover a lost piece of information.</div>
+      <div class="narr-text"><b>All WP:</b> Uncover forbidden knowledge.</div>
+    </div>
+
+    <div class="bane-block">
+      <div class="sec-title">Banes &amp; Curses</div>
+      <div style="margin-bottom:8px">
+        <div class="bane-name">Tenebrous Curse</div>
+        <div class="bane-effect">Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts &ndash;1 for all Humanity-based banes.</div>
+      </div>
+      <div>
+        <div class="bane-name">Rat King/Queen</div>
+        <div class="bane-effect">Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Disciplines + Combat Stats -->
+  <div class="right-col">
+    <div class="sec-title">Disciplines</div>
+    <div class="disc-row"><span class="disc-name">Animalism</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Auspex</span><span class="disc-dots">●</span></div>
+    <div class="disc-row"><span class="disc-name">Celerity</span><span class="disc-dots">●</span></div>
+    <div class="disc-row"><span class="disc-name">Dominate</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Majesty</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Nightmare</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Obfuscate</span><span class="disc-dots">●●●</span></div>
+    <div class="disc-row"><span class="disc-name">Protean</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Resilience</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Vigour</span><span class="disc-none">&ndash;</span></div>
+    <div style="margin-top:6px"></div>
+    <div class="disc-row"><span class="disc-name">Cruac</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Theban</span><span class="disc-none">&ndash;</span></div>
+    <div style="margin-top:6px"></div>
+    <div class="disc-row"><span class="disc-name">Creation</span><span class="disc-dots">●</span></div>
+    <div class="disc-row"><span class="disc-name">Destruction</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Divination</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Protection</span><span class="disc-none">&ndash;</span></div>
+    <div class="disc-row"><span class="disc-name">Transmutation</span><span class="disc-none">&ndash;</span></div>
+
+    <div class="combat-grid">
+      <div class="combat-block">
+        <div class="combat-label">Blood Potency</div>
+        <div class="combat-val">1</div>
+        <div class="combat-track">●○○○○○○○○○</div>
+      </div>
+      <div class="combat-block">
+        <div class="combat-label">Vitae</div>
+        <div class="combat-val">10 / 10</div>
+        <div style="font-size:10px;color:var(--txt3)">1 per turn &middot; Animals</div>
+      </div>
+      <div class="combat-block">
+        <div class="combat-label">Health</div>
+        <div class="combat-track" style="font-size:15px">□□□□□□■■■■■</div>
+      </div>
+      <div class="combat-block">
+        <div class="combat-label">Willpower</div>
+        <div class="combat-val">4 / 4</div>
+        <div class="combat-track">□□□□■■■■■■</div>
+      </div>
+    </div>
+
+    <div class="derived-row">
+      <div class="derived-pip"><div class="derived-val">5</div><div class="derived-lbl">Size</div></div>
+      <div class="derived-pip"><div class="derived-val">9</div><div class="derived-lbl">Speed</div></div>
+      <div class="derived-pip"><div class="derived-val">3</div><div class="derived-lbl">Defence</div></div>
+    </div>
+
+    <div class="influence-sec">
+      <div class="sec-title">Influence <span style="float:right;font-size:11px">8 / 8</span></div>
+      <div class="infl-row"><span class="infl-name">Allies<span class="infl-area">Health</span></span><span class="infl-dots">●●●</span></div>
+      <div class="infl-row"><span class="infl-name">Allies<span class="infl-area">Politics</span></span><span class="infl-dots">●●●</span></div>
+      <div class="infl-row"><span class="infl-name">Allies<span class="infl-area">Transportation</span></span><span class="infl-dots">●●●</span></div>
+      <div class="infl-row"><span class="infl-name">Allies<span class="infl-area">Underworld</span></span><span class="infl-dots">●●●</span></div>
+      <div class="infl-row"><span class="infl-name">Contacts<span class="infl-area">Street, Occult, Industry</span></span><span class="infl-dots">●●●</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTTOM: Attributes + Skills (full width)
+     ═══════════════════════════════════════════════════════════ -->
+
+<div class="banner">Attributes</div>
+<div class="attr-grid">
+  <div>
+    <div class="attr-col-title">Mental</div>
+    <div class="attr-row"><span class="attr-name">Intelligence</span><span class="attr-dots">●●●●</span></div>
+    <div class="attr-row"><span class="attr-name">Wits</span><span class="attr-dots">●●●</span></div>
+    <div class="attr-row"><span class="attr-name">Resolve</span><span class="attr-dots">●●</span></div>
+  </div>
+  <div>
+    <div class="attr-col-title">Physical</div>
+    <div class="attr-row"><span class="attr-name">Strength</span><span class="attr-dots">●</span></div>
+    <div class="attr-row"><span class="attr-name">Dexterity</span><span class="attr-dots">●●●</span></div>
+    <div class="attr-row"><span class="attr-name">Stamina</span><span class="attr-dots">●●</span></div>
+  </div>
+  <div>
+    <div class="attr-col-title">Social</div>
+    <div class="attr-row"><span class="attr-name">Presence</span><span class="attr-dots">●●</span></div>
+    <div class="attr-row"><span class="attr-name">Manipulation</span><span class="attr-dots">●●</span></div>
+    <div class="attr-row"><span class="attr-name">Composure</span><span class="attr-dots">●●</span></div>
+  </div>
+</div>
+
+<div class="banner">Skills</div>
+<div class="skill-grid">
+  <div>
+    <div class="skill-col-title">Mental<span class="skill-col-penalty">(-3 unskilled)</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Academics<span class="skill-spec">Research</span></span><span class="skill-dots">●●</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Computer<span class="skill-spec">Hacking</span></span><span class="skill-dots">●●●</span></div>
+    <div class="skill-row"><span class="skill-name">Crafts</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Investigation<span class="skill-spec">Crime Scene</span></span><span class="skill-dots">●●●</span></div>
+    <div class="skill-row"><span class="skill-name">Medicine</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Occult</span><span class="skill-dots">●●●</span></div>
+    <div class="skill-row"><span class="skill-name">Politics</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row"><span class="skill-name">Science</span><span class="skill-zero">&ndash;</span></div>
+  </div>
+  <div>
+    <div class="skill-col-title">Physical<span class="skill-col-penalty">(-1 unskilled)</span></div>
+    <div class="skill-row"><span class="skill-name">Athletics</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row"><span class="skill-name">Brawl</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row"><span class="skill-name">Drive</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Firearms<span class="skill-spec">Pistols</span></span><span class="skill-dots">●●</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Larceny</span><span class="skill-dots">●●</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Stealth<span class="skill-spec">Stalking</span></span><span class="skill-dots">●●●</span></div>
+    <div class="skill-row"><span class="skill-name">Survival</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row"><span class="skill-name">Weaponry</span><span class="skill-zero">&ndash;</span></div>
+  </div>
+  <div>
+    <div class="skill-col-title">Social<span class="skill-col-penalty">(-1 unskilled)</span></div>
+    <div class="skill-row"><span class="skill-name">Animal Ken</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Empathy<span class="skill-spec">Motives</span></span><span class="skill-dots">●●●</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Expression</span><span class="skill-dots">●●●</span></div>
+    <div class="skill-row"><span class="skill-name">Intimidation</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row"><span class="skill-name">Persuasion</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row has-dots"><span class="skill-name">Socialise</span><span class="skill-dots">●●</span></div>
+    <div class="skill-row"><span class="skill-name">Streetwise</span><span class="skill-zero">&ndash;</span></div>
+    <div class="skill-row"><span class="skill-name">Subterfuge</span><span class="skill-zero">&ndash;</span></div>
+  </div>
+</div>
+
+<!-- ═══ Merits + Manoeuvres ═══ -->
+<div class="banner">Merits &amp; Manoeuvres</div>
+<div class="merit-cols">
+  <div>
+    <div class="sec-title">General Merits</div>
+    <div class="merit-row"><span class="merit-name">Sorcerous Eunuch</span><span class="merit-dots">●</span></div>
+    <div class="merit-row"><span class="merit-name">Contacts <span class="merit-qual">Street, Occult, Industry</span></span><span class="merit-dots">●●●</span></div>
+  </div>
+  <div>
+    <div class="sec-title">Manoeuvres</div>
+    <div class="man-row"><div class="man-style">Crusade &mdash; Rank 1</div><div class="man-rank">Shield Against Sorcery</div></div>
+    <div class="man-row"><div class="man-style">Crusade &mdash; Rank 2</div><div class="man-rank">Silence</div></div>
+    <div class="man-row"><div class="man-style">Kindred Dueling &mdash; Rank 1</div><div class="man-rank">Hamstring</div></div>
+    <div class="man-row"><div class="man-style">Kindred Dueling &mdash; Rank 2</div><div class="man-rank">Taunt</div></div>
+  </div>
+</div>
+
+</body>
+</html>

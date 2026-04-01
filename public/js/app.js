@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY } from './data/helpers.js';
+import { CLAN_ICON_KEY, displayName, sortName } from './data/helpers.js';
 import { renderList, filterList } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -31,7 +31,7 @@ import {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shToggleMCI, shEditMCIGrant,
+  shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shEditXP,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
@@ -108,7 +108,7 @@ function openChar(idx) {
   const c = editorState.chars[idx];
   // Update edit header
   const nameEl = document.getElementById('edit-charname');
-  if (nameEl) nameEl.textContent = c.name || 'Unnamed';
+  if (nameEl) nameEl.textContent = displayName(c) || 'Unnamed';
   const hdrIcon = document.getElementById('edit-clan-icon');
   const ck = CLAN_ICON_KEY[c.clan];
   if (ck && hdrIcon) { hdrIcon.src = ICONS[ck]; hdrIcon.style.display = 'inline'; }
@@ -171,7 +171,7 @@ function populateSuiteDropdowns(chars) {
     chars.forEach(c => {
       const o = document.createElement('option');
       o.value = c.name;
-      o.textContent = c.name;
+      o.textContent = displayName(c);
       sel.appendChild(o);
     });
   }
@@ -181,7 +181,7 @@ function populateSuiteDropdowns(chars) {
     chars.forEach(c => {
       const o = document.createElement('option');
       o.value = c.name;
-      o.textContent = c.name;
+      o.textContent = displayName(c);
       ssel.appendChild(o);
     });
   }
@@ -198,9 +198,10 @@ async function loadAllData() {
   }
 
   // 2. Copy to suite state
-  const sortedChars = editorState.chars.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const sortedChars = editorState.chars.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
   suiteState.chars = sortedChars;
   window._charNames = sortedChars.map(c => c.name);
+  window._charDisplayMap = Object.fromEntries(sortedChars.map(c => [c.name, displayName(c)]));
 
   // 3. Populate suite dropdowns
   populateSuiteDropdowns(sortedChars);
@@ -227,9 +228,10 @@ function loadChars() {
       }
     }
   } catch (e) { /* ignore */ }
-  const chars = data.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const chars = data.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
   suiteState.chars = chars;
   window._charNames = chars.map(c => c.name);
+  window._charDisplayMap = Object.fromEntries(chars.map(c => [c.name, displayName(c)]));
   populateSuiteDropdowns(chars);
   renderImportBanner();
 }
@@ -277,7 +279,7 @@ function openPanel(mode) {
     suiteState.chars.forEach(c => {
       const el = document.createElement('div');
       el.className = 'panel-item';
-      el.innerHTML = `<div><div class="pi-main">${c.name}</div><div class="pi-sub">${c.clan || ''} \u00B7 ${c.covenant || ''}</div></div><div class="pi-badge">${c.player || ''}</div>`;
+      el.innerHTML = `<div><div class="pi-main">${displayName(c)}</div><div class="pi-sub">${c.clan || ''} \u00B7 ${c.covenant || ''}</div></div><div class="pi-badge">${c.player || ''}</div>`;
       el.addEventListener('click', () => { pickChar(c); closePanel(); });
       body.appendChild(el);
     });
@@ -346,7 +348,7 @@ function pickChar(c) {
   const valEl = document.getElementById('sc-char-val');
   const lblEl = document.getElementById('sc-char-lbl');
   if (lblEl) lblEl.textContent = '';
-  if (valEl) valEl.textContent = c.name.split(' ')[0];
+  if (valEl) valEl.textContent = (c.moniker || c.name).split(' ')[0];
   const scChar = document.getElementById('sc-char');
   if (scChar) scChar.classList.add('loaded');
   const discLbl = document.getElementById('sc-disc-lbl');
@@ -446,7 +448,7 @@ Object.assign(window, {
   shEditStandMerit,
   shEditStandAssetSkill,
   shToggleMCI,
-  shEditMCIGrant,
+  shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditMeritPt,
   shEditXP,
 

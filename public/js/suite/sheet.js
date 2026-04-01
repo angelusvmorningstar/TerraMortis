@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════
 
 import state from './data.js';
+import { displayName } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   SORCERY_THEMES, RITUAL_DISCS, CORE_DISCS,
@@ -64,7 +65,7 @@ export function renderSheet() {
   // ── HEADER ──
   html += `<div class="sh-char-hdr">
   <div class="sh-namerow">
-    <div class="sh-char-name">${c.name}</div>
+    <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
       <span class="sh-char-player">${c.player || ''}</span>
       <span class="sh-xp-badge">XP ${xpLeft(c)}/${c.xp_total != null ? c.xp_total : '?'}</span>

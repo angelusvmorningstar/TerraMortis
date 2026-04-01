@@ -13,3 +13,9 @@ Tracked issues to address in future stories. Not blocking current work.
 ## CSV Export — Future Enhancements
 
 4. **Blood Stats pool breakdown** — Currently shows `Pool: 8` (numeric only). Desired: show attribute + skill + discipline names with calculated total in parentheses, e.g. `Presence + Intimidation + Nightmare (8)`. Requires either a `pool_string` field on each power (data migration) or a power-to-pool lookup table mapping VtR 2e discipline powers to their canonical pool formulas.
+
+## Future Features — Not Needed for Downtime Launch
+
+5. **Attendance and XP Tracker** — Per-session tracking of player attendance with XP awards: 1 XP for attending (Game), 1 for costume/immersion, 1 for downtime submission. Should write to character `xp_log.earned.game`. Needs per-month view with columns matching the existing Excel tracker (Paid, Game, DT, Extra, Feed). Could replace/expand Story 3.3 (Session Log). Reference: Excel attendance tracker screenshot.
+
+6. **Finance Tracker** — Monthly income tracking by payment method (PayID, PayPal, Cash, Exiles). Per-month revenue, expenses by category (OfficeW, Bags, etc.), running totals, expected vs actual diff. Linked to attendance tracker (payment status per player per month). Reference: Excel finance tracker screenshot. Needs its own collection in MongoDB.

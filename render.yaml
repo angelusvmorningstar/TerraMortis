@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: tm-suite-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false  # set manually in Render dashboard (secret)
+      - key: DISCORD_CLIENT_ID
+        value: 1488404820917223484
+      - key: DISCORD_CLIENT_SECRET
+        sync: false  # set manually in Render dashboard (secret)
+      - key: DISCORD_REDIRECT_URI
+        sync: false  # set manually once Netlify domain is known
+      - key: CORS_ORIGIN
+        sync: false  # set manually once Netlify domain is known
+      - key: ST_IDS
+        value: 694104767298797618,977695064392343652,405594065841946624

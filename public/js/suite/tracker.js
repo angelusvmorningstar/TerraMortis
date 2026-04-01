@@ -8,6 +8,7 @@
 
 import state from './data.js';
 import { feedClearState, feedInit } from './tracker-feed.js';
+import { displayName } from '../data/helpers.js';
 import { getAttrVal, influenceTotal, calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
 
 // ══════════════════════════════════════════════
@@ -115,7 +116,7 @@ function renderPrestige() {
     const cov = st.covenant || 0;
     const prestige = clan + cov;
     const influence = influenceTotal(c);
-    return { name: c.name, clan, cov, prestige, influence };
+    return { name: displayName(c), clan, cov, prestige, influence };
   }).sort((a, b) => b.prestige - a.prestige || b.influence - a.influence).slice(0, 6);
 
   const open = el.dataset.open === '1';
@@ -181,7 +182,7 @@ function renderStOverview() {
     row.innerHTML = `
       <div class="st-char-hdr">
         <div style="flex:1;min-width:0;">
-          <div class="st-char-name">${c.name}</div>
+          <div class="st-char-name">${displayName(c)}</div>
           <div class="st-char-meta">${c.clan || ''}${c.bloodline ? ' · ' + c.bloodline : ''} · ${c.covenant || ''}</div>
         </div>
         <div class="st-char-meta" style="margin-right:6px;">${c.player || ''}</div>
