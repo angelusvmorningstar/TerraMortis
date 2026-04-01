@@ -66,11 +66,11 @@ development_status:
   epic-2-retrospective: optional
 
   # Epic 3: ST Admin Features
-  epic-3: backlog
-  3-1-professional-training-grant-system: backlog
-  3-2-print-character-sheet: backlog
+  epic-3: in-progress
+  3-1-professional-training-grant-system: done
+  3-2-character-data-csv-export: done
   3-3-session-log: backlog
-  3-4-city-domain-views: backlog
+  3-4-city-domain-views: done
   epic-3-retrospective: optional
 
   # Epic 4: Downtime System -- DONE

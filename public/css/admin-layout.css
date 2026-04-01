@@ -113,6 +113,18 @@ body {
   color: var(--txt3);
 }
 
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 12px;
+  background: var(--surf2);
+  color: var(--gold2);
+  border: 1px solid var(--gold3, #8a7440);
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: auto;
+}
+.btn-sm:hover { background: var(--surf3); }
+
 .placeholder {
   color: var(--txt3);
   font-style: italic;

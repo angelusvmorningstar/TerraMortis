@@ -16,6 +16,14 @@ const TERRITORIES = [
 ];
 
 const TITLE_ORDER = ['Head of State', 'Primogen', 'Socialite', 'Enforcer', 'Administrator', 'Regent'];
+const TITLE_GAME_NAME = {
+  'Head of State': 'Premier',
+  'Primogen': 'Primogen',
+  'Socialite': 'Harpy',
+  'Enforcer': 'Protector',
+  'Administrator': 'Administrator',
+  'Regent': 'Regent',
+};
 
 let chars = [];
 
@@ -58,16 +66,19 @@ function renderCourt() {
   const titled = chars.filter(c => c.court_title).sort((a, b) => {
     const ai = TITLE_ORDER.indexOf(a.court_title);
     const bi = TITLE_ORDER.indexOf(b.court_title);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    const orderDiff = (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    if (orderDiff !== 0) return orderDiff;
+    return a.name.localeCompare(b.name);
   });
 
   if (!titled.length) return '';
 
   let h = '<h3 class="city-section-title">Court</h3><div class="court-list">';
   for (const c of titled) {
+    const gameName = TITLE_GAME_NAME[c.court_title] || c.court_title;
     const territory = c.court_title === 'Regent' && c.regent_territory ? ' — ' + esc(c.regent_territory) : '';
     h += `<div class="court-row">
-      <span class="court-title">${esc(c.court_title)}</span>
+      <span class="court-title">${esc(gameName)}</span>
       <span class="court-name">${esc(c.name)}</span>
       <span class="court-detail">${esc(c.clan || '')}${territory}</span>
     </div>`;

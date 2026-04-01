@@ -89,8 +89,25 @@ export function syncToSuite() {
 }
 
 /**
- * CSV export (stub — not yet implemented).
+ * CSV export — generates Affinity Publisher data merge format and triggers download.
+ * @param {Array} [charArray] - optional character array (used by admin app). Falls back to state.chars.
  */
-export function downloadCSV() {
-  alert('CSV export not yet implemented.');
+export async function downloadCSV(charArray) {
+  const { buildCSV } = await import('./csv-format.js');
+  const chars = charArray || state.chars;
+  if (!chars || !chars.length) {
+    alert('No character data to export.');
+    return;
+  }
+  const csv = buildCSV(chars);
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }); // BOM for Excel UTF-8
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `TM_Character_Export_${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
