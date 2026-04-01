@@ -4,7 +4,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, sortName } from '../data/helpers.js';
 
 let chars = [];
 let sessions = [];
@@ -134,6 +134,16 @@ function renderGrid() {
 
   const att = activeSession.attendance || [];
 
+  // Build sorted index (sort by moniker/name like the character grid)
+  const sorted = att.map((a, i) => ({ a, i }));
+  sorted.sort((x, y) => {
+    const cx = chars.find(c => c._id === x.a.character_id || c.name === x.a.name);
+    const cy = chars.find(c => c._id === y.a.character_id || c.name === y.a.name);
+    const sx = cx ? sortName(cx) : (x.a.display_name || x.a.name || '').toLowerCase();
+    const sy = cy ? sortName(cy) : (y.a.display_name || y.a.name || '').toLowerCase();
+    return sx.localeCompare(sy);
+  });
+
   // XP summary
   const totalAttended = att.filter(a => a.attended).length;
   const totalPaid = att.filter(a => a.paid).length;
@@ -156,13 +166,15 @@ function renderGrid() {
       <th class="att-check-col">Paid</th>
     </tr></thead><tbody>`;
 
-  for (let i = 0; i < att.length; i++) {
-    const a = att[i];
+  for (const { a, i } of sorted) {
+    const c = chars.find(ch => ch._id === a.character_id || ch.name === a.name);
+    const dName = c ? displayName(c) : (a.display_name || a.name);
+    const player = c ? (c.player || '') : '';
     const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
     const absentClass = a.attended ? '' : ' att-absent';
 
     html += `<tr class="att-row${absentClass}">
-      <td class="att-name">${esc(a.display_name || a.name)}</td>
+      <td class="att-name">${esc(dName)} <span class="att-player">${esc(player)}</span></td>
       <td class="att-check"><input type="checkbox" ${a.attended ? 'checked' : ''} onchange="attUpdate(${i},'attended',this.checked)"></td>
       <td class="att-check"><input type="checkbox" ${a.costuming ? 'checked' : ''} onchange="attUpdate(${i},'costuming',this.checked)"></td>
       <td class="att-check"><input type="checkbox" ${a.downtime ? 'checked' : ''} onchange="attUpdate(${i},'downtime',this.checked)"></td>

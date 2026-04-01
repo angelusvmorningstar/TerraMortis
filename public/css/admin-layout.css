@@ -1237,6 +1237,13 @@ body {
   text-align: left;
 }
 
+.att-player {
+  font-family: var(--fb);
+  font-size: 11px;
+  color: var(--txt3);
+  margin-left: 6px;
+}
+
 .att-check {
   text-align: center;
   padding: 8px 6px;
