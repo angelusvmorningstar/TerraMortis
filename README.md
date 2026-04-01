@@ -1,42 +1,52 @@
 # Terra Mortis TM Suite
 
-A browser-based character management system for a **Vampire: The Requiem 2nd Edition** campaign. Two self-contained HTML applications — no backend, no build system, no dependencies.
+A browser-based character management system for a **Vampire: The Requiem 2nd Edition** campaign. Single-page admin app with Express API backend, MongoDB persistence, and Discord OAuth authentication.
+
+## Live Deployment
+
+| Service | URL | Deploys from |
+|---------|-----|--------------|
+| Admin App (Netlify) | `terramortissuite.netlify.app` | `main` branch |
+| API Server (Render) | `tm-suite-api.onrender.com` | `main` branch |
+| Database | MongoDB Atlas (`tm_suite`) | — |
 
 ## Applications
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| `tm_editor.html` | Character editor with List / Sheet / Edit views. Runs on v2 schema. |
-| `index.html` | Storyteller Suite with Roll, Sheet, Territory, and Tracker tabs. Currently on legacy schema. |
-| `Terra Mortis — Territory Bid Tracker.html` | Standalone territory management tool. |
+| `public/admin.html` | ST Admin — character management, city views, downtime, attendance, session log |
+| `public/index.html` | ST Suite — roll calculator, sheet viewer, territory tracker |
 
-## Getting Started
+## Local Development
 
-Open any `.html` file directly in a browser. No build step or server required.
+```bash
+# Start API server (requires server/.env with MongoDB URI + Discord credentials)
+cd server && npm run dev
 
-Data is stored in `localStorage`:
+# Serve frontend (any static server on port 8080)
+npx http-server public -p 8080
+```
 
-- `tm_chars_db` — v2 character JSON (Editor)
-- `tm_import_chars` — legacy format JSON (Suite)
-- `tm_tracker_<name>` — per-character tracker data
+## Data
 
-## Data Files
+| Location | Description |
+|----------|-------------|
+| `data/chars_v2.json` | 31 characters in v2 schema (seeded to MongoDB via `server/migrate.js`) |
+| `archive/tm_characters.json` | 31 characters in legacy format (reference only) |
+| MongoDB `tm_suite` | Live data: characters, territories, downtime, game sessions, session logs |
 
-| File | Description |
-|------|-------------|
-| `chars_v2.json` | 30 characters in v2 schema (source of truth) |
-| `tm_characters.json` | 30 characters in legacy schema (used by Suite) |
-| `Terra Mortis Character Master (v3.0).xlsx` | Source Excel workbook |
+### Character Schema (v2)
 
-## v2 Schema
+Full specification in `schemas/schema_v2_proposal.md`. Key design rules:
 
-Full specification in `schema_v2_proposal.md`. Key design rules:
-
-- Attributes are `{ dots, bonus }` objects, never bare integers
-- Skills are `{ dots, bonus, specs: [], nine_again }` objects
-- Merits use a single array with a `category` field
-- Derived stats (size, speed, defence, health) are calculated at render time, never stored
-- XP fields store actual XP cost; dots are derived via cost-per-dot rates
+- Attributes: `{ dots, bonus }` objects
+- Skills: `{ dots, bonus, specs: [], nine_again }` objects
+- Merits: single array with `category` field (general, influence, domain, standing, manoeuvre)
+- Standing merits (MCI, PT): `benefit_grants` array + child merits have `granted_by`
+- Name: `name` (legal name), `honorific` (Lord/Lady/Doctor/Sister), `moniker` (display override)
+- Derived stats (size, speed, defence, health) calculated at render time, never stored
+- XP earned: derived dynamically from `humanity_base`, `ordeals` array, game sessions
+- XP spent: derived from `attr_creation`, `skill_creation`, `disc_creation`, `merit_creation`
 
 ### XP Cost Rates (VtR 2e Flat)
 
@@ -49,26 +59,30 @@ Full specification in `schema_v2_proposal.md`. Key design rules:
 | Merits | 1 XP |
 | Devotions | Variable |
 
-## Embedded Reference Data
+## Architecture
 
-The editor embeds several large lookup tables:
+```
+Browser (Netlify)  →  Express API (Render)  →  MongoDB Atlas
+   static files        /api/* endpoints          tm_suite DB
+```
+
+- **Auth**: Discord OAuth2. ST IDs whitelisted in server config.
+- **Frontend**: vanilla JS modules, no build step. Cinzel/Lora fonts, dark theme with gold accents.
+- **API**: Express 5, ES modules, `server/` directory. Routes: characters, territories, downtime, game_sessions, session_logs.
+
+## Branching
+
+- `dev` — active development, push freely
+- `main` — production, triggers Netlify + Render deploy on push
+- Feature branches merge to `dev`, `dev` merges to `main` per epic
+
+## Embedded Reference Data
 
 - **CLANS** (5) and **COVENANTS** (5)
 - **MASKS_DIRGES** (26 archetypes)
 - **MERITS_DB** (203+ entries with prerequisites and descriptions)
 - **DEVOTIONS_DB** (42: 31 general + 11 bloodline-exclusive)
 - **MAN_DB** (manoeuvre definitions)
-- **CLAN_BANES**, **BLOODLINE_DISCS**
-
-## Integration Roadmap
-
-The two applications are converging into a single tool. See `integration_plan.md` for details.
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 1 | Current | Editor on v2, Suite on legacy, manual sync |
-| 2 | Planned | Suite reads v2 via shared accessor functions |
-| 3 | Future | Single merged application |
 
 ## Conventions
 
@@ -76,10 +90,3 @@ The two applications are converging into a single tool. See `integration_plan.md
 - Dark theme with gold (`#E0C47A`) accents and crimson (`#8B0000`) damage states
 - Fonts: Cinzel / Cinzel Decorative (headings), Lora (body) via Google Fonts
 - Dots displayed as `●` (U+25CF)
-
-## Documentation
-
-- `schema_v2_proposal.md` — v2 data schema specification
-- `integration_plan.md` — Suite/Editor convergence plan
-- `HANDOVER_v3.md` — Latest implementation notes and known issues
-- `HANDOVER_v2.md` — Previous handover notes

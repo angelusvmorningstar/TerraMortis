@@ -2,20 +2,33 @@
 
 Tracked issues to address in future stories. Not blocking current work.
 
+## Resolved
+
+- ~~**Pronouns edit option**~~ — Added to identity editor and sheet edit mode
+- ~~**Attributes overflow**~~ — Fixed in admin desktop layout
+- ~~**Priority dropdowns**~~ — Fixed to enforce mutual exclusivity
+- ~~**Attendance and XP Tracker**~~ — Implemented as Attendance & Finance tab with game_sessions collection
+
 ## Admin Character Sheet — Edit View
 
-1. **No pronouns edit option** — Pronouns field is displayed in view mode but there is no input to edit it. Should be a text field in the identity section.
+1. **Merit prerequisite validation** — Merits with prerequisites (e.g., Closed Book requires Resolve 3) are not validated against the character's actual stats. Characters may have merits they don't qualify for. Needs both batch audit and editor enforcement.
 
-2. **Attributes section overflows column** — In edit view, the attributes section expands past the right edge of its container. The right side is clipped and inaccessible.
+2. **Blood Stats pool breakdown** — Currently shows `Pool: 8` (numeric only). Desired: show attribute + skill + discipline names with calculated total, e.g. `Presence + Intimidation + Nightmare (8)`.
 
-3. **Priority dropdowns not mutually exclusive** — Attribute priority selectors (Primary/Secondary/Tertiary) allow the same value on all three groups. Same issue with skill priority selectors. Should enforce that each value is used exactly once.
+## Data Issues
 
-## CSV Export — Future Enhancements
+3. **Unaccounted SP sources** — ~10 domain merits (shared Safe Place/Haven for Carver/Hazel/Magda, Charlie/Ivana/Keeper groups) have standing points but no recorded source. Need master sheet to resolve.
 
-4. **Blood Stats pool breakdown** — Currently shows `Pool: 8` (numeric only). Desired: show attribute + skill + discipline names with calculated total in parentheses, e.g. `Presence + Intimidation + Nightmare (8)`. Requires either a `pool_string` field on each power (data migration) or a power-to-pool lookup table mapping VtR 2e discipline powers to their canonical pool formulas.
+4. **MCI cult names blank** — Livia, Mammon, Ludica Lachramore, Charles Mercer-Willows have Mystery Cult Initiation without cult names.
 
-## Future Features — Not Needed for Downtime Launch
+5. **Merit point audit** — `merit_creation` positional data may be misaligned after domain/standing merit additions. Static `xp_log.spent` values used as fallback. Full CP/Free/XP reconciliation deferred.
 
-5. **Attendance and XP Tracker** — Per-session tracking of player attendance with XP awards: 1 XP for attending (Game), 1 for costume/immersion, 1 for downtime submission. Should write to character `xp_log.earned.game`. Needs per-month view with columns matching the existing Excel tracker (Paid, Game, DT, Extra, Feed). Could replace/expand Story 3.3 (Session Log). Reference: Excel attendance tracker screenshot.
+6. **Game 2 XP** — Attendance data partially entered. Need full Game 2 attendance to complete.
 
-6. **Finance Tracker** — Monthly income tracking by payment method (PayID, PayPal, Cash, Exiles). Per-month revenue, expenses by category (OfficeW, Bags, etc.), running totals, expected vs actual diff. Linked to attendance tracker (payment status per player per month). Reference: Excel finance tracker screenshot. Needs its own collection in MongoDB.
+## Future Features
+
+7. **Finance Tracker** — Monthly income tracking by payment method. Per-month revenue, expenses by category, running totals. Linked to attendance tracker payment status. Needs its own collection or extension of game_sessions.
+
+8. **Google Calendar integration** — Auto-populate game session dates from `terramortislarp@gmail.com` calendar. Replace manual date entry in Attendance tab.
+
+9. **Player Access Layer** (Epic 5) — Players log in via Discord, see only their characters. Requires players collection, character-to-player mapping, role-based auth.
