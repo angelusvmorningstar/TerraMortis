@@ -39,7 +39,7 @@ export function fmtSquares(filled, total) {
 }
 
 function fmtFraction(cur, max) {
-  return `${cur} / ${max}`;
+  return `${cur} \u2044 ${max}`; // U+2044 fraction slash — prevents Excel date auto-format
 }
 
 function v(val) { return (val != null && val !== '') ? val : E; }
