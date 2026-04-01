@@ -1,7 +1,9 @@
-// Discord OAuth2 client-side flow for ST Admin app.
+// Discord OAuth2 client-side flow.
 // Handles login redirect, callback code exchange, token storage, and logout.
+// Role-aware: stores role, player_id, character_ids from the server response.
 
 const DISCORD_CLIENT_ID = '1488404820917223484';
+// All OAuth callbacks land on /admin — admin.js redirects players to /player after auth
 const REDIRECT_URI = location.origin + '/admin';
 const SCOPES = 'identify';
 
@@ -25,6 +27,22 @@ export function getToken() {
 export function getUser() {
   const raw = localStorage.getItem('tm_auth_user');
   return raw ? JSON.parse(raw) : null;
+}
+
+export function getRole() {
+  const user = getUser();
+  return user ? user.role : null;
+}
+
+export function getPlayerInfo() {
+  const user = getUser();
+  if (!user) return null;
+  return {
+    player_id: user.player_id,
+    character_ids: user.character_ids || [],
+    role: user.role,
+    is_dual_role: user.is_dual_role || false,
+  };
 }
 
 function saveAuth(data) {
@@ -101,7 +119,7 @@ export async function validateToken() {
     return false;
   }
 
-  // Update stored user info
+  // Update stored user info (includes role from players collection)
   const user = await res.json();
   localStorage.setItem('tm_auth_user', JSON.stringify(user));
   return true;

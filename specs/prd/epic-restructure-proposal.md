@@ -35,9 +35,8 @@ v3 reflects three developments since v2:
 
 ### Priority order
 
-**Immediate:** Epic 2 (finish 2.5 + 2.6) — completes the backend foundation
-**Next:** Epic 3 (ST Admin Features) — ST tools before player tools
-**Then:** Epic 5 (Player Access Layer) — the major new work
+**Done:** Epics 1, 2, 4. Epic 3 substantially complete (3.3 parked).
+**Next:** Epic 5 (Player Access Layer) — the major new work
 **Later:** Epic 6 (Live Game App) — once character rendering is stable on the API
 **Last:** Epic 7 (Public Website) — depends on everything above
 
@@ -82,25 +81,27 @@ Epic 1 (DONE) --> Epic 2 (Backend Foundation) --+
 | 2.2 | Discord Auth | **Done** | Server-side OAuth2, ST whitelist, auth middleware |
 | 2.3 | Characters CRUD API + Data Migration | **Done** | `/api/characters` routes, migration script |
 | 2.4 | Admin App Shell | **Done** | `admin.html`, sidebar nav, four domains, character list from API |
-| 2.5 | Remaining Collection APIs | Backlog | `/api/territories`, `/api/tracker_state`, `/api/session_logs`, `/api/downtime_cycles`, `/api/downtime_submissions` |
-| 2.6 | Game App API Integration | Backlog | `loader.js` dual-mode, Netlify deployment config |
+| 2.5 | Remaining Collection APIs | **Done** | `/api/territories`, `/api/tracker_state`, `/api/session_logs`, `/api/downtime_cycles`, `/api/downtime_submissions` |
+| 2.6 | Game App API Integration | **Done** | `loader.js` dual-mode, Netlify deployment, Render API live |
 
 ---
 
-## Epic 3: ST Admin Features
+## Epic 3: ST Admin Features — Substantially Complete
 
 **Goal:** Complete the character editing and rendering features in the admin app. Player and City domain building blocks.
 
 **Prerequisites:** Epic 2 (backend foundation).
 
-**Previously completed:** Stories 2.1 (Character Administration) and 2.2 (MCI Benefit Grants) from the old numbering. These features exist in the current SPA and work once wired to the API.
+**Previously completed:** Stories 2.1 (Character Administration) and 2.2 (MCI Benefit Grants) from the old numbering.
 
-| Story | Title | Notes |
-|---|---|---|
-| 3.1 | Professional Training Grant System | Pure rendering/logic. Reads `role` field on PT merits, applies asset skills and dot-level benefits. Player domain. |
-| 3.2 | Print Character Sheet | Print-formatted character sheet with print-optimised CSS. Player domain. |
-| 3.3 | Session Log | Log data layer (`session_logs` collection), roll logging from Engine domain, log viewer UI. |
-| 3.4 | City Domain Views | Territory management desktop layout, city dynamics, holdings, influence display. City domain in admin sidebar. |
+| Story | Title | Status | Notes |
+|---|---|---|---|
+| 3.1 | Professional Training Grant System | **Done** | PT standing merits with role, asset_skills, benefit_grants |
+| 3.2 | Character Data CSV Export | **Done** | Export all character data as CSV. Originally scoped as print sheet, pivoted to CSV. |
+| 3.3 | Session Log | **Parked** | Basic session log UI exists in Engine domain. Parked until game day for live testing. |
+| 3.4 | City Domain Views | **Done** | Territory map, court holders, influence rankings. City domain in admin sidebar. |
+| 3.5 | Attendance & Finance | **Done** | New sidebar tab. Per-session player attendance (attended/costuming/downtime/extra), payment tracking, XP auto-calculated from game_sessions collection. `/api/game_sessions` CRUD. |
+| 3.6 | Data Migration & Schema Enrichment | **Done** | 31 chars in v2 + MongoDB. Domain merits, standing merits (MCI/PT), granted_by provenance, name schema (honorific/moniker), character retirement, dynamic XP, deployment (Netlify + Render). |
 
 ---
 
@@ -183,19 +184,19 @@ Epic 1 (DONE) --> Epic 2 (Backend Foundation) --+
 
 ## Suggested Sequencing
 
-**Immediate (April 2026):**
-- Epic 2: Stories 2.5–2.6 (finish backend foundation)
-- Epic 3: Start ST admin features
-
-**Near-term (May 2026):**
-- Epic 3: Complete 3.1–3.4
+**April 2026 (current):**
+- Epic 3: Wrap up (3.3 Session Log when game day arrives)
+- Data cleanup: remaining SP sources, MCI cult names, Game 2 XP, merit prerequisite audit
 - Epic 5: Stories 5.1–5.3 (player access foundation)
 
+**May 2026:**
+- Epic 5: Stories 5.4–5.6 (downtime submission, publish workflow, ordeals)
+
 **Mid-term (June–July 2026):**
-- Epic 5: Stories 5.4–5.7 (player features)
+- Epic 5: Stories 5.7–5.8 (character creator, form enhancement)
 - Epic 6: Stories 6.1–6.2 (game mode shell)
 
 **When ready:**
-- Epic 5: Story 5.8 (form enhancement)
+- Epic 7: Public website
 - Epic 6: Stories 6.3–6.6 (game mode features)
 - Epic 7: After all ST + player tools are stable

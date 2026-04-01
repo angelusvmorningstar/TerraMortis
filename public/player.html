@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terra Mortis — Player Portal</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/editor.css">
+<link rel="stylesheet" href="css/player-layout.css">
+<link rel="stylesheet" href="css/reading-pane.css">
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-title">Terra Mortis</div>
+    <div class="login-sub">Player Portal</div>
+    <p class="login-desc">Log in with Discord to access your characters.</p>
+    <button id="login-btn" class="login-discord-btn">
+      <svg width="20" height="15" viewBox="0 0 71 55" fill="currentColor"><path d="M60.1 4.9A58.5 58.5 0 0045.4.2a.2.2 0 00-.2.1 40.8 40.8 0 00-1.8 3.7 54 54 0 00-16.2 0A37.4 37.4 0 0025.4.3a.2.2 0 00-.2-.1A58.4 58.4 0 0010.5 5a.2.2 0 00-.1 0A60.4 60.4 0 00.3 45.3a.3.3 0 000 .2 58.7 58.7 0 0017.7 9a.2.2 0 00.3-.1 42 42 0 003.6-5.9.2.2 0 00-.1-.3 38.6 38.6 0 01-5.5-2.6.2.2 0 01 0-.4l1.1-.9a.2.2 0 01.2 0 41.9 41.9 0 0035.6 0 .2.2 0 01.2 0l1.1.9a.2.2 0 010 .3 36.3 36.3 0 01-5.5 2.7.2.2 0 00-.1.3 47.2 47.2 0 003.6 5.9.2.2 0 00.3 0A58.5 58.5 0 0070.3 45.5a.2.2 0 000-.2A60 60 0 0060.2 5a.2.2 0 00-.1 0zM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1 6.5 3.2 6.4 7.1c0 3.9-2.8 7.1-6.4 7.1zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1 6.5 3.2 6.4 7.1c0 3.9-2.8 7.1-6.4 7.1z"/></svg>
+      Log in with Discord
+    </button>
+    <p id="login-error" class="login-error"></p>
+  </div>
+</div>
+
+<!-- Player app -->
+<div id="player-app" style="display:none">
+
+  <!-- Top nav bar -->
+  <header id="player-header">
+    <div class="header-brand">Terra Mortis</div>
+    <div class="header-controls">
+      <select id="char-selector" class="char-selector" style="display:none"></select>
+      <div class="header-user" id="header-user"></div>
+    </div>
+  </header>
+
+  <!-- Tab bar -->
+  <nav id="tab-bar">
+    <button class="tab-btn on" data-tab="sheet">Sheet</button>
+    <button class="tab-btn" data-tab="downtime">Downtime</button>
+    <button class="tab-btn" data-tab="ordeals">Ordeals</button>
+    <button class="tab-btn" data-tab="story">Story</button>
+  </nav>
+
+  <!-- Tab content -->
+  <main id="player-content">
+    <section id="tab-sheet" class="tab-panel active">
+      <div id="sh-content"></div>
+    </section>
+    <section id="tab-downtime" class="tab-panel">
+    </section>
+    <section id="tab-ordeals" class="tab-panel">
+      <p class="placeholder-msg">Ordeal tracking will appear here.</p>
+    </section>
+    <section id="tab-story" class="tab-panel">
+      <p class="placeholder-msg">Your character's story will appear here.</p>
+    </section>
+  </main>
+
+</div>
+
+<script type="module" src="js/player.js"></script>
+</body>
+</html>

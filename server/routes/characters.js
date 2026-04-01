@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
+import { requireRole } from '../middleware/auth.js';
 
 const router = Router();
 const col = () => getCollection('characters');
 
-// Validate ObjectId format before querying
 function parseId(id) {
   try {
     return new ObjectId(id);
@@ -14,16 +14,41 @@ function parseId(id) {
   }
 }
 
-// GET /api/characters — list all
+// GET /api/characters — ST gets all, player gets only their characters
 router.get('/', async (req, res) => {
-  const chars = await col().find().toArray();
+  if (req.user.role === 'st') {
+    const chars = await col().find().toArray();
+    return res.json(chars);
+  }
+
+  // Player: return only their linked characters
+  const ids = (req.user.character_ids || []).map(id =>
+    id instanceof ObjectId ? id : new ObjectId(id)
+  );
+  const chars = await col().find({ _id: { $in: ids } }).toArray();
   res.json(chars);
 });
 
-// GET /api/characters/:id — get one
+// GET /api/characters/names — lightweight list of all active character names (any authenticated user)
+router.get('/names', async (req, res) => {
+  const chars = await col()
+    .find({ retired: { $ne: true } }, { projection: { name: 1, moniker: 1, honorific: 1 } })
+    .toArray();
+  const sortName = c => (c.moniker || c.name).toLowerCase();
+  chars.sort((a, b) => sortName(a).localeCompare(sortName(b)));
+  res.json(chars);
+});
+
+// GET /api/characters/:id — ST gets any, player gets only their own
 router.get('/:id', async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
+
+  // Player: check they own this character
+  if (req.user.role === 'player') {
+    const owns = (req.user.character_ids || []).some(id => id.toString() === oid.toString());
+    if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
 
   const char = await col().findOne({ _id: oid });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
@@ -31,8 +56,8 @@ router.get('/:id', async (req, res) => {
   res.json(char);
 });
 
-// POST /api/characters — create one
-router.post('/', async (req, res) => {
+// POST /api/characters — ST only
+router.post('/', requireRole('st'), async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
 
@@ -41,8 +66,8 @@ router.post('/', async (req, res) => {
   res.status(201).json(created);
 });
 
-// PUT /api/characters/:id — update one
-router.put('/:id', async (req, res) => {
+// PUT /api/characters/:id — ST only
+router.put('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
@@ -57,8 +82,8 @@ router.put('/:id', async (req, res) => {
   res.json(result);
 });
 
-// DELETE /api/characters/:id — delete one
-router.delete('/:id', async (req, res) => {
+// DELETE /api/characters/:id — ST only
+router.delete('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 

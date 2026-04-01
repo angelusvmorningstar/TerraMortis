@@ -4,11 +4,13 @@ import { apiGet, apiPut } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser } from './auth/discord.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
 import { initDowntimeView } from './admin/downtime-views.js';
 import { initAttendance } from './admin/attendance.js';
+import { initDiceEngine } from './admin/dice-engine.js';
+import { initFeedingEngine } from './admin/feeding-engine.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
@@ -78,6 +80,13 @@ async function boot() {
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
+      // Player-only users get redirected to the player portal
+      const info = getPlayerInfo();
+      if (info && info.role === 'player') {
+        window.location.href = '/player';
+        return;
+      }
+
       loginScreen.style.display = 'none';
       app.style.display = 'flex';
       renderSidebarUser();
@@ -100,8 +109,14 @@ function renderSidebarUser() {
     ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
     : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
 
+  const info = getPlayerInfo();
+  const playerLink = info?.is_dual_role
+    ? `<a href="player" class="sidebar-player-link">My Character</a>`
+    : '';
+
   el.innerHTML = `<img class="sidebar-avatar" src="${avatarUrl}" alt="">` +
     `<span class="sidebar-username">${name}</span>` +
+    `${playerLink}` +
     `<button class="sidebar-logout" id="logout-btn">Log out</button>`;
 
   document.getElementById('logout-btn').addEventListener('click', logout);
@@ -118,7 +133,7 @@ function switchDomain(domain) {
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('on');
 
-  if (domain === 'engine') initSessionLog();
+  if (domain === 'engine') { initDiceEngine(chars); initFeedingEngine(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);
@@ -204,6 +219,7 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
         <button class="dt-btn" id="cd-print">Print</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
+        <a class="dt-btn cd-player-view" href="player.html" id="cd-player-view">Player View</a>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
         <button class="cd-close" id="cd-close">&times;</button>
       </div>

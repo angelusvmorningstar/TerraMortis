@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 
 const router = Router();
@@ -24,6 +25,17 @@ router.post('/', async (req, res) => {
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
   res.status(201).json(created);
+});
+
+// DELETE /api/session_logs/:id — delete a single log entry
+router.delete('/:id', async (req, res) => {
+  let oid;
+  try { oid = new ObjectId(req.params.id); } catch {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid ID format' });
+  }
+  const result = await col().deleteOne({ _id: oid });
+  if (!result.deletedCount) return res.status(404).json({ error: 'NOT_FOUND' });
+  res.json({ deleted: true });
 });
 
 export default router;

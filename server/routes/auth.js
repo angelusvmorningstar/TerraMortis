@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { config } from '../config.js';
+import { getCollection } from '../db.js';
 
 const router = Router();
 
@@ -53,10 +54,30 @@ router.post('/discord/callback', async (req, res) => {
 
   const user = await userRes.json();
 
-  // Check ST whitelist
-  if (!config.ST_IDS.includes(user.id)) {
-    return res.status(403).json({ error: 'FORBIDDEN', message: 'Access restricted to Storytellers' });
+  // Look up player in the players collection — try discord_id first, then username
+  const col = getCollection('players');
+  let player = await col.findOne({ discord_id: user.id });
+
+  if (!player) {
+    // Fall back: match by Discord username and auto-link the numeric ID
+    player = await col.findOne({
+      discord_username: user.username,
+      $or: [{ discord_id: null }, { discord_id: { $exists: false } }],
+    });
+    if (player) {
+      await col.updateOne({ _id: player._id }, { $set: { discord_id: user.id } });
+    }
   }
+
+  if (!player) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'No player record found — contact an ST' });
+  }
+
+  // Update last_login
+  await col.updateOne(
+    { _id: player._id },
+    { $set: { last_login: new Date().toISOString() } }
+  );
 
   res.json({
     access_token: tokenData.access_token,
@@ -66,6 +87,10 @@ router.post('/discord/callback', async (req, res) => {
       username: user.username,
       global_name: user.global_name,
       avatar: user.avatar,
+      role: player.role,
+      player_id: player._id,
+      character_ids: player.character_ids || [],
+      is_dual_role: player.role === 'st' && (player.character_ids || []).length > 0,
     },
   });
 });
@@ -89,8 +114,21 @@ router.get('/me', async (req, res) => {
 
   const user = await userRes.json();
 
-  if (!config.ST_IDS.includes(user.id)) {
-    return res.status(403).json({ error: 'FORBIDDEN', message: 'Access restricted to Storytellers' });
+  // Look up player in the players collection
+  const meCol = getCollection('players');
+  let player = await meCol.findOne({ discord_id: user.id });
+  if (!player) {
+    player = await meCol.findOne({
+      discord_username: user.username,
+      $or: [{ discord_id: null }, { discord_id: { $exists: false } }],
+    });
+    if (player) {
+      await meCol.updateOne({ _id: player._id }, { $set: { discord_id: user.id } });
+    }
+  }
+
+  if (!player) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'No player record found — contact an ST' });
   }
 
   res.json({
@@ -98,6 +136,10 @@ router.get('/me', async (req, res) => {
     username: user.username,
     global_name: user.global_name,
     avatar: user.avatar,
+    role: player.role,
+    player_id: player._id,
+    character_ids: player.character_ids || [],
+    is_dual_role: player.role === 'st' && (player.character_ids || []).length > 0,
   });
 });
 

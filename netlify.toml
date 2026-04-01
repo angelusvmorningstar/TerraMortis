@@ -9,6 +9,17 @@
   status = 200
   force = true
 
+# Named entry points — serve the correct HTML for each app
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+[[redirects]]
+  from = "/player"
+  to = "/player.html"
+  status = 200
+
 # SPA fallback — serve index.html for client-side routing
 [[redirects]]
   from = "/*"
