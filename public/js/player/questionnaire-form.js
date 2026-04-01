@@ -1,4 +1,5 @@
-/* Questionnaire form — renders questions from data, saves to API, supports draft/submit */
+/* Questionnaire form — renders questions from data, saves to API, supports draft/submit.
+ * Fields that overlap with the character sheet are read-only — the sheet is authoritative. */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName, clanIcon, covIcon } from '../data/helpers.js';
@@ -7,8 +8,24 @@ import { QUESTIONNAIRE_SECTIONS } from './questionnaire-data.js';
 // Maps question keys to icon helper functions
 const ICON_FN = { clan: clanIcon, covenant: covIcon };
 
+// Fields where the character sheet is the source of truth.
+// key = questionnaire field, value = function to extract from character doc.
+const SHEET_FIELDS = {
+  player_name:    c => c.player || '',
+  character_name: c => [c.honorific, c.moniker || c.name].filter(Boolean).join(' '),
+  clan:           c => c.clan || '',
+  covenant:       c => c.covenant || '',
+  bloodline:      c => c.bloodline || '',
+  mask:           c => c.mask || '',
+  dirge:          c => c.dirge || '',
+  blood_potency:  c => c.blood_potency != null ? String(c.blood_potency) : '',
+  apparent_age:   c => c.apparent_age || '',
+};
+
 let responseDoc = null;
+let currentChar = null;
 let currentCharId = null;
+let sheetValues = {};
 let saveTimer = null;
 
 // Debounced auto-save (2 seconds after last input)
@@ -21,6 +38,11 @@ function collectResponses() {
   const responses = {};
   for (const section of QUESTIONNAIRE_SECTIONS) {
     for (const q of section.questions) {
+      // Sheet-authoritative fields are not in the form — use sheet value
+      if (SHEET_FIELDS[q.key] && sheetValues[q.key]) {
+        responses[q.key] = sheetValues[q.key];
+        continue;
+      }
       const el = document.getElementById('q-' + q.key);
       if (!el) continue;
       if (q.type === 'radio') {
@@ -40,13 +62,11 @@ async function saveDraft() {
 
   try {
     if (!responseDoc) {
-      // Create new response
       responseDoc = await apiPost('/api/questionnaire', {
         character_id: currentCharId,
         responses,
       });
     } else {
-      // Update existing
       responseDoc = await apiPut(`/api/questionnaire/${responseDoc._id}`, { responses });
     }
     if (statusEl) statusEl.textContent = 'Saved';
@@ -57,16 +77,15 @@ async function saveDraft() {
 }
 
 async function submitForm() {
-  // Save current state first
   const responses = collectResponses();
 
-  // Check required fields
+  // Check required fields (skip sheet-authoritative fields — they're always filled)
   const missing = [];
   for (const section of QUESTIONNAIRE_SECTIONS) {
     for (const q of section.questions) {
-      if (q.required && !responses[q.key]?.trim()) {
-        missing.push(q.label);
-      }
+      if (!q.required) continue;
+      if (SHEET_FIELDS[q.key] && sheetValues[q.key]) continue;
+      if (!responses[q.key]?.trim()) missing.push(q.label);
     }
   }
 
@@ -87,7 +106,6 @@ async function submitForm() {
       responses,
       status: 'submitted',
     });
-    // Re-render to show submitted state
     renderForm(document.getElementById('qf-container'));
   } catch (err) {
     const statusEl = document.getElementById('qf-save-status');
@@ -96,21 +114,26 @@ async function submitForm() {
 }
 
 export async function renderQuestionnaire(targetEl, char) {
+  currentChar = char;
   currentCharId = char._id;
   responseDoc = null;
+
+  // Build sheet-authoritative values from the character
+  sheetValues = {};
+  for (const [key, fn] of Object.entries(SHEET_FIELDS)) {
+    sheetValues[key] = fn(char);
+  }
 
   // Load existing response
   try {
     responseDoc = await apiGet(`/api/questionnaire?character_id=${char._id}`);
   } catch { /* no existing response */ }
 
-  // Auto-populate player info from auth if no saved response yet
+  // Auto-populate from auth if no saved response
   if (!responseDoc) {
     const user = JSON.parse(localStorage.getItem('tm_auth_user') || '{}');
-    autoFill.player_name = user.global_name || user.username || '';
     autoFill.discord_nickname = user.username || '';
   } else {
-    autoFill.player_name = '';
     autoFill.discord_nickname = '';
   }
 
@@ -118,7 +141,7 @@ export async function renderQuestionnaire(targetEl, char) {
   renderForm(document.getElementById('qf-container'));
 }
 
-const autoFill = { player_name: '', discord_nickname: '' };
+const autoFill = { discord_nickname: '' };
 
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
@@ -149,8 +172,13 @@ function renderForm(container) {
     }
 
     for (const q of section.questions) {
-      const val = saved[q.key] || autoFill[q.key] || '';
-      h += renderQuestion(q, val);
+      // Sheet-authoritative fields render as read-only with character data
+      if (SHEET_FIELDS[q.key] && sheetValues[q.key]) {
+        h += renderLockedField(q, sheetValues[q.key]);
+      } else {
+        const val = saved[q.key] || autoFill[q.key] || '';
+        h += renderQuestion(q, val);
+      }
     }
     h += '</div>';
   }
@@ -182,6 +210,19 @@ function renderForm(container) {
     responseDoc = await apiPut(`/api/questionnaire/${responseDoc._id}`, { status: 'draft' });
     renderForm(container);
   });
+}
+
+// Render a field that's locked to the character sheet value
+function renderLockedField(q, value) {
+  const iconFn = ICON_FN[q.key];
+  const icon = iconFn ? iconFn(value, 18) : '';
+
+  let h = `<div class="qf-field qf-field-locked">`;
+  h += `<label class="qf-label">${esc(q.label)}</label>`;
+  h += `<div class="qf-locked-value">${icon}<span>${esc(value)}</span></div>`;
+  h += `<p class="qf-locked-note">From character sheet</p>`;
+  h += '</div>';
+  return h;
 }
 
 function renderQuestion(q, value) {
