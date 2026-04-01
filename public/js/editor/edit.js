@@ -11,7 +11,7 @@ import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merit
 import {
   shEditInflMerit, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   registerCallbacks as registerDomainCallbacks
@@ -21,7 +21,7 @@ import {
 export {
   shEditInflMerit, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner
 };

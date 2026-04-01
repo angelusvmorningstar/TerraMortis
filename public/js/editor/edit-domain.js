@@ -90,8 +90,24 @@ export function shAddGenMerit() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   STANDING MERITS (MCI)
+   STANDING MERITS (MCI + PT)
 ══════════════════════════════════════════════════════════ */
+
+export function shAddStandMCI() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  addMerit(c, { category: 'standing', name: 'Mystery Cult Initiation', rating: 0, cult_name: '', benefit_grants: [null, null, null, null, null], benefits: ['', '', '', '', ''] });
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shAddStandPT() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  addMerit(c, { category: 'standing', name: 'Professional Training', rating: 0, role: '', asset_skills: [] });
+  _markDirty();
+  _renderSheet(c);
+}
 
 export function shEditStandMerit(idx, field, val) {
   if (state.editIdx < 0) return;

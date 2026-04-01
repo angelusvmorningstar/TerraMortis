@@ -24,7 +24,7 @@ import {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shToggleMCI, shEditMCIGrant,
+  shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shEditXP,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
@@ -291,7 +291,7 @@ Object.assign(window, {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shToggleMCI, shEditMCIGrant, shEditMeritPt, shEditXP,
+  shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT, shEditMeritPt, shEditXP,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

@@ -191,7 +191,7 @@ export function shRenderInfluenceMerits(c,editMode) {
   const inflM=(c.merits||[]).filter(m=>m.category==='influence');
   if(!editMode&&!inflM.length) return '';
   const totalInfl=calcTotalInfluence(c);
-  let h='<div class="sh-sec"><div class="sh-sec-title">Influence Merits</div><div class="merit-list">';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits</div><div class="merit-list">';
   if(editMode){
     const cInf=calcContactsInfluence(c),cTD=Math.min(5,inflM.filter(m=>m.name==='Contacts').reduce((s,m)=>s+(m.rating||0),0));
     inflM.forEach((m,idx)=>{const isC=m.name==='Contacts',inf=isC?0:calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
@@ -223,7 +223,7 @@ function _inflArea(m,idx,isC) {
 export function shRenderDomainMerits(c,editMode) {
   const chars=state.chars,domM=(c.merits||[]).filter(m=>m.category==='domain');
   if(!editMode&&!domM.length) return '';
-  let h='<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits</div><div class="merit-list">';
   if(editMode){
     domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
       h+='<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit('+di+',\'name\',this.value)">'+tOpts+'</select><span class="dom-contrib-lbl">My dots: '+shDots(dd)+'</span><span class="dom-total-lbl" title="Total across all contributors">Total: '+shDots(eT)+'</span><button class="dev-rm-btn" onclick="shRemoveDomMerit('+di+')" title="Remove">&times;</button></div>';
@@ -242,13 +242,21 @@ export function shRenderDomainMerits(c,editMode) {
 export function shRenderStandingMerits(c,editMode) {
   const standM=(c.merits||[]).filter(m=>m.category==='standing');
   if(!editMode&&!standM.length) return '';
-  let h='<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="merit-list">';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Standing Merits</div><div class="merit-list">';
   standM.forEach((m,si)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
     if(m.name==='Mystery Cult Initiation') h+=_renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB);
     else if(m.name==='Professional Training') h+=_renderPT(c,m,si,rIdx,mc,dd,editMode);
     else if(editMode){h+='<div class="infl-edit-row"><input type="text" class="gen-name-input" value="'+esc(m.name)+'" placeholder="Merit name" onchange="shEditStandMerit('+si+',\'name\',this.value)"><span class="infl-dots-derived">'+shDots(dd)+'</span></div>';h+=meritBdRow(rIdx,mc);}
     else{const sub=m.cult_name||m.role||'',assets=m.asset_skills&&m.asset_skills.length?m.asset_skills.join(', '):'';h+='<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">'+esc(m.name)+'</div>'+(sub?'<div class="merit-sub-sh">'+esc(sub)+'</div>':'')+(assets?'<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: '+esc(assets)+'</div>':'')+'</div><span class="merit-dots-sh">'+shDots(m.rating)+'</span></div>';}
   });
+  if(editMode){
+    const hasMCI=standM.some(m=>m.name==='Mystery Cult Initiation');
+    const hasPT=standM.some(m=>m.name==='Professional Training');
+    h+='<div class="dev-add-row">';
+    if(!hasMCI) h+='<button class="dev-add-btn" onclick="shAddStandMCI()">+ Add MCI</button>';
+    if(!hasPT) h+='<button class="dev-add-btn" onclick="shAddStandPT()">+ Add Prof. Training</button>';
+    h+='</div>';
+  }
   h+='</div></div>';return h;
 }
 function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
@@ -396,11 +404,11 @@ export function renderSheet(c) {
   if (isDesktop) {
     h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+'</div>';
     h+='</div>'; // end sh-dcol-left
-    h+='<div class="sh-dcol sh-dcol-mid"><div class="sh-body">'+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderManoeuvres(c)+'</div></div>';
+    h+='<div class="sh-dcol sh-dcol-mid"><div class="sh-body">'+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c)+'</div></div>';
     h+='<div class="sh-dcol sh-dcol-right"><div class="sh-body">'+shRenderDisciplines(c,editMode)+'</div></div>';
     h+='</div>'; // end sh-desktop
   } else {
-    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderManoeuvres(c)+'</div>';
+    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c)+'</div>';
   }
   const _scrollEl=el.closest('.sh-wrap')||el.parentElement||document.documentElement,_scrollTop=_scrollEl.scrollTop;
   el.innerHTML=h;_scrollEl.scrollTop=_scrollTop;
