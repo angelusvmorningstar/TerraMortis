@@ -974,10 +974,15 @@ body {
 .feeding-pool-total { font-family: var(--fhd); font-size: 22px; color: var(--gold2); }
 .feeding-method-label { font-size: 14px; color: var(--txt2); }
 .feeding-method-desc { font-size: 13px; color: var(--txt3); font-style: italic; margin-top: 4px; margin-bottom: 12px; }
-.feeding-no-sub { }
-.feeding-no-sub .dt-feed-methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px; }
-.feeding-disc-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.feeding-disc-row label { font-size: 13px; color: var(--txt2); }
+.feeding-state-detail { font-size: 14px; color: var(--txt2); margin-bottom: 16px; }
+.feeding-no-sub .dt-feed-methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.feeding-no-sub .dt-feed-card { padding: 14px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; cursor: pointer; text-align: left; color: var(--txt); }
+.feeding-no-sub .dt-feed-card:hover { border-color: var(--bdr2); }
+.feeding-no-sub .dt-feed-card.dt-feed-sel { border-color: var(--gold); background: var(--gold-a8); }
+.feeding-no-sub .dt-feed-card-name { font-family: var(--fh); font-size: 14px; color: var(--txt); letter-spacing: .04em; margin-bottom: 4px; }
+.feeding-no-sub .dt-feed-card-desc { font-size: 12px; color: var(--txt3); font-style: italic; }
+.feeding-disc-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.feeding-disc-row label { font-size: 13px; color: var(--txt2); white-space: nowrap; }
 
 /* ── Regency tab ── */
 
