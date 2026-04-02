@@ -93,20 +93,29 @@ function detectMerits() {
   detectedMerits.spheres = deduplicateMerits(merits.filter(m =>
     m.category === 'influence' && (m.name === 'Allies' || m.name === 'Status')
   ));
-  // Contacts: split comma-separated areas into individual entries
+  // Contacts: expand spheres array into individual entries for toggle rendering
   const rawContacts = deduplicateMerits(merits.filter(m =>
     m.category === 'influence' && m.name === 'Contacts'
   ));
   detectedMerits.contacts = [];
   for (const m of rawContacts) {
-    const areas = (m.area || m.qualifier || '').split(/,\s*/);
-    if (areas.length > 1) {
-      for (const a of areas) {
-        if (!a) continue;
-        detectedMerits.contacts.push({ ...m, area: a.trim(), _splitFrom: m });
+    // New format: spheres array
+    if (m.spheres && m.spheres.length) {
+      for (const sp of m.spheres) {
+        detectedMerits.contacts.push({ ...m, area: sp, rating: 1 });
       }
     } else {
-      detectedMerits.contacts.push(m);
+      // Legacy format: comma-separated area/qualifier string
+      const areas = (m.area || m.qualifier || '').split(/,\s*/).filter(Boolean);
+      if (areas.length > 1) {
+        for (const a of areas) {
+          detectedMerits.contacts.push({ ...m, area: a.trim(), rating: 1 });
+        }
+      } else if (areas.length === 1) {
+        detectedMerits.contacts.push({ ...m, area: areas[0] });
+      } else {
+        detectedMerits.contacts.push(m);
+      }
     }
   }
   detectedMerits.retainers = deduplicateMerits(merits.filter(m =>
