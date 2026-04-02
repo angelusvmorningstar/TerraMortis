@@ -66,44 +66,63 @@ function creationOrFallback(c, creationKey, spentKey) {
   return Math.max(fromCreation, fromLog);
 }
 
-/** XP spent on attributes. */
-export function xpSpentAttrs(c) { return creationOrFallback(c, 'attr_creation', 'attributes'); }
-
-/** XP spent on skills. */
-export function xpSpentSkills(c) { return creationOrFallback(c, 'skill_creation', 'skills'); }
-
-/** XP spent on merits. */
-export function xpSpentMerits(c) {
-  const fromCreation = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
-  const fromLog = ((c.xp_log || {}).spent || {}).merits || 0;
-  return Math.max(fromCreation, fromLog);
+/** XP spent on attributes — sum of attr_creation.xp across all attributes. */
+export function xpSpentAttrs(c) {
+  return sumCreationXP(c.attr_creation);
 }
 
-/** XP spent on powers — disciplines + devotions. */
-export function xpSpentPowers(c) { return creationOrFallback(c, 'disc_creation', 'powers'); }
-
-/** XP spent on specialisations beyond the free allowance (1 XP each). */
-export function xpSpentSpecs(c) {
-  const total = Object.values(c.skills || {}).reduce((s, sk) => s + ((sk && sk.specs) ? sk.specs.length : 0), 0);
+/** XP spent on skills + specialisations beyond free allowance. */
+export function xpSpentSkills(c) {
+  const skillXP = sumCreationXP(c.skill_creation);
+  // Specialisation XP: 1 per spec beyond free allowance
+  const totalSpecs = Object.values(c.skills || {}).reduce((s, sk) => s + ((sk && sk.specs) ? sk.specs.length : 0), 0);
   const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
   const ptB = (ptM && ptM.rating >= 3) ? 2 : 0;
   const freeS = 3 + ptB;
-  return Math.max(0, total - freeS);
+  const specXP = Math.max(0, totalSpecs - freeS);
+  return skillXP + specXP;
 }
 
-/** XP spent on special items (manual, stored in xp_log). */
-export function xpSpentSpecial(c) {
-  return ((c.xp_log || {}).spent || {}).special || 0;
+/** XP spent on all merits (general, influence, domain, standing, manoeuvres). */
+export function xpSpentMerits(c) {
+  return (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
 }
+
+/** XP spent on powers — disciplines + devotions. */
+export function xpSpentPowers(c) {
+  const discXP = sumCreationXP(c.disc_creation);
+  // Devotion XP: look up each devotion's cost from DEVOTIONS_DB
+  const devXP = (c.powers || [])
+    .filter(p => p.category === 'devotion')
+    .reduce((t, p) => {
+      const db = _devotionsDB ? _devotionsDB.find(d => d.n === p.name) : null;
+      return t + (db ? db.xp || 0 : 0);
+    }, 0);
+  return discXP + devXP;
+}
+
+/** XP spent on special: Blood Potency, Humanity, lost Willpower dots. */
+export function xpSpentSpecial(c) {
+  // Blood Potency: 5 XP per dot above starting (starting = 1 for most neonates)
+  const bpXP = Math.max(0, (c.blood_potency || 1) - 1) * 5;
+  // Lost Willpower dots: stored in xp_log.spent.willpower
+  const wpXP = ((c.xp_log || {}).spent || {}).willpower || 0;
+  // Manual special: anything else tracked in xp_log
+  const manualXP = ((c.xp_log || {}).spent || {}).special || 0;
+  return bpXP + wpXP + manualXP;
+}
+
+// Devotions DB reference (set via setDevotionsDB)
+let _devotionsDB = null;
+export function setDevotionsDB(db) { _devotionsDB = db; }
 
 /**
- * Total XP spent by a character (all categories).
- * Derives from _creation objects where available, falls back to xp_log.spent.
+ * Total XP spent by a character (all categories, fully dynamic).
  * @param {object} c - character object
  * @returns {number}
  */
 export function xpSpent(c) {
-  return xpSpentAttrs(c) + xpSpentSkills(c) + xpSpentMerits(c) + xpSpentPowers(c) + xpSpentSpecs(c) + xpSpentSpecial(c);
+  return xpSpentAttrs(c) + xpSpentSkills(c) + xpSpentMerits(c) + xpSpentPowers(c) + xpSpentSpecial(c);
 }
 
 /**
