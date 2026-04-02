@@ -168,7 +168,13 @@
 .infl-ghoul-lbl{font-family:var(--fb);font-size:10px;color:var(--txt2);white-space:nowrap;display:flex;align-items:center;gap:3px;cursor:pointer;}
 .infl-mode-btn{font-family:var(--fb);font-size:9px;color:var(--txt3);background:var(--surf);border:1px solid var(--bdr);border-radius:3px;padding:2px 5px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .infl-mode-btn:hover{border-color:var(--gold);color:var(--txt);}
-.infl-contacts-total{font-family:var(--fb);font-size:10px;color:var(--txt2);padding:4px 8px 2px;}
+.infl-contacts-total{font-family:var(--fb);font-size:12px;color:var(--txt2);padding:4px 8px 2px;}
+.contacts-edit-block{background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:10px 12px;margin:6px 0;}
+.contacts-edit-hdr{font-family:var(--fh);font-size:13px;color:var(--gold2);margin-bottom:8px;}
+.contacts-dot-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.contacts-dot-num{font-size:13px;color:var(--txt2);min-width:32px;}
+.contacts-sphere-sel{flex:1;padding:4px 6px;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;color:var(--txt);font-size:13px;}
+.contacts-dot-src{font-family:var(--fh);font-size:11px;color:var(--txt3);letter-spacing:.06em;}
 .infl-dots-derived{width:60px;text-align:center;font-size:11px;color:var(--txt2);padding:0 4px;}
 .infl-edit-row .infl-inf{font-family:var(--fh);font-size:9px;color:var(--txt3);min-width:30px;text-align:right;}
 .infl-edit-row .infl-inf .inf-val{color:var(--gold);}

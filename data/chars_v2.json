@@ -255,8 +255,7 @@
           {
             "category": "influence",
             "name": "Contacts",
-            "rating": 3,
-            "qualifier": "Street, Occult, Industry"
+            "rating": 3
           },
           {
             "category": "influence",
@@ -6673,8 +6672,7 @@
           {
             "category": "influence",
             "name": "Contacts",
-            "rating": 2,
-            "qualifier": "bureaucracy, industry"
+            "rating": 2
           },
           {
             "category": "general",
@@ -10884,8 +10882,7 @@
           {
             "category": "influence",
             "name": "Contacts",
-            "rating": 3,
-            "qualifier": "high society, occult, politics"
+            "rating": 3
           },
           null,
           {
@@ -16822,8 +16819,7 @@
           {
             "category": "influence",
             "name": "Contacts",
-            "rating": 1,
-            "qualifier": "Police"
+            "rating": 1
           },
           {
             "category": "influence",

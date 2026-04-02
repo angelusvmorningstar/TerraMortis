@@ -193,12 +193,28 @@ export function shRenderInfluenceMerits(c,editMode) {
   const totalInfl=calcTotalInfluence(c);
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits</div><div class="merit-list">';
   if(editMode){
-    const cInf=calcContactsInfluence(c),cTD=Math.min(5,inflM.filter(m=>m.name==='Contacts').reduce((s,m)=>s+(m.rating||0),0));
-    inflM.forEach((m,idx)=>{const isC=m.name==='Contacts',inf=isC?0:calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
-      h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,isC)+(isC?'<span class="infl-dots-fixed" title="Each Contact is 1 dot">\u25CF</span>':'<span class="infl-dots-derived">'+shDots(dd)+'</span>')+'<span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span><button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
-      if(!isC) h+=meritBdRow(rIdx,mc);});
-    if(inflM.some(m=>m.name==='Contacts')) h+='<div class="infl-contacts-total">Contacts total: '+shDots(cTD)+(cInf?' \u2014 <span class="inf-val">'+cInf+'</span> inf':'')+'</div>';
-    h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddInflMerit(\'Allies\')">+ Add Allies / Other</button><button class="dev-add-btn" onclick="shAddInflMerit(\'Contacts\')">+ Add Contact</button></div>';
+    // Non-Contacts influence merits
+    const nonContacts=inflM.filter(m=>m.name!=='Contacts');
+    nonContacts.forEach((m,idx)=>{const inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
+      h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span><button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
+      h+=meritBdRow(rIdx,mc);});
+    // Contacts: single entry with sphere-per-dot
+    const contactsEntry=inflM.find(m=>m.name==='Contacts');
+    const cInf=calcContactsInfluence(c);
+    if(contactsEntry){
+      const cIdx=c.merits.indexOf(contactsEntry),rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],mciDots=contactsEntry._mci_dots||0,ptDots=contactsEntry._pt_dots||0,baseDots=rating-mciDots-ptDots,spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
+      h+='<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts '+shDots(rating)+(cInf?' \u2014 <span class="inf-val">'+cInf+'</span> inf':'')+'</div>';
+      for(let d=0;d<rating;d++){
+        const sp=spheres[d]||'';
+        let src='';
+        if(d<baseDots) src='base';
+        else if(d<baseDots+mciDots) src='MCI';
+        else src='PT';
+        h+='<div class="contacts-dot-row"><span class="contacts-dot-num">\u25CF '+(d+1)+'</span><select class="contacts-sphere-sel" onchange="shEditContactSphere('+cIdx+','+d+',this.value)"><option value="">\u2014 sphere \u2014</option>'+spOpts(sp)+'</select>'+(src!=='base'?'<span class="contacts-dot-src">'+src+'</span>':'')+'</div>';
+      }
+      h+='</div>';
+    }
+    h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddInflMerit(\'Allies\')">+ Add Allies / Other</button></div>';
     h+='<div class="infl-total">Total Influence: <span class="inf-n">'+totalInfl+'</span></div>';
   } else {
     inflM.filter(m=>m.name!=='Contacts').forEach((m,idx)=>{const area=m.area?m.area.trim():null,gt=m.name==='Retainer'&&m.ghoul?' (ghoul)':'';h+=shRenderMeritRow((area?m.name+' ('+area+gt+')':m.name+gt)+(m.rating?' '+shDots(m.rating):''),'infl',idx);});
