@@ -1965,12 +1965,6 @@
     "merits": [
       {
         "category": "influence",
-        "name": "Contacts",
-        "rating": 5,
-        "area": "Occult, University, Beuracracy, Church, Legal"
-      },
-      {
-        "category": "influence",
         "name": "Resources",
         "rating": 3
       },
@@ -2036,6 +2030,18 @@
         "name": "Herd",
         "rating": 3,
         "granted_by": "Lorekeeper"
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 5,
+        "spheres": [
+          "Occult",
+          "University",
+          "Bureaucracy",
+          "Church",
+          "Legal"
+        ]
       }
     ],
     "touchstones": [
@@ -3710,13 +3716,6 @@
       },
       {
         "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "area": "Street, Underworld, Police",
-        "granted_by": "OotHM/2*PT"
-      },
-      {
-        "category": "influence",
         "name": "Resources",
         "rating": 5,
         "granted_by": "1 OotHM/3 Invested"
@@ -3913,6 +3912,16 @@
           null,
           null,
           null
+        ]
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 3,
+        "spheres": [
+          "Street",
+          "Underworld",
+          "Police"
         ]
       }
     ],
@@ -4466,13 +4475,6 @@
     ],
     "merits": [
       {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 2,
-        "area": "Police, Underworld",
-        "granted_by": "Prof. Training"
-      },
-      {
         "category": "general",
         "name": "Acute Senses",
         "rating": 1
@@ -4963,11 +4965,6 @@
       },
       {
         "category": "influence",
-        "name": "Contacts",
-        "rating": 2
-      },
-      {
-        "category": "influence",
         "name": "Resources",
         "rating": 1
       },
@@ -5019,6 +5016,12 @@
         "category": "domain",
         "name": "Herd",
         "rating": 2
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 2,
+        "spheres": []
       }
     ],
     "touchstones": [
@@ -8563,13 +8566,6 @@
         "area": "Underworld"
       },
       {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 2,
-        "area": "Police, Street, Underworld",
-        "granted_by": "Prof. Training"
-      },
-      {
         "category": "domain",
         "name": "Safe Place",
         "rating": 2
@@ -11421,13 +11417,6 @@
         "area": "street"
       },
       {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "area": "street, transport, underworld",
-        "granted_by": "Prof Training"
-      },
-      {
         "category": "general",
         "name": "Carthian Pull",
         "rating": 1
@@ -12446,13 +12435,6 @@
       }
     ],
     "merits": [
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 2,
-        "area": "health, politics",
-        "granted_by": "Prof Training"
-      },
       {
         "category": "general",
         "name": "Carthian Pull",
@@ -13499,13 +13481,6 @@
     "merits": [
       {
         "category": "influence",
-        "name": "Contacts",
-        "rating": 4,
-        "area": "industry, politics, underworld, legal",
-        "granted_by": "Prof Training"
-      },
-      {
-        "category": "influence",
         "name": "Status",
         "rating": 2,
         "area": "media"
@@ -14133,12 +14108,6 @@
       },
       {
         "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "granted_by": "HM, PT"
-      },
-      {
-        "category": "influence",
         "name": "Resources",
         "rating": 1,
         "granted_by": "HM"
@@ -14191,6 +14160,12 @@
           null,
           null
         ]
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 3,
+        "spheres": []
       }
     ],
     "touchstones": [
@@ -16242,13 +16217,6 @@
     "merits": [
       {
         "category": "influence",
-        "name": "Contacts",
-        "rating": 2,
-        "area": "high society, politics",
-        "granted_by": "Prof Training"
-      },
-      {
-        "category": "influence",
         "name": "Resources",
         "rating": 1
       },
@@ -16807,13 +16775,6 @@
         "granted_by": "MCI 2"
       },
       {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 5,
-        "area": "Police, High Society, Occult, Media, Street",
-        "granted_by": "MCI 1"
-      },
-      {
         "category": "general",
         "name": "Fucking Thief",
         "rating": 1
@@ -16862,7 +16823,7 @@
             "category": "influence",
             "name": "Contacts",
             "rating": 1,
-            "qualifier": "Police, High Society, Occult, Media, Street"
+            "qualifier": "Police"
           },
           {
             "category": "influence",

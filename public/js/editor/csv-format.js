@@ -245,7 +245,7 @@ export function charToRow(c) {
   for (let i = 0; i < 30; i++) {
     const m = allMerits[i];
     if (m) {
-      const qual = m.qualifier ? ` (${m.qualifier})` : '';
+      const qual = m.spheres?.length ? ` (${m.spheres.join(', ')})` : m.qualifier ? ` (${m.qualifier})` : m.area ? ` (${m.area})` : '';
       row.push(`${m.name}${qual} ${fmtDots(m.rating || 0)}${m.sub_name ? ' | ' + m.sub_name : ''}`);
     } else {
       row.push(E);

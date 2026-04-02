@@ -203,7 +203,7 @@ export function shRenderInfluenceMerits(c,editMode) {
   } else {
     inflM.filter(m=>m.name!=='Contacts').forEach((m,idx)=>{const area=m.area?m.area.trim():null,gt=m.name==='Retainer'&&m.ghoul?' (ghoul)':'';h+=shRenderMeritRow((area?m.name+' ('+area+gt+')':m.name+gt)+(m.rating?' '+shDots(m.rating):''),'infl',idx);});
     const ce=inflM.filter(m=>m.name==='Contacts');
-    if(ce.length){const td=Math.min(5,ce.reduce((s,m)=>s+(m.rating||0),0)),sp=ce.map(m=>(m.area||'').trim()).filter(Boolean).join(', ');h+=shRenderMeritRow('Contacts'+(sp?' ('+sp+')':'')+(td?' '+shDots(td):''),'infl','contacts');}
+    if(ce.length){const td=Math.min(5,ce.reduce((s,m)=>s+(m.rating||0),0));const allSp=[];ce.forEach(m=>{if(m.spheres&&m.spheres.length)allSp.push(...m.spheres);else if(m.area)allSp.push(m.area.trim());else if(m.qualifier)allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean));});const sp=[...new Set(allSp)].join(', ');h+=shRenderMeritRow('Contacts'+(sp?' ('+sp+')':'')+(td?' '+shDots(td):''),'infl','contacts');}
     h+='<div class="infl-total">Total Influence: <span class="inf-n">'+totalInfl+'</span></div>';
   }
   h+='</div></div>';return h;
