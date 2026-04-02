@@ -9,7 +9,7 @@ import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import {
-  shEditInflMerit, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
@@ -19,7 +19,7 @@ import {
 
 /* Re-export merit-category handlers so consumers can import from edit.js */
 export {
-  shEditInflMerit, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
