@@ -729,6 +729,30 @@ body {
   margin-top: 2px;
 }
 
+/* ── City edit controls ── */
+.city-edit-toggle { background: none; border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt3); font-family: var(--fh); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 12px; cursor: pointer; margin-top: 12px; }
+.city-edit-toggle:hover { color: var(--gold2); border-color: var(--gold2); }
+.court-edit-panel, .terr-edit-panel { margin-top: 12px; padding: 16px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; }
+.court-edit-grid { display: flex; flex-direction: column; gap: 8px; }
+.court-edit-row { display: flex; align-items: center; gap: 12px; }
+.court-edit-label { font-family: var(--fh); font-size: 12px; color: var(--gold2); min-width: 110px; }
+.court-edit-sel, .terr-edit-sel { flex: 1; padding: 6px 8px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--fb); font-size: 13px; }
+.city-save-btn { margin-top: 12px; padding: 8px 16px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: 4px; color: #fff; font-family: var(--fh); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.city-save-btn:hover { filter: brightness(1.2); }
+.city-save-status { font-size: 12px; color: var(--green2); margin-left: 12px; }
+.terr-edit-block { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--bdr); }
+.terr-edit-block:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.terr-edit-name { font-family: var(--fh); font-size: 13px; color: var(--gold2); margin-bottom: 6px; }
+.terr-edit-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.terr-edit-row label { font-size: 12px; color: var(--txt3); min-width: 80px; }
+
+/* ── Prestige view switcher ── */
+.prestige-views { display: flex; gap: 6px; margin-bottom: 8px; }
+.prestige-view-btn { padding: 5px 10px; border: 1px solid var(--bdr); border-radius: 4px; background: var(--surf2); color: var(--txt3); font-family: var(--fh); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.prestige-view-btn:hover { border-color: var(--bdr2); color: var(--txt2); }
+.prestige-view-btn.prestige-view-on { border-color: var(--gold-a30); color: var(--gold2); background: var(--gold-a8); }
+.prestige-view-desc { font-size: 11px; color: var(--txt3); font-style: italic; margin-bottom: 10px; }
+
 .court-list {
   display: flex;
   flex-direction: column;
