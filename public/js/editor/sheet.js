@@ -10,7 +10,7 @@ import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecs, xpSpentSpecial, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, buildMeritOptions, buildMCIGrantOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
-import { applyDerivedMerits } from './mci.js';
+import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmAlliesPool, vmAlliesUsed, vmHerdPool } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
@@ -197,14 +197,23 @@ export function shRenderInfluenceMerits(c,editMode) {
   const totalInfl=calcTotalInfluence(c);
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits</div><div class="merit-list">';
   if(editMode){
-    // All non-Contacts influence merits (unified — MCI grants show as free dots)
+    // Grant pool counters for influence merits
+    const inflPools=getPoolsForCategory(c,'influence');
+    if(inflPools.length){
+      h+='<div class="grant-pools">';
+      // Group pools by merit name
+      const poolNames=[...new Set(inflPools.map(p=>p.name))];
+      poolNames.forEach(pn=>{const pTotal=getPoolTotal(c,pn),pUsed=getPoolUsed(c,pn),cls=pUsed>pTotal?'sc-over':pUsed===pTotal?'sc-full':'sc-val',sources=inflPools.filter(p=>p.name===pn).map(p=>p.source).join(', ');
+        h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(sources)+'</span>: '+esc(pn)+' free dots <span class="'+cls+'">'+pUsed+'/'+pTotal+'</span></div>';});
+      h+='</div>';
+    }
+    // All non-Contacts influence merits
     const nonContacts=inflM.filter(m=>m.name!=='Contacts');
-    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},gf=m._granted_free||0,dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0)+gf,pf=m._prereq_failed,tags=m._grant_sources||[];
-      h+='<div class="infl-edit-row'+(pf?' merit-prereq-fail':'')+'"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span>';
-      tags.forEach(t=>{h+='<span class="gen-granted-tag">'+esc(t)+'</span>';});
-      if(m.granted_by==='VM') h+='<span class="gen-granted-tag">VM</span>';
+    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
+      h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span>';
+      if(m.granted_by) h+='<span class="gen-granted-tag">'+esc(m.granted_by)+'</span>';
       h+='<button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc,gf);});
+      h+=meritBdRow(rIdx,mc);});
     // VM bonus pool display
     const hasVM=hasViralMythology(c),vmAllies=nonContacts.filter(m=>m.granted_by==='VM');
     if(hasVM||vmAllies.length){
@@ -216,15 +225,14 @@ export function shRenderInfluenceMerits(c,editMode) {
     const contactsEntry=inflM.find(m=>m.name==='Contacts');
     const cInf=calcContactsInfluence(c);
     if(contactsEntry){
-      const cIdx=c.merits.indexOf(contactsEntry),cMc=(c.merit_creation&&c.merit_creation[cIdx])||{cp:0,free:0,xp:0},cGf=contactsEntry._granted_free||0,rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],mciDots=contactsEntry._mci_dots||0,ptDots=contactsEntry._pt_dots||0,baseDots=rating-mciDots-ptDots,spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
+      const cIdx=c.merits.indexOf(contactsEntry),cMc=(c.merit_creation&&c.merit_creation[cIdx])||{cp:0,free:0,xp:0},rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],frDots=cMc.free||0,baseDots=(cMc.cp||0)+(cMc.xp||0),spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
       h+='<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts '+shDots(rating)+(cInf?' \u2014 <span class="inf-val">'+cInf+'</span> inf':'')+'</div>';
-      h+=meritBdRow(cIdx,cMc,cGf);
+      h+=meritBdRow(cIdx,cMc);
       for(let d=0;d<rating;d++){
         const sp=spheres[d]||'';
         let src='';
         if(d<baseDots) src='base';
-        else if(d<baseDots+mciDots) src='MCI';
-        else src='PT';
+        else src='granted';
         h+='<div class="contacts-dot-row"><span class="contacts-dot-num">\u25CF '+(d+1)+'</span><select class="contacts-sphere-sel" onchange="shEditContactSphere('+cIdx+','+d+',this.value)"><option value="">\u2014 sphere \u2014</option>'+spOpts(sp)+'</select>'+(src!=='base'?'<span class="contacts-dot-src">'+src+'</span>':'')+'</div>';
       }
       h+='</div>';
@@ -256,9 +264,11 @@ export function shRenderDomainMerits(c,editMode) {
   if(!editMode&&!domM.length) return '';
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits</div><div class="merit-list">';
   if(editMode){
-    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},gf=m._granted_free||0,dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0)+gf,parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
+    const domPools=getPoolsForCategory(c,'domain');
+    if(domPools.length){h+='<div class="grant-pools">';const dpNames=[...new Set(domPools.map(p=>p.name))];dpNames.forEach(pn=>{const pT=getPoolTotal(c,pn),pU=getPoolUsed(c,pn),cls=pU>pT?'sc-over':pU===pT?'sc-full':'sc-val',src=domPools.filter(p=>p.name===pn).map(p=>p.source).join(', ');h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(src)+'</span>: '+esc(pn)+' free dots <span class="'+cls+'">'+pU+'/'+pT+'</span></div>';});h+='</div>';}
+    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
       h+='<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit('+di+',\'name\',this.value)">'+tOpts+'</select><span class="dom-contrib-lbl">My dots: '+shDots(dd)+'</span><span class="dom-total-lbl" title="Total across all contributors">Total: '+shDots(eT)+'</span><button class="dev-rm-btn" onclick="shRemoveDomMerit('+di+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc,gf);
+      h+=meritBdRow(rIdx,mc);
       if(m.name==='Herd'&&hasViralMythology(c)){const vmB=vmHerdPool(c);if(vmB)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +'+vmB+' dots ('+shDots(vmB)+') \u2014 lost if VM removed</div>';}
       if(m.name!=='Herd'&&parts.length){h+='<div class="dom-partners-row">';parts.forEach(pN=>{const p=chars.find(ch=>ch.name===pN),pD=p?domMeritShareable(p,m.name):0;h+='<span class="dom-partner-tag">'+esc(pN)+(pD?' '+shDots(pD):' \u25CB')+'<button class="dom-partner-rm" onclick="shRemoveDomainPartner('+di+',\''+pN.replace(/'/g,"\\'")+'\')">\u00D7</button></span>';});h+='</div>';}
       if(m.name!=='Herd'&&avP.length) h+='<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner('+di+',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>'+avP.map(p=>'<option value="'+esc(p.name)+'">'+esc(p.name)+'</option>').join('')+'</select></div>';
@@ -340,15 +350,14 @@ export function shRenderGeneralMerits(c,editMode) {
   if(!editMode&&!oM.length) return '';
   let h='<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">';
   if(editMode){
-    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},gf=m._granted_free||0,dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0)+gf,isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]),tags=m._grant_sources||[],pf=m._prereq_failed;
-      if(m.granted_by&&!tags.length){h+='<div class="gen-edit-row gen-granted-row'+(pf?' merit-prereq-fail':'')+'"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(m.rating)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span>'+(pf?'<span class="merit-prereq-fail-tag" title="Prereqs not met">Invalid</span>':'')+'</div>';}
-      else{h+='<div class="gen-edit-row'+(pf?' merit-prereq-fail':'')+'"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';
+    const genPools=getPoolsForCategory(c,'general');
+    if(genPools.length){h+='<div class="grant-pools">';const gpNames=[...new Set(genPools.map(p=>p.name))];gpNames.forEach(pn=>{const pT=getPoolTotal(c,pn),pU=getPoolUsed(c,pn),cls=pU>pT?'sc-over':pU===pT?'sc-full':'sc-val',src=genPools.filter(p=>p.name===pn).map(p=>p.source).join(', ');h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(src)+'</span>: '+esc(pn)+' free dots <span class="'+cls+'">'+pU+'/'+pT+'</span></div>';});h+='</div>';}
+    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
+      if(m.granted_by){h+='<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(dd)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span></div>';h+=meritBdRow(rIdx,mc);}
+      else{h+='<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';
         if(nSp&&cSp.length) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 spec \u2014')+'</option>'+cSp.map(sp=>'<option'+(m.qualifier===sp?' selected':'')+'>'+esc(sp)+'</option>').join('')+'</select>';
         else h+='<input type="text" class="gen-qual-input" value="'+esc(m.qualifier||'')+'" placeholder="Qualifier" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">';
-        h+='<span class="infl-dots-derived">'+shDots(dd)+'</span>';
-        tags.forEach(t=>{h+='<span class="gen-granted-tag">'+esc(t)+'</span>';});
-        if(pf) h+='<span class="merit-prereq-fail-tag">Invalid</span>';
-        h+='<button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc,gf);}});
+        h+='<span class="infl-dots-derived">'+shDots(dd)+'</span><button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc);}});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddGenMerit()">+ Add Merit</button></div>';
   } else {
     oM.forEach((m,i)=>{const qual=m.qualifier?' ('+m.qualifier+')':'';

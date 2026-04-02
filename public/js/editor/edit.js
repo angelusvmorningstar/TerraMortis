@@ -8,6 +8,7 @@ import {
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
+import { getPoolTotal, getPoolUsed } from './mci.js';
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -487,15 +488,23 @@ export function shRemoveDevotion(idx) {
 
 export function shEditMeritPt(realIdx, field, val) {
   if (state.editIdx < 0) return;
-  if (field === 'free') return; // Free is derived, not editable
   const c = state.chars[state.editIdx];
   ensureMeritSync(c);
   const mc = c.merit_creation[realIdx];
   if (!mc) return;
-  mc[field] = Math.max(0, parseInt(val) || 0);
-  // Sync stored rating (free + granted_free + cp + xp, UP excluded)
-  const gf = c.merits[realIdx] ? (c.merits[realIdx]._granted_free || 0) : 0;
-  const total = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0) + gf;
+  val = Math.max(0, parseInt(val) || 0);
+  // Cap free edits by available grant pool
+  if (field === 'free' && c.merits[realIdx]) {
+    const m = c.merits[realIdx];
+    const poolTotal = getPoolTotal(c, m.name);
+    if (poolTotal > 0) {
+      const poolUsed = getPoolUsed(c, m.name) - (mc.free || 0); // exclude current merit's old value
+      val = Math.min(val, Math.max(0, poolTotal - poolUsed));
+    }
+  }
+  mc[field] = val;
+  // Sync stored rating (free + cp + xp, UP excluded)
+  const total = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
   if (c.merits[realIdx]) c.merits[realIdx].rating = total;
   _markDirty();
   _renderSheet(c);

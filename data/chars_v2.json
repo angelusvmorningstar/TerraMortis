@@ -274,7 +274,7 @@
       {
         "category": "influence",
         "name": "Contacts",
-        "rating": 1,
+        "rating": 3,
         "spheres": [
           "Street",
           "Occult",
@@ -284,23 +284,23 @@
       {
         "category": "general",
         "name": "Hobbyist Clique",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "domain",
         "name": "Safe Place",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Health"
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Politics"
       }
     ],
@@ -575,28 +575,28 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 1,
         "up": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       }
     ],
@@ -1512,27 +1512,27 @@
       {
         "category": "general",
         "name": "Table Turner",
-        "rating": 0
+        "rating": 2
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 0
+        "rating": 2
       },
       {
         "category": "general",
         "name": "Indomitable",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "general",
         "name": "Inspiring",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Underworld"
       }
     ],
@@ -1829,27 +1829,27 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 1
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 1
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 1
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
@@ -3333,23 +3333,23 @@
       {
         "category": "general",
         "name": "Closed Book",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 2,
         "area": "Occult"
       },
       {
         "category": "general",
         "name": "Inspiring",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Media"
       }
     ],
@@ -3630,22 +3630,22 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       }
     ],
@@ -4155,23 +4155,23 @@
       {
         "category": "general",
         "name": "Defensive Combat",
-        "rating": 0,
+        "rating": 1,
         "area": "Weaponry"
       },
       {
         "category": "domain",
         "name": "Safe Place",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "general",
         "name": "Indomitable",
-        "rating": 0
+        "rating": 2
       },
       {
         "category": "general",
         "name": "Area of Expertise",
-        "rating": 0,
+        "rating": 3,
         "area": "Coward Punch"
       },
       {
@@ -4510,22 +4510,22 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       }
     ],
@@ -7036,18 +7036,18 @@
       {
         "category": "general",
         "name": "Fixer",
-        "rating": 0
+        "rating": 4
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Underworld"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 0
+        "rating": 3
       }
     ],
     "touchstones": [
@@ -7301,17 +7301,17 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 2
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
@@ -7769,12 +7769,12 @@
       {
         "category": "domain",
         "name": "Safe Place",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "general",
         "name": "Quick Reload",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "general",
@@ -8095,12 +8095,12 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       }
     ],
@@ -8498,23 +8498,23 @@
       {
         "category": "general",
         "name": "Trained Observer",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "general",
         "name": "Eye for the Strange",
-        "rating": 0
+        "rating": 2
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Media"
       },
       {
         "category": "general",
         "name": "Gettin' Up",
-        "rating": 0
+        "rating": 3
       }
     ],
     "touchstones": [],
@@ -8809,22 +8809,22 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       }
     ],
@@ -9749,22 +9749,22 @@
       {
         "category": "general",
         "name": "Table Turner",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "general",
         "name": "Indomitable",
-        "rating": 0
+        "rating": 2
       },
       {
         "category": "general",
         "name": "Peacemaker",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "general",
         "name": "Closed Book",
-        "rating": 0
+        "rating": 3
       }
     ],
     "touchstones": [
@@ -10045,22 +10045,22 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
@@ -10933,27 +10933,27 @@
       {
         "category": "general",
         "name": "Holistic Awareness",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "general",
         "name": "Striking Looks",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "general",
         "name": "Closed Book",
-        "rating": 0
+        "rating": 2
       },
       {
         "category": "general",
         "name": "Inspiring",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Health"
       }
     ],
@@ -11202,27 +11202,27 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 2
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
@@ -11555,17 +11555,17 @@
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 0
+        "rating": 1
       },
       {
         "category": "general",
         "name": "Alternate Identity",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "general",
         "name": "Peacemaker",
-        "rating": 0
+        "rating": 3
       }
     ],
     "touchstones": [
@@ -11815,17 +11815,17 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       }
     ],
@@ -17665,18 +17665,18 @@
       {
         "category": "general",
         "name": "Air of Menace",
-        "rating": 0
+        "rating": 3
       },
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 0,
+        "rating": 3,
         "area": "Finance"
       },
       {
         "category": "influence",
         "name": "Resources",
-        "rating": 0
+        "rating": 3
       }
     ],
     "touchstones": [
@@ -17938,17 +17938,17 @@
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 1
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 3,
         "xp": 0
       },
       {

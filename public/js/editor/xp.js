@@ -131,19 +131,18 @@ export function meritRating(c, m) {
 }
 
 /**
- * Render the merit breakdown row: (Fr) + CP + XP = total | UP
- * Fr is non-editable, derived from grants (MCI/PT/VM) + static free.
+ * Render the merit breakdown row: Fr + CP + XP = total | UP
+ * Fr is editable but backed by grant pools (MCI/PT/VM/etc).
  * @param {number} realIdx - index into c.merits / c.merit_creation
  * @param {object} mc - merit_creation entry {cp, free, xp, up}
- * @param {number} [grantedFree=0] - ephemeral free dots from MCI/PT/VM grants
  * @returns {string} HTML
  */
-export function meritBdRow(realIdx, mc, grantedFree) {
-  const fr = (mc.free || 0) + (grantedFree || 0);
+export function meritBdRow(realIdx, mc) {
+  const fr = mc.free || 0;
   const total = fr + (mc.cp || 0) + (mc.xp || 0);
   const up = mc.up || 0;
   return '<div class="merit-bd-row">'
-    + (fr ? '<span class="bd-lbl" style="color:var(--gold2)">Fr</span><span class="merit-bd-input" style="color:var(--gold2);text-align:center;border:none;background:none">' + fr + '</span>' : '')
+    + '<span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + fr + '" onchange="shEditMeritPt(' + realIdx + ',\'free\',+this.value)">'
     + '<span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (mc.cp || 0) + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)">'
     + '<span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (mc.xp || 0) + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)">'
     + '<span class="bd-lbl' + (up ? ' bd-up' : '') + '">UP</span><input class="merit-bd-input' + (up ? ' bd-up-input' : '') + '" type="number" min="0" value="' + up + '" onchange="shEditMeritPt(' + realIdx + ',\'up\',+this.value)">'
