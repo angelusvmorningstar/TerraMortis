@@ -9,9 +9,9 @@ import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs,
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecs, xpSpentSpecial, meritBdRow } from './xp.js';
-import { meritBase, meritDotCount, meritLookup, buildMeritOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
+import { meritBase, meritDotCount, meritLookup, buildMeritOptions, buildMCIGrantOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits } from './mci.js';
-import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence } from './domain.js';
+import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmAlliesPool, vmAlliesUsed, vmHerdPool } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
@@ -121,7 +121,8 @@ export function shRenderSkills(c,editMode) {
       const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
       h+='<div class="sk-edit-cell"><div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
       const cr=(c.skill_creation||{})[s]||{cp:0,free:0,xp:0},sE=s.replace(/'/g,"\\'"),sb=(cr.cp||0)+(cr.free||0),sxd=xpToDots(cr.xp||0,sb,2),st2=sb+sxd;
-      h+='<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+st2+'</span></div></div>';
+      const sFr=cr.free||0;
+      h+='<div class="sk-bd-panel"><div class="sk-bd-row">'+(sFr?'<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span> <span class="attr-bd-input" style="color:var(--gold2);text-align:center;border:none;background:none">'+sFr+'</span></div>':'')+'<div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+st2+'</span></div></div>';
       const specs=sk.specs||[];
       h+='<div class="sk-spec-list">';
       specs.forEach((sp2,si)=>{h+='<div class="sk-spec-row"><input class="sk-spec-input" value="'+esc(sp2)+'" onchange="shEditSpec(\''+sE+'\','+si+',this.value)" placeholder="Specialisation">'+(hasAoE(c,sp2)?'<span style="color:rgba(140,200,140,.8);font-size:8px;font-family:var(--fh);white-space:nowrap">+2</span>':'')+'<button class="sk-spec-rm" onclick="shRemoveSpec(\''+sE+'\','+si+')" title="Remove">&times;</button></div>';});
@@ -196,17 +197,28 @@ export function shRenderInfluenceMerits(c,editMode) {
   const totalInfl=calcTotalInfluence(c);
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits</div><div class="merit-list">';
   if(editMode){
-    // Non-Contacts influence merits
+    // All non-Contacts influence merits (unified — MCI grants show as free dots)
     const nonContacts=inflM.filter(m=>m.name!=='Contacts');
-    nonContacts.forEach((m,idx)=>{const inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
-      h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span><button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc);});
+    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},gf=m._granted_free||0,dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0)+gf,pf=m._prereq_failed,tags=m._grant_sources||[];
+      h+='<div class="infl-edit-row'+(pf?' merit-prereq-fail':'')+'"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span>';
+      tags.forEach(t=>{h+='<span class="gen-granted-tag">'+esc(t)+'</span>';});
+      if(m.granted_by==='VM') h+='<span class="gen-granted-tag">VM</span>';
+      h+='<button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
+      h+=meritBdRow(rIdx,mc,gf);});
+    // VM bonus pool display
+    const hasVM=hasViralMythology(c),vmAllies=nonContacts.filter(m=>m.granted_by==='VM');
+    if(hasVM||vmAllies.length){
+      const pool=vmAlliesPool(c),used=vmAlliesUsed(c),rem=pool-used,cls=rem<0?'sc-over':rem===0?'sc-full':'sc-val';
+      h+='<div style="font-size:10px;padding:4px 8px;color:var(--gold2)">VM Allies Bonus <span class="'+cls+'">'+used+' / '+pool+' allocated</span></div>';
+      if(rem>0) h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddVMAllies()">+ Add VM Allies</button></div>';
+    }
     // Contacts: single entry with sphere-per-dot
     const contactsEntry=inflM.find(m=>m.name==='Contacts');
     const cInf=calcContactsInfluence(c);
     if(contactsEntry){
-      const cIdx=c.merits.indexOf(contactsEntry),rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],mciDots=contactsEntry._mci_dots||0,ptDots=contactsEntry._pt_dots||0,baseDots=rating-mciDots-ptDots,spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
+      const cIdx=c.merits.indexOf(contactsEntry),cMc=(c.merit_creation&&c.merit_creation[cIdx])||{cp:0,free:0,xp:0},cGf=contactsEntry._granted_free||0,rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],mciDots=contactsEntry._mci_dots||0,ptDots=contactsEntry._pt_dots||0,baseDots=rating-mciDots-ptDots,spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
       h+='<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts '+shDots(rating)+(cInf?' \u2014 <span class="inf-val">'+cInf+'</span> inf':'')+'</div>';
+      h+=meritBdRow(cIdx,cMc,cGf);
       for(let d=0;d<rating;d++){
         const sp=spheres[d]||'';
         let src='';
@@ -220,7 +232,7 @@ export function shRenderInfluenceMerits(c,editMode) {
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddInflMerit(\'Allies\')">+ Add Allies / Other</button></div>';
     h+='<div class="infl-total">Total Influence: <span class="inf-n">'+totalInfl+'</span></div>';
   } else {
-    inflM.filter(m=>m.name!=='Contacts').forEach((m,idx)=>{const area=m.area?m.area.trim():null,gt=m.name==='Retainer'&&m.ghoul?' (ghoul)':'';h+=shRenderMeritRow((area?m.name+' ('+area+gt+')':m.name+gt)+(m.rating?' '+shDots(m.rating):''),'infl',idx);});
+    inflM.filter(m=>m.name!=='Contacts').forEach((m,idx)=>{const area=(m.area||'').trim()||null,gt=m.name==='Retainer'&&m.ghoul?' (ghoul)':'',tags=m._grant_sources||[],gb=tags.length?(' <span class="gen-granted-tag-view">'+tags.join(', ')+'</span>'):'';h+=shRenderMeritRow((area?m.name+' ('+area+gt+')':m.name+gt)+(m.rating?' '+shDots(m.rating):'')+gb,'infl',idx);});
     const ce=inflM.filter(m=>m.name==='Contacts');
     if(ce.length){const td=Math.min(5,ce.reduce((s,m)=>s+(m.rating||0),0));const allSp=[];ce.forEach(m=>{if(m.spheres&&m.spheres.length)allSp.push(...m.spheres);else if(m.area)allSp.push(m.area.trim());else if(m.qualifier)allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean));});const sp=[...new Set(allSp)].join(', ');h+=shRenderMeritRow('Contacts'+(sp?' ('+sp+')':'')+(td?' '+shDots(td):''),'infl','contacts');}
     h+='<div class="infl-total">Total Influence: <span class="inf-n">'+totalInfl+'</span></div>';
@@ -228,14 +240,14 @@ export function shRenderInfluenceMerits(c,editMode) {
   h+='</div></div>';return h;
 }
 function _inflArea(m,idx,isC) {
-  const isN=m.name==='Status'&&m.area&&!INFLUENCE_SPHERES.includes(m.area),spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
-  if(m.name==='Allies') return '<select class="infl-area" onchange="shEditInflMerit('+idx+',\'area\',this.value)"><option value="">'+(m.area?'':'\u2014 sphere \u2014')+'</option>'+spOpts(m.area)+'</select>';
+  const spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
+  if(m.name==='Allies') return '<select class="infl-area" onchange="shEditInflMerit('+idx+',\'area\',this.value)"><option value="">\u2014 sphere \u2014</option>'+spOpts(m.area)+'</select>';
   if(isC) return '<span class="infl-area-fixed">'+esc(m.area||'\u2014')+'</span>';
   if(m.name==='Resources') return '<span class="infl-area-none"></span>';
   if(m.name==='Mentor') return '<input type="text" class="infl-area" value="'+esc(m.area||'')+'" placeholder="Mentor name" onchange="shEditInflMerit('+idx+',\'area\',this.value)">';
   if(m.name==='Retainer') return '<input type="text" class="infl-area" value="'+esc(m.area||'')+'" placeholder="Description" onchange="shEditInflMerit('+idx+',\'area\',this.value)"><label class="infl-ghoul-lbl"><input type="checkbox"'+(m.ghoul?' checked':'')+' onchange="shEditInflMerit('+idx+',\'ghoul\',this.checked)"> Ghoul</label>';
   if(m.name==='Staff') return '<input type="text" class="infl-area" value="'+esc(m.area||'')+'" placeholder="Area of expertise" onchange="shEditInflMerit('+idx+',\'area\',this.value)">';
-  if(m.name==='Status') return '<button class="infl-mode-btn" onclick="shEditStatusMode('+idx+',\''+(!isN?'narrow':'sphere')+'\')" title="'+(isN?'Switch to sphere':'Switch to narrow')+'">'+(isN?'Sphere \u2195':'Narrow \u2195')+'</button>'+(isN?'<input type="text" class="infl-area infl-area-narrow" value="'+esc(m.area||'')+'" placeholder="Narrow status" onchange="shEditInflMerit('+idx+',\'area\',this.value)">':'<select class="infl-area" onchange="shEditInflMerit('+idx+',\'area\',this.value)"><option value="">'+(m.area?'':'\u2014 sphere \u2014')+'</option>'+spOpts(m.area)+'</select>');
+  if(m.name==='Status'){const isNarrow=m.narrow||(m.area&&!INFLUENCE_SPHERES.includes(m.area));return '<button class="infl-mode-btn" onclick="shEditStatusMode('+idx+')" title="'+(isNarrow?'Switch to sphere':'Switch to narrow')+'">'+(isNarrow?'Sphere \u2195':'Narrow \u2195')+'</button>'+(isNarrow?'<input type="text" class="infl-area infl-area-narrow" value="'+esc(m.area||'')+'" placeholder="Narrow status" onchange="shEditInflMerit('+idx+',\'area\',this.value)">':'<select class="infl-area" onchange="shEditInflMerit('+idx+',\'area\',this.value)"><option value="">\u2014 sphere \u2014</option>'+spOpts(m.area)+'</select>');}
   return '<input type="text" class="infl-area" value="'+esc(m.area||'')+'" placeholder="Sphere / scope" onchange="shEditInflMerit('+idx+',\'area\',this.value)">';
 }
 
@@ -244,9 +256,10 @@ export function shRenderDomainMerits(c,editMode) {
   if(!editMode&&!domM.length) return '';
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits</div><div class="merit-list">';
   if(editMode){
-    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
+    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},gf=m._granted_free||0,dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0)+gf,parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
       h+='<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit('+di+',\'name\',this.value)">'+tOpts+'</select><span class="dom-contrib-lbl">My dots: '+shDots(dd)+'</span><span class="dom-total-lbl" title="Total across all contributors">Total: '+shDots(eT)+'</span><button class="dev-rm-btn" onclick="shRemoveDomMerit('+di+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc);
+      h+=meritBdRow(rIdx,mc,gf);
+      if(m.name==='Herd'&&hasViralMythology(c)){const vmB=vmHerdPool(c);if(vmB)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +'+vmB+' dots ('+shDots(vmB)+') \u2014 lost if VM removed</div>';}
       if(m.name!=='Herd'&&parts.length){h+='<div class="dom-partners-row">';parts.forEach(pN=>{const p=chars.find(ch=>ch.name===pN),pD=p?domMeritShareable(p,m.name):0;h+='<span class="dom-partner-tag">'+esc(pN)+(pD?' '+shDots(pD):' \u25CB')+'<button class="dom-partner-rm" onclick="shRemoveDomainPartner('+di+',\''+pN.replace(/'/g,"\\'")+'\')">\u00D7</button></span>';});h+='</div>';}
       if(m.name!=='Herd'&&avP.length) h+='<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner('+di+',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>'+avP.map(p=>'<option value="'+esc(p.name)+'">'+esc(p.name)+'</option>').join('')+'</select></div>';
       h+='</div>';});
@@ -289,10 +302,10 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode,MERITS_DB) {
   h+='<span class="merit-dots-sh">'+shDots(eDots)+'</span></div></div>';
   if(editMode){
     h+=meritBdRow(rIdx,mc);if(!m.benefit_grants)m.benefit_grants=[null,null,null,null,null];
-    for(let d=0;d<5&&d<eDots;d++){const g=m.benefit_grants[d],gN=(g&&g.name)||'',gR=(g&&g.rating)||0,gQ=(g&&g.qualifier)||'',mO=buildMeritOptions(c,gN),b=ben[d]||'',db=gN?MERITS_DB[gN.toLowerCase()]:null,mx=db&&db.rating?parseInt((db.rating+'').split('\u2013').pop().split('\u2014').pop())||5:5;
-      h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span><div style="flex:1;display:flex;flex-direction:column;gap:3px"><div style="display:flex;gap:4px;align-items:center"><select class="gen-name-select" style="flex:1" onchange="shEditMCIGrant('+si+','+d+',\'name\',this.value)">'+mO+'</select>';
-      if(gN) h+='<input class="merit-bd-input" type="number" min="1" max="'+mx+'" value="'+gR+'" style="width:32px" title="Rating (max '+mx+')" onchange="shEditMCIGrant('+si+','+d+',\'rating\',+this.value)"><input type="text" class="mci-benefit-input" style="flex:0.6" value="'+esc(gQ)+'" placeholder="Qualifier" onchange="shEditMCIGrant('+si+','+d+',\'qualifier\',this.value)">';
-      h+='</div><input type="text" class="mci-benefit-input" value="'+esc(b)+'" placeholder="Description" onchange="shEditStandMerit('+si+',\'benefit\',\''+d+'|\'+this.value)"></div></div>';}
+    for(let d=0;d<5&&d<eDots;d++){const g=m.benefit_grants[d],gN=(g&&g.name)||'',gR=(g&&g.rating)||0,mO=buildMCIGrantOptions(c,d,gN);
+      h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span><div style="flex:1;display:flex;gap:4px;align-items:center"><select class="gen-name-select" style="flex:1" onchange="shEditMCIGrant('+si+','+d+',\'name\',this.value)">'+mO+'</select>';
+      if(gN&&gR) h+='<span class="infl-dots-derived" style="min-width:24px">'+shDots(gR)+'</span>';
+      h+='</div></div>';}
   } else if(!inactive){const grants=m.benefit_grants||[];
     for(let d=0;d<m.rating;d++){const b=(ben[d]||'').trim(),entry=grants[d],gArr=Array.isArray(entry)?entry:(entry&&entry.name?[entry]:[]),gl=gArr.map(g=>esc(g.name)+(g.qualifier?' ('+esc(g.qualifier)+')':'')+(g.rating?' '+shDots(g.rating):'')).join(', ');
       h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span>'+(gl?'<span class="mci-benefit-text"><span class="gen-granted-tag-view" style="margin-right:4px">Grant</span>'+gl+(b?' \u2014 '+esc(b):'')+'</span>':'<span class="mci-benefit-text">'+(b?esc(b):'<span class="mci-benefit-empty">\u2014</span>')+'</span>')+'</div>';}}
@@ -327,12 +340,15 @@ export function shRenderGeneralMerits(c,editMode) {
   if(!editMode&&!oM.length) return '';
   let h='<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">';
   if(editMode){
-    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
-      if(m.granted_by){const pf=m.prereq_failed;h+='<div class="gen-edit-row gen-granted-row'+(pf?' merit-prereq-fail':'')+'"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(m.rating)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span>'+(pf?'<span class="merit-prereq-fail-tag" title="Prereqs not met">Invalid</span>':'')+'</div>';}
-      else{h+='<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';
+    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},gf=m._granted_free||0,dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0)+gf,isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]),tags=m._grant_sources||[],pf=m._prereq_failed;
+      if(m.granted_by&&!tags.length){h+='<div class="gen-edit-row gen-granted-row'+(pf?' merit-prereq-fail':'')+'"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(m.rating)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span>'+(pf?'<span class="merit-prereq-fail-tag" title="Prereqs not met">Invalid</span>':'')+'</div>';}
+      else{h+='<div class="gen-edit-row'+(pf?' merit-prereq-fail':'')+'"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';
         if(nSp&&cSp.length) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 spec \u2014')+'</option>'+cSp.map(sp=>'<option'+(m.qualifier===sp?' selected':'')+'>'+esc(sp)+'</option>').join('')+'</select>';
         else h+='<input type="text" class="gen-qual-input" value="'+esc(m.qualifier||'')+'" placeholder="Qualifier" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">';
-        h+='<span class="infl-dots-derived">'+shDots(dd)+'</span><button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc);}});
+        h+='<span class="infl-dots-derived">'+shDots(dd)+'</span>';
+        tags.forEach(t=>{h+='<span class="gen-granted-tag">'+esc(t)+'</span>';});
+        if(pf) h+='<span class="merit-prereq-fail-tag">Invalid</span>';
+        h+='<button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc,gf);}});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddGenMerit()">+ Add Merit</button></div>';
   } else {
     oM.forEach((m,i)=>{const qual=m.qualifier?' ('+m.qualifier+')':'';

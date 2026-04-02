@@ -280,6 +280,28 @@
           "Occult",
           "Industry"
         ]
+      },
+      {
+        "category": "general",
+        "name": "Hobbyist Clique",
+        "rating": 0
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Health"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Politics"
       }
     ],
     "touchstones": [
@@ -513,28 +535,33 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 1
+        "free": 0,
+        "xp": 1,
+        "up": 2
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 3,
@@ -548,7 +575,28 @@
       },
       {
         "cp": 0,
-        "free": 1,
+        "free": 0,
+        "xp": 1,
+        "up": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 0
       }
     ],
@@ -1441,7 +1489,7 @@
           {
             "category": "influence",
             "name": "Resources",
-            "rating": 5
+            "rating": 1
           },
           {
             "category": "general",
@@ -1460,6 +1508,32 @@
             "qualifier": "Underworld"
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Table Turner",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Inspiring",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Underworld"
       }
     ],
     "touchstones": [
@@ -1690,22 +1764,26 @@
       {
         "cp": 0,
         "free": 3,
-        "xp": 0
+        "xp": 0,
+        "up": 0
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 4
+        "free": 0,
+        "xp": 4,
+        "up": 1
       },
       {
         "cp": 0,
@@ -1724,13 +1802,15 @@
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 0,
@@ -1761,6 +1841,31 @@
         "cp": 0,
         "free": 0,
         "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
       }
     ],
     "xp_log": {
@@ -2283,8 +2388,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
@@ -3208,7 +3314,7 @@
           {
             "category": "influence",
             "name": "Allies",
-            "rating": 3,
+            "rating": 2,
             "qualifier": "Occult"
           },
           {
@@ -3223,6 +3329,28 @@
             "qualifier": "Media"
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Occult"
+      },
+      {
+        "category": "general",
+        "name": "Inspiring",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Media"
       }
     ],
     "touchstones": [
@@ -3452,23 +3580,27 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
@@ -3492,7 +3624,28 @@
       },
       {
         "cp": 0,
-        "free": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 0
       }
     ],
@@ -3946,7 +4099,7 @@
           {
             "category": "domain",
             "name": "Safe Place",
-            "rating": 3
+            "rating": 1
           },
           {
             "category": "general",
@@ -3956,13 +4109,13 @@
           {
             "category": "general",
             "name": "Area of Expertise",
-            "rating": 1,
+            "rating": 3,
             "qualifier": "Coward Punch"
           },
           {
             "category": "manoeuvre",
             "name": "Stronger Than You",
-            "rating": 1,
+            "rating": 3,
             "rank_name": "Stronger Than You"
           }
         ]
@@ -3998,6 +4151,33 @@
           "Underworld",
           "Police"
         ]
+      },
+      {
+        "category": "general",
+        "name": "Defensive Combat",
+        "rating": 0,
+        "area": "Weaponry"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 0,
+        "area": "Coward Punch"
+      },
+      {
+        "category": "general",
+        "name": "Stronger Than You",
+        "rating": 0
       }
     ],
     "touchstones": [
@@ -4216,8 +4396,9 @@
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
@@ -4246,8 +4427,9 @@
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
@@ -4311,12 +4493,39 @@
       },
       {
         "cp": 0,
-        "free": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 0
       }
     ],
@@ -4815,8 +5024,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 0,
@@ -6803,7 +7013,7 @@
           {
             "category": "influence",
             "name": "Contacts",
-            "rating": 2
+            "rating": 1
           },
           {
             "category": "general",
@@ -6819,9 +7029,25 @@
           {
             "category": "influence",
             "name": "Resources",
-            "rating": 5
+            "rating": 3
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Fixer",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Underworld"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 0
       }
     ],
     "touchstones": [
@@ -7031,23 +7257,27 @@
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 2
+        "free": 0,
+        "xp": 2,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 0,
@@ -7073,6 +7303,21 @@
         "cp": 0,
         "free": 0,
         "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
       }
     ],
     "xp_log": {
@@ -7499,7 +7744,7 @@
           {
             "category": "domain",
             "name": "Safe Place",
-            "rating": 3
+            "rating": 1
           },
           {
             "category": "manoeuvre",
@@ -7515,11 +7760,31 @@
           {
             "category": "manoeuvre",
             "name": "Intercept Shot",
-            "rating": 1,
+            "rating": 3,
             "rank_name": "Intercept Shot"
           },
           null
         ]
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Quick Reload",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Intercept Shot",
+        "rating": 0
       }
     ],
     "touchstones": [
@@ -7739,8 +8004,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
@@ -7764,28 +8030,33 @@
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 2
+        "free": 0,
+        "xp": 2,
+        "up": 1
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 1,
@@ -7809,6 +8080,26 @@
       },
       {
         "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
         "free": 0,
         "xp": 0
       }
@@ -8199,10 +8490,31 @@
           {
             "category": "manoeuvre",
             "name": "Gettin' Up",
-            "rating": 1,
+            "rating": 3,
             "rank_name": "Gettin' Up"
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Trained Observer",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Eye for the Strange",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Media"
+      },
+      {
+        "category": "general",
+        "name": "Gettin' Up",
+        "rating": 0
       }
     ],
     "touchstones": [],
@@ -8430,33 +8742,39 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
         "free": 0,
-        "xp": 3
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 1,
@@ -8485,7 +8803,28 @@
       },
       {
         "cp": 0,
-        "free": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 0
       }
     ],
@@ -8978,8 +9317,9 @@
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 1,
@@ -9400,6 +9740,31 @@
             "rating": 3
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Eidetic Memory",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Table Turner",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Peacemaker",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 0
       }
     ],
     "touchstones": [
@@ -9638,8 +10003,9 @@
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
@@ -9648,8 +10014,9 @@
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 0,
@@ -9675,6 +10042,31 @@
         "cp": 0,
         "free": 2,
         "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
       }
     ],
     "xp_log": {
@@ -10512,7 +10904,8 @@
         "benefit_grants": [
           {
             "category": "specialisation",
-            "name": "Holistic Awareness"
+            "name": "Holistic Awareness",
+            "rating": 1
           },
           {
             "category": "general",
@@ -10536,6 +10929,32 @@
             "qualifier": "Health"
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Holistic Awareness",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Striking Looks",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Inspiring",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Health"
       }
     ],
     "touchstones": [
@@ -10750,8 +11169,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 3,
@@ -10765,8 +11185,9 @@
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
@@ -10775,13 +11196,39 @@
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
         "free": 0,
         "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
       }
     ],
     "xp_log": {
@@ -11085,12 +11532,12 @@
           {
             "category": "influence",
             "name": "Resources",
-            "rating": 5
+            "rating": 1
           },
           {
             "category": "influence",
             "name": "Contacts",
-            "rating": 3
+            "rating": 1
           },
           null,
           {
@@ -11104,6 +11551,21 @@
             "rating": 3
           }
         ]
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Alternate Identity",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Peacemaker",
+        "rating": 0
       }
     ],
     "touchstones": [
@@ -11303,13 +11765,15 @@
     "merit_creation": [
       {
         "cp": 2,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 4
+        "free": 0,
+        "xp": 4,
+        "up": 1
       },
       {
         "cp": 0,
@@ -11323,13 +11787,15 @@
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
@@ -11343,7 +11809,23 @@
       },
       {
         "cp": 0,
-        "free": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 0
       }
     ],
@@ -11896,8 +12378,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 2,
-        "xp": 1
+        "free": 0,
+        "xp": 1,
+        "up": 2
       },
       {
         "cp": 0,
@@ -12925,8 +13408,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 1,
@@ -14042,8 +14526,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 2,
-        "xp": 2
+        "free": 0,
+        "xp": 2,
+        "up": 2
       },
       {
         "cp": 0,
@@ -14656,8 +15141,9 @@
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
@@ -16798,8 +17284,9 @@
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 2,
@@ -17174,6 +17661,22 @@
             "rating": 3
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Air of Menace",
+        "rating": 0
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 0,
+        "area": "Finance"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 0
       }
     ],
     "touchstones": [
@@ -17387,8 +17890,9 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 3,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 3
       },
       {
         "cp": 0,
@@ -17397,8 +17901,9 @@
       },
       {
         "cp": 0,
-        "free": 1,
-        "xp": 4
+        "free": 0,
+        "xp": 4,
+        "up": 1
       },
       {
         "cp": 0,
@@ -17427,13 +17932,29 @@
       },
       {
         "cp": 0,
-        "free": 2,
-        "xp": 0
+        "free": 0,
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 0,
         "free": 0,
         "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
       }
     ],
     "xp_log": {

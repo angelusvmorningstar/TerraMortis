@@ -239,6 +239,50 @@ export function buildMeritOptions(c, currentName) {
   return opts;
 }
 
+/**
+ * Build <option> HTML for MCI grant dropdown — includes influence and domain merits.
+ * Filters by prerequisites and dot-level rating.
+ * MCI dot ratings: dot 1-2 = 1-dot merits, dot 3 = 2-dot, dot 4-5 = 3-dot.
+ * Graduated merits (rating range) appear if their min ≤ dotRating.
+ * @param {object} c - character
+ * @param {number} dotLevel - 0-indexed MCI dot level
+ * @param {string} currentName - currently selected merit name
+ */
+const MCI_DOT_RATING = [1, 1, 2, 3, 3];
+export function buildMCIGrantOptions(c, dotLevel, currentName) {
+  const db = MERITS_DB;
+  if (!db) return '<option value="">— loading —</option>';
+  const maxR = MCI_DOT_RATING[dotLevel] || 1;
+  const qualified = [];
+  for (const [key, entry] of Object.entries(db)) {
+    if (entry.special === 'standing') continue;
+    if (entry.type && ['style', 'invictus oath'].includes(entry.type.toLowerCase())) continue;
+    if (!meritQualifies(c, entry.prereq || '')) continue;
+    // Filter by rating: fixed-rating merits must match exactly, graduated must include maxR
+    const rStr = entry.rating || '1';
+    const parts = rStr.split(/[–\-—]/);
+    const minR = parseInt(parts[0]) || 1;
+    const maxMerit = parseInt(parts[parts.length - 1]) || minR;
+    // For graduated (range): show if maxR falls within range
+    // For fixed (single): show if merit rating == maxR
+    if (parts.length > 1) { if (minR > maxR) continue; }
+    else { if (minR !== maxR) continue; }
+    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    qualified.push({ key, label });
+  }
+  qualified.sort((a, b) => a.label.localeCompare(b.label));
+  const curLow = (currentName || '').toLowerCase();
+  let opts = '<option value="">' + (currentName ? '' : '— select merit —') + '</option>';
+  if (currentName && !qualified.some(q => q.key === curLow)) {
+    opts += '<option value="' + _esc(currentName) + '" selected>' + _esc(currentName) + '</option>';
+  }
+  for (const { key, label } of qualified) {
+    const sel = key === curLow || label.toLowerCase() === curLow ? ' selected' : '';
+    opts += '<option value="' + _esc(label) + '"' + sel + '>' + _esc(label) + '</option>';
+  }
+  return opts;
+}
+
 /* ── Inline HTML escape (avoids circular dependency on a helpers module) ── */
 function _esc(s) {
   return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

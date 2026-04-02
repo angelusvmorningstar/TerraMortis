@@ -115,6 +115,58 @@ function hasHoneyWithVinegar(c) {
   return (c.merits || []).some(m => m.name === 'Honey With Vinegar' || m.name === 'Honey with Vinegar');
 }
 
+/* ══════════════════════════════════════════════════════
+   Viral Mythology helpers
+   ══════════════════════════════════════════════════════ */
+
+/** Check if character has Viral Mythology merit. */
+export function hasViralMythology(c) {
+  return (c.merits || []).some(m => m.name === 'Viral Mythology');
+}
+
+/**
+ * Count total PURCHASED Allies dots (CP + XP, excluding VM bonus and MCI grants).
+ * This is the VM bonus pool size.
+ */
+export function vmAlliesPool(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.category !== 'influence' || m.name !== 'Allies') return;
+    if (m.granted_by || m.derived) return;  // skip VM bonus and MCI-derived
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.cp || 0) + (mc.xp || 0);
+  });
+  return total;
+}
+
+/**
+ * Count total VM bonus Allies dots allocated (free dots on granted_by:"VM" entries).
+ */
+export function vmAlliesUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.category !== 'influence' || m.name !== 'Allies') return;
+    if (m.granted_by !== 'VM') return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.free || 0);
+  });
+  return total;
+}
+
+/**
+ * Count purchased Herd dots (CP + XP). VM doubles these.
+ */
+export function vmHerdPool(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.name !== 'Herd') return;
+    if (m.derived) return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.cp || 0) + (mc.xp || 0);
+  });
+  return total;
+}
+
 export function calcTotalInfluence(c) {
   let total = 0;
   const hwv = hasHoneyWithVinegar(c);

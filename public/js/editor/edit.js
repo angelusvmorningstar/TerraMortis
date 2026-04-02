@@ -9,21 +9,23 @@ import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
+  shEditDerivedMeritArea,
   registerCallbacks as registerDomainCallbacks
 } from './edit-domain.js';
 
 /* Re-export merit-category handlers so consumers can import from edit.js */
 export {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
-  shAddDomainPartner, shRemoveDomainPartner
+  shAddDomainPartner, shRemoveDomainPartner,
+  shEditDerivedMeritArea
 };
 
 /* ── Callback registration (avoids circular deps with main.js / sheet.js) ── */
@@ -485,13 +487,15 @@ export function shRemoveDevotion(idx) {
 
 export function shEditMeritPt(realIdx, field, val) {
   if (state.editIdx < 0) return;
+  if (field === 'free') return; // Free is derived, not editable
   const c = state.chars[state.editIdx];
   ensureMeritSync(c);
   const mc = c.merit_creation[realIdx];
   if (!mc) return;
   mc[field] = Math.max(0, parseInt(val) || 0);
-  // Sync stored rating
-  const total = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  // Sync stored rating (free + granted_free + cp + xp, UP excluded)
+  const gf = c.merits[realIdx] ? (c.merits[realIdx]._granted_free || 0) : 0;
+  const total = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0) + gf;
   if (c.merits[realIdx]) c.merits[realIdx].rating = total;
   _markDirty();
   _renderSheet(c);

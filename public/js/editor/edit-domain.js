@@ -27,11 +27,12 @@ export function shEditInflMerit(idx, field, val) {
   _renderSheet(c);
 }
 
-export function shEditStatusMode(idx, mode) {
+export function shEditStatusMode(idx) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'influence', idx);
   if (!m) return;
+  m.narrow = !m.narrow;
   m.area = '';
   _markDirty();
   _renderSheet(c);
@@ -53,6 +54,14 @@ export function shRemoveInflMerit(idx) {
   const c = state.chars[state.editIdx];
   const { realIdx } = meritByCategory(c, 'influence', idx);
   if (realIdx >= 0) removeMerit(c, realIdx);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shAddVMAllies() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  addMerit(c, { category: 'influence', name: 'Allies', rating: 0, area: '', granted_by: 'VM' });
   _markDirty();
   _renderSheet(c);
 }
@@ -159,22 +168,36 @@ export function shToggleMCI(standIdx) {
   _renderSheet(c);
 }
 
+const _INFL_NAMES = new Set(['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status']);
+const _DOM_NAMES = new Set(['Safe Place','Haven','Feeding Grounds','Herd']);
+
+export function shEditDerivedMeritArea(mciRealIdx, dotLevel, val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const mci = c.merits[mciRealIdx];
+  if (!mci || !mci.benefit_grants) return;
+  const grant = mci.benefit_grants[dotLevel];
+  if (!grant) return;
+  if (val) grant.qualifier = val;
+  else delete grant.qualifier;
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shEditMCIGrant(standIdx, dotLevel, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'standing', standIdx);
   if (!m || m.name !== 'Mystery Cult Initiation') return;
   if (!m.benefit_grants) m.benefit_grants = [null, null, null, null, null];
+  const _DOT_RATING = [1, 1, 2, 3, 3];
   if (field === 'name') {
     if (!val) {
       m.benefit_grants[dotLevel] = null;
     } else {
-      const existing = m.benefit_grants[dotLevel] || {};
-      m.benefit_grants[dotLevel] = { category: 'general', name: val, rating: existing.rating || 1 };
-      if (existing.qualifier) m.benefit_grants[dotLevel].qualifier = existing.qualifier;
+      const cat = _INFL_NAMES.has(val) ? 'influence' : _DOM_NAMES.has(val) ? 'domain' : 'general';
+      m.benefit_grants[dotLevel] = { category: cat, name: val, rating: _DOT_RATING[dotLevel] || 1 };
     }
-  } else if (field === 'rating') {
-    if (m.benefit_grants[dotLevel]) m.benefit_grants[dotLevel].rating = Math.max(1, parseInt(val) || 1);
   } else if (field === 'qualifier') {
     if (m.benefit_grants[dotLevel]) {
       if (val) m.benefit_grants[dotLevel].qualifier = val;
