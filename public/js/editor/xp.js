@@ -82,6 +82,15 @@ export function xpSpentMerits(c) {
 /** XP spent on powers — disciplines + devotions. */
 export function xpSpentPowers(c) { return creationOrFallback(c, 'disc_creation', 'powers'); }
 
+/** XP spent on specialisations beyond the free allowance (1 XP each). */
+export function xpSpentSpecs(c) {
+  const total = Object.values(c.skills || {}).reduce((s, sk) => s + ((sk && sk.specs) ? sk.specs.length : 0), 0);
+  const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
+  const ptB = (ptM && ptM.rating >= 3) ? 2 : 0;
+  const freeS = 3 + ptB;
+  return Math.max(0, total - freeS);
+}
+
 /** XP spent on special items (manual, stored in xp_log). */
 export function xpSpentSpecial(c) {
   return ((c.xp_log || {}).spent || {}).special || 0;
@@ -94,7 +103,7 @@ export function xpSpentSpecial(c) {
  * @returns {number}
  */
 export function xpSpent(c) {
-  return xpSpentAttrs(c) + xpSpentSkills(c) + xpSpentMerits(c) + xpSpentPowers(c) + xpSpentSpecial(c);
+  return xpSpentAttrs(c) + xpSpentSkills(c) + xpSpentMerits(c) + xpSpentPowers(c) + xpSpentSpecs(c) + xpSpentSpecial(c);
 }
 
 /**
