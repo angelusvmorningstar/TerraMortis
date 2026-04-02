@@ -973,6 +973,11 @@ body {
 .feeding-pool-breakdown { font-size: 13px; color: var(--txt2); }
 .feeding-pool-total { font-family: var(--fhd); font-size: 22px; color: var(--gold2); }
 .feeding-method-label { font-size: 14px; color: var(--txt2); }
+.feeding-method-desc { font-size: 13px; color: var(--txt3); font-style: italic; margin-top: 4px; margin-bottom: 12px; }
+.feeding-no-sub { }
+.feeding-no-sub .dt-feed-methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.feeding-disc-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.feeding-disc-row label { font-size: 13px; color: var(--txt2); }
 
 /* ── Regency tab ── */
 
