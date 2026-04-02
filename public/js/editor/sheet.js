@@ -16,6 +16,27 @@ import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
 
+/** Render grant pool counters for a merit category. Handles single and multi-target pools. */
+function _renderPoolCounters(c,category) {
+  const pools=getPoolsForCategory(c,category);
+  if(!pools.length) return '';
+  let h='<div class="grant-pools">';
+  // Deduplicate by source+targets to avoid duplicate rows
+  const seen=new Set();
+  pools.forEach(p=>{
+    const label=p.names?p.names.join('/'):p.name;
+    const key=p.source+'|'+label;
+    if(seen.has(key)) return;
+    seen.add(key);
+    // For multi-target pools, use first target name for pool lookup (getPoolTotal handles it)
+    const lookupName=p.names?p.names[0]:p.name;
+    const pTotal=getPoolTotal(c,lookupName),pUsed=getPoolUsed(c,lookupName);
+    const cls=pUsed>pTotal?'sc-over':pUsed===pTotal?'sc-full':'sc-val';
+    h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(p.source)+'</span>: '+esc(label)+' free dots <span class="'+cls+'">'+pUsed+'/'+pTotal+'</span></div>';
+  });
+  h+='</div>';return h;
+}
+
 function _cityStatusDots(base,titleBonus) {
   if(!base&&!titleBonus) return '';
   return '<div class="sh-city-dots">'+'<span class="sh-city-dot crim">\u25CF</span>'.repeat(base)+'<span class="sh-city-dot gold">\u25CF</span>'.repeat(titleBonus)+'</div>';
@@ -197,16 +218,7 @@ export function shRenderInfluenceMerits(c,editMode) {
   const totalInfl=calcTotalInfluence(c);
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits</div><div class="merit-list">';
   if(editMode){
-    // Grant pool counters for influence merits
-    const inflPools=getPoolsForCategory(c,'influence');
-    if(inflPools.length){
-      h+='<div class="grant-pools">';
-      // Group pools by merit name
-      const poolNames=[...new Set(inflPools.map(p=>p.name))];
-      poolNames.forEach(pn=>{const pTotal=getPoolTotal(c,pn),pUsed=getPoolUsed(c,pn),cls=pUsed>pTotal?'sc-over':pUsed===pTotal?'sc-full':'sc-val',sources=inflPools.filter(p=>p.name===pn).map(p=>p.source).join(', ');
-        h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(sources)+'</span>: '+esc(pn)+' free dots <span class="'+cls+'">'+pUsed+'/'+pTotal+'</span></div>';});
-      h+='</div>';
-    }
+    h+=_renderPoolCounters(c,'influence');
     // All non-Contacts influence merits
     const nonContacts=inflM.filter(m=>m.name!=='Contacts');
     nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0);
@@ -257,8 +269,7 @@ export function shRenderDomainMerits(c,editMode) {
   if(!editMode&&!domM.length) return '';
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits</div><div class="merit-list">';
   if(editMode){
-    const domPools=getPoolsForCategory(c,'domain');
-    if(domPools.length){h+='<div class="grant-pools">';const dpNames=[...new Set(domPools.map(p=>p.name))];dpNames.forEach(pn=>{const pT=getPoolTotal(c,pn),pU=getPoolUsed(c,pn),cls=pU>pT?'sc-over':pU===pT?'sc-full':'sc-val',src=domPools.filter(p=>p.name===pn).map(p=>p.source).join(', ');h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(src)+'</span>: '+esc(pn)+' free dots <span class="'+cls+'">'+pU+'/'+pT+'</span></div>';});h+='</div>';}
+    h+=_renderPoolCounters(c,'domain');
     domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
       h+='<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit('+di+',\'name\',this.value)">'+tOpts+'</select><span class="dom-contrib-lbl">My dots: '+shDots(dd)+'</span><span class="dom-total-lbl" title="Total across all contributors">Total: '+shDots(eT)+'</span><button class="dev-rm-btn" onclick="shRemoveDomMerit('+di+')" title="Remove">&times;</button></div>';
       h+=meritBdRow(rIdx,mc);
@@ -343,8 +354,7 @@ export function shRenderGeneralMerits(c,editMode) {
   if(!editMode&&!oM.length) return '';
   let h='<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">';
   if(editMode){
-    const genPools=getPoolsForCategory(c,'general');
-    if(genPools.length){h+='<div class="grant-pools">';const gpNames=[...new Set(genPools.map(p=>p.name))];gpNames.forEach(pn=>{const pT=getPoolTotal(c,pn),pU=getPoolUsed(c,pn),cls=pU>pT?'sc-over':pU===pT?'sc-full':'sc-val',src=genPools.filter(p=>p.name===pn).map(p=>p.source).join(', ');h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(src)+'</span>: '+esc(pn)+' free dots <span class="'+cls+'">'+pU+'/'+pT+'</span></div>';});h+='</div>';}
+    h+=_renderPoolCounters(c,'general');
     oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
       if(m.granted_by){h+='<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(dd)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span></div>';h+=meritBdRow(rIdx,mc);}
       else{h+='<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';

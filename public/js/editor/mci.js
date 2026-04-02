@@ -6,7 +6,7 @@
 
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { removeMerit, ensureMeritSync } from './merits.js';
-import { hasViralMythology, vmAlliesPool } from './domain.js';
+import { hasViralMythology, vmAlliesPool, lorekeeperPool } from './domain.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -88,6 +88,18 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // ── Lorekeeper grant pool (Herd/Retainer) ──
+  const lkPool = lorekeeperPool(c);
+  if (lkPool > 0) {
+    c._grant_pools.push({
+      source: 'Lorekeeper',
+      names: ['Herd', 'Retainer'],
+      category: 'domain',
+      amount: lkPool,
+      qualifier: ''
+    });
+  }
+
   // ── Sync ratings from merit_creation (free + cp + xp) ──
   ensureMeritSync(c);
   (c.merits || []).forEach((m, i) => {
@@ -98,22 +110,39 @@ export function applyDerivedMerits(c) {
   });
 }
 
+/** Check if a pool matches a merit name (supports single `name` or multi `names`). */
+function _poolMatchesName(pool, meritName) {
+  if (pool.names) return pool.names.includes(meritName);
+  return pool.name === meritName;
+}
+
 /**
  * Get total pool available for a merit name from all grant sources.
+ * For shared pools (names array), returns the full shared amount.
  */
 export function getPoolTotal(c, meritName) {
   return (c._grant_pools || [])
-    .filter(p => p.name === meritName)
+    .filter(p => _poolMatchesName(p, meritName))
     .reduce((s, p) => s + p.amount, 0);
 }
 
 /**
- * Get total free dots allocated to merits of a given name.
+ * Get total free dots used from pools that include meritName.
+ * For shared pools, sums free across ALL target merit names.
  */
 export function getPoolUsed(c, meritName) {
+  // Find all pools that include this merit
+  const matchedPools = (c._grant_pools || []).filter(p => _poolMatchesName(p, meritName));
+  // Collect all merit names covered by these pools
+  const allNames = new Set();
+  matchedPools.forEach(p => {
+    if (p.names) p.names.forEach(n => allNames.add(n));
+    else if (p.name) allNames.add(p.name);
+  });
+  // Sum free across all covered merits
   let total = 0;
   (c.merits || []).forEach((m, i) => {
-    if (m.name !== meritName) return;
+    if (!allNames.has(m.name)) return;
     const mc = (c.merit_creation || [])[i] || {};
     total += (mc.free || 0);
   });
@@ -121,8 +150,7 @@ export function getPoolUsed(c, meritName) {
 }
 
 /**
- * Get pools grouped by section for display.
- * Returns pools relevant to a merit category.
+ * Get pools relevant to a merit category for display.
  */
 export function getPoolsForCategory(c, category) {
   return (c._grant_pools || []).filter(p => p.category === category);
