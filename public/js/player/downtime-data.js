@@ -148,14 +148,21 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 2. Territory declarations — where does your character feed/poach?
-  // (Regency, feeding method, and influence spend are now separate tabs)
+  // 2. Feeding declaration — method, territory, description
+  // (Influence spend is its own tab. Regency is its own tab.)
   {
-    key: 'territories',
-    title: 'Territory: Where Do You Feed?',
+    key: 'feeding',
+    title: 'The City: Territory and Feeding',
     gate: null,
     intro: null,
     questions: [
+      {
+        key: 'feeding_method',
+        label: 'How does your character hunt?',
+        type: 'feeding_method',
+        required: true,
+        desc: null,
+      },
       {
         key: 'feeding_territories',
         label: 'Which Territory does your character feed or poach in?',

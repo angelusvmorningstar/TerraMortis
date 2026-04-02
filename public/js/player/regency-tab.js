@@ -50,8 +50,8 @@ function render(container) {
 
   let h = '<div class="regency-wrap">';
   h += `<h3 class="regency-title">Regency: ${esc(terrName)}</h3>`;
-  h += `<p class="regency-meta">Ambience: ${esc(ambience)} — Feeding cap: ${cap}</p>`;
-  h += `<p class="regency-desc">Assign feeding residents for your territory. Slots beyond the feeding cap are highlighted as over-capacity.</p>`;
+  h += `<p class="regency-meta">Ambience: ${esc(ambience)} — Feeding rights cap: ${cap}</p>`;
+  h += `<p class="regency-desc">Grant feeding rights for your territory. Slots beyond the cap are highlighted as over-capacity.</p>`;
 
   // Residency grid
   h += '<div class="dt-residency-grid">';
@@ -62,8 +62,8 @@ function render(container) {
 
     let label, locked = false, value = savedVal;
     if (i === 1) { label = 'Regent'; locked = true; value = currentChar._id; }
-    else if (i === 2) { label = 'Second'; }
-    else { label = `Resident ${i}`; }
+    else if (i === 2) { label = 'Lieutenant'; }
+    else { label = `Feeding Right ${i - 1}`; }
 
     h += `<div class="${rowClass}">`;
     h += `<span class="dt-residency-label">${label}</span>`;
