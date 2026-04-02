@@ -71,3 +71,7 @@
   --w-a7:rgba(255,255,255,.07);--w-a8:rgba(255,255,255,.08);
   --w-a10:rgba(255,255,255,.1);--w-a12:rgba(255,255,255,.12);
 }
+
+/* ── Cross-app navigation buttons ── */
+.app-nav-btn{display:inline-block;padding:6px 14px;background:var(--crim,#8B0000);color:#fff;border:1px solid var(--crim-a70);border-radius:4px;font-family:var(--fh);font-size:12px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;cursor:pointer;}
+.app-nav-btn:hover{filter:brightness(1.2);}

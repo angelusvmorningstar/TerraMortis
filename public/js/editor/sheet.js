@@ -387,8 +387,8 @@ export function renderSheet(c) {
   h+='<div class="sh-hdr-right">';
   const tOpts=COURT_TITLES.map(t=>'<option'+(c.court_title===t?' selected':'')+'>'+esc(t||'(none)')+'</option>').join(''),trOpts=REGENT_TERRITORIES.map(t=>'<option'+(c.regent_territory===t?' selected':'')+'>'+esc(t)+'</option>').join('');
   h+='<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
-  if(editMode){h+='<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">'+tOpts+'</select>';if(c.court_title==='Regent')h+='<select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'regent_territory\',this.value||null)"><option value="">(no territory)</option>'+trOpts+'</select>';}
-  else h+='<div class="sh-faction-label">'+esc(c.court_title||'\u2014')+'</div>'+(c.court_title==='Regent'&&c.regent_territory?'<div class="sh-faction-bloodline">'+esc(c.regent_territory)+'</div>':'');
+  if(editMode){h+='<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">'+tOpts+'</select>';h+='<select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'regent_territory\',this.value||null)"><option value="">(no territory)</option>'+trOpts+'</select>';}
+  else{h+='<div class="sh-faction-label">'+esc(c.court_title||'\u2014')+'</div>';if(c.regent_territory)h+='<div class="sh-faction-bloodline">Regent \u2014 '+esc(c.regent_territory)+'</div>';}
   const cityBase=st.city||0,titleBonus=titleStatusBonus(c),cityTotal=cityBase+titleBonus;
   h+='<div class="sh-faction-sub">Title</div>'+_cityStatusDots(cityBase,titleBonus)+'</div>'+_cityStatusPip(editMode,cityBase,cityTotal,titleBonus)+'</div>';
   const covRow=(img,editH,viewH,sub,svg,sVal,sLbl,sKey)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div>'+_statusPip(editMode,svg,sVal,sLbl,sKey)+'</div>';};

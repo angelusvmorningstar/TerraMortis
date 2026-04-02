@@ -35,6 +35,10 @@
       <div class="hdr-sub" id="hdr-sub">Characters</div>
     </div>
     <div id="pool-banner"></div>
+    <div class="hdr-nav" id="hdr-nav">
+      <a href="/player" id="nav-player" class="app-nav-btn">Player</a>
+      <a href="/admin" id="nav-admin" class="app-nav-btn" style="display:none">ST Admin</a>
+    </div>
     <div class="topbar-right" id="topbar-right" style="display:none">
       <button class="topbar-action" onclick="saveAll()" id="btn-save">Save All</button>
     </div>
@@ -147,20 +151,7 @@
         </div>
         <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
       </div>
-    </div>
-
-    <!-- ═══ TRACKER TAB ═══ -->
-    <div id="t-st" class="tab">
-      <div class="st-pick-row">
-        <div class="sel-wrap" style="flex:1;">
-          <select class="sh-char-sel" id="st-char-sel" onchange="stPickChar(this.value)">
-            <option value="">&#8212; Select character &#8212;</option>
-          </select>
-          <div class="sel-arr">&#9662;</div>
-        </div>
-      </div>
-      <div id="st-empty-msg" class="st-empty-msg">Select a character above.</div>
-      <div id="st-char-list"></div>
+      <!-- Feeding test (ST only) -->
       <div class="feed-section" id="feed-section" style="display:none">
         <button class="feed-toggle" onclick="feedToggle()">
           <span class="feed-toggle-label">Feeding Test</span>
@@ -203,16 +194,6 @@
           </div>
         </div>
       </div>
-      <div id="st-prestige"></div>
-      <div class="st-controls">
-        <button class="st-ctrl-btn btn-gold" onclick="stResetAll()">Reset All Trackers</button>
-        <button class="st-ctrl-btn btn-crim" onclick="stApplyDowntime()">Apply Downtime Expenditure</button>
-        <button class="st-ctrl-btn" onclick="document.getElementById('import-file').click()">Import Character Data</button>
-        <input type="file" id="import-file" accept=".xlsx" style="display:none" onchange="handleImport(this)">
-        <button class="st-ctrl-btn" onclick="document.getElementById('import-dt-file').click()">Import Downtime Data</button>
-        <input type="file" id="import-dt-file" accept=".xlsx" style="display:none" onchange="handleDtImport(this)">
-      </div>
-      <div id="import-banner" style="display:none"></div>
     </div>
 
     <!-- ═══ TERRITORY TAB ═══ -->
@@ -231,10 +212,6 @@
     <button class="nbtn on" id="n-chars" onclick="goTab('chars')">
       <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.19 13.89 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
       Character
-    </button>
-    <button class="nbtn" id="n-st" onclick="goTab('st')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      Tracker
     </button>
     <button class="nbtn" id="n-territory" onclick="goTab('territory')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>

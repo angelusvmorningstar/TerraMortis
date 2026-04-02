@@ -610,7 +610,9 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "regent_territory": "The North Shore",
+    "regent_lieutenant": "Keeper"
   },
   {
     "name": "Anichka",
@@ -8542,7 +8544,9 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "regent_territory": "The Academy",
+    "regent_lieutenant": null
   },
   {
     "name": "Jelle Dunneweld",
@@ -13514,7 +13518,9 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "regent_territory": "The Harbour",
+    "regent_lieutenant": "Ryan Ambrose"
   },
   {
     "name": "René Meyer",
@@ -14149,7 +14155,9 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "regent_territory": "The Second City",
+    "regent_lieutenant": "Margaret Kane"
   },
   {
     "name": "René St. Dominique",
@@ -14700,7 +14708,9 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "regent_territory": "The Dockyards",
+    "regent_lieutenant": "Reed Justice"
   },
   {
     "name": "Ryan Ambrose",

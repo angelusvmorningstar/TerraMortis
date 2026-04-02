@@ -1,12 +1,12 @@
 /**
- * City domain views — territory overview, influence rankings, court holders.
- * Renders into the City domain section of the admin app.
+ * City domain views — two-column layout.
+ * Left: Court, Ascendancy, Prestige. Right: Territories with residents.
  */
 
 import { apiGet } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { displayName, sortName } from '../data/helpers.js';
+import { displayName, sortName, clanIcon, covIcon } from '../data/helpers.js';
 
 const TERRITORIES = [
   { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
@@ -16,15 +16,7 @@ const TERRITORIES = [
   { id: 'secondcity', name: 'The Second City', ambience: 'Tended', ambienceMod: +2 },
 ];
 
-const TITLE_ORDER = ['Head of State', 'Primogen', 'Socialite', 'Enforcer', 'Administrator', 'Regent'];
-const TITLE_GAME_NAME = {
-  'Head of State': 'Premier',
-  'Primogen': 'Primogen',
-  'Socialite': 'Harpy',
-  'Enforcer': 'Protector',
-  'Administrator': 'Administrator',
-  'Regent': 'Regent',
-};
+const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector', 'Regent'];
 
 let chars = [];
 
@@ -42,26 +34,13 @@ export async function initCityView() {
     return;
   }
 
-  container.innerHTML = renderTerritories() + renderCourt() + renderInfluence();
+  container.innerHTML = `<div class="city-split">
+    <div class="city-left">${renderCourt()}${renderAscendancy()}${renderPrestige()}</div>
+    <div class="city-right">${renderTerritories()}</div>
+  </div>`;
 }
 
-function renderTerritories() {
-  const regents = chars.filter(c => c.court_title === 'Regent' && c.regent_territory);
-  let h = '<h3 class="city-section-title">Territories</h3><div class="terr-grid">';
-
-  for (const t of TERRITORIES) {
-    const regent = regents.find(c => c.regent_territory === t.name);
-    const modSign = t.ambienceMod >= 0 ? '+' : '';
-    h += `<div class="terr-card">
-      <div class="terr-name">${esc(t.name)}</div>
-      <div class="terr-ambience">${esc(t.ambience)} (${modSign}${t.ambienceMod})</div>
-      <div class="terr-regent">${regent ? esc(displayName(regent)) : '<span class="terr-vacant">Vacant</span>'}</div>
-    </div>`;
-  }
-
-  h += '</div>';
-  return h;
-}
+// ── Left column ──
 
 function renderCourt() {
   const titled = chars.filter(c => c.court_title).sort((a, b) => {
@@ -76,10 +55,9 @@ function renderCourt() {
 
   let h = '<h3 class="city-section-title">Court</h3><div class="court-list">';
   for (const c of titled) {
-    const gameName = TITLE_GAME_NAME[c.court_title] || c.court_title;
-    const territory = c.court_title === 'Regent' && c.regent_territory ? ' — ' + esc(c.regent_territory) : '';
+    const territory = c.regent_territory ? ' — Regent of ' + esc(c.regent_territory) : '';
     h += `<div class="court-row">
-      <span class="court-title">${esc(gameName)}</span>
+      <span class="court-title">${esc(c.court_title)}</span>
       <span class="court-name">${esc(displayName(c))}</span>
       <span class="court-detail">${esc(c.clan || '')}${territory}</span>
     </div>`;
@@ -88,29 +66,98 @@ function renderCourt() {
   return h;
 }
 
-function renderInfluence() {
-  const ranked = chars.map(c => ({
-    name: displayName(c),
-    clan: c.clan || '',
-    covenant: c.covenant || '',
-    influence: calcTotalInfluence(c),
-    cityStatus: (c.status || {}).city || 0,
-  })).filter(r => r.influence > 0).sort((a, b) => b.influence - a.influence);
+function renderAscendancy() {
+  // Hardcoded snapshot from Game 2 — will be dynamic once game cycles are implemented
+  const eminence = [
+    { name: 'Mekhet', val: 17 },
+    { name: 'Ventrue', val: 12 },
+    { name: 'Gangrel', val: 11 },
+    { name: 'Daeva', val: 7 },
+    { name: 'Nosferatu', val: 5 },
+  ];
+  const ascendancy = [
+    { name: 'Circle of the Crone', val: 17 },
+    { name: 'Lancea et Sanctum', val: 14 },
+    { name: 'Carthian Movement', val: 12 },
+    { name: 'Invictus', val: 9 },
+  ];
+
+  let h = '<h3 class="city-section-title">Eminence &amp; Ascendancy <span class="city-game-tag">Game 2</span></h3>';
+  h += '<div class="asc-columns">';
+
+  h += '<div class="asc-block"><div class="asc-label">Eminence (Clan)</div>';
+  for (const e of eminence) {
+    h += `<div class="asc-card">${clanIcon(e.name, 28)}<span class="asc-name">${esc(e.name)}</span><span class="asc-val">${e.val}</span></div>`;
+  }
+  h += '</div>';
+
+  h += '<div class="asc-block"><div class="asc-label">Ascendancy (Covenant)</div>';
+  for (const a of ascendancy) {
+    h += `<div class="asc-card">${covIcon(a.name, 28)}<span class="asc-name">${esc(a.name)}</span><span class="asc-val">${a.val}</span></div>`;
+  }
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function renderPrestige() {
+  const ranked = chars.map(c => {
+    const st = c.status || {};
+    const clan = st.clan || 0;
+    const cov = st.covenant || 0;
+    return {
+      name: displayName(c),
+      clan: c.clan || '',
+      covenant: c.covenant || '',
+      clanStatus: clan,
+      covStatus: cov,
+      prestige: clan + cov,
+      influence: calcTotalInfluence(c),
+    };
+  }).filter(r => r.prestige > 0)
+    .sort((a, b) => b.prestige - a.prestige || b.influence - a.influence)
+    .slice(0, 6);
 
   if (!ranked.length) return '';
 
-  let h = '<h3 class="city-section-title">Influence Rankings</h3>';
-  h += '<table class="infl-table"><thead><tr><th>Character</th><th>Clan</th><th>Covenant</th><th>City Status</th><th>Influence</th></tr></thead><tbody>';
+  let h = '<h3 class="city-section-title">Prestige</h3>';
+  h += '<table class="infl-table"><thead><tr><th>Character</th><th>Clan</th><th>Covenant</th><th>Clan</th><th>Cov</th><th>Total</th></tr></thead><tbody>';
   for (const r of ranked) {
     h += `<tr>
       <td class="infl-name">${esc(r.name)}</td>
       <td>${esc(r.clan)}</td>
       <td>${esc(r.covenant)}</td>
-      <td class="infl-num">${r.cityStatus || '\u2014'}</td>
-      <td class="infl-num infl-total">${r.influence}</td>
+      <td class="infl-num">${r.clanStatus || '\u2014'}</td>
+      <td class="infl-num">${r.covStatus || '\u2014'}</td>
+      <td class="infl-num infl-total">${r.prestige}</td>
     </tr>`;
   }
   h += '</tbody></table>';
+  return h;
+}
+
+// ── Right column ──
+
+function renderTerritories() {
+  const regents = chars.filter(c => c.regent_territory);
+  let h = '<h3 class="city-section-title">Territories</h3>';
+
+  for (const t of TERRITORIES) {
+    const regent = regents.find(c => c.regent_territory === t.name);
+    const modSign = t.ambienceMod >= 0 ? '+' : '';
+    const ltName = regent?.regent_lieutenant;
+    const lt = ltName ? chars.find(c => c.name === ltName) : null;
+    const ltDisplay = lt ? esc(displayName(lt)) : ltName ? esc(ltName) : null;
+
+    h += `<div class="terr-card">
+      <div class="terr-name">${esc(t.name)}</div>
+      <div class="terr-ambience">${esc(t.ambience)} (${modSign}${t.ambienceMod})</div>
+      <div class="terr-regent">Regent: ${regent ? esc(displayName(regent)) : '<span class="terr-vacant">Vacant</span>'}</div>
+      ${ltDisplay ? `<div class="terr-lt">Lieutenant: ${ltDisplay}</div>` : ''}
+    </div>`;
+  }
+
   return h;
 }
 

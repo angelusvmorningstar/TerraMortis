@@ -13,7 +13,7 @@
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
 import { CLAN_ICON_KEY, displayName, sortName } from './data/helpers.js';
-import { renderList, filterList } from './editor/list.js';
+import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
 import {
@@ -43,7 +43,7 @@ import {
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
 import { printSheet } from './editor/print.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole } from './auth/discord.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
 // ══════════════════════════════════════════════
 //  SUITE IMPORTS
@@ -62,17 +62,13 @@ import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
 import { getPool } from './shared/pools.js';
-import {
-  renderStOverview as _renderStOverview, stPickChar, stResetAll, stApplyDowntime,
-  stDismiss, toast as _toast, togglePrestige, stLogDt
-} from './suite/tracker.js';
-import { feedToggle, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod } from './suite/tracker-feed.js';
+import { toast as _toast } from './suite/tracker.js';
+import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';
 
 // ══════════════════════════════════════════════
 //  FORWARD WRAPPERS (suite)
 // ══════════════════════════════════════════════
 
-function renderStOverview() { _renderStOverview(); }
 function toast(msg) { _toast(msg); }
 
 // ══════════════════════════════════════════════
@@ -130,7 +126,6 @@ const TAB_SUBTITLES = {
   edit: 'Edit Character',
   roll: 'Roll',
   sheets: 'Sheets',
-  st: 'Tracker',
   territory: 'Territory',
 };
 
@@ -157,8 +152,22 @@ function goTab(t) {
 
   // Tab-specific init
   if (t === 'territory') mountTerr();
-  if (t === 'st') renderStOverview();
-  if (t === 'chars') renderList();
+  if (t === 'chars') {
+    // Players skip the list — go straight to their sheet
+    const role = getRole();
+    if (role !== 'st') {
+      const info = getPlayerInfo();
+      const ids = info?.character_ids || [];
+      if (ids.length === 1) {
+        const idx = editorState.chars.findIndex(c => c._id === ids[0]);
+        if (idx >= 0) { openChar(idx); return; }
+      }
+      // Multiple characters — filter the list to just theirs
+      renderList(ids);
+    } else {
+      renderList();
+    }
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -174,16 +183,6 @@ function populateSuiteDropdowns(chars) {
       o.value = c.name;
       o.textContent = displayName(c);
       sel.appendChild(o);
-    });
-  }
-  const ssel = document.getElementById('st-char-sel');
-  if (ssel) {
-    ssel.innerHTML = '<option value="">\u2014 Select character \u2014</option>';
-    chars.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c.name;
-      o.textContent = displayName(c);
-      ssel.appendChild(o);
     });
   }
 }
@@ -264,7 +263,6 @@ function clearImport() {
   localStorage.removeItem('tm_import_chars');
   localStorage.removeItem('tm_import_meta');
   loadChars();
-  renderStOverview();
   toast('Import cleared \u2014 using built-in data');
 }
 
@@ -280,7 +278,12 @@ function openPanel(mode) {
 
   if (mode === 'char') {
     title.textContent = 'Select Character';
-    suiteState.chars.forEach(c => {
+    const role = getRole();
+    const info = getPlayerInfo();
+    const charList = role === 'st'
+      ? suiteState.chars
+      : suiteState.chars.filter(c => info?.character_ids?.includes(c._id));
+    charList.forEach(c => {
       const el = document.createElement('div');
       el.className = 'panel-item';
       el.innerHTML = `<div><div class="pi-main">${displayName(c)}</div><div class="pi-sub">${c.clan || ''} \u00B7 ${c.covenant || ''}</div></div><div class="pi-badge">${c.player || ''}</div>`;
@@ -369,6 +372,10 @@ function pickChar(c) {
   suiteState.RESIST_MODE = null;
   const sec = document.getElementById('resist-sec');
   if (sec) sec.style.display = 'none';
+
+  // Reset and re-init feeding (ST only — section hidden for players)
+  feedClearState();
+  feedInit();
 }
 
 // ══════════════════════════════════════════════
@@ -383,7 +390,6 @@ registerAttrsCallbacks(markDirty);
 // Wire up suite import callbacks
 setImportCallbacks({
   loadChars,
-  renderStOverview,
   toast,
 });
 
@@ -503,24 +509,19 @@ Object.assign(window, {
   updResist,
   showResistSec,
 
-  // Suite tracker tab
-  renderStOverview,
-  stPickChar,
-  stResetAll,
-  stApplyDowntime,
-  stDismiss,
+  // Toast
   toast,
-  togglePrestige,
-  stLogDt,
 
-  // Suite feeding
+  // Suite feeding (ST only, in Roll tab)
   feedToggle,
+  feedInit,
   feedBuildPool,
   feedRoll,
   feedReset,
   feedAdjApply,
   feedApplyVitae,
   feedSelectMethod,
+  feedClearState,
 
   // Suite import
   handleImport: _handleImport,
@@ -576,13 +577,25 @@ function applyRoleRestrictions() {
   const terrNav = document.getElementById('n-territory');
   if (terrNav && !isST) terrNav.style.display = 'none';
 
-  // Tracker tab — ST only (feeding is in Roll for admin, tracker is being retired)
-  const stNav = document.getElementById('n-st');
-  if (stNav && !isST) stNav.style.display = 'none';
+  // Feeding test in Roll tab — ST only
+  const feedSec = document.getElementById('feed-section');
+  if (feedSec) feedSec.style.display = isST ? '' : 'none';
+
+  // Header nav — admin link ST only, player link for everyone
+  const navAdmin = document.getElementById('nav-admin');
+  if (navAdmin) navAdmin.style.display = isST ? '' : 'none';
 
   // Hide Save All / import controls for players
   const topbarRight = document.getElementById('topbar-right');
   if (topbarRight && !isST) topbarRight.style.display = 'none';
+
+  // Restrict character list and hide filters for players
+  if (!isST) {
+    const info = getPlayerInfo();
+    setListLimit(info?.character_ids || []);
+    const toolbar = document.querySelector('.list-toolbar');
+    if (toolbar) toolbar.style.display = 'none';
+  }
 }
 
 /** Show logged-in user in header. */

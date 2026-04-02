@@ -4,7 +4,7 @@
  *
  * Auto-detected sections:
  *  - Court: from game_sessions attendance
- *  - Regency: from court_title === 'Regent', with residency grid
+ *  - Regency: from regent_territory, with residency grid
  *  - Spheres/Contacts/Retainers: from character merits
  *  - Blood Sorcery: from disciplines (Cruac/Theban)
  */
@@ -443,8 +443,7 @@ export async function renderDowntimeTab(targetEl, char) {
   }
 
   // Auto-detect regent status from character data
-  gateValues.is_regent = (currentChar.court_title === 'Regent' && currentChar.regent_territory)
-    ? 'yes' : 'no';
+  gateValues.is_regent = currentChar.regent_territory ? 'yes' : 'no';
 
   // Load character name list and persisted residency for regency dropdowns
   if (gateValues.is_regent === 'yes') {
