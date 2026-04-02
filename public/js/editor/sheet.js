@@ -64,6 +64,8 @@ export function shRenderStatsStrip(c) {
 export function shRenderAttributes(c,editMode) {
   const ATTR_ROWS=[['Intelligence','Strength','Presence'],['Wits','Dexterity','Manipulation'],['Resolve','Stamina','Composure']];
   const catOrder=['Mental','Physical','Social'], BONUS_SOURCE={Strength:'Vigour',Stamina:'Resilience'};
+  // Normalise clan_attribute from attr_creation.free if missing
+  if(!c.clan_attribute&&c.attr_creation){const ca=Object.entries(c.attr_creation).find(([,cr])=>(cr.free||0)===2);if(ca)c.clan_attribute=ca[0];}
   let h='<div class="sh-sec"><div class="sh-sec-title">Attributes</div>';
   if(editMode){
     const caOpts=(CLAN_ATTR_OPTIONS[c.clan]||[]).map(a=>'<option'+(c.clan_attribute===a?' selected':'')+'>'+a+'</option>').join('');
@@ -81,8 +83,8 @@ export function shRenderAttributes(c,editMode) {
     ATTR_COLS.forEach(col=>{h+='<div>';col.forEach(a=>{
       const base=getAttrVal(c,a),bonus=getAttrBonus(c,a),isClan=c.clan_attribute===a;
       h+='<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">'+a+(isClan?'<span class="attr-clan-star">\u2605</span>':'')+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
-      const cr=(c.attr_creation||{})[a]||{cp:0,free:0,xp:0},aE=a.replace(/'/g,"\\'"),ab=(cr.cp||0)+(cr.free||0),xd=xpToDots(cr.xp||0,ab,4),tot=ab+xd;
-      h+='<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+tot+'</span></div></div>';
+      const cr=(c.attr_creation||{})[a]||{cp:0,free:0,xp:0},aE=a.replace(/'/g,"\\'"),baseDots=1+(isClan?1:0),ab=baseDots+(cr.cp||0),xd=xpToDots(cr.xp||0,ab,4),tot=ab+xd;
+      h+='<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">'+baseDots+'</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+tot+'</span></div></div>';
       if(bonus>0){const src=BONUS_SOURCE[a]||'';h+='<div class="attr-derived-row"><span class="bd-src">+'+bonus+'</span>'+(src?'<span class="bd-src-lbl">('+src+')</span>':'')+'<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">'+(tot+bonus)+'</span></div></div>';}
       h+='</div></div>';
     });h+='</div>';});
@@ -378,7 +380,7 @@ export function renderSheet(c) {
   h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
   if(editMode){const eT=xpEarned(c),sT=xpSpent(c);
     h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+xpStarting()+'</td><td>Attributes</td><td>'+xpSpentAttrs(c)+'</td></tr><tr><td>Humanity Drop</td><td>'+xpHumanityDrop(c)+'</td><td>Skills</td><td>'+xpSpentSkills(c)+'</td></tr><tr><td>Ordeals</td><td>'+xpOrdeals(c)+'</td><td>Merits</td><td>'+xpSpentMerits(c)+'</td></tr><tr><td>Game</td><td>'+xpGame(c)+'</td><td>Powers</td><td>'+xpSpentPowers(c)+'</td></tr><tr><td></td><td></td><td>Special</td><td>'+xpSpentSpecial(c)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
-    const ords=c.ordeals||[];if(ords.length){h+='<div class="sh-ordeals">';ords.forEach((o,oi)=>{h+='<label class="sh-ordeal'+(o.complete?' done':'')+'"><input type="checkbox"'+(o.complete?' checked':'')+' onchange="shToggleOrdeal('+oi+',this.checked)"><span class="sh-ordeal-label">'+esc(o.name)+'</span></label>';});h+='</div>';}}
+    const ords=c.ordeals||[];if(ords.length){h+='<div class="sh-ordeals">';ords.forEach(o=>{h+='<span class="sh-ordeal'+(o.complete?' done':'')+'"><span class="sh-ordeal-dot">'+(o.complete?'\u25CF':'\u25CB')+'</span><span class="sh-ordeal-label">'+esc(o.name)+'</span></span>';});h+='</div>';}}
   h+='<div class="sh-char-body"><div class="sh-char-left">';
   if(editMode||c.concept) h+='<div class="sh-char-concept">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.concept||'')+'" onchange="shEdit(\'concept\',this.value)" placeholder="Concept">':esc(c.concept))+'</div>';
   if(editMode||c.pronouns) h+='<div class="sh-char-concept">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.pronouns||'')+'" onchange="shEdit(\'pronouns\',this.value)" placeholder="Pronouns">':esc(c.pronouns))+'</div>';

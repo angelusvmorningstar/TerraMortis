@@ -439,6 +439,7 @@ body {
 
 /* Breakdown inputs (CP/Fr/XP/UP) — larger on desktop */
 .sh-desktop .attr-bd-input,
+.sh-desktop .attr-bd-ro,
 .sh-desktop .merit-bd-input,
 .sh-desktop .sk-bd-row .attr-bd-input,
 .sh-desktop .disc-bd-row .attr-bd-input {

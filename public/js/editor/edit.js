@@ -238,7 +238,9 @@ export function shEditAttrPt(attr, field, val) {
   }
   c.attr_creation[attr][field] = val;
   const cr = c.attr_creation[attr];
-  const attrBase = (cr.cp || 0) + (cr.free || 0);
+  // Base is auto-calculated: 1 + 1 if clan favoured attribute
+  cr.free = 1 + (c.clan_attribute === attr ? 1 : 0);
+  const attrBase = (cr.cp || 0) + cr.free;
   const newDots = attrBase + xpToDots(cr.xp || 0, attrBase, 4);
   if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0 };
   c.attributes[attr].dots = newDots;
@@ -265,12 +267,9 @@ export function shSetClanAttr(val) {
     if (!c.attr_creation) c.attr_creation = {};
     if (!c.attr_creation[attr]) c.attr_creation[attr] = { cp: 0, free: 1, xp: 0 };
     const cr = c.attr_creation[attr];
-    // Update free: base 1, +1 if this is the new clan attr
-    const wasClan = (attr === oldCA);
-    const isClan = (attr === val);
-    if (wasClan && !isClan) cr.free = Math.max(1, cr.free - 1);
-    if (!wasClan && isClan) cr.free = cr.free + 1;
-    const aBase = (cr.cp || 0) + (cr.free || 0);
+    // Base is auto-calculated: 1 + 1 if clan favoured attribute
+    cr.free = 1 + (c.clan_attribute === attr ? 1 : 0);
+    const aBase = (cr.cp || 0) + cr.free;
     if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0 };
     c.attributes[attr].dots = aBase + xpToDots(cr.xp || 0, aBase, 4);
   });

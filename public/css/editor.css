@@ -96,7 +96,7 @@
 .sh-ordeals{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;padding:6px 10px;background:var(--surf);border:1px solid var(--bdr);border-radius:6px;justify-content:center;}
 .sh-ordeal{display:flex;align-items:center;gap:5px;font-family:var(--fh);font-size:10px;letter-spacing:.04em;color:var(--txt3);cursor:default;}
 .sh-ordeal.done{color:var(--green2-a9);}
-.sh-ordeal input[type=checkbox]{accent-color:var(--gold);cursor:pointer;margin:0;}
+.sh-ordeal-dot{font-size:12px;}
 .sh-ordeal-label{text-transform:uppercase;}
 .sh-xp-breakdown{margin-top:6px;padding:8px 10px;background:var(--surf);border:1px solid var(--bdr);border-radius:6px;}
 .sh-xp-breakdown table{width:100%;border-collapse:collapse;font-family:var(--fb);font-size:11px;}
@@ -147,6 +147,7 @@
 .attr-bd-row .bd-val{color:var(--txt);font-weight:600;}
 .attr-bd-input{width:100%;min-width:0;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:9px;text-align:center;padding:2px;outline:none;box-sizing:border-box;}
 .attr-bd-input:focus{border-color:var(--gold);}
+.attr-bd-ro{display:block;width:100%;min-width:0;background:var(--surf1);border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-family:var(--fb);font-size:9px;text-align:center;padding:2px;box-sizing:border-box;}
 .attr-derived-row{display:flex;gap:6px;align-items:center;font-size:9px;font-family:var(--fb);margin-top:3px;border-top:1px solid var(--bdr);padding-top:3px;}
 .attr-derived-row .bd-src{color:var(--green2-a8);}
 .attr-derived-row .bd-src-lbl{color:var(--txt3);font-size:8px;}

@@ -588,7 +588,18 @@
       }
     ],
     "regent_territory": "The North Shore",
-    "regent_lieutenant": "Keeper"
+    "regent_lieutenant": "Keeper",
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Anichka",
@@ -1120,7 +1131,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Brandy LaRoux",
@@ -1139,7 +1161,7 @@
     "features": null,
     "willpower": {
       "mask_1wp": "Revisit an already successful action to hammer out a flaw.",
-      "mask_all": "Stick with a failed and dangerous plan in order to fix what went wrong.",
+      "mask_all": "Stick with a failed and dangerous plan, in order to fix what went wrong.",
       "dirge_1wp": "Cause pain for the sole intention of causing pain.",
       "dirge_all": "Commit a capital crime without additional motive."
     },
@@ -1775,7 +1797,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Carver",
@@ -1795,7 +1828,7 @@
     "willpower": {
       "mask_1wp": "Uncover a lost piece of information.",
       "mask_all": "Uncover forbidden knowledge.",
-      "dirge_1wp": "Cow someone into submission.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
       "dirge_all": "Commit a widespread hit against a rival's mortal connections."
     },
     "aspirations": [],
@@ -2328,7 +2361,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Casamir",
@@ -2348,7 +2392,7 @@
     "willpower": {
       "mask_1wp": "Uncover a lost piece of information.",
       "mask_all": "Uncover forbidden knowledge.",
-      "dirge_1wp": "Point out an absurdity in the current state of affairs to lighten the tone.",
+      "dirge_1wp": "Point out an absurdity in the current state of affairs, to lighten the tone.",
       "dirge_all": "Favour wit and cunning over direct self-defence in a situation of serious danger."
     },
     "aspirations": [],
@@ -2852,7 +2896,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    }
   },
   {
     "name": "Charles Mercer-Willows",
@@ -3475,7 +3530,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Charlie Ballsack",
@@ -3493,10 +3559,10 @@
     "apparent_age": "indeterminate",
     "features": null,
     "willpower": {
-      "mask_1wp": "Choose an obviously disadvantageous path because it fits with protocol.",
-      "mask_all": "Stand by the losing side with shield at the ready, because it is your side.",
+      "mask_1wp": "Choose an obviously disadvantageous path, because it fits with protocol.",
+      "mask_all": "Stand by the losing side with shield at the ready, because it's your side.",
       "dirge_1wp": "Openly flout a tradition.",
-      "dirge_all": "Openly flout a Kindred Tradition or a covenant taboo."
+      "dirge_all": "Openly flout a Kindred Tradition, or a covenant taboo."
     },
     "aspirations": [],
     "blood_potency": 1,
@@ -4288,7 +4354,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Strength",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Conrad Sondergaard",
@@ -4781,7 +4858,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Cyrus Reynolds",
@@ -4800,7 +4888,7 @@
     "features": "Fame",
     "willpower": {
       "mask_1wp": "Put yourself out for another's pleasure.",
-      "mask_all": "Be the last one dancing when the party is on fire.",
+      "mask_all": "Be the last one dancing when the party's on fire.",
       "dirge_1wp": "Ingratiate yourself to a new social clique.",
       "dirge_all": "Burn an important bridge to guarantee acceptance in a new group."
     },
@@ -5337,7 +5425,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Dexterity",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Edna Judge",
@@ -5357,7 +5456,7 @@
     "willpower": {
       "mask_1wp": "Help someone by sharing your vision with them.",
       "mask_all": "Put yourself at risk to show a group the power of your vision.",
-      "dirge_1wp": "Cow someone into submission.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
       "dirge_all": "Commit a widespread hit against a rival's mortal connections."
     },
     "aspirations": [],
@@ -5819,7 +5918,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Einar Solveig",
@@ -5840,7 +5950,7 @@
       "mask_1wp": "Ignore a problem or responsibility in favour of immediate gratification.",
       "mask_all": "Abandon an important relationship over your pursuit of pleasure.",
       "dirge_1wp": "Challenge someone clearly your superior.",
-      "dirge_all": "Risk Final Death to prove you can handle something."
+      "dirge_all": "Risk Final Death to prove that you can handle something."
     },
     "aspirations": [],
     "blood_potency": 2,
@@ -6436,7 +6546,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Presence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Eve Lockridge",
@@ -6988,7 +7109,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Ivana Horvat",
@@ -7009,7 +7141,7 @@
       "mask_1wp": "Find someone to take responsibility for your mistake.",
       "mask_all": "Commit a terrible crime to see how authority might react.",
       "dirge_1wp": "Challenge someone clearly your superior.",
-      "dirge_all": "Risk Final Death to prove you can handle something."
+      "dirge_all": "Risk Final Death to prove that you can handle something."
     },
     "aspirations": [],
     "blood_potency": 1,
@@ -7036,7 +7168,7 @@
         "bonus": 0
       },
       "Resolve": {
-        "dots": 2,
+        "dots": 3,
         "bonus": 0
       },
       "Strength": {
@@ -7715,7 +7847,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Jack Fallow",
@@ -8382,7 +8525,18 @@
       }
     ],
     "regent_territory": "The Academy",
-    "regent_lieutenant": null
+    "regent_lieutenant": null,
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Jelle Dunneweld",
@@ -8877,7 +9031,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    }
   },
   {
     "name": "Keeper",
@@ -8898,7 +9063,7 @@
       "mask_1wp": "Ignore a problem or responsibility in favour of immediate gratification.",
       "mask_all": "Abandon an important relationship over your pursuit of pleasure.",
       "dirge_1wp": "Find and experience a new source of hurt.",
-      "dirge_all": "Willingly explore pain beyond the point of safety and reason."
+      "dirge_all": "Willingly explore pain, beyond the point of safety and reason."
     },
     "aspirations": [
       "Proliferate Blood-Ties",
@@ -9546,7 +9711,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Kirk Grimm",
@@ -10072,7 +10248,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Livia",
@@ -10199,7 +10386,7 @@
         "dots": 2,
         "bonus": 0,
         "specs": [
-          "Burried Feelings"
+          "Buried Feelings"
         ],
         "nine_again": false
       },
@@ -10631,7 +10818,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Ludica Lachramore",
@@ -11183,7 +11381,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Wits",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Macheath",
@@ -11202,7 +11411,7 @@
     "features": null,
     "willpower": {
       "mask_1wp": "Openly flout a tradition.",
-      "mask_all": "Openly flout a Kindred Tradition or a covenant taboo.",
+      "mask_all": "Openly flout a Kindred Tradition, or a covenant taboo.",
       "dirge_1wp": "Deny a compromise that would water down your ideal.",
       "dirge_all": "Refuse safety for fear of abandoning your ideal's purity."
     },
@@ -11339,7 +11548,7 @@
     },
     "disciplines": {
       "Auspex": 3,
-      "Celerity": 1,
+      "Celerity": 2,
       "Obfuscate": 1,
       "Protean": 1,
       "Vigour": 3
@@ -11755,7 +11964,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Wits",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Magda",
@@ -11776,7 +11996,7 @@
       "mask_1wp": "Take another's burden upon yourself without expecting recompense.",
       "mask_all": "Put yourself at risk to save someone else or an ideology.",
       "dirge_1wp": "Find and experience a new source of hurt.",
-      "dirge_all": "Willingly explore pain beyond the point of safety and reason."
+      "dirge_all": "Willingly explore pain, beyond the point of safety and reason."
     },
     "aspirations": [],
     "blood_potency": 1,
@@ -12235,7 +12455,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    }
   },
   {
     "name": "Margaret Kane",
@@ -12253,10 +12484,10 @@
     "apparent_age": null,
     "features": null,
     "willpower": {
-      "mask_1wp": "Cow someone into submission.",
+      "mask_1wp": "Shut down an inferior trying to rise to your level of power.",
       "mask_all": "Commit a widespread hit against a rival's mortal connections.",
       "dirge_1wp": "Openly flout a tradition.",
-      "dirge_all": "Openly flout a Kindred Tradition or a covenant taboo."
+      "dirge_all": "Openly flout a Kindred Tradition, or a covenant taboo."
     },
     "aspirations": [],
     "blood_potency": 2,
@@ -12757,7 +12988,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Reed Justice",
@@ -12777,7 +13019,7 @@
     "willpower": {
       "mask_1wp": "Help someone by sharing your vision with them.",
       "mask_all": "Put yourself at risk to show a group the power of your vision.",
-      "dirge_1wp": "Cow someone into submission.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
       "dirge_all": "Commit a widespread hit against a rival's mortal connections."
     },
     "aspirations": [],
@@ -13254,7 +13496,18 @@
       }
     ],
     "regent_territory": "The Harbour",
-    "regent_lieutenant": "Ryan Ambrose"
+    "regent_lieutenant": "Ryan Ambrose",
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "René Meyer",
@@ -13884,7 +14137,18 @@
       }
     ],
     "regent_territory": "The Second City",
-    "regent_lieutenant": "Margaret Kane"
+    "regent_lieutenant": "Margaret Kane",
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "René St. Dominique",
@@ -13903,7 +14167,7 @@
     "features": null,
     "willpower": {
       "mask_1wp": "Put yourself out for another's pleasure.",
-      "mask_all": "Be the last one dancing when the party is on fire.",
+      "mask_all": "Be the last one dancing when the party's on fire.",
       "dirge_1wp": "Commit a crime against your recognised society.",
       "dirge_all": "Commit a high crime in plain view of an authority."
     },
@@ -13962,7 +14226,7 @@
     },
     "skills": {
       "Crafts": {
-        "dots": 4,
+        "dots": 2,
         "bonus": 0,
         "specs": [],
         "nine_again": false
@@ -14025,8 +14289,8 @@
       }
     },
     "disciplines": {
-      "Dominate": 3,
-      "Obfuscate": 2,
+      "Dominate": 1,
+      "Obfuscate": 4,
       "Resilience": 1
     },
     "powers": [
@@ -14437,7 +14701,18 @@
       }
     ],
     "regent_territory": "The Dockyards",
-    "regent_lieutenant": "Reed Justice"
+    "regent_lieutenant": "Reed Justice",
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Ryan Ambrose",
@@ -14456,7 +14731,7 @@
     "features": null,
     "willpower": {
       "mask_1wp": "Challenge someone clearly your superior.",
-      "mask_all": "Risk Final Death to prove you can handle something.",
+      "mask_all": "Risk Final Death to prove that you can handle something.",
       "dirge_1wp": "Follow a directive blindly, for the sake of following.",
       "dirge_all": "Follow a dangerous directive without hesitation."
     },
@@ -14490,7 +14765,7 @@
       },
       "Strength": {
         "dots": 4,
-        "bonus": 0
+        "bonus": 2
       },
       "Dexterity": {
         "dots": 2,
@@ -14594,8 +14869,9 @@
       }
     },
     "disciplines": {
-      "Protean": 3,
-      "Resilience": 1
+      "Protean": 4,
+      "Resilience": 1,
+      "Vigour": 2
     },
     "powers": [
       {
@@ -14937,7 +15213,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Hazel",
@@ -14957,7 +15244,7 @@
     "willpower": {
       "mask_1wp": "Punish yourself for a mistake.",
       "mask_all": "Risk death to correct an egregious error in judgement.",
-      "dirge_1wp": "Cow someone into submission.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
       "dirge_all": "Commit a widespread hit against a rival's mortal connections."
     },
     "aspirations": [],
@@ -15491,7 +15778,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Tegan Groves",
@@ -16006,7 +16304,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Wan Yelong",
@@ -16547,7 +16856,18 @@
         "name": "covenant",
         "complete": false
       }
-    ]
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
   },
   {
     "name": "Yusuf Kalusicj",
@@ -17150,7 +17470,18 @@
         "name": "covenant",
         "complete": true
       }
-    ]
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
   },
   {
     "name": "Julia",
