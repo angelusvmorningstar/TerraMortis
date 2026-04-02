@@ -13,6 +13,7 @@ import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 import { xpLeft } from '../editor/xp.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
@@ -127,23 +128,7 @@ function detectMerits() {
 
 /** Calculate monthly influence budget from character data. */
 function getInfluenceBudget() {
-  const c = currentChar;
-  let total = 0;
-  // Clan + Covenant status: 1 per dot
-  total += (c.status?.clan || 0);
-  total += (c.status?.covenant || 0);
-  // Qualifying influence merits: 3-4 dots = 1, 5 dots = 2
-  for (const m of (c.merits || [])) {
-    if (m.category !== 'influence') continue;
-    if (!INFLUENCE_MERIT_NAMES.includes(m.name)) continue;
-    if (m.rating >= 5) total += 2;
-    else if (m.rating >= 3) total += 1;
-  }
-  // MCI at 5 dots: 1 influence
-  for (const m of (c.merits || [])) {
-    if (m.name === 'Mystery Cult Initiation' && m.rating >= 5) total += 1;
-  }
-  return total;
+  return calcTotalInfluence(currentChar);
 }
 
 /** Get the feeding cap for the regent's territory based on its ambience. */

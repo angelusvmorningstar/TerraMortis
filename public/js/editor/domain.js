@@ -70,14 +70,18 @@ export function domMeritTotal(c, name) {
  * @param {object} m - merit entry with name, rating, area
  * @returns {number}
  */
-export function calcMeritInfluence(m) {
+export function calcMeritInfluence(m, hwv = false) {
   if (m.name === 'Contacts') return 0;
   const r = m.rating || 0;
   if (m.name === 'Status') {
     const area = (m.area || '').trim();
     const isNarrow = area && !INFLUENCE_SPHERES.some(s => area.toLowerCase().includes(s.toLowerCase()));
     if (isNarrow) return r >= 5 ? 1 : 0;
+    // Wide Status: Honey with Vinegar lowers threshold
+    if (hwv) return r >= 4 ? 2 : r >= 2 ? 1 : 0;
   }
+  // Allies: Honey with Vinegar lowers threshold
+  if (hwv && m.name === 'Allies') return r >= 4 ? 2 : r >= 2 ? 1 : 0;
   if (r >= 5) return 2;
   if (r >= 3) return 1;
   return 0;
@@ -90,9 +94,11 @@ export function calcMeritInfluence(m) {
  * @returns {number}
  */
 export function calcContactsInfluence(c) {
+  const hwv = hasHoneyWithVinegar(c);
   const total = Math.min(5, (c.merits || [])
     .filter(m => m.category === 'influence' && m.name === 'Contacts')
     .reduce((s, m) => s + (m.rating || 0), 0));
+  if (hwv) return total >= 4 ? 2 : total >= 2 ? 1 : 0;
   if (total >= 5) return 2;
   if (total >= 3) return 1;
   return 0;
@@ -104,14 +110,20 @@ export function calcContactsInfluence(c) {
  * @param {object} c - character object
  * @returns {number}
  */
+/** Check if character has Honey with Vinegar merit. */
+function hasHoneyWithVinegar(c) {
+  return (c.merits || []).some(m => m.name === 'Honey With Vinegar' || m.name === 'Honey with Vinegar');
+}
+
 export function calcTotalInfluence(c) {
   let total = 0;
+  const hwv = hasHoneyWithVinegar(c);
   // Clan + Covenant status: 1 per dot each
   const st = c.status || {};
   total += (st.clan || 0) + (st.covenant || 0);
   // Influence merits (Contacts excluded from per-entry calc)
   (c.merits || []).filter(m => m.category === 'influence').forEach(m => {
-    total += calcMeritInfluence(m);
+    total += calcMeritInfluence(m, hwv);
   });
   // Contacts: sum all dots, apply threshold to total
   total += calcContactsInfluence(c);

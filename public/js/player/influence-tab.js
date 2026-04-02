@@ -5,9 +5,9 @@
 
 import { esc } from '../data/helpers.js';
 import { FEEDING_TERRITORIES } from './downtime-data.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 
 const INFLUENCE_TERRITORIES = FEEDING_TERRITORIES.filter(t => !t.includes('Barrens'));
-const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
 
 let currentChar = null;
 let infVals = {}; // { territory_key: number }
@@ -22,20 +22,7 @@ export function renderInfluenceTab(container, char) {
 }
 
 function getInfluenceBudget() {
-  const c = currentChar;
-  let total = 0;
-  total += (c.status?.clan || 0);
-  total += (c.status?.covenant || 0);
-  for (const m of (c.merits || [])) {
-    if (m.category !== 'influence') continue;
-    if (!INFLUENCE_MERIT_NAMES.includes(m.name)) continue;
-    if (m.rating >= 5) total += 2;
-    else if (m.rating >= 3) total += 1;
-  }
-  for (const m of (c.merits || [])) {
-    if (m.name === 'Mystery Cult Initiation' && m.rating >= 5) total += 1;
-  }
-  return total;
+  return calcTotalInfluence(currentChar);
 }
 
 function getTotalSpent() {
