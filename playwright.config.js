@@ -4,12 +4,12 @@ module.exports = defineConfig({
   testDir: './tests',
   timeout: 30000,
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:8080',
     headless: true,
   },
   webServer: {
-    command: 'npx serve public -l 3000 --no-clipboard',
-    port: 3000,
+    command: 'npx http-server public -p 8080 -s',
+    port: 8080,
     reuseExistingServer: true,
   },
   projects: [

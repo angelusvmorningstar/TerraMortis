@@ -148,25 +148,8 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 2. Regency — gated: only shown if the player is a current Regent
-  // Residency grid is rendered dynamically by downtime-form.js (renderRegencyGrid)
-  {
-    key: 'regency',
-    title: 'Regency: The Hand that Feeds',
-    gate: 'is_regent',
-    intro: null,
-    questions: [
-      {
-        key: 'regency_action',
-        label: 'Regency Action',
-        type: 'textarea',
-        required: false,
-        desc: 'You are known as Regent of a territory. What do you want to make known about your domain this month? This may include proclamations, policies, enforcement, or any public stance you wish to communicate to other Kindred.',
-      },
-    ],
-  },
-
-  // 3. Feeding — always shown
+  // 2. Feeding declaration — method, territory, description
+  // (Influence spend is its own tab. Regency is its own tab.)
   {
     key: 'feeding',
     title: 'The City: Territory and Feeding',
@@ -185,7 +168,7 @@ export const DOWNTIME_SECTIONS = [
         label: 'Which Territory does your character feed or poach in?',
         type: 'territory_grid',
         required: true,
-        desc: 'Residents must have express permission from a Regent to feed in their Territory.',
+        desc: 'Residents must have express permission from a Regent to feed in their Territory. This declaration informs territory ambience calculations.',
       },
       {
         key: 'influence_spend',
@@ -193,6 +176,23 @@ export const DOWNTIME_SECTIONS = [
         type: 'influence_grid',
         required: false,
         desc: 'Positive values improve a Territory\'s Ambience. Negative values degrade it. Each point spent (positive or negative) costs 1 Influence from your monthly budget.',
+      },
+    ],
+  },
+
+  // 3. Regency action — gated: only shown for regents
+  {
+    key: 'regency',
+    title: 'Regency Action',
+    gate: 'is_regent',
+    intro: null,
+    questions: [
+      {
+        key: 'regency_action',
+        label: 'What do you want to make known about your domain this month?',
+        type: 'textarea',
+        required: false,
+        desc: 'Proclamations, policies, enforcement, or any public stance you wish to communicate to other Kindred about your territory.',
       },
     ],
   },

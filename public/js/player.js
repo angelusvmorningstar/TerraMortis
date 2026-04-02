@@ -6,6 +6,8 @@ import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getP
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
+import { renderRegencyTab } from './player/regency-tab.js';
+import { renderFeedingTab } from './player/feeding-tab.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -126,6 +128,16 @@ function selectCharacter(idx) {
   renderSheet(activeChar);
   initOrdeals(activeChar, chars);
   renderDowntimeTab(document.getElementById('tab-downtime'), activeChar);
+  renderFeedingTab(document.getElementById('feeding-content'), activeChar);
+
+  // Regency tab — only visible for regents
+  const regBtn = document.getElementById('tab-btn-regency');
+  if (activeChar.regent_territory) {
+    if (regBtn) regBtn.style.display = '';
+    renderRegencyTab(document.getElementById('regency-content'), activeChar);
+  } else {
+    if (regBtn) regBtn.style.display = 'none';
+  }
 }
 
 // ── Tab switching ──
