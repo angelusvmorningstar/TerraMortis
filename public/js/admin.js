@@ -11,6 +11,7 @@ import { initDowntimeView } from './admin/downtime-views.js';
 import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
+import { initSessionTracker } from './admin/session-tracker.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
@@ -80,6 +81,14 @@ async function boot() {
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
+      // Check if user was logging in from another page (index, player)
+      const returnTo = localStorage.getItem('tm_auth_return');
+      localStorage.removeItem('tm_auth_return');
+      if (returnTo && returnTo !== '/admin' && returnTo !== '/admin.html') {
+        window.location.href = returnTo;
+        return;
+      }
+
       // Player-only users get redirected to the player portal
       const info = getPlayerInfo();
       if (info && info.role === 'player') {
@@ -133,7 +142,7 @@ function switchDomain(domain) {
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('on');
 
-  if (domain === 'engine') { initDiceEngine(chars); initFeedingEngine(chars); initSessionLog(); }
+  if (domain === 'engine') { initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);

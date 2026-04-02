@@ -8,13 +8,14 @@ import { xpLeft, xpEarned } from './xp.js';
  * Render the character card grid, respecting search and filter inputs.
  * Reads state.chars and state.dirty. Emits onclick for openChar (global).
  */
-export function renderList() {
+export function renderList(limitIds) {
   const grid = document.getElementById('char-grid');
   const search = document.querySelector('.list-search').value.toLowerCase();
   const clanF = document.getElementById('filter-clan').value;
   const covF = document.getElementById('filter-cov').value;
 
   let filtered = state.chars.map((c, i) => ({ c, i })).filter(({ c }) => {
+    if (limitIds && !limitIds.includes(c._id)) return false;
     if (clanF && c.clan !== clanF) return false;
     if (covF && c.covenant !== covF) return false;
     if (search) {
@@ -59,6 +60,8 @@ export function renderList() {
 /**
  * Re-render the list (called from filter/search UI).
  */
+let _limitIds = null;
+export function setListLimit(ids) { _limitIds = ids; }
 export function filterList() {
-  renderList();
+  renderList(_limitIds);
 }

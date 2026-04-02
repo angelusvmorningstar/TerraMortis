@@ -3,7 +3,7 @@
 // Role-aware: stores role, player_id, character_ids from the server response.
 
 const DISCORD_CLIENT_ID = '1488404820917223484';
-// All OAuth callbacks land on /admin — admin.js redirects players to /player after auth
+// All OAuth callbacks land on /admin (registered in Discord app settings)
 const REDIRECT_URI = location.origin + '/admin';
 const SCOPES = 'identify';
 
@@ -60,6 +60,8 @@ function clearAuth() {
 // ── Login flow ──
 
 export function login() {
+  // Remember where to return after Discord callback lands on /admin
+  localStorage.setItem('tm_auth_return', location.pathname);
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
     redirect_uri: REDIRECT_URI,

@@ -13,6 +13,7 @@ body{min-height:auto;}
 #hdr{flex-shrink:0;background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:20;position:relative;}
 .hdr-title{font-family:var(--fhd);font-size:20px;color:var(--gold2);letter-spacing:.04em;}
 .hdr-sub{font-family:var(--fh);font-size:11px;letter-spacing:.30em;color:var(--txt2);text-transform:uppercase;margin-top:2px;}
+.hdr-nav{display:flex;gap:8px;align-items:center;}
 #pool-banner{display:none;max-width:52%;background:var(--crim-a22);border:1px solid var(--crim-a45);border-radius:20px;padding:4px 10px;font-family:var(--fh);font-size:9px;letter-spacing:.04em;color:var(--gold2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #pool-banner.on{display:block;}
 

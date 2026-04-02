@@ -1,15 +1,15 @@
 /**
- * tracker-feed.js — Feeding test system for the Session Tracker tab.
+ * tracker-feed.js — Feeding test system for the Roll tab (ST only).
  *
  * Handles hunt method selection, pool building, rolling, and vitae application.
+ * Uses state.rollChar from the roll tab's character selector.
  */
 
 
 import state from './data.js';
 import { rollPool, cntSuc } from '../shared/dice.js';
 import {
-  stGetTracker, stSetTracker, stMaxVitae,
-  stGetActive, toast
+  stGetTracker, stSetTracker, stMaxVitae, toast
 } from './tracker.js';
 import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 
@@ -121,9 +121,7 @@ function feedSelectMethod(id) {
 }
 
 function feedGetChar() {
-  const chars = state.chars;
-  const active = stGetActive();
-  return active.length ? (chars.find(c => c.name === active[0]) || null) : null;
+  return state.rollChar || null;
 }
 
 function feedBuildPool() {

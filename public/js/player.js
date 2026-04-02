@@ -58,15 +58,24 @@ function renderHeaderUser() {
 
   const role = getUser()?.role;
 
-  // ST Admin button — alongside char selector, not buried in header
+  // Cross-app nav buttons — alongside char selector
   const selectorArea = document.querySelector('.header-controls');
-  if (role === 'st' && selectorArea && !document.getElementById('st-admin-btn')) {
-    const btn = document.createElement('a');
-    btn.id = 'st-admin-btn';
-    btn.href = 'admin.html';
-    btn.className = 'st-admin-btn';
-    btn.textContent = 'ST Admin';
-    selectorArea.insertBefore(btn, selectorArea.firstChild);
+  if (selectorArea && !document.getElementById('nav-game')) {
+    const gameBtn = document.createElement('a');
+    gameBtn.id = 'nav-game';
+    gameBtn.href = '/';
+    gameBtn.className = 'app-nav-btn';
+    gameBtn.textContent = 'Game App';
+    selectorArea.insertBefore(gameBtn, selectorArea.firstChild);
+
+    if (role === 'st') {
+      const adminBtn = document.createElement('a');
+      adminBtn.id = 'nav-admin';
+      adminBtn.href = '/admin';
+      adminBtn.className = 'app-nav-btn';
+      adminBtn.textContent = 'ST Admin';
+      selectorArea.insertBefore(adminBtn, gameBtn.nextSibling);
+    }
   }
 
   el.innerHTML =

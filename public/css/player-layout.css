@@ -113,20 +113,6 @@ body {
 
 .char-selector:focus { outline: 1px solid var(--gold); }
 
-.st-admin-btn {
-  padding: 6px 14px;
-  background: var(--crim, #8B0000);
-  color: #fff;
-  border-radius: 4px;
-  font-family: var(--fh);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-.st-admin-btn:hover { filter: brightness(1.2); }
 
 /* ── Header user area ── */
 

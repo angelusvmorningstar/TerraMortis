@@ -23,7 +23,7 @@ let _toast = () => {};
  */
 export function setImportCallbacks({ loadChars, renderStOverview, toast }) {
   _loadChars = loadChars;
-  _renderStOverview = renderStOverview;
+  if (renderStOverview) _renderStOverview = renderStOverview;
   _toast = toast;
 }
 

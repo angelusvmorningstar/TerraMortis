@@ -7,7 +7,6 @@
 
 
 import state from './data.js';
-import { feedClearState, feedInit } from './tracker-feed.js';
 import { displayName } from '../data/helpers.js';
 import { getAttrVal, influenceTotal, calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
 
@@ -245,11 +244,7 @@ function stLogDt(name, field, val) {
 
 function stPickChar(name) {
   stActive = name ? [name] : [];
-  feedClearState();
-  const fs = document.getElementById('feed-section');
-  if (fs) fs.style.display = name ? 'block' : 'none';
   renderStOverview();
-  if (name) feedInit();
 }
 
 function stDismiss(name) {
