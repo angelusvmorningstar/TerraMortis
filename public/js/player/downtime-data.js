@@ -180,6 +180,23 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
+  // 3. Regency action — gated: only shown for regents
+  {
+    key: 'regency',
+    title: 'Regency Action',
+    gate: 'is_regent',
+    intro: null,
+    questions: [
+      {
+        key: 'regency_action',
+        label: 'What do you want to make known about your domain this month?',
+        type: 'textarea',
+        required: false,
+        desc: 'Proclamations, policies, enforcement, or any public stance you wish to communicate to other Kindred about your territory.',
+      },
+    ],
+  },
+
   // 4. Projects — always shown, 4 slots rendered dynamically by downtime-form.js
   {
     key: 'projects',

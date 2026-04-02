@@ -8,12 +8,11 @@ import { apiGet, apiPut } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
 import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
 
-const RESIDENCY_SLOTS = 10;
+const RESIDENCY_SLOTS = 12; // Regent + Lieutenant + 10 feeding rights
 
 let currentChar = null;
 let allCharNames = [];
 let persistedResidency = [];
-let regencyAction = '';
 
 export async function renderRegencyTab(container, char) {
   currentChar = char;
@@ -62,14 +61,29 @@ function render(container) {
 
     let label, locked = false, value = savedVal;
     if (i === 1) { label = 'Regent'; locked = true; value = currentChar._id; }
-    else if (i === 2) { label = 'Lieutenant'; }
-    else { label = `Feeding Right ${i - 1}`; }
+    else if (i === 2) {
+      label = 'Lieutenant';
+      locked = true;
+      // Lieutenant is set on the character record, not selectable
+      value = currentChar.regent_lieutenant || '';
+    }
+    else { label = `Feeding Right ${i - 2}`; }
 
     h += `<div class="${rowClass}">`;
     h += `<span class="dt-residency-label">${label}</span>`;
 
     if (locked) {
-      h += `<span class="dt-residency-locked">${esc(regentName)}</span>`;
+      // Find display name for locked slots
+      let lockedName = '';
+      if (i === 1) {
+        lockedName = regentName;
+      } else if (value) {
+        const ltChar = allCharNames.find(c => c.name === value || c._id === value);
+        lockedName = ltChar ? displayName(ltChar) : value;
+      } else {
+        lockedName = '— None —';
+      }
+      h += `<span class="dt-residency-locked">${esc(lockedName)}</span>`;
       h += `<input type="hidden" id="reg-slot-${i}" value="${esc(value)}">`;
     } else {
       h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}">`;
@@ -87,16 +101,9 @@ function render(container) {
   }
   h += '</div>';
 
-  // Regency action
-  h += '<div class="regency-action">';
-  h += '<label class="qf-label">Regency Action</label>';
-  h += '<p class="qf-desc">What do you want to make known about your domain this month? Proclamations, policies, enforcement, or any public stance.</p>';
-  h += `<textarea id="reg-action" class="qf-textarea" rows="4">${esc(regencyAction)}</textarea>`;
-  h += '</div>';
-
   // Save button
   h += '<div class="regency-actions">';
-  h += '<button id="reg-save" class="qf-submit-btn">Save Regency</button>';
+  h += '<button id="reg-save" class="qf-submit-btn">Save Feeding Rights</button>';
   h += '<span id="reg-save-status" class="qf-save-status"></span>';
   h += '</div>';
 
@@ -114,11 +121,6 @@ function wireEvents(container) {
 
   // Save
   container.querySelector('#reg-save')?.addEventListener('click', saveRegency);
-
-  // Track action text
-  container.querySelector('#reg-action')?.addEventListener('input', e => {
-    regencyAction = e.target.value;
-  });
 }
 
 function updateResidencyOptions(container) {
@@ -155,11 +157,6 @@ async function saveRegency() {
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
   }
-}
-
-/** Get the current regency action text (for downtime submission to include). */
-export function getRegencyAction() {
-  return regencyAction;
 }
 
 /** Get the current residency list (for downtime submission to include). */
