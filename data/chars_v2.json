@@ -196,20 +196,6 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Health",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
-        "area": "Politics",
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
         "area": "Transportation",
         "granted_by": "VM"
       },
@@ -221,19 +207,6 @@
         "granted_by": "VM"
       },
       {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "area": "Street, Occult, Industry",
-        "granted_by": "MCI 3"
-      },
-      {
-        "category": "general",
-        "name": "Hobbyist Clique",
-        "rating": 1,
-        "granted_by": "MCI 1"
-      },
-      {
         "category": "general",
         "name": "Library",
         "rating": 2,
@@ -243,12 +216,6 @@
         "category": "general",
         "name": "Viral Mythology",
         "rating": 3
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 1,
-        "granted_by": "MCI 2"
       },
       {
         "category": "domain",
@@ -1371,35 +1338,10 @@
         "granted_by": "VM"
       },
       {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
-        "area": "Underworld",
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 5,
-        "granted_by": "MCI 2"
-      },
-      {
         "category": "general",
         "name": "Defensive Combat",
         "rating": 1,
         "qualifier": "Brawl"
-      },
-      {
-        "category": "general",
-        "name": "Indomitable",
-        "rating": 2,
-        "granted_by": "MCI 3"
-      },
-      {
-        "category": "general",
-        "name": "Inspiring",
-        "rating": 3,
-        "granted_by": "MCI 4"
       },
       {
         "category": "general",
@@ -1410,12 +1352,6 @@
         "category": "general",
         "name": "Secret Society Junkie",
         "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Table Turner",
-        "rating": 1,
-        "granted_by": "MCI 1"
       },
       {
         "category": "general",
@@ -3145,20 +3081,6 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Media",
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
-        "area": "Occult",
-        "granted_by": "MCI 2&3"
-      },
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
         "area": "Underworld",
         "granted_by": "VM"
       },
@@ -3166,18 +3088,6 @@
         "category": "influence",
         "name": "Resources",
         "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Closed Book",
-        "rating": 1,
-        "granted_by": "MCI 1"
-      },
-      {
-        "category": "general",
-        "name": "Inspiring",
-        "rating": 3,
-        "granted_by": "MCI 4"
       },
       {
         "category": "general",
@@ -3815,13 +3725,6 @@
         "category": "general",
         "name": "Area of Expertise",
         "rating": 1,
-        "qualifier": "Coward Punch",
-        "granted_by": "MCI L4 1/3"
-      },
-      {
-        "category": "general",
-        "name": "Area of Expertise",
-        "rating": 1,
         "qualifier": "Light Weapons"
       },
       {
@@ -3838,22 +3741,9 @@
       },
       {
         "category": "general",
-        "name": "Defensive Combat",
-        "rating": 1,
-        "qualifier": "Weaponry",
-        "granted_by": "MCI L1"
-      },
-      {
-        "category": "general",
         "name": "Friends in High Places",
         "rating": 1,
         "granted_by": "Oath of HM"
-      },
-      {
-        "category": "general",
-        "name": "Indomitable",
-        "rating": 2,
-        "granted_by": "MCI L3"
       },
       {
         "category": "general",
@@ -3872,16 +3762,6 @@
         "category": "general",
         "name": "Secret Society Junkie",
         "rating": 1
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 3,
-        "granted_by": "MCI L2",
-        "shared_with": [
-          "Ivana Horvat",
-          "Keeper"
-        ]
       },
       {
         "category": "domain",
@@ -6731,26 +6611,6 @@
     "merits": [
       {
         "category": "influence",
-        "name": "Allies",
-        "rating": 3,
-        "area": "Underworld",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 2,
-        "area": "bureaucracy, industry",
-        "granted_by": "MCI 1&2"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 5,
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "influence",
         "name": "Status",
         "rating": 5,
         "area": "LGL - Logistics"
@@ -6759,12 +6619,6 @@
         "category": "general",
         "name": "Carthian Pull",
         "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Fixer",
-        "rating": 2,
-        "granted_by": "MCI 3"
       },
       {
         "category": "general",
@@ -7417,16 +7271,6 @@
         "category": "general",
         "name": "The Mother-Daughter Bond",
         "rating": 1
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 3,
-        "granted_by": "MCI 1",
-        "shared_with": [
-          "Charlie Ballsack",
-          "Keeper"
-        ]
       },
       {
         "category": "domain",
@@ -8112,13 +7956,6 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Media",
-        "granted_by": "MCI L4"
-      },
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
         "area": "Occult",
         "granted_by": "VM"
       },
@@ -8128,12 +7965,6 @@
         "rating": 3,
         "area": "Police",
         "granted_by": "VM"
-      },
-      {
-        "category": "general",
-        "name": "Eye for the Strange",
-        "rating": 2,
-        "granted_by": "MCI L3"
       },
       {
         "category": "general",
@@ -8149,12 +7980,6 @@
         "category": "general",
         "name": "Secret Society Junkie",
         "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Trained Observer",
-        "rating": 1,
-        "granted_by": "MCI L2"
       },
       {
         "category": "general",
@@ -9325,26 +9150,8 @@
       },
       {
         "category": "general",
-        "name": "Closed Book",
-        "rating": 3,
-        "granted_by": "MCI L5"
-      },
-      {
-        "category": "general",
-        "name": "Eidetic Memory",
-        "rating": 1,
-        "granted_by": "MCI L1"
-      },
-      {
-        "category": "general",
         "name": "Empath",
         "rating": 2
-      },
-      {
-        "category": "general",
-        "name": "Indomitable",
-        "rating": 2,
-        "granted_by": "MCI L3"
       },
       {
         "category": "general",
@@ -9355,20 +9162,8 @@
       },
       {
         "category": "general",
-        "name": "Peacemaker",
-        "rating": 3,
-        "granted_by": "MCI L4"
-      },
-      {
-        "category": "general",
         "name": "Secret Society Junkie",
         "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Table Turner",
-        "rating": 1,
-        "granted_by": "MCI L2"
       },
       {
         "category": "domain",
@@ -10484,28 +10279,9 @@
     ],
     "merits": [
       {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
-        "area": "Health",
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "general",
-        "name": "Closed Book",
-        "rating": 2,
-        "granted_by": "MCI 3"
-      },
-      {
         "category": "general",
         "name": "Indomitable",
         "rating": 2
-      },
-      {
-        "category": "general",
-        "name": "Inspiring",
-        "rating": 3,
-        "granted_by": "MCI 4"
       },
       {
         "category": "general",
@@ -10517,12 +10293,6 @@
         "category": "general",
         "name": "Lorekeeper",
         "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Striking Looks",
-        "rating": 1,
-        "granted_by": "MCI 2"
       },
       {
         "category": "domain",
@@ -11060,25 +10830,6 @@
         "area": "Underworld"
       },
       {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "area": "high society, occult, politics",
-        "granted_by": "MCI L2"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 5,
-        "granted_by": "MCI L1"
-      },
-      {
-        "category": "general",
-        "name": "Alternate Identity",
-        "rating": 3,
-        "granted_by": "MCI L4"
-      },
-      {
         "category": "general",
         "name": "Crowdsourcing",
         "rating": 3
@@ -11087,12 +10838,6 @@
         "category": "general",
         "name": "Information Network",
         "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Peacemaker",
-        "rating": 3,
-        "granted_by": "MCI L5"
       },
       {
         "category": "general",
@@ -17051,13 +16796,6 @@
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 3,
-        "area": "Finance",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "influence",
-        "name": "Allies",
         "rating": 2,
         "area": "Politics"
       },
@@ -17074,18 +16812,6 @@
         "rating": 5,
         "area": "Police, High Society, Occult, Media, Street",
         "granted_by": "MCI 1"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 3,
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "general",
-        "name": "Air of Menace",
-        "rating": 2,
-        "granted_by": "MCI 3"
       },
       {
         "category": "general",
