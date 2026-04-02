@@ -21,3 +21,11 @@ Terra Mortis Character Master*.xlsx
 
 # Temp backups
 data/chars_v2_backup.json
+
+# Google Forms exports & misc data files
+Copy of Terra Mortis*.pdf
+Terra Mortis - *.pdf
+Terra Mortis Downtime*.pdf
+*.csv
+!data/*.csv
+Downtime Mammon.xlsx
