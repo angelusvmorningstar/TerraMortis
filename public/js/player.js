@@ -8,7 +8,6 @@ import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderFeedingTab } from './player/feeding-tab.js';
-import { renderInfluenceTab } from './player/influence-tab.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -130,7 +129,6 @@ function selectCharacter(idx) {
   initOrdeals(activeChar, chars);
   renderDowntimeTab(document.getElementById('tab-downtime'), activeChar);
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
-  renderInfluenceTab(document.getElementById('influence-content'), activeChar);
 
   // Regency tab — only visible for regents
   const regBtn = document.getElementById('tab-btn-regency');

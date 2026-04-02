@@ -170,6 +170,13 @@ export const DOWNTIME_SECTIONS = [
         required: true,
         desc: 'Residents must have express permission from a Regent to feed in their Territory. This declaration informs territory ambience calculations.',
       },
+      {
+        key: 'influence_spend',
+        label: 'Which Territories would you like to spend Influence on, if at all?',
+        type: 'influence_grid',
+        required: false,
+        desc: 'Positive values improve a Territory\'s Ambience. Negative values degrade it. Each point spent (positive or negative) costs 1 Influence from your monthly budget.',
+      },
     ],
   },
 

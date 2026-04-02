@@ -168,8 +168,8 @@ test.describe('Player Portal — Tabs', () => {
 
   test('tabs visible (regency hidden for non-regent)', async ({ page }) => {
     const visibleTabs = page.locator('.tab-btn:visible');
-    // Sheet, Downtime, Feeding, Influence, Ordeals, Story = 6 (Regency hidden)
-    await expect(visibleTabs).toHaveCount(6);
+    // Sheet, Downtime, Feeding, Ordeals, Story = 5 (Regency hidden)
+    await expect(visibleTabs).toHaveCount(5);
   });
 
   test('Sheet tab is active by default', async ({ page }) => {
@@ -200,12 +200,6 @@ test.describe('Player Portal — Tabs', () => {
     await page.click('.tab-btn[data-tab="feeding"]');
     await expect(page.locator('.tab-btn[data-tab="feeding"]')).toHaveClass(/on/);
     await expect(page.locator('#tab-feeding')).toHaveClass(/active/);
-  });
-
-  test('clicking Influence tab switches', async ({ page }) => {
-    await page.click('.tab-btn[data-tab="influence"]');
-    await expect(page.locator('.tab-btn[data-tab="influence"]')).toHaveClass(/on/);
-    await expect(page.locator('#tab-influence')).toHaveClass(/active/);
   });
 
   test('Regency tab hidden for non-regent', async ({ page }) => {
