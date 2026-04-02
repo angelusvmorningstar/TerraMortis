@@ -6,6 +6,7 @@
 
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { removeMerit, ensureMeritSync } from './merits.js';
+import { hasViralMythology, vmAlliesPool } from './domain.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -70,6 +71,20 @@ export function applyDerivedMerits(c) {
     if (dots >= 2 && assets.length) {
       if (!c._pt_nine_again_skills) c._pt_nine_again_skills = new Set();
       for (const sk of assets) c._pt_nine_again_skills.add(sk);
+    }
+  }
+
+  // ── VM grant pool (Allies) ──
+  if (hasViralMythology(c)) {
+    const vmPool = vmAlliesPool(c);
+    if (vmPool > 0) {
+      c._grant_pools.push({
+        source: 'VM',
+        name: 'Allies',
+        category: 'influence',
+        amount: vmPool,
+        qualifier: ''
+      });
     }
   }
 

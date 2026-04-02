@@ -11,7 +11,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecs, xpSpentSpecial, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, buildMeritOptions, buildMCIGrantOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory } from './mci.js';
-import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmAlliesPool, vmAlliesUsed, vmHerdPool } from './domain.js';
+import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
@@ -214,13 +214,6 @@ export function shRenderInfluenceMerits(c,editMode) {
       if(m.granted_by) h+='<span class="gen-granted-tag">'+esc(m.granted_by)+'</span>';
       h+='<button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
       h+=meritBdRow(rIdx,mc);});
-    // VM bonus pool display
-    const hasVM=hasViralMythology(c),vmAllies=nonContacts.filter(m=>m.granted_by==='VM');
-    if(hasVM||vmAllies.length){
-      const pool=vmAlliesPool(c),used=vmAlliesUsed(c),rem=pool-used,cls=rem<0?'sc-over':rem===0?'sc-full':'sc-val';
-      h+='<div style="font-size:10px;padding:4px 8px;color:var(--gold2)">VM Allies Bonus <span class="'+cls+'">'+used+' / '+pool+' allocated</span></div>';
-      if(rem>0) h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddVMAllies()">+ Add VM Allies</button></div>';
-    }
     // Contacts: single entry with sphere-per-dot
     const contactsEntry=inflM.find(m=>m.name==='Contacts');
     const cInf=calcContactsInfluence(c);
