@@ -37,6 +37,17 @@ export function shEditStatusMode(idx, mode) {
   _renderSheet(c);
 }
 
+export function shEditContactSphere(meritIdx, dotIdx, sphere) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = c.merits[meritIdx];
+  if (!m || m.name !== 'Contacts') return;
+  if (!m.spheres) m.spheres = [];
+  m.spheres[dotIdx] = sphere;
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shRemoveInflMerit(idx) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
