@@ -283,6 +283,38 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
   return opts;
 }
 
+/**
+ * Build <option> HTML for Fucking Thief — all 1-dot merits, ignoring prerequisites.
+ * Includes all categories since FT can steal covenant-restricted advantages.
+ */
+export function buildFThiefOptions(currentName) {
+  const db = MERITS_DB;
+  if (!db) return '<option value="">— loading —</option>';
+  const qualified = [];
+  for (const [key, entry] of Object.entries(db)) {
+    if (entry.special === 'standing') continue;
+    const rStr = entry.rating || '1';
+    const parts = rStr.split(/[–\-—]/);
+    const minR = parseInt(parts[0]) || 1;
+    // Only single-dot merits or graduated merits starting at 1
+    if (minR > 1) continue;
+    if (parts.length === 1 && minR !== 1) continue;
+    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    qualified.push({ key, label });
+  }
+  qualified.sort((a, b) => a.label.localeCompare(b.label));
+  const curLow = (currentName || '').toLowerCase();
+  let opts = '<option value="">' + (currentName ? '' : '— choose stolen merit —') + '</option>';
+  if (currentName && !qualified.some(q => q.key === curLow)) {
+    opts += '<option value="' + _esc(currentName) + '" selected>' + _esc(currentName) + '</option>';
+  }
+  for (const { key, label } of qualified) {
+    const sel = key === curLow || label.toLowerCase() === curLow ? ' selected' : '';
+    opts += '<option value="' + _esc(label) + '"' + sel + '>' + _esc(label) + '</option>';
+  }
+  return opts;
+}
+
 /* ── Inline HTML escape (avoids circular dependency on a helpers module) ── */
 function _esc(s) {
   return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

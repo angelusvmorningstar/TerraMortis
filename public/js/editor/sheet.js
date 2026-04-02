@@ -9,7 +9,7 @@ import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs,
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecs, xpSpentSpecial, meritBdRow } from './xp.js';
-import { meritBase, meritDotCount, meritLookup, buildMeritOptions, buildMCIGrantOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
+import { meritBase, meritDotCount, meritLookup, buildMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
@@ -355,10 +355,11 @@ export function shRenderGeneralMerits(c,editMode) {
   let h='<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">';
   if(editMode){
     h+=_renderPoolCounters(c,'general');
-    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
+    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',isFT=m.name==='Fucking Thief',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
       if(m.granted_by){h+='<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(dd)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span></div>';h+=meritBdRow(rIdx,mc);}
       else{h+='<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';
-        if(nSp&&cSp.length) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 spec \u2014')+'</option>'+cSp.map(sp=>'<option'+(m.qualifier===sp?' selected':'')+'>'+esc(sp)+'</option>').join('')+'</select>';
+        if(isFT) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">'+buildFThiefOptions(m.qualifier||'')+'</select>';
+        else if(nSp&&cSp.length) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 spec \u2014')+'</option>'+cSp.map(sp=>'<option'+(m.qualifier===sp?' selected':'')+'>'+esc(sp)+'</option>').join('')+'</select>';
         else h+='<input type="text" class="gen-qual-input" value="'+esc(m.qualifier||'')+'" placeholder="Qualifier" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">';
         h+='<span class="infl-dots-derived">'+shDots(dd)+'</span><button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc);}});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddGenMerit()">+ Add Merit</button></div>';

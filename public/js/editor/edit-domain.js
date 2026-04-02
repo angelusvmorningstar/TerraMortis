@@ -87,7 +87,14 @@ export function shEditGenMerit(idx, field, val) {
   const { merit: m } = meritByCategory(c, 'general', idx);
   if (!m) return;
   if (field === 'name') m.name = val;
-  else if (field === 'qualifier') { if (val) m.qualifier = val; else delete m.qualifier; }
+  else if (field === 'qualifier') {
+    if (val) m.qualifier = val; else delete m.qualifier;
+    // Fucking Thief: ensure the stolen merit exists so free dots can be allocated
+    if (m.name === 'Fucking Thief' && val) {
+      const exists = (c.merits || []).some(x => x.name === val && x.category === 'general');
+      if (!exists) addMerit(c, { category: 'general', name: val, rating: 0 });
+    }
+  }
   _markDirty();
   _renderSheet(c);
 }
