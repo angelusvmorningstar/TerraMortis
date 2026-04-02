@@ -88,6 +88,21 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // ── SSJ grant pool (Herd) — each dot of MCI = 1 free Herd dot ──
+  const hasSSJ = (c.merits || []).some(m => m.name === 'Secret Society Junkie');
+  if (hasSSJ) {
+    const mciDots = mcis.reduce((s, m) => s + (m.rating || 0), 0);
+    if (mciDots > 0) {
+      c._grant_pools.push({
+        source: 'SSJ',
+        name: 'Herd',
+        category: 'domain',
+        amount: mciDots,
+        qualifier: ''
+      });
+    }
+  }
+
   // ── Lorekeeper grant pool (Herd/Retainer) ──
   const lkPool = lorekeeperPool(c);
   if (lkPool > 0) {
