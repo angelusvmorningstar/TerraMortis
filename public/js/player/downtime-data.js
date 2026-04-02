@@ -148,51 +148,20 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 2. Regency — gated: only shown if the player is a current Regent
-  // Residency grid is rendered dynamically by downtime-form.js (renderRegencyGrid)
+  // 2. Territory declarations — where does your character feed/poach?
+  // (Regency, feeding method, and influence spend are now separate tabs)
   {
-    key: 'regency',
-    title: 'Regency: The Hand that Feeds',
-    gate: 'is_regent',
-    intro: null,
-    questions: [
-      {
-        key: 'regency_action',
-        label: 'Regency Action',
-        type: 'textarea',
-        required: false,
-        desc: 'You are known as Regent of a territory. What do you want to make known about your domain this month? This may include proclamations, policies, enforcement, or any public stance you wish to communicate to other Kindred.',
-      },
-    ],
-  },
-
-  // 3. Feeding — always shown
-  {
-    key: 'feeding',
-    title: 'The City: Territory and Feeding',
+    key: 'territories',
+    title: 'Territory: Where Do You Feed?',
     gate: null,
     intro: null,
     questions: [
-      {
-        key: 'feeding_method',
-        label: 'How does your character hunt?',
-        type: 'feeding_method',
-        required: true,
-        desc: null,
-      },
       {
         key: 'feeding_territories',
         label: 'Which Territory does your character feed or poach in?',
         type: 'territory_grid',
         required: true,
-        desc: 'Residents must have express permission from a Regent to feed in their Territory.',
-      },
-      {
-        key: 'influence_spend',
-        label: 'Which Territories would you like to spend Influence on, if at all?',
-        type: 'influence_grid',
-        required: false,
-        desc: 'Positive values improve a Territory\'s Ambience. Negative values degrade it. Each point spent (positive or negative) costs 1 Influence from your monthly budget.',
+        desc: 'Residents must have express permission from a Regent to feed in their Territory. This declaration informs territory ambience calculations.',
       },
     ],
   },

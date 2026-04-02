@@ -268,13 +268,7 @@ function collectResponses() {
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
   }
 
-  // Collect residency grid
-  if (gateValues.is_regent === 'yes') {
-    for (let i = 1; i <= RESIDENCY_SLOTS; i++) {
-      const el = document.getElementById(`dt-residency_${i}`);
-      if (el) responses[`residency_${i}`] = el.value;
-    }
-  }
+  // Residency is now managed in the Regency tab (regency-tab.js)
 
   // Collect merit toggle states and dynamic section responses
   const allMerits = [...detectedMerits.spheres, ...detectedMerits.contacts, ...detectedMerits.retainers];
@@ -336,8 +330,7 @@ async function saveDraft() {
     } else {
       responseDoc = await apiPut(`/api/downtime_submissions/${responseDoc._id}`, { responses });
     }
-    // Persist residency to territory collection
-    if (gateValues.is_regent === 'yes') await saveResidency(responses);
+    // Residency is now saved in the Regency tab
     if (statusEl) statusEl.textContent = 'Saved';
     setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
   } catch (err) {
@@ -364,8 +357,7 @@ async function submitForm() {
         submitted_at: new Date().toISOString(),
       });
     }
-    // Persist residency to territory collection
-    if (gateValues.is_regent === 'yes') await saveResidency(responses);
+    // Residency is now saved in the Regency tab
     renderForm(document.getElementById('dt-container'));
   } catch (err) {
     const statusEl = document.getElementById('dt-save-status');
@@ -573,10 +565,7 @@ function renderForm(container) {
   // ── Projects section with dynamic slots ──
   h += renderProjectSlots(saved);
 
-  // ── Regency section with residency grid ──
-  if (gateValues.is_regent === 'yes') {
-    h += renderRegencySection(saved);
-  }
+  // Regency is now its own tab (regency-tab.js)
 
   // ── Dynamic merit sections ──
   h += renderMeritToggles(saved);
