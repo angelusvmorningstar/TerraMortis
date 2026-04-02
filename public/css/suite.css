@@ -85,6 +85,7 @@ body{min-height:auto;}
 .mrow{display:flex;gap:6px;}
 .mchip{flex:1;height:48px;border-radius:6px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt3);font-family:var(--fh);font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
 .mchip.on{border-color:var(--crim-a55);color:var(--gold2);background:var(--crim-a15);}
+.mchip.wp-chip.on{border-color:var(--green-a45);color:var(--green2);background:var(--green-a15);}
 
 /* Roll button */
 #roll-btn{height:58px;border-radius:8px;background:var(--crim);border:1px solid var(--crim-a70);color:var(--txt);font-family:var(--fh);font-size:13px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}

@@ -86,6 +86,7 @@ const state = {
   AGAIN: 10,
   ROTE: false,
   NA: false,
+  WP: false,
   POOL_INFO: null,
   RESIST_CHAR: null,
   RESIST_MODE: null,

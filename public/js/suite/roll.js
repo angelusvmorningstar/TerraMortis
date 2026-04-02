@@ -48,9 +48,10 @@ export function loadPool(total, name, pi) {
 // ── EFFECTIVE POOL ──
 
 export function effPool() {
+  const wpBonus = state.WP ? 3 : 0;
   return state.RESIST_MODE === '-'
-    ? Math.max(0, state.PS + state.MOD - state.RESIST_VAL)
-    : state.PS + state.MOD;
+    ? Math.max(0, state.PS + state.MOD + wpBonus - state.RESIST_VAL)
+    : state.PS + state.MOD + wpBonus;
 }
 
 // ── POOL / MOD ADJUSTMENTS ──
@@ -94,6 +95,7 @@ export function updPool() {
   if (pi.attr) segs.push('<span class="effpool-seg">' + pi.attr + ' <b>' + pi.attrV + '</b></span>');
   if (pi.skill) segs.push('<span class="effpool-seg">' + pi.skill + ' <b>' + pi.skillV + '</b></span>');
   if (pi.discName && pi.discV) segs.push('<span class="effpool-seg">' + pi.discName + ' <b>' + pi.discV + '</b></span>');
+  if (state.WP) segs.push('<span class="effpool-seg" style="color:#7EC8A0;">WP <b>+3</b></span>');
   if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) {
     segs.push('<span class="effpool-seg" style="color:#A8C4E0;">\u2212Resist <b>' + state.RESIST_VAL + '</b></span>');
   }
@@ -129,6 +131,10 @@ export function togMod(m) {
   if (m === 'rote') {
     state.ROTE = !state.ROTE;
     document.getElementById('rote-c').classList.toggle('on', state.ROTE);
+  } else if (m === 'wp') {
+    state.WP = !state.WP;
+    document.getElementById('wp-c').classList.toggle('on', state.WP);
+    updPool();
   } else {
     state.NA = !state.NA;
     document.getElementById('na-c').classList.toggle('on', state.NA);
@@ -206,6 +212,7 @@ export function doRoll() {
   }
 
   const mods = [];
+  if (state.WP) mods.push('WP +3');
   if (state.ROTE) mods.push('rote');
   if (state.NA) mods.push('no again');
 
@@ -276,6 +283,13 @@ export function doRoll() {
   }
 
   addHist(eff + 'd10', cls, lbl, wS, verd);
+
+  // Auto-reset WP after rolling (one-time spend)
+  if (state.WP) {
+    state.WP = false;
+    document.getElementById('wp-c')?.classList.remove('on');
+    updPool();
+  }
 }
 
 // ── ROLL HISTORY ──
