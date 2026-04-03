@@ -23,10 +23,33 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // Migrate legacy 'up' field → 'cp' in merit_creation (Excel import artifact)
+  (c.merit_creation || []).forEach(mc => {
+    if (!mc || !mc.up) return;
+    mc.cp = (mc.cp || 0) + mc.up;
+    delete mc.up;
+  });
+
   // Migrate Mandragora Garden from general → domain if miscategorised
   (c.merits || []).forEach(m => {
     if (m.name === 'Mandragora Garden' && m.category !== 'domain') m.category = 'domain';
   });
+  // De-duplicate domain Mandragora Gardens: keep the one with shared_with (proper domain entry),
+  // remove legacy extras (e.g. old general entry with granted_by). Splice in reverse index order.
+  {
+    const mgIdxs = (c.merits || []).reduce((a, m, i) => m.name === 'Mandragora Garden' ? [...a, i] : a, []);
+    if (mgIdxs.length > 1) {
+      // Prefer to keep: 1) has shared_with, 2) no granted_by, 3) first in array
+      let keepIdx = mgIdxs.find(i => (c.merits[i].shared_with || []).length > 0);
+      if (keepIdx === undefined) keepIdx = mgIdxs.find(i => !c.merits[i].granted_by);
+      if (keepIdx === undefined) keepIdx = mgIdxs[0];
+      const toRemove = mgIdxs.filter(i => i !== keepIdx).sort((a, b) => b - a);
+      for (const ri of toRemove) {
+        c.merits.splice(ri, 1);
+        if (c.merit_creation) c.merit_creation.splice(ri, 1);
+      }
+    }
+  }
 
   // Clear ephemeral tracking
   delete c._pt_nine_again_skills;
