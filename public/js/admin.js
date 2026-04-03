@@ -4,6 +4,8 @@ import { apiGet, apiPut } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
+import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
+import { vmAlliesUsed, lorekeeperUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
@@ -157,6 +159,25 @@ document.getElementById('sidebar').addEventListener('click', e => {
   switchDomain(btn.dataset.domain);
 });
 
+// ── Character alert checks ──
+
+function charAlerts(c) {
+  applyDerivedMerits(c);
+  let red = false, yellow = false;
+  if (xpLeft(c) < 0) red = true;
+  for (const p of (c._grant_pools || [])) {
+    const total = p.amount;
+    let used;
+    if (p.category === 'any') used = getMCIPoolUsed(c);
+    else if (p.category === 'vm') used = vmAlliesUsed(c);
+    else if (p.category === 'lk') used = lorekeeperUsed(c);
+    else used = getPoolUsed(c, p.names ? p.names[0] : p.name);
+    if (used > total) red = true;
+    else if (used < total) yellow = true;
+  }
+  return { red, yellow };
+}
+
 // ── Character grid rendering ──
 
 function renderCharGrid() {
@@ -173,11 +194,15 @@ function renderCharGrid() {
     const xpL = xpLeft(c);
     const title = c.court_title ? `<span class="cc-tag title">${esc(c.court_title)}</span>` : '';
     const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
+    const { red, yellow } = charAlerts(c);
+    const badge = red ? '<span class="cc-alert red" title="Data error">!</span>'
+                : yellow ? '<span class="cc-alert yellow" title="Unspent dots">&#9679;</span>' : '';
 
     return `<div class="char-card${c.retired ? ' retired' : ''}" data-id="${c._id}">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
         <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
+        ${badge ? `<div class="cc-alert-wrap">${badge}</div>` : ''}
       </div>
       <div class="cc-mid">
         <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>
