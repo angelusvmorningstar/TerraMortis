@@ -48,13 +48,20 @@ export function xpGame(c) {
   return ((c.xp_log || {}).earned || {}).game || 0;
 }
 
+/** XP bonus from Professional Training dot 5: 1 XP. Dynamic — present only when PT≥5 is active. */
+export function xpPT5(c) {
+  const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
+  if (!ptM) return 0;
+  return meritRating(c, ptM) >= 5 ? 1 : 0;
+}
+
 /**
  * Total XP earned by a character (all sources, derived dynamically).
  * @param {object} c - character object
  * @returns {number}
  */
 export function xpEarned(c) {
-  return xpStarting() + xpHumanityDrop(c) + xpOrdeals(c) + xpGame(c);
+  return xpStarting() + xpHumanityDrop(c) + xpOrdeals(c) + xpGame(c) + xpPT5(c);
 }
 
 /** Sum XP from a creation object (e.g. attr_creation, skill_creation). */
