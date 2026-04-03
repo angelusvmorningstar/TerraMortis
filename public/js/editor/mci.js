@@ -23,6 +23,11 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // Migrate Mandragora Garden from general → domain if miscategorised
+  (c.merits || []).forEach(m => {
+    if (m.name === 'Mandragora Garden' && m.category !== 'domain') m.category = 'domain';
+  });
+
   // Clear ephemeral tracking
   delete c._pt_nine_again_skills;
   delete c._pt_dot4_bonus_skills;
