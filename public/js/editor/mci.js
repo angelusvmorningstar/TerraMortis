@@ -46,8 +46,8 @@ export function applyDerivedMerits(c) {
     const role = pt.role || '';
     const assets = (pt.asset_skills || []).filter(Boolean);
 
-    // Dot 1: 2 free Contacts dots — auto-applied like OHM
-    if (dots >= 1 && role) {
+    // Dot 1: 2 free Contacts dots — auto-applied like OHM (no role required)
+    if (dots >= 1) {
       const mi = (c.merits || []).findIndex(m => m.category === 'influence' && m.name === 'Contacts');
       if (mi >= 0) {
         if (!c.merit_creation) c.merit_creation = [];
