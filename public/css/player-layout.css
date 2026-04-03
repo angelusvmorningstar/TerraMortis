@@ -206,9 +206,9 @@ body {
   padding: 16px;
 }
 
-/* Sheet tab: full width, small vertical padding only */
+/* Sheet tab: full width with side breathing room */
 #tab-sheet {
-  padding: 16px 0;
+  padding: 16px 10px;
 }
 
 .tab-panel { display: none; }
