@@ -17,12 +17,14 @@ import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
 setDevotionsDB(DEVOTIONS_DB);
 
-/** Render a prereq warning if character doesn't meet the merit's prerequisites. */
+/** Render a prereq warning showing only the terms the character actually fails. */
 function _prereqWarn(c, meritName) {
   const entry = meritLookup(meritName);
   if (!entry || !entry.prereq || entry.prereq === '-') return '';
   if (meritQualifies(c, entry.prereq)) return '';
-  return '<div class="merit-prereq-warn">\u26A0 Prerequisites not met: <span class="merit-prereq-txt">'+esc(entry.prereq)+'</span></div>';
+  const failing = entry.prereq.split(/\s*,\s*/).filter(part => !meritQualifies(c, part));
+  if (!failing.length) return '';
+  return '<div class="merit-prereq-warn">\u26A0 Prerequisites not met: <span class="merit-prereq-txt">'+esc(failing.join(', '))+'</span></div>';
 }
 
 /** Render grant pool counters for a merit category. Handles single and multi-target pools. */
