@@ -69,7 +69,9 @@ export function domMeritTotal(c, name) {
     const p = (state.chars || []).find(ch => ch.name === pName);
     if (p) total += domMeritShareable(p, name);
   }
-  return Math.min(5, total);
+  // Herd can exceed 5 when Flock is present
+  const cap = (name === 'Herd' && flockHerdBonus(c) > 0) ? Infinity : 5;
+  return Math.min(cap, total);
 }
 
 /* ══════════════════════════════════════════════════════
