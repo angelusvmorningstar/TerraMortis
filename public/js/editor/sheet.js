@@ -11,7 +11,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed } from './domain.js';
+import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
@@ -34,12 +34,14 @@ function _renderPoolCounters(c,category) {
   const vmPools=category==='influence'?(c._grant_pools||[]).filter(p=>p.category==='vm'):[];
   // Also include 'ohm' category pools (OHM grants) in the influence section
   const ohmPools=category==='influence'?(c._grant_pools||[]).filter(p=>p.category==='ohm'):[];
-  const allPools=[...pools,...anyPools,...vmPools,...ohmPools];
+  // Also include 'inv' pools (Invested) in both domain and influence sections
+  const invPools=(category==='domain'||category==='influence')?(c._grant_pools||[]).filter(p=>p.category==='inv'):[];
+  const allPools=[...pools,...anyPools,...vmPools,...ohmPools,...invPools];
   if(!allPools.length) return '';
   let h='<div class="grant-pools">';
   const seen=new Set();
   allPools.forEach(p=>{
-    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.category==='ohm'?'OHM: auto Contacts+Resources, pick Allies sphere':p.name);
+    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.category==='ohm'?'OHM: auto Contacts+Resources, pick Allies sphere':p.category==='inv'?'Herd/Mentor/Resources/Retainer (Invested)':p.name);
     const key=p.source+'|'+label;
     if(seen.has(key)) return;
     seen.add(key);
@@ -48,6 +50,7 @@ function _renderPoolCounters(c,category) {
     else if(p.category==='vm'){pTotal=p.amount;pUsed=vmAlliesUsed(c);}
     else if(p.category==='lk'){pTotal=p.amount;pUsed=lorekeeperUsed(c);}
     else if(p.category==='ohm'){pTotal=p.amount;pUsed=ohmUsed(c);}
+    else if(p.category==='inv'){pTotal=p.amount;pUsed=investedUsed(c);}
     else{const lookupName=p.names?p.names[0]:p.name;pTotal=getPoolTotal(c,lookupName);pUsed=getPoolUsed(c,lookupName);}
     const cls=pUsed>pTotal?'sc-over':pUsed===pTotal?'sc-full':'sc-val';
     h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(p.source)+'</span>: '+esc(label)+' free dots <span class="'+cls+'">'+pUsed+'/'+pTotal+'</span></div>';
@@ -309,13 +312,16 @@ export function shRenderDisciplines(c,editMode) {
           const sk0=(p.ohm_skills&&p.ohm_skills[0])||'';
           const sk1=(p.ohm_skills&&p.ohm_skills[1])||'';
           const ohmSphere=p.ohm_allies_sphere||'';
-          const _sphereOpts=INFLUENCE_SPHERES.map(s=>'<option value="'+esc(s)+'"'+(s.toLowerCase()===ohmSphere.toLowerCase()?' selected':'')+'>'+esc(s)+'</option>').join('');
+          const _alliesMerits=(c.merits||[]).filter(m=>m.category==='influence'&&m.name==='Allies'&&m.area);
+          const _alliesOpts=_alliesMerits.map(m=>'<option value="'+esc(m.area)+'"'+((m.area||'').toLowerCase()===ohmSphere.toLowerCase()?' selected':'')+'>'+esc(m.area)+'</option>').join('');
           h+='<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
             +'<span style="font-size:11px;color:var(--txt3)">Auto: +1 Contacts, +1 Resources</span>'
             +'</div>'
             +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
-            +'<span style="font-size:11px;color:var(--txt3)">Allies sphere:</span>'
-            +'<select class="gen-qual-input" style="width:140px" onchange="shEditPact('+realPi+',\'ohm_allies_sphere\',this.value)"><option value="">-- pick sphere --</option>'+_sphereOpts+'</select>'
+            +'<span style="font-size:11px;color:var(--txt3)">+1 Allies:</span>'
+            +(_alliesMerits.length
+              ? '<select class="gen-qual-input" style="width:160px" onchange="shEditPact('+realPi+',\'ohm_allies_sphere\',this.value)"><option value="">-- pick Allies merit --</option>'+_alliesOpts+'</select>'
+              : '<span style="font-size:10px;color:var(--txt3);font-style:italic">Add an Allies merit first</span>')
             +'</div>'
             +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
             +'<span style="font-size:11px;color:var(--txt3)">9-again:</span>'
@@ -368,9 +374,11 @@ export function shRenderInfluenceMerits(c,editMode) {
   const totalInfl=calcTotalInfluence(c);
   const _inflVmPools=(c._grant_pools||[]).filter(p=>p.category==='vm');
   const _inflOhmPools=(c._grant_pools||[]).filter(p=>p.category==='ohm');
+  const _inflInvPools=(c._grant_pools||[]).filter(p=>p.category==='inv');
   let _inflAlert=null;
   _inflVmPools.forEach(p=>{const u=vmAlliesUsed(c);if(u>p.amount)_inflAlert='red';else if(u<p.amount&&_inflAlert!=='red')_inflAlert='yellow';});
   _inflOhmPools.forEach(p=>{const u=ohmUsed(c);if(u>p.amount)_inflAlert='red';else if(u<p.amount&&_inflAlert!=='red')_inflAlert='yellow';});
+  _inflInvPools.forEach(p=>{const u=investedUsed(c);if(u>p.amount)_inflAlert='red';else if(u<p.amount&&_inflAlert!=='red')_inflAlert='yellow';});
   const _inflBadge=editMode?_alertBadge(_inflAlert):'';
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits'+_inflBadge+'</div><div class="merit-list">';
   if(editMode){
@@ -378,12 +386,14 @@ export function shRenderInfluenceMerits(c,editMode) {
     const _inflMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _inflHasVM=hasViralMythology(c);
     const _inflHasLK=hasLorekeeper(c);
+    const _inflHasINV=hasInvested(c);
+    const _invMerits=new Set(['Herd','Mentor','Resources','Retainer']);
     const nonContacts=inflM.filter(m=>m.name!=='Contacts');
-    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,free_ohm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.free_ohm||0)+(mc.xp||0);
+    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,free_ohm:0,free_inv:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.free_ohm||0)+(mc.free_inv||0)+(mc.xp||0);
       h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span>';
       if(m.granted_by) h+='<span class="gen-granted-tag">'+esc(m.granted_by)+'</span>';
       h+='<button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies',showLK:_inflHasLK&&m.name==='Retainer'});h+=_prereqWarn(c,m.name);});
+      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies',showLK:_inflHasLK&&m.name==='Retainer',showINV:_inflHasINV&&_invMerits.has(m.name)});h+=_prereqWarn(c,m.name);});
     // Contacts: single entry with sphere-per-dot
     const contactsEntry=inflM.find(m=>m.name==='Contacts');
     const cInf=calcContactsInfluence(c);
@@ -429,17 +439,19 @@ export function shRenderDomainMerits(c,editMode) {
   const chars=state.chars,domM=(c.merits||[]).filter(m=>m.category==='domain');
   if(!editMode&&!domM.length) return '';
   const _domLkPools=(c._grant_pools||[]).filter(p=>p.category==='lk');
+  const _domInvPools=(c._grant_pools||[]).filter(p=>p.category==='inv');
   let _domAlert=null;
   _domLkPools.forEach(p=>{const u=lorekeeperUsed(c);if(u>p.amount)_domAlert='red';else if(u<p.amount&&_domAlert!=='red')_domAlert='yellow';});
+  _domInvPools.forEach(p=>{const u=investedUsed(c);if(u>p.amount)_domAlert='red';else if(u<p.amount&&_domAlert!=='red')_domAlert='yellow';});
   const _domBadge=editMode?_alertBadge(_domAlert):'';
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits'+_domBadge+'</div><div class="merit-list">';
   if(editMode){
     const _domMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
-    const _hasLK=hasLorekeeper(c);
-    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
+    const _hasLK=hasLorekeeper(c);const _hasINV=hasInvested(c);
+    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,free_inv:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.free_inv||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
       h+='<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit('+di+',\'name\',this.value)">'+tOpts+'</select><span class="dom-contrib-lbl">My dots: '+shDots(dd)+'</span><span class="dom-total-lbl" title="Total across all contributors">Total: '+shDots(eT)+'</span><button class="dev-rm-btn" onclick="shRemoveDomMerit('+di+')" title="Remove">&times;</button></div>';
-      const _isLKMerit=m.name==='Herd'||m.name==='Retainer';
-      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_domMciPool>0,showLK:_hasLK&&_isLKMerit});h+=_prereqWarn(c,m.name);
+      const _isLKMerit=m.name==='Herd'||m.name==='Retainer';const _isINVMerit=m.name==='Herd';
+      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_domMciPool>0,showLK:_hasLK&&_isLKMerit,showINV:_hasINV&&_isINVMerit});h+=_prereqWarn(c,m.name);
       if(m.name==='Herd'&&hasViralMythology(c)){const vmB=vmHerdPool(c);if(vmB)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +'+vmB+' dots ('+shDots(vmB)+') \u2014 lost if VM removed</div>';}
       if(m.name==='Herd'){const ssjB=ssjHerdBonus(c);if(ssjB)h+='<div style="font-size:10px;color:var(--gdim);padding:2px 8px">SSJ Bonus: +'+ssjB+' dots ('+shDots(ssjB)+') \u2014 equals MCI dots</div>';}
       if(m.name!=='Herd'&&parts.length){h+='<div class="dom-partners-row">';parts.forEach(pN=>{const p=chars.find(ch=>ch.name===pN),pD=p?domMeritShareable(p,m.name):0;h+='<span class="dom-partner-tag">'+esc(pN)+(pD?' '+shDots(pD):' \u25CB')+'<button class="dom-partner-rm" onclick="shRemoveDomainPartner('+di+',\''+pN.replace(/'/g,"\\'")+'\')">\u00D7</button></span>';});h+='</div>';}
@@ -447,7 +459,7 @@ export function shRenderDomainMerits(c,editMode) {
       h+='</div>';});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
-    domM.forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},dPurch=Math.min(5,(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.free_lk||0)+(dMc.xp||0)),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0;
+    domM.forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},dPurch=Math.min(5,(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.free_lk||0)+(dMc.free_inv||0)+(dMc.xp||0)),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0;
       const dotHtml=ssjB>0?shDotsMixed(dPurch,Math.max(0,de-dPurch)):'<span class="merit-dots-sh">'+shDots(de)+'</span>';
       h+='<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">'+esc(m.name)+'</div>'+(dp?'<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 '+dp.map(n=>{const p=chars.find(ch=>ch.name===n),pd=p?domMeritShareable(p,m.name):0;return esc(n)+(pd?' '+shDots(pd):'');}).join(', ')+'</div>':'')+'</div><div style="text-align:right">'+(dp?'<div class="dom-total-view">'+shDots(de)+'</div><div class="dom-own-view">mine: '+shDots(dO)+'</div>':dotHtml)+'</div></div>';});
   }

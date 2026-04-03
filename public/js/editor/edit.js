@@ -10,7 +10,7 @@ import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { getPoolTotal, getPoolUsed, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { vmAlliesPool, vmAlliesUsed } from './domain.js';
+import { vmAlliesPool, vmAlliesUsed, investedPool, investedUsed } from './domain.js';
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -675,9 +675,15 @@ export function shEditMeritPt(realIdx, field, val) {
     const otherFVM = vmAlliesUsed(c) - (mc.free_vm || 0);
     val = Math.min(val, Math.max(0, vmTotal - otherFVM));
   }
+  // Cap free_inv edits by remaining Invested pool
+  if (field === 'free_inv') {
+    const invTotal = investedPool(c);
+    const otherFINV = investedUsed(c) - (mc.free_inv || 0);
+    val = Math.min(val, Math.max(0, invTotal - otherFINV));
+  }
   mc[field] = val;
   // Sync stored rating
-  const total = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.xp || 0);
+  const total = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.xp || 0);
   if (c.merits[realIdx]) c.merits[realIdx].rating = total;
   _markDirty();
   _renderSheet(c);

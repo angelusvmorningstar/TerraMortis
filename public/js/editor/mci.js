@@ -6,7 +6,7 @@
 
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { removeMerit, ensureMeritSync } from './merits.js';
-import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM } from './domain.js';
+import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -125,6 +125,19 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // ── Invested grant pool (Herd/Mentor/Resources/Retainer = Invictus Status dots) ──
+  if (hasInvested(c)) {
+    const invPool = investedPool(c);
+    if (invPool > 0) {
+      c._grant_pools.push({
+        source: 'Invested',
+        names: ['Herd', 'Mentor', 'Resources', 'Retainer'],
+        category: 'inv',
+        amount: invPool
+      });
+    }
+  }
+
   // ── Lorekeeper grant pool (Herd/Retainer) ──
   if (hasLorekeeper(c)) {
     const lkPool = lorekeeperPool(c);
@@ -143,7 +156,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
     const mc = (c.merit_creation || [])[i] || {};
-    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.cp || 0) + (mc.xp || 0);
+    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

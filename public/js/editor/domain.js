@@ -192,6 +192,28 @@ export function ohmUsed(c) {
   return total;
 }
 
+/** Check if character has the Invested merit. */
+export function hasInvested(c) {
+  return (c.merits || []).some(m => m.name === 'Invested');
+}
+
+/** Invested pool: dots equal to Invictus (covenant) Status. */
+export function investedPool(c) {
+  if (!hasInvested(c)) return 0;
+  return (c.status || {}).covenant || 0;
+}
+
+/** Count Invested bonus dots allocated via free_inv on Herd/Mentor/Resources/Retainer. */
+export function investedUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (!['Herd', 'Mentor', 'Resources', 'Retainer'].includes(m.name)) return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.free_inv || 0);
+  });
+  return total;
+}
+
 /** Check if character has the Lorekeeper merit. */
 export function hasLorekeeper(c) {
   return (c.merits || []).some(m => m.name === 'Lorekeeper');

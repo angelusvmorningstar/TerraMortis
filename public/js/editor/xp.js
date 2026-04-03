@@ -180,8 +180,8 @@ export function meritRating(c, m) {
  *   threshold is met, then shows fixedAt.
  */
 export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
-  const cp = mc.cp || 0, xp = mc.xp || 0, fr = mc.free || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0;
-  const total = cp + xp + fr + fmci + fvm + flk + fohm;
+  const cp = mc.cp || 0, xp = mc.xp || 0, fr = mc.free || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0, finv = mc.free_inv || 0;
+  const total = cp + xp + fr + fmci + fvm + flk + fohm + finv;
   // Effective display: for fixed merits, only show dots once the threshold is reached
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
@@ -195,6 +195,7 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">VM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
   if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">LK</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
   if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">OHM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
+  if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">INV</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
   return h;
