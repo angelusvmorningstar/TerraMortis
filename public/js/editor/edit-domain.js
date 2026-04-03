@@ -229,7 +229,7 @@ export function shEditMCIDot(standIdx, dotKey, val) {
 }
 
 const _INFL_NAMES = new Set(['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status']);
-const _DOM_NAMES = new Set(['Safe Place','Haven','Feeding Grounds','Herd']);
+const _DOM_NAMES = new Set(['Safe Place','Haven','Feeding Grounds','Herd','Mandragora Garden']);
 
 export function shEditDerivedMeritArea(mciRealIdx, dotLevel, val) {
   if (state.editIdx < 0) return;

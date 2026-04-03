@@ -228,7 +228,7 @@ export function buildMeritOptions(c, currentName) {
   const db = MERITS_DB;
   if (!db) return '<option value="">— loading —</option>';
   const excluded = new Set(['standing', 'invictus oath', 'style']);
-  const domainNames = new Set(['safe place', 'haven', 'feeding grounds', 'herd']);
+  const domainNames = new Set(['safe place', 'haven', 'feeding grounds', 'herd', 'mandragora garden']);
   const influenceNames = new Set(['allies', 'contacts', 'mentor', 'resources', 'retainer', 'staff', 'status']);
   const qualified = [];
   for (const [key, entry] of Object.entries(db)) {

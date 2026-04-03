@@ -91,7 +91,7 @@ export const SORCERY_THEMES = []; // removed — themes replaced by rite system
 
 export const INFLUENCE_SPHERES = ['Bureaucracy','Church','Finance','Health','High Society','Industry','Legal','Media','Military','Occult','Police','Politics','Street','Transportation','Underworld','University'];
 export const INFLUENCE_MERIT_TYPES = ['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status'];
-export const DOMAIN_MERIT_TYPES = ['Safe Place','Haven','Feeding Grounds','Herd'];
+export const DOMAIN_MERIT_TYPES = ['Safe Place','Haven','Feeding Grounds','Herd','Mandragora Garden'];
 
 /** Style Tags — maps fighting style names to their tag(s). Styles without tags use orthodox-only advancement. */
 export const STYLE_TAGS = {
