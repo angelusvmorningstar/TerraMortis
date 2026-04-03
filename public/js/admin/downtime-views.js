@@ -501,10 +501,20 @@ async function processFile(file) {
     return;
   }
 
-  const result = await upsertCycle(parsed, file.name.replace('.csv', ''));
-  warnEl.innerHTML = `<div class="dt-success">Loaded ${result.created} new, ${result.updated} updated submissions.</div>`;
+  // Enrich each parsed submission with character_id (needed for player-side filtering)
+  for (const sub of parsed) {
+    const char = findCharacter(sub.submission.character_name);
+    if (char) sub._character_id = char._id;
+  }
 
-  await loadAllCycles();
+  try {
+    const result = await upsertCycle(parsed, file.name.replace('.csv', ''));
+    warnEl.innerHTML = `<div class="dt-success">Loaded ${result.created} new, ${result.updated} updated submissions.</div>`;
+    await loadAllCycles();
+  } catch (err) {
+    warnEl.innerHTML += `<div class="dt-warn">Import failed: ${esc(err.message)}</div>`;
+    console.error('Downtime CSV import failed:', err);
+  }
 }
 
 async function handleNewCycle() {

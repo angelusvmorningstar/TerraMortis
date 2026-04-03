@@ -31,6 +31,22 @@ cyclesRouter.post('/', requireRole('st'), async (req, res) => {
   res.status(201).json(created);
 });
 
+// PUT /api/downtime_cycles/:id — ST only
+cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const { _id, ...updates } = req.body;
+  const result = await cycles().findOneAndUpdate(
+    { _id: oid },
+    { $set: updates },
+    { returnDocument: 'after' }
+  );
+
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  res.json(result);
+});
+
 // --- Submissions: /api/downtime_submissions ---
 
 export const submissionsRouter = Router();
@@ -38,7 +54,16 @@ const submissions = () => getCollection('downtime_submissions');
 
 // POST /api/downtime_submissions — both roles can create
 submissionsRouter.post('/', async (req, res) => {
-  const doc = req.body;
+  const doc = { ...req.body };
+  // Normalise ID fields to ObjectId so GET queries match correctly
+  if (doc.cycle_id) {
+    const oid = parseId(String(doc.cycle_id));
+    if (oid) doc.cycle_id = oid;
+  }
+  if (doc.character_id) {
+    const oid = parseId(String(doc.character_id));
+    if (oid) doc.character_id = oid;
+  }
   const result = await submissions().insertOne(doc);
   const created = await submissions().findOne({ _id: result.insertedId });
   res.status(201).json(created);
@@ -50,7 +75,8 @@ submissionsRouter.get('/', async (req, res) => {
   if (req.query.cycle_id) {
     const oid = parseId(req.query.cycle_id);
     if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle_id format' });
-    filter.cycle_id = oid;
+    // Accept both ObjectId and legacy string representations
+    filter.$or = [{ cycle_id: oid }, { cycle_id: req.query.cycle_id }];
   }
 
   // Player: restrict to their characters
