@@ -175,23 +175,30 @@ export function vmHerdPool(c) {
   return total;
 }
 
-/**
- * Check if character is a Lorekeeper (has merits granted by Lorekeeper).
- */
-export function isLorekeeper(c) {
-  return (c.merits || []).some(m => (m.granted_by || '') === 'Lorekeeper');
+/** Check if character has the Lorekeeper merit. */
+export function hasLorekeeper(c) {
+  return (c.merits || []).some(m => m.name === 'Lorekeeper');
 }
 
-/**
- * Lorekeeper pool: purchased Library dots (CP + XP) = free dots for Herd/Retainer.
- */
+/** Lorekeeper pool: purchased Library dots (CP + XP) = free dots for Herd/Retainer. */
 export function lorekeeperPool(c) {
-  if (!isLorekeeper(c)) return 0;
+  if (!hasLorekeeper(c)) return 0;
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (m.name !== 'Library') return;
     const mc = (c.merit_creation || [])[i] || {};
     total += (mc.cp || 0) + (mc.xp || 0);
+  });
+  return total;
+}
+
+/** Count Lorekeeper bonus dots allocated via free_lk on Herd/Retainer entries. */
+export function lorekeeperUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.name !== 'Herd' && m.name !== 'Retainer') return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.free_lk || 0);
   });
   return total;
 }

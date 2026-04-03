@@ -12,7 +12,7 @@ import { MERITS_DB } from '../data/merits-db-data.js';
 import { getPoolTotal, getPoolUsed, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmAlliesPool, vmAlliesUsed } from './domain.js';
 import {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
@@ -24,7 +24,7 @@ import {
 
 /* Re-export merit-category handlers so consumers can import from edit.js */
 export {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
