@@ -157,15 +157,24 @@ body {
 
 .header-admin-link:hover { opacity: 1; }
 
-/* ── Tab bar ── */
+/* ── App shell (mobile default: stacked) ── */
+
+#player-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Tab bar — mobile: horizontal strip ── */
 
 #tab-bar {
   display: flex;
+  flex-direction: row;
   background: var(--surf);
   border-bottom: 1px solid var(--bdr);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  flex-shrink: 0;
 }
 
 #tab-bar::-webkit-scrollbar { display: none; }
@@ -176,6 +185,7 @@ body {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
+  border-left: 3px solid transparent;
   color: var(--txt3);
   font-family: var(--fh);
   font-size: 12px;
@@ -183,10 +193,11 @@ body {
   padding: 10px 8px;
   cursor: pointer;
   white-space: nowrap;
-  transition: color .2s, border-color .2s;
+  text-align: center;
+  transition: color .15s, border-color .15s, background .15s;
 }
 
-.tab-btn:hover { color: var(--txt2); }
+.tab-btn:hover { color: var(--txt2); background: var(--surf2); }
 
 .tab-btn.on {
   color: var(--gold2);
@@ -195,9 +206,8 @@ body {
 
 /* ── Tab content ── */
 
-#player-content {
-  /* No max-width — sheet tab needs full viewport width */
-}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
 /* Non-sheet tabs keep comfortable reading width */
 .tab-panel:not(#tab-sheet) {
@@ -211,8 +221,62 @@ body {
   padding: 16px 50px;
 }
 
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
+/* ── Desktop: vertical sidebar layout (700px+) ── */
+
+@media (min-width: 700px) {
+  #player-app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #player-header {
+    flex-shrink: 0;
+    position: static; /* height-based layout replaces sticky */
+  }
+
+  #player-body {
+    flex: 1;
+    flex-direction: row;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #tab-bar {
+    flex-direction: column;
+    width: 160px;
+    flex-shrink: 0;
+    flex: none;
+    border-bottom: none;
+    border-right: 1px solid var(--bdr);
+    padding: 12px 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .tab-btn {
+    flex: none;
+    width: 100%;
+    text-align: left;
+    padding: 12px 18px;
+    font-size: 13px;
+    border-bottom: none;
+    border-left: 3px solid transparent;
+  }
+
+  .tab-btn.on {
+    border-bottom-color: transparent;
+    border-left-color: var(--gold2);
+    background: var(--surf2);
+  }
+
+  #player-content {
+    flex: 1;
+    overflow-y: auto;
+    min-width: 0;
+  }
+}
 
 .placeholder-msg {
   color: var(--txt3);
