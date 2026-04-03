@@ -178,8 +178,8 @@ export function shRenderSkills(c,editMode) {
     let _assetSp=0,_nonAssetSp=0;
     Object.entries(c.skills||{}).forEach(([sk,skillObj])=>{const cnt=(skillObj&&skillObj.specs)?skillObj.specs.length:0;if(ptAssetSet.has(sk))_assetSp+=cnt;else _nonAssetSp+=cnt;});
     const ptFreeCov=Math.min(ptFreeSpec,_assetSp),paidSp=_nonAssetSp+Math.max(0,_assetSp-ptFreeCov);
-    const specXP=Math.max(0,paidSp-3),scCls=paidSp>3?'sc-over':paidSp===3?'sc-full':'sc-val';
-    h+='<div class="sh-spec-counter">Specialisations <span class="'+scCls+'">'+paidSp+' / 3 free</span>'+(ptFreeSpec?' + <span style="font-size:10px;color:var(--gold2)">'+ptFreeCov+' / '+ptFreeSpec+' PT (asset skills)</span>':'')+(specXP?' <span style="font-size:8px;color:var(--crim)">('+specXP+' XP)</span>':'')+'</div>';
+    const specXP=Math.max(0,paidSp-3),cpSp=Math.min(paidSp,3),cpCls=cpSp===3?'sc-full':'sc-val';
+    h+='<div class="sh-spec-counter">Specialisations <span class="'+cpCls+'">'+cpSp+' / 3 CP</span>'+(specXP?' + <span style="font-size:10px;color:var(--crim)">'+specXP+' XP</span>':'')+(ptFreeSpec?' + <span style="font-size:10px;color:var(--gold2)">'+ptFreeCov+' / '+ptFreeSpec+' PT (asset skills)</span>':'')+'</div>';
   }
   h+='<div class="skills-3col">';
   if(editMode){

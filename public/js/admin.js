@@ -4,7 +4,8 @@ import { apiGet, apiPut } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
-import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
+import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed, getOTSPoolUsed } from './editor/mci.js';
+import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
@@ -165,7 +166,34 @@ document.getElementById('sidebar').addEventListener('click', e => {
 function charAlerts(c) {
   applyDerivedMerits(c);
   let red = false, yellow = false;
+
+  // XP overspend
   if (xpLeft(c) < 0) red = true;
+
+  // Merit CP overspend (budget: 10)
+  const meritCPUsed = (c.merit_creation || []).reduce((s, mc) => s + (mc ? mc.cp || 0 : 0), 0)
+    + (c.fighting_styles || []).reduce((s, fs) => s + (fs.cp || 0), 0)
+    + (c.powers || []).filter(p => p.category === 'pact').reduce((s, p) => s + (p.cp || 0), 0)
+    + ((c.bp_creation || {}).cp || 0);
+  if (meritCPUsed > 10) red = true;
+
+  // Attribute CP overspend (priority budgets: Primary 5, Secondary 4, Tertiary 3)
+  const atPri = c.attribute_priorities || {};
+  for (const cat of Object.keys(ATTR_CATS)) {
+    const budget = PRI_BUDGETS[atPri[cat] || 'Tertiary'] || 3;
+    const used = (ATTR_CATS[cat] || []).reduce((s, a) => s + (((c.attr_creation || {})[a] || {}).cp || 0), 0);
+    if (used > budget) red = true;
+  }
+
+  // Skill CP overspend (priority budgets: Primary 11, Secondary 7, Tertiary 4)
+  const skPri = c.skill_priorities || {};
+  for (const cat of Object.keys(SKILL_CATS)) {
+    const budget = SKILL_PRI_BUDGETS[skPri[cat] || 'Tertiary'] || 4;
+    const used = (SKILL_CATS[cat] || []).reduce((s, sk) => s + (((c.skill_creation || {})[sk] || {}).cp || 0), 0);
+    if (used > budget) red = true;
+  }
+
+  // Grant pool overspend / unspent
   for (const p of (c._grant_pools || [])) {
     const total = p.amount;
     let used;
@@ -174,6 +202,7 @@ function charAlerts(c) {
     else if (p.category === 'lk') used = lorekeeperUsed(c);
     else if (p.category === 'ohm') used = ohmUsed(c);
     else if (p.category === 'inv') used = investedUsed(c);
+    else if (p.category === 'ots') used = getOTSPoolUsed(c);
     else used = getPoolUsed(c, p.names ? p.names[0] : p.name);
     if (used > total) red = true;
     else if (used < total) yellow = true;
