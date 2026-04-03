@@ -719,12 +719,12 @@ function _checkSingleTerm(c, term) {
       const type = name.slice(0, -7).trim().toLowerCase();
       if (type === 'city')    return ((c.status || {}).city    || 0) >= req;
       if (type === 'clan')    return ((c.status || {}).clan    || 0) >= req;
-      if (type === 'covenant')return ((c.status || {}).covenant|| 0) >= req;
+      if (type === 'covenant') return Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0) >= req;
       const cov = _COV_STATUS_MAP[type];
       if (!cov) return true;
-      // Own covenant: use c.status.covenant; others: use covenant_standings
+      // Own covenant: use effective status (incl. OTS floor); others: use covenant_standings
       const ownMatch = (c.covenant || '').toLowerCase().replace(/[^a-z]/g,'').includes(type.replace(/[^a-z]/g,''));
-      const dots = ownMatch ? ((c.status || {}).covenant || 0) : ((c.covenant_standings || {})[cov] || 0);
+      const dots = ownMatch ? Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0) : ((c.covenant_standings || {})[cov] || 0);
       return dots >= req;
     }
 
@@ -1105,7 +1105,8 @@ export function renderSheet(c) {
   const cityBase=st.city||0,titleBonus=titleStatusBonus(c),cityTotal=cityBase+titleBonus;
   h+='<div class="sh-faction-sub">Title</div>'+_cityStatusDots(cityBase,titleBonus)+'</div>'+_cityStatusPip(editMode,cityBase,cityTotal,titleBonus)+'</div>';
   const covRow=(img,editH,viewH,sub,svg,sVal,sLbl,sKey)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div>'+_statusPip(editMode,svg,sVal,sLbl,sKey)+'</div>';};
-  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>','Covenant',OTHER_SVG,st.covenant||0,'Cov.','covenant');
+  const _covBase=st.covenant||0,_covOTSBonus=c._ots_covenant_bonus||0,_covBonusDots=Math.max(0,_covOTSBonus-_covBase),_covEffective=Math.max(_covBase,_covOTSBonus);
+  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>',(_covBonusDots>0?'<div style="font-size:9px;letter-spacing:.03em">Covenant '+shDotsWithBonus(_covBase,_covBonusDots)+'<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>':'Covenant'),OTHER_SVG,_covEffective,'Cov.','covenant');
   if(editMode){const cOpts=CLANS.map(cl=>'<option'+(c.clan===cl?' selected':'')+'>'+cl+'</option>').join(''),bls=(BLOODLINE_CLANS[c.clan]||[]).slice().sort(),blO=bls.map(b=>'<option'+(c.bloodline===b?' selected':'')+'>'+b+'</option>').join('');
     covRow(clanImg,'<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">'+cOpts+'</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>'+blO+'</select>','','Clan / Bloodline',OTHER_SVG,st.clan||0,'Clan','clan');}
   else covRow(clanImg,'','<div class="sh-faction-label">'+esc(c.clan||'\u2014')+'</div>'+(bl?'<div class="sh-faction-bloodline">'+esc(bl)+'</div>':''),'Clan',OTHER_SVG,st.clan||0,'Clan','clan');

@@ -205,10 +205,10 @@ export function hasInvested(c) {
   return (c.merits || []).some(m => m.name === 'Invested');
 }
 
-/** Invested pool: dots equal to Invictus (covenant) Status. */
+/** Invested pool: dots equal to effective Invictus (covenant) Status (including OTS floor). */
 export function investedPool(c) {
   if (!hasInvested(c)) return 0;
-  return (c.status || {}).covenant || 0;
+  return Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0);
 }
 
 /** Count Invested bonus dots allocated via free_inv on Herd/Mentor/Resources/Retainer. */
