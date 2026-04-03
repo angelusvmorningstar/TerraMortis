@@ -205,12 +205,10 @@ export function shRenderDisciplines(c,editMode) {
     h+='</div></div>';
     const cn=(c.covenant||'').toLowerCase(),showCr=cn.includes('crone')||(c.disciplines||{}).Cruac>0,showTh=cn.includes('lancea')||(c.disciplines||{}).Theban>0;
     if(showCr||showTh){h+='<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';if(showCr)h+=renderDiscEditRow('Cruac',(c.disciplines||{}).Cruac||0,false,'color:rgba(220,160,120,.9)');if(showTh)h+=renderDiscEditRow('Theban',(c.disciplines||{}).Theban||0,false,'color:rgba(220,160,120,.9)');h+='</div></div>';}
-    const thD=Object.entries(c.disciplines||{}).filter(([d])=>SORCERY_THEMES.includes(d));
-    if(thD.length){h+='<div class="sh-sec"><div class="sh-sec-title">Sorcery Themes</div><div class="disc-list">';thD.forEach(([d,r])=>{h+=renderDiscRow(d,r,'color:rgba(220,160,120,.75)');});h+='</div></div>';}
   } else if(c.disciplines&&Object.keys(c.disciplines).length){
-    const de=Object.entries(c.disciplines),core=de.filter(([d])=>CORE_DISCS.includes(d)),rit=de.filter(([d])=>RITUAL_DISCS.includes(d)),thD=de.filter(([d])=>SORCERY_THEMES.includes(d));
+    const de=Object.entries(c.disciplines),core=de.filter(([d])=>CORE_DISCS.includes(d)),rit=de.filter(([d])=>RITUAL_DISCS.includes(d));
     if(core.length){h+='<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-list">';core.forEach(([d,r])=>{h+=renderDiscRow(d,r,null);});h+='</div></div>';}
-    if(rit.length||thD.length){h+='<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';rit.forEach(([d,r])=>{h+=renderDiscRow(d,r,'color:rgba(220,160,120,.9)');});if(thD.length){h+='<div class="disc-sub-head">Themes</div>';thD.forEach(([d,r])=>{h+=renderDiscRow(d,r,'color:rgba(220,160,120,.75)');});}h+='</div></div>';}
+    if(rit.length){h+='<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';rit.forEach(([d,r])=>{h+=renderDiscRow(d,r,'color:rgba(220,160,120,.9)');});h+='</div></div>';}
   }
   // Devotions
   const devP=(c.powers||[]).filter(p=>p.category==='devotion');
@@ -227,7 +225,48 @@ export function shRenderDisciplines(c,editMode) {
   }
   // Rites
   const ritP=(c.powers||[]).filter(p=>p.category==='rite');
-  if(ritP.length){h+='<div class="sh-sec"><div class="sh-sec-title">Rites</div><div class="disc-list">';ritP.forEach((p,i)=>{const gid='rite'+c.name.replace(/[^a-z]/gi,'')+i;h+='<div class="disc-tap-row" id="disc-row-'+gid+'" onclick="toggleDisc(\''+gid+'\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:rgba(220,160,120,.9)">'+esc(p.name)+'</span><span class="disc-tap-dots" style="margin-left:6px;color:rgba(220,160,120,.75)">'+shDots(p.level)+'</span><span style="font-family:var(--fh);font-size:10px;color:var(--txt3);margin-left:8px">'+esc(p.tradition)+'</span></div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-'+gid+'"><div class="disc-power">'+(p.stats?'<div class="disc-power-stats">'+esc(p.stats)+'</div>':'')+'<div class="disc-power-effect">'+esc(p.effect||'')+'</div></div></div>';});h+='</div></div>';}
+  const cruacDots=(c.disciplines||{}).Cruac||0, thebanDots=(c.disciplines||{}).Theban||0;
+  const hasSorcery=cruacDots>0||thebanDots>0;
+  if(editMode?hasSorcery:ritP.length){
+    const cruacPool=cruacDots*2, thebanPool=thebanDots*2;
+    const cruacFreeUsed=ritP.filter(p=>p.tradition==='Cruac'&&p.free).length;
+    const thebanFreeUsed=ritP.filter(p=>p.tradition==='Theban'&&p.free).length;
+    h+='<div class="sh-sec"><div class="sh-sec-title">Rites</div>';
+    if(editMode){
+      h+='<div class="grant-pools">';
+      if(cruacDots>0){const cls=cruacFreeUsed>cruacPool?' sc-over':cruacFreeUsed===cruacPool?' sc-full':' sc-val';h+='<div class="grant-pool-row"><span style="color:rgba(220,160,120,.9)">Cruac</span> free rites <span class="'+cls+'">'+cruacFreeUsed+'/'+cruacPool+'</span><span style="font-size:9px;color:var(--txt3);margin-left:6px">rank \u2264 '+cruacDots+'</span></div>';}
+      if(thebanDots>0){const cls=thebanFreeUsed>thebanPool?' sc-over':thebanFreeUsed===thebanPool?' sc-full':' sc-val';h+='<div class="grant-pool-row"><span style="color:rgba(220,160,120,.9)">Theban</span> free rites <span class="'+cls+'">'+thebanFreeUsed+'/'+thebanPool+'</span><span style="font-size:9px;color:var(--txt3);margin-left:6px">rank \u2264 '+thebanDots+'</span></div>';}
+      h+='</div>';
+    }
+    h+='<div class="disc-list">';
+    const allPw=c.powers||[];
+    ritP.forEach(p=>{
+      const pi=allPw.indexOf(p);
+      const gid='rite'+c.name.replace(/[^a-z]/gi,'')+pi;
+      const xpCost=p.free?0:(p.level>=4?2:1);
+      if(editMode){
+        const discDots=p.tradition==='Cruac'?cruacDots:thebanDots;
+        const usedFree=p.tradition==='Cruac'?cruacFreeUsed:thebanFreeUsed;
+        const freePool=p.tradition==='Cruac'?cruacPool:thebanPool;
+        const canFree=!p.free&&p.level<=discDots&&usedFree<freePool;
+        const freeLbl=p.free?'Free':(xpCost+' XP');
+        const freeCls=p.free?'rite-free-badge':'rite-xp-badge';
+        h+='<div class="disc-tap-row disc-edit" id="disc-row-'+gid+'" onclick="toggleDisc(\''+gid+'\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:rgba(220,160,120,.9)">'+esc(p.name)+'</span><span class="disc-tap-dots" style="margin-left:6px;color:rgba(220,160,120,.75)">'+shDots(p.level)+'</span><span style="font-family:var(--fh);font-size:10px;color:var(--txt3);margin-left:6px">'+esc(p.tradition)+'</span></div><div style="display:flex;align-items:center;gap:4px"><button class="'+freeCls+'" onclick="event.stopPropagation();shToggleRiteFree('+pi+')"'+(p.free||canFree?'':' disabled title="rank exceeds '+p.tradition+' dots or pool full"')+'>'+freeLbl+'</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite('+pi+')" title="Remove">&times;</button></div></div><div class="disc-drawer" id="disc-drawer-'+gid+'"><div class="disc-power">'+(p.stats?'<div class="disc-power-stats">'+esc(p.stats)+'</div>':'')+'<div class="disc-power-effect">'+esc(p.effect||'')+'</div></div></div>';
+      } else {
+        h+='<div class="disc-tap-row" id="disc-row-'+gid+'" onclick="toggleDisc(\''+gid+'\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:rgba(220,160,120,.9)">'+esc(p.name)+'</span><span class="disc-tap-dots" style="margin-left:6px;color:rgba(220,160,120,.75)">'+shDots(p.level)+'</span><span style="font-family:var(--fh);font-size:10px;color:var(--txt3);margin-left:6px">'+esc(p.tradition)+'</span>'+(p.free===false?'<span style="font-size:9px;color:var(--txt3);margin-left:6px">'+xpCost+' XP</span>':'')+'</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-'+gid+'"><div class="disc-power">'+(p.stats?'<div class="disc-power-stats">'+esc(p.stats)+'</div>':'')+'<div class="disc-power-effect">'+esc(p.effect||'')+'</div></div></div>';
+      }
+    });
+    if(editMode){
+      const trads=[];
+      if(cruacDots>0)trads.push('Cruac');
+      if(thebanDots>0)trads.push('Theban');
+      if(trads.length){
+        const tradSel=trads.length>1?'<select id="rite-add-trad" class="gen-qual-input" style="width:90px">'+trads.map(t=>'<option>'+t+'</option>').join('')+'</select>':'<span style="font-size:11px;color:rgba(220,160,120,.9);padding:0 4px">'+trads[0]+'</span><input type="hidden" id="rite-add-trad" value="'+trads[0]+'">';
+        h+='<div class="dev-add-row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input type="text" id="rite-add-name" class="gen-qual-input" placeholder="Rite name\u2026" style="flex:1;min-width:120px"><select id="rite-add-level" class="gen-qual-input" style="width:80px">'+[1,2,3,4,5].map(r=>'<option value="'+r+'">\u25CF'.repeat(r)+'</option>').join('')+'</select>'+tradSel+'<button class="dev-add-btn" onclick="shAddRite(document.getElementById(\'rite-add-trad\').value,document.getElementById(\'rite-add-name\').value,+document.getElementById(\'rite-add-level\').value)">+ Add</button></div>';
+      }
+    }
+    h+='</div></div>';
+  }
   // Pacts
   const pctP=(c.powers||[]).filter(p=>p.category==='pact');
   if(pctP.length){h+='<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">';pctP.forEach((p,i)=>{const gid='pact'+c.name.replace(/[^a-z]/gi,'')+i;h+='<div class="disc-tap-row" id="disc-row-'+gid+'" onclick="toggleDisc(\''+gid+'\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">'+esc(p.name)+'</span></div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-'+gid+'"><div class="disc-power">'+(p.stats?'<div class="disc-power-stats">'+esc(p.stats)+'</div>':'')+'<div class="disc-power-effect">'+esc(p.effect||'')+'</div></div></div>';});h+='</div></div>';}

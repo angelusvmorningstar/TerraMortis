@@ -139,10 +139,7 @@
       "Auspex": 1,
       "Celerity": 1,
       "Obfuscate": 3,
-      "Cruac": 1,
-      "Creation": 1,
-      "Divination": 1,
-      "Protection": 1
+      "Cruac": 1
     },
     "powers": [
       {
@@ -513,21 +510,6 @@
         "cp": 1,
         "free": 0,
         "xp": 0
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Divination": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -794,10 +776,7 @@
       "Auspex": 2,
       "Obfuscate": 1,
       "Protean": 1,
-      "Cruac": 3,
-      "Creation": 1,
-      "Divination": 3,
-      "Protection": 1
+      "Cruac": 3
     },
     "powers": [
       {
@@ -843,7 +822,8 @@
         "name": "The Pool of Forbidden Truths",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 10  •  Ritual  •  Instant",
         "pool_size": 10,
-        "effect": "Blood pool reveals subject's greatest fear or deepest desire"
+        "effect": "Blood pool reveals subject's greatest fear or deepest desire",
+        "free": true
       }
     ],
     "merits": [
@@ -1096,21 +1076,6 @@
         "cp": 1,
         "free": 0,
         "xp": 8
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Divination": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -1343,10 +1308,7 @@
     "disciplines": {
       "Majesty": 1,
       "Protean": 3,
-      "Cruac": 1,
-      "Creation": 1,
-      "Destruction": 1,
-      "Protection": 1
+      "Cruac": 1
     },
     "powers": [
       {
@@ -1392,7 +1354,8 @@
         "name": "Mantle of Amorous Fire",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 6  •  Ritual  •  Scene",
         "pool_size": 6,
-        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night."
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night.",
+        "free": true
       }
     ],
     "merits": [
@@ -1711,21 +1674,6 @@
       "Cruac": {
         "cp": 1,
         "free": 0,
-        "xp": 0
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Destruction": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
         "xp": 0
       }
     },
@@ -3135,10 +3083,7 @@
       "Animalism": 1,
       "Dominate": 2,
       "Protean": 2,
-      "Cruac": 2,
-      "Creation": 2,
-      "Protection": 1,
-      "Transmutation": 1
+      "Cruac": 2
     },
     "powers": [
       {
@@ -3193,7 +3138,8 @@
         "name": "Fires of Inspiration",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 8  •  Ritual  •  1 night",
         "pool_size": 8,
-        "effect": "Gain dots in Cruac to Craft or Expression to create a specific work of art, but penalises all other such actions outside that."
+        "effect": "Gain dots in Cruac to Craft or Expression to create a specific work of art, but penalises all other such actions outside that.",
+        "free": true
       },
       {
         "category": "rite",
@@ -3202,7 +3148,8 @@
         "name": "Wisdom of the Soul",
         "stats": "Cost: 1 V 2 Successes  •  Pool: 8  •  Ritual  •  Instant",
         "pool_size": 8,
-        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie"
+        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie",
+        "free": true
       }
     ],
     "merits": [
@@ -3517,21 +3464,6 @@
         "cp": 1,
         "free": 0,
         "xp": 4
-      },
-      "Creation": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Transmutation": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -4608,10 +4540,7 @@
     "disciplines": {
       "Auspex": 5,
       "Obfuscate": 1,
-      "Theban": 4,
-      "Divination": 1,
-      "Protection": 4,
-      "Transmutation": 1
+      "Theban": 4
     },
     "powers": [
       {
@@ -4905,21 +4834,6 @@
         "cp": 1,
         "free": 0,
         "xp": 12
-      },
-      "Divination": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Transmutation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -5121,10 +5035,7 @@
     "disciplines": {
       "Celerity": 1,
       "Majesty": 2,
-      "Cruac": 1,
-      "Creation": 1,
-      "Divination": 1,
-      "Protection": 1
+      "Cruac": 1
     },
     "powers": [
       {
@@ -5161,7 +5072,8 @@
         "name": "Taste of Knowledge",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 5  •  Ritual  •  1 night",
         "pool_size": 5,
-        "effect": "Absorb one Skill at rating 1 (or +1) from vessel's blood"
+        "effect": "Absorb one Skill at rating 1 (or +1) from vessel's blood",
+        "free": true
       }
     ],
     "merits": [
@@ -5437,21 +5349,6 @@
         "cp": 1,
         "free": 0,
         "xp": 0
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Divination": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -5693,10 +5590,7 @@
     "disciplines": {
       "Nightmare": 2,
       "Obfuscate": 2,
-      "Theban": 1,
-      "Divination": 1,
-      "Protection": 1,
-      "Transmutation": 1
+      "Theban": 1
     },
     "powers": [
       {
@@ -5959,21 +5853,6 @@
       "Theban": {
         "cp": 1,
         "free": 0,
-        "xp": 0
-      },
-      "Divination": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 1,
-        "free": 0,
-        "xp": 2
-      },
-      "Transmutation": {
-        "cp": 0,
-        "free": 1,
         "xp": 0
       }
     },
@@ -7384,10 +7263,7 @@
     "disciplines": {
       "Auspex": 5,
       "Obfuscate": 2,
-      "Cruac": 2,
-      "Creation": 1,
-      "Divination": 1,
-      "Protection": 2
+      "Cruac": 2
     },
     "powers": [
       {
@@ -7481,7 +7357,8 @@
         "name": "Blood Witness",
         "stats": "Cost: 1 V 2 Successes  •  Pool: 9  •  Ritual  •  1 day per extra Vitae",
         "pool_size": 9,
-        "effect": "Smear Vitae on an area. Remotely observe through the spilled blood for one day per extra Vitae spent."
+        "effect": "Smear Vitae on an area. Remotely observe through the spilled blood for one day per extra Vitae spent.",
+        "free": true
       },
       {
         "category": "rite",
@@ -7490,7 +7367,8 @@
         "name": "Shed the Virulent Bowels",
         "stats": "Cost: 1 V 2 Successes  •  Pool: 9  •  Ritual  •  Scene",
         "pool_size": 9,
-        "effect": "Use a lock of hair or sympathetic link to hang a curse over a living victim for a month. Trigger the curse to cause enough lethal damage to fill the victim's Health."
+        "effect": "Use a lock of hair or sympathetic link to hang a curse over a living victim for a month. Trigger the curse to cause enough lethal damage to fill the victim's Health.",
+        "free": true
       }
     ],
     "merits": [
@@ -7797,21 +7675,6 @@
         "cp": 1,
         "free": 0,
         "xp": 4
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Divination": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -8139,11 +8002,7 @@
       "Auspex": 4,
       "Celerity": 1,
       "Obfuscate": 1,
-      "Cruac": 2,
-      "Creation": 1,
-      "Divination": 1,
-      "Protection": 1,
-      "Transmutation": 2
+      "Cruac": 2
     },
     "powers": [
       {
@@ -8207,7 +8066,8 @@
         "name": "Mantle of Amorous Fire",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 8  •  Ritual  •  Scene",
         "pool_size": 8,
-        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night."
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night.",
+        "free": true
       }
     ],
     "merits": [
@@ -8530,26 +8390,6 @@
         "cp": 1,
         "free": 0,
         "xp": 4
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Divination": {
-        "cp": 0,
-        "free": 0,
-        "xp": 2
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Transmutation": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -9343,10 +9183,7 @@
       "Celerity": 1,
       "Dominate": 4,
       "Obfuscate": 1,
-      "Cruac": 4,
-      "Creation": 1,
-      "Protection": 1,
-      "Transmutation": 4
+      "Cruac": 4
     },
     "powers": [
       {
@@ -9433,7 +9270,8 @@
         "name": "Mantle of Amorous Fire",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
         "pool_size": 11,
-        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night."
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night.",
+        "free": true
       },
       {
         "category": "rite",
@@ -9442,7 +9280,8 @@
         "name": "Wisdom of the Soul",
         "stats": "Cost: 1 V 2 Successes  •  Pool: 11  •  Ritual  •  Instant",
         "pool_size": 11,
-        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie"
+        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie",
+        "free": true
       },
       {
         "category": "rite",
@@ -9451,7 +9290,8 @@
         "name": "Deflection of Wooden Doom",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
         "pool_size": 11,
-        "effect": "Caster becomes immune to staking for one night."
+        "effect": "Caster becomes immune to staking for one night.",
+        "free": true
       },
       {
         "category": "rite",
@@ -9460,7 +9300,8 @@
         "name": "Willful Vitae",
         "stats": "Cost: 2 V 4 Successes  •  Pool: 11  •  Ritual  •  Until used",
         "pool_size": 11,
-        "effect": "Prevent the onset of blood addiction or the Vinculum for the night."
+        "effect": "Prevent the onset of blood addiction or the Vinculum for the night.",
+        "free": true
       },
       {
         "category": "pact",
@@ -9797,21 +9638,6 @@
         "cp": 1,
         "free": 0,
         "xp": 12
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Transmutation": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -10616,9 +10442,7 @@
     "disciplines": {
       "Celerity": 1,
       "Majesty": 3,
-      "Theban": 2,
-      "Divination": 1,
-      "Transmutation": 1
+      "Theban": 2
     },
     "powers": [
       {
@@ -10664,7 +10488,8 @@
         "name": "Vitae Reliquary",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 5  •  Ritual  •  1 lunar month",
         "pool_size": 5,
-        "effect": "Store Vitae equal to Potency in object (Size 3 or smaller)"
+        "effect": "Store Vitae equal to Potency in object (Size 3 or smaller)",
+        "free": true
       },
       {
         "category": "rite",
@@ -10673,7 +10498,8 @@
         "name": "Damned Radiance",
         "stats": "Cost: 1 WP 4 Successes  •  Pool: 9  v Stamina + BP  •  Ritual  •  1 night",
         "pool_size": 9,
-        "effect": "Vampire appears mortal, -2 Disciplines"
+        "effect": "Vampire appears mortal, -2 Disciplines",
+        "free": false
       }
     ],
     "merits": [
@@ -10969,16 +10795,6 @@
         "cp": 1,
         "free": 0,
         "xp": 4
-      },
-      "Divination": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Transmutation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
@@ -12419,9 +12235,7 @@
     "disciplines": {
       "Nightmare": 1,
       "Obfuscate": 1,
-      "Theban": 4,
-      "Divination": 1,
-      "Transmutation": 1
+      "Theban": 4
     },
     "powers": [
       {
@@ -12680,16 +12494,6 @@
         "cp": 1,
         "free": 0,
         "xp": 12
-      },
-      "Divination": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Transmutation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
