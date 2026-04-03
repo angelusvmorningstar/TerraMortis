@@ -73,9 +73,9 @@
 
 /* ── Merit breakdown row ── */
 .merit-bd-row{display:flex;align-items:center;gap:5px;background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 5px 5px;padding:3px 6px;font-size:11px;font-family:var(--fb);}
-.merit-bd-row .bd-grp{display:flex;flex-direction:column;align-items:stretch;gap:1px;flex:1;min-width:0;}
+.merit-bd-row .bd-grp{display:flex;flex-direction:column;align-items:stretch;gap:1px;flex:0 0 44px;}
 .merit-bd-row .bd-lbl{color:var(--txt);font-weight:600;font-size:10px;}
-.merit-bd-row .bd-eq{display:flex;align-items:center;gap:2px;margin-left:auto;}
+.merit-bd-row .bd-eq{display:flex;align-items:center;gap:2px;margin-left:auto;flex-shrink:0;min-width:54px;justify-content:flex-end;}
 .merit-bd-row .bd-eq .bd-lbl{color:var(--txt3);}
 .merit-bd-row .bd-val{color:var(--txt);font-weight:600;}
 .merit-bd-input{width:100%;min-width:0;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:11px;text-align:center;padding:2px;outline:none;box-sizing:border-box;}
