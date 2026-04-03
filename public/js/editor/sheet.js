@@ -462,6 +462,119 @@ function _maxRank(c, styleName, dots) {
   return Math.max(dots, maxTag);
 }
 
+// ── Prereq checking ───────────────────────────────────────────────────────────
+
+const _ATTR_MAP = {
+  'Dex': 'Dexterity', 'Dexterity': 'Dexterity',
+  'Str': 'Strength',  'Strength': 'Strength',
+  'Sta': 'Stamina',   'Stamina': 'Stamina',
+  'Wits': 'Wits', 'Composure': 'Composure', 'Resolve': 'Resolve',
+  'Manipulation': 'Manipulation', 'Intelligence': 'Intelligence', 'Presence': 'Presence'
+};
+
+const _SKILL_SET = new Set([
+  'Athletics','Brawl','Drive','Firearms','Larceny','Stealth','Survival','Weaponry',
+  'Animal Ken','Empathy','Expression','Intimidation','Persuasion','Socialise','Streetwise','Subterfuge',
+  'Academics','Computer','Crafts','Investigation','Medicine','Occult','Politics','Science'
+]);
+
+const _COV_STATUS_MAP = {
+  'crone': 'Circle of the Crone', 'invictus': 'Invictus',
+  'sanctum': 'Ordo Dracul', 'carthian': 'Carthian Movement',
+  'lancea': 'Lancea et Sanctum'
+};
+
+function _attrDots(c, fullName) {
+  const obj = (c.attributes || {})[fullName];
+  return obj ? (obj.dots || 0) + (obj.bonus || 0) : 0;
+}
+
+function _skillDots(c, name) {
+  const obj = (c.skills || {})[name];
+  return obj ? (obj.dots || 0) + (obj.bonus || 0) : 0;
+}
+
+function _checkSingleTerm(c, term) {
+  term = term.trim();
+  if (!term) return true;
+
+  // Term with a trailing number: "Name N" (greedy name, last word is digit)
+  const numM = term.match(/^(.+?)\s+(\d+)$/);
+  if (numM) {
+    const name = numM[1].trim();
+    const req  = parseInt(numM[2]);
+
+    if (_ATTR_MAP[name])     return _attrDots(c, _ATTR_MAP[name]) >= req;
+    if (_SKILL_SET.has(name)) return _skillDots(c, name) >= req;
+
+    if (name.endsWith(' Status')) {
+      const type = name.slice(0, -7).trim().toLowerCase();
+      if (type === 'city')    return ((c.status || {}).city    || 0) >= req;
+      if (type === 'clan')    return ((c.status || {}).clan    || 0) >= req;
+      if (type === 'covenant')return ((c.status || {}).covenant|| 0) >= req;
+      const cov = _COV_STATUS_MAP[type];
+      return cov ? ((c.covenant_standings || {})[cov] || 0) >= req : true;
+    }
+
+    if (name === 'Willpower')
+      return (_attrDots(c, 'Resolve') + _attrDots(c, 'Composure')) >= req;
+
+    // Fighting style by name
+    if ((c.fighting_styles || []).some(fs => fs.name === name)) {
+      return (c.fighting_styles || [])
+        .filter(fs => fs.name === name)
+        .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0), 0) >= req;
+    }
+
+    // Discipline
+    if ((c.disciplines || {})[name] !== undefined) return (c.disciplines[name] || 0) >= req;
+
+    // Merit with rating
+    return (c.merits || []).some(m => m.name === name && (m.rating || 0) >= req);
+  }
+
+  // Term with qualifier: "Name (Qualifier)"
+  const qualM = term.match(/^(.+?)\s*\((.+)\)$/);
+  if (qualM) {
+    const name = qualM[1].trim(), qual = qualM[2].trim();
+    return (c.merits || []).some(m =>
+      m.name === name && (m.qualifier || '').toLowerCase() === qual.toLowerCase()
+    );
+  }
+
+  // Bare term
+  if (term === 'Kerberos Bloodline') return (c.bloodline || '').toLowerCase().includes('kerberos');
+  if (term === 'Bonded Condition')   return true; // game-world condition — optimistic
+  return (c.merits || []).some(m => m.name === term) || true; // optimistic for unknowns
+}
+
+/**
+ * Returns true if all prereqs in the prereqStr are met.
+ * Format: "Term, Term, ...; ManoeuvrePrereq"
+ * Terms may contain 'or': "Wits 3 or Fighting Finesse"
+ */
+function _prereqsMet(c, prereqStr) {
+  if (!prereqStr) return true;
+  const [statPart, manPart] = prereqStr.split(';').map(s => s.trim());
+
+  if (manPart) {
+    const picked = new Set((c.fighting_picks || []).map(pk =>
+      (typeof pk === 'string' ? pk : pk.manoeuvre).toLowerCase()
+    ));
+    if (!picked.has(manPart.toLowerCase())) return false;
+  }
+
+  for (const term of statPart.split(',').map(t => t.trim()).filter(Boolean)) {
+    const ok = term.includes(' or ')
+      ? term.split(' or ').some(t => _checkSingleTerm(c, t.trim()))
+      : _checkSingleTerm(c, term);
+    if (!ok) return false;
+  }
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Get all MAN_DB manoeuvres for a style, sorted by rank. */
 function _styleManoeuvres(styleName) {
   const results = [];
@@ -501,7 +614,9 @@ function _availablePicks(c) {
   for (const [key, man] of Object.entries(MAN_DB)) {
     if (NON_COMBAT_STYLES.has(man.style)) continue;
     if (picked.has(key)) continue;
-    if (_qualifiesForManoeuvre(c, man, tc)) results.push({ key, ...man });
+    if (!_qualifiesForManoeuvre(c, man, tc)) continue;
+    if (!_prereqsMet(c, man.prereq)) continue;
+    results.push({ key, ...man });
   }
   results.sort((a, b) => (parseInt(a.rank) - parseInt(b.rank)) || a.name.localeCompare(b.name));
   return results;
@@ -622,10 +737,12 @@ export function shRenderManoeuvres(c, editMode) {
     allPicks.forEach((pk, pi) => {
       const manName = typeof pk === 'string' ? pk : pk.manoeuvre;
       const db = MAN_DB[manName.toLowerCase()];
+      const prereqOk = !db || _prereqsMet(c, db.prereq);
       h += '<div class="mci-benefit-row">'
         + '<span class="mci-dot-lbl">' + (db ? '\u25CF'.repeat(parseInt(db.rank) || 1) : '\u25CF') + '</span>'
-        + '<span style="flex:1;font-size:11px">' + esc(manName) + '</span>'
+        + '<span style="flex:1;font-size:11px' + (prereqOk ? '' : ';color:var(--crim)') + '">' + esc(manName) + '</span>'
         + (db ? '<span style="font-size:9px;color:var(--txt3);margin-right:6px">' + esc(db.style) + '</span>' : '')
+        + (!prereqOk ? '<span style="font-size:9px;color:var(--crim);margin-right:4px" title="' + esc(db.prereq) + '">prereq</span>' : '')
         + '<button class="sk-spec-rm" onclick="shRemovePick(' + pi + ')" title="Remove">&times;</button></div>';
     });
 
@@ -696,12 +813,13 @@ export function shRenderManoeuvres(c, editMode) {
       allPicks.forEach((pk, pi) => {
         const manName = typeof pk === 'string' ? pk : pk.manoeuvre;
         const db = MAN_DB[manName.toLowerCase()];
+        const prereqOk = !db || _prereqsMet(c, db.prereq);
         const id2 = 'man' + pi;
         const body = db
           ? '<div class="man-exp-body"><div class="man-style">' + esc(db.style) + ' \u2014 Rank ' + esc(db.rank) + '</div><div>' + esc(db.effect || '') + '</div>' + (db.prereq ? '<div class="man-prereq">Prerequisite: ' + esc(db.prereq) + '</div>' : '') + '</div>'
           : '<div>' + esc(manName) + '</div>';
-        h += '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(manName) + '</div>'
-          + (db ? '<div class="merit-sub-sh">' + esc(db.style) + ' \u2014 Rank ' + db.rank + '</div>' : '') + '</div>'
+        h += '<div class="exp-row' + (prereqOk ? '' : ' merit-prereq-fail') + '" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(manName) + '</div>'
+          + (db ? '<div class="merit-sub-sh">' + esc(db.style) + ' \u2014 Rank ' + db.rank + (prereqOk ? '' : ' \u2014 prereq not met') + '</div>' : '') + '</div>'
           + '<span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
       });
       h += '</div>';
