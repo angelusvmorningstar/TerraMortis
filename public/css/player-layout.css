@@ -196,16 +196,19 @@ body {
 /* ── Tab content ── */
 
 #player-content {
-  padding: 16px;
-  max-width: 720px;
-  margin: 0 auto;
+  /* No max-width — sheet tab needs full viewport width */
 }
 
-/* Sheet tab: full width for desktop 3-col layout */
+/* Non-sheet tabs keep comfortable reading width */
+.tab-panel:not(#tab-sheet) {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Sheet tab: full width, small vertical padding only */
 #tab-sheet {
-  max-width: none;
-  margin: 0;
-  padding: 0;
+  padding: 16px 0;
 }
 
 .tab-panel { display: none; }
@@ -1009,6 +1012,6 @@ body {
 @media (min-width: 600px) {
   #player-header { padding: 14px 24px; }
   .header-brand { font-size: 18px; }
-  #player-content { padding: 24px; }
+  .tab-panel:not(#tab-sheet) { padding: 24px; }
   .tab-btn { font-size: 13px; padding: 12px 16px; }
 }
