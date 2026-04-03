@@ -24,8 +24,6 @@ data/chars_v2_backup.json
 
 # Character data — source of truth is MongoDB, not git
 data/chars_v2.json
-public/js/data/chars-data.js
-public/js/suite/chars-data.js
 
 # Google Forms exports & misc data files
 Copy of Terra Mortis*.pdf
