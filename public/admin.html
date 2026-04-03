@@ -38,6 +38,7 @@
       <div class="sidebar-sub">ST Admin</div>
     </div>
     <div class="sidebar-nav">
+      <button class="sidebar-btn" data-domain="players">Players</button>
       <button class="sidebar-btn on" data-domain="player">Characters</button>
       <button class="sidebar-btn" data-domain="city">City</button>
       <button class="sidebar-btn" data-domain="downtime">Downtime</button>
@@ -53,6 +54,15 @@
 
   <!-- Content area -->
   <main id="content">
+
+    <!-- Players domain -->
+    <section id="d-players" class="domain">
+      <div class="domain-header">
+        <h2>Players</h2>
+        <span id="players-count" class="domain-count"></span>
+      </div>
+      <div id="players-content"></div>
+    </section>
 
     <!-- Player domain -->
     <section id="d-player" class="domain active">

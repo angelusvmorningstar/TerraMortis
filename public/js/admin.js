@@ -9,6 +9,7 @@ import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/co
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
+import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
 import { initDowntimeView } from './admin/downtime-views.js';
 import { initAttendance } from './admin/attendance.js';
@@ -149,6 +150,7 @@ function switchDomain(domain) {
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('on');
 
+  if (domain === 'players') initPlayersView(chars);
   if (domain === 'engine') { initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();

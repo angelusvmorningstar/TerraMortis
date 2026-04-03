@@ -39,27 +39,40 @@ router.get('/:id', requireRole('st'), async (req, res) => {
 });
 
 // POST /api/players — create a player (ST only)
+// discord_id is optional — a record can be pre-created with just a username;
+// the numeric ID will be auto-filled when the player first logs in via OAuth.
 router.post('/', requireRole('st'), async (req, res) => {
   const doc = req.body;
-  if (!doc || !doc.discord_id) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'discord_id' is required" });
+  if (!doc || !doc.display_name) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'display_name' is required" });
   }
 
-  // Prevent duplicate discord_id
-  const existing = await col().findOne({ discord_id: doc.discord_id });
-  if (existing) {
-    return res.status(409).json({ error: 'CONFLICT', message: 'A player with this Discord ID already exists' });
+  // Prevent duplicate discord_id (if provided)
+  if (doc.discord_id) {
+    const existing = await col().findOne({ discord_id: doc.discord_id });
+    if (existing) {
+      return res.status(409).json({ error: 'CONFLICT', message: 'A player with this Discord ID already exists' });
+    }
+  }
+
+  // Prevent duplicate discord_username (if provided)
+  if (doc.discord_username) {
+    const existing = await col().findOne({ discord_username: doc.discord_username });
+    if (existing) {
+      return res.status(409).json({ error: 'CONFLICT', message: 'A player with this Discord username already exists' });
+    }
   }
 
   const now = new Date().toISOString();
   const player = {
-    discord_id: doc.discord_id,
-    display_name: doc.display_name || '',
-    role: doc.role || 'player',
-    character_ids: (doc.character_ids || []).map(id => new ObjectId(id)),
-    ordeals: doc.ordeals || {},
-    created_at: now,
-    last_login: now,
+    discord_id:       doc.discord_id || null,
+    discord_username: doc.discord_username || null,
+    display_name:     doc.display_name,
+    role:             doc.role || 'player',
+    character_ids:    (doc.character_ids || []).map(id => new ObjectId(id)),
+    ordeals:          doc.ordeals || {},
+    created_at:       now,
+    last_login:       null,
   };
 
   const result = await col().insertOne(player);
