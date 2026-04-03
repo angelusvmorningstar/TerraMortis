@@ -83,9 +83,11 @@ export function xpSpentSkills(c) {
   return skillXP + specXP;
 }
 
-/** XP spent on all merits (general, influence, domain, standing, manoeuvres). */
+/** XP spent on all merits (general, influence, domain, standing) + fighting styles. */
 export function xpSpentMerits(c) {
-  return (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
+  const meritXP = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
+  const styleXP = (c.fighting_styles || []).reduce((t, fs) => t + (fs.xp || 0), 0);
+  return meritXP + styleXP;
 }
 
 /** XP spent on powers — disciplines + devotions. */

@@ -1444,30 +1444,6 @@
         "granted_by": "SSJ"
       },
       {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 1,
-        "rank_name": "Ravage"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 2,
-        "rank_name": "Primal Strength"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 3,
-        "rank_name": "In the Zone"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 4,
-        "rank_name": "Unyielding"
-      },
-      {
         "category": "standing",
         "name": "Mystery Cult Initiation",
         "rating": 5,
@@ -1803,28 +1779,6 @@
       {
         "cp": 0,
         "free": 0,
-        "xp": 0,
-        "up": 3
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0,
-        "up": 2
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 2
-      },
-      {
-        "cp": 0,
-        "free": 0,
         "xp": 1
       },
       {
@@ -1913,7 +1867,22 @@
       "Mental": "Tertiary",
       "Physical": "Secondary",
       "Social": "Primary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Riding the Wave",
+        "picks": [
+          "Ravage",
+          "Primal Strength",
+          "In the Zone",
+          "Unyielding"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 3,
+        "up": 5
+      }
+    ]
   },
   {
     "name": "Carver",
@@ -2700,36 +2669,6 @@
         "category": "domain",
         "name": "Herd",
         "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Combat Archery",
-        "rating": 1,
-        "rank_name": "Rapid Nock"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Combat Archery",
-        "rating": 2,
-        "rank_name": "Reflex Aiming"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Combat Archery",
-        "rating": 3,
-        "rank_name": "Parthian Shot"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Combat Archery",
-        "rating": 4,
-        "rank_name": "Rain of Arrows"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Combat Archery",
-        "rating": 5,
-        "rank_name": "Trick Shot"
       }
     ],
     "touchstones": [
@@ -2951,21 +2890,6 @@
         "cp": 1,
         "free": 0,
         "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
       }
     ],
     "xp_log": {
@@ -3013,7 +2937,23 @@
       "Mental": "Secondary",
       "Physical": "Primary",
       "Social": "Tertiary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Combat Archery",
+        "picks": [
+          "Rapid Nock",
+          "Reflex Aiming",
+          "Parthian Shot",
+          "Rain of Arrows",
+          "Trick Shot"
+        ],
+        "cp": 1,
+        "free": 0,
+        "xp": 2,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Charles Mercer-Willows",
@@ -4007,76 +3947,6 @@
         "granted_by": "SSJ"
       },
       {
-        "category": "manoeuvre",
-        "name": "Courtoisie",
-        "rating": 1,
-        "rank_name": "Establish the Duel",
-        "granted_by": "Oath of the Scapegoat"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Courtoisie",
-        "rating": 3,
-        "rank_name": "Demanding Attention",
-        "granted_by": "Oath of the Scapegoat"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Light Weapons",
-        "rating": 2,
-        "rank_name": "Thrust",
-        "granted_by": "Oath of the Scapegoat"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Light Weapons",
-        "rating": 4,
-        "rank_name": "Flurry",
-        "granted_by": "Oath of the Scapegoat"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Strength Performance",
-        "rating": 1,
-        "rank_name": "Strength Tricks",
-        "granted_by": "Oath of the Scapegoat"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Strength Performance",
-        "rating": 2,
-        "rank_name": "Lifting",
-        "granted_by": "Oath of the Scapegoat"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Strength Performance",
-        "rating": 3,
-        "rank_name": "Push/Pull",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Strength Performance",
-        "rating": 4,
-        "rank_name": "Stronger Than You",
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Weapon and Shield",
-        "rating": 1,
-        "rank_name": "Shield Bash",
-        "granted_by": "MCI 5, Weap&Shiel 1"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Weapon and Shield",
-        "rating": 3,
-        "rank_name": "Pin Weapon",
-        "granted_by": "MCI 5, Weap&Shiel 3"
-      },
-      {
         "category": "standing",
         "name": "Mystery Cult Initiation",
         "rating": 5,
@@ -4444,56 +4314,6 @@
       {
         "cp": 0,
         "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
         "xp": 0,
         "up": 1
       },
@@ -4574,7 +4394,55 @@
       "Mental": "Tertiary",
       "Physical": "Primary",
       "Social": "Secondary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Courtoisie",
+        "picks": [
+          "Establish the Duel",
+          "Demanding Attention"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 1,
+        "up": 0
+      },
+      {
+        "name": "Light Weapons",
+        "picks": [
+          "Thrust",
+          "Flurry"
+        ],
+        "cp": 0,
+        "free": 2,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "name": "Strength Performance",
+        "picks": [
+          "Strength Tricks",
+          "Lifting",
+          "Push/Pull",
+          "Stronger Than You"
+        ],
+        "cp": 0,
+        "free": 4,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "name": "Weapon and Shield",
+        "picks": [
+          "Shield Bash",
+          "Pin Weapon"
+        ],
+        "cp": 0,
+        "free": 2,
+        "xp": 0,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Conrad Sondergaard",
@@ -6412,48 +6280,6 @@
         "category": "domain",
         "name": "Herd",
         "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Mobilise Outrage",
-        "rating": 1,
-        "rank_name": "Strike to Preempt"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Mobilise Outrage",
-        "rating": 2,
-        "rank_name": "Unbreakable"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Mobilise Outrage",
-        "rating": 3,
-        "rank_name": "Dying on Your Feet"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 1,
-        "rank_name": "Ravage"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 2,
-        "rank_name": "Primal Strength"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 3,
-        "rank_name": "In the Zone"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 4,
-        "rank_name": "Unyielding"
       }
     ],
     "touchstones": [
@@ -6700,26 +6526,6 @@
         "cp": 0,
         "free": 0,
         "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
       }
     ],
     "xp_log": {
@@ -6767,7 +6573,34 @@
       "Mental": "Tertiary",
       "Physical": "Secondary",
       "Social": "Primary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Mobilise Outrage",
+        "picks": [
+          "Strike to Preempt",
+          "Unbreakable",
+          "Dying on Your Feet"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 3,
+        "up": 0
+      },
+      {
+        "name": "Riding the Wave",
+        "picks": [
+          "Ravage",
+          "Primal Strength",
+          "In the Zone",
+          "Unyielding"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 1,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Eve Lockridge",
@@ -7670,64 +7503,6 @@
         ]
       },
       {
-        "category": "manoeuvre",
-        "name": "Falconry",
-        "rating": 1,
-        "rank_name": "Predator's Vigil"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Falconry",
-        "rating": 2,
-        "rank_name": "Flyby"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "K-9",
-        "rating": 1,
-        "rank_name": "Detection"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "K-9",
-        "rating": 2,
-        "rank_name": "Targeted Bite"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "K-9",
-        "rating": 3,
-        "rank_name": "Tactical Positioning"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 1,
-        "rank_name": "Quick Reload",
-        "granted_by": "MCI 2"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 2,
-        "rank_name": "Intercept Shot",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 3,
-        "rank_name": "Penetration",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 4,
-        "rank_name": "Skewer",
-        "granted_by": "MCI 4"
-      },
-      {
         "category": "standing",
         "name": "Mystery Cult Initiation",
         "rating": 4,
@@ -8043,54 +7818,6 @@
       {
         "cp": 0,
         "free": 0,
-        "xp": 0,
-        "up": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0,
-        "up": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0,
-        "up": 1
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
         "xp": 0
       },
       {
@@ -8149,7 +7876,45 @@
       "Mental": "Tertiary",
       "Physical": "Secondary",
       "Social": "Primary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Falconry",
+        "picks": [
+          "Predator's Vigil",
+          "Flyby"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "name": "K-9",
+        "picks": [
+          "Detection",
+          "Targeted Bite",
+          "Tactical Positioning"
+        ],
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "name": "Powered Projectile",
+        "picks": [
+          "Quick Reload",
+          "Intercept Shot",
+          "Penetration",
+          "Skewer"
+        ],
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Jack Fallow",
@@ -8441,20 +8206,6 @@
         "name": "Herd",
         "rating": 5,
         "granted_by": "SSJ"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Cacophony Savvy",
-        "rating": 1,
-        "rank_name": "Gettin' Up",
-        "granted_by": "MCI 5"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Cacophony Savvy",
-        "rating": 2,
-        "rank_name": "Backpacker",
-        "granted_by": "MCI 5"
       },
       {
         "category": "standing",
@@ -8794,16 +8545,6 @@
       {
         "cp": 0,
         "free": 0,
-        "xp": 2
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
         "xp": 0,
         "up": 1
       },
@@ -8875,7 +8616,20 @@
       "Mental": "Primary",
       "Physical": "Tertiary",
       "Social": "Secondary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Cacophony Savvy",
+        "picks": [
+          "Gettin' Up",
+          "Backpacker"
+        ],
+        "cp": 0,
+        "free": 1,
+        "xp": 2,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Jelle Dunneweld",
@@ -9080,18 +8834,6 @@
         "category": "domain",
         "name": "Herd",
         "rating": 2
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Police Tactics",
-        "rating": 1,
-        "rank_name": "Compliance Hold"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Police Tactics",
-        "rating": 2,
-        "rank_name": "Weapon Retention"
       },
       {
         "category": "standing",
@@ -9382,7 +9124,20 @@
       "Mental": "Primary",
       "Physical": "Secondary",
       "Social": "Tertiary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Police Tactics",
+        "picks": [
+          "Compliance Hold",
+          "Weapon Retention"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Keeper",
@@ -10343,30 +10098,6 @@
         "category": "domain",
         "name": "Herd",
         "rating": 2
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Crusade",
-        "rating": 1,
-        "rank_name": "Shield Against Sorcery"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Crusade",
-        "rating": 2,
-        "rank_name": "Silence"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Kindred Dueling",
-        "rating": 1,
-        "rank_name": "Hamstring"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Kindred Dueling",
-        "rating": 2,
-        "rank_name": "Taunt"
       }
     ],
     "touchstones": [
@@ -10593,16 +10324,6 @@
         "cp": 1,
         "free": 0,
         "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
       }
     ],
     "xp_log": {
@@ -10651,7 +10372,31 @@
       "Mental": "Tertiary",
       "Physical": "Primary",
       "Social": "Secondary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Crusade",
+        "picks": [
+          "Shield Against Sorcery",
+          "Silence"
+        ],
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "name": "Kindred Dueling",
+        "picks": [
+          "Hamstring",
+          "Taunt"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Livia",
@@ -11510,12 +11255,6 @@
         "granted_by": "SSJ"
       },
       {
-        "category": "manoeuvre",
-        "name": "Cacophony Savvy",
-        "rating": 1,
-        "rank_name": "Gettin' Up"
-      },
-      {
         "category": "standing",
         "name": "Mystery Cult Initiation",
         "rating": 5,
@@ -11805,11 +11544,6 @@
       {
         "cp": 0,
         "free": 0,
-        "xp": 3
-      },
-      {
-        "cp": 0,
-        "free": 0,
         "xp": 0,
         "up": 1
       },
@@ -11874,7 +11608,19 @@
       "Mental": "Primary",
       "Physical": "Tertiary",
       "Social": "Secondary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Cacophony Savvy",
+        "picks": [
+          "Gettin' Up"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 3,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Macheath",
@@ -12118,30 +11864,6 @@
         "category": "general",
         "name": "Carthian Pull",
         "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Mobilise Outrage",
-        "rating": 1,
-        "rank_name": "Strike to Preempt"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Mobilise Outrage",
-        "rating": 2,
-        "rank_name": "Unbreakable"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Mobilise Outrage",
-        "rating": 3,
-        "rank_name": "Dying on Your Feet"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Regular",
-        "rating": 1,
-        "rank_name": "Clinch Strike"
       },
       {
         "category": "standing",
@@ -12388,26 +12110,6 @@
         "xp": 1
       },
       {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
         "cp": 0,
         "free": 0,
         "xp": 1
@@ -12458,7 +12160,31 @@
       "Mental": "Tertiary",
       "Physical": "Primary",
       "Social": "Secondary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Mobilise Outrage",
+        "picks": [
+          "Strike to Preempt",
+          "Unbreakable",
+          "Dying on Your Feet"
+        ],
+        "cp": 3,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "name": "Regular",
+        "picks": [
+          "Clinch Strike"
+        ],
+        "cp": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Magda",
@@ -13168,24 +12894,6 @@
         "granted_by": "Carthian Status"
       },
       {
-        "category": "manoeuvre",
-        "name": "Three Heads of Kerberos",
-        "rating": 1,
-        "rank_name": "Honing - Competitive"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Three Heads of Kerberos",
-        "rating": 2,
-        "rank_name": "Internalising - Competitive"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Three Heads of Kerberos",
-        "rating": 3,
-        "rank_name": "Cowing - Competitive"
-      },
-      {
         "category": "standing",
         "name": "Professional Training",
         "rating": 3,
@@ -13418,21 +13126,6 @@
         "xp": 0
       },
       {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
         "cp": 0,
         "free": 0,
         "xp": 1
@@ -13483,7 +13176,21 @@
       "Mental": "Secondary",
       "Physical": "Tertiary",
       "Social": "Primary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Three Heads of Kerberos",
+        "picks": [
+          "Honing - Competitive",
+          "Internalising - Competitive",
+          "Cowing - Competitive"
+        ],
+        "cp": 1,
+        "free": 0,
+        "xp": 2,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Reed Justice",
@@ -14274,30 +13981,6 @@
         "rating": 1
       },
       {
-        "category": "manoeuvre",
-        "name": "Cacophony Savvy",
-        "rating": 1,
-        "rank_name": "Gettin' Up"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Cacophony Savvy",
-        "rating": 2,
-        "rank_name": "Backpacker"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Fast-Talking",
-        "rating": 1,
-        "rank_name": "Always Be Closing"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Marksmanship",
-        "rating": 1,
-        "rank_name": "Through the Crosshairs"
-      },
-      {
         "category": "standing",
         "name": "Professional Training",
         "rating": 2,
@@ -14569,21 +14252,6 @@
         "cp": 1,
         "free": 0,
         "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
       }
     ],
     "xp_log": {
@@ -14633,7 +14301,40 @@
       "Mental": "Tertiary",
       "Physical": "Secondary",
       "Social": "Primary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Cacophony Savvy",
+        "picks": [
+          "Gettin' Up",
+          "Backpacker"
+        ],
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "name": "Fast-Talking",
+        "picks": [
+          "Always Be Closing"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 1,
+        "up": 0
+      },
+      {
+        "name": "Marksmanship",
+        "picks": [
+          "Through the Crosshairs"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "René St. Dominique",
@@ -15425,24 +15126,6 @@
         "category": "domain",
         "name": "Haven",
         "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 1,
-        "rank_name": "Ravage"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 2,
-        "rank_name": "Primal Strength"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 3,
-        "rank_name": "In the Zone"
       }
     ],
     "touchstones": [],
@@ -15658,11 +15341,6 @@
         "cp": 1,
         "free": 0,
         "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
       }
     ],
     "xp_log": {
@@ -15710,7 +15388,21 @@
       "Mental": "Tertiary",
       "Physical": "Secondary",
       "Social": "Primary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Riding the Wave",
+        "picks": [
+          "Ravage",
+          "Primal Strength",
+          "In the Zone"
+        ],
+        "cp": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Hazel",
@@ -15942,36 +15634,6 @@
         "name": "Herd",
         "rating": 4,
         "granted_by": "Flock"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Kindred Dueling",
-        "rating": 1,
-        "rank_name": "Hamstring"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Kindred Dueling",
-        "rating": 2,
-        "rank_name": "Taunt"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Kindred Dueling",
-        "rating": 3,
-        "rank_name": "Carving"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Kindred Dueling",
-        "rating": 4,
-        "rank_name": "Pincushion"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Kindred Dueling",
-        "rating": 5,
-        "rank_name": "Spray"
       }
     ],
     "touchstones": [
@@ -16218,16 +15880,6 @@
         "cp": 0,
         "free": 0,
         "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
       }
     ],
     "xp_log": {
@@ -16275,7 +15927,23 @@
       "Mental": "Tertiary",
       "Physical": "Secondary",
       "Social": "Primary"
-    }
+    },
+    "fighting_styles": [
+      {
+        "name": "Kindred Dueling",
+        "picks": [
+          "Hamstring",
+          "Taunt",
+          "Carving",
+          "Pincushion",
+          "Spray"
+        ],
+        "cp": 0,
+        "free": 0,
+        "xp": 2,
+        "up": 0
+      }
+    ]
   },
   {
     "name": "Tegan Groves",

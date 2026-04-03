@@ -16,6 +16,7 @@ import {
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditDerivedMeritArea,
+  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   registerCallbacks as registerDomainCallbacks
 } from './edit-domain.js';
 
@@ -26,7 +27,8 @@ export {
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
-  shEditDerivedMeritArea
+  shEditDerivedMeritArea,
+  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick
 };
 
 /* ── Callback registration (avoids circular deps with main.js / sheet.js) ── */

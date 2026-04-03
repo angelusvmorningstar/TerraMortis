@@ -326,3 +326,60 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
   _markDirty();
   _renderSheet(c);
 }
+
+/* ══════════════════════════════════════════════════════════
+   FIGHTING STYLES
+══════════════════════════════════════════════════════════ */
+
+export function shAddStyle(styleName) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.fighting_styles) c.fighting_styles = [];
+  if (c.fighting_styles.some(fs => fs.name === styleName)) return;
+  c.fighting_styles.push({ name: styleName, picks: [], cp: 0, free: 0, xp: 0 });
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shRemoveStyle(idx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.fighting_styles || !c.fighting_styles[idx]) return;
+  c.fighting_styles.splice(idx, 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditStyle(idx, field, val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const fs = (c.fighting_styles || [])[idx];
+  if (!fs) return;
+  fs[field] = Math.max(0, parseInt(val) || 0);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shAddPick(styleIdx, manName) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const fs = (c.fighting_styles || [])[styleIdx];
+  if (!fs) return;
+  if (!fs.picks) fs.picks = [];
+  const dots = (fs.cp || 0) + (fs.free || 0) + (fs.xp || 0);
+  if (fs.picks.length >= dots) return;
+  if (fs.picks.includes(manName)) return;
+  fs.picks.push(manName);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shRemovePick(styleIdx, pickIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const fs = (c.fighting_styles || [])[styleIdx];
+  if (!fs || !fs.picks) return;
+  fs.picks.splice(pickIdx, 1);
+  _markDirty();
+  _renderSheet(c);
+}

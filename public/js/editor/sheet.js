@@ -3,7 +3,7 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG , STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
@@ -372,13 +372,132 @@ export function shRenderGeneralMerits(c,editMode) {
   h+='</div></div>';return h;
 }
 
-export function shRenderManoeuvres(c) {
-  const manM=(c.merits||[]).filter(m=>m.category==='manoeuvre');
-  if(!manM.length) return '';
-  let h='<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div><div class="man-list">';
-  manM.forEach((m,i)=>{const rn=m.rank_name||'',db=rn?MAN_DB[rn.toLowerCase()]:null,id2='man'+i,body=db?'<div class="man-exp-body"><div class="man-style">'+esc(db.style)+' \u2014 Rank '+esc(db.rank)+'</div><div>'+esc(db.effect||'')+'</div>'+(db.prereq?'<div class="man-prereq">Prerequisite: '+esc(db.prereq)+'</div>':'')+'</div>':'<div>'+esc(rn)+'</div>',mgb=m.granted_by,mgs=mgb?(mgb==='Mystery Cult Initiation'?'MCI':mgb==='Professional Training'?'PT':mgb==='Oath of the Hard Motherfucker'?'Oath HM':mgb):'';
-    h+='<div class="exp-row" id="exp-row-'+id2+'" onclick="toggleExp(\''+id2+'\')"><div style="flex:1;min-width:0"><div class="merit-name-sh">'+esc(rn)+(mgb?' <span class="gen-granted-tag-view" title="Granted by '+esc(mgb)+'">'+esc(mgs)+'</span>':'')+'</div><div class="merit-sub-sh">'+esc(m.name)+' \u2014 Rank '+m.rating+'</div></div><span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-'+id2+'">'+body+'</div>';});
-  h+='</div></div>';return h;
+/** Compute tag counts from all fighting styles. */
+function _tagCounts(c) {
+  const counts = {};
+  (c.fighting_styles || []).forEach(fs => {
+    const dots = (fs.cp || 0) + (fs.free || 0) + (fs.xp || 0);
+    const tags = STYLE_TAGS[fs.name] || [];
+    tags.forEach(t => { counts[t] = (counts[t] || 0) + dots; });
+  });
+  return counts;
+}
+
+/** Max accessible rank for a style = max(own dots, highest relevant tag count). */
+function _maxRank(c, styleName, dots) {
+  const tags = STYLE_TAGS[styleName] || [];
+  const tc = _tagCounts(c);
+  let maxTag = 0;
+  tags.forEach(t => { if ((tc[t] || 0) > maxTag) maxTag = tc[t]; });
+  return Math.max(dots, maxTag);
+}
+
+/** Get all MAN_DB manoeuvres for a style, sorted by rank. */
+function _styleManoeuvres(styleName) {
+  const results = [];
+  for (const [key, entry] of Object.entries(MAN_DB)) {
+    if (entry.style === styleName) results.push({ key, ...entry });
+  }
+  results.sort((a, b) => parseInt(a.rank) - parseInt(b.rank));
+  return results;
+}
+
+/** Get all unique style names from MAN_DB. */
+function _allStyles() {
+  const s = new Set();
+  for (const entry of Object.values(MAN_DB)) s.add(entry.style);
+  return [...s].sort();
+}
+
+export function shRenderManoeuvres(c, editMode) {
+  const styles = c.fighting_styles || [];
+  if (!editMode && !styles.length) return '';
+  const tc = _tagCounts(c);
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div>';
+
+  if (editMode) {
+    // Tag summary
+    const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
+    if (tagEntries.length) {
+      h += '<div class="grant-pools">';
+      tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
+        h += '<div class="grant-pool-row"><span style="color:var(--gold2)">' + esc(tag) + '</span>: ' + count + ' dot' + (count === 1 ? '' : 's') + '</div>';
+      });
+      h += '</div>';
+    }
+
+    h += '<div class="man-list">';
+    styles.forEach((fs, si) => {
+      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.xp || 0);
+      const maxR = _maxRank(c, fs.name, dots);
+      const allMan = _styleManoeuvres(fs.name);
+      const picks = fs.picks || [];
+      const tags = STYLE_TAGS[fs.name] || [];
+      const sE = fs.name.replace(/'/g, "\\'");
+
+      h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">' + esc(fs.name) + '</span>';
+      if (tags.length) h += '<span style="font-size:9px;color:var(--txt3);margin-left:6px">' + tags.map(t => esc(t)).join(', ') + '</span>';
+      h += '</div><span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
+
+      // Cost breakdown
+      h += '<div class="merit-bd-row">'
+        + (fs.free ? '<span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + fs.free + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)">' : '')
+        + '<span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)">'
+        + '<span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)">'
+        + (fs.up ? '<span class="bd-lbl bd-up">UP</span><input class="merit-bd-input bd-up-input" type="number" min="0" value="' + fs.up + '" onchange="shEditStyle(' + si + ',\'up\',+this.value)">' : '')
+        + '<span class="bd-total">\u2248 ' + dots + ' dot' + (dots === 1 ? '' : 's') + ', ' + picks.length + ' pick' + (picks.length === 1 ? '' : 's') + '</span></div>';
+
+      // Current picks
+      picks.forEach((pk, pi) => {
+        const db = MAN_DB[pk.toLowerCase()];
+        h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + (db ? '\u25CF'.repeat(parseInt(db.rank) || 1) : '\u25CF') + '</span>';
+        h += '<span style="flex:1;font-size:11px">' + esc(pk) + '</span>';
+        h += '<button class="sk-spec-rm" onclick="shRemovePick(' + si + ',' + pi + ')" title="Remove">&times;</button></div>';
+      });
+
+      // Add pick (if picks < dots)
+      if (picks.length < dots) {
+        const available = allMan.filter(m => parseInt(m.rank) <= maxR && !picks.includes(m.name));
+        if (available.length) {
+          h += '<div style="padding:2px 0"><select class="gen-name-select" style="font-size:10px" onchange="if(this.value){shAddPick(' + si + ',this.value);this.value=\'\';}">';
+          h += '<option value="">+ Add manoeuvre\u2026</option>';
+          available.forEach(m => {
+            h += '<option value="' + esc(m.name) + '">' + esc(m.name) + ' (Rank ' + m.rank + ')</option>';
+          });
+          h += '</select></div>';
+        }
+      }
+
+      h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove style">&times; Remove</button>';
+      h += '<div style="clear:both"></div></div>';
+    });
+
+    // Add new style
+    h += '<div class="dev-add-row"><select class="dev-add-btn" style="font-size:11px" onchange="if(this.value){shAddStyle(this.value);this.value=\'\';}">';
+    h += '<option value="">+ Add Fighting Style\u2026</option>';
+    const existingStyles = new Set(styles.map(s => s.name));
+    _allStyles().filter(s => !existingStyles.has(s)).forEach(s => {
+      h += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
+    });
+    h += '</select></div>';
+    h += '</div>';
+  } else {
+    // View mode
+    h += '<div class="man-list">';
+    styles.forEach((fs, si) => {
+      const picks = fs.picks || [];
+      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.xp || 0);
+      picks.forEach((pk, pi) => {
+        const db = MAN_DB[pk.toLowerCase()];
+        const id2 = 'man' + si + '_' + pi;
+        const body = db ? '<div class="man-exp-body"><div class="man-style">' + esc(db.style) + ' \u2014 Rank ' + esc(db.rank) + '</div><div>' + esc(db.effect || '') + '</div>' + (db.prereq ? '<div class="man-prereq">Prerequisite: ' + esc(db.prereq) + '</div>' : '') + '</div>' : '<div>' + esc(pk) + '</div>';
+        h += '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(pk) + '</div><div class="merit-sub-sh">' + esc(fs.name) + ' \u2014 Rank ' + (db ? db.rank : '?') + '</div></div><span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
+      });
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
 }
 
 export function shRenderMeritRow(m,idPrefix,i) {
@@ -454,11 +573,11 @@ export function renderSheet(c) {
   if (isDesktop) {
     h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+'</div>';
     h+='</div>'; // end sh-dcol-left
-    h+='<div class="sh-dcol sh-dcol-mid"><div class="sh-body">'+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c)+'</div></div>';
+    h+='<div class="sh-dcol sh-dcol-mid"><div class="sh-body">'+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c,editMode)+'</div></div>';
     h+='<div class="sh-dcol sh-dcol-right"><div class="sh-body">'+shRenderDisciplines(c,editMode)+'</div></div>';
     h+='</div>'; // end sh-desktop
   } else {
-    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c)+'</div>';
+    h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+shRenderDisciplines(c,editMode)+shRenderGeneralMerits(c,editMode)+shRenderInfluenceMerits(c,editMode)+shRenderDomainMerits(c,editMode)+shRenderStandingMerits(c,editMode)+shRenderManoeuvres(c,editMode)+'</div>';
   }
   const _scrollEl=el.closest('.sh-wrap')||el.parentElement||document.documentElement,_scrollTop=_scrollEl.scrollTop;
   el.innerHTML=h;_scrollEl.scrollTop=_scrollTop;
