@@ -47,6 +47,26 @@ export function applyDerivedMerits(c) {
   // ── MDB: clear stale free_mdb before re-applying ──
   (c.merit_creation || []).forEach(mc => { if (mc) mc.free_mdb = 0; });
 
+  // ── K-9 / Falconry: clear then auto-apply 1 free dot to their granted Retainers ──
+  const _STYLE_RETAINER_GRANTS = ['K-9', 'Falconry'];
+  (c.merit_creation || []).forEach((mc, i) => {
+    if (!mc) return;
+    const m = (c.merits || [])[i];
+    if (m && m.name === 'Retainer' && _STYLE_RETAINER_GRANTS.includes(m.granted_by)) mc.free = 0;
+  });
+  _STYLE_RETAINER_GRANTS.forEach(styleName => {
+    const hasStyle = (c.fighting_styles || []).some(fs =>
+      fs.type !== 'merit' && fs.name === styleName &&
+      ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0) + (fs.up||0)) >= 1
+    );
+    if (!hasStyle) return;
+    const ri = (c.merits || []).findIndex(m => m.name === 'Retainer' && m.granted_by === styleName);
+    if (ri < 0) return;
+    if (!c.merit_creation) c.merit_creation = [];
+    if (!c.merit_creation[ri]) c.merit_creation[ri] = { cp: 0, xp: 0, free: 0 };
+    c.merit_creation[ri].free = 1;
+  });
+
   // ── PT grant pools ──
   const pts = (c.merits || []).filter(m => m.name === 'Professional Training');
   for (const pt of pts) {
