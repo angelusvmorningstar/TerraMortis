@@ -472,6 +472,41 @@ function _styleManoeuvres(styleName) {
   return results;
 }
 
+/**
+ * Returns true if the character qualifies for a manoeuvre (orthodox or unorthodox).
+ * Pass pre-computed tc = _tagCounts(c) for efficiency when calling in a loop.
+ * Orthodox: has a type:'style' entry for man.style with dots >= man.rank.
+ * Unorthodox: any shared tag total >= man.rank.
+ */
+function _qualifiesForManoeuvre(c, man, tc) {
+  const rank = parseInt(man.rank) || 1;
+  const styleDots = (c.fighting_styles || [])
+    .filter(fs => fs.type !== 'merit' && fs.name === man.style)
+    .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0), 0);
+  if (styleDots >= rank) return true;
+  const manTags = STYLE_TAGS[man.style] || [];
+  return manTags.some(t => (tc[t] || 0) >= rank);
+}
+
+/**
+ * Returns all MAN_DB manoeuvres the character qualifies for but hasn't yet picked,
+ * excluding non-combat styles. Sorted by rank then name.
+ */
+function _availablePicks(c) {
+  const picked = new Set((c.fighting_picks || []).map(pk =>
+    (typeof pk === 'string' ? pk : pk.manoeuvre).toLowerCase()
+  ));
+  const tc = _tagCounts(c);
+  const results = [];
+  for (const [key, man] of Object.entries(MAN_DB)) {
+    if (NON_COMBAT_STYLES.has(man.style)) continue;
+    if (picked.has(key)) continue;
+    if (_qualifiesForManoeuvre(c, man, tc)) results.push({ key, ...man });
+  }
+  results.sort((a, b) => (parseInt(a.rank) - parseInt(b.rank)) || a.name.localeCompare(b.name));
+  return results;
+}
+
 /** Get all unique style names from MAN_DB. */
 function _allStyles() {
   const s = new Set();
@@ -577,6 +612,38 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
     });
     h += '</select></div></div>';
+
+    // ── Picks editor ─────────────────────────────────────────
+    const remaining = totalDots - totalPicks;
+    h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Manoeuvres Picked'
+      + '<span style="font-weight:normal;color:var(--txt2);margin-left:8px">' + totalPicks + ' / ' + totalDots + '</span></div>';
+    h += '<div class="man-list">';
+
+    allPicks.forEach((pk, pi) => {
+      const manName = typeof pk === 'string' ? pk : pk.manoeuvre;
+      const db = MAN_DB[manName.toLowerCase()];
+      h += '<div class="mci-benefit-row">'
+        + '<span class="mci-dot-lbl">' + (db ? '\u25CF'.repeat(parseInt(db.rank) || 1) : '\u25CF') + '</span>'
+        + '<span style="flex:1;font-size:11px">' + esc(manName) + '</span>'
+        + (db ? '<span style="font-size:9px;color:var(--txt3);margin-right:6px">' + esc(db.style) + '</span>' : '')
+        + '<button class="sk-spec-rm" onclick="shRemovePick(' + pi + ')" title="Remove">&times;</button></div>';
+    });
+
+    if (remaining > 0) {
+      const available = _availablePicks(c);
+      if (available.length) {
+        h += '<div style="padding:2px 0"><select class="gen-name-select" style="font-size:10px" onchange="if(this.value){shAddPick(this.value);this.value=\'\'}">';
+        h += '<option value="">+ Add manoeuvre (' + remaining + ' remaining)\u2026</option>';
+        available.forEach(m => {
+          h += '<option value="' + esc(m.name) + '">' + esc(m.name) + ' (' + esc(m.style) + ', rank ' + m.rank + ')</option>';
+        });
+        h += '</select></div>';
+      } else {
+        h += '<div style="font-size:10px;color:var(--txt3);padding:4px 0">' + remaining + ' slot' + (remaining === 1 ? '' : 's') + ' available \u2014 no qualifying manoeuvres yet</div>';
+      }
+    }
+
+    h += '</div>'; // closes man-list (picks)
 
   } else {
     // ── View mode ────────────────────────────────────────────

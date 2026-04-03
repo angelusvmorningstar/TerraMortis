@@ -399,26 +399,27 @@ export function shEditStyle(idx, field, val) {
   _renderSheet(c);
 }
 
-export function shAddPick(styleIdx, manName) {
+export function shAddPick(manName) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  const fs = (c.fighting_styles || [])[styleIdx];
-  if (!fs) return;
-  if (!fs.picks) fs.picks = [];
-  const dots = (fs.cp || 0) + (fs.free || 0) + (fs.xp || 0);
-  if (fs.picks.length >= dots) return;
-  if (fs.picks.includes(manName)) return;
-  fs.picks.push(manName);
+  if (!c.fighting_picks) c.fighting_picks = [];
+  const totalDots = (c.fighting_styles || [])
+    .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0), 0);
+  if (c.fighting_picks.length >= totalDots) return;
+  const already = c.fighting_picks.some(pk =>
+    (typeof pk === 'string' ? pk : pk.manoeuvre).toLowerCase() === manName.toLowerCase()
+  );
+  if (already) return;
+  c.fighting_picks.push({ manoeuvre: manName });
   _markDirty();
   _renderSheet(c);
 }
 
-export function shRemovePick(styleIdx, pickIdx) {
+export function shRemovePick(pickIdx) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  const fs = (c.fighting_styles || [])[styleIdx];
-  if (!fs || !fs.picks) return;
-  fs.picks.splice(pickIdx, 1);
+  if (!c.fighting_picks || !c.fighting_picks[pickIdx]) return;
+  c.fighting_picks.splice(pickIdx, 1);
   _markDirty();
   _renderSheet(c);
 }
