@@ -20,8 +20,16 @@ export function domMeritContrib(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
-  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, xp: 0 };
-  return (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, free_mci: 0, xp: 0 };
+  const purchased = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.xp || 0);
+  return purchased + (name === 'Herd' ? ssjHerdBonus(c) : 0);
+}
+
+/** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked in merit_creation). */
+export function ssjHerdBonus(c) {
+  if (!(c.merits || []).some(m => m.name === 'Secret Society Junkie')) return 0;
+  return (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation')
+    .reduce((s, m) => s + (m.rating || 0), 0);
 }
 
 /**
@@ -113,6 +121,79 @@ export function calcContactsInfluence(c) {
 /** Check if character has Honey with Vinegar merit. */
 function hasHoneyWithVinegar(c) {
   return (c.merits || []).some(m => m.name === 'Honey With Vinegar' || m.name === 'Honey with Vinegar');
+}
+
+/* ══════════════════════════════════════════════════════
+   Viral Mythology helpers
+   ══════════════════════════════════════════════════════ */
+
+/** Check if character has Viral Mythology merit. */
+export function hasViralMythology(c) {
+  return (c.merits || []).some(m => m.name === 'Viral Mythology');
+}
+
+/**
+ * Count all non-VM Allies dots (CP + XP + Fr + MCI) to determine VM bonus pool size.
+ * Only VM-generated Allies (granted_by: 'VM') are excluded to prevent feedback loop.
+ */
+export function vmAlliesPool(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.category !== 'influence' || m.name !== 'Allies') return;
+    if (m.granted_by === 'VM') return;  // only exclude VM bonus — MCI and other sources count
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.cp || 0) + (mc.xp || 0) + (mc.free || 0) + (mc.free_mci || 0);
+  });
+  return total;
+}
+
+/**
+ * Count VM bonus Allies dots allocated via free_vm on non-VM-granted Allies merits.
+ */
+export function vmAlliesUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.category !== 'influence' || m.name !== 'Allies') return;
+    if (m.granted_by === 'VM') return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.free_vm || 0);
+  });
+  return total;
+}
+
+/**
+ * Count purchased Herd dots (CP + XP). VM doubles these.
+ */
+export function vmHerdPool(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.name !== 'Herd') return;
+    if (m.derived) return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.cp || 0) + (mc.xp || 0);
+  });
+  return total;
+}
+
+/**
+ * Check if character is a Lorekeeper (has merits granted by Lorekeeper).
+ */
+export function isLorekeeper(c) {
+  return (c.merits || []).some(m => (m.granted_by || '') === 'Lorekeeper');
+}
+
+/**
+ * Lorekeeper pool: purchased Library dots (CP + XP) = free dots for Herd/Retainer.
+ */
+export function lorekeeperPool(c) {
+  if (!isLorekeeper(c)) return 0;
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.name !== 'Library') return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.cp || 0) + (mc.xp || 0);
+  });
+  return total;
 }
 
 export function calcTotalInfluence(c) {

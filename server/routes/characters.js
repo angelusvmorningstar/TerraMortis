@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { validateCharacter } from '../middleware/validateCharacter.js';
 
 const router = Router();
 const col = () => getCollection('characters');
@@ -57,7 +58,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/characters — ST only
-router.post('/', requireRole('st'), async (req, res) => {
+router.post('/', requireRole('st'), validateCharacter, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
 
@@ -67,7 +68,7 @@ router.post('/', requireRole('st'), async (req, res) => {
 });
 
 // PUT /api/characters/:id — ST only
-router.put('/:id', requireRole('st'), async (req, res) => {
+router.put('/:id', requireRole('st'), validateCharacter, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 

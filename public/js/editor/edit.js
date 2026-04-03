@@ -8,22 +8,29 @@ import {
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
+import { MERITS_DB } from '../data/merits-db-data.js';
+import { getPoolTotal, getPoolUsed, mciPoolTotal, getMCIPoolUsed } from './mci.js';
+import { vmAlliesPool, vmAlliesUsed } from './domain.js';
 import {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
+  shEditDerivedMeritArea,
+  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   registerCallbacks as registerDomainCallbacks
 } from './edit-domain.js';
 
 /* Re-export merit-category handlers so consumers can import from edit.js */
 export {
-  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit,
+  shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
-  shAddDomainPartner, shRemoveDomainPartner
+  shAddDomainPartner, shRemoveDomainPartner,
+  shEditDerivedMeritArea,
+  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick
 };
 
 /* ── Callback registration (avoids circular deps with main.js / sheet.js) ── */
@@ -238,7 +245,9 @@ export function shEditAttrPt(attr, field, val) {
   }
   c.attr_creation[attr][field] = val;
   const cr = c.attr_creation[attr];
-  const attrBase = (cr.cp || 0) + (cr.free || 0);
+  // Base is auto-calculated: 1 + 1 if clan favoured attribute
+  cr.free = 1 + (c.clan_attribute === attr ? 1 : 0);
+  const attrBase = (cr.cp || 0) + cr.free;
   const newDots = attrBase + xpToDots(cr.xp || 0, attrBase, 4);
   if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0 };
   c.attributes[attr].dots = newDots;
@@ -265,12 +274,9 @@ export function shSetClanAttr(val) {
     if (!c.attr_creation) c.attr_creation = {};
     if (!c.attr_creation[attr]) c.attr_creation[attr] = { cp: 0, free: 1, xp: 0 };
     const cr = c.attr_creation[attr];
-    // Update free: base 1, +1 if this is the new clan attr
-    const wasClan = (attr === oldCA);
-    const isClan = (attr === val);
-    if (wasClan && !isClan) cr.free = Math.max(1, cr.free - 1);
-    if (!wasClan && isClan) cr.free = cr.free + 1;
-    const aBase = (cr.cp || 0) + (cr.free || 0);
+    // Base is auto-calculated: 1 + 1 if clan favoured attribute
+    cr.free = 1 + (c.clan_attribute === attr ? 1 : 0);
+    const aBase = (cr.cp || 0) + cr.free;
     if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0 };
     c.attributes[attr].dots = aBase + xpToDots(cr.xp || 0, aBase, 4);
   });
@@ -484,15 +490,97 @@ export function shRemoveDevotion(idx) {
    MERIT CREATION POINTS
 ══════════════════════════════════════════════════════════ */
 
+/** Return sorted array of legal non-zero ratings for a merit, based on MERITS_DB. */
+function _meritLegalRatings(meritName) {
+  if (!MERITS_DB || !meritName) return null;
+  const entry = MERITS_DB[meritName.toLowerCase()];
+  if (!entry) return null;
+  const rStr = entry.rating || '1';
+  const parts = rStr.split(/[–\-—]/);
+  const min = parseInt(parts[0]) || 1;
+  const max = parseInt(parts[parts.length - 1]) || min;
+  if (min === max) return [min]; // fixed
+  return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+}
+
+/** Step a merit's total rating to the next/prev legal value (adjusts CP only). */
+export function shStepMeritRating(realIdx, dir) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  ensureMeritSync(c);
+  const mc = c.merit_creation[realIdx];
+  const m = c.merits[realIdx];
+  if (!mc || !m) return;
+  const current = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  const legal = _meritLegalRatings(m.name); // [min..max] or [fixed], or null
+  let next;
+  if (!legal) {
+    // Unknown merit — step by 1, clamp 0-5
+    next = Math.max(0, Math.min(5, current + dir));
+  } else if (legal.length === 1) {
+    // Fixed merit: toggle between 0 and the fixed value
+    next = current === 0 ? legal[0] : 0;
+  } else {
+    // Range: step within [0, min..max]
+    const all = [0, ...legal];
+    if (dir > 0) next = all.find(v => v > current) ?? current;
+    else { const below = all.filter(v => v < current); next = below.length ? below[below.length - 1] : current; }
+  }
+  if (next === current) return;
+  // Adjust CP by the delta, keeping fr and xp fixed
+  const delta = next - current;
+  let newCP = Math.max(0, (mc.cp || 0) + delta);
+  // Cap by budget if increasing
+  if (delta > 0) {
+    const otherCP = (c.merit_creation || []).reduce((s, mc2, i) => s + (i === realIdx ? 0 : (mc2 ? mc2.cp || 0 : 0)), 0)
+      + (c.fighting_styles || []).reduce((s, fs) => s + (fs.cp || 0), 0);
+    newCP = Math.min(newCP, Math.max(0, 10 - otherCP));
+  }
+  mc.cp = newCP;
+  mc.rating = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  if (m) m.rating = mc.rating;
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shEditMeritPt(realIdx, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   ensureMeritSync(c);
   const mc = c.merit_creation[realIdx];
   if (!mc) return;
-  mc[field] = Math.max(0, parseInt(val) || 0);
+  val = Math.max(0, parseInt(val) || 0);
+  // Cap CP edits by the 10-point merit creation budget
+  if (field === 'cp') {
+    const otherCP = (c.merit_creation || []).reduce((s, mc2, i) => s + (i === realIdx ? 0 : (mc2 ? mc2.cp || 0 : 0)), 0)
+      + (c.fighting_styles || []).reduce((s, fs) => s + (fs.cp || 0), 0);
+    val = Math.min(val, Math.max(0, 10 - otherCP));
+  }
+  // Cap free edits by available named grant pool (if one exists for this merit)
+  if (field === 'free' && c.merits[realIdx]) {
+    const m = c.merits[realIdx];
+    const poolTotal = getPoolTotal(c, m.name);
+    if (poolTotal > 0) {
+      const poolUsed = getPoolUsed(c, m.name) - (mc.free || 0);
+      val = Math.min(val, Math.max(0, poolTotal - poolUsed));
+    }
+  }
+  // Cap free_mci edits by remaining MCI pool
+  if (field === 'free_mci') {
+    const mciTotal = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
+      .reduce((s, m) => s + mciPoolTotal(m), 0);
+    const otherFMCI = getMCIPoolUsed(c) - (mc.free_mci || 0);
+    val = Math.min(val, Math.max(0, mciTotal - otherFMCI));
+  }
+  // Cap free_vm edits by remaining VM pool
+  if (field === 'free_vm') {
+    const vmTotal = vmAlliesPool(c);
+    const otherFVM = vmAlliesUsed(c) - (mc.free_vm || 0);
+    val = Math.min(val, Math.max(0, vmTotal - otherFVM));
+  }
+  mc[field] = val;
   // Sync stored rating
-  const total = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  const total = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.xp || 0);
   if (c.merits[realIdx]) c.merits[realIdx].rating = total;
   _markDirty();
   _renderSheet(c);

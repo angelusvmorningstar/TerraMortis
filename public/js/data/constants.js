@@ -11,7 +11,7 @@ export const SKILLS_PHYSICAL = ['Athletics','Brawl','Drive','Firearms','Larceny'
 export const SKILLS_SOCIAL = ['Animal Ken','Empathy','Expression','Intimidation','Persuasion','Socialise','Streetwise','Subterfuge'];
 export const ALL_SKILLS = [...SKILLS_MENTAL,...SKILLS_PHYSICAL,...SKILLS_SOCIAL];
 export const SKILL_CATS = {Mental:SKILLS_MENTAL, Physical:SKILLS_PHYSICAL, Social:SKILLS_SOCIAL};
-export const MASKS_DIRGES = ['Authoritarian','Child','Competitor','Conformist','Conspirator','Courtesan','Cult Leader','Deviant','Follower','Guru','Idealist','Jester','Junkie','Martyr','Masochist','Monster','Nurturer','Penitent','Perfectionist','Questioner','Rebel','Scholar','Social Chameleon','Spy','Survivor','Visionary'];
+export const MASKS_DIRGES = ['Authoritarian','Child','Competitor','Conformist','Conspirator','Courtesan','Cult Leader','Deviant','Follower','Guru','Idealist','Jester','Junkie','Martyr','Masochist','Monster','Nomad','Nurturer','Penitent','Perfectionist','Questioner','Rebel','Scholar','Social Chameleon','Spy','Survivor','Visionary'];
 export const COURT_TITLES = ['','Head of State','Primogen','Socialite','Enforcer','Administrator','Regent'];
 export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1,'Regent':0};
 
@@ -92,6 +92,29 @@ export const SORCERY_THEMES = ['Creation','Destruction','Divination','Protection
 export const INFLUENCE_SPHERES = ['Bureaucracy','Church','Finance','Health','High Society','Industry','Legal','Media','Military','Occult','Police','Politics','Street','Transportation','Underworld','University'];
 export const INFLUENCE_MERIT_TYPES = ['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status'];
 export const DOMAIN_MERIT_TYPES = ['Safe Place','Haven','Feeding Grounds','Herd'];
+
+/** Style Tags — maps fighting style names to their tag(s). Styles without tags use orthodox-only advancement. */
+export const STYLE_TAGS = {
+  'Avoidance': ['Movement (Agile)'],
+  'Berserker': ['Attitude (Enraged)'],
+  'Bowmanship': ['Archery'],
+  'Boxing': ['Striking'],
+  'Chain Weapons': ['Flexible'],
+  'Combat Archery': ['Archery'],
+  'Grappling': ['Grappling'],
+  'K-9': ['Creature (Bite)', 'Tactical (Police)'],
+  'Kino Mutai': ['Attitude (Enraged)', 'Tactical (Street)'],
+  'Martial Arts': ['Striking'],
+  'Mounted Combat': ['Archery', 'Heavy Melee', 'Light Melee', 'Tactical (Police)'],
+  'Powered Projectile': ['Pistol'],
+  'Spear and Bayonet': ['Pole Weapons'],
+  'Staff Fighting': ['Pole Weapons'],
+  'Strength Performance': ['Movement (Strong)'],
+  'Systema': ['Movement (Agile)', 'Tactical (Military)'],
+  'Thrown Weapons': ['Light Melee', 'Movement (Agile)'],
+  'Two Weapon Fighting': ['Flexible', 'Light Melee'],
+  'Weapon and Shield': ['Light Melee']
+};
 
 export const ATTR_NAMES = new Set(['intelligence','wits','resolve','strength','dexterity','stamina','presence','manipulation','composure']);
 export const SKILL_NAMES = new Set(['academics','animal ken','athletics','brawl','computer','crafts','drive','empathy','expression','firearms','intimidation','investigation','larceny','medicine','occult','persuasion','politics','science','socialise','stealth','streetwise','subterfuge','survival','weaponry']);

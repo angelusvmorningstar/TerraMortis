@@ -66,30 +66,60 @@ function creationOrFallback(c, creationKey, spentKey) {
   return Math.max(fromCreation, fromLog);
 }
 
-/** XP spent on attributes. */
-export function xpSpentAttrs(c) { return creationOrFallback(c, 'attr_creation', 'attributes'); }
+/** XP spent on attributes — sum of attr_creation.xp across all attributes. */
+export function xpSpentAttrs(c) {
+  return sumCreationXP(c.attr_creation);
+}
 
-/** XP spent on skills. */
-export function xpSpentSkills(c) { return creationOrFallback(c, 'skill_creation', 'skills'); }
+/** XP spent on skills + specialisations beyond free allowance. */
+export function xpSpentSkills(c) {
+  const skillXP = sumCreationXP(c.skill_creation);
+  // Specialisation XP: 1 per spec beyond free allowance
+  const totalSpecs = Object.values(c.skills || {}).reduce((s, sk) => s + ((sk && sk.specs) ? sk.specs.length : 0), 0);
+  const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
+  const ptB = (ptM && ptM.rating >= 3) ? 2 : 0;
+  const freeS = 3 + ptB;
+  const specXP = Math.max(0, totalSpecs - freeS);
+  return skillXP + specXP;
+}
 
-/** XP spent on merits. */
+/** XP spent on all merits (general, influence, domain, standing) + fighting styles. */
 export function xpSpentMerits(c) {
-  const fromCreation = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
-  const fromLog = ((c.xp_log || {}).spent || {}).merits || 0;
-  return Math.max(fromCreation, fromLog);
+  const meritXP = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
+  const styleXP = (c.fighting_styles || []).reduce((t, fs) => t + (fs.xp || 0), 0);
+  return meritXP + styleXP;
 }
 
 /** XP spent on powers — disciplines + devotions. */
-export function xpSpentPowers(c) { return creationOrFallback(c, 'disc_creation', 'powers'); }
-
-/** XP spent on special items (manual, stored in xp_log). */
-export function xpSpentSpecial(c) {
-  return ((c.xp_log || {}).spent || {}).special || 0;
+export function xpSpentPowers(c) {
+  const discXP = sumCreationXP(c.disc_creation);
+  // Devotion XP: look up each devotion's cost from DEVOTIONS_DB
+  const devXP = (c.powers || [])
+    .filter(p => p.category === 'devotion')
+    .reduce((t, p) => {
+      const db = _devotionsDB ? _devotionsDB.find(d => d.n === p.name) : null;
+      return t + (db ? db.xp || 0 : 0);
+    }, 0);
+  return discXP + devXP;
 }
 
+/** XP spent on special: Blood Potency, Humanity, lost Willpower dots. */
+export function xpSpentSpecial(c) {
+  // Blood Potency: 5 XP per dot above starting (starting = 1 for most neonates)
+  const bpXP = Math.max(0, (c.blood_potency || 1) - 1) * 5;
+  // Lost Willpower dots: stored in xp_log.spent.willpower
+  const wpXP = ((c.xp_log || {}).spent || {}).willpower || 0;
+  // Manual special: anything else tracked in xp_log
+  const manualXP = ((c.xp_log || {}).spent || {}).special || 0;
+  return bpXP + wpXP + manualXP;
+}
+
+// Devotions DB reference (set via setDevotionsDB)
+let _devotionsDB = null;
+export function setDevotionsDB(db) { _devotionsDB = db; }
+
 /**
- * Total XP spent by a character (all categories).
- * Derives from _creation objects where available, falls back to xp_log.spent.
+ * Total XP spent by a character (all categories, fully dynamic).
  * @param {object} c - character object
  * @returns {number}
  */
@@ -122,20 +152,35 @@ export function meritRating(c, m) {
 }
 
 /**
- * Render the merit breakdown row (CP / Free / XP / UP inputs).
- * Returns an HTML string with onchange handlers that call the global shEditMeritPt.
+ * Render the merit breakdown row: Fr + CP + XP = total | UP
+ * Fr is editable but backed by grant pools (MCI/PT/VM/etc).
  * @param {number} realIdx - index into c.merits / c.merit_creation
  * @param {object} mc - merit_creation entry {cp, free, xp, up}
  * @returns {string} HTML
  */
-export function meritBdRow(realIdx, mc) {
-  const total = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
-  const up = mc.up || 0;
-  return '<div class="merit-bd-row">'
-    + '<span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (mc.cp || 0) + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)">'
-    + '<span class="bd-lbl">Fr</span><input class="merit-bd-input" type="number" min="0" value="' + (mc.free || 0) + '" onchange="shEditMeritPt(' + realIdx + ',\'free\',+this.value)">'
-    + '<span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (mc.xp || 0) + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)">'
-    + '<span class="bd-lbl' + (up ? ' bd-up' : '') + '">UP</span><input class="merit-bd-input' + (up ? ' bd-up-input' : '') + '" type="number" min="0" value="' + up + '" onchange="shEditMeritPt(' + realIdx + ',\'up\',+this.value)">'
-    + '<span class="bd-total">= ' + total + ' dot' + (total === 1 ? '' : 's') + (up ? ' <span class="bd-up-warn">+' + up + ' unaccounted</span>' : '') + '</span>'
+/**
+ * Render the merit breakdown row: Fr + CP + XP = total | UP
+ * @param {number} realIdx
+ * @param {object} mc - merit_creation entry {cp, free, xp, up}
+ * @param {number|null} fixedAt - if the merit has a fixed rating (e.g. 3 for VM), pass it here;
+ *   null for graduated merits. When fixedAt is set, the displayed total snaps to 0 until the
+ *   threshold is met, then shows fixedAt.
+ */
+export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
+  const cp = mc.cp || 0, xp = mc.xp || 0, fr = mc.free || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0;
+  const total = cp + xp + fr + fmci + fvm;
+  // Effective display: for fixed merits, only show dots once the threshold is reached
+  const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
+  const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
+    ? '<span class="bd-needs-hint">' + total + ' / ' + fixedAt + ' needed</span>' : '';
+  let h = '<div class="merit-bd-row">'
+    + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + cp + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)"></div>'
+    + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + xp + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)"></div>'
+    + '<div class="bd-sep"></div>'
+    + '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">Fr</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fr + '" onchange="shEditMeritPt(' + realIdx + ',\'free\',+this.value)"></div>';
+  if (opts.showMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">MCI</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_mci\',+this.value)"></div>';
+  if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">VM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
+  h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
+  return h;
 }
