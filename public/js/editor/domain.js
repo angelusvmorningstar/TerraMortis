@@ -22,7 +22,7 @@ export function domMeritContrib(c, name) {
   const realIdx = (c.merits || []).indexOf(m);
   const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, free_mci: 0, xp: 0 };
   const purchased = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.xp || 0);
-  return purchased + (name === 'Herd' ? ssjHerdBonus(c) : 0);
+  return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0);
 }
 
 /** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked in merit_creation). */
@@ -30,6 +30,12 @@ export function ssjHerdBonus(c) {
   if (!(c.merits || []).some(m => m.name === 'Secret Society Junkie')) return 0;
   return (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation')
     .reduce((s, m) => s + (m.rating || 0), 0);
+}
+
+/** Flock bonus Herd dots: equal to Flock rating, can exceed cap of 5. */
+export function flockHerdBonus(c) {
+  const flock = (c.merits || []).find(m => m.name === 'Flock');
+  return flock ? (flock.rating || 0) : 0;
 }
 
 /**

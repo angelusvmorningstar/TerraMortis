@@ -11,7 +11,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
+import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
@@ -473,13 +473,14 @@ export function shRenderDomainMerits(c,editMode) {
       h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_domMciPool>0,showLK:_hasLK&&_isLKMerit,showINV:_hasINV&&_isINVMerit});h+=_prereqWarn(c,m.name);
       if(m.name==='Herd'&&hasViralMythology(c)){const vmB=vmHerdPool(c);if(vmB)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +'+vmB+' dots ('+shDots(vmB)+') \u2014 lost if VM removed</div>';}
       if(m.name==='Herd'){const ssjB=ssjHerdBonus(c);if(ssjB)h+='<div style="font-size:10px;color:var(--gdim);padding:2px 8px">SSJ Bonus: +'+ssjB+' dots ('+shDots(ssjB)+') \u2014 equals MCI dots</div>';}
+      if(m.name==='Herd'){const flockB=flockHerdBonus(c);if(flockB)h+='<div style="font-size:10px;color:var(--gdim);padding:2px 8px">Flock Bonus: +'+flockB+' dots ('+shDots(flockB)+') \u2014 equals Flock rating, can exceed 5</div>';}
       if(m.name!=='Herd'&&parts.length){h+='<div class="dom-partners-row">';parts.forEach(pN=>{const p=chars.find(ch=>ch.name===pN),pD=p?domMeritShareable(p,m.name):0;h+='<span class="dom-partner-tag">'+esc(pN)+(pD?' '+shDots(pD):' \u25CB')+'<button class="dom-partner-rm" onclick="shRemoveDomainPartner('+di+',\''+pN.replace(/'/g,"\\'")+'\')">\u00D7</button></span>';});h+='</div>';}
       if(m.name!=='Herd'&&avP.length) h+='<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner('+di+',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>'+avP.map(p=>'<option value="'+esc(p.name)+'">'+esc(p.name)+'</option>').join('')+'</select></div>';
       h+='</div>';});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
-    domM.forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},dPurch=Math.min(5,(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.free_lk||0)+(dMc.free_inv||0)+(dMc.xp||0)),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0;
-      const dotHtml=ssjB>0?shDotsMixed(dPurch,Math.max(0,de-dPurch)):'<span class="merit-dots-sh">'+shDots(de)+'</span>';
+    domM.forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},dPurch=Math.min(5,(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.free_lk||0)+(dMc.free_inv||0)+(dMc.xp||0)),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0,flockB=!dp&&m.name==='Herd'?flockHerdBonus(c):0;
+      const dotHtml=(ssjB>0||flockB>0)?shDotsMixed(dPurch,Math.max(0,de-dPurch)):'<span class="merit-dots-sh">'+shDots(de)+'</span>';
       h+='<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">'+esc(m.name)+'</div>'+(dp?'<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 '+dp.map(n=>{const p=chars.find(ch=>ch.name===n),pd=p?domMeritShareable(p,m.name):0;return esc(n)+(pd?' '+shDots(pd):'');}).join(', ')+'</div>':'')+'</div><div style="text-align:right">'+(dp?'<div class="dom-total-view">'+shDots(de)+'</div><div class="dom-own-view">mine: '+shDots(dO)+'</div>':dotHtml)+'</div></div>';});
   }
   h+='</div></div>';return h;
