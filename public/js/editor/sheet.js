@@ -617,15 +617,22 @@ export function shRenderGeneralMerits(c,editMode) {
     h+=_renderPoolCounters(c,'general')+_renderPoolCounters(c,'influence')+_renderPoolCounters(c,'domain');
     const _genMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _KERBEROS_ASPECTS=['Monstrous','Competitive','Seductive'];
-    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',isFT=m.name==='Fucking Thief',isKerberos=m.name==='Three Heads of Kerberos',isDC=m.name==='Defensive Combat',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
+    const _CRUAC_STYLES=['Opening the Void','Primal Creation','Unbridled Chaos'];
+    const _mdbMerit=oM.find(m=>m.name==='The Mother-Daughter Bond');
+    const _mdbChosenStyle=_mdbMerit&&_mdbMerit.qualifier;
+    const _mdbMentorRating=(()=>{const mi=(c.merits||[]).findIndex(m=>m.category==='influence'&&m.name==='Mentor');if(mi<0)return 0;const mmc=(c.merit_creation||[])[mi]||{};return(mmc.cp||0)+(mmc.free||0)+(mmc.free_mci||0)+(mmc.xp||0);})();
+    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',isFT=m.name==='Fucking Thief',isKerberos=m.name==='Three Heads of Kerberos',isDC=m.name==='Defensive Combat',isMDB=m.name==='The Mother-Daughter Bond',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
       if(m.granted_by){h+='<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(dd)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span></div>';h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_genMciPool>0});h+=_prereqWarn(c,m.name);}
       else{h+='<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';
         if(isFT) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">'+buildFThiefOptions(m.qualifier||'')+'</select>';
         else if(isDC) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 skill \u2014')+'</option>'+['Brawl','Weaponry'].map(s=>'<option'+(m.qualifier===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
+        else if(isMDB) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 Cr\u00FAac Style \u2014')+'</option>'+_CRUAC_STYLES.map(s=>'<option'+(m.qualifier===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
         else if(isKerberos) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 Aspect \u2014')+'</option>'+_KERBEROS_ASPECTS.map(a=>'<option'+(m.qualifier===a?' selected':'')+'>'+a+'</option>').join('')+'</select>';
         else if(nSp&&cSp.length) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 spec \u2014')+'</option>'+cSp.map(sp=>'<option'+(m.qualifier===sp?' selected':'')+'>'+esc(sp)+'</option>').join('')+'</select>';
         else h+='<input type="text" class="gen-qual-input" value="'+esc(m.qualifier||'')+'" placeholder="Qualifier" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">';
-        h+='<span class="infl-dots-derived">'+shDots(dd)+'</span><button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_genMciPool>0});h+=_prereqWarn(c,m.name);}});
+        h+='<span class="infl-dots-derived">'+shDots(dd)+'</span><button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_genMciPool>0});
+        if(_mdbChosenStyle&&m.name===_mdbChosenStyle&&_mdbMentorRating>0)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">MDB Bonus: +'+_mdbMentorRating+' dots (auto) \u2014 equals Mentor rating</div>';
+        h+=_prereqWarn(c,m.name);}});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddGenMerit()">+ Add Merit</button></div>';
   } else {
     oM.forEach((m,i)=>{const qual=m.qualifier?' ('+m.qualifier+')':'';

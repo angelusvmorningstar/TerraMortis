@@ -39,6 +39,9 @@ export function applyDerivedMerits(c) {
   // ── PT: clear stale free_pt before re-applying ──
   (c.merit_creation || []).forEach(mc => { if (mc) mc.free_pt = 0; });
 
+  // ── MDB: clear stale free_mdb before re-applying ──
+  (c.merit_creation || []).forEach(mc => { if (mc) mc.free_mdb = 0; });
+
   // ── PT grant pools ──
   const pts = (c.merits || []).filter(m => m.name === 'Professional Training');
   for (const pt of pts) {
@@ -140,6 +143,24 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // ── MDB: auto-apply free_mdb to chosen Crúac Style = Mentor rating ──
+  const mdbMerit = (c.merits || []).find(m => m.name === 'The Mother-Daughter Bond');
+  if (mdbMerit && mdbMerit.qualifier) {
+    const mentorIdx = (c.merits || []).findIndex(m => m.category === 'influence' && m.name === 'Mentor');
+    if (mentorIdx >= 0) {
+      const mmc = (c.merit_creation || [])[mentorIdx] || {};
+      const mentorRating = (mmc.cp||0) + (mmc.free||0) + (mmc.free_mci||0) + (mmc.free_vm||0) + (mmc.free_lk||0) + (mmc.free_ohm||0) + (mmc.free_inv||0) + (mmc.free_pt||0) + (mmc.xp||0);
+      if (mentorRating > 0) {
+        const styleIdx = (c.merits || []).findIndex(m => m.category === 'general' && m.name === mdbMerit.qualifier);
+        if (styleIdx >= 0) {
+          if (!c.merit_creation) c.merit_creation = [];
+          if (!c.merit_creation[styleIdx]) c.merit_creation[styleIdx] = { cp: 0, xp: 0, free: 0 };
+          c.merit_creation[styleIdx].free_mdb = mentorRating;
+        }
+      }
+    }
+  }
+
   // ── Lorekeeper grant pool (Herd/Retainer) ──
   if (hasLorekeeper(c)) {
     const lkPool = lorekeeperPool(c);
@@ -158,7 +179,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
     const mc = (c.merit_creation || [])[i] || {};
-    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.free_pt || 0) + (mc.cp || 0) + (mc.xp || 0);
+    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.free_pt || 0) + (mc.free_mdb || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

@@ -334,6 +334,7 @@ export const characterSchema = {
         free_ohm: { type: 'integer', minimum: 0 },
         free_inv: { type: 'integer', minimum: 0 },
         free_pt:  { type: 'integer', minimum: 0 },
+        free_mdb: { type: 'integer', minimum: 0 },
         // Legacy field from Excel import — tolerated
         up:       { type: 'integer', minimum: 0 }
       },
