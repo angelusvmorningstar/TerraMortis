@@ -208,7 +208,7 @@ body {
 
 /* Sheet tab: full width with side breathing room */
 #tab-sheet {
-  padding: 16px 10px;
+  padding: 16px 50px;
 }
 
 .tab-panel { display: none; }
