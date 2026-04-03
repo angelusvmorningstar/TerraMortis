@@ -710,7 +710,11 @@ function _checkSingleTerm(c, term) {
       if (type === 'clan')    return ((c.status || {}).clan    || 0) >= req;
       if (type === 'covenant')return ((c.status || {}).covenant|| 0) >= req;
       const cov = _COV_STATUS_MAP[type];
-      return cov ? ((c.covenant_standings || {})[cov] || 0) >= req : true;
+      if (!cov) return true;
+      // Own covenant: use c.status.covenant; others: use covenant_standings
+      const ownMatch = (c.covenant || '').toLowerCase().replace(/[^a-z]/g,'').includes(type.replace(/[^a-z]/g,''));
+      const dots = ownMatch ? ((c.status || {}).covenant || 0) : ((c.covenant_standings || {})[cov] || 0);
+      return dots >= req;
     }
 
     if (name === 'Willpower')
