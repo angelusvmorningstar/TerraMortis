@@ -28,10 +28,10 @@ import {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT,
+  shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
-  shEditMeritPt, shEditXP,
+  shEditMeritPt, shStepMeritRating, shEditXP,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
@@ -387,9 +387,9 @@ Object.assign(window, {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shToggleMCI, shEditMCIGrant, shAddStandMCI, shAddStandPT, shEditDerivedMeritArea,
+  shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT, shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
-  shEditMeritPt, shEditXP,
+  shEditMeritPt, shStepMeritRating, shEditXP,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

@@ -122,6 +122,8 @@
 
 /* ── Skill specs and breakdown ── */
 .sh-spec-counter{font-family:var(--fh);font-size:10px;letter-spacing:.04em;color:var(--txt3);text-align:center;margin-bottom:6px;}
+.sh-merit-cp-row{font-family:var(--fh);font-size:12px;letter-spacing:.04em;text-align:center;margin-bottom:4px;}
+.sh-merit-cp-lbl{color:var(--txt3);}
 .sh-spec-counter .sc-val{color:var(--txt2);}
 .sh-spec-counter .sc-over{color:var(--err-a9);}
 .sh-spec-counter .sc-full{color:var(--green2-a8);}
@@ -134,23 +136,28 @@
 .sk-spec-add{background:none;border:none;color:var(--txt3);cursor:pointer;font-family:var(--fh);font-size:8px;letter-spacing:.06em;text-transform:uppercase;padding:2px 0;margin-top:1px;}
 .sk-spec-add:hover{color:var(--gold);}
 .sk-bd-panel{background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 4px 4px;padding:3px 6px;margin-bottom:3px;}
-.sk-bd-row{display:flex;gap:5px;align-items:center;font-size:9px;font-family:var(--fb);min-width:0;}
+.sk-bd-row{display:flex;gap:5px;align-items:center;font-size:11px;font-family:var(--fb);min-width:0;}
+.sk-bd-row .bd-grp{display:flex;flex-direction:column;align-items:stretch;gap:1px;flex:1;min-width:0;}
+.sk-bd-row .bd-lbl{color:var(--txt);font-weight:600;font-size:10px;}
+.sk-bd-row .bd-eq{display:flex;align-items:center;gap:2px;}
+.sk-bd-row .bd-eq .bd-lbl{color:var(--txt3);}
+.sk-bd-row .bd-val{color:var(--txt);font-weight:600;}
 .sh-skill-row.sk-edit{background:var(--surf2);border-color:var(--bdr);border-radius:4px 4px 0 0;border-bottom:none;}
 
 /* ── Attribute breakdown panel ── */
 .attr-bd-panel{background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 5px 5px;padding:3px 6px;min-width:0;overflow:hidden;margin-bottom:3px;}
-.attr-bd-row{display:flex;gap:5px;align-items:center;font-size:9px;font-family:var(--fb);min-width:0;}
+.attr-bd-row{display:flex;gap:5px;align-items:center;font-size:11px;font-family:var(--fb);min-width:0;}
 .attr-bd-row .bd-grp{display:flex;flex-direction:column;align-items:stretch;gap:1px;flex:1;min-width:0;}
-.attr-bd-row .bd-lbl{color:var(--txt);font-weight:600;font-size:8px;}
+.attr-bd-row .bd-lbl{color:var(--txt);font-weight:600;font-size:10px;}
 .attr-bd-row .bd-eq{display:flex;align-items:center;gap:2px;}
 .attr-bd-row .bd-eq .bd-lbl{color:var(--txt3);}
 .attr-bd-row .bd-val{color:var(--txt);font-weight:600;}
-.attr-bd-input{width:100%;min-width:0;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:9px;text-align:center;padding:2px;outline:none;box-sizing:border-box;}
+.attr-bd-input{width:100%;min-width:0;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:11px;text-align:center;padding:2px;outline:none;box-sizing:border-box;}
 .attr-bd-input:focus{border-color:var(--gold);}
-.attr-bd-ro{display:block;width:100%;min-width:0;background:var(--surf1);border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-family:var(--fb);font-size:9px;text-align:center;padding:2px;box-sizing:border-box;}
-.attr-derived-row{display:flex;gap:6px;align-items:center;font-size:9px;font-family:var(--fb);margin-top:3px;border-top:1px solid var(--bdr);padding-top:3px;}
+.attr-bd-ro{display:block;width:100%;min-width:0;background:var(--surf1);border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-family:var(--fb);font-size:11px;text-align:center;padding:2px;box-sizing:border-box;}
+.attr-derived-row{display:flex;gap:6px;align-items:center;font-size:11px;font-family:var(--fb);margin-top:3px;border-top:1px solid var(--bdr);padding-top:3px;}
 .attr-derived-row .bd-src{color:var(--green2-a8);}
-.attr-derived-row .bd-src-lbl{color:var(--txt3);font-size:8px;}
+.attr-derived-row .bd-src-lbl{color:var(--txt3);font-size:10px;}
 .attr-derived-row .bd-eff{margin-left:auto;display:flex;align-items:center;gap:2px;}
 .attr-derived-row .bd-eff .bd-lbl{color:var(--txt2);}
 .attr-derived-row .bd-eff .bd-val{color:var(--gold2);font-weight:600;}
@@ -192,11 +199,19 @@
 .mci-toggle-btn{font-family:var(--fb);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--bdr2);background:var(--surf);color:var(--txt2);cursor:pointer;white-space:nowrap;}
 .mci-toggle-btn:hover{border-color:var(--gold);color:var(--txt);}
 .mci-inactive .mci-toggle-btn{border-color:var(--bdr);color:var(--txt3);}
-.mci-benefit-row{display:flex;align-items:baseline;gap:8px;padding:2px 0;border-top:1px solid var(--bdr);}
+.mci-benefit-row{display:flex;align-items:center;gap:8px;padding:3px 0;border-top:1px solid var(--bdr);}
 .mci-dot-lbl{font-family:var(--fh);font-size:9px;color:var(--gold2);letter-spacing:.05em;flex-shrink:0;width:44px;}
-.mci-benefit-text{font-family:var(--fb);font-size:10px;color:var(--txt);flex:1;}
+.mci-dot-content{display:flex;flex-wrap:wrap;align-items:center;gap:4px;flex:1;}
+.mci-benefit-text{font-family:var(--fb);font-size:11px;color:var(--txt);flex:1;}
 .mci-benefit-empty{color:var(--txt3);}
 .mci-benefit-input{flex:1;background:var(--w-a6);border:1px solid var(--w-a12);color:var(--txt1);font-size:11px;padding:3px 6px;}
+.mci-choice-btn{font-family:var(--fb);font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid var(--bdr2);background:var(--surf);color:var(--txt3);cursor:pointer;white-space:nowrap;}
+.mci-choice-btn:hover{border-color:var(--gold);color:var(--txt);}
+.mci-choice-active{background:var(--surf3);border-color:var(--gold);color:var(--gold2);}
+.mci-pool-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px solid var(--gold2-a12);margin-top:2px;}
+.mci-pool-lbl{font-family:var(--fh);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);}
+.mci-pool-val{font-family:var(--fh);font-size:12px;color:var(--gold2);}
+.mci-pool-hint{font-family:var(--fb);font-size:10px;color:var(--txt3);font-style:italic;}
 
 /* ── General merit editing ── */
 .gen-edit-row{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--w-a5);}
@@ -204,8 +219,8 @@
 .gen-name-select{flex:1;min-width:0;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:3px 4px;}
 .gen-granted-row{opacity:.75;}
 .gen-granted-name{flex:1;font-size:12px;color:var(--txt2);}
-.grant-pools{padding:4px 8px;margin-bottom:4px;border-bottom:1px solid var(--gold2-a12);}
-.grant-pool-row{font-size:10px;font-family:var(--fb);padding:1px 0;color:var(--txt2);}
+.grant-pools{padding:4px 8px;margin-bottom:6px;border-bottom:1px solid var(--gold2-a12);}
+.grant-pool-row{font-size:12px;font-family:var(--fb);padding:2px 0;color:var(--txt2);}
 .gen-granted-tag{font-size:9px;font-family:var(--fb);color:var(--gold2);background:var(--gold2-a12);border:1px solid var(--gold2-a25);padding:1px 5px;border-radius:2px;white-space:nowrap;}
 .gen-granted-tag-view{font-size:9px;font-family:var(--fb);color:var(--gold2);background:var(--gold2-a12);border:1px solid var(--gold2-a25);padding:1px 5px;border-radius:2px;white-space:nowrap;}
 .merit-prereq-fail{opacity:.5;text-decoration:line-through;}
@@ -250,7 +265,11 @@
 
 /* ── Discipline breakdown ── */
 .disc-bd-panel{background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 4px 4px;padding:3px 6px;margin-bottom:2px;}
-.disc-bd-row{display:flex;gap:5px;align-items:center;font-size:9px;font-family:var(--fb);}
+.disc-bd-row{display:flex;gap:5px;align-items:center;font-size:11px;font-family:var(--fb);}
+.disc-bd-row .bd-grp{display:flex;flex-direction:column;align-items:stretch;gap:1px;flex:1;min-width:0;}
+.disc-bd-row .bd-lbl{color:var(--txt);font-weight:600;font-size:10px;}
+.disc-bd-row .bd-eq{display:flex;align-items:center;gap:2px;}
+.disc-bd-row .bd-val{color:var(--txt);font-weight:600;}
 .disc-tap-row.disc-edit{border-radius:4px 4px 0 0;border-bottom:none;background:var(--surf2);border:1px solid var(--bdr);}
 .disc-cp-counter{font-family:var(--fh);font-size:10px;letter-spacing:.04em;color:var(--txt3);margin-bottom:6px;display:flex;gap:12px;}
 .disc-cp-counter span{color:var(--txt2);}

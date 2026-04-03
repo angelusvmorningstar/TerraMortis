@@ -39,6 +39,20 @@ export function meritKeyBase(s) {
   return meritKey(s).replace(/\s*\([^)]*\)\s*/g,'').trim();
 }
 
+/**
+ * If a merit has a single fixed rating (e.g. Viral Mythology = 3), returns that number.
+ * Returns null for graduated/range merits (e.g. Allies 1-5).
+ */
+export function meritFixedRating(name) {
+  const entry = MERITS_DB ? MERITS_DB[(name || '').toLowerCase()] : null;
+  if (!entry) return null;
+  const rStr = entry.rating || '1';
+  const parts = rStr.split(/[–\-—]/);
+  if (parts.length > 1) return null; // range merit
+  const n = parseInt(parts[0]);
+  return n > 0 ? n : null;
+}
+
 /** Look up a merit in MERITS_DB by name string (tries full key then base key). */
 export function meritLookup(s) {
   const db = MERITS_DB;
@@ -69,7 +83,7 @@ export function meritByCategory(c, category, filteredIdx) {
 export function ensureMeritSync(c) {
   if (!c.merits) c.merits = [];
   if (!c.merit_creation) c.merit_creation = [];
-  while (c.merit_creation.length < c.merits.length) c.merit_creation.push({ cp: 0, free: 0, xp: 0 });
+  while (c.merit_creation.length < c.merits.length) c.merit_creation.push({ cp: 0, free: 0, free_mci: 0, free_vm: 0, xp: 0 });
   if (c.merit_creation.length > c.merits.length) c.merit_creation.length = c.merits.length;
 }
 
@@ -177,7 +191,8 @@ export function checkSinglePrereq(c, token) {
     const n = parseInt(withNum[2]);
     if (ATTR_NAMES.has(name)) return _getAttrDots(c, name) >= n;
     if (SKILL_NAMES.has(name)) return _getSkillDots(c, name) >= n;
-    if (DISC_NAMES.has(name) || name === 'cruác') return _getDiscDots(c, name) >= n || _getDiscDots(c, 'cruac') >= n;
+    const nameNorm = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (DISC_NAMES.has(name) || DISC_NAMES.has(nameNorm)) return _getDiscDots(c, name) >= n || _getDiscDots(c, nameNorm) >= n;
     // Merit as prereq e.g. "Safe Place 1", "Contacts 2"
     return _getMeritRating(c, name) >= n;
   }

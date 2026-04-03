@@ -29,24 +29,9 @@ export function applyDerivedMerits(c) {
 
   // ── MCI grant pools ──
   const mcis = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation');
-  for (const mci of mcis) {
-    if (mci.active === false || !mci.benefit_grants) continue;
-    const dots = mci.rating || 0;
-    for (let d = 0; d < Math.min(dots, mci.benefit_grants.length); d++) {
-      const entry = mci.benefit_grants[d];
-      if (!entry) continue;
-      const grants = Array.isArray(entry) ? entry : (entry.name ? [entry] : []);
-      for (const grant of grants) {
-        if (!grant || !grant.name) continue;
-        c._grant_pools.push({
-          source: 'MCI L' + (d + 1),
-          name: grant.name,
-          category: grant.category || 'general',
-          amount: grant.rating || 1,
-          qualifier: grant.qualifier || ''
-        });
-      }
-    }
+  const totalMCIPool = mcis.filter(m => m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+  if (totalMCIPool > 0) {
+    c._grant_pools.push({ source: 'MCI', name: '_mci', category: 'any', amount: totalMCIPool });
   }
 
   // ── PT grant pools ──
@@ -80,10 +65,9 @@ export function applyDerivedMerits(c) {
     if (vmPool > 0) {
       c._grant_pools.push({
         source: 'VM',
-        name: 'Allies',
-        category: 'influence',
-        amount: vmPool,
-        qualifier: ''
+        name: '_vm',
+        category: 'vm',
+        amount: vmPool
       });
     }
   }
@@ -99,21 +83,6 @@ export function applyDerivedMerits(c) {
       qualifier: ''
     });
   });
-
-  // ── SSJ grant pool (Herd) — each dot of MCI = 1 free Herd dot ──
-  const hasSSJ = (c.merits || []).some(m => m.name === 'Secret Society Junkie');
-  if (hasSSJ) {
-    const mciDots = mcis.reduce((s, m) => s + (m.rating || 0), 0);
-    if (mciDots > 0) {
-      c._grant_pools.push({
-        source: 'SSJ',
-        name: 'Herd',
-        category: 'domain',
-        amount: mciDots,
-        qualifier: ''
-      });
-    }
-  }
 
   // ── Lorekeeper grant pool (Herd/Retainer) ──
   const lkPool = lorekeeperPool(c);
@@ -132,9 +101,36 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
     const mc = (c.merit_creation || [])[i] || {};
-    const total = (mc.free || 0) + (mc.cp || 0) + (mc.xp || 0);
+    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
   });
+}
+
+/**
+ * Compute total merit pool dots granted by an MCI merit based on per-dot choices.
+ * Dot 1: Speciality or 1 merit dot
+ * Dot 2: fixed 1 merit dot
+ * Dot 3: Skill dot or 2 merit dots
+ * Dot 4: fixed 3 merit dots
+ * Dot 5: Advantage or 3 merit dots
+ */
+export function mciPoolTotal(mci) {
+  const r = mci.rating || 0;
+  let pool = 0;
+  if (r >= 1) pool += mci.dot1_choice === 'speciality' ? 0 : 1;
+  if (r >= 2) pool += 1;
+  if (r >= 3) pool += mci.dot3_choice === 'skill' ? 0 : 2;
+  if (r >= 4) pool += 3;
+  if (r >= 5) pool += mci.dot5_choice === 'advantage' ? 0 : 3;
+  return pool;
+}
+
+/** Sum all free_mci dots allocated across every merit and fighting style. */
+export function getMCIPoolUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => { total += ((c.merit_creation || [])[i] || {}).free_mci || 0; });
+  (c.fighting_styles || []).forEach(fs => { total += fs.free_mci || 0; });
+  return total;
 }
 
 /** Check if a pool matches a merit name (supports single `name` or multi `names`). */

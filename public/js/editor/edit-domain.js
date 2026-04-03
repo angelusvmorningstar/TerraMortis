@@ -2,6 +2,7 @@
 
 import state from '../data/state.js';
 import { meritByCategory, addMerit, removeMerit } from './merits.js';
+import { mciPoolTotal } from './mci.js';
 
 /* ── Callback registration (same pattern as edit.js) ── */
 let _markDirty, _renderSheet;
@@ -123,7 +124,7 @@ export function shAddGenMerit() {
 export function shAddStandMCI() {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  addMerit(c, { category: 'standing', name: 'Mystery Cult Initiation', rating: 0, cult_name: '', benefit_grants: [null, null, null, null, null], benefits: ['', '', '', '', ''] });
+  addMerit(c, { category: 'standing', name: 'Mystery Cult Initiation', rating: 0, cult_name: '', dot1_choice: 'merits', dot3_choice: 'merits', dot5_choice: 'merits' });
   _markDirty();
   _renderSheet(c);
 }
@@ -171,6 +172,31 @@ export function shToggleMCI(standIdx) {
   const { merit: m } = meritByCategory(c, 'standing', standIdx);
   if (!m || m.name !== 'Mystery Cult Initiation') return;
   m.active = m.active === false ? true : false;
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shRemoveStandMerit(idx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const { realIdx, merit: m } = meritByCategory(c, 'standing', idx);
+  if (realIdx < 0) return;
+  // For MCI: clear all free_mci allocations across the character
+  if (m && m.name === 'Mystery Cult Initiation') {
+    (c.merit_creation || []).forEach(mc => { if (mc) mc.free_mci = 0; });
+    (c.fighting_styles || []).forEach(fs => { fs.free_mci = 0; });
+  }
+  removeMerit(c, realIdx);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditMCIDot(standIdx, dotKey, val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const { merit: m } = meritByCategory(c, 'standing', standIdx);
+  if (!m || m.name !== 'Mystery Cult Initiation') return;
+  m[dotKey] = val;
   _markDirty();
   _renderSheet(c);
 }
@@ -331,12 +357,12 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
    FIGHTING STYLES
 ══════════════════════════════════════════════════════════ */
 
-export function shAddStyle(styleName) {
+export function shAddStyle(styleName, type = 'style') {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   if (!c.fighting_styles) c.fighting_styles = [];
   if (c.fighting_styles.some(fs => fs.name === styleName)) return;
-  c.fighting_styles.push({ name: styleName, picks: [], cp: 0, free: 0, xp: 0 });
+  c.fighting_styles.push({ name: styleName, type, cp: 0, free: 0, free_mci: 0, xp: 0 });
   _markDirty();
   _renderSheet(c);
 }
@@ -355,7 +381,20 @@ export function shEditStyle(idx, field, val) {
   const c = state.chars[state.editIdx];
   const fs = (c.fighting_styles || [])[idx];
   if (!fs) return;
-  fs[field] = Math.max(0, parseInt(val) || 0);
+  val = Math.max(0, parseInt(val) || 0);
+  if (field === 'cp') {
+    const otherCP = (c.merit_creation || []).reduce((s, mc) => s + (mc ? mc.cp || 0 : 0), 0)
+      + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.cp || 0)), 0);
+    val = Math.min(val, Math.max(0, 10 - otherCP));
+  }
+  if (field === 'free_mci') {
+    const mciTotal = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
+      .reduce((s, m) => s + mciPoolTotal(m), 0);
+    const otherMCI = (c.merit_creation || []).reduce((s, mc) => s + (mc ? mc.free_mci || 0 : 0), 0)
+      + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.free_mci || 0)), 0);
+    val = Math.min(val, Math.max(0, mciTotal - otherMCI));
+  }
+  fs[field] = val;
   _markDirty();
   _renderSheet(c);
 }

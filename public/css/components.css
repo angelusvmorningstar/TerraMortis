@@ -72,11 +72,22 @@
 .list-count{font-family:var(--fh);font-size:11px;color:var(--txt3);letter-spacing:.06em;}
 
 /* ── Merit breakdown row ── */
-.merit-bd-row{display:flex;align-items:center;gap:6px;background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 5px 5px;padding:5px 8px;font-size:9px;font-family:var(--fb);}
-.merit-bd-row .bd-lbl{color:var(--txt3);}
-.merit-bd-input{width:28px;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:9px;text-align:center;padding:1px 2px;outline:none;}
+.merit-bd-row{display:flex;align-items:center;gap:5px;background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 5px 5px;padding:3px 6px;font-size:11px;font-family:var(--fb);}
+.merit-bd-row .bd-grp{display:flex;flex-direction:column;align-items:stretch;gap:1px;flex:1;min-width:0;}
+.merit-bd-row .bd-lbl{color:var(--txt);font-weight:600;font-size:10px;}
+.merit-bd-row .bd-eq{display:flex;align-items:center;gap:2px;margin-left:auto;}
+.merit-bd-row .bd-eq .bd-lbl{color:var(--txt3);}
+.merit-bd-row .bd-val{color:var(--txt);font-weight:600;}
+.merit-bd-input{width:100%;min-width:0;background:var(--surf2);border:1px solid var(--bdr2);border-radius:3px;color:var(--txt);font-family:var(--fb);font-size:11px;text-align:center;padding:2px;outline:none;box-sizing:border-box;}
 .merit-bd-input:focus{border-color:var(--gold);}
+.bd-sep{width:1px;background:var(--bdr2);align-self:stretch;margin:0 2px;flex-shrink:0;}
+.bd-bonus-lbl{color:var(--gold2)!important;}
+.bd-bonus-input{color:var(--gold2)!important;border-color:var(--gold2-a12)!important;}
+.bd-bonus-input:focus{border-color:var(--gold)!important;}
 .bd-total{font-size:9px;font-family:var(--fb);color:var(--txt3);margin-left:auto;}
-.bd-up{color:var(--err)!important;}
-.bd-up-input{border-color:var(--err-a40)!important;}
-.bd-up-warn{color:var(--err);font-style:italic;margin-left:2px;}
+.bd-needs-hint{font-size:9px;color:var(--txt3);font-style:italic;margin-left:4px;}
+.dots-purch{color:var(--gold2);}
+.dots-bonus{color:var(--gdim);}
+.merit-prereq-warn{font-size:10px;font-family:var(--fb);color:var(--err);background:rgba(139,0,0,.12);border:1px solid rgba(139,0,0,.3);border-radius:3px;padding:3px 8px;margin-bottom:4px;}
+.merit-prereq-txt{color:var(--txt2);font-style:italic;}
+.merit-prereq-fail{border-left:2px solid var(--err)!important;}

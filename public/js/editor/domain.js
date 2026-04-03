@@ -20,8 +20,16 @@ export function domMeritContrib(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
-  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, xp: 0 };
-  return (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, free_mci: 0, xp: 0 };
+  const purchased = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.xp || 0);
+  return purchased + (name === 'Herd' ? ssjHerdBonus(c) : 0);
+}
+
+/** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked in merit_creation). */
+export function ssjHerdBonus(c) {
+  if (!(c.merits || []).some(m => m.name === 'Secret Society Junkie')) return 0;
+  return (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation')
+    .reduce((s, m) => s + (m.rating || 0), 0);
 }
 
 /**
@@ -125,30 +133,30 @@ export function hasViralMythology(c) {
 }
 
 /**
- * Count total PURCHASED Allies dots (CP + XP, excluding VM bonus and MCI grants).
- * This is the VM bonus pool size.
+ * Count all non-VM Allies dots (CP + XP + Fr + MCI) to determine VM bonus pool size.
+ * Only VM-generated Allies (granted_by: 'VM') are excluded to prevent feedback loop.
  */
 export function vmAlliesPool(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence' || m.name !== 'Allies') return;
-    if (m.granted_by || m.derived) return;  // skip VM bonus and MCI-derived
+    if (m.granted_by === 'VM') return;  // only exclude VM bonus — MCI and other sources count
     const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.cp || 0) + (mc.xp || 0);
+    total += (mc.cp || 0) + (mc.xp || 0) + (mc.free || 0) + (mc.free_mci || 0);
   });
   return total;
 }
 
 /**
- * Count total VM bonus Allies dots allocated (free dots on granted_by:"VM" entries).
+ * Count VM bonus Allies dots allocated via free_vm on non-VM-granted Allies merits.
  */
 export function vmAlliesUsed(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence' || m.name !== 'Allies') return;
-    if (m.granted_by !== 'VM') return;
+    if (m.granted_by === 'VM') return;
     const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.free || 0);
+    total += (mc.free_vm || 0);
   });
   return total;
 }

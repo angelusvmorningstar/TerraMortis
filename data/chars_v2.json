@@ -1870,17 +1870,26 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Riding the Wave",
-        "picks": [
-          "Ravage",
-          "Primal Strength",
-          "In the Zone",
-          "Unyielding"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 3,
         "up": 5
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Ravage"
+      },
+      {
+        "manoeuvre": "Primal Strength"
+      },
+      {
+        "manoeuvre": "In the Zone"
+      },
+      {
+        "manoeuvre": "Unyielding"
       }
     ]
   },
@@ -2940,18 +2949,29 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Combat Archery",
-        "picks": [
-          "Rapid Nock",
-          "Reflex Aiming",
-          "Parthian Shot",
-          "Rain of Arrows",
-          "Trick Shot"
-        ],
         "cp": 1,
         "free": 0,
         "xp": 2,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Rapid Nock"
+      },
+      {
+        "manoeuvre": "Reflex Aiming"
+      },
+      {
+        "manoeuvre": "Parthian Shot"
+      },
+      {
+        "manoeuvre": "Rain of Arrows"
+      },
+      {
+        "manoeuvre": "Trick Shot"
       }
     ]
   },
@@ -3301,8 +3321,7 @@
       },
       {
         "humanity": 6,
-        "name": "Unnamed congregant",
-        "desc": null
+        "name": "Unnamed congregant"
       }
     ],
     "banes": [
@@ -3849,28 +3868,24 @@
         "category": "pact",
         "name": "Oath of Fealty",
         "rank": 1,
-        "stats": null,
         "effect": "Draw Invictus Status in Vitae weekly from liege without feeding. Liege knows when you lie."
       },
       {
         "category": "pact",
         "name": "Oath of the Hard Motherfucker",
         "rank": 2,
-        "stats": null,
         "effect": "Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."
       },
       {
         "category": "pact",
         "name": "Oath of the Safe Word",
         "rank": 2,
-        "stats": null,
         "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
       },
       {
         "category": "pact",
         "name": "Oath of the True Knight",
         "rank": 4,
-        "stats": null,
         "effect": "Impartial covenant defender. Can't consume Vitae from any source; can't be woken from torpor by blood. Invictus Status protects from mental Disciplines and Kindred/ghoul attacks."
       }
     ],
@@ -4397,50 +4412,68 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Courtoisie",
-        "picks": [
-          "Establish the Duel",
-          "Demanding Attention"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 1,
         "up": 0
       },
       {
+        "type": "style",
         "name": "Light Weapons",
-        "picks": [
-          "Thrust",
-          "Flurry"
-        ],
         "cp": 0,
         "free": 2,
         "xp": 0,
         "up": 0
       },
       {
+        "type": "style",
         "name": "Strength Performance",
-        "picks": [
-          "Strength Tricks",
-          "Lifting",
-          "Push/Pull",
-          "Stronger Than You"
-        ],
         "cp": 0,
         "free": 4,
         "xp": 0,
         "up": 0
       },
       {
+        "type": "style",
         "name": "Weapon and Shield",
-        "picks": [
-          "Shield Bash",
-          "Pin Weapon"
-        ],
         "cp": 0,
         "free": 2,
         "xp": 0,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Establish the Duel"
+      },
+      {
+        "manoeuvre": "Demanding Attention"
+      },
+      {
+        "manoeuvre": "Thrust"
+      },
+      {
+        "manoeuvre": "Flurry"
+      },
+      {
+        "manoeuvre": "Strength Tricks"
+      },
+      {
+        "manoeuvre": "Lifting"
+      },
+      {
+        "manoeuvre": "Push/Pull"
+      },
+      {
+        "manoeuvre": "Stronger Than You"
+      },
+      {
+        "manoeuvre": "Shield Bash"
+      },
+      {
+        "manoeuvre": "Pin Weapon"
       }
     ]
   },
@@ -5207,8 +5240,7 @@
       },
       {
         "humanity": 5,
-        "name": "Unnamed venue regular",
-        "desc": null
+        "name": "Unnamed venue regular"
       }
     ],
     "banes": [
@@ -6285,8 +6317,7 @@
     "touchstones": [
       {
         "humanity": 7,
-        "name": "\"Kyle\"",
-        "desc": null
+        "name": "\"Kyle\""
       }
     ],
     "banes": [
@@ -6576,29 +6607,43 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Mobilise Outrage",
-        "picks": [
-          "Strike to Preempt",
-          "Unbreakable",
-          "Dying on Your Feet"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 3,
         "up": 0
       },
       {
+        "type": "style",
         "name": "Riding the Wave",
-        "picks": [
-          "Ravage",
-          "Primal Strength",
-          "In the Zone",
-          "Unyielding"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 1,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Strike to Preempt"
+      },
+      {
+        "manoeuvre": "Unbreakable"
+      },
+      {
+        "manoeuvre": "Dying on Your Feet"
+      },
+      {
+        "manoeuvre": "Ravage"
+      },
+      {
+        "manoeuvre": "Primal Strength"
+      },
+      {
+        "manoeuvre": "In the Zone"
+      },
+      {
+        "manoeuvre": "Unyielding"
       }
     ]
   },
@@ -6617,12 +6662,7 @@
     "court_title": "Premier",
     "apparent_age": "mid 20s",
     "features": null,
-    "willpower": {
-      "mask_1wp": null,
-      "mask_all": null,
-      "dirge_1wp": null,
-      "dirge_all": null
-    },
+    "willpower": {},
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 6,
@@ -6886,8 +6926,7 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Bill Manchester",
-        "desc": null
+        "name": "Bill Manchester"
       }
     ],
     "banes": [
@@ -7565,8 +7604,7 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Lady Di",
-        "desc": null
+        "name": "Lady Di"
       }
     ],
     "banes": [
@@ -7879,40 +7917,57 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Falconry",
-        "picks": [
-          "Predator's Vigil",
-          "Flyby"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 0,
         "up": 2
       },
       {
+        "type": "style",
         "name": "K-9",
-        "picks": [
-          "Detection",
-          "Targeted Bite",
-          "Tactical Positioning"
-        ],
         "cp": 2,
         "free": 0,
         "xp": 0,
         "up": 1
       },
       {
+        "type": "style",
         "name": "Powered Projectile",
-        "picks": [
-          "Quick Reload",
-          "Intercept Shot",
-          "Penetration",
-          "Skewer"
-        ],
         "cp": 2,
         "free": 0,
         "xp": 0,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Predator's Vigil"
+      },
+      {
+        "manoeuvre": "Flyby"
+      },
+      {
+        "manoeuvre": "Detection"
+      },
+      {
+        "manoeuvre": "Targeted Bite"
+      },
+      {
+        "manoeuvre": "Tactical Positioning"
+      },
+      {
+        "manoeuvre": "Quick Reload"
+      },
+      {
+        "manoeuvre": "Intercept Shot"
+      },
+      {
+        "manoeuvre": "Penetration"
+      },
+      {
+        "manoeuvre": "Skewer"
       }
     ]
   },
@@ -8266,6 +8321,15 @@
         "category": "general",
         "name": "Gettin' Up",
         "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Cacophony Savvy",
+        "rating": 3,
+        "picks": [
+          "Gettin' Up",
+          "Backpacker"
+        ]
       }
     ],
     "touchstones": [],
@@ -8567,6 +8631,13 @@
         "cp": 0,
         "free": 3,
         "xp": 0
+      },
+      {
+        "cp": 0,
+        "xp": 2,
+        "free": 1,
+        "free_mci": 0,
+        "free_vm": 0
       }
     ],
     "xp_log": {
@@ -8617,19 +8688,7 @@
       "Physical": "Tertiary",
       "Social": "Secondary"
     },
-    "fighting_styles": [
-      {
-        "name": "Cacophony Savvy",
-        "picks": [
-          "Gettin' Up",
-          "Backpacker"
-        ],
-        "cp": 0,
-        "free": 1,
-        "xp": 2,
-        "up": 0
-      }
-    ]
+    "fighting_styles": []
   },
   {
     "name": "Jelle Dunneweld",
@@ -9127,15 +9186,20 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Police Tactics",
-        "picks": [
-          "Compliance Hold",
-          "Weapon Retention"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 0,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Compliance Hold"
+      },
+      {
+        "manoeuvre": "Weapon Retention"
       }
     ]
   },
@@ -9401,7 +9465,6 @@
         "category": "pact",
         "name": "Oath of the Safe Word",
         "rank": 2,
-        "stats": null,
         "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
       }
     ],
@@ -10103,8 +10166,7 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Unnamed Dockworker",
-        "desc": null
+        "name": "Unnamed Dockworker"
       },
       {
         "humanity": 5,
@@ -10375,26 +10437,34 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Crusade",
-        "picks": [
-          "Shield Against Sorcery",
-          "Silence"
-        ],
         "cp": 2,
         "free": 0,
         "xp": 0,
         "up": 0
       },
       {
+        "type": "style",
         "name": "Kindred Dueling",
-        "picks": [
-          "Hamstring",
-          "Taunt"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 0,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Shield Against Sorcery"
+      },
+      {
+        "manoeuvre": "Silence"
+      },
+      {
+        "manoeuvre": "Hamstring"
+      },
+      {
+        "manoeuvre": "Taunt"
       }
     ]
   },
@@ -10705,8 +10775,7 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Undefined",
-        "desc": null
+        "name": "Undefined"
       }
     ],
     "banes": [
@@ -11305,13 +11374,20 @@
         "category": "general",
         "name": "Peacemaker",
         "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Cacophony Savvy",
+        "rating": 3,
+        "picks": [
+          "Gettin' Up"
+        ]
       }
     ],
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Former/Current Lover",
-        "desc": null
+        "name": "Former/Current Lover"
       }
     ],
     "banes": [
@@ -11561,6 +11637,13 @@
         "cp": 0,
         "free": 3,
         "xp": 0
+      },
+      {
+        "cp": 0,
+        "xp": 3,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
       }
     ],
     "xp_log": {
@@ -11609,18 +11692,7 @@
       "Physical": "Tertiary",
       "Social": "Secondary"
     },
-    "fighting_styles": [
-      {
-        "name": "Cacophony Savvy",
-        "picks": [
-          "Gettin' Up"
-        ],
-        "cp": 0,
-        "free": 0,
-        "xp": 3,
-        "up": 0
-      }
-    ]
+    "fighting_styles": []
   },
   {
     "name": "Macheath",
@@ -11891,8 +11963,7 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Fiona (conditional) or union activist",
-        "desc": null
+        "name": "Fiona (conditional) or union activist"
       }
     ],
     "banes": [
@@ -12163,26 +12234,34 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Mobilise Outrage",
-        "picks": [
-          "Strike to Preempt",
-          "Unbreakable",
-          "Dying on Your Feet"
-        ],
         "cp": 3,
         "free": 0,
         "xp": 0,
         "up": 0
       },
       {
+        "type": "style",
         "name": "Regular",
-        "picks": [
-          "Clinch Strike"
-        ],
         "cp": 1,
         "free": 0,
         "xp": 0,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Strike to Preempt"
+      },
+      {
+        "manoeuvre": "Unbreakable"
+      },
+      {
+        "manoeuvre": "Dying on Your Feet"
+      },
+      {
+        "manoeuvre": "Clinch Strike"
       }
     ]
   },
@@ -12407,8 +12486,7 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Catholic Priest",
-        "desc": null
+        "name": "Catholic Priest"
       }
     ],
     "banes": [
@@ -12914,6 +12992,16 @@
           null,
           null
         ]
+      },
+      {
+        "category": "general",
+        "name": "Three Heads of Kerberos",
+        "rating": 3,
+        "picks": [
+          "Honing - Competitive",
+          "Internalising - Competitive",
+          "Cowing - Competitive"
+        ]
       }
     ],
     "touchstones": [],
@@ -13129,6 +13217,13 @@
         "cp": 0,
         "free": 0,
         "xp": 1
+      },
+      {
+        "cp": 1,
+        "xp": 2,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
       }
     ],
     "xp_log": {
@@ -13177,20 +13272,7 @@
       "Physical": "Tertiary",
       "Social": "Primary"
     },
-    "fighting_styles": [
-      {
-        "name": "Three Heads of Kerberos",
-        "picks": [
-          "Honing - Competitive",
-          "Internalising - Competitive",
-          "Cowing - Competitive"
-        ],
-        "cp": 1,
-        "free": 0,
-        "xp": 2,
-        "up": 0
-      }
-    ]
+    "fighting_styles": []
   },
   {
     "name": "Reed Justice",
@@ -13438,8 +13520,7 @@
     "touchstones": [
       {
         "humanity": 7,
-        "name": "Artwork of Mother",
-        "desc": null
+        "name": "Artwork of Mother"
       }
     ],
     "banes": [
@@ -14001,6 +14082,23 @@
           null,
           null
         ]
+      },
+      {
+        "category": "general",
+        "name": "Cacophony Savvy",
+        "rating": 2,
+        "picks": [
+          "Gettin' Up",
+          "Backpacker"
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Fast-Talking",
+        "rating": 1,
+        "picks": [
+          "Always Be Closing"
+        ]
       }
     ],
     "touchstones": [],
@@ -14252,6 +14350,20 @@
         "cp": 1,
         "free": 0,
         "xp": 0
+      },
+      {
+        "cp": 2,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
+      },
+      {
+        "cp": 0,
+        "xp": 1,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
       }
     ],
     "xp_log": {
@@ -14304,35 +14416,17 @@
     },
     "fighting_styles": [
       {
-        "name": "Cacophony Savvy",
-        "picks": [
-          "Gettin' Up",
-          "Backpacker"
-        ],
-        "cp": 2,
-        "free": 0,
-        "xp": 0,
-        "up": 0
-      },
-      {
-        "name": "Fast-Talking",
-        "picks": [
-          "Always Be Closing"
-        ],
-        "cp": 0,
-        "free": 0,
-        "xp": 1,
-        "up": 0
-      },
-      {
+        "type": "style",
         "name": "Marksmanship",
-        "picks": [
-          "Through the Crosshairs"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 0,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Through the Crosshairs"
       }
     ]
   },
@@ -14628,8 +14722,7 @@
     "touchstones": [
       {
         "humanity": 7,
-        "name": "Unnamed lawyer/clerk",
-        "desc": null
+        "name": "Unnamed lawyer/clerk"
       }
     ],
     "banes": [
@@ -15101,7 +15194,6 @@
         "category": "pact",
         "name": "Oath of the Hard Motherfucker",
         "rank": 2,
-        "stats": null,
         "effect": "Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."
       }
     ],
@@ -15391,16 +15483,23 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Riding the Wave",
-        "picks": [
-          "Ravage",
-          "Primal Strength",
-          "In the Zone"
-        ],
         "cp": 1,
         "free": 0,
         "xp": 0,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Ravage"
+      },
+      {
+        "manoeuvre": "Primal Strength"
+      },
+      {
+        "manoeuvre": "In the Zone"
       }
     ]
   },
@@ -15639,8 +15738,7 @@
     "touchstones": [
       {
         "humanity": 7,
-        "name": "Unnamed laity member",
-        "desc": null
+        "name": "Unnamed laity member"
       }
     ],
     "banes": [
@@ -15930,18 +16028,29 @@
     },
     "fighting_styles": [
       {
+        "type": "style",
         "name": "Kindred Dueling",
-        "picks": [
-          "Hamstring",
-          "Taunt",
-          "Carving",
-          "Pincushion",
-          "Spray"
-        ],
         "cp": 0,
         "free": 0,
         "xp": 2,
         "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Hamstring"
+      },
+      {
+        "manoeuvre": "Taunt"
+      },
+      {
+        "manoeuvre": "Carving"
+      },
+      {
+        "manoeuvre": "Pincushion"
+      },
+      {
+        "manoeuvre": "Spray"
       }
     ]
   },
@@ -16196,13 +16305,11 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Sister Tahliah",
-        "desc": null
+        "name": "Sister Tahliah"
       },
       {
         "humanity": 5,
-        "name": "Old Pine Log",
-        "desc": null
+        "name": "Old Pine Log"
       }
     ],
     "banes": [
@@ -16748,8 +16855,7 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Unnamed staffer/academic",
-        "desc": null
+        "name": "Unnamed staffer/academic"
       }
     ],
     "banes": [
@@ -17350,13 +17456,11 @@
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Portrait of my Wife",
-        "desc": null
+        "name": "Portrait of my Wife"
       },
       {
         "humanity": 5,
-        "name": "Turkish Laundrette Woman",
-        "desc": null
+        "name": "Turkish Laundrette Woman"
       }
     ],
     "banes": [
@@ -17687,12 +17791,7 @@
     "court_title": null,
     "apparent_age": null,
     "features": null,
-    "willpower": {
-      "mask_1wp": null,
-      "mask_all": null,
-      "dirge_1wp": null,
-      "dirge_all": null
-    },
+    "willpower": {},
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 7,
