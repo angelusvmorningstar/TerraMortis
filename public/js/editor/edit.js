@@ -30,7 +30,8 @@ export {
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditDerivedMeritArea,
-  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick
+  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
+  shCovStandingUp, shCovStandingDown
 };
 
 /* ── Callback registration (avoids circular deps with main.js / sheet.js) ── */
@@ -209,6 +210,24 @@ export function shStatusDown(key) {
   const c = state.chars[state.editIdx];
   if (!c.status) c.status = {};
   c.status[key] = Math.max(0, (c.status[key] || 0) - 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shCovStandingUp(label) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.covenant_standings) c.covenant_standings = {};
+  c.covenant_standings[label] = Math.min(5, (c.covenant_standings[label] || 0) + 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shCovStandingDown(label) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.covenant_standings) c.covenant_standings = {};
+  c.covenant_standings[label] = Math.max(0, (c.covenant_standings[label] || 0) - 1);
   _markDirty();
   _renderSheet(c);
 }

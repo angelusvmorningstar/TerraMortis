@@ -72,17 +72,42 @@ function shDotsMixed(purchased,bonus) {
   if(!purchased&&!bonus) return '';
   return '<span class="merit-dots-sh">'+'\u25CF'.repeat(purchased)+'\u25CB'.repeat(bonus)+'</span>';
 }
+function _statusTrack(base,bonus,bonusColor){
+  let h='<div class="sh-status-track">';
+  for(let i=1;i<=5;i++){
+    if(i<=base) h+='<span class="sh-track-dot sh-track-base">\u25CF</span>';
+    else if(i<=base+bonus) h+='<span class="sh-track-dot" style="color:'+bonusColor+'">\u25CB</span>';
+    else h+='<span class="sh-track-dot sh-track-empty">\u25CB</span>';
+  }
+  return h+'</div>';
+}
+function _statusEditBtns(downFn,upFn){
+  return '<div class="sh-status-btns"><button class="sh-stat-lr" onclick="'+downFn+'">&#9664;</button><button class="sh-stat-lr" onclick="'+upFn+'">&#9654;</button></div>';
+}
 function _cityStatusDots(base,titleBonus) {
   if(!base&&!titleBonus) return '';
   return '<div class="sh-city-dots">'+'<span class="sh-city-dot crim">\u25CF</span>'.repeat(base)+'<span class="sh-city-dot gold">\u25CF</span>'.repeat(titleBonus)+'</div>';
 }
 function _cityStatusPip(editMode,base,total,titleBonus) {
-  if(editMode) return '<div class="sh-stat-pip sh-stat-pip-edit"><button class="sh-stat-adj" onclick="shStatusDown(\'city\')">&#x25BC;</button><div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div><button class="sh-stat-adj" onclick="shStatusUp(\'city\')">&#x25B2;</button><div class="sh-status-lbl">City</div></div>';
+  if(editMode) return '<div class="sh-stat-pip">'
+    +'<div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div>'
+    +'<div class="sh-status-lbl">City</div>'
+    +_statusTrack(base,titleBonus,'var(--gold2)')
+    +_statusEditBtns('shStatusDown(\'city\')','shStatusUp(\'city\')')
+    +'</div>';
   return '<div class="sh-stat-pip"><div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div><div class="sh-status-lbl">City</div></div>';
 }
 
-function _statusPip(editMode,svg,val,lbl,key) {
-  if(editMode) return '<div class="sh-stat-pip sh-stat-pip-edit"><button class="sh-stat-adj" onclick="shStatusDown(\''+key+'\')">&#x25BC;</button><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><button class="sh-stat-adj" onclick="shStatusUp(\''+key+'\')">&#x25B2;</button><div class="sh-status-lbl">'+lbl+'</div></div>';
+function _statusPip(editMode,svg,val,lbl,key,trackBase,bonusDots,bonusColor){
+  if(editMode){
+    const tb=trackBase!==undefined?trackBase:val, bd=bonusDots||0, bc=bonusColor||'';
+    return '<div class="sh-stat-pip">'
+      +'<div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div>'
+      +'<div class="sh-status-lbl">'+lbl+'</div>'
+      +_statusTrack(tb,bd,bc)
+      +_statusEditBtns('shStatusDown(\''+key+'\')','shStatusUp(\''+key+'\')')
+      +'</div>';
+  }
   return '<div class="sh-stat-pip"><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><div class="sh-status-lbl">'+lbl+'</div></div>';
 }
 
@@ -1104,17 +1129,17 @@ export function renderSheet(c) {
   else{h+='<div class="sh-faction-label">'+esc(c.court_title||'\u2014')+'</div>';if(c.regent_territory)h+='<div class="sh-faction-bloodline">Regent \u2014 '+esc(c.regent_territory)+'</div>';}
   const cityBase=st.city||0,titleBonus=titleStatusBonus(c),cityTotal=cityBase+titleBonus;
   h+='<div class="sh-faction-sub">Title</div>'+_cityStatusDots(cityBase,titleBonus)+'</div>'+_cityStatusPip(editMode,cityBase,cityTotal,titleBonus)+'</div>';
-  const covRow=(img,editH,viewH,sub,svg,sVal,sLbl,sKey)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div>'+_statusPip(editMode,svg,sVal,sLbl,sKey)+'</div>';};
+  const covRow=(img,editH,viewH,sub,svg,sVal,sLbl,sKey,tBase,tBonus,tColor)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div>'+_statusPip(editMode,svg,sVal,sLbl,sKey,tBase,tBonus,tColor)+'</div>';};
   const _covBase=st.covenant||0,_covOTSBonus=c._ots_covenant_bonus||0,_covBonusDots=Math.max(0,_covOTSBonus-_covBase),_covEffective=Math.max(_covBase,_covOTSBonus);
-  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>',(_covBonusDots>0?'<div style="font-size:9px;letter-spacing:.03em">Covenant '+shDotsWithBonus(_covBase,_covBonusDots)+'<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>':'Covenant'),OTHER_SVG,_covEffective,'Cov.','covenant');
+  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>',(_covBonusDots>0?'<div style="font-size:9px;letter-spacing:.03em">Covenant '+shDotsWithBonus(_covBase,_covBonusDots)+'<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>':'Covenant'),OTHER_SVG,_covEffective,'Cov.','covenant',_covBase,_covBonusDots,'#9E7AE0');
   if(editMode){const cOpts=CLANS.map(cl=>'<option'+(c.clan===cl?' selected':'')+'>'+cl+'</option>').join(''),bls=(BLOODLINE_CLANS[c.clan]||[]).slice().sort(),blO=bls.map(b=>'<option'+(c.bloodline===b?' selected':'')+'>'+b+'</option>').join('');
-    covRow(clanImg,'<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">'+cOpts+'</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>'+blO+'</select>','','Clan / Bloodline',OTHER_SVG,st.clan||0,'Clan','clan');}
-  else covRow(clanImg,'','<div class="sh-faction-label">'+esc(c.clan||'\u2014')+'</div>'+(bl?'<div class="sh-faction-bloodline">'+esc(bl)+'</div>':''),'Clan',OTHER_SVG,st.clan||0,'Clan','clan');
+    covRow(clanImg,'<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">'+cOpts+'</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>'+blO+'</select>','','Clan / Bloodline',OTHER_SVG,st.clan||0,'Clan','clan',st.clan||0,0,'');}
+  else covRow(clanImg,'','<div class="sh-faction-label">'+esc(c.clan||'\u2014')+'</div>'+(bl?'<div class="sh-faction-bloodline">'+esc(bl)+'</div>':''),'Clan',OTHER_SVG,st.clan||0,'Clan','clan',st.clan||0,0,'');
   h+='</div></div></div>'; // end right, body, hdr
   // Covenant strip
   const covLbls=['Carthian','Crone','Invictus','Lance'],covSM={'Carthian Movement':'Carthian','Circle of the Crone':'Crone','Invictus':'Invictus','Lancea et Sanctum':'Lance'},pLbl=covSM[c.covenant]||c.covenant;
   const covS=covLbls.filter(l=>l!==pLbl).map(l=>({label:l,status:(c.covenant_standings||{})[l]||0}));
-  if(covS.length){h+='<div class="cov-strip">';covS.forEach(cs=>{const a=cs.status>0;h+='<div class="cov-strip-cell"><span class="cov-strip-name'+(a?' active':'')+'">'+esc(cs.label)+'</span><span class="cov-strip-dot'+(a?' active':'')+'">'+(a?'\u25CB':'\u2013')+'</span></div>';});h+='</div>';}
+  if(covS.length){h+='<div class="cov-strip">';covS.forEach(cs=>{const a=cs.status>0,lq=cs.label.replace(/'/g,"\\'");if(editMode){h+='<div class="cov-strip-cell cov-strip-cell-edit"><span class="cov-strip-name'+(a?' active':'')+'">'+esc(cs.label)+'</span>'+_statusTrack(cs.status,0,'')+_statusEditBtns('shCovStandingDown(\''+lq+'\')','shCovStandingUp(\''+lq+'\')')+'</div>';}else{h+='<div class="cov-strip-cell"><span class="cov-strip-name'+(a?' active':'')+'">'+esc(cs.label)+'</span><span class="cov-strip-dot'+(a?' active':'')+'">'+(a?'\u25CB':'\u2013')+'</span></div>';}});h+='</div>';}
   h+=shRenderStatsStrip(c);
   if (isDesktop) {
     h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+'</div>';
