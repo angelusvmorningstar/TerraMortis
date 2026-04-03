@@ -18,7 +18,8 @@ import { MAN_DB } from '../data/man-db-data.js';
 setDevotionsDB(DEVOTIONS_DB);
 
 /** Render a prereq warning showing only the terms the character actually fails. */
-function _prereqWarn(c, meritName) {
+function _prereqWarn(c, meritName, m) {
+  if (m && m.granted_by === 'Fucking Thief') return '';
   const entry = meritLookup(meritName);
   if (!entry || !entry.prereq || entry.prereq === '-') return '';
   if (meritQualifies(c, entry.prereq)) return '';
@@ -621,22 +622,22 @@ export function shRenderGeneralMerits(c,editMode) {
     const _mdbMerit=oM.find(m=>m.name==='The Mother-Daughter Bond');
     const _mdbChosenStyle=_mdbMerit&&_mdbMerit.qualifier;
     const _mdbMentorRating=(()=>{const mi=(c.merits||[]).findIndex(m=>m.category==='influence'&&m.name==='Mentor');if(mi<0)return 0;const mmc=(c.merit_creation||[])[mi]||{};return(mmc.cp||0)+(mmc.free||0)+(mmc.free_mci||0)+(mmc.xp||0);})();
-    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',isFT=m.name==='Fucking Thief',isKerberos=m.name==='Three Heads of Kerberos',isDC=m.name==='Defensive Combat',isMDB=m.name==='The Mother-Daughter Bond',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
-      if(m.granted_by){h+='<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(dd)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span></div>';h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_genMciPool>0});h+=_prereqWarn(c,m.name);}
+    oM.forEach((m,gi)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0),isAoE=m.name==='Area of Expertise',isIS=m.name==='Interdisciplinary Specialty',isFT=m.name==='Fucking Thief',isKerberos=m.name==='Three Heads of Kerberos',isDC=m.name==='Defensive Combat',isFF=m.name==='Fighting Finesse',isMDB=m.name==='The Mother-Daughter Bond',nSp=isAoE||isIS,cSp=Object.values(c.skills||{}).flatMap(sk=>sk.specs||[]);
+      if(m.granted_by){h+='<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">'+esc(m.name)+(m.qualifier?' ('+esc(m.qualifier)+')':'')+'</span><span class="infl-dots-derived">'+shDots(dd)+'</span><span class="gen-granted-tag" title="Granted by '+esc(m.granted_by)+'">'+esc(m.granted_by)+'</span></div>';h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_genMciPool>0});h+=_prereqWarn(c,m.name,m);}
       else{h+='<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit('+gi+',\'name\',this.value)">'+buildMeritOptions(c,m.name||'')+'</select>';
         if(isFT) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">'+buildFThiefOptions(m.qualifier||'')+'</select>';
-        else if(isDC) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 skill \u2014')+'</option>'+['Brawl','Weaponry'].map(s=>'<option'+(m.qualifier===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
+        else if(isDC||isFF) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 skill \u2014')+'</option>'+['Brawl','Weaponry'].map(s=>'<option'+(m.qualifier===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
         else if(isMDB) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 Cr\u00FAac Style \u2014')+'</option>'+_CRUAC_STYLES.map(s=>'<option'+(m.qualifier===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
         else if(isKerberos) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 Aspect \u2014')+'</option>'+_KERBEROS_ASPECTS.map(a=>'<option'+(m.qualifier===a?' selected':'')+'>'+a+'</option>').join('')+'</select>';
         else if(nSp&&cSp.length) h+='<select class="gen-qual-input" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)"><option value="">'+(m.qualifier||'\u2014 spec \u2014')+'</option>'+cSp.map(sp=>'<option'+(m.qualifier===sp?' selected':'')+'>'+esc(sp)+'</option>').join('')+'</select>';
         else h+='<input type="text" class="gen-qual-input" value="'+esc(m.qualifier||'')+'" placeholder="Qualifier" onchange="shEditGenMerit('+gi+',\'qualifier\',this.value)">';
         h+='<span class="infl-dots-derived">'+shDots(dd)+'</span><button class="dev-rm-btn" onclick="shRemoveGenMerit('+gi+')" title="Remove">&times;</button></div>';h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_genMciPool>0});
         if(_mdbChosenStyle&&m.name===_mdbChosenStyle&&_mdbMentorRating>0)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">MDB Bonus: +'+_mdbMentorRating+' dots (auto) \u2014 equals Mentor rating</div>';
-        h+=_prereqWarn(c,m.name);}});
+        h+=_prereqWarn(c,m.name,m);}});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddGenMerit()">+ Add Merit</button></div>';
   } else {
     oM.forEach((m,i)=>{const qual=m.qualifier?' ('+m.qualifier+')':'';
-      const pw=_prereqWarn(c,m.name);
+      const pw=_prereqWarn(c,m.name,m);
       const rIdx=c.merits.indexOf(m),mc2=(c.merit_creation&&c.merit_creation[rIdx])||{};
       const purch=(mc2.cp||0)+(mc2.xp||0),bon=(mc2.free||0)+(mc2.free_mci||0)+(mc2.free_vm||0);
       const dotH=shDotsMixed(purch,bon);
@@ -804,6 +805,13 @@ function _styleManoeuvres(styleName) {
  */
 function _qualifiesForManoeuvre(c, man, tc) {
   const rank = parseInt(man.rank) || 1;
+  // Regular-style manoeuvres: qualify via Fighting Merit dots
+  if (man.style === 'Regular') {
+    const fmDots = (c.fighting_styles || [])
+      .filter(fs => fs.type === 'merit' && fs.name === 'Fighting Merit')
+      .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0), 0);
+    return fmDots >= rank;
+  }
   const styleDots = (c.fighting_styles || [])
     .filter(fs => fs.type !== 'merit' && fs.name === man.style)
     .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0), 0);
@@ -833,10 +841,12 @@ function _availablePicks(c) {
   return results;
 }
 
-/** Get all unique style names from MAN_DB. */
+/** Get all unique style names from MAN_DB, excluding Regular (handled via Fighting Merit). */
 function _allStyles() {
   const s = new Set();
-  for (const entry of Object.values(MAN_DB)) s.add(entry.style);
+  for (const entry of Object.values(MAN_DB)) {
+    if (entry.style !== 'Regular') s.add(entry.style);
+  }
   return [...s].sort();
 }
 
@@ -909,35 +919,27 @@ export function shRenderManoeuvres(c, editMode) {
     // ── Fighting Merits ──────────────────────────────────────
     h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Fighting Merits</div>';
     h += '<div class="man-list">';
-    fMerits.forEach(fs => {
-      const si = styles.indexOf(fs);
-      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
-      const tags = STYLE_TAGS[fs.name] || [];
-      const fsUp = fs.up || 0;
-
-      h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">' + esc(fs.name) + '</span>';
-      if (tags.length) h += '<span style="font-size:9px;color:var(--txt3);margin-left:6px">' + tags.map(t => esc(t)).join(', ') + '</span>';
-      h += '</div><span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
-
+    const fmEntry = fMerits.find(fs => fs.name === 'Fighting Merit');
+    if (fmEntry) {
+      const si = styles.indexOf(fmEntry);
+      const dots = (fmEntry.cp || 0) + (fmEntry.free || 0) + (fmEntry.free_mci || 0) + (fmEntry.xp || 0);
+      const fsUp = fmEntry.up || 0;
+      h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">Fighting Merit</span></div>'
+        + '<span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
       h += '<div class="merit-bd-row">'
-        + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
-        + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
-        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
+        + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
+        + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
+        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
-        + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">unorthodox via tags</span>' : '')
+        + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
-
       h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove">&times; Remove</button>';
       h += '<div style="clear:both"></div></div>';
-    });
-
-    h += '<div class="dev-add-row"><select class="dev-add-btn" style="font-size:11px" onchange="if(this.value){shAddStyle(this.value,\'merit\');this.value=\'\'}">';
-    h += '<option value="">+ Add Fighting Merit\u2026</option>';
-    _allStyles().filter(s => !existingNames.has(s) && !NON_COMBAT_STYLES.has(s)).forEach(s => {
-      h += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
-    });
-    h += '</select></div></div>';
+    } else {
+      h += '<div class="dev-add-row"><button class="dev-add-btn" style="font-size:11px" onclick="shAddStyle(\'Fighting Merit\',\'merit\')">+ Add Fighting Merit</button></div>';
+    }
+    h += '</div>';
 
     // ── Picks editor ─────────────────────────────────────────
     const remaining = totalDots - totalPicks;

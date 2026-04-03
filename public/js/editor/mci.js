@@ -30,6 +30,18 @@ export function applyDerivedMerits(c) {
     delete mc.up;
   });
 
+  // Migrate Fucking Thief stolen merits: backfill granted_by if missing
+  const ftMerit = (c.merits || []).find(m => m.name === 'Fucking Thief' && m.category === 'general');
+  if (ftMerit && ftMerit.qualifier) {
+    const stolenIdx = (c.merits || []).findIndex(m => m.name === ftMerit.qualifier && m.category === 'general' && !m.granted_by);
+    if (stolenIdx >= 0) c.merits[stolenIdx].granted_by = 'Fucking Thief';
+  }
+
+  // Migrate legacy 'Regular' fighting style → 'Fighting Merit' (type: merit)
+  (c.fighting_styles || []).forEach(fs => {
+    if (fs.name === 'Regular') { fs.name = 'Fighting Merit'; fs.type = 'merit'; }
+  });
+
   // Migrate Mandragora Garden from general → domain if miscategorised
   (c.merits || []).forEach(m => {
     if (m.name === 'Mandragora Garden' && m.category !== 'domain') m.category = 'domain';

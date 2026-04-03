@@ -100,25 +100,20 @@ export function shEditGenMerit(idx, field, val) {
     const prevQualifier = m.qualifier;
     if (val) m.qualifier = val; else delete m.qualifier;
     if (m.name === 'Fucking Thief') {
-      // Remove free dot from previously stolen merit
+      // Remove previously stolen merit (identified by granted_by)
       if (prevQualifier && prevQualifier !== val) {
-        const oldIdx = (c.merits || []).findIndex(x => x.name === prevQualifier && x.category === 'general');
-        if (oldIdx >= 0) {
-          const oldMc = (c.merit_creation || [])[oldIdx] || {};
-          oldMc.free = Math.max(0, (oldMc.free || 0) - 1);
-          const remaining = (oldMc.cp||0)+(oldMc.xp||0)+(oldMc.free||0)+(oldMc.free_mci||0)+(oldMc.free_vm||0)+(oldMc.free_lk||0);
-          if (remaining === 0) removeMerit(c, oldIdx);
-        }
+        const oldIdx = (c.merits || []).findIndex(x => x.name === prevQualifier && x.category === 'general' && x.granted_by === 'Fucking Thief');
+        if (oldIdx >= 0) removeMerit(c, oldIdx);
       }
-      // Add 1 free dot to newly stolen merit
+      // Add newly stolen merit with granted_by marker
       if (val) {
-        let newIdx = (c.merits || []).findIndex(x => x.name === val && x.category === 'general');
+        let newIdx = (c.merits || []).findIndex(x => x.name === val && x.category === 'general' && x.granted_by === 'Fucking Thief');
         if (newIdx < 0) {
-          addMerit(c, { category: 'general', name: val, rating: 0 });
+          addMerit(c, { category: 'general', name: val, rating: 0, granted_by: 'Fucking Thief' });
           newIdx = c.merits.length - 1;
         }
         if (!c.merit_creation[newIdx]) c.merit_creation[newIdx] = {};
-        c.merit_creation[newIdx].free = (c.merit_creation[newIdx].free || 0) + 1;
+        c.merit_creation[newIdx].free = 1;
       }
     }
   }
