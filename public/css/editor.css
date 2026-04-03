@@ -390,6 +390,13 @@
 .disc-power-effect{font-family:var(--fb);font-size:11px;color:var(--txt2);line-height:1.55;}
 .disc-sub-head{font-family:var(--fh);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);padding:7px 12px 3px;}
 
+/* ── Rite badges ── */
+.rite-free-badge,.rite-xp-badge{font-family:var(--fh);font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid;border-radius:3px;padding:1px 5px;cursor:pointer;transition:background .15s,color .15s;}
+.rite-free-badge{background:rgba(var(--gold-rgb,224,196,122),.15);color:var(--gold);border-color:var(--gold);}
+.rite-free-badge:hover{background:rgba(var(--gold-rgb,224,196,122),.3);}
+.rite-xp-badge{background:rgba(139,0,0,.15);color:var(--crim);border-color:var(--crim);}
+.rite-xp-badge:hover{background:rgba(139,0,0,.3);}
+
 /* ── Merits ── */
 .merit-list{display:flex;flex-direction:column;gap:3px;}
 .merit-name-sh{font-family:var(--fh);font-size:11px;color:var(--txt2);letter-spacing:.02em;}

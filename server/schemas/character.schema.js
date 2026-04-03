@@ -348,7 +348,8 @@ export const characterSchema = {
         stats:     { type: 'string' },
         pool_size: { type: ['integer', 'null'] },
         effect:    { type: 'string' },
-        tradition: { type: 'string' }
+        tradition: { type: 'string' },
+        free:      { type: 'boolean' }
       },
       additionalProperties: false
     },
