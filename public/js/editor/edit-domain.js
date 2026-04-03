@@ -59,6 +59,14 @@ export function shRemoveInflMerit(idx) {
   _renderSheet(c);
 }
 
+export function shAddLKMerit(type) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  addMerit(c, { category: 'domain', name: type || 'Herd', rating: 0, granted_by: 'Lorekeeper' });
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shAddVMAllies() {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];

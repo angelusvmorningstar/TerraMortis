@@ -1,8 +1,1168 @@
 export const CHARS_DATA = [
   {
-    "name": "Jade Moreno",
-    "player": "Test Player E",
-    "concept": "Swamp Royalty",
+    "name": "Alice Vunder",
+    "honorific": null,
+    "moniker": null,
+    "player": "Katherine H",
+    "concept": "Curious archivist",
+    "pronouns": "she/her",
+    "clan": "Mekhet",
+    "bloodline": null,
+    "covenant": "Circle of the Crone",
+    "mask": "Follower",
+    "dirge": "Scholar",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Follow a directive blindly, for the sake of following.",
+      "mask_all": "Follow a dangerous directive without hesitation.",
+      "dirge_1wp": "Uncover a lost piece of information.",
+      "dirge_all": "Uncover forbidden knowledge."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 21,
+    "xp_spent": 23,
+    "status": {
+      "city": 2,
+      "clan": 1,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Research"
+        ],
+        "nine_again": false
+      },
+      "Computer": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Hacking"
+        ],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Motives"
+        ],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 1,
+      "Celerity": 1,
+      "Obfuscate": 3,
+      "Cruac": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 8  •  Instant  •  Scene",
+        "pool_size": 8,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 3,
+        "name": "Cloak of Night",
+        "stats": "Cost: 1 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Transportation"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Underworld"
+      },
+      {
+        "category": "general",
+        "name": "Library",
+        "rating": 2,
+        "qualifier": "Occult"
+      },
+      {
+        "category": "general",
+        "name": "Viral Mythology",
+        "rating": 3
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Archive",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Hobbyist Clique",
+            "rating": 1
+          },
+          {
+            "category": "domain",
+            "name": "Safe Place",
+            "rating": 1
+          },
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 2
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Health"
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Politics"
+          }
+        ]
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 3,
+        "spheres": [
+          "Street",
+          "Occult",
+          "Industry"
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Hobbyist Clique",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Health"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Politics"
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Sister",
+        "desc": "unnamed"
+      },
+      {
+        "humanity": 5,
+        "name": "One parent",
+        "desc": "unnamed"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      },
+      {
+        "name": "Rat King/Queen",
+        "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1,
+        "up": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 1,
+        "up": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 3,
+        "powers": 9,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "regent_territory": "The North Shore",
+    "regent_lieutenant": "Keeper",
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
+  },
+  {
+    "name": "Anichka",
+    "honorific": null,
+    "moniker": null,
+    "player": "Katie H",
+    "concept": "Feral Oracular Darling",
+    "pronouns": "she/her",
+    "clan": "Mekhet",
+    "bloodline": null,
+    "covenant": "Circle of the Crone",
+    "mask": "Questioner",
+    "dirge": "Scholar",
+    "court_title": null,
+    "apparent_age": "early 20s",
+    "features": "smells like animals",
+    "willpower": {
+      "mask_1wp": "Challenge an accepted truth.",
+      "mask_all": "Put a long-believed truth to the test, at your own peril.",
+      "dirge_1wp": "Uncover a lost piece of information.",
+      "dirge_all": "Uncover forbidden knowledge."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 18,
+    "xp_spent": 26,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 4
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Occult": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "prophecy & omens",
+          "dreams"
+        ],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Survival": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Living off the land"
+        ],
+        "nine_again": false
+      },
+      "Animal Ken": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 2,
+      "Obfuscate": 1,
+      "Protean": 1,
+      "Cruac": 3
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "The Pool of Forbidden Truths",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 10  •  Ritual  •  Instant",
+        "pool_size": 10,
+        "effect": "Blood pool reveals subject's greatest fear or deepest desire",
+        "free": true
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 3,
+        "area": "family"
+      },
+      {
+        "category": "general",
+        "name": "Dream Visions",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Language",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Language",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Tolerance for Biology",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "What You've Done For Her Lately",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Kateryna",
+        "desc": "grand-niece"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 0,
+        "free": 0,
+        "xp": 4
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 8
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 2,
+        "powers": 15,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
+  },
+  {
+    "name": "Brandy LaRoux",
+    "honorific": null,
+    "moniker": null,
+    "player": "Ashley K",
+    "concept": "Trailer Royalty",
     "pronouns": "she/her",
     "clan": "Gangrel",
     "bloodline": null,
@@ -14,7 +1174,7 @@ export const CHARS_DATA = [
     "features": null,
     "willpower": {
       "mask_1wp": "Revisit an already successful action to hammer out a flaw.",
-      "mask_all": "Stick with a failed and dangerous plan in order to fix what went wrong.",
+      "mask_all": "Stick with a failed and dangerous plan, in order to fix what went wrong.",
       "dirge_1wp": "Cause pain for the sole intention of causing pain.",
       "dirge_all": "Commit a capital crime without additional motive."
     },
@@ -22,7 +1182,7 @@ export const CHARS_DATA = [
     "blood_potency": 1,
     "humanity": 5,
     "xp_total": 26,
-    "xp_spent": 25,
+    "xp_spent": 45,
     "status": {
       "city": 4,
       "clan": 2,
@@ -148,10 +1308,7 @@ export const CHARS_DATA = [
     "disciplines": {
       "Majesty": 1,
       "Protean": 3,
-      "Cruac": 1,
-      "Creation": 1,
-      "Destruction": 1,
-      "Protection": 1
+      "Cruac": 1
     },
     "powers": [
       {
@@ -197,7 +1354,8 @@ export const CHARS_DATA = [
         "name": "Mantle of Amorous Fire",
         "stats": "Cost: 1 V 1 Successes  •  Pool: 6  •  Ritual  •  Scene",
         "pool_size": 6,
-        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night."
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night.",
+        "free": true
       }
     ],
     "merits": [
@@ -220,31 +1378,10 @@ export const CHARS_DATA = [
         "area": "Police"
       },
       {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 3,
-        "area": "Underworld"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 5
-      },
-      {
         "category": "general",
         "name": "Defensive Combat",
         "rating": 1,
         "qualifier": "Brawl"
-      },
-      {
-        "category": "general",
-        "name": "Indomitable",
-        "rating": 2
-      },
-      {
-        "category": "general",
-        "name": "Inspiring",
-        "rating": 3
       },
       {
         "category": "general",
@@ -258,43 +1395,20 @@ export const CHARS_DATA = [
       },
       {
         "category": "general",
-        "name": "Table Turner",
-        "rating": 1
-      },
-      {
-        "category": "general",
         "name": "Viral Mythology",
         "rating": 3
       },
       {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 1,
-        "rank_name": "Ravage"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 2,
-        "rank_name": "Primal Strength"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 3,
-        "rank_name": "In the Zone"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Riding the Wave",
-        "rating": 4,
-        "rank_name": "Unyielding"
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
       },
       {
         "category": "standing",
         "name": "Mystery Cult Initiation",
         "rating": 5,
-        "cult_name": "The Verdant Circle",
+        "cult_name": "Ducen Ducibus",
         "benefits": [
           "",
           "",
@@ -306,43 +1420,69 @@ export const CHARS_DATA = [
         "benefit_grants": [
           {
             "category": "general",
-            "name": "Meditative Mind",
+            "name": "Table Turner",
+            "rating": 1
+          },
+          {
+            "category": "influence",
+            "name": "Resources",
             "rating": 1
           },
           {
             "category": "general",
-            "name": "Patient",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Allies",
-            "rating": 3,
-            "qualifier": "Herbalists"
-          },
-          {
-            "category": "general",
-            "name": "Safeguards",
+            "name": "Indomitable",
             "rating": 2
           },
           {
             "category": "general",
-            "name": "Eidetic Memory",
-            "rating": 1
+            "name": "Inspiring",
+            "rating": 3
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Underworld"
           }
         ]
+      },
+      {
+        "category": "general",
+        "name": "Table Turner",
+        "rating": 2
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Inspiring",
+        "rating": 3
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Underworld"
       }
     ],
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Rex Calloway",
+        "name": "Tod Graves",
         "desc": "husband"
       },
       {
         "humanity": 5,
-        "name": "Copper",
-        "desc": "pit viper"
+        "name": "Good Luck Molly",
+        "desc": "alligator"
       }
     ],
     "banes": [
@@ -351,54 +1491,6 @@ export const CHARS_DATA = [
         "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
       }
     ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 4,
-        "ordeals": 9,
-        "game": 3,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 4,
-        "skills": 0,
-        "merits": 14,
-        "powers": 7,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Rules",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Lore",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Tertiary",
-      "Physical": "Secondary",
-      "Social": "Primary"
-    },
-    "clan_attribute": "Stamina",
     "attr_creation": {
       "Intelligence": {
         "cp": 1,
@@ -445,11 +1537,6 @@ export const CHARS_DATA = [
         "free": 1,
         "xp": 0
       }
-    },
-    "skill_priorities": {
-      "Mental": "Tertiary",
-      "Physical": "Secondary",
-      "Social": "Primary"
     },
     "skill_creation": {
       "Academics": {
@@ -574,15 +1661,15 @@ export const CHARS_DATA = [
       }
     },
     "disc_creation": {
-      "Protean": {
-        "cp": 2,
-        "free": 0,
-        "xp": 3
-      },
       "Majesty": {
         "cp": 0,
         "free": 0,
         "xp": 4
+      },
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
       },
       "Cruac": {
         "cp": 1,
@@ -598,8 +1685,642 @@ export const CHARS_DATA = [
       },
       {
         "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 4,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 1
+      },
+      {
+        "cp": 0,
         "free": 3,
         "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 4,
+        "skills": 0,
+        "merits": 13,
+        "powers": 7,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Riding the Wave",
+        "cp": 0,
+        "free": 0,
+        "xp": 3,
+        "up": 5
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Ravage"
+      },
+      {
+        "manoeuvre": "Primal Strength"
+      },
+      {
+        "manoeuvre": "In the Zone"
+      },
+      {
+        "manoeuvre": "Unyielding"
+      }
+    ]
+  },
+  {
+    "name": "Carver",
+    "honorific": null,
+    "moniker": null,
+    "player": "Archer",
+    "concept": "Lance Lore Nerd",
+    "pronouns": "he/him",
+    "clan": "Ventrue",
+    "bloodline": "Lasombra",
+    "covenant": "Lancea et Sanctum",
+    "mask": "Scholar",
+    "dirge": "Authoritarian",
+    "court_title": null,
+    "apparent_age": "mid 40s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Uncover a lost piece of information.",
+      "mask_all": "Uncover forbidden knowledge.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
+      "dirge_all": "Commit a widespread hit against a rival's mortal connections."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 6,
+    "xp_total": 30,
+    "xp_spent": 48,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 2
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "law"
+        ],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "artefacts"
+        ],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "motives"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Nightmare": 4,
+      "Resilience": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 1,
+        "name": "Dread Presence",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 2,
+        "name": "Face of the Beast",
+        "stats": "Cost: 1 V  •  Pool: 10  v Composure + BP  •  Contested  •  Instant",
+        "pool_size": 10,
+        "effect": "Impose Frightened Condition. Cause fleeing."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 3,
+        "name": "Grand Delusion",
+        "stats": "Cost: 2 V  •  Pool: 9  v Composure + BP  •  Contested  •  1 night",
+        "pool_size": 9,
+        "effect": "Impose Delusional Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 4,
+        "name": "Waking Nightmare",
+        "stats": "Cost: 1 V  •  Pool: 10  v highest Composure + BP  •  Contested  •  Scene",
+        "pool_size": 10,
+        "effect": "Create and control hallucinations."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 2,
+        "name": "Resilience 2",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      },
+      {
+        "category": "devotion",
+        "name": "Skim the Void",
+        "stats": "Cost: 1 V (Lasombra Only)  •  Pool: 6  •  Instant  •  Instant",
+        "pool_size": 6,
+        "effect": "Step into any visible shadow and out of another instantly. Can carry objects but not people or animals. Torpid Kindred do not count as objects."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 3
+      },
+      {
+        "category": "domain",
+        "name": "Retainer",
+        "rating": 3,
+        "area": "Nicole - EA"
+      },
+      {
+        "category": "general",
+        "name": "Acute Senses",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Eidetic Memory",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Esoteric Armoury",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Library",
+        "rating": 3,
+        "qualifier": "Academic"
+      },
+      {
+        "category": "general",
+        "name": "Library",
+        "rating": 3,
+        "qualifier": "Occult"
+      },
+      {
+        "category": "general",
+        "name": "Lorekeeper",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "shared_with": [
+          "Hazel",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Hazel",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 3
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 5,
+        "spheres": [
+          "Occult",
+          "University",
+          "Bureaucracy",
+          "Church",
+          "Legal"
+        ]
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 7,
+        "name": "James",
+        "desc": "Crowley descendant"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Aloof Curse",
+        "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Nightmare": {
+        "cp": 1,
+        "free": 0,
+        "xp": 9
+      },
+      "Resilience": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 5,
+        "free_lk": 3
       },
       {
         "cp": 0,
@@ -607,19 +2328,1206 @@ export const CHARS_DATA = [
         "xp": 3
       },
       {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {},
+      {
+        "free_lk": 3,
+        "cp": 0,
+        "free": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 17,
+        "powers": 11,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
+  },
+  {
+    "name": "Casamir",
+    "honorific": null,
+    "moniker": "Cazz",
+    "player": "Brae C",
+    "concept": "The Mad Dog",
+    "pronouns": "he/they",
+    "clan": "Ventrue",
+    "bloodline": "Malkovians",
+    "covenant": "Carthian Movement",
+    "mask": "Scholar",
+    "dirge": "Jester",
+    "court_title": null,
+    "apparent_age": "mid 30s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Uncover a lost piece of information.",
+      "mask_all": "Uncover forbidden knowledge.",
+      "dirge_1wp": "Point out an absurdity in the current state of affairs, to lighten the tone.",
+      "dirge_all": "Favour wit and cunning over direct self-defence in a situation of serious danger."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 6,
+    "xp_total": 18,
+    "xp_spent": 30,
+    "status": {
+      "city": 1,
+      "clan": 1,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 3,
+        "bonus": 1
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Crafts": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "ley lines"
+        ],
+        "nine_again": false
+      },
+      "Science": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "endurance"
+        ],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "archery"
+        ],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Survival": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 1,
+      "Celerity": 1,
+      "Obfuscate": 1,
+      "Resilience": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 1,
+        "name": "Resilience 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      }
+    ],
+    "merits": [
+      {
+        "category": "general",
+        "name": "Quick Draw",
+        "rating": 1,
+        "qualifier": "Bow"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 7,
+        "name": "University testamur",
+        "desc": "Simulacrum"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Aloof Curse",
+        "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 8,
+        "skills": 0,
+        "merits": 3,
+        "powers": 3,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Combat Archery",
+        "cp": 1,
+        "free": 0,
+        "xp": 2,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Rapid Nock"
+      },
+      {
+        "manoeuvre": "Reflex Aiming"
+      },
+      {
+        "manoeuvre": "Parthian Shot"
+      },
+      {
+        "manoeuvre": "Rain of Arrows"
+      },
+      {
+        "manoeuvre": "Trick Shot"
+      }
+    ]
+  },
+  {
+    "name": "Charles Mercer-Willows",
+    "honorific": null,
+    "moniker": null,
+    "player": "Leo T",
+    "concept": "Cult Leader",
+    "pronouns": "he/him",
+    "clan": "Ventrue",
+    "bloodline": "Gorgons",
+    "covenant": "Circle of the Crone",
+    "mask": "Nurturer",
+    "dirge": "Cult Leader",
+    "court_title": null,
+    "apparent_age": "mid 30s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Put yourself out to help another succeed.",
+      "mask_all": "Take full responsibility for another's dangerous mistake.",
+      "dirge_1wp": "Convince someone to deny logic because of your word.",
+      "dirge_all": "Risk exile or death to defend your cult's belief system."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 5,
+    "xp_total": 20,
+    "xp_spent": 29,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Crafts": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "sculpting"
+        ],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Judeo-Christian Lore"
+        ],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "rifles"
+        ],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Animal Ken": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "oratory"
+        ],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Animalism": 1,
+      "Dominate": 2,
+      "Protean": 2,
+      "Cruac": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Animalism",
+        "rank": 1,
+        "name": "Feral Whispers",
+        "stats": "Cost: -  •  Pool: 5  •  Instant  •  Scene (may persist)",
+        "pool_size": 5,
+        "effect": "Speak with and command animals."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 8  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 8,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 2,
+        "name": "Iron Edict",
+        "stats": "Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  •  Pool: -  •  Instant  •  Instant",
+        "pool_size": null,
+        "effect": "Impose Dominated Condition. Give long, detailed commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 2,
+        "name": "Predatory Aspect",
+        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Take on animal traits."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Fires of Inspiration",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 8  •  Ritual  •  1 night",
+        "pool_size": 8,
+        "effect": "Gain dots in Cruac to Craft or Expression to create a specific work of art, but penalises all other such actions outside that.",
+        "free": true
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 2,
+        "name": "Wisdom of the Soul",
+        "stats": "Cost: 1 V 2 Successes  •  Pool: 8  •  Ritual  •  Instant",
+        "pool_size": 8,
+        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie",
+        "free": true
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Legal"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Underworld"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Viral Mythology",
+        "rating": 3
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "<NAME REQUIRED>",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Closed Book",
+            "rating": 1
+          },
+          null,
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 2,
+            "qualifier": "Occult"
+          },
+          {
+            "category": "general",
+            "name": "Inspiring",
+            "rating": 3
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Media"
+          }
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 1
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 2,
+        "area": "Occult"
+      },
+      {
+        "category": "general",
+        "name": "Inspiring",
+        "rating": 3
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Media"
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 7,
+        "name": "Ezekiel",
+        "desc": "Son"
+      },
+      {
+        "humanity": 6,
+        "name": "Unnamed congregant"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Aloof Curse",
+        "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Animalism": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Dominate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
         "cp": 0,
         "free": 3,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 3,
-        "xp": 2
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
-        "free": 0,
-        "xp": 1
+        "free": 1,
+        "xp": 0
       },
       {
         "cp": 0,
@@ -633,11 +3541,742 @@ export const CHARS_DATA = [
       },
       {
         "cp": 0,
-        "free": 0,
-        "xp": 2
+        "free": 3,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 2,
+        "powers": 15,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
       },
       {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
+  },
+  {
+    "name": "Charlie Ballsack",
+    "honorific": "Lord",
+    "moniker": null,
+    "player": "Kurtis W",
+    "concept": "Putrescent Invictus secret police",
+    "pronouns": "it/it",
+    "clan": "Nosferatu",
+    "bloodline": "Order of Sir Martin",
+    "covenant": "Invictus",
+    "mask": "Conformist",
+    "dirge": "Rebel",
+    "court_title": null,
+    "apparent_age": "indeterminate",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Choose an obviously disadvantageous path, because it fits with protocol.",
+      "mask_all": "Stand by the losing side with shield at the ready, because it's your side.",
+      "dirge_1wp": "Openly flout a tradition.",
+      "dirge_all": "Openly flout a Kindred Tradition, or a covenant taboo."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 4,
+    "xp_total": 34,
+    "xp_spent": 62,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Crafts": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Smithing"
+        ],
+        "nine_again": true
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Coward Punch"
+        ],
+        "nine_again": true
+      },
+      "Weaponry": {
+        "dots": 4,
+        "bonus": 1,
+        "specs": [
+          "Lgt Weapons +2",
+          "Weapon & Shield +2"
+        ],
+        "nine_again": true
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": true
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Interrogation"
+        ],
+        "nine_again": true
+      },
+      "Socialise": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Celerity": 1,
+      "Nightmare": 1,
+      "Obfuscate": 5
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 1,
+        "name": "Dread Presence",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 10  •  Instant  •  Scene",
+        "pool_size": 10,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 3,
+        "name": "Cloak of Night",
+        "stats": "Cost: 1 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 4,
+        "name": "The Familiar Stranger",
+        "stats": "Cost: 2 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 5,
+        "name": "Oubliette",
+        "stats": "Cost: Free (Haven) / 3-9 V & 1 WP  •  Pool: -  •  Instant  •  1 week per BP",
+        "pool_size": null,
+        "effect": "Always active on Haven/Safe Place at no cost. Further uses at standard cost. Use Obfuscate at distance on anything in area."
+      },
+      {
+        "category": "devotion",
+        "name": "Repulsive Mien",
+        "stats": "Cost: 1 V (Order of Sir Martin Only); only affects other Leper Knights with concrete reasons for mistrust  •  Pool: -  •  Reflexive  •  Scene",
+        "pool_size": null,
+        "effect": "As Dread Presence but -3 to all actions against the Knight. Targets cannot spend WP to enhance actions against Knight. Victims can lash out with Beast to end the effect. Reflexive brief illusions affecting Knight's person (narrative only)."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of Fealty",
+        "rank": 1,
+        "effect": "Draw Invictus Status in Vitae weekly from liege without feeding. Liege knows when you lie."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the Hard Motherfucker",
+        "rank": 2,
+        "effect": "Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the Safe Word",
+        "rank": 2,
+        "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the True Knight",
+        "rank": 4,
+        "effect": "Impartial covenant defender. Can't consume Vitae from any source; can't be woken from torpor by blood. Invictus Status protects from mental Disciplines and Kindred/ghoul attacks."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 1,
+        "area": "Police",
+        "granted_by": "OotHM"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 5,
+        "granted_by": "1 OotHM/3 Invested"
+      },
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 1,
+        "qualifier": "Light Weapons"
+      },
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 1,
+        "qualifier": "Weapon & Shield"
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 3,
+        "granted_by": "Safe Word"
+      },
+      {
+        "category": "general",
+        "name": "Friends in High Places",
+        "rating": 1,
+        "granted_by": "Oath of HM"
+      },
+      {
+        "category": "general",
+        "name": "Interdisciplinary Specialty",
+        "rating": 1,
+        "qualifier": "Coward Punch",
+        "granted_by": "MCI L4 1/3"
+      },
+      {
+        "category": "general",
+        "name": "Invested",
+        "rating": 1,
+        "granted_by": "Prof Train: Skill Rebate"
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Ivana Horvat",
+          "Keeper"
+        ],
+        "granted_by": "Invested"
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Ashen Path",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Defensive Combat",
+            "rating": 1,
+            "qualifier": "Weaponry"
+          },
+          {
+            "category": "domain",
+            "name": "Safe Place",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Indomitable",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Area of Expertise",
+            "rating": 3,
+            "qualifier": "Coward Punch"
+          },
+          {
+            "category": "manoeuvre",
+            "name": "Stronger Than You",
+            "rating": 3,
+            "rank_name": "Stronger Than You"
+          }
+        ]
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 3,
+        "spheres": [
+          "Street",
+          "Underworld",
+          "Police"
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Defensive Combat",
+        "rating": 1,
+        "area": "Weaponry"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 3,
+        "area": "Coward Punch"
+      },
+      {
+        "category": "general",
+        "name": "Stronger Than You",
+        "rating": 0
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Priya",
+        "desc": "saved assailant"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Lonely Curse",
+        "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      },
+      {
+        "name": "Rat King/Queen",
+        "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
         "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Nightmare": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 4,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
         "free": 0,
         "xp": 0
       },
@@ -647,41 +4286,140 @@ export const CHARS_DATA = [
         "xp": 0
       },
       {
-        "cp": 3,
-        "free": 0,
+        "cp": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 5,
-        "free": 0,
+        "free": 2,
         "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 4,
+        "skills": 0,
+        "merits": 16,
+        "powers": 14,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Strength",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Courtoisie",
+        "cp": 0,
+        "free": 0,
+        "xp": 1,
+        "up": 0
+      },
+      {
+        "type": "style",
+        "name": "Light Weapons",
+        "cp": 0,
+        "free": 2,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "type": "style",
+        "name": "Strength Performance",
+        "cp": 0,
+        "free": 4,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "type": "style",
+        "name": "Weapon and Shield",
+        "cp": 0,
+        "free": 2,
+        "xp": 0,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Establish the Duel"
+      },
+      {
+        "manoeuvre": "Demanding Attention"
+      },
+      {
+        "manoeuvre": "Thrust"
+      },
+      {
+        "manoeuvre": "Flurry"
+      },
+      {
+        "manoeuvre": "Strength Tricks"
+      },
+      {
+        "manoeuvre": "Lifting"
+      },
+      {
+        "manoeuvre": "Push/Pull"
+      },
+      {
+        "manoeuvre": "Stronger Than You"
+      },
+      {
+        "manoeuvre": "Shield Bash"
+      },
+      {
+        "manoeuvre": "Pin Weapon"
       }
     ]
   },
   {
-    "name": "Marcus Webb",
-    "player": "Test Player D",
-    "concept": "Occult investigator",
+    "name": "Conrad Sondergaard",
+    "honorific": null,
+    "moniker": null,
+    "player": "Arnold W",
+    "concept": "Occult gentleman detective",
     "pronouns": "he/him",
     "clan": "Mekhet",
     "bloodline": null,
@@ -700,7 +4438,7 @@ export const CHARS_DATA = [
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 7,
-    "xp_total": 40,
+    "xp_total": 25,
     "xp_spent": 40,
     "status": {
       "city": 2,
@@ -807,10 +4545,7 @@ export const CHARS_DATA = [
     "disciplines": {
       "Auspex": 5,
       "Obfuscate": 1,
-      "Theban": 4,
-      "Divination": 1,
-      "Protection": 4,
-      "Transmutation": 1
+      "Theban": 4
     },
     "powers": [
       {
@@ -870,22 +4605,13 @@ export const CHARS_DATA = [
     ],
     "merits": [
       {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Police",
-        "granted_by": "Professional Training"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Underworld",
-        "granted_by": "Professional Training"
-      },
-      {
         "category": "general",
         "name": "Acute Senses",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
         "rating": 1
       },
       {
@@ -893,23 +4619,33 @@ export const CHARS_DATA = [
         "name": "Professional Training",
         "rating": 4,
         "role": "Private Investigator",
-        "asset_skills": [
-          "Investigation",
-          "Stealth",
-          "Empathy"
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 2,
+            "qualifier": "Police, Underworld"
+          },
+          null,
+          null,
+          null,
+          null
         ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 1,
-        "granted_by": "Lorekeeper"
       }
     ],
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Sophie",
+        "name": "Elise",
         "desc": "Granddaughter"
       }
     ],
@@ -919,54 +4655,6 @@ export const CHARS_DATA = [
         "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
       }
     ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 0,
-        "ordeals": 12,
-        "game": 3,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 0,
-        "skills": 0,
-        "merits": 1,
-        "powers": 24,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Rules",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Lore",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Primary",
-      "Physical": "Tertiary",
-      "Social": "Secondary"
-    },
-    "clan_attribute": "Intelligence",
     "attr_creation": {
       "Intelligence": {
         "cp": 2,
@@ -1013,11 +4701,6 @@ export const CHARS_DATA = [
         "free": 1,
         "xp": 0
       }
-    },
-    "skill_priorities": {
-      "Mental": "Primary",
-      "Physical": "Tertiary",
-      "Social": "Secondary"
     },
     "skill_creation": {
       "Academics": {
@@ -1162,20 +4845,555 @@ export const CHARS_DATA = [
       {
         "cp": 0,
         "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
+        "xp": 0,
+        "up": 2
       },
       {
         "cp": 0,
         "free": 0,
         "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 1,
+        "powers": 24,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
       },
       {
-        "cp": 4,
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
+  },
+  {
+    "name": "Cyrus Reynolds",
+    "honorific": null,
+    "moniker": null,
+    "player": "Bill C",
+    "concept": "Globetrotting DJ",
+    "pronouns": "he/him",
+    "clan": "Daeva",
+    "bloodline": null,
+    "covenant": "Circle of the Crone",
+    "mask": "Courtesan",
+    "dirge": "Social Chameleon",
+    "court_title": null,
+    "apparent_age": "mid 30s",
+    "features": "Fame",
+    "willpower": {
+      "mask_1wp": "Put yourself out for another's pleasure.",
+      "mask_all": "Be the last one dancing when the party's on fire.",
+      "dirge_1wp": "Ingratiate yourself to a new social clique.",
+      "dirge_all": "Burn an important bridge to guarantee acceptance in a new group."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 18,
+    "xp_spent": 16,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Celerity": 1,
+      "Majesty": 2,
+      "Cruac": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 1,
+        "name": "Awe",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Become centre of attention. Subjects become Awed."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 2,
+        "name": "Confidant",
+        "stats": "Cost: - (req: Awed)   •  Pool: 8  v Resolve + BP  •  Contested",
+        "pool_size": 8,
+        "effect": "Impose Charmed Condition."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Taste of Knowledge",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 5  •  Ritual  •  1 night",
+        "pool_size": 5,
+        "effect": "Absorb one Skill at rating 1 (or +1) from vessel's blood",
+        "free": true
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 2,
+        "area": "Street"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 1
+      },
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 1,
+        "area": "Melody"
+      },
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 1,
+        "area": "Rhythm"
+      },
+      {
+        "category": "general",
+        "name": "Casual User",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Fame",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Language",
+        "rating": 1,
+        "qualifier": "German"
+      },
+      {
+        "category": "general",
+        "name": "Language",
+        "rating": 1,
+        "qualifier": "Spanish"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 2,
+        "spheres": []
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "One living parent",
+        "desc": "unnamed"
+      },
+      {
+        "humanity": 5,
+        "name": "Unnamed venue regular"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Wanton Curse",
+        "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
+      },
+      {
+        "name": "Rat King/Queen",
+        "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
         "free": 0,
         "xp": 0
       },
@@ -1184,12 +5402,1733 @@ export const CHARS_DATA = [
         "free": 0,
         "xp": 0
       }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 5,
+        "powers": 3,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Dexterity",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
+  },
+  {
+    "name": "Edna Judge",
+    "honorific": null,
+    "moniker": null,
+    "player": "Arlo V",
+    "concept": "Mother Heretic",
+    "pronouns": "she/her",
+    "clan": "Nosferatu",
+    "bloodline": null,
+    "covenant": "Lancea et Sanctum",
+    "mask": "Visionary",
+    "dirge": "Authoritarian",
+    "court_title": "Primogen",
+    "apparent_age": "late 50s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Help someone by sharing your vision with them.",
+      "mask_all": "Put yourself at risk to show a group the power of your vision.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
+      "dirge_all": "Commit a widespread hit against a rival's mortal connections."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 4,
+    "xp_total": 25,
+    "xp_spent": 35,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 4
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 4,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Religion"
+        ],
+        "nine_again": false
+      },
+      "Crafts": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Concealment"
+        ],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Prosetylisation"
+        ],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Nightmare": 2,
+      "Obfuscate": 2,
+      "Theban": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 1,
+        "name": "Dread Presence",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 2,
+        "name": "Face of the Beast",
+        "stats": "Cost: 1 V  •  Pool: 7  v Composure + BP  •  Contested  •  Instant",
+        "pool_size": 7,
+        "effect": "Impose Frightened Condition. Cause fleeing."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 7  •  Instant  •  Scene",
+        "pool_size": 7,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 1,
+        "area": "ghoul"
+      },
+      {
+        "category": "general",
+        "name": "Flock",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Stigmata",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 3
+      }
+    ],
+    "touchstones": [],
+    "banes": [
+      {
+        "name": "Lonely Curse",
+        "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Nightmare": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 6
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 6,
+        "merits": 0,
+        "powers": 8,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
+  },
+  {
+    "name": "Einar Solveig",
+    "honorific": null,
+    "moniker": null,
+    "player": "Nathan H",
+    "concept": "Techno Viking",
+    "pronouns": "he/him",
+    "clan": "Ventrue",
+    "bloodline": "Rotgrafen",
+    "covenant": "Carthian Movement",
+    "mask": "Junkie",
+    "dirge": "Competitor",
+    "court_title": null,
+    "apparent_age": "late 30s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Ignore a problem or responsibility in favour of immediate gratification.",
+      "mask_all": "Abandon an important relationship over your pursuit of pleasure.",
+      "dirge_1wp": "Challenge someone clearly your superior.",
+      "dirge_all": "Risk Final Death to prove that you can handle something."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 5,
+    "xp_total": 32,
+    "xp_spent": 53,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 2
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 1
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Crafts": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "Carpentry"
+        ],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "Claws (+2)"
+        ],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Direct Threats"
+        ],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Dominate": 1,
+      "Protean": 4,
+      "Resilience": 1,
+      "Vigour": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 7  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 7,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 2,
+        "name": "Predatory Aspect",
+        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Take on animal traits."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 3,
+        "name": "Beast's Skin",
+        "stats": "Cost: 2 V  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Transform into predatory animal."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 4,
+        "name": "Unnatural Aspect",
+        "stats": "Cost: 1 V  •  Pool: -  •  None  •  Scene",
+        "pool_size": null,
+        "effect": "Take on a horrific trait. Barbed Hands damage is not lethal to vampires."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 1,
+        "name": "Resilience 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Vigour",
+        "rank": 2,
+        "name": "Vigour 2",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Improve Strength. Add Vigour dots as bonus successes only if at least one net success achieved."
+      },
+      {
+        "category": "devotion",
+        "name": "Rime of Salt",
+        "stats": "Cost: Free (Ratgrafen Only)  •  Pool: -  •  Reflexive  •  Permanent",
+        "pool_size": null,
+        "effect": "Protean weapons imbued with ocean salt. Wounded targets suffer -2 on their next action."
+      }
+    ],
+    "merits": [
+      {
+        "category": "general",
+        "name": "Area of Expertise",
+        "rating": 1,
+        "qualifier": "Claws"
+      },
+      {
+        "category": "general",
+        "name": "Claws of the Unholy",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Defensive Combat",
+        "rating": 1,
+        "qualifier": "Brawl"
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Swarm Form",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 2,
+        "shared_with": [
+          "René Meyer"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 7,
+        "name": "\"Kyle\""
+      }
+    ],
+    "banes": [
+      {
+        "name": "Aloof Curse",
+        "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Dominate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Resilience": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Vigour": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 13,
+        "powers": 18,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Presence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Mobilise Outrage",
+        "cp": 0,
+        "free": 0,
+        "xp": 3,
+        "up": 0
+      },
+      {
+        "type": "style",
+        "name": "Riding the Wave",
+        "cp": 0,
+        "free": 0,
+        "xp": 1,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Strike to Preempt"
+      },
+      {
+        "manoeuvre": "Unbreakable"
+      },
+      {
+        "manoeuvre": "Dying on Your Feet"
+      },
+      {
+        "manoeuvre": "Ravage"
+      },
+      {
+        "manoeuvre": "Primal Strength"
+      },
+      {
+        "manoeuvre": "In the Zone"
+      },
+      {
+        "manoeuvre": "Unyielding"
+      }
     ]
   },
   {
-    "name": "Selene Varga",
-    "player": "Test Player B",
-    "concept": "Feral Oracle",
+    "name": "Eve Lockridge",
+    "honorific": null,
+    "moniker": null,
+    "player": "Jamie",
+    "concept": "Benevolent Millionaire",
+    "pronouns": "they/them",
+    "clan": "Daeva",
+    "bloodline": null,
+    "covenant": "Carthian Movement",
+    "mask": null,
+    "dirge": null,
+    "court_title": "Premier",
+    "apparent_age": "mid 20s",
+    "features": null,
+    "willpower": {},
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 18,
+    "xp_spent": 22,
+    "status": {
+      "city": 3,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Celerity": 1,
+      "Dominate": 1,
+      "Majesty": 3
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 5  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 5,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 1,
+        "name": "Awe",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Become centre of attention. Subjects become Awed."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 2,
+        "name": "Confidant",
+        "stats": "Cost: - (req: Awed)   •  Pool: 9  v Resolve + BP  •  Contested",
+        "pool_size": 9,
+        "effect": "Impose Charmed Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 3,
+        "name": "Green Eyes",
+        "stats": "Cost: 1 V (req: Charmed / Enthralled)   •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Shift emotions (1 V, any number of Charmed/Enthralled targets); rage/fear causes frenzy with no resist roll (Ride the Wave normal). Requests: 1 V per target, must be spoken and heard."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Status",
+        "rating": 5,
+        "area": "LGL - Logistics"
+      },
+      {
+        "category": "general",
+        "name": "Carthian Pull",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Fucking Thief",
+        "rating": 1,
+        "qualifier": "Secret Society Junkie"
+      },
+      {
+        "category": "general",
+        "name": "Honey With Vinegar",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Picket Line",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Fixer",
+            "rating": 2
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Underworld"
+          },
+          {
+            "category": "influence",
+            "name": "Resources",
+            "rating": 3
+          }
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Fixer",
+        "rating": 4
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Underworld"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 3
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Bill Manchester"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Wanton Curse",
+        "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Dominate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 9,
+        "powers": 6,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
+  },
+  {
+    "name": "Ivana Horvat",
+    "honorific": null,
+    "moniker": null,
+    "player": "Lyn",
+    "concept": "Trauma Survivor",
     "pronouns": "she/her",
     "clan": "Gangrel",
     "bloodline": "Scions of the First City",
@@ -1203,12 +7142,12 @@ export const CHARS_DATA = [
       "mask_1wp": "Find someone to take responsibility for your mistake.",
       "mask_all": "Commit a terrible crime to see how authority might react.",
       "dirge_1wp": "Challenge someone clearly your superior.",
-      "dirge_all": "Risk Final Death to prove you can handle something."
+      "dirge_all": "Risk Final Death to prove that you can handle something."
     },
     "aspirations": [],
     "blood_potency": 1,
     "humanity": 5,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 50,
     "status": {
       "city": 1,
@@ -1230,7 +7169,7 @@ export const CHARS_DATA = [
         "bonus": 0
       },
       "Resolve": {
-        "dots": 2,
+        "dots": 3,
         "bonus": 0
       },
       "Strength": {
@@ -1329,10 +7268,7 @@ export const CHARS_DATA = [
     "disciplines": {
       "Auspex": 5,
       "Obfuscate": 2,
-      "Cruac": 2,
-      "Creation": 1,
-      "Divination": 1,
-      "Protection": 2
+      "Cruac": 2
     },
     "powers": [
       {
@@ -1426,7 +7362,8 @@ export const CHARS_DATA = [
         "name": "Blood Witness",
         "stats": "Cost: 1 V 2 Successes  •  Pool: 9  •  Ritual  •  1 day per extra Vitae",
         "pool_size": 9,
-        "effect": "Smear Vitae on an area. Remotely observe through the spilled blood for one day per extra Vitae spent."
+        "effect": "Smear Vitae on an area. Remotely observe through the spilled blood for one day per extra Vitae spent.",
+        "free": true
       },
       {
         "category": "rite",
@@ -1435,7 +7372,8 @@ export const CHARS_DATA = [
         "name": "Shed the Virulent Bowels",
         "stats": "Cost: 1 V 2 Successes  •  Pool: 9  •  Ritual  •  Scene",
         "pool_size": 9,
-        "effect": "Use a lock of hair or sympathetic link to hang a curse over a living victim for a month. Trigger the curse to cause enough lethal damage to fill the victim's Health."
+        "effect": "Use a lock of hair or sympathetic link to hang a curse over a living victim for a month. Trigger the curse to cause enough lethal damage to fill the victim's Health.",
+        "free": true
       }
     ],
     "merits": [
@@ -1443,27 +7381,28 @@ export const CHARS_DATA = [
         "category": "influence",
         "name": "Mentor",
         "rating": 2,
-        "area": "Elder Mirela"
+        "area": "Baba Grozda"
       },
       {
         "category": "influence",
         "name": "Retainer",
         "rating": 1,
-        "area": "Shadow-Hawk",
+        "area": "Void-Bird",
         "granted_by": "Falconry"
       },
       {
         "category": "influence",
         "name": "Retainer",
         "rating": 1,
-        "area": "Shadow-Hound",
+        "area": "Void-Dog",
         "granted_by": "K-9"
       },
       {
         "category": "general",
         "name": "Mandragora Garden",
         "rating": 3,
-        "qualifier": "Shared (Keeper)"
+        "qualifier": "Shared (Keeper)",
+        "granted_by": "Crone Status"
       },
       {
         "category": "general",
@@ -1477,69 +7416,19 @@ export const CHARS_DATA = [
         "rating": 1
       },
       {
-        "category": "manoeuvre",
-        "name": "Falconry",
-        "rating": 1,
-        "rank_name": "Predator's Vigil",
-        "granted_by": "MCI 2"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Falconry",
-        "rating": 2,
-        "rank_name": "Flyby",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "K-9",
-        "rating": 1,
-        "rank_name": "Detection",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "K-9",
-        "rating": 2,
-        "rank_name": "Targeted Bite",
-        "granted_by": "MCI 4"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "K-9",
+        "category": "domain",
+        "name": "Haven",
         "rating": 3,
-        "rank_name": "Tactical Positioning",
-        "granted_by": "Corpses"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 1,
-        "rank_name": "Quick Reload"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 2,
-        "rank_name": "Intercept Shot"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 3,
-        "rank_name": "Penetration"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Powered Projectile",
-        "rating": 4,
-        "rank_name": "Skewer"
+        "shared_with": [
+          "Charlie Ballsack",
+          "Keeper"
+        ]
       },
       {
         "category": "standing",
         "name": "Mystery Cult Initiation",
         "rating": 4,
-        "cult_name": "The Iron Accord",
+        "cult_name": "The Ashen Path",
         "benefits": [
           "",
           "",
@@ -1550,25 +7439,26 @@ export const CHARS_DATA = [
         "active": true,
         "benefit_grants": [
           {
-            "category": "general",
-            "name": "Iron Skin",
-            "rating": 2
-          },
-          {
-            "category": "general",
-            "name": "Hardy",
+            "category": "domain",
+            "name": "Safe Place",
             "rating": 1
           },
           {
-            "category": "general",
-            "name": "Defensive Combat",
+            "category": "manoeuvre",
+            "name": "Quick Reload",
             "rating": 1,
-            "qualifier": "Brawl"
+            "rank_name": "Quick Reload"
           },
           {
             "category": "general",
             "name": "Indomitable",
             "rating": 2
+          },
+          {
+            "category": "manoeuvre",
+            "name": "Intercept Shot",
+            "rating": 3,
+            "rank_name": "Intercept Shot"
           },
           null
         ]
@@ -1576,28 +7466,28 @@ export const CHARS_DATA = [
       {
         "category": "domain",
         "name": "Safe Place",
-        "rating": 0,
-        "shared_with": [
-          "Viktor Ashwood",
-          "Whisper"
-        ],
-        "notes_col_d": "MCI 1"
+        "rating": 1
       },
       {
-        "category": "domain",
-        "name": "Haven",
-        "rating": 1,
-        "shared_with": [
-          "Viktor Ashwood",
-          "Whisper"
-        ]
+        "category": "general",
+        "name": "Quick Reload",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Intercept Shot",
+        "rating": 0
       }
     ],
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Lady Nyx",
-        "desc": null
+        "name": "Lady Di"
       }
     ],
     "banes": [
@@ -1606,54 +7496,6 @@ export const CHARS_DATA = [
         "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
       }
     ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 4,
-        "ordeals": 15,
-        "game": 3,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 0,
-        "skills": 0,
-        "merits": 5,
-        "powers": 23,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Rules",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Lore",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Primary",
-      "Physical": "Tertiary",
-      "Social": "Secondary"
-    },
-    "clan_attribute": "Stamina",
     "attr_creation": {
       "Intelligence": {
         "cp": 2,
@@ -1700,11 +7542,6 @@ export const CHARS_DATA = [
         "free": 1,
         "xp": 0
       }
-    },
-    "skill_priorities": {
-      "Mental": "Tertiary",
-      "Physical": "Secondary",
-      "Social": "Primary"
     },
     "skill_creation": {
       "Academics": {
@@ -1843,42 +7680,23 @@ export const CHARS_DATA = [
         "cp": 1,
         "free": 0,
         "xp": 4
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Divination": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
       }
     },
     "merit_creation": [
       {
         "cp": 0,
         "free": 0,
-        "xp": 2
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
         "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 2
       },
       {
@@ -1894,7 +7712,14 @@ export const CHARS_DATA = [
       {
         "cp": 0,
         "free": 0,
-        "xp": 0
+        "xp": 2,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
       },
       {
         "cp": 0,
@@ -1903,16 +7728,722 @@ export const CHARS_DATA = [
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 5,
+        "powers": 23,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Falconry",
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "type": "style",
+        "name": "K-9",
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "type": "style",
+        "name": "Powered Projectile",
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Predator's Vigil"
+      },
+      {
+        "manoeuvre": "Flyby"
+      },
+      {
+        "manoeuvre": "Detection"
+      },
+      {
+        "manoeuvre": "Targeted Bite"
+      },
+      {
+        "manoeuvre": "Tactical Positioning"
+      },
+      {
+        "manoeuvre": "Quick Reload"
+      },
+      {
+        "manoeuvre": "Intercept Shot"
+      },
+      {
+        "manoeuvre": "Penetration"
+      },
+      {
+        "manoeuvre": "Skewer"
+      }
+    ]
+  },
+  {
+    "name": "Jack Fallow",
+    "honorific": null,
+    "moniker": null,
+    "player": "George T",
+    "concept": "Failed Adult Film Director",
+    "pronouns": "he/him",
+    "clan": "Mekhet",
+    "bloodline": null,
+    "covenant": "Circle of the Crone",
+    "mask": "Spy",
+    "dirge": "Monster",
+    "court_title": null,
+    "apparent_age": "Mid 40's",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Build a new identity or uncover a secret.",
+      "mask_all": "Uncover a damning secret that could end someone.",
+      "dirge_1wp": "Cause pain for the sole intention of causing pain.",
+      "dirge_all": "Commit a capital crime without additional motive."
+    },
+    "aspirations": [
+      "Build blackmail material dossier on Kindred",
+      "Establish Crone Praxis / Film Kindred",
+      "Dilute adherance to the Traditions / Subvert Moulding Room"
+    ],
+    "blood_potency": 1,
+    "humanity": 4,
+    "xp_total": 25,
+    "xp_spent": 39,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Hacking"
+        ],
+        "nine_again": false
+      },
+      "Crafts": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "Surveillance"
+        ],
+        "nine_again": false
+      },
+      "Medicine": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Backroom"
+        ],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 4,
+      "Celerity": 1,
+      "Obfuscate": 1,
+      "Cruac": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 3,
+        "name": "Spirit's Touch",
+        "stats": "Cost: Free (1 WP for clash / 1 V for Insight)  •  Pool: - v Resolve + Stealth + Obf  •  Reflexive  •  Immediate",
+        "pool_size": null,
+        "effect": "Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 4,
+        "name": "Lay Open the Mind",
+        "stats": "Cost: 1 V  •  Pool: 7  v Resolve + BP  •  Instant  •  Scene",
+        "pool_size": 7,
+        "effect": "Telepathy and mind-reading. Invoke Conditions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Mantle of Amorous Fire",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 8  •  Ritual  •  Scene",
+        "pool_size": 8,
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night.",
+        "free": true
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "High Society"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Occult"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Police"
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Mandragora Garden",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Viral Mythology",
+        "rating": 3
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Moulding Room",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          {
+            "category": "general",
+            "name": "Trained Observer",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Eye for the Strange",
+            "rating": 2
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Media"
+          },
+          {
+            "category": "manoeuvre",
+            "name": "Gettin' Up",
+            "rating": 3,
+            "rank_name": "Gettin' Up"
+          }
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Trained Observer",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Eye for the Strange",
+        "rating": 2
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Media"
+      },
+      {
+        "category": "general",
+        "name": "Gettin' Up",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Cacophony Savvy",
+        "rating": 3,
+        "picks": [
+          "Gettin' Up",
+          "Backpacker"
+        ]
+      }
+    ],
+    "touchstones": [],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      },
+      {
+        "name": "Plague of Purity",
+        "effect": "Touch by Integrity 8+ mortal causes (10 – Humanity) bashing damage."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 9
+      },
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 3,
+        "free_mci": 0,
+        "free_vm": 0
+      },
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 1,
         "free": 0,
         "xp": 0
       },
       {
-        "cp": 0,
+        "cp": 3,
         "free": 0,
         "xp": 0
       },
@@ -1922,22 +8453,7880 @@ export const CHARS_DATA = [
         "xp": 0
       },
       {
-        "cp": 1,
+        "cp": 0,
         "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
         "xp": 0
       },
       {
         "cp": 0,
-        "free": 0,
+        "free": 2,
         "xp": 0
       },
       {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "xp": 2,
+        "free": 1,
+        "free_mci": 0,
+        "free_vm": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 6,
+        "powers": 18,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "regent_territory": "The Academy",
+    "regent_lieutenant": null,
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "fighting_styles": []
+  },
+  {
+    "name": "Jelle Dunneweld",
+    "honorific": "Lord",
+    "moniker": "Gel",
+    "player": "Stefan S",
+    "concept": "Former Beat Cop",
+    "pronouns": "he/him",
+    "clan": "Daeva",
+    "bloodline": null,
+    "covenant": "Invictus",
+    "mask": "Follower",
+    "dirge": "Idealist",
+    "court_title": null,
+    "apparent_age": "mid 30s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Follow a directive blindly, for the sake of following.",
+      "mask_all": "Follow a dangerous directive without hesitation.",
+      "dirge_1wp": "Deny a compromise that would water down your ideal.",
+      "dirge_all": "Refuse safety for fear of abandoning your ideal's purity."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 7,
+    "xp_total": 10,
+    "xp_spent": 14,
+    "status": {
+      "city": 1,
+      "clan": 1,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 4,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 4,
+        "bonus": 1,
+        "specs": [
+          "crime scene"
+        ],
+        "nine_again": true
+      },
+      "Occult": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "mysteries"
+        ],
+        "nine_again": false
+      },
+      "Science": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "street fighting"
+        ],
+        "nine_again": true
+      },
+      "Weaponry": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "motives"
+        ],
+        "nine_again": true
+      },
+      "Intimidation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "command"
+        ],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Celerity": 2,
+      "Majesty": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 2,
+        "name": "Celerity 2",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 1,
+        "name": "Awe",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Become centre of attention. Subjects become Awed."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Police"
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 1,
+        "area": "Underworld"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "Police",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 2,
+            "qualifier": "Police, Street, Underworld"
+          },
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    ],
+    "touchstones": [],
+    "banes": [
+      {
+        "name": "Wanton Curse",
+        "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
         "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
         "free": 0,
         "xp": 0
       },
-      {
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
         "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 0
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 4,
+        "merits": 6,
+        "powers": 0,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Police Tactics",
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Compliance Hold"
+      },
+      {
+        "manoeuvre": "Weapon Retention"
+      }
+    ]
+  },
+  {
+    "name": "Keeper",
+    "honorific": null,
+    "moniker": null,
+    "player": "Symon",
+    "concept": "Fallen Elder",
+    "pronouns": "he/she/they",
+    "clan": "Mekhet",
+    "bloodline": "Mnemosyne",
+    "covenant": "Circle of the Crone",
+    "mask": "Junkie",
+    "dirge": "Masochist",
+    "court_title": null,
+    "apparent_age": "Late 40s",
+    "features": "Inhumanly high presence",
+    "willpower": {
+      "mask_1wp": "Ignore a problem or responsibility in favour of immediate gratification.",
+      "mask_all": "Abandon an important relationship over your pursuit of pleasure.",
+      "dirge_1wp": "Find and experience a new source of hurt.",
+      "dirge_all": "Willingly explore pain, beyond the point of safety and reason."
+    },
+    "aspirations": [
+      "Proliferate Blood-Ties",
+      "Collect Memories",
+      "Become desiered in society again"
+    ],
+    "blood_potency": 2,
+    "humanity": 3,
+    "xp_total": 36,
+    "xp_spent": 61,
+    "status": {
+      "city": 1,
+      "clan": 3,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Invictus": 1,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Occult": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "Archery"
+        ],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Sin-Eater"
+        ],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "Mesmerise"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 1,
+      "Celerity": 1,
+      "Dominate": 4,
+      "Obfuscate": 1,
+      "Cruac": 4
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 12  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 12,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 2,
+        "name": "Iron Edict",
+        "stats": "Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  •  Pool: -  •  Instant  •  Instant",
+        "pool_size": null,
+        "effect": "Impose Dominated Condition. Give long, detailed commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 3,
+        "name": "Entombed Command",
+        "stats": "Cost: - (req: Mesmerised)   •  Pool: 10  - Resolve  •  Instant  •  1 week/success (1 month bonded)",
+        "pool_size": 10,
+        "effect": "Establish triggers for other Dominate powers."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 4,
+        "name": "The Lying Mind",
+        "stats": "Cost: 2 V (req: Mesmerised)   •  Pool: -  •  Instant  •  Permanent",
+        "pool_size": null,
+        "effect": "Impose Amnesia or False Memories Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "devotion",
+        "name": "The Taste of Things Lived",
+        "stats": "Cost: 1 V (reflexive for insight) (Mnemosyne Only)  •  Pool: 7  •  Reflexive  •  Scene",
+        "pool_size": 7,
+        "effect": "Feeding creates artificial blood ties (+2 Social vs target; Twice Removed for Blood Sympathy). Sever for 1 WP. Can effect blood ties with Touch of Shadow. Spend 1 V: +1 Mental per applicable human/vampire within 100 metres."
+      },
+      {
+        "category": "devotion",
+        "name": "The Exchange of Things Past",
+        "stats": "Cost: 1 V (Mnemosyne Only); blood tie to target; replaces The Lying Mind  •  Pool: 12  v Resolve + BP  •  Contested  •  Scene / Permanent (elective)",
+        "pool_size": 12,
+        "effect": "Exchange memories with target. For each memory taken, must give one of equal length. Both gain False Memories condition. After scene, own memories return but exchanged memories remain, or elect to make permanent. Traumatic memories: vampire rolls Fear Frenzy, mortal Resolve + Composure or Shaken."
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Mantle of Amorous Fire",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
+        "pool_size": 11,
+        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night.",
+        "free": true
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 2,
+        "name": "Wisdom of the Soul",
+        "stats": "Cost: 1 V 2 Successes  •  Pool: 11  •  Ritual  •  Instant",
+        "pool_size": 11,
+        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie",
+        "free": true
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 1,
+        "name": "Deflection of Wooden Doom",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
+        "pool_size": 11,
+        "effect": "Caster becomes immune to staking for one night.",
+        "free": true
+      },
+      {
+        "category": "rite",
+        "tradition": "Cruac",
+        "level": 4,
+        "name": "Willful Vitae",
+        "stats": "Cost: 2 V 4 Successes  •  Pool: 11  •  Ritual  •  Until used",
+        "pool_size": 11,
+        "effect": "Prevent the onset of blood addiction or the Vinculum for the night.",
+        "free": true
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the Safe Word",
+        "rank": 2,
+        "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 5,
+        "granted_by": "Safe Word"
+      },
+      {
+        "category": "general",
+        "name": "Empath",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Mandragora Garden",
+        "rating": 3,
+        "qualifier": "Shared (Ivana)",
+        "granted_by": "Crone Status"
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 3,
+        "shared_with": [
+          "Charlie Ballsack",
+          "Ivana Horvat"
+        ],
+        "granted_by": "Crone Status"
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 2,
+        "shared_with": [
+          "Charlie Ballsack",
+          "Ivana Horvat"
+        ],
+        "granted_by": "Crone Status"
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "The Remembrance of the Lidles Eye",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "general",
+            "name": "Eidetic Memory",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Table Turner",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Indomitable",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Peacemaker",
+            "rating": 3
+          },
+          {
+            "category": "general",
+            "name": "Closed Book",
+            "rating": 3
+          }
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Eidetic Memory",
+        "rating": 0
+      },
+      {
+        "category": "general",
+        "name": "Table Turner",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Peacemaker",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 3
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Odeliese",
+        "desc": "Dead Wife"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      },
+      {
+        "name": "Hated by Beasts",
+        "effect": "Animals react violently; Animal Ken/Animalism suffer (10 – Humanity) penalty."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Celerity": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Dominate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Cruac": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 5,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 7,
+        "powers": 28,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
+  },
+  {
+    "name": "Kirk Grimm",
+    "honorific": null,
+    "moniker": null,
+    "player": "Phillip G",
+    "concept": "Church Grim",
+    "pronouns": "he/him",
+    "clan": "Gangrel",
+    "bloodline": null,
+    "covenant": "Lancea et Sanctum",
+    "mask": "Idealist",
+    "dirge": "Penitent",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Deny a compromise that would water down your ideal.",
+      "mask_all": "Refuse safety for fear of abandoning your ideal's purity.",
+      "dirge_1wp": "Punish yourself for a mistake.",
+      "dirge_all": "Risk death to correct an egregious error in judgement."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 6,
+    "xp_total": 25,
+    "xp_spent": 43,
+    "status": {
+      "city": 1,
+      "clan": 3,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 4,
+        "bonus": 2
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Crafts": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "carpentry"
+        ],
+        "nine_again": false
+      },
+      "Medicine": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Survival": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Weaponry": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Animal Ken": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "canine"
+        ],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "gangs"
+        ],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Animalism": 1,
+      "Protean": 1,
+      "Resilience": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Animalism",
+        "rank": 1,
+        "name": "Feral Whispers",
+        "stats": "Cost: -  •  Pool: 4  •  Instant  •  Scene (may persist)",
+        "pool_size": 4,
+        "effect": "Speak with and command animals."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 2,
+        "name": "Resilience 2",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      }
+    ],
+    "merits": [
+      {
+        "category": "general",
+        "name": "Sorcerous Eunuch",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Unnamed Dockworker"
+      },
+      {
+        "humanity": 5,
+        "name": "Bastard sword",
+        "desc": "object"
+      },
+      {
+        "humanity": 4,
+        "name": "Star of David pendant",
+        "desc": "object"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Feral Curse",
+        "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 5
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Animalism": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Resilience": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 4
+      },
+      "spent": {
+        "attributes": 5,
+        "skills": 4,
+        "merits": 3,
+        "powers": 3,
+        "special": 2
+      }
+    },
+    "retired": true,
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Crusade",
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "type": "style",
+        "name": "Kindred Dueling",
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Shield Against Sorcery"
+      },
+      {
+        "manoeuvre": "Silence"
+      },
+      {
+        "manoeuvre": "Hamstring"
+      },
+      {
+        "manoeuvre": "Taunt"
+      }
+    ]
+  },
+  {
+    "name": "Livia",
+    "honorific": null,
+    "moniker": null,
+    "player": "Clair H",
+    "concept": "Health Guru",
+    "pronouns": "she/her",
+    "clan": "Daeva",
+    "bloodline": null,
+    "covenant": "Lancea et Sanctum",
+    "mask": "Guru",
+    "dirge": "Scholar",
+    "court_title": null,
+    "apparent_age": null,
+    "features": "Striking Looks",
+    "willpower": {
+      "mask_1wp": "Give advice that someone uses to succeed.",
+      "mask_all": "Give protected, dangerous information without asking for payment.",
+      "dirge_1wp": "Uncover a lost piece of information.",
+      "dirge_all": "Uncover forbidden knowledge."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 15,
+    "xp_spent": 17,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Medicine": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Holistic Awareness"
+        ],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Science": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Blood"
+        ],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Buried Feelings"
+        ],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Inspiring"
+        ],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Celerity": 1,
+      "Majesty": 3,
+      "Theban": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 1,
+        "name": "Awe",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Become centre of attention. Subjects become Awed."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 2,
+        "name": "Confidant",
+        "stats": "Cost: - (req: Awed)   •  Pool: 8  v Resolve + BP  •  Contested",
+        "pool_size": 8,
+        "effect": "Impose Charmed Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 3,
+        "name": "Green Eyes",
+        "stats": "Cost: 1 V (req: Charmed / Enthralled)   •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Shift emotions (1 V, any number of Charmed/Enthralled targets); rage/fear causes frenzy with no resist roll (Ride the Wave normal). Requests: 1 V per target, must be spoken and heard."
+      },
+      {
+        "category": "rite",
+        "tradition": "Theban",
+        "level": 1,
+        "name": "Vitae Reliquary",
+        "stats": "Cost: 1 V 1 Successes  •  Pool: 5  •  Ritual  •  1 lunar month",
+        "pool_size": 5,
+        "effect": "Store Vitae equal to Potency in object (Size 3 or smaller)",
+        "free": true
+      },
+      {
+        "category": "rite",
+        "tradition": "Theban",
+        "level": 4,
+        "name": "Damned Radiance",
+        "stats": "Cost: 1 WP 4 Successes  •  Pool: 9  v Stamina + BP  •  Ritual  •  1 night",
+        "pool_size": 9,
+        "effect": "Vampire appears mortal, -2 Disciplines",
+        "free": false
+      }
+    ],
+    "merits": [
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Library",
+        "rating": 3,
+        "qualifier": "Academics"
+      },
+      {
+        "category": "general",
+        "name": "Lorekeeper",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 3
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "",
+        "benefits": [
+          "Specialisation: Holistic Awareness",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "specialisation",
+            "name": "Holistic Awareness",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Striking Looks",
+            "rating": 1
+          },
+          {
+            "category": "general",
+            "name": "Closed Book",
+            "rating": 2
+          },
+          {
+            "category": "general",
+            "name": "Inspiring",
+            "rating": 3
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
+            "rating": 3,
+            "qualifier": "Health"
+          }
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Holistic Awareness",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Striking Looks",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Closed Book",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Inspiring",
+        "rating": 3
+      },
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Health"
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Undefined"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Wanton Curse",
+        "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 4
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "free_lk": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 2,
+        "powers": 10,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
+  },
+  {
+    "name": "Ludica Lachramore",
+    "honorific": "Lady",
+    "moniker": null,
+    "player": "Sky K",
+    "concept": "Information Broker",
+    "pronouns": "she/her",
+    "clan": "Mekhet",
+    "bloodline": null,
+    "covenant": "Invictus",
+    "mask": "Scholar",
+    "dirge": "Spy",
+    "court_title": null,
+    "apparent_age": "mid 20s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Uncover a lost piece of information.",
+      "mask_all": "Uncover forbidden knowledge.",
+      "dirge_1wp": "Build a new identity or uncover a secret.",
+      "dirge_all": "Uncover a damning secret that could end someone."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 5,
+    "xp_total": 20,
+    "xp_spent": 27,
+    "status": {
+      "city": 2,
+      "clan": 1,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "spycraft"
+        ],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "bloodlines"
+        ],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "blackmail"
+        ],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 4,
+      "Obfuscate": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 3,
+        "name": "Spirit's Touch",
+        "stats": "Cost: Free (1 WP for clash / 1 V for Insight)  •  Pool: - v Resolve + Stealth + Obf  •  Reflexive  •  Immediate",
+        "pool_size": null,
+        "effect": "Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 4,
+        "name": "Lay Open the Mind",
+        "stats": "Cost: 1 V  •  Pool: 8  v Resolve + BP  •  Instant  •  Scene",
+        "pool_size": 8,
+        "effect": "Telepathy and mind-reading. Invoke Conditions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Underworld"
+      },
+      {
+        "category": "general",
+        "name": "Crowdsourcing",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Information Network",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Secret Society Junkie",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "<NAME REQUIRED>",
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          {
+            "category": "influence",
+            "name": "Resources",
+            "rating": 1
+          },
+          {
+            "category": "influence",
+            "name": "Contacts",
+            "rating": 1
+          },
+          null,
+          {
+            "category": "general",
+            "name": "Alternate Identity",
+            "rating": 3
+          },
+          {
+            "category": "general",
+            "name": "Peacemaker",
+            "rating": 3
+          }
+        ]
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Alternate Identity",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Peacemaker",
+        "rating": 3
+      },
+      {
+        "category": "general",
+        "name": "Cacophony Savvy",
+        "rating": 3,
+        "picks": [
+          "Gettin' Up"
+        ]
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Former/Current Lover"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 3,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 4,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "xp": 3,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 11,
+        "powers": 6,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Wits",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "fighting_styles": []
+  },
+  {
+    "name": "Macheath",
+    "honorific": null,
+    "moniker": "Mac",
+    "player": "Charlie BC",
+    "concept": "Urban Gorilla",
+    "pronouns": "he/him",
+    "clan": "Mekhet",
+    "bloodline": "Norvegi",
+    "covenant": "Carthian Movement",
+    "mask": "Rebel",
+    "dirge": "Idealist",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Openly flout a tradition.",
+      "mask_all": "Openly flout a Kindred Tradition, or a covenant taboo.",
+      "dirge_1wp": "Deny a compromise that would water down your ideal.",
+      "dirge_all": "Refuse safety for fear of abandoning your ideal's purity."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 5,
+    "xp_total": 32,
+    "xp_spent": 52,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 3
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 3
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Crafts": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": true
+      },
+      "Occult": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 4,
+        "bonus": 1,
+        "specs": [
+          "grappling"
+        ],
+        "nine_again": true
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "shadowing"
+        ],
+        "nine_again": true
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "weakness"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "direct threats"
+        ],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "hiding emotion"
+        ],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 3,
+      "Celerity": 2,
+      "Obfuscate": 1,
+      "Protean": 1,
+      "Vigour": 3
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 3,
+        "name": "Spirit's Touch",
+        "stats": "Cost: Free (1 WP for clash / 1 V for Insight)  •  Pool: - v Resolve + Stealth + Obf  •  Reflexive  •  Immediate",
+        "pool_size": null,
+        "effect": "Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Vigour",
+        "rank": 3,
+        "name": "Vigour 3",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Improve Strength. Add Vigour dots as bonus successes only if at least one net success achieved."
+      },
+      {
+        "category": "devotion",
+        "name": "Vitae Spines",
+        "stats": "Cost: 1 V per effect Norvegi Bloodline  •  Pool: -  •  Reflexive  •  Scene",
+        "pool_size": null,
+        "effect": "Choose one: feed through fingertip spines as if by fangs (requires touch or grapple; leaves dry, calloused skin); or extend organic blades (1L supernatural weapon, Strength + Brawl to attack, -2 to Dexterity-based manipulation; fine manipulation impossible)."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 1,
+        "area": "street"
+      },
+      {
+        "category": "general",
+        "name": "Carthian Pull",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 5,
+        "role": "Urban Gurrilla",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Fiona (conditional) or union activist"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 0,
+        "free": 0,
+        "xp": 9
+      },
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Vigour": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1,
+        "up": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 7,
+        "powers": 23,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Wits",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Mobilise Outrage",
+        "cp": 3,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      },
+      {
+        "type": "style",
+        "name": "Regular",
+        "cp": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Strike to Preempt"
+      },
+      {
+        "manoeuvre": "Unbreakable"
+      },
+      {
+        "manoeuvre": "Dying on Your Feet"
+      },
+      {
+        "manoeuvre": "Clinch Strike"
+      }
+    ]
+  },
+  {
+    "name": "Magda",
+    "honorific": null,
+    "moniker": null,
+    "player": "Tiana C",
+    "concept": "Faithful Militant",
+    "pronouns": "she/her",
+    "clan": "Nosferatu",
+    "bloodline": null,
+    "covenant": "Lancea et Sanctum",
+    "mask": "Martyr",
+    "dirge": "Masochist",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Take another's burden upon yourself without expecting recompense.",
+      "mask_all": "Put yourself at risk to save someone else or an ideology.",
+      "dirge_1wp": "Find and experience a new source of hurt.",
+      "dirge_all": "Willingly explore pain, beyond the point of safety and reason."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 7,
+    "xp_total": 13,
+    "xp_spent": 17,
+    "status": {
+      "city": 1,
+      "clan": 1,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "theban"
+        ],
+        "nine_again": false
+      },
+      "Crafts": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "rifles"
+        ],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Weaponry": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "swords"
+        ],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "motives"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Nightmare": 1,
+      "Obfuscate": 1,
+      "Theban": 4
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 1,
+        "name": "Dread Presence",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      }
+    ],
+    "merits": [
+      {
+        "category": "general",
+        "name": "Danger Sense",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Fighting Finesse",
+        "rating": 2,
+        "qualifier": "Weaponry"
+      },
+      {
+        "category": "general",
+        "name": "Flock",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "shared_with": [
+          "Carver",
+          "Hazel"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Carver",
+          "Hazel"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 2
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Catholic Priest"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Lonely Curse",
+        "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Nightmare": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Theban": {
+        "cp": 1,
+        "free": 0,
+        "xp": 12
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 1,
+        "merits": 0,
+        "powers": 12,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Primary",
+      "Social": "Tertiary"
+    }
+  },
+  {
+    "name": "Margaret Kane",
+    "honorific": "Doctor",
+    "moniker": "Doc",
+    "player": "Jessica BC",
+    "concept": "Ex-Millitary Night Doctor",
+    "pronouns": "she/her",
+    "clan": "Gangrel",
+    "bloodline": "Kerberos",
+    "covenant": "Carthian Movement",
+    "mask": "Authoritarian",
+    "dirge": "Rebel",
+    "court_title": "Protector",
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Shut down an inferior trying to rise to your level of power.",
+      "mask_all": "Commit a widespread hit against a rival's mortal connections.",
+      "dirge_1wp": "Openly flout a tradition.",
+      "dirge_all": "Openly flout a Kindred Tradition, or a covenant taboo."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 6,
+    "xp_total": 15,
+    "xp_spent": 17,
+    "status": {
+      "city": 2,
+      "clan": 1,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 1
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Medicine": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Surgery"
+        ],
+        "nine_again": true
+      },
+      "Politics": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Carthian Movement"
+        ],
+        "nine_again": false
+      },
+      "Science": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Weakness",
+          "Confidant"
+        ],
+        "nine_again": true
+      },
+      "Intimidation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Veiled Threats"
+        ],
+        "nine_again": true
+      },
+      "Persuasion": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Majesty": 3,
+      "Protean": 1,
+      "Resilience": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 1,
+        "name": "Awe",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Become centre of attention. Subjects become Awed."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 2,
+        "name": "Confidant",
+        "stats": "Cost: - (req: Awed)   •  Pool: 9  v Resolve + BP  •  Contested",
+        "pool_size": 9,
+        "effect": "Impose Charmed Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 3,
+        "name": "Green Eyes",
+        "stats": "Cost: 1 V (req: Charmed / Enthralled)   •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Shift emotions (1 V, any number of Charmed/Enthralled targets); rage/fear causes frenzy with no resist roll (Ride the Wave normal). Requests: 1 V per target, must be spoken and heard."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 1,
+        "name": "Resilience 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      },
+      {
+        "category": "devotion",
+        "name": "Enfeebling Aura",
+        "stats": "Cost: 1 V  •  Pool: 9  v Composure + BP  •  Contested  •  Scene",
+        "pool_size": 9,
+        "effect": "Sacrifice Majesty dots for the scene to remove equal dots of victim's Celerity, Resilience, or Vigour (any combination), up to successes."
+      }
+    ],
+    "merits": [
+      {
+        "category": "general",
+        "name": "Carthian Pull",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Night Doctor Surgery",
+        "rating": 3,
+        "granted_by": "Carthian Status"
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 3,
+        "role": "Combat Medic",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Three Heads of Kerberos",
+        "rating": 3,
+        "picks": [
+          "Honing - Competitive",
+          "Internalising - Competitive",
+          "Cowing - Competitive"
+        ]
+      }
+    ],
+    "touchstones": [],
+    "banes": [
+      {
+        "name": "Feral Curse",
+        "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
+      },
+      {
+        "name": "Rat King/Queen",
+        "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Majesty": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "xp": 2,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 3,
+        "powers": 9,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "fighting_styles": []
+  },
+  {
+    "name": "Reed Justice",
+    "honorific": "Lord",
+    "moniker": null,
+    "player": "Conan F",
+    "concept": "Opportunistic Predator",
+    "pronouns": "he/him",
+    "clan": "Ventrue",
+    "bloodline": null,
+    "covenant": "Invictus",
+    "mask": "Visionary",
+    "dirge": "Authoritarian",
+    "court_title": null,
+    "apparent_age": "late 30s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Help someone by sharing your vision with them.",
+      "mask_all": "Put yourself at risk to show a group the power of your vision.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
+      "dirge_all": "Commit a widespread hit against a rival's mortal connections."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 19,
+    "xp_spent": 28,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 5,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 1
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Computer": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "LLM/AI"
+        ],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Drive": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "speeches"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 4,
+        "bonus": 0,
+        "specs": [
+          "doublespeak"
+        ],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Dominate": 5,
+      "Resilience": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 14  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 14,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 2,
+        "name": "Iron Edict",
+        "stats": "Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  •  Pool: -  •  Instant  •  Instant",
+        "pool_size": null,
+        "effect": "Impose Dominated Condition. Give long, detailed commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 3,
+        "name": "Entombed Command",
+        "stats": "Cost: - (req: Mesmerised)   •  Pool: 14  - Resolve  •  Instant  •  1 week/success (1 month bonded)",
+        "pool_size": 14,
+        "effect": "Establish triggers for other Dominate powers."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 4,
+        "name": "The Lying Mind",
+        "stats": "Cost: 2 V (req: Mesmerised)   •  Pool: -  •  Instant  •  Permanent",
+        "pool_size": null,
+        "effect": "Impose Amnesia or False Memories Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 5,
+        "name": "Possession",
+        "stats": "Cost: 1 V & 1 WP (req: Mesmerised); -3 in combat unless Blinded  •  Pool: 12  - Resolve + Supernatural Tolerance  •  Instant  •  1 scene per success",
+        "pool_size": 12,
+        "effect": "Control victim's body. Only walk in sun if victim normally can."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 1,
+        "name": "Resilience 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 5
+      },
+      {
+        "category": "influence",
+        "name": "Status",
+        "rating": 3,
+        "area": "finance"
+      },
+      {
+        "category": "influence",
+        "name": "Status",
+        "rating": 3,
+        "area": "high society"
+      },
+      {
+        "category": "influence",
+        "name": "Status",
+        "rating": 3,
+        "area": "underworld"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 7,
+        "name": "Artwork of Mother"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Aloof Curse",
+        "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 4,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 0,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      "Subterfuge": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Dominate": {
+        "cp": 3,
+        "free": 0,
+        "xp": 6
+      },
+      "Resilience": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 4
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 2,
+        "merits": 6,
+        "powers": 9,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "regent_territory": "The Harbour",
+    "regent_lieutenant": "Ryan Ambrose",
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
+  },
+  {
+    "name": "René Meyer",
+    "honorific": null,
+    "moniker": null,
+    "player": "Luca V",
+    "concept": "Insurgent",
+    "pronouns": "she/her",
+    "clan": "Daeva",
+    "bloodline": "Zelani",
+    "covenant": "Carthian Movement",
+    "mask": "Nurturer",
+    "dirge": "Idealist",
+    "court_title": null,
+    "apparent_age": "late 20s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Put yourself out to help another succeed.",
+      "mask_all": "Take full responsibility for another's dangerous mistake.",
+      "dirge_1wp": "Deny a compromise that would water down your ideal.",
+      "dirge_all": "Refuse safety for fear of abandoning your ideal's purity."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 5,
+    "xp_total": 33,
+    "xp_spent": 54,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 1,
+        "bonus": 1
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Supernatural Compulsions"
+        ],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "Activism"
+        ],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": true
+      },
+      "Persuasion": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Rumours"
+        ],
+        "nine_again": true
+      },
+      "Subterfuge": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 3,
+      "Celerity": 3,
+      "Majesty": 1,
+      "Obfuscate": 1,
+      "Vigour": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 3,
+        "name": "Spirit's Touch",
+        "stats": "Cost: Free (1 WP for clash / 1 V for Insight)  •  Pool: - v Resolve + Stealth + Obf  •  Reflexive  •  Immediate",
+        "pool_size": null,
+        "effect": "Passively scan for anyone under Obfuscate 1 or 3, can provoke a challenge. Access to Tier 3 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 3,
+        "name": "Celerity 3",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Majesty",
+        "rank": 1,
+        "name": "Awe",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Become centre of attention. Subjects become Awed."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Vigour",
+        "rank": 1,
+        "name": "Vigour 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Improve Strength. Add Vigour dots as bonus successes only if at least one net success achieved."
+      },
+      {
+        "category": "devotion",
+        "name": "Turn of Phrase",
+        "stats": "Cost: Free (Zelani Only)  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Majesty dots to social pools for non-face-to-face communication (art, phone, letters, etc)."
+      },
+      {
+        "category": "devotion",
+        "name": "Quicken Sight",
+        "stats": "Cost: 1 V  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Examine fast-moving details. Apply Defence to ranged attacks. Benefit from aiming instantly."
+      },
+      {
+        "category": "devotion",
+        "name": "Hold my Beer",
+        "stats": "Cost: 1 WP (optional +1 V) (Zelani Only)  •  Pool: 8  •  Reflexive  •  Scene",
+        "pool_size": 8,
+        "effect": "Distribute successes as dots among unskilled Skills (max 2 per Skill). +1 V: convert any Chance Die to a pool of 3 dice."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Status",
+        "rating": 2,
+        "area": "media"
+      },
+      {
+        "category": "general",
+        "name": "Finger on the Pulse",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Fucking Thief",
+        "rating": 1,
+        "qualifier": "Sorcerous Eunuch"
+      },
+      {
+        "category": "general",
+        "name": "Honey With Vinegar",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Sorcerous Eunuch",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Table Turner",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 2,
+        "shared_with": [
+          "Einar Solveig"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 2,
+        "role": "",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Cacophony Savvy",
+        "rating": 2,
+        "picks": [
+          "Gettin' Up",
+          "Backpacker"
+        ]
+      },
+      {
+        "category": "general",
+        "name": "Fast-Talking",
+        "rating": 1,
+        "picks": [
+          "Always Be Closing"
+        ]
+      }
+    ],
+    "touchstones": [],
+    "banes": [
+      {
+        "name": "Wanton Curse",
+        "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 6
+      },
+      "Majesty": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Vigour": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2,
+        "up": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
+        "xp": 0,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
+      },
+      {
+        "cp": 0,
+        "xp": 1,
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 4
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 8,
+        "powers": 23,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "regent_territory": "The Second City",
+    "regent_lieutenant": "Margaret Kane",
+    "clan_attribute": "Manipulation",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Marksmanship",
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Through the Crosshairs"
+      }
+    ]
+  },
+  {
+    "name": "René St. Dominique",
+    "honorific": "Lord",
+    "moniker": null,
+    "player": "Matt B",
+    "concept": "Dillitant",
+    "pronouns": "he/him",
+    "clan": "Ventrue",
+    "bloodline": "Apollinaire",
+    "covenant": "Invictus",
+    "mask": "Courtesan",
+    "dirge": "Deviant",
+    "court_title": "Primogen",
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Put yourself out for another's pleasure.",
+      "mask_all": "Be the last one dancing when the party's on fire.",
+      "dirge_1wp": "Commit a crime against your recognised society.",
+      "dirge_all": "Commit a high crime in plain view of an authority."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 5,
+    "xp_total": 23,
+    "xp_spent": 24,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 4
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 1,
+        "bonus": 1
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 2,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Crafts": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "A9A Voudun"
+        ],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "Invictus lore"
+        ],
+        "nine_again": false
+      },
+      "Larceny": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "A9A something"
+        ],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "A9A something"
+        ],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Dominate": 1,
+      "Obfuscate": 4,
+      "Resilience": 1
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 8  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 8,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 2,
+        "name": "Iron Edict",
+        "stats": "Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  •  Pool: -  •  Instant  •  Instant",
+        "pool_size": null,
+        "effect": "Impose Dominated Condition. Give long, detailed commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 3,
+        "name": "Entombed Command",
+        "stats": "Cost: - (req: Mesmerised)   •  Pool: 8  - Resolve  •  Instant  •  1 week/success (1 month bonded)",
+        "pool_size": 8,
+        "effect": "Establish triggers for other Dominate powers."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 7  •  Instant  •  Scene",
+        "pool_size": 7,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 1,
+        "name": "Resilience 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      },
+      {
+        "category": "devotion",
+        "name": "Govi Trap",
+        "stats": "Cost: 1 V (Apollinaire Only); ghost within sight; small container with lid  •  Pool: 7  v Finesse + Resistance  •  Contested  •  1 hour per Dominate dot",
+        "pool_size": 7,
+        "effect": "Compel a ghost to enter and remain in a govi (container). Released if lid removed or container broken."
+      },
+      {
+        "category": "devotion",
+        "name": "Skeleton Key",
+        "stats": "Cost: 1 V (Apollinaire Only)  •  Pool: 7  •  Instant  •  Instant / Permanent",
+        "pool_size": 7,
+        "effect": "Open any door regardless of locks/security without triggering alarms. Or lock any door until destroyed or Skeleton Key used again. +1 V prevents other Gatekeepers using Skeleton Key on it."
+      },
+      {
+        "category": "devotion",
+        "name": "Veve Passageway",
+        "stats": "Cost: 1 V (Apollinaire Only); white chalk  •  Pool: 7  •  Instant  •  1 hour per success",
+        "pool_size": 7,
+        "effect": "Draw a door on a wall. It becomes a real door opening to nearest room or empty space (up to 1 mile behind the drawing)."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 1,
+        "granted_by": "HM"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 1,
+        "granted_by": "HM"
+      },
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 5,
+        "granted_by": "Invested+PT rebate"
+      },
+      {
+        "category": "general",
+        "name": "Notary",
+        "rating": 2
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "granted_by": "Invested"
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 4,
+        "role": "Voudun Priest",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "category": "influence",
+        "name": "Contacts",
+        "rating": 3,
+        "spheres": []
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 7,
+        "name": "Unnamed lawyer/clerk"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Aloof Curse",
+        "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 1,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 4
+      },
+      "Intimidation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Dominate": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Obfuscate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 6
+      },
+      "Resilience": {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 5,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 1
+      },
+      {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 4,
+        "merits": 6,
+        "powers": 13,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "regent_territory": "The Dockyards",
+    "regent_lieutenant": "Reed Justice",
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
+  },
+  {
+    "name": "Ryan Ambrose",
+    "honorific": "Lord",
+    "moniker": null,
+    "player": "Patrick T",
+    "concept": "Ruthless Rising Star",
+    "pronouns": "he/him",
+    "clan": "Gangrel",
+    "bloodline": null,
+    "covenant": "Invictus",
+    "mask": "Competitor",
+    "dirge": "Follower",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Challenge someone clearly your superior.",
+      "mask_all": "Risk Final Death to prove that you can handle something.",
+      "dirge_1wp": "Follow a directive blindly, for the sake of following.",
+      "dirge_all": "Follow a dangerous directive without hesitation."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 7,
+    "xp_total": 22,
+    "xp_spent": 15,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 0
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 4,
+        "bonus": 2
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 1
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Politics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Drive": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [
+          "speeding"
+        ],
+        "nine_again": false
+      },
+      "Firearms": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Intimidation": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "veiled threats"
+        ],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [
+          "Navigation"
+        ],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Protean": 4,
+      "Resilience": 1,
+      "Vigour": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 2,
+        "name": "Predatory Aspect",
+        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Take on animal traits."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 3,
+        "name": "Beast's Skin",
+        "stats": "Cost: 2 V  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Transform into predatory animal."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 1,
+        "name": "Resilience 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      },
+      {
+        "category": "pact",
+        "name": "Oath of the Hard Motherfucker",
+        "rank": 2,
+        "effect": "Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 1
+      },
+      {
+        "category": "influence",
+        "name": "Staff",
+        "rating": 1,
+        "area": "Larceny"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      }
+    ],
+    "touchstones": [],
+    "banes": [
+      {
+        "name": "Feral Curse",
+        "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Strength": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 2
+      },
+      "Brawl": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Protean": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Vigour": {
+        "cp": 0,
+        "free": 0,
+        "xp": 8
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 0
+      },
+      "spent": {
+        "attributes": 4,
+        "skills": 2,
+        "merits": 5,
+        "powers": 11,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Riding the Wave",
+        "cp": 1,
+        "free": 0,
+        "xp": 0,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Ravage"
+      },
+      {
+        "manoeuvre": "Primal Strength"
+      },
+      {
+        "manoeuvre": "In the Zone"
+      }
+    ]
+  },
+  {
+    "name": "Hazel",
+    "honorific": "Sister",
+    "moniker": null,
+    "player": "Marni K",
+    "concept": "Dogmatic Nun Bruiser",
+    "pronouns": "she/her",
+    "clan": "Ventrue",
+    "bloodline": null,
+    "covenant": "Lancea et Sanctum",
+    "mask": "Penitent",
+    "dirge": "Authoritarian",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Punish yourself for a mistake.",
+      "mask_all": "Risk death to correct an egregious error in judgement.",
+      "dirge_1wp": "Shut down an inferior trying to rise to your level of power.",
+      "dirge_all": "Commit a widespread hit against a rival's mortal connections."
+    },
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 4,
+    "xp_total": 19,
+    "xp_spent": 28,
+    "status": {
+      "city": 1,
+      "clan": 2,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 4,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Investigation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Weaponry": {
+        "dots": 5,
+        "bonus": 0,
+        "specs": [
+          "Swords"
+        ],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Celerity": 1,
+      "Dominate": 3
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Celerity",
+        "rank": 1,
+        "name": "Celerity 1",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 1,
+        "name": "Mesmerise",
+        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 10  v Resolve + BP  •  Instant  •  Instant",
+        "pool_size": 10,
+        "effect": "Impose Mesmerised Condition. Control with short commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 2,
+        "name": "Iron Edict",
+        "stats": "Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  •  Pool: -  •  Instant  •  Instant",
+        "pool_size": null,
+        "effect": "Impose Dominated Condition. Give long, detailed commands."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Dominate",
+        "rank": 3,
+        "name": "Entombed Command",
+        "stats": "Cost: - (req: Mesmerised)   •  Pool: 10  - Resolve  •  Instant  •  1 week/success (1 month bonded)",
+        "pool_size": 10,
+        "effect": "Establish triggers for other Dominate powers."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Church"
+      },
+      {
+        "category": "influence",
+        "name": "Retainer",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Anointed",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Defensive Combat",
+        "rating": 1,
+        "qualifier": "Weaponry"
+      },
+      {
+        "category": "general",
+        "name": "Flock",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Quick Draw",
+        "rating": 1,
+        "qualifier": "Swords"
+      },
+      {
+        "category": "general",
+        "name": "Stigmata",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 5,
+        "shared_with": [
+          "Carver",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 3,
+        "shared_with": [
+          "Carver",
+          "Magda"
+        ]
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 4,
+        "granted_by": "Flock"
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 7,
+        "name": "Unnamed laity member"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Aloof Curse",
+        "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 3,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 5,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Celerity": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Dominate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 3
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 2
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 1
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 16,
+        "powers": 3,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Resolve",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Secondary",
+      "Social": "Tertiary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    },
+    "fighting_styles": [
+      {
+        "type": "style",
+        "name": "Kindred Dueling",
+        "cp": 0,
+        "free": 0,
+        "xp": 2,
+        "up": 0
+      }
+    ],
+    "fighting_picks": [
+      {
+        "manoeuvre": "Hamstring"
+      },
+      {
+        "manoeuvre": "Taunt"
+      },
+      {
+        "manoeuvre": "Carving"
+      },
+      {
+        "manoeuvre": "Pincushion"
+      },
+      {
+        "manoeuvre": "Spray"
+      }
+    ]
+  },
+  {
+    "name": "Tegan Groves",
+    "honorific": null,
+    "moniker": null,
+    "player": "Alana W",
+    "concept": null,
+    "pronouns": "she/her",
+    "clan": "Gangrel",
+    "bloodline": null,
+    "covenant": "Lancea et Sanctum",
+    "mask": "Nurturer",
+    "dirge": "Survivor",
+    "court_title": null,
+    "apparent_age": "mid 20s",
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Put yourself out to help another succeed.",
+      "mask_all": "Take full responsibility for another's dangerous mistake.",
+      "dirge_1wp": "Favour the safe path over the higher risk, higher reward path.",
+      "dirge_all": "Abandon a social group or relationship in order to stay safe."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 21,
+    "xp_spent": 38,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Invictus": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 4,
+        "bonus": 2
+      },
+      "Presence": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 3,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Computer": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Crafts": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Brawl": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Drive": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Survival": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Animal Ken": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Expression": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Persuasion": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Streetwise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Animalism": 1,
+      "Protean": 2,
+      "Resilience": 2
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Animalism",
+        "rank": 1,
+        "name": "Feral Whispers",
+        "stats": "Cost: -  •  Pool: 6  •  Instant  •  Scene (may persist)",
+        "pool_size": 6,
+        "effect": "Speak with and command animals."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 1,
+        "name": "Unmarked Grave",
+        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
+        "pool_size": null,
+        "effect": "Merge with soil."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Protean",
+        "rank": 2,
+        "name": "Predatory Aspect",
+        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Take on animal traits."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Resilience",
+        "rank": 2,
+        "name": "Resilience 2",
+        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
+        "pool_size": null,
+        "effect": "Downgrade damage and increase Stamina. Improve Armour and Defences. Unnatural Fortitude: add Resilience dots as bonus dice to non-combat Stamina pools."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "transportation"
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Iron Stamina",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Language",
+        "rating": 1,
+        "qualifier": "Hindi"
+      },
+      {
+        "category": "general",
+        "name": "Pusher",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Haven",
+        "rating": 1
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Sister Tahliah"
+      },
+      {
+        "humanity": 5,
+        "name": "Old Pine Log"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Feral Curse",
+        "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 1,
+        "free": 1,
+        "xp": 4
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 2,
+        "free": 2,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 0,
+        "free": 1,
+        "xp": 4
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 1,
+        "free": 0,
+        "xp": 2
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Animalism": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Protean": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Resilience": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 1
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 2,
         "free": 0,
         "xp": 0
       },
@@ -1951,12 +16340,612 @@ export const CHARS_DATA = [
         "free": 0,
         "xp": 0
       }
-    ]
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 8,
+        "skills": 2,
+        "merits": 1,
+        "powers": 6,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Stamina",
+    "attribute_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Primary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Tertiary",
+      "Physical": "Secondary",
+      "Social": "Primary"
+    }
   },
   {
-    "name": "Solomon 'Shade' Katz",
-    "player": "Test Player F",
-    "concept": "Nightmare Broker",
+    "name": "Wan Yelong",
+    "honorific": "Lord",
+    "moniker": null,
+    "player": "Michael V",
+    "concept": "Handler",
+    "pronouns": "he/him",
+    "clan": "Mekhet",
+    "bloodline": null,
+    "covenant": "Invictus",
+    "mask": "Scholar",
+    "dirge": "Spy",
+    "court_title": null,
+    "apparent_age": null,
+    "features": null,
+    "willpower": {
+      "mask_1wp": "Uncover a lost piece of information.",
+      "mask_all": "Uncover forbidden knowledge.",
+      "dirge_1wp": "Build a new identity or uncover a secret.",
+      "dirge_all": "Uncover a damning secret that could end someone."
+    },
+    "aspirations": [],
+    "blood_potency": 1,
+    "humanity": 6,
+    "xp_total": 15,
+    "xp_spent": 20,
+    "status": {
+      "city": 2,
+      "clan": 1,
+      "covenant": 2
+    },
+    "covenant_standings": {
+      "Carthian": 0,
+      "Crone": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Wits": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Resolve": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Strength": {
+        "dots": 2,
+        "bonus": 0
+      },
+      "Dexterity": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Stamina": {
+        "dots": 1,
+        "bonus": 0
+      },
+      "Presence": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Manipulation": {
+        "dots": 3,
+        "bonus": 0
+      },
+      "Composure": {
+        "dots": 1,
+        "bonus": 0
+      }
+    },
+    "skills": {
+      "Academics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "history"
+        ],
+        "nine_again": true
+      },
+      "Computer": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Investigation": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Occult": {
+        "dots": 4,
+        "bonus": 1,
+        "specs": [
+          "symbolism",
+          "societies"
+        ],
+        "nine_again": true
+      },
+      "Politics": {
+        "dots": 2,
+        "bonus": 0,
+        "specs": [
+          "fine arts",
+          "diplomacy"
+        ],
+        "nine_again": true
+      },
+      "Athletics": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Stealth": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Empathy": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Socialise": {
+        "dots": 1,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      },
+      "Subterfuge": {
+        "dots": 3,
+        "bonus": 0,
+        "specs": [],
+        "nine_again": false
+      }
+    },
+    "disciplines": {
+      "Auspex": 2,
+      "Obfuscate": 5
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 2,
+        "name": "Uncanny Perception",
+        "stats": "Cost: Free (1 V for Insight) Must perceive target  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Persistent Acute Senses Merit, doubles actual merit. Access to Tier 2 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 7  •  Instant  •  Scene",
+        "pool_size": 7,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 3,
+        "name": "Cloak of Night",
+        "stats": "Cost: 1 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 4,
+        "name": "The Familiar Stranger",
+        "stats": "Cost: 2 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 5,
+        "name": "Oubliette",
+        "stats": "Cost: Free (Haven) / 3-9 V & 1 WP  •  Pool: -  •  Instant  •  1 week per BP",
+        "pool_size": null,
+        "effect": "Always active on Haven/Safe Place at no cost. Further uses at standard cost. Use Obfuscate at distance on anything in area."
+      }
+    ],
+    "merits": [
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 1
+      },
+      {
+        "category": "influence",
+        "name": "Status",
+        "rating": 1,
+        "area": "Academia"
+      },
+      {
+        "category": "general",
+        "name": "Encyclopaedic Knowledge",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Friends in High Places",
+        "rating": 1
+      },
+      {
+        "category": "general",
+        "name": "Indomitable",
+        "rating": 2
+      },
+      {
+        "category": "general",
+        "name": "Multilingual",
+        "rating": 1,
+        "qualifier": "Mandarin, Mongolian"
+      },
+      {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "standing",
+        "name": "Professional Training",
+        "rating": 5,
+        "role": "Diplomatic Attache",
+        "asset_skills": [],
+        "benefits": [
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "active": true,
+        "benefit_grants": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    ],
+    "touchstones": [
+      {
+        "humanity": 6,
+        "name": "Unnamed staffer/academic"
+      }
+    ],
+    "banes": [
+      {
+        "name": "Tenebrous Curse",
+        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": {
+        "cp": 1,
+        "free": 2,
+        "xp": 0
+      },
+      "Wits": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Resolve": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Strength": {
+        "cp": 1,
+        "free": 1,
+        "xp": 0
+      },
+      "Dexterity": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Stamina": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      },
+      "Presence": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Manipulation": {
+        "cp": 2,
+        "free": 1,
+        "xp": 0
+      },
+      "Composure": {
+        "cp": 0,
+        "free": 1,
+        "xp": 0
+      }
+    },
+    "skill_creation": {
+      "Academics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Computer": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Crafts": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Investigation": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Medicine": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Occult": {
+        "cp": 4,
+        "free": 0,
+        "xp": 0
+      },
+      "Politics": {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      "Science": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Athletics": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Brawl": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Drive": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Firearms": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Larceny": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Stealth": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Survival": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Weaponry": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Animal Ken": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Empathy": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      },
+      "Expression": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Intimidation": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Persuasion": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Socialise": {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      "Streetwise": {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      "Subterfuge": {
+        "cp": 3,
+        "free": 0,
+        "xp": 0
+      }
+    },
+    "disc_creation": {
+      "Auspex": {
+        "cp": 1,
+        "free": 0,
+        "xp": 3
+      },
+      "Obfuscate": {
+        "cp": 2,
+        "free": 0,
+        "xp": 9
+      }
+    },
+    "merit_creation": [
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 2,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 1,
+        "free": 0,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 0
+      }
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 3
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 3,
+        "powers": 12,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": false
+      },
+      {
+        "name": "history",
+        "complete": false
+      },
+      {
+        "name": "rules",
+        "complete": false
+      },
+      {
+        "name": "lore",
+        "complete": false
+      },
+      {
+        "name": "covenant",
+        "complete": false
+      }
+    ],
+    "clan_attribute": "Intelligence",
+    "attribute_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    },
+    "skill_priorities": {
+      "Mental": "Primary",
+      "Physical": "Tertiary",
+      "Social": "Secondary"
+    }
+  },
+  {
+    "name": "Yusuf Kalusicj",
+    "honorific": null,
+    "moniker": "Mammon",
+    "player": "Peter K",
+    "concept": "Nightmate Shadow Broker",
     "pronouns": "he/him",
     "clan": "Nosferatu",
     "bloodline": null,
@@ -1975,7 +16964,7 @@ export const CHARS_DATA = [
     "aspirations": [],
     "blood_potency": 2,
     "humanity": 4,
-    "xp_total": 54,
+    "xp_total": 32,
     "xp_spent": 54,
     "status": {
       "city": 2,
@@ -2173,13 +17162,6 @@ export const CHARS_DATA = [
       {
         "category": "influence",
         "name": "Allies",
-        "rating": 3,
-        "area": "Finance",
-        "granted_by": "MCI x3"
-      },
-      {
-        "category": "influence",
-        "name": "Allies",
         "rating": 2,
         "area": "Politics"
       },
@@ -2187,54 +17169,8 @@ export const CHARS_DATA = [
         "category": "influence",
         "name": "Allies",
         "rating": 2,
-        "area": "Underworld"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Police",
-        "granted_by": "MCI x1"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "High Society",
-        "granted_by": "MCI x1"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Occult",
-        "granted_by": "MCI x1"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Media",
-        "granted_by": "MCI x1"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Street",
-        "granted_by": "MCI x1"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 3,
-        "granted_by": "MCI x3"
-      },
-      {
-        "category": "general",
-        "name": "Air of Menace",
-        "rating": 2,
-        "granted_by": "MCI"
+        "area": "Underworld",
+        "granted_by": "MCI 2"
       },
       {
         "category": "general",
@@ -2257,10 +17193,21 @@ export const CHARS_DATA = [
         "rating": 1
       },
       {
+        "category": "domain",
+        "name": "Safe Place",
+        "rating": 1
+      },
+      {
+        "category": "domain",
+        "name": "Herd",
+        "rating": 5,
+        "granted_by": "SSJ"
+      },
+      {
         "category": "standing",
         "name": "Mystery Cult Initiation",
         "rating": 5,
-        "cult_name": "The Obsidian Ledger",
+        "cult_name": "",
         "benefits": [
           "",
           "",
@@ -2271,55 +17218,59 @@ export const CHARS_DATA = [
         "active": true,
         "benefit_grants": [
           {
-            "category": "general",
+            "category": "influence",
             "name": "Contacts",
+            "rating": 1
+          },
+          {
+            "category": "influence",
+            "name": "Allies",
             "rating": 1,
             "qualifier": "Underworld"
           },
           {
             "category": "general",
-            "name": "Resources",
+            "name": "Air of Menace",
             "rating": 2
           },
           {
-            "category": "general",
-            "name": "Closed Book",
-            "rating": 3
-          },
-          {
-            "category": "general",
+            "category": "influence",
             "name": "Allies",
             "rating": 3,
             "qualifier": "Finance"
           },
           {
-            "category": "general",
-            "name": "Table Turner",
-            "rating": 1
+            "category": "influence",
+            "name": "Resources",
+            "rating": 3
           }
         ]
       },
       {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 1
+        "category": "general",
+        "name": "Air of Menace",
+        "rating": 3
       },
       {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 5
+        "category": "influence",
+        "name": "Allies",
+        "rating": 3,
+        "area": "Finance"
+      },
+      {
+        "category": "influence",
+        "name": "Resources",
+        "rating": 3
       }
     ],
     "touchstones": [
       {
         "humanity": 6,
-        "name": "Portrait of Mother",
-        "desc": null
+        "name": "Portrait of my Wife"
       },
       {
         "humanity": 5,
-        "name": "Old Turkish Barber",
-        "desc": null
+        "name": "Turkish Laundrette Woman"
       }
     ],
     "banes": [
@@ -2332,54 +17283,6 @@ export const CHARS_DATA = [
         "effect": "Touch by Integrity 8+ mortal causes (10 – Humanity) bashing damage."
       }
     ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 6,
-        "ordeals": 15,
-        "game": 1,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 0,
-        "skills": 0,
-        "merits": 14,
-        "powers": 18,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Rules",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Lore",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Tertiary",
-      "Social": "Primary"
-    },
-    "clan_attribute": "Composure",
     "attr_creation": {
       "Intelligence": {
         "cp": 1,
@@ -2426,11 +17329,6 @@ export const CHARS_DATA = [
         "free": 2,
         "xp": 0
       }
-    },
-    "skill_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Tertiary",
-      "Social": "Primary"
     },
     "skill_creation": {
       "Academics": {
@@ -2575,7 +17473,19 @@ export const CHARS_DATA = [
       {
         "cp": 0,
         "free": 0,
+        "xp": 0,
+        "up": 3
+      },
+      {
+        "cp": 0,
+        "free": 3,
         "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
+        "xp": 4,
+        "up": 1
       },
       {
         "cp": 0,
@@ -2590,46 +17500,6 @@ export const CHARS_DATA = [
       {
         "cp": 0,
         "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
         "xp": 1
       },
       {
@@ -2638,55 +17508,109 @@ export const CHARS_DATA = [
         "xp": 2
       },
       {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 5,
+        "cp": 0,
         "free": 0,
         "xp": 0
       },
       {
         "cp": 0,
         "free": 0,
+        "xp": 0,
+        "up": 2
+      },
+      {
+        "cp": 0,
+        "free": 2,
         "xp": 1
       },
       {
         "cp": 0,
-        "free": 5,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 3,
+        "xp": 0
+      },
+      {
+        "cp": 0,
+        "free": 0,
         "xp": 0
       }
-    ]
+    ],
+    "xp_log": {
+      "earned": {
+        "game": 1
+      },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 14,
+        "powers": 18,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      {
+        "name": "questionnaire",
+        "complete": true
+      },
+      {
+        "name": "history",
+        "complete": true
+      },
+      {
+        "name": "rules",
+        "complete": true
+      },
+      {
+        "name": "lore",
+        "complete": true
+      },
+      {
+        "name": "covenant",
+        "complete": true
+      }
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    }
   },
   {
-    "name": "Viktor Ashwood",
-    "player": "Test Player A",
-    "concept": "Obsidian enforcer",
-    "pronouns": "he/him",
+    "name": "Julia",
+    "honorific": "Lady",
+    "moniker": null,
+    "player": "Amelia Inglis",
+    "concept": "Renfield's EA",
+    "pronouns": null,
     "clan": "Nosferatu",
-    "bloodline": "Order of Sir Martin",
+    "bloodline": null,
     "covenant": "Invictus",
-    "mask": "Conformist",
-    "dirge": "Rebel",
+    "mask": null,
+    "dirge": null,
     "court_title": null,
-    "apparent_age": "indeterminate",
+    "apparent_age": null,
     "features": null,
-    "willpower": {
-      "mask_1wp": "Choose an obviously disadvantageous path because it fits with protocol.",
-      "mask_all": "Stand by the losing side with shield at the ready, because it is your side.",
-      "dirge_1wp": "Openly flout a tradition.",
-      "dirge_all": "Openly flout a Kindred Tradition or a covenant taboo."
-    },
+    "willpower": {},
     "aspirations": [],
     "blood_potency": 1,
-    "humanity": 4,
-    "xp_total": 62,
-    "xp_spent": 62,
+    "humanity": 7,
+    "xp_total": 10,
+    "xp_spent": 8,
     "status": {
-      "city": 1,
-      "clan": 2,
-      "covenant": 3
+      "city": 0,
+      "clan": 0,
+      "covenant": 0
     },
     "covenant_standings": {
       "Carthian": 0,
@@ -2699,5598 +17623,85 @@ export const CHARS_DATA = [
         "bonus": 0
       },
       "Wits": {
-        "dots": 3,
+        "dots": 1,
         "bonus": 0
       },
       "Resolve": {
-        "dots": 3,
+        "dots": 1,
         "bonus": 0
       },
       "Strength": {
-        "dots": 3,
+        "dots": 1,
         "bonus": 0
       },
       "Dexterity": {
-        "dots": 3,
+        "dots": 1,
         "bonus": 0
       },
       "Stamina": {
-        "dots": 3,
+        "dots": 1,
         "bonus": 0
       },
       "Presence": {
-        "dots": 2,
+        "dots": 1,
         "bonus": 0
       },
       "Manipulation": {
-        "dots": 2,
+        "dots": 1,
         "bonus": 0
       },
       "Composure": {
-        "dots": 3,
+        "dots": 1,
         "bonus": 0
       }
     },
-    "skills": {
-      "Crafts": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Smithing"
-        ],
-        "nine_again": true
-      },
-      "Athletics": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Larceny": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [
-          "Coward Punch"
-        ],
-        "nine_again": true
-      },
-      "Weaponry": {
-        "dots": 4,
-        "bonus": 1,
-        "specs": [
-          "Light Weapons",
-          "Weapon & Shield"
-        ],
-        "nine_again": true
-      },
-      "Empathy": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": true
-      },
-      "Intimidation": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [
-          "Interrogation"
-        ],
-        "nine_again": true
-      },
-      "Socialise": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
+    "skills": {},
     "disciplines": {
       "Celerity": 1,
       "Nightmare": 1,
-      "Obfuscate": 5
+      "Obfuscate": 3
     },
     "powers": [
       {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 1,
-        "name": "Celerity 1",
-        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
-        "pool_size": null,
-        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Nightmare",
-        "rank": 1,
-        "name": "Dread Presence",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Obfuscate",
-        "rank": 1,
-        "name": "Face in the Crowd",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Obfuscate",
-        "rank": 2,
-        "name": "Touch of Shadow",
-        "stats": "Cost: 1 V  •  Pool: 10  •  Instant  •  Scene",
-        "pool_size": 10,
-        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Obfuscate",
-        "rank": 3,
-        "name": "Cloak of Night",
-        "stats": "Cost: 1 V  •  Pool: -  •  None",
-        "pool_size": null,
-        "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Obfuscate",
-        "rank": 4,
-        "name": "The Familiar Stranger",
-        "stats": "Cost: 2 V  •  Pool: -  •  None",
-        "pool_size": null,
-        "effect": "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Obfuscate",
-        "rank": 5,
-        "name": "Oubliette",
-        "stats": "Cost: Free (Haven) / 3-9 V & 1 WP  •  Pool: -  •  Instant  •  1 week per BP",
-        "pool_size": null,
-        "effect": "Always active on Haven/Safe Place at no cost. Further uses at standard cost. Use Obfuscate at distance on anything in area."
-      },
-      {
         "category": "devotion",
-        "name": "Repulsive Mien",
-        "stats": "Cost: 1 V (Order of Sir Martin Only); only affects other Leper Knights with concrete reasons for mistrust  •  Pool: -  •  Reflexive  •  Scene",
-        "pool_size": null,
-        "effect": "As Dread Presence but -3 to all actions against the Knight. Targets cannot spend WP to enhance actions against Knight. Victims can lash out with Beast to end the effect. Reflexive brief illusions affecting Knight's person (narrative only)."
-      },
-      {
-        "category": "pact",
-        "name": "Oath of Fealty",
-        "rank": 1,
-        "stats": null,
-        "effect": "Draw Invictus Status in Vitae weekly from liege without feeding. Liege knows when you lie."
-      },
-      {
-        "category": "pact",
-        "name": "Oath of the Hard Motherfucker",
-        "rank": 2,
-        "stats": null,
-        "effect": "Kill a Carthian or oathbreaker for Invictus Status 1, Friends in High Places 1, 9-Again on two Skills, and Allies/Contacts/Resources 1. All stripped if broken."
-      },
-      {
-        "category": "pact",
-        "name": "Oath of the Safe Word",
-        "rank": 2,
-        "stats": null,
-        "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
-      },
-      {
-        "category": "pact",
-        "name": "Oath of the True Knight",
-        "rank": 4,
-        "stats": null,
-        "effect": "Impartial covenant defender. Can't consume Vitae from any source; can't be woken from torpor by blood. Invictus Status protects from mental Disciplines and Kindred/ghoul attacks."
+        "name": "Wraith's Presence"
       }
     ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 1,
-        "area": "Police"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Street"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Underworld"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Police"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 5
-      },
-      {
-        "category": "general",
-        "name": "Area of Expertise",
-        "rating": 1,
-        "qualifier": "Coward Punch"
-      },
-      {
-        "category": "general",
-        "name": "Area of Expertise",
-        "rating": 1,
-        "qualifier": "Light Weapons"
-      },
-      {
-        "category": "general",
-        "name": "Area of Expertise",
-        "rating": 1,
-        "qualifier": "Weapon & Shield"
-      },
-      {
-        "category": "general",
-        "name": "Closed Book",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Friends in High Places",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Interdisciplinary Specialty",
-        "rating": 1,
-        "qualifier": "Coward Punch"
-      },
-      {
-        "category": "general",
-        "name": "Invested",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Secret Society Junkie",
-        "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Courtoisie",
-        "rating": 1,
-        "rank_name": "Establish the Duel",
-        "granted_by": "Oath of the Hard Motherfucker"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Courtoisie",
-        "rating": 3,
-        "rank_name": "Demanding Attention",
-        "granted_by": "Oath of the Hard Motherfucker"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Light Weapons",
-        "rating": 2,
-        "rank_name": "Thrust",
-        "granted_by": "Oath of the Hard Motherfucker"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Light Weapons",
-        "rating": 4,
-        "rank_name": "Flurry",
-        "granted_by": "Oath of the Hard Motherfucker"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Strength Performance",
-        "rating": 1,
-        "rank_name": "Strength Tricks",
-        "granted_by": "Oath of the Hard Motherfucker"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Strength Performance",
-        "rating": 2,
-        "rank_name": "Lifting",
-        "granted_by": "Oath of the Hard Motherfucker"
-      },
-      {
-        "category": "standing",
-        "name": "Professional Training",
-        "rating": 4,
-        "role": "",
-        "asset_skills": [
-          "Crafts",
-          "Stealth",
-          "Weaponry",
-          "Empathy",
-          "Intimidation"
-        ]
-      },
-      {
-        "category": "standing",
-        "name": "Mystery Cult Initiation",
-        "rating": 5,
-        "cult_name": "The Iron Accord",
-        "benefits": [
-          "",
-          "",
-          "",
-          "",
-          ""
-        ],
-        "active": true,
-        "benefit_grants": [
-          {
-            "category": "general",
-            "name": "Defensive Combat",
-            "rating": 1,
-            "qualifier": "Weaponry"
-          },
-          {
-            "category": "general",
-            "name": "Indomitable",
-            "rating": 2
-          },
-          {
-            "category": "manoeuvre",
-            "name": "Weapon and Shield",
-            "rating": 1,
-            "rank_name": "Shield Bash"
-          },
-          {
-            "category": "manoeuvre",
-            "name": "Strength Performance",
-            "rating": 3,
-            "rank_name": "Push/Pull"
-          },
-          {
-            "category": "manoeuvre",
-            "name": "Weapon and Shield",
-            "rating": 3,
-            "rank_name": "Pin Weapon"
-          }
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 0,
-        "shared_with": [
-          "Selene Varga",
-          "Whisper"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Haven",
-        "rating": 1,
-        "shared_with": [
-          "Selene Varga",
-          "Whisper"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 5
-      },
-      {
-        "category": "general",
-        "name": "Quick Draw",
-        "rating": 1,
-        "qualifier": "Light Weapons",
-        "granted_by": "Oath of the Hard Motherfucker"
-      },
-      {
-        "category": "general",
-        "name": "Support Network",
-        "rating": 1,
-        "qualifier": "Whisper",
-        "granted_by": "Oath of the Safe Word"
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 6,
-        "name": "Dmitri",
-        "desc": "rescued informant"
-      }
-    ],
+    "merits": [],
+    "touchstones": [],
     "banes": [
       {
         "name": "Lonely Curse",
         "effect": "With mortals, Humanity counts –2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
-      },
-      {
-        "name": "Rat King/Queen",
-        "effect": "Surrounded by vermin; all Social rolls fail except Intimidation; WP can dismiss."
       }
     ],
     "xp_log": {
       "earned": {
-        "humanity_drop": 6,
-        "ordeals": 15,
-        "game": 3,
-        "starting": 10
+        "game": 0
       },
-      "spent": {
-        "attributes": 4,
-        "skills": 0,
-        "merits": 16,
-        "powers": 14,
-        "special": 0
-      }
+      "spent": {}
     },
+    "humanity_base": 7,
     "ordeals": [
       {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
+        "name": "questionnaire",
+        "complete": false
       },
       {
-        "name": "History",
-        "complete": true,
-        "xp": 3
+        "name": "history",
+        "complete": false
       },
       {
-        "name": "Rules",
-        "complete": true,
-        "xp": 3
+        "name": "rules",
+        "complete": false
       },
       {
-        "name": "Lore",
-        "complete": true,
-        "xp": 3
+        "name": "lore",
+        "complete": false
       },
       {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Primary",
-      "Social": "Tertiary"
-    },
-    "clan_attribute": "Strength",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 1,
-        "free": 2,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 1,
-        "free": 1,
-        "xp": 4
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Tertiary",
-      "Physical": "Primary",
-      "Social": "Secondary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Celerity": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Nightmare": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Obfuscate": {
-        "cp": 1,
-        "free": 0,
-        "xp": 12
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 4,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 3,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 4
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 5
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 5,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      }
-    ]
-  },
-  {
-    "name": "Whisper",
-    "player": "Test Player C",
-    "concept": "Memory Thief",
-    "pronouns": "they/them",
-    "clan": "Mekhet",
-    "bloodline": "Mnemosyne",
-    "covenant": "Circle of the Crone",
-    "mask": "Junkie",
-    "dirge": "Masochist",
-    "court_title": null,
-    "apparent_age": "Late 40s",
-    "features": "Inhumanly high presence",
-    "willpower": {
-      "mask_1wp": "Ignore a problem or responsibility in favour of immediate gratification.",
-      "mask_all": "Abandon an important relationship over your pursuit of pleasure.",
-      "dirge_1wp": "Find and experience a new source of hurt.",
-      "dirge_all": "Willingly explore pain beyond the point of safety and reason."
-    },
-    "aspirations": [],
-    "blood_potency": 2,
-    "humanity": 3,
-    "xp_total": 62,
-    "xp_spent": 61,
-    "status": {
-      "city": 1,
-      "clan": 3,
-      "covenant": 3
-    },
-    "covenant_standings": {
-      "Carthian": 0,
-      "Invictus": 1,
-      "Lance": 0
-    },
-    "attributes": {
-      "Intelligence": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Wits": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Resolve": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Strength": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Dexterity": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Stamina": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Presence": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Manipulation": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Composure": {
-        "dots": 2,
-        "bonus": 0
-      }
-    },
-    "skills": {
-      "Occult": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Athletics": {
-        "dots": 5,
-        "bonus": 0,
-        "specs": [
-          "Archery"
-        ],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Empathy": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [
-          "Sin-Eater"
-        ],
-        "nine_again": false
-      },
-      "Expression": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Mesmerise"
-        ],
-        "nine_again": false
-      },
-      "Intimidation": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Socialise": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Subterfuge": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
-    "disciplines": {
-      "Auspex": 1,
-      "Celerity": 1,
-      "Dominate": 4,
-      "Obfuscate": 1,
-      "Cruac": 4,
-      "Creation": 1,
-      "Protection": 1,
-      "Transmutation": 4
-    },
-    "powers": [
-      {
-        "category": "discipline",
-        "discipline": "Auspex",
-        "rank": 1,
-        "name": "Beast's Hackles",
-        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 1,
-        "name": "Celerity 1",
-        "stats": "Cost: 1 V per effect  •  Pool: -  •  Reflexive  •  1 turn",
-        "pool_size": null,
-        "effect": "Persistent improved Defence or Dodge. Activate for supernatural speed benefits. Unnatural Grace: add Celerity dots as bonus dice to non-combat speed-based pools."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Dominate",
-        "rank": 1,
-        "name": "Mesmerise",
-        "stats": "Cost: - -3 in combat unless Blinded  •  Pool: 12  v Resolve + BP  •  Instant  •  Instant",
-        "pool_size": 12,
-        "effect": "Impose Mesmerised Condition. Control with short commands."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Dominate",
-        "rank": 2,
-        "name": "Iron Edict",
-        "stats": "Cost: 1 V (0 in bond) (req: Mesmerised); -3 in combat unless Blinded  •  Pool: -  •  Instant  •  Instant",
-        "pool_size": null,
-        "effect": "Impose Dominated Condition. Give long, detailed commands."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Dominate",
-        "rank": 3,
-        "name": "Entombed Command",
-        "stats": "Cost: - (req: Mesmerised)   •  Pool: 10  - Resolve  •  Instant  •  1 week/success (1 month bonded)",
-        "pool_size": 10,
-        "effect": "Establish triggers for other Dominate powers."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Dominate",
-        "rank": 4,
-        "name": "The Lying Mind",
-        "stats": "Cost: 2 V (req: Mesmerised)   •  Pool: -  •  Instant  •  Permanent",
-        "pool_size": null,
-        "effect": "Impose Amnesia or False Memories Condition."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Obfuscate",
-        "rank": 1,
-        "name": "Face in the Crowd",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
-      },
-      {
-        "category": "devotion",
-        "name": "The Taste of Things Lived",
-        "stats": "Cost: 1 V (reflexive for insight) (Mnemosyne Only)  •  Pool: 7  •  Reflexive  •  Scene",
-        "pool_size": 7,
-        "effect": "Feeding creates artificial blood ties (+2 Social vs target; Twice Removed for Blood Sympathy). Sever for 1 WP. Can effect blood ties with Touch of Shadow. Spend 1 V: +1 Mental per applicable human/vampire within 100 metres."
-      },
-      {
-        "category": "devotion",
-        "name": "The Exchange of Things Past",
-        "stats": "Cost: 1 V (Mnemosyne Only); blood tie to target; replaces The Lying Mind  •  Pool: 12  v Resolve + BP  •  Contested  •  Scene / Permanent (elective)",
-        "pool_size": 12,
-        "effect": "Exchange memories with target. For each memory taken, must give one of equal length. Both gain False Memories condition. After scene, own memories return but exchanged memories remain, or elect to make permanent. Traumatic memories: vampire rolls Fear Frenzy, mortal Resolve + Composure or Shaken."
-      },
-      {
-        "category": "rite",
-        "tradition": "Cruac",
-        "level": 1,
-        "name": "Mantle of Amorous Fire",
-        "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
-        "pool_size": 11,
-        "effect": "Dance to exhaustion. Add Cruac as a Presence bonus for the night."
-      },
-      {
-        "category": "rite",
-        "tradition": "Cruac",
-        "level": 2,
-        "name": "Wisdom of the Soul",
-        "stats": "Cost: 1 V 2 Successes  •  Pool: 11  •  Ritual  •  Instant",
-        "pool_size": 11,
-        "effect": "Reveal if mortal/vampire/ghoul; Humanity rating; diablerie"
-      },
-      {
-        "category": "rite",
-        "tradition": "Cruac",
-        "level": 1,
-        "name": "Deflection of Wooden Doom",
-        "stats": "Cost: 1 V 1 Successes  •  Pool: 11  •  Ritual  •  Scene",
-        "pool_size": 11,
-        "effect": "Caster becomes immune to staking for one night."
-      },
-      {
-        "category": "rite",
-        "tradition": "Cruac",
-        "level": 4,
-        "name": "Willful Vitae",
-        "stats": "Cost: 2 V 4 Successes  •  Pool: 11  •  Ritual  •  Until used",
-        "pool_size": 11,
-        "effect": "Prevent the onset of blood addiction or the Vinculum for the night."
-      },
-      {
-        "category": "pact",
-        "name": "Oath of the Safe Word",
-        "rank": 2,
-        "stats": null,
-        "effect": "Share Willpower and one Social Merit with oath partner. Either can end to briefly paralyse the other."
-      }
-    ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 5,
-        "granted_by": "Safe Word"
-      },
-      {
-        "category": "general",
-        "name": "Empath",
-        "rating": 2
-      },
-      {
-        "category": "general",
-        "name": "Mandragora Garden",
-        "rating": 3,
-        "qualifier": "Shared (Ivana)"
-      },
-      {
-        "category": "general",
-        "name": "Secret Society Junkie",
-        "rating": 1
-      },
-      {
-        "category": "standing",
-        "name": "Mystery Cult Initiation",
-        "rating": 5,
-        "cult_name": "The Hollow Archive",
-        "benefits": [
-          "",
-          "",
-          "",
-          "",
-          ""
-        ],
-        "active": true,
-        "benefit_grants": [
-          {
-            "category": "general",
-            "name": "Eidetic Memory",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Table Turner",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Indomitable",
-            "rating": 2
-          },
-          {
-            "category": "general",
-            "name": "Peacemaker",
-            "rating": 3
-          },
-          {
-            "category": "general",
-            "name": "Closed Book",
-            "rating": 3
-          }
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 1,
-        "shared_with": [
-          "Viktor Ashwood",
-          "Selene Varga"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Haven",
-        "rating": 0,
-        "shared_with": [
-          "Viktor Ashwood",
-          "Selene Varga"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 5,
-        "notes_col_d": "SSJ"
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 6,
-        "name": "Marguerite",
-        "desc": "Dead Wife"
-      }
-    ],
-    "banes": [
-      {
-        "name": "Tenebrous Curse",
-        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts –1 for all Humanity-based banes."
-      },
-      {
-        "name": "Hated by Beasts",
-        "effect": "Animals react violently; Animal Ken/Animalism suffer (10 – Humanity) penalty."
-      }
-    ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 8,
-        "ordeals": 15,
-        "game": 3,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 0,
-        "skills": 0,
-        "merits": 7,
-        "powers": 28,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Rules",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Lore",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Tertiary",
-      "Social": "Primary"
-    },
-    "clan_attribute": "Intelligence",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 2,
-        "free": 2,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Tertiary",
-      "Physical": "Secondary",
-      "Social": "Primary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 5,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Auspex": {
-        "cp": 0,
-        "free": 0,
-        "xp": 3
-      },
-      "Celerity": {
-        "cp": 0,
-        "free": 0,
-        "xp": 3
-      },
-      "Obfuscate": {
-        "cp": 0,
-        "free": 0,
-        "xp": 3
-      },
-      "Dominate": {
-        "cp": 2,
-        "free": 0,
-        "xp": 6
-      },
-      "Cruac": {
-        "cp": 1,
-        "free": 0,
-        "xp": 12
-      },
-      "Creation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Protection": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Transmutation": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 5,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 1
-      },
-      {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 0,
-        "free": 5,
-        "xp": 0
-      }
-    ]
-  },
-  {
-    "name": "Elara Thorne",
-    "player": "J. Whitfield",
-    "concept": "Disgraced Surgeon",
-    "pronouns": "she/her",
-    "clan": "Mekhet",
-    "bloodline": null,
-    "covenant": "Lancea et Sanctum",
-    "mask": "Scholar",
-    "dirge": "Deviant",
-    "court_title": "Keeper of Elysium",
-    "apparent_age": null,
-    "features": null,
-    "willpower": {
-      "mask_1wp": "Uncover a hidden truth through persistent research.",
-      "mask_all": "Expose a conspiracy that powerful figures wanted buried.",
-      "dirge_1wp": "Break a social taboo and enjoy it.",
-      "dirge_all": "Commit an atrocity that changes you permanently."
-    },
-    "aspirations": [],
-    "blood_potency": 1,
-    "humanity": 5,
-    "xp_total": 22,
-    "xp_spent": 15,
-    "status": {
-      "city": 1,
-      "clan": 1,
-      "covenant": 1
-    },
-    "covenant_standings": {
-      "Carthian": 0,
-      "Invictus": 0,
-      "Lance": 0
-    },
-    "attributes": {
-      "Intelligence": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Wits": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Resolve": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Strength": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Dexterity": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Stamina": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Presence": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Manipulation": {
-        "dots": 1,
-        "bonus": 0
-      },
-      "Composure": {
-        "dots": 2,
-        "bonus": 0
-      }
-    },
-    "skills": {
-      "Academics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Computer": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Crafts": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Investigation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Medicine": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [
-          "First Aid"
-        ],
-        "nine_again": true
-      },
-      "Occult": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Politics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Science": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Athletics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Brawl": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Drive": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Firearms": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Larceny": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Survival": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [
-          "Foraging"
-        ],
-        "nine_again": false
-      },
-      "Weaponry": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Animal Ken": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Empathy": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Expression": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Intimidation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Persuasion": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Socialise": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Streetwise": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Subterfuge": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
-    "disciplines": {
-      "Nightmare": 3,
-      "Vigor": 1,
-      "Theban": 1
-    },
-    "powers": [
-      {
-        "category": "discipline",
-        "discipline": "Animalism",
-        "rank": 1,
-        "name": "Feral Whispers",
-        "stats": "Cost: -  •  Pool: Manipulation + Animal Ken + Animalism v Resolve + Composure  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Communicate with and command animals."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Animalism",
-        "rank": 2,
-        "name": "Raise the Familiar",
-        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Indefinite",
-        "pool_size": null,
-        "effect": "Create a ghoul animal servant."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Animalism",
-        "rank": 3,
-        "name": "Call of the Wild",
-        "stats": "Cost: 2 V  •  Pool: Presence + Animal Ken + Animalism  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Summon all animals in the area to do your bidding."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Dominate",
-        "rank": 1,
-        "name": "Mesmerise",
-        "stats": "Cost: -  •  Pool: Intelligence + Expression + Dominate v Resolve + BP  •  Contested  •  Scene",
-        "pool_size": null,
-        "effect": "Issue a brief command the subject must obey."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Dominate",
-        "rank": 2,
-        "name": "Iron Edict",
-        "stats": "Cost: 1 V  •  Pool: Intelligence + Intimidation + Dominate v Resolve + BP  •  Contested  •  Scene",
-        "pool_size": null,
-        "effect": "Issue a complex command lasting the scene."
-      }
-    ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "area": "Technology"
-      },
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 1,
-        "area": "Transport"
-      },
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 3,
-        "area": "Health"
-      },
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 1,
-        "area": "Criminal Underworld"
-      },
-      {
-        "category": "general",
-        "name": "Unflappable",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Indomitable",
-        "rating": 2
-      },
-      {
-        "category": "general",
-        "name": "Closed Book",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Meditative Mind",
-        "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Down and Dirty",
-        "rating": 1,
-        "rank_name": "Tackle"
-      },
-      {
-        "category": "standing",
-        "name": "Professional Training",
-        "rating": 4,
-        "role": "Archivist",
-        "asset_skills": [
-          "Weaponry",
-          "Firearms"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 1,
-        "shared_with": [
-          "Yara Osei"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Haven",
-        "rating": 2,
-        "shared_with": [
-          "Yara Osei"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 3
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 7,
-        "name": "Detective Harlow",
-        "desc": "last blood relative"
-      },
-      {
-        "humanity": 6,
-        "name": "Marcus Rivera",
-        "desc": "recurring nuisance"
-      }
-    ],
-    "banes": [
-      {
-        "name": "Tenebrous Curse",
-        "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts -1 for all Humanity-based banes."
-      }
-    ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 0,
-        "ordeals": 8,
-        "game": 4,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 1,
-        "skills": 4,
-        "merits": 9,
-        "powers": 1,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Rules",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Lore",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Primary",
-      "Social": "Tertiary"
-    },
-    "clan_attribute": "Intelligence",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Tertiary",
-      "Physical": "Primary",
-      "Social": "Secondary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Animalism": {
-        "cp": 2,
-        "free": 0,
-        "xp": 3
-      },
-      "Dominate": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 2,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      }
-    ]
-  },
-  {
-    "name": "Bastian Cole",
-    "player": "R. Navarro",
-    "concept": "Corporate Fixer",
-    "pronouns": "he/him",
-    "clan": "Ventrue",
-    "bloodline": null,
-    "covenant": "Invictus",
-    "mask": "Authoritarian",
-    "dirge": "Competitor",
-    "court_title": "Seneschal",
-    "apparent_age": null,
-    "features": null,
-    "willpower": {
-      "mask_1wp": "Enforce a rule others are too afraid to uphold.",
-      "mask_all": "Topple a rival from a position of power.",
-      "dirge_1wp": "Win a contest where real stakes are on the line.",
-      "dirge_all": "Publicly humiliate a competitor in their area of expertise."
-    },
-    "aspirations": [],
-    "blood_potency": 2,
-    "humanity": 8,
-    "xp_total": 19,
-    "xp_spent": 18,
-    "status": {
-      "city": 3,
-      "clan": 1,
-      "covenant": 1
-    },
-    "covenant_standings": {
-      "Carthian": 0,
-      "Invictus": 0,
-      "Lance": 0
-    },
-    "attributes": {
-      "Intelligence": {
-        "dots": 1,
-        "bonus": 0
-      },
-      "Wits": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Resolve": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Strength": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Dexterity": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Stamina": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Presence": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Manipulation": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Composure": {
-        "dots": 1,
-        "bonus": 0
-      }
-    },
-    "skills": {
-      "Academics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Computer": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Crafts": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Investigation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Medicine": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Occult": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Politics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Science": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Athletics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Brawl": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Drive": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Firearms": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Larceny": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [
-          "Lockpicking"
-        ],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Survival": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Weaponry": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Animal Ken": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Empathy": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Expression": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Intimidation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Persuasion": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Socialise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Streetwise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Subterfuge": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
-    "disciplines": {
-      "Celerity": 4,
-      "Majesty": 4
-    },
-    "powers": [
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 1,
-        "name": "Greased Lightning",
-        "stats": "Cost: -  •  Pool: -  •  Reflexive  •  Permanent",
-        "pool_size": null,
-        "effect": "Add Celerity to Defence."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Majesty",
-        "rank": 1,
-        "name": "Awe",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Become centre of attention. Subjects become Awed."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Auspex",
-        "rank": 1,
-        "name": "Beast's Hackles",
-        "stats": "Cost: -  •  Pool: Wits + Empathy + Auspex  •  Instant  •  Varies",
-        "pool_size": null,
-        "effect": "Sense supernatural activity."
-      }
-    ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 1,
-        "area": "Finance"
-      },
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 3,
-        "area": "Technology"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Academia"
-      },
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 1,
-        "area": "Church"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Peacemaker",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Giant",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Eidetic Memory",
-        "rating": 1
-      },
-      {
-        "category": "standing",
-        "name": "Mystery Cult Initiation",
-        "rating": 3,
-        "cult_name": "The Midnight Assembly",
-        "benefits": [
-          "",
-          "",
-          "",
-          "",
-          ""
-        ],
-        "active": true,
-        "benefit_grants": [
-          {
-            "category": "general",
-            "name": "Fast Reflexes",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Contacts",
-            "rating": 1,
-            "qualifier": "Legal"
-          },
-          {
-            "category": "general",
-            "name": "Closed Book",
-            "rating": 3
-          },
-          null,
-          null
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 2,
-        "shared_with": [
-          "Nox"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 4
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 8,
-        "name": "Lena Frost",
-        "desc": "childhood friend"
-      }
-    ],
-    "banes": [
-      {
-        "name": "Aloof Curse",
-        "effect": "Spending Vitae to boost Social Attributes costs an additional Vitae."
-      }
-    ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 0,
-        "ordeals": 6,
-        "game": 3,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 6,
-        "skills": 1,
-        "merits": 4,
-        "powers": 7,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Rules",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Lore",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Tertiary",
-      "Social": "Primary"
-    },
-    "clan_attribute": "Resolve",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Primary",
-      "Physical": "Secondary",
-      "Social": "Tertiary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Animalism": {
-        "cp": 2,
-        "free": 0,
-        "xp": 3
-      },
-      "Protean": {
-        "cp": 2,
-        "free": 0,
-        "xp": 6
-      },
-      "Nightmare": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Cruac": {
-        "cp": 2,
-        "free": 0,
-        "xp": 3
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 2,
-        "xp": 0
-      }
-    ]
-  },
-  {
-    "name": "Yara Osei",
-    "player": "T. Marchetti",
-    "concept": "Street Prophet",
-    "pronouns": "she/her",
-    "clan": "Gangrel",
-    "bloodline": null,
-    "covenant": "Circle of the Crone",
-    "mask": "Guru",
-    "dirge": "Martyr",
-    "court_title": null,
-    "apparent_age": null,
-    "features": null,
-    "willpower": {
-      "mask_1wp": "Guide someone through a spiritual crisis.",
-      "mask_all": "Convert a hostile stranger through passionate conviction.",
-      "dirge_1wp": "Sacrifice something valuable for someone who cannot repay you.",
-      "dirge_all": "Give up a defining possession to save another."
-    },
-    "aspirations": [],
-    "blood_potency": 1,
-    "humanity": 8,
-    "xp_total": 26,
-    "xp_spent": 20,
-    "status": {
-      "city": 2,
-      "clan": 1,
-      "covenant": 3
-    },
-    "covenant_standings": {
-      "Carthian": 0,
-      "Invictus": 0,
-      "Lance": 0
-    },
-    "attributes": {
-      "Intelligence": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Wits": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Resolve": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Strength": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Dexterity": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Stamina": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Presence": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Manipulation": {
-        "dots": 1,
-        "bonus": 0
-      },
-      "Composure": {
-        "dots": 5,
-        "bonus": 0
-      }
-    },
-    "skills": {
-      "Academics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Computer": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Crafts": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Investigation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Medicine": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Surgery"
-        ],
-        "nine_again": false
-      },
-      "Occult": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [
-          "Thaumaturgy"
-        ],
-        "nine_again": false
-      },
-      "Politics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Science": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Athletics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Brawl": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Drive": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Firearms": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Larceny": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Survival": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Weaponry": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Animal Ken": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Empathy": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Expression": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Intimidation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Persuasion": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Fast Talk"
-        ],
-        "nine_again": true
-      },
-      "Socialise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Streetwise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Subterfuge": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
-    "disciplines": {
-      "Animalism": 3,
-      "Dominate": 2
-    },
-    "powers": [
-      {
-        "category": "discipline",
-        "discipline": "Animalism",
-        "rank": 1,
-        "name": "Feral Whispers",
-        "stats": "Cost: -  •  Pool: Manipulation + Animal Ken + Animalism v Resolve + Composure  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Communicate with and command animals."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Animalism",
-        "rank": 2,
-        "name": "Raise the Familiar",
-        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Indefinite",
-        "pool_size": null,
-        "effect": "Create a ghoul animal servant."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Animalism",
-        "rank": 3,
-        "name": "Call of the Wild",
-        "stats": "Cost: 2 V  •  Pool: Presence + Animal Ken + Animalism  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Summon all animals in the area to do your bidding."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Protean",
-        "rank": 1,
-        "name": "Unmarked Grave",
-        "stats": "Cost: Varies  •  Pool: -  •  Instant  •  Indefinite",
-        "pool_size": null,
-        "effect": "Merge with soil."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Protean",
-        "rank": 2,
-        "name": "Predatory Aspect",
-        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Take on animal traits."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Protean",
-        "rank": 3,
-        "name": "Beast's Skin",
-        "stats": "Cost: 2 V  •  Pool: -  •  Instant  •  Indefinite",
-        "pool_size": null,
-        "effect": "Transform into predatory animal."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Protean",
-        "rank": 4,
-        "name": "Unnatural Aspect",
-        "stats": "Cost: 2 V  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Grow monstrous appendages."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Nightmare",
-        "rank": 1,
-        "name": "Dread Presence",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Emanate an aura of fear. Victims gain the Shaken Condition."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Nightmare",
-        "rank": 2,
-        "name": "Face of the Beast",
-        "stats": "Cost: 1 V  •  Pool: Presence + Empathy + Nightmare v Composure + BP  •  Contested  •  Scene",
-        "pool_size": null,
-        "effect": "Force a target to confront their Beast."
-      },
-      {
-        "category": "rite",
-        "tradition": "Cruac",
-        "level": 1,
-        "name": "Pangs of Proserpina",
-        "stats": "Cost: 1 V 1 Successes  •  Pool: 6  •  Ritual  •  Scene",
-        "pool_size": 6,
-        "effect": "Inflict crippling hunger on a vampire."
-      },
-      {
-        "category": "rite",
-        "tradition": "Cruac",
-        "level": 2,
-        "name": "Blood Price",
-        "stats": "Cost: 1 V 2 Successes  •  Pool: 6  •  Ritual  •  1 night",
-        "pool_size": 6,
-        "effect": "Curse a target so their blood tastes foul to other vampires."
-      },
-      {
-        "category": "rite",
-        "tradition": "Cruac",
-        "level": 2,
-        "name": "Clutch of the Crone",
-        "stats": "Cost: 1 V 2 Successes  •  Pool: 6  •  Ritual  •  Scene",
-        "pool_size": 6,
-        "effect": "Telekinetically grasp and crush a target."
-      }
-    ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 1,
-        "area": "Industry"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Media"
-      },
-      {
-        "category": "general",
-        "name": "Table Turner",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Unflappable",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Inspiring",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Peacemaker",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Meditative Mind",
-        "rating": 1
-      },
-      {
-        "category": "standing",
-        "name": "Professional Training",
-        "rating": 4,
-        "role": "Forensic Accountant",
-        "asset_skills": [
-          "Expression",
-          "Persuasion",
-          "Crafts"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 2,
-        "shared_with": [
-          "Dmitri Volkov"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Haven",
-        "rating": 1,
-        "shared_with": [
-          "Dmitri Volkov"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 5,
-        "notes_col_d": "SSJ"
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 6,
-        "name": "Lena Frost",
-        "desc": "business partner"
-      }
-    ],
-    "banes": [
-      {
-        "name": "Lonely Curse",
-        "effect": "With mortals, Humanity counts -2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
-      }
-    ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 4,
-        "ordeals": 9,
-        "game": 3,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 7,
-        "skills": 4,
-        "merits": 7,
-        "powers": 2,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Rules",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Lore",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Covenant",
-        "complete": false,
-        "xp": 0
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Primary",
-      "Physical": "Tertiary",
-      "Social": "Secondary"
-    },
-    "clan_attribute": "Composure",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Primary",
-      "Physical": "Tertiary",
-      "Social": "Secondary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Auspex": {
-        "cp": 2,
-        "free": 0,
-        "xp": 3
-      },
-      "Obfuscate": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Celerity": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 2,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 3,
-        "xp": 0
-      }
-    ]
-  },
-  {
-    "name": "Dmitri Volkov",
-    "player": "A. Sakamoto",
-    "concept": "Antiquarian Collector",
-    "pronouns": "he/him",
-    "clan": "Daeva",
-    "bloodline": null,
-    "covenant": "Carthian Movement",
-    "mask": "Advisor",
-    "dirge": "Conspirator",
-    "court_title": "Harpy",
-    "apparent_age": null,
-    "features": "High Presence",
-    "willpower": {
-      "mask_1wp": "Offer counsel that steers a decision in a better direction.",
-      "mask_all": "Prevent a disaster through careful intervention.",
-      "dirge_1wp": "Advance a hidden agenda while appearing cooperative.",
-      "dirge_all": "Betray an ally to further your long-term plan."
-    },
-    "aspirations": [],
-    "blood_potency": 2,
-    "humanity": 7,
-    "xp_total": 20,
-    "xp_spent": 30,
-    "status": {
-      "city": 3,
-      "clan": 3,
-      "covenant": 1
-    },
-    "covenant_standings": {
-      "Carthian": 0,
-      "Invictus": 0,
-      "Lance": 0
-    },
-    "attributes": {
-      "Intelligence": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Wits": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Resolve": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Strength": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Dexterity": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Stamina": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Presence": {
-        "dots": 4,
-        "bonus": 0
-      },
-      "Manipulation": {
-        "dots": 1,
-        "bonus": 0
-      },
-      "Composure": {
-        "dots": 5,
-        "bonus": 0
-      }
-    },
-    "skills": {
-      "Academics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Computer": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Crafts": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Metalwork"
-        ],
-        "nine_again": false
-      },
-      "Investigation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Medicine": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Occult": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Politics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Science": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Athletics": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Brawl": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Drive": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Firearms": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Larceny": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Survival": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Weaponry": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Animal Ken": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Empathy": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Expression": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Intimidation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Persuasion": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Socialise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Streetwise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Subterfuge": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
-    "disciplines": {
-      "Auspex": 3,
-      "Obfuscate": 1,
-      "Celerity": 2
-    },
-    "powers": [
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 1,
-        "name": "Greased Lightning",
-        "stats": "Cost: -  •  Pool: -  •  Reflexive  •  Permanent",
-        "pool_size": null,
-        "effect": "Add Celerity to Defence."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 2,
-        "name": "Rapid Reflexes",
-        "stats": "Cost: 1 V  •  Pool: -  •  Reflexive  •  Turn",
-        "pool_size": null,
-        "effect": "Add Celerity to Initiative."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 3,
-        "name": "Flickering Speed",
-        "stats": "Cost: 1 V  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Double Speed."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 4,
-        "name": "Draught of Elegance",
-        "stats": "Cost: 2 V  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Add Celerity to Dexterity rolls."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Majesty",
-        "rank": 1,
-        "name": "Awe",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Become centre of attention. Subjects become Awed."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Majesty",
-        "rank": 2,
-        "name": "Confidant",
-        "stats": "Cost: 1 V  •  Pool: Manipulation + Empathy + Majesty v Composure + BP  •  Contested  •  Scene",
-        "pool_size": null,
-        "effect": "Subject treats you as a trusted confidant."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Majesty",
-        "rank": 3,
-        "name": "Green Eyes",
-        "stats": "Cost: 1 V  •  Pool: Presence + Empathy + Majesty v Composure + BP  •  Contested  •  Scene",
-        "pool_size": null,
-        "effect": "Invoke jealousy and obsession in a target."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Majesty",
-        "rank": 4,
-        "name": "Loyalty",
-        "stats": "Cost: 2 V  •  Pool: Presence + Intimidation + Majesty v Resolve + BP  •  Contested  •  Night",
-        "pool_size": null,
-        "effect": "Subject becomes fanatically loyal."
-      }
-    ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Allies",
-        "rating": 1,
-        "area": "Industry"
-      },
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 1,
-        "area": "Finance"
-      },
-      {
-        "category": "general",
-        "name": "Unflappable",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Table Turner",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Meditative Mind",
-        "rating": 1
-      },
-      {
-        "category": "standing",
-        "name": "Mystery Cult Initiation",
-        "rating": 5,
-        "cult_name": "The Gilded Veil",
-        "benefits": [
-          "",
-          "",
-          "",
-          "",
-          ""
-        ],
-        "active": true,
-        "benefit_grants": [
-          {
-            "category": "general",
-            "name": "Eidetic Memory",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Fast Reflexes",
-            "rating": 2
-          },
-          {
-            "category": "general",
-            "name": "Iron Will",
-            "rating": 2
-          },
-          {
-            "category": "general",
-            "name": "Inspiring",
-            "rating": 3
-          },
-          {
-            "category": "general",
-            "name": "Closed Book",
-            "rating": 3
-          }
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 2
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 1
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 8,
-        "name": "Uncle Eamon",
-        "desc": "loyal companion"
-      },
-      {
-        "humanity": 7,
-        "name": "Zara K",
-        "desc": "last blood relative"
-      }
-    ],
-    "banes": [
-      {
-        "name": "Wanton Curse",
-        "effect": "Blood bonds and Vinculum last twice as long; feeding twice as addictive to victims."
-      }
-    ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 0,
-        "ordeals": 8,
-        "game": 2,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 8,
-        "skills": 5,
-        "merits": 10,
-        "powers": 7,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Rules",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Lore",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Primary",
-      "Physical": "Secondary",
-      "Social": "Tertiary"
-    },
-    "clan_attribute": "Manipulation",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Primary",
-      "Physical": "Secondary",
-      "Social": "Tertiary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Celerity": {
-        "cp": 2,
-        "free": 0,
-        "xp": 6
-      },
-      "Majesty": {
-        "cp": 2,
-        "free": 0,
-        "xp": 6
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 3,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      }
-    ]
-  },
-  {
-    "name": "Nox",
-    "player": "L. Brennan",
-    "concept": "Underground DJ",
-    "pronouns": "they/them",
-    "clan": "Nosferatu",
-    "bloodline": null,
-    "covenant": "Lancea et Sanctum",
-    "mask": "Jester",
-    "dirge": "Survivor",
-    "court_title": "Hound",
-    "apparent_age": null,
-    "features": null,
-    "willpower": {
-      "mask_1wp": "Make a crowd laugh or forget their troubles.",
-      "mask_all": "Defuse a violent confrontation with humour alone.",
-      "dirge_1wp": "Endure something that should have broken you.",
-      "dirge_all": "Walk away from certain death through sheer tenacity."
-    },
-    "aspirations": [],
-    "blood_potency": 2,
-    "humanity": 6,
-    "xp_total": 18,
-    "xp_spent": 17,
-    "status": {
-      "city": 1,
-      "clan": 1,
-      "covenant": 3
-    },
-    "covenant_standings": {
-      "Carthian": 0,
-      "Invictus": 0,
-      "Lance": 0
-    },
-    "attributes": {
-      "Intelligence": {
-        "dots": 1,
-        "bonus": 0
-      },
-      "Wits": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Resolve": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Strength": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Dexterity": {
-        "dots": 1,
-        "bonus": 0
-      },
-      "Stamina": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Presence": {
-        "dots": 1,
-        "bonus": 0
-      },
-      "Manipulation": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Composure": {
-        "dots": 4,
-        "bonus": 0
-      }
-    },
-    "skills": {
-      "Academics": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Computer": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Crafts": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Investigation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Medicine": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Occult": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Politics": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Science": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Biology"
-        ],
-        "nine_again": false
-      },
-      "Athletics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Brawl": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Drive": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Firearms": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Larceny": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Survival": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Weaponry": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Animal Ken": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Empathy": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Expression": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Intimidation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Persuasion": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Socialise": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Elysium"
-        ],
-        "nine_again": false
-      },
-      "Streetwise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Subterfuge": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
-    "disciplines": {
-      "Celerity": 1,
-      "Majesty": 1,
-      "Auspex": 1
-    },
-    "powers": [
-      {
-        "category": "discipline",
-        "discipline": "Auspex",
-        "rank": 1,
-        "name": "Beast's Hackles",
-        "stats": "Cost: -  •  Pool: Wits + Empathy + Auspex  •  Instant  •  Varies",
-        "pool_size": null,
-        "effect": "Sense supernatural activity."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Auspex",
-        "rank": 2,
-        "name": "Uncanny Perception",
-        "stats": "Cost: -  •  Pool: Wits + Investigation + Auspex  •  Instant  •  Instant",
-        "pool_size": null,
-        "effect": "Gain mystical insight into a person or object."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Auspex",
-        "rank": 3,
-        "name": "The Spirit's Touch",
-        "stats": "Cost: 1 V  •  Pool: Wits + Occult + Auspex  •  Instant  •  Instant",
-        "pool_size": null,
-        "effect": "Read the psychic impressions on an object."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Obfuscate",
-        "rank": 1,
-        "name": "Face in the Crowd",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Become unnoticeable."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 1,
-        "name": "Greased Lightning",
-        "stats": "Cost: -  •  Pool: -  •  Reflexive  •  Permanent",
-        "pool_size": null,
-        "effect": "Add Celerity to Defence."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Celerity",
-        "rank": 2,
-        "name": "Rapid Reflexes",
-        "stats": "Cost: 1 V  •  Pool: -  •  Reflexive  •  Turn",
-        "pool_size": null,
-        "effect": "Add Celerity to Initiative."
-      }
-    ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 2,
-        "area": "Finance"
-      },
-      {
-        "category": "influence",
-        "name": "Retainer",
-        "rating": 2,
-        "area": "City Government"
-      },
-      {
-        "category": "general",
-        "name": "Giant",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Iron Will",
-        "rating": 2
-      },
-      {
-        "category": "general",
-        "name": "Eidetic Memory",
-        "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Down and Dirty",
-        "rating": 1,
-        "rank_name": "Tackle"
-      },
-      {
-        "category": "standing",
-        "name": "Mystery Cult Initiation",
-        "rating": 4,
-        "cult_name": "The Crimson Ledger",
-        "benefits": [
-          "",
-          "",
-          "",
-          "",
-          ""
-        ],
-        "active": true,
-        "benefit_grants": [
-          {
-            "category": "general",
-            "name": "Acute Senses",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Meditative Mind",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Table Turner",
-            "rating": 1
-          },
-          {
-            "category": "general",
-            "name": "Indomitable",
-            "rating": 2
-          },
-          null
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 2
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 2
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 5,
-        "name": "Detective Harlow",
-        "desc": "pen pal from another city"
-      },
-      {
-        "humanity": 4,
-        "name": "old Mrs Kowalski",
-        "desc": "confessor"
-      }
-    ],
-    "banes": [
-      {
-        "name": "Wanton Curse",
-        "effect": "Blood bonds and Vinculum last twice as long; feeding twice as addictive to victims."
-      }
-    ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 2,
-        "ordeals": 4,
-        "game": 2,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 5,
-        "skills": 1,
-        "merits": 10,
-        "powers": 1,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "History",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Rules",
-        "complete": true,
-        "xp": 3
-      },
-      {
-        "name": "Lore",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Tertiary",
-      "Physical": "Primary",
-      "Social": "Secondary"
-    },
-    "clan_attribute": "Composure",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Tertiary",
-      "Social": "Primary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 3,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Nightmare": {
-        "cp": 2,
-        "free": 0,
-        "xp": 3
-      },
-      "Vigor": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Theban": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 2,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      }
-    ]
-  },
-  {
-    "name": "Genevieve Lark",
-    "player": "D. Okafor",
-    "concept": "Retired Mercenary",
-    "pronouns": "she/her",
-    "clan": "Daeva",
-    "bloodline": null,
-    "covenant": "Invictus",
-    "mask": "Conformist",
-    "dirge": "Monster",
-    "court_title": "Sheriff",
-    "apparent_age": null,
-    "features": "Inhumanly high presence",
-    "willpower": {
-      "mask_1wp": "Follow a group decision you privately disagree with.",
-      "mask_all": "Take personal blame to protect the group.",
-      "dirge_1wp": "Cause someone pain solely because you can.",
-      "dirge_all": "Destroy something beautiful for no reason other than spite."
-    },
-    "aspirations": [],
-    "blood_potency": 1,
-    "humanity": 8,
-    "xp_total": 18,
-    "xp_spent": 14,
-    "status": {
-      "city": 3,
-      "clan": 3,
-      "covenant": 1
-    },
-    "covenant_standings": {
-      "Carthian": 0,
-      "Invictus": 0,
-      "Lance": 0
-    },
-    "attributes": {
-      "Intelligence": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Wits": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Resolve": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Strength": {
-        "dots": 2,
-        "bonus": 0
-      },
-      "Dexterity": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Stamina": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Presence": {
-        "dots": 3,
-        "bonus": 0
-      },
-      "Manipulation": {
-        "dots": 5,
-        "bonus": 0
-      },
-      "Composure": {
-        "dots": 5,
-        "bonus": 0
-      }
-    },
-    "skills": {
-      "Academics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Computer": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Crafts": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Investigation": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Medicine": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Occult": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Politics": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Science": {
-        "dots": 3,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Athletics": {
-        "dots": 1,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Brawl": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Drive": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [
-          "Motorcycles"
-        ],
-        "nine_again": false
-      },
-      "Firearms": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Larceny": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Stealth": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Survival": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Weaponry": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Animal Ken": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Empathy": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Expression": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Intimidation": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Persuasion": {
-        "dots": 4,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": true
-      },
-      "Socialise": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Streetwise": {
-        "dots": 2,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      },
-      "Subterfuge": {
-        "dots": 0,
-        "bonus": 0,
-        "specs": [],
-        "nine_again": false
-      }
-    },
-    "disciplines": {
-      "Animalism": 3,
-      "Protean": 4,
-      "Nightmare": 2,
-      "Cruac": 3
-    },
-    "powers": [
-      {
-        "category": "discipline",
-        "discipline": "Nightmare",
-        "rank": 1,
-        "name": "Dread Presence",
-        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
-        "pool_size": null,
-        "effect": "Emanate an aura of fear. Victims gain the Shaken Condition."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Nightmare",
-        "rank": 2,
-        "name": "Face of the Beast",
-        "stats": "Cost: 1 V  •  Pool: Presence + Empathy + Nightmare v Composure + BP  •  Contested  •  Scene",
-        "pool_size": null,
-        "effect": "Force a target to confront their Beast."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Nightmare",
-        "rank": 3,
-        "name": "The Grand Delusion",
-        "stats": "Cost: 1 V  •  Pool: Manipulation + Subterfuge + Nightmare v Composure + BP  •  Contested  •  Scene",
-        "pool_size": null,
-        "effect": "Create terrifying hallucinations."
-      },
-      {
-        "category": "discipline",
-        "discipline": "Vigor",
-        "rank": 1,
-        "name": "Resilience",
-        "stats": "Cost: -  •  Pool: -  •  Reflexive  •  Permanent",
-        "pool_size": null,
-        "effect": "Add Vigor to Stamina for resistance."
-      },
-      {
-        "category": "rite",
-        "tradition": "Theban",
-        "level": 1,
-        "name": "Vitae Reliquary",
-        "stats": "Cost: 1 V 1 Successes  •  Pool: 6  •  Ritual  •  Indefinite",
-        "pool_size": 6,
-        "effect": "Store Vitae in a blessed container."
-      }
-    ],
-    "merits": [
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "area": "City Government"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 3,
-        "area": "Church"
-      },
-      {
-        "category": "influence",
-        "name": "Contacts",
-        "rating": 1,
-        "area": "Industry"
-      },
-      {
-        "category": "influence",
-        "name": "Resources",
-        "rating": 4
-      },
-      {
-        "category": "general",
-        "name": "Peacemaker",
-        "rating": 3
-      },
-      {
-        "category": "general",
-        "name": "Defensive Combat",
-        "rating": 1,
-        "qualifier": "Brawl"
-      },
-      {
-        "category": "general",
-        "name": "Fast Reflexes",
-        "rating": 2
-      },
-      {
-        "category": "general",
-        "name": "Acute Senses",
-        "rating": 1
-      },
-      {
-        "category": "general",
-        "name": "Unflappable",
-        "rating": 1
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Tooth and Nail",
-        "rating": 1,
-        "rank_name": "Bite"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Tooth and Nail",
-        "rating": 2,
-        "rank_name": "Savage"
-      },
-      {
-        "category": "manoeuvre",
-        "name": "Tooth and Nail",
-        "rating": 3,
-        "rank_name": "Tear"
-      },
-      {
-        "category": "domain",
-        "name": "Safe Place",
-        "rating": 1,
-        "shared_with": [
-          "Bastian Cole"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Haven",
-        "rating": 2,
-        "shared_with": [
-          "Bastian Cole"
-        ]
-      },
-      {
-        "category": "domain",
-        "name": "Herd",
-        "rating": 2
-      }
-    ],
-    "touchstones": [
-      {
-        "humanity": 8,
-        "name": "Priya Mehta",
-        "desc": "nurse at the free clinic"
-      }
-    ],
-    "banes": [
-      {
-        "name": "Feral Curse",
-        "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
-      }
-    ],
-    "xp_log": {
-      "earned": {
-        "humanity_drop": 0,
-        "ordeals": 4,
-        "game": 4,
-        "starting": 10
-      },
-      "spent": {
-        "attributes": 2,
-        "skills": 0,
-        "merits": 8,
-        "powers": 4,
-        "special": 0
-      }
-    },
-    "ordeals": [
-      {
-        "name": "Questionnaire",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "History",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Rules",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Lore",
-        "complete": false,
-        "xp": 0
-      },
-      {
-        "name": "Covenant",
-        "complete": true,
-        "xp": 3
-      }
-    ],
-    "attribute_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Tertiary",
-      "Social": "Primary"
-    },
-    "clan_attribute": "Dexterity",
-    "attr_creation": {
-      "Intelligence": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      },
-      "Wits": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Resolve": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Strength": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Dexterity": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Stamina": {
-        "cp": 3,
-        "free": 1,
-        "xp": 0
-      },
-      "Presence": {
-        "cp": 4,
-        "free": 1,
-        "xp": 0
-      },
-      "Manipulation": {
-        "cp": 1,
-        "free": 1,
-        "xp": 0
-      },
-      "Composure": {
-        "cp": 0,
-        "free": 1,
-        "xp": 0
-      }
-    },
-    "skill_priorities": {
-      "Mental": "Secondary",
-      "Physical": "Tertiary",
-      "Social": "Primary"
-    },
-    "skill_creation": {
-      "Academics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Computer": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Crafts": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Investigation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Medicine": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Occult": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Politics": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Science": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Athletics": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Brawl": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Drive": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Firearms": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Larceny": {
-        "cp": 4,
-        "free": 0,
-        "xp": 0
-      },
-      "Stealth": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Survival": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Weaponry": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Animal Ken": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Empathy": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Expression": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      "Intimidation": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Persuasion": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Socialise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Streetwise": {
-        "cp": 0,
-        "free": 0,
-        "xp": 0
-      },
-      "Subterfuge": {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "disc_creation": {
-      "Celerity": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Majesty": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      "Auspex": {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      }
-    },
-    "merit_creation": [
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 2,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 1,
-        "xp": 0
-      },
-      {
-        "cp": 1,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
-      },
-      {
-        "cp": 2,
-        "free": 0,
-        "xp": 0
+        "name": "covenant",
+        "complete": false
       }
     ]
   }

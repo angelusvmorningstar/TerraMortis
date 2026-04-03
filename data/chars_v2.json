@@ -2042,11 +2042,10 @@
         "rating": 3
       },
       {
-        "category": "influence",
+        "category": "domain",
         "name": "Retainer",
         "rating": 3,
-        "area": "Nicole - EA",
-        "granted_by": "Lorekeeper"
+        "area": "Nicole - EA"
       },
       {
         "category": "general",
@@ -2101,8 +2100,7 @@
       {
         "category": "domain",
         "name": "Herd",
-        "rating": 3,
-        "granted_by": "Lorekeeper"
+        "rating": 3
       },
       {
         "category": "influence",
@@ -2321,7 +2319,8 @@
       {
         "cp": 0,
         "free": 0,
-        "xp": 5
+        "xp": 5,
+        "free_lk": 3
       },
       {
         "cp": 0,
@@ -2357,6 +2356,12 @@
         "cp": 0,
         "free": 0,
         "xp": 1
+      },
+      {},
+      {
+        "free_lk": 3,
+        "cp": 0,
+        "free": 0
       }
     ],
     "xp_log": {
@@ -10527,8 +10532,7 @@
       {
         "category": "domain",
         "name": "Herd",
-        "rating": 3,
-        "granted_by": "Lorekeeper"
+        "rating": 3
       },
       {
         "category": "standing",
@@ -10823,7 +10827,8 @@
       {
         "cp": 0,
         "free": 0,
-        "xp": 0
+        "xp": 0,
+        "free_lk": 3
       },
       {
         "cp": 0,

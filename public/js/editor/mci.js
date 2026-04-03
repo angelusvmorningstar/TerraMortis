@@ -6,7 +6,7 @@
 
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { removeMerit, ensureMeritSync } from './merits.js';
-import { hasViralMythology, vmAlliesPool, lorekeeperPool } from './domain.js';
+import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed } from './domain.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -85,15 +85,16 @@ export function applyDerivedMerits(c) {
   });
 
   // ── Lorekeeper grant pool (Herd/Retainer) ──
-  const lkPool = lorekeeperPool(c);
-  if (lkPool > 0) {
-    c._grant_pools.push({
-      source: 'Lorekeeper',
-      names: ['Herd', 'Retainer'],
-      category: 'domain',
-      amount: lkPool,
-      qualifier: ''
-    });
+  if (hasLorekeeper(c)) {
+    const lkPool = lorekeeperPool(c);
+    if (lkPool > 0) {
+      c._grant_pools.push({
+        source: 'Lorekeeper',
+        names: ['Herd', 'Retainer'],
+        category: 'lk',
+        amount: lkPool
+      });
+    }
   }
 
   // ── Sync ratings from merit_creation (free + cp + xp) ──
@@ -101,7 +102,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
     const mc = (c.merit_creation || [])[i] || {};
-    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.cp || 0) + (mc.xp || 0);
+    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

@@ -11,7 +11,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus } from './domain.js';
+import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
@@ -44,6 +44,7 @@ function _renderPoolCounters(c,category) {
     let pTotal,pUsed;
     if(p.category==='any'){pTotal=p.amount;pUsed=getMCIPoolUsed(c);}
     else if(p.category==='vm'){pTotal=p.amount;pUsed=vmAlliesUsed(c);}
+    else if(p.category==='lk'){pTotal=p.amount;pUsed=lorekeeperUsed(c);}
     else{const lookupName=p.names?p.names[0]:p.name;pTotal=getPoolTotal(c,lookupName);pUsed=getPoolUsed(c,lookupName);}
     const cls=pUsed>pTotal?'sc-over':pUsed===pTotal?'sc-full':'sc-val';
     h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(p.source)+'</span>: '+esc(label)+' free dots <span class="'+cls+'">'+pUsed+'/'+pTotal+'</span></div>';
@@ -51,13 +52,10 @@ function _renderPoolCounters(c,category) {
   h+='</div>';return h;
 }
 
-/** Render merit dots split into purchased (full gold) and bonus (dimmed gold). */
+/** Render merit dots split into purchased (full gold) and bonus (empty circle). */
 function shDotsMixed(purchased,bonus) {
   if(!purchased&&!bonus) return '';
-  return '<span class="merit-dots-sh">'
-    +(purchased>0?'<span class="dots-purch">'+'\u25CF'.repeat(purchased)+'</span>':'')
-    +(bonus>0?'<span class="dots-bonus">'+'\u25CF'.repeat(bonus)+'</span>':'')
-    +'</span>';
+  return '<span class="merit-dots-sh">'+'\u25CF'.repeat(purchased)+'\u25CB'.repeat(bonus)+'</span>';
 }
 function _cityStatusDots(base,titleBonus) {
   if(!base&&!titleBonus) return '';
@@ -191,16 +189,16 @@ export function shRenderDisciplines(c,editMode) {
     return '<div class="disc-tap-row" id="disc-row-'+id+'" onclick="toggleDisc(\''+id+'\')"><div class="disc-tap-left">'+nTag+dTag+'</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-'+id+'">'+dr+'</div>';
   }
   function renderDiscEditRow(d,r,isIC,style){
-    const cr=(c.disc_creation||{})[d]||{cp:0,free:0,xp:0},dE=d.replace(/'/g,"\\'"),cm=isIC?3:4,db2=(cr.cp||0)+(cr.free||0),xd=xpToDots(cr.xp||0,db2,cm),dt=db2+xd,ns=style?'style="'+style+'"':'';
+    const cr=(c.disc_creation||{})[d]||{cp:0,free:0,xp:0},dE=d.replace(/'/g,"\\'"),cm=isIC?3:4,db2=(cr.cp||0),xd=xpToDots(cr.xp||0,db2,cm),dt=db2+xd,ns=style?'style="'+style+'"':'';
     let h2='<div class="disc-tap-row disc-edit"><div class="disc-tap-left"><span class="disc-tap-name" '+ns+'>'+esc(d)+'</span>'+(isIC?'<span class="disc-clan-tag">in-clan</span>':'');
     if(r>0) h2+='<span class="disc-tap-dots">'+shDots(r)+'</span>';
-    h2+='</div></div><div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditDiscPt(\''+dE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Fr</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.free||0)+'" onchange="shEditDiscPt(\''+dE+'\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditDiscPt(\''+dE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+dt+'</span></div></div></div>';
+    h2+='</div></div><div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditDiscPt(\''+dE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditDiscPt(\''+dE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+dt+'</span></div></div></div>';
     return h2;
   }
   if(editMode){
     const clanD=CLAN_DISCS[c.clan]||[],blD=BLOODLINE_DISCS[c.bloodline]||null,inCL=blD||clanD,dc=c.disc_creation||{};
     const iCP=Object.entries(dc).filter(([d])=>inCL.includes(d)).reduce((s,[,v])=>s+(v.cp||0),0),oCP=Object.entries(dc).filter(([d])=>!inCL.includes(d)).reduce((s,[,v])=>s+(v.cp||0),0),rem=3-iCP-oCP;
-    h+='<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-cp-counter"><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span><span style="color:'+(iCP>=2?'rgba(140,200,140,.8)':'rgba(200,80,80,.9)')+'">In-clan: '+iCP+' (min 2)</span><span>Out-of-clan: '+oCP+' (max 1)</span></div><div class="disc-list">';
+    h+='<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-cp-counter"><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span><span style="color:'+(iCP>=2?'rgba(140,200,140,.8)':'rgba(200,80,80,.9)')+'">In-clan: '+iCP+' (min 2)</span><span style="color:'+(oCP<=1?'rgba(140,200,140,.8)':'rgba(200,80,80,.9)')+'">Out-of-clan: '+oCP+' (max 1)</span></div><div class="disc-list">';
     CORE_DISCS.forEach(d=>{h+=renderDiscEditRow(d,(c.disciplines||{})[d]||0,inCL.includes(d),null);});
     h+='</div></div>';
     const cn=(c.covenant||'').toLowerCase(),showCr=cn.includes('crone')||(c.disciplines||{}).Cruac>0,showTh=cn.includes('lancea')||(c.disciplines||{}).Theban>0;
@@ -335,17 +333,21 @@ export function shRenderDomainMerits(c,editMode) {
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits</div><div class="merit-list">';
   if(editMode){
     const _domMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
-    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
+    const _hasLK=hasLorekeeper(c);
+    domM.forEach((m,di)=>{const hTk=domM.some((dm,dj)=>dm.name==='Herd'&&dj!==di),tOpts=DOMAIN_MERIT_TYPES.filter(t=>t!=='Herd'||!hTk||m.name==='Herd').map(t=>'<option'+(m.name===t?' selected':'')+'>'+esc(t)+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.xp||0),parts=m.shared_with||[],eT=domMeritTotal(c,m.name),avP=chars.filter(ch=>ch.name!==c.name&&!parts.includes(ch.name));
       h+='<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit('+di+',\'name\',this.value)">'+tOpts+'</select><span class="dom-contrib-lbl">My dots: '+shDots(dd)+'</span><span class="dom-total-lbl" title="Total across all contributors">Total: '+shDots(eT)+'</span><button class="dev-rm-btn" onclick="shRemoveDomMerit('+di+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_domMciPool>0});h+=_prereqWarn(c,m.name);
+      const _isLKMerit=m.name==='Herd'||m.name==='Retainer';
+      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_domMciPool>0,showLK:_hasLK&&_isLKMerit});h+=_prereqWarn(c,m.name);
       if(m.name==='Herd'&&hasViralMythology(c)){const vmB=vmHerdPool(c);if(vmB)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +'+vmB+' dots ('+shDots(vmB)+') \u2014 lost if VM removed</div>';}
       if(m.name==='Herd'){const ssjB=ssjHerdBonus(c);if(ssjB)h+='<div style="font-size:10px;color:var(--gdim);padding:2px 8px">SSJ Bonus: +'+ssjB+' dots ('+shDots(ssjB)+') \u2014 equals MCI dots</div>';}
       if(m.name!=='Herd'&&parts.length){h+='<div class="dom-partners-row">';parts.forEach(pN=>{const p=chars.find(ch=>ch.name===pN),pD=p?domMeritShareable(p,m.name):0;h+='<span class="dom-partner-tag">'+esc(pN)+(pD?' '+shDots(pD):' \u25CB')+'<button class="dom-partner-rm" onclick="shRemoveDomainPartner('+di+',\''+pN.replace(/'/g,"\\'")+'\')">\u00D7</button></span>';});h+='</div>';}
       if(m.name!=='Herd'&&avP.length) h+='<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner('+di+',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>'+avP.map(p=>'<option value="'+esc(p.name)+'">'+esc(p.name)+'</option>').join('')+'</select></div>';
       h+='</div>';});
-    h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
+    h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button>';
+    if(_hasLK)h+='<button class="dev-add-btn" onclick="shAddLKMerit(\'Herd\')">+ LK Herd</button><button class="dev-add-btn" onclick="shAddLKMerit(\'Retainer\')">+ LK Retainer</button>';
+    h+='</div>';
   } else {
-    domM.forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},dPurch=Math.min(5,(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.xp||0)),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0;
+    domM.forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},dPurch=Math.min(5,(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.free_lk||0)+(dMc.xp||0)),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0;
       const dotHtml=ssjB>0?shDotsMixed(dPurch,Math.max(0,de-dPurch)):'<span class="merit-dots-sh">'+shDots(de)+'</span>';
       h+='<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">'+esc(m.name)+'</div>'+(dp?'<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 '+dp.map(n=>{const p=chars.find(ch=>ch.name===n),pd=p?domMeritShareable(p,m.name):0;return esc(n)+(pd?' '+shDots(pd):'');}).join(', ')+'</div>':'')+'</div><div style="text-align:right">'+(dp?'<div class="dom-total-view">'+shDots(de)+'</div><div class="dom-own-view">mine: '+shDots(dO)+'</div>':dotHtml)+'</div></div>';});
   }
