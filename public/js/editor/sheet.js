@@ -280,12 +280,13 @@ export function shRenderInfluenceMerits(c,editMode) {
     // All non-Contacts influence merits
     const _inflMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _inflHasVM=hasViralMythology(c);
+    const _inflHasLK=hasLorekeeper(c);
     const nonContacts=inflM.filter(m=>m.name!=='Contacts');
-    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0);
+    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.xp||0);
       h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span>';
       if(m.granted_by) h+='<span class="gen-granted-tag">'+esc(m.granted_by)+'</span>';
       h+='<button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies'});h+=_prereqWarn(c,m.name);});
+      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies',showLK:_inflHasLK&&m.name==='Retainer'});h+=_prereqWarn(c,m.name);});
     // Contacts: single entry with sphere-per-dot
     const contactsEntry=inflM.find(m=>m.name==='Contacts');
     const cInf=calcContactsInfluence(c);
