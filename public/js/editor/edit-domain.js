@@ -97,11 +97,29 @@ export function shEditGenMerit(idx, field, val) {
   if (!m) return;
   if (field === 'name') m.name = val;
   else if (field === 'qualifier') {
+    const prevQualifier = m.qualifier;
     if (val) m.qualifier = val; else delete m.qualifier;
-    // Fucking Thief: ensure the stolen merit exists so free dots can be allocated
-    if (m.name === 'Fucking Thief' && val) {
-      const exists = (c.merits || []).some(x => x.name === val && x.category === 'general');
-      if (!exists) addMerit(c, { category: 'general', name: val, rating: 0 });
+    if (m.name === 'Fucking Thief') {
+      // Remove free dot from previously stolen merit
+      if (prevQualifier && prevQualifier !== val) {
+        const oldIdx = (c.merits || []).findIndex(x => x.name === prevQualifier && x.category === 'general');
+        if (oldIdx >= 0) {
+          const oldMc = (c.merit_creation || [])[oldIdx] || {};
+          oldMc.free = Math.max(0, (oldMc.free || 0) - 1);
+          const remaining = (oldMc.cp||0)+(oldMc.xp||0)+(oldMc.free||0)+(oldMc.free_mci||0)+(oldMc.free_vm||0)+(oldMc.free_lk||0);
+          if (remaining === 0) removeMerit(c, oldIdx);
+        }
+      }
+      // Add 1 free dot to newly stolen merit
+      if (val) {
+        let newIdx = (c.merits || []).findIndex(x => x.name === val && x.category === 'general');
+        if (newIdx < 0) {
+          addMerit(c, { category: 'general', name: val, rating: 0 });
+          newIdx = c.merits.length - 1;
+        }
+        if (!c.merit_creation[newIdx]) c.merit_creation[newIdx] = {};
+        c.merit_creation[newIdx].free = (c.merit_creation[newIdx].free || 0) + 1;
+      }
     }
   }
   _markDirty();

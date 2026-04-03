@@ -72,17 +72,6 @@ export function applyDerivedMerits(c) {
     }
   }
 
-  // ── Fucking Thief grant pools — each instance grants 1 free dot of the chosen merit ──
-  (c.merits || []).forEach(m => {
-    if (m.name !== 'Fucking Thief' || !m.qualifier) return;
-    c._grant_pools.push({
-      source: 'F. Thief',
-      name: m.qualifier,
-      category: 'general',
-      amount: 1,
-      qualifier: ''
-    });
-  });
 
   // ── Lorekeeper grant pool (Herd/Retainer) ──
   if (hasLorekeeper(c)) {
