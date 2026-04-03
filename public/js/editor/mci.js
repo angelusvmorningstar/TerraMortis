@@ -36,6 +36,9 @@ export function applyDerivedMerits(c) {
     c._grant_pools.push({ source: 'MCI', name: '_mci', category: 'any', amount: totalMCIPool });
   }
 
+  // ── PT: clear stale free_pt before re-applying ──
+  (c.merit_creation || []).forEach(mc => { if (mc) mc.free_pt = 0; });
+
   // ── PT grant pools ──
   const pts = (c.merits || []).filter(m => m.name === 'Professional Training');
   for (const pt of pts) {
@@ -43,15 +46,14 @@ export function applyDerivedMerits(c) {
     const role = pt.role || '';
     const assets = (pt.asset_skills || []).filter(Boolean);
 
-    // Dot 1: 2 dots of Contacts
+    // Dot 1: 2 free Contacts dots — auto-applied like OHM
     if (dots >= 1 && role) {
-      c._grant_pools.push({
-        source: 'PT',
-        name: 'Contacts',
-        category: 'influence',
-        amount: 2,
-        qualifier: ''
-      });
+      const mi = (c.merits || []).findIndex(m => m.category === 'influence' && m.name === 'Contacts');
+      if (mi >= 0) {
+        if (!c.merit_creation) c.merit_creation = [];
+        if (!c.merit_creation[mi]) c.merit_creation[mi] = { cp: 0, xp: 0, free: 0 };
+        c.merit_creation[mi].free_pt = 2;
+      }
     }
 
     // Dot 2: nine_again on first 2 asset skills only
@@ -156,7 +158,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
     const mc = (c.merit_creation || [])[i] || {};
-    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.cp || 0) + (mc.xp || 0);
+    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.free_pt || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
   });
 }
