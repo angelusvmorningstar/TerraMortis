@@ -174,6 +174,15 @@ export function shEditBP(val) {
   _renderSheet(state.chars[state.editIdx]);
 }
 
+export function shEditBPCreation(val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.bp_creation) c.bp_creation = {};
+  c.bp_creation.cp = Math.max(0, val || 0);
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shEditHumanity(val) {
   if (state.editIdx < 0) return;
   const n = Math.max(0, Math.min(10, parseInt(val) || 0));

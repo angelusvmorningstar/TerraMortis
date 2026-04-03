@@ -56,6 +56,7 @@ export const characterSchema = {
 
     // ── Core Stats ────────────────────────────────────────────
     blood_potency: { type: 'integer', minimum: 0, maximum: 10 },
+    bp_creation:   { type: 'object', properties: { cp: { type: 'integer', minimum: 0 } }, additionalProperties: false },
     humanity:      { type: 'integer', minimum: 0, maximum: 10 },
     humanity_base: { type: 'integer', minimum: 0, maximum: 10 },
     xp_total:      { type: 'number',  minimum: 0 },

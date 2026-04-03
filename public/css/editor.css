@@ -122,8 +122,10 @@
 
 /* ── Skill specs and breakdown ── */
 .sh-spec-counter{font-family:var(--fh);font-size:10px;letter-spacing:.04em;color:var(--txt3);text-align:center;margin-bottom:6px;}
-.sh-merit-cp-row{font-family:var(--fh);font-size:12px;letter-spacing:.04em;text-align:center;margin-bottom:4px;}
+.sh-merit-cp-row{font-family:var(--fh);font-size:12px;letter-spacing:.04em;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .sh-merit-cp-lbl{color:var(--txt3);}
+.sh-bp-cp-row{margin-left:auto;color:var(--txt3);display:flex;align-items:center;gap:4px;}
+.sh-bp-cp-input{width:36px;padding:2px 4px;font-size:11px;text-align:center;}
 .sh-spec-counter .sc-val{color:var(--txt2);}
 .sh-spec-counter .sc-over{color:var(--err-a9);}
 .sh-spec-counter .sc-full{color:var(--green2-a8);}

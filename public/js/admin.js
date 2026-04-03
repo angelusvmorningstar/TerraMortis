@@ -19,7 +19,7 @@ import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditHumanity,
+  shEditBP, shEditBPCreation, shEditHumanity,
   shStatusUp, shStatusDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
