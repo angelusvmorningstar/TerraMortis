@@ -152,21 +152,21 @@ function playerForm(p, formId) {
     <div class="pv-form-title">${title}</div>
     <div class="pv-form-grid">
       <label class="pv-label">
-        Display name <span class="pv-req">*</span>
+        <span>Display name <span class="pv-req">*</span></span>
         <input class="pv-input" id="pv-f-name" type="text" value="${val('display_name')}" placeholder="e.g. Angelus">
       </label>
       <label class="pv-label">
-        Discord username
+        <span>Discord username</span>
         <input class="pv-input" id="pv-f-username" type="text" value="${val('discord_username')}" placeholder="e.g. angelus (without @)">
         <span class="pv-hint">Used to auto-link their account on first login</span>
       </label>
       <label class="pv-label">
-        Discord ID <span class="pv-hint-inline">(numeric)</span>
+        <span>Discord ID <span class="pv-hint-inline">(numeric)</span></span>
         <input class="pv-input" id="pv-f-did" type="text" value="${val('discord_id')}" placeholder="e.g. 123456789012345678">
-        <span class="pv-hint">Optional — grants immediate access without waiting for first login. Right-click their name in Discord &rarr; Copy User ID.</span>
+        <span class="pv-hint">Optional — grants immediate access. Right-click name in Discord &rarr; Copy User ID.</span>
       </label>
       <label class="pv-label">
-        Role
+        <span>Role</span>
         <select class="pv-input pv-select" id="pv-f-role">
           <option value="player" ${(p?.role || 'player') === 'player' ? 'selected' : ''}>Player</option>
           <option value="st" ${p?.role === 'st' ? 'selected' : ''}>Storyteller</option>
