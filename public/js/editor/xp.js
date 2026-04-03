@@ -109,8 +109,9 @@ export function xpSpentPowers(c) {
 
 /** XP spent on special: Blood Potency, Humanity, lost Willpower dots. */
 export function xpSpentSpecial(c) {
-  // Blood Potency: 5 XP per dot above starting (starting = 1 for most neonates)
-  const bpXP = Math.max(0, (c.blood_potency || 1) - 1) * 5;
+  // Blood Potency: 5 XP per dot above starting, minus any dots already paid for via merit CP
+  const bpCPDots = Math.floor(((c.bp_creation || {}).cp || 0) / 5);
+  const bpXP = Math.max(0, (c.blood_potency || 1) - 1 - bpCPDots) * 5;
   // Lost Willpower dots: stored in xp_log.spent.willpower
   const wpXP = ((c.xp_log || {}).spent || {}).willpower || 0;
   // Manual special: anything else tracked in xp_log
