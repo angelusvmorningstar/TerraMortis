@@ -157,17 +157,24 @@ body {
 
 .header-admin-link:hover { opacity: 1; }
 
-/* ── Tab bar ── */
+/* ── App shell (mobile default: stacked) ── */
+
+#player-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Tab bar — mobile: horizontal strip ── */
 
 #tab-bar {
   display: flex;
+  flex-direction: row;
   background: var(--surf);
   border-bottom: 1px solid var(--bdr);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  max-width: 720px;
-  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 #tab-bar::-webkit-scrollbar { display: none; }
@@ -178,6 +185,7 @@ body {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
+  border-left: 3px solid transparent;
   color: var(--txt3);
   font-family: var(--fh);
   font-size: 12px;
@@ -185,10 +193,11 @@ body {
   padding: 10px 8px;
   cursor: pointer;
   white-space: nowrap;
-  transition: color .2s, border-color .2s;
+  text-align: center;
+  transition: color .15s, border-color .15s, background .15s;
 }
 
-.tab-btn:hover { color: var(--txt2); }
+.tab-btn:hover { color: var(--txt2); background: var(--surf2); }
 
 .tab-btn.on {
   color: var(--gold2);
@@ -197,14 +206,77 @@ body {
 
 /* ── Tab content ── */
 
-#player-content {
-  padding: 16px;
-  max-width: 720px;
-  margin: 0 auto;
-}
-
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+
+/* Non-sheet tabs keep comfortable reading width */
+.tab-panel:not(#tab-sheet) {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Sheet tab: full width with side breathing room */
+#tab-sheet {
+  padding: 16px 50px;
+}
+
+/* ── Desktop: vertical sidebar layout (700px+) ── */
+
+@media (min-width: 700px) {
+  #player-app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #player-header {
+    flex-shrink: 0;
+    position: static; /* height-based layout replaces sticky */
+  }
+
+  #player-body {
+    flex: 1;
+    flex-direction: row;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #tab-bar {
+    flex-direction: column;
+    width: 160px;
+    flex-shrink: 0;
+    flex: none;
+    border-bottom: none;
+    border-right: 1px solid var(--bdr);
+    padding: 12px 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .tab-btn {
+    flex: none;
+    width: 100%;
+    text-align: left;
+    padding: 12px 18px;
+    font-size: 13px;
+    border-bottom: none;
+    border-left: 3px solid transparent;
+  }
+
+  .tab-btn.on {
+    border-bottom-color: transparent;
+    border-left-color: var(--gold2);
+    background: var(--surf2);
+  }
+
+  #player-content {
+    flex: 1;
+    overflow-y: auto;
+    min-width: 0;
+  }
+}
 
 .placeholder-msg {
   color: var(--txt3);
@@ -212,6 +284,98 @@ body {
   text-align: center;
   padding: 40px 16px;
 }
+
+/* ── XP Log ── */
+
+.xpl-panel {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+.xpl-cols {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.xpl-col {
+  flex: 1;
+  min-width: 160px;
+}
+
+.xpl-col-head {
+  font-family: var(--fh);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  margin-bottom: 8px;
+}
+
+.xpl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.xpl-table td {
+  padding: 3px 0;
+  color: var(--txt2);
+}
+
+.xpl-table td.xpl-n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--txt);
+  padding-left: 16px;
+  white-space: nowrap;
+}
+
+.xpl-table tr.xpl-total td {
+  border-top: 1px solid var(--bdr);
+  margin-top: 4px;
+  padding-top: 6px;
+  color: var(--txt);
+  font-weight: 500;
+}
+
+.xpl-table tr.xpl-bonus td {
+  color: var(--gold2);
+}
+
+.xpl-none {
+  color: var(--txt3);
+  font-style: italic;
+}
+
+.xpl-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bdr);
+}
+
+.xpl-bal-lbl {
+  font-family: var(--fh);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt3);
+}
+
+.xpl-bal-val {
+  font-family: var(--fh);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.xpl-ok .xpl-bal-val { color: var(--green2, #6aaa6a); }
+.xpl-over .xpl-bal-val { color: var(--crim2, #B22222); }
 
 /* ── Ordeals ── */
 
@@ -1004,6 +1168,6 @@ body {
 @media (min-width: 600px) {
   #player-header { padding: 14px 24px; }
   .header-brand { font-size: 18px; }
-  #player-content { padding: 24px; }
+  .tab-panel:not(#tab-sheet) { padding: 24px; }
   .tab-btn { font-size: 13px; padding: 12px 16px; }
 }

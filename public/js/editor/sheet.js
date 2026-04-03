@@ -8,7 +8,7 @@ import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
-import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
+import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
@@ -109,6 +109,23 @@ function _statusPip(editMode,svg,val,lbl,key,trackBase,bonusDots,bonusColor){
       +'</div>';
   }
   return '<div class="sh-stat-pip"><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><div class="sh-status-lbl">'+lbl+'</div></div>';
+}
+
+/* ── Auto-detected notable features ── */
+function derivedFeatures(c) {
+  const out = [];
+  // Attributes at 5 (dots + bonus) — visible to others
+  const attrNames = ['Intelligence','Wits','Resolve','Strength','Dexterity','Stamina','Presence','Manipulation','Composure'];
+  for (const a of attrNames) {
+    const obj = (c.attributes || {})[a] || {};
+    if ((obj.dots || 0) + (obj.bonus || 0) >= 5) out.push('Inhumanly high ' + a);
+  }
+  // Giant merit
+  if ((c.merits || []).some(m => m.name === 'Giant')) out.push('Giant');
+  // Striking Looks
+  const sl = (c.merits || []).find(m => m.name === 'Striking Looks');
+  if (sl && (sl.rating || 0) > 0) out.push('Striking Looks ' + '\u25CF'.repeat(sl.rating));
+  return out;
 }
 
 export function toggleExp(id) {
@@ -641,7 +658,9 @@ export function shRenderGeneralMerits(c,editMode) {
   if(editMode){
     const _bpXP=(c.bp_creation&&c.bp_creation.xp)||0,_bpLost=(c.bp_creation&&c.bp_creation.lost)||0;
     const _bpDerived=Math.max(0,1+Math.floor(bpCP/5)+Math.floor(_bpXP/5)-_bpLost);
-    const _humLost=c.humanity_lost||0,_humXP=c.humanity_xp||0;
+    // If humanity_lost not yet set, infer it from the stored drop so Lost input matches XP
+    const _humLost=c.humanity_lost!==undefined?c.humanity_lost:Math.max(0,(c.humanity_base||7)-(c.humanity||0));
+    const _humXP=c.humanity_xp||0;
     const _humDerived=Math.max(0,Math.min(10,(c.humanity_base||7)+Math.floor(_humXP/2)-_humLost));
     h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span></div>';
     h+='<div class="sh-bh-grid">'
@@ -1115,7 +1134,8 @@ export function renderSheet(c) {
   if(editMode){h+='<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.honorific||'')+'" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.moniker||'')+'" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';}
   h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge'+(xpLeft(c)<0?' xp-over':'')+'">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
   if(editMode){const eT=xpEarned(c),sT=xpSpent(c);
-    h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+xpStarting()+'</td><td>Attributes</td><td>'+xpSpentAttrs(c)+'</td></tr><tr><td>Humanity Drop</td><td>'+xpHumanityDrop(c)+'</td><td>Skills + Specs</td><td>'+xpSpentSkills(c)+'</td></tr><tr><td>Ordeals</td><td>'+xpOrdeals(c)+'</td><td>Merits</td><td>'+xpSpentMerits(c)+'</td></tr><tr><td>Game</td><td>'+xpGame(c)+'</td><td>Powers</td><td>'+xpSpentPowers(c)+'</td></tr><tr><td></td><td></td><td>Special</td><td>'+xpSpentSpecial(c)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
+    const _pt5=xpPT5(c);
+    h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+xpStarting()+'</td><td>Attributes</td><td>'+xpSpentAttrs(c)+'</td></tr><tr><td>Humanity Drop</td><td>'+xpHumanityDrop(c)+'</td><td>Skills + Specs</td><td>'+xpSpentSkills(c)+'</td></tr><tr><td>Ordeals</td><td>'+xpOrdeals(c)+'</td><td>Merits</td><td>'+xpSpentMerits(c)+'</td></tr><tr><td>Game</td><td>'+xpGame(c)+'</td><td>Powers</td><td>'+xpSpentPowers(c)+'</td></tr>'+(_pt5?'<tr><td>PT \u25cf\u25cf\u25cf\u25cf\u25cf</td><td>'+_pt5+'</td>':'<tr><td></td><td></td>')+'<td>Special</td><td>'+xpSpentSpecial(c)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
     const ords=c.ordeals||[];if(ords.length){h+='<div class="sh-ordeals">';ords.forEach(o=>{h+='<span class="sh-ordeal'+(o.complete?' done':'')+'"><span class="sh-ordeal-dot">'+(o.complete?'\u25CF':'\u25CB')+'</span><span class="sh-ordeal-label">'+esc(o.name)+'</span></span>';});h+='</div>';}}
   h+='<div class="sh-char-body"><div class="sh-char-left">';
   if(editMode||c.concept) h+='<div class="sh-char-concept">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.concept||'')+'" onchange="shEdit(\'concept\',this.value)" placeholder="Concept">':esc(c.concept))+'</div>';
@@ -1127,8 +1147,18 @@ export function renderSheet(c) {
   if(curse) h+=expRow('curse','Curse',esc(curse.name),'<div>'+esc(curse.effect||'')+'</div>');
   if(editMode){regB.forEach((b,bi)=>{const ri=allB.indexOf(b);h+='<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName('+ri+',this.value)"><option value="">(select)</option>'+BANE_LIST.map(bn=>'<option'+(b.name===bn?' selected':'')+'>'+esc(bn)+'</option>').join('')+'</select><button class="sh-bane-rm" onclick="shRemoveBane('+ri+')" title="Remove">&times;</button></div><input class="sh-edit-input" value="'+esc(b.effect||'')+'" onchange="shEditBaneEffect('+ri+',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>';});h+='<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>';}
   else regB.forEach((b,i)=>{h+=expRow('bane'+i,'Bane',esc(b.name),'<div>'+esc(b.effect||'')+'</div>');});
-  // Features (read-only display)
-  if(c.features) h+='<div class="sh-features"><span class="exp-lbl labeled">Features</span><span class="sh-features-text">'+esc(c.features)+'</span></div>';
+  // Features: auto-detected + manual notes
+  const _autoFeat=derivedFeatures(c);
+  if(editMode||_autoFeat.length||c.features){
+    h+='<div class="sh-features-block">';
+    h+='<div class="sh-features-row"><span class="exp-lbl labeled">Features</span><span class="sh-features-auto">'+(_autoFeat.length?_autoFeat.map(f=>'<span class="sh-feat-tag">'+esc(f)+'</span>').join(''):'<span class="sh-feat-none">None detected</span>')+'</span></div>';
+    if(editMode){
+      h+='<input class="sh-edit-input sh-features-extra" value="'+esc(c.features||'')+'" onchange="shEdit(\'features\',this.value)" placeholder="Additional features\u2026" style="margin-top:4px;font-size:11px">';
+    } else if(c.features){
+      h+='<div class="sh-features-extra-view">'+esc(c.features)+'</div>';
+    }
+    h+='</div>';
+  }
   // Touchstones
   const ts=c.touchstones||[];
   if(editMode){

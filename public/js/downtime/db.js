@@ -62,6 +62,7 @@ export async function upsertCycle(parsedSubmissions, label) {
     const charName = parsed.submission.character_name;
     const doc = {
       cycle_id: cycle._id,
+      character_id: parsed._character_id || null,
       character_name: charName,
       player_name: parsed.submission.player_name,
       timestamp: parsed.submission.timestamp,

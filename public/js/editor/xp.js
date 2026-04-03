@@ -30,10 +30,11 @@ export function xpStarting() { return 10; }
 
 /** XP from voluntary humanity drops: 2 per dot permanently lost. */
 export function xpHumanityDrop(c) {
-  // New model: humanity_lost tracks permanent losses explicitly
-  if (c.humanity_lost !== undefined) return (c.humanity_lost || 0) * 2;
-  // Backward compat: derive from stored humanity value
-  return Math.max(0, (c.humanity_base || 7) - (c.humanity || 0)) * 2;
+  // Use explicit field if set; otherwise infer from stored humanity value
+  const lost = c.humanity_lost !== undefined
+    ? c.humanity_lost
+    : Math.max(0, (c.humanity_base || 7) - (c.humanity || 0));
+  return lost * 2;
 }
 
 /** XP from completed ordeals: 3 per ordeal. */
@@ -47,13 +48,20 @@ export function xpGame(c) {
   return ((c.xp_log || {}).earned || {}).game || 0;
 }
 
+/** XP bonus from Professional Training dot 5: 1 XP. Dynamic — present only when PT≥5 is active. */
+export function xpPT5(c) {
+  const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
+  if (!ptM) return 0;
+  return meritRating(c, ptM) >= 5 ? 1 : 0;
+}
+
 /**
  * Total XP earned by a character (all sources, derived dynamically).
  * @param {object} c - character object
  * @returns {number}
  */
 export function xpEarned(c) {
-  return xpStarting() + xpHumanityDrop(c) + xpOrdeals(c) + xpGame(c);
+  return xpStarting() + xpHumanityDrop(c) + xpOrdeals(c) + xpGame(c) + xpPT5(c);
 }
 
 /** Sum XP from a creation object (e.g. attr_creation, skill_creation). */

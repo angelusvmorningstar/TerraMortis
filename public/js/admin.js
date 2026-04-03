@@ -1,6 +1,6 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 
-import { apiGet, apiPut } from './data/api.js';
+import { apiGet, apiPut, apiPost } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
@@ -9,6 +9,7 @@ import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/co
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
+import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
 import { initDowntimeView } from './admin/downtime-views.js';
 import { initAttendance } from './admin/attendance.js';
@@ -149,6 +150,7 @@ function switchDomain(domain) {
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('on');
 
+  if (domain === 'players') initPlayersView(chars);
   if (domain === 'engine') { initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
@@ -290,6 +292,7 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-print">Print</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
         <a class="dt-btn cd-player-view" href="player.html" id="cd-player-view">Player View</a>
+        <button class="dt-btn" id="cd-link-player">Link Player</button>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
         <button class="cd-close" id="cd-close">&times;</button>
       </div>
@@ -311,6 +314,7 @@ function openCharDetail(c) {
   });
   document.getElementById('cd-save-api').addEventListener('click', saveCharToApi);
   document.getElementById('cd-retire').addEventListener('click', toggleRetire);
+  document.getElementById('cd-link-player').addEventListener('click', () => openPlayerLinkModal(c));
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -349,6 +353,66 @@ function closeCharDetail() {
   editorState.editMode = false;
   editorState.dirty.clear();
   document.getElementById('char-detail').style.display = 'none';
+}
+
+async function createNewCharacter() {
+  const name = prompt('Character name:');
+  if (!name || !name.trim()) return;
+
+  const blank = {
+    name: name.trim(),
+    player: '',
+    honorific: null,
+    moniker: null,
+    concept: '',
+    pronouns: '',
+    clan: '',
+    bloodline: null,
+    covenant: '',
+    humanity: 7,
+    humanity_base: 7,
+    blood_potency: 1,
+    bp_creation: { cp: 0, xp: 0, lost: 0 },
+    status: { city: 0, clan: 0, covenant: 0 },
+    covenant_standings: {},
+    attribute_priorities: {},
+    skill_priorities: {},
+    attributes: Object.fromEntries(
+      ['Intelligence','Wits','Resolve','Strength','Dexterity','Stamina','Presence','Manipulation','Composure']
+        .map(a => [a, { dots: 1, bonus: 0 }])
+    ),
+    attr_creation: {},
+    skills: Object.fromEntries(
+      ['Academics','Computer','Crafts','Investigation','Medicine','Occult','Politics','Science',
+       'Athletics','Brawl','Drive','Firearms','Larceny','Stealth','Survival','Weaponry',
+       'Animal Ken','Empathy','Expression','Intimidation','Persuasion','Socialise','Streetwise','Subterfuge']
+        .map(s => [s, { dots: 0, bonus: 0, specs: [], nine_again: false }])
+    ),
+    skill_creation: {},
+    merits: [],
+    merit_creation: [],
+    powers: [],
+    banes: [],
+    ordeals: [],
+    touchstones: [],
+    fighting_styles: [],
+    fighting_picks: [],
+    willpower: {},
+    mask: null,
+    dirge: null,
+    features: '',
+    retired: false,
+  };
+
+  try {
+    const created = await apiPost('/api/characters', blank);
+    chars.push(created);
+    renderCharGrid();
+    editorState.editMode = true;
+    openCharDetail(created);
+  } catch (err) {
+    alert('Failed to create character: ' + err.message);
+  }
 }
 
 async function saveCharToApi() {
@@ -410,6 +474,121 @@ async function loadGameXP() {
   }
 }
 
+// ── Player link modal ──
+
+async function openPlayerLinkModal(c) {
+  document.getElementById('player-link-modal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'player-link-modal';
+  overlay.className = 'plm-overlay';
+  overlay.innerHTML = '<div class="plm-dialog"><p class="plm-loading">Loading\u2026</p></div>';
+  document.getElementById('admin-app').appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  await _renderPlmContent(c);
+}
+
+async function _renderPlmContent(c) {
+  const overlay = document.getElementById('player-link-modal');
+  if (!overlay) return;
+  const dialog = overlay.querySelector('.plm-dialog');
+
+  let players;
+  try {
+    players = await apiGet('/api/players');
+  } catch (err) {
+    dialog.innerHTML = `<div class="plm-header"><h3>Link Player</h3><button class="cd-close" onclick="document.getElementById('player-link-modal').remove()">&times;</button></div><p class="plm-error">Failed to load players: ${esc(err.message)}</p>`;
+    return;
+  }
+
+  const charId = String(c._id);
+  const charName = displayName(c);
+  const linked = players.find(p => (p.character_ids || []).some(id => String(id) === charId));
+
+  const rows = players.map(p => {
+    const isLinked = linked && String(p._id) === String(linked._id);
+    const pid = esc(String(p._id));
+    return `<tr class="${isLinked ? 'plm-row-linked' : ''}">
+      <td>${esc(p.display_name || '\u2014')}</td>
+      <td class="plm-did">${esc(p.discord_id || '\u2014')}</td>
+      <td class="plm-role">${esc(p.role)}</td>
+      <td>${isLinked ? '<span class="plm-badge">Linked</span>' : ''}</td>
+      <td>${isLinked
+        ? `<button class="dt-btn plm-unlink-btn" onclick="window._plmUnlink('${pid}','${esc(charId)}')">Unlink</button>`
+        : `<button class="dt-btn" onclick="window._plmLink('${pid}','${esc(charId)}')">Link</button>`
+      }</td>
+    </tr>`;
+  }).join('');
+
+  dialog.innerHTML = `
+    <div class="plm-header">
+      <h3>Link \u201c${esc(charName)}\u201d to Player</h3>
+      <button class="cd-close" onclick="document.getElementById('player-link-modal').remove()">&times;</button>
+    </div>
+    ${players.length
+      ? `<div class="plm-list"><table class="plm-table">
+          <thead><tr><th>Display name</th><th>Discord ID</th><th>Role</th><th></th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`
+      : '<p class="plm-empty">No player records yet.</p>'}
+    <div class="plm-create">
+      <h4>New player record</h4>
+      <div class="plm-form">
+        <label class="plm-label">Discord ID<input id="plm-did" class="plm-input" placeholder="numeric Discord user ID" type="text"></label>
+        <label class="plm-label">Display name<input id="plm-dname" class="plm-input" placeholder="Display name" type="text"></label>
+        <label class="plm-label">Role<select id="plm-drole" class="plm-select"><option value="player">Player</option><option value="st">ST</option></select></label>
+        <button class="dt-btn" onclick="window._plmCreate('${esc(charId)}')">Create &amp; Link</button>
+      </div>
+      <p id="plm-err" class="plm-error" style="display:none"></p>
+    </div>`;
+}
+
+window._plmLink = async (playerId, charId) => {
+  try {
+    const player = await apiGet('/api/players/' + playerId);
+    const ids = [...new Set([...(player.character_ids || []).map(String), charId])];
+    await apiPut('/api/players/' + playerId, { character_ids: ids });
+    const c = chars.find(ch => String(ch._id) === charId);
+    if (c) await _renderPlmContent(c);
+  } catch (err) { console.error('Link failed:', err.message); }
+};
+
+window._plmUnlink = async (playerId, charId) => {
+  try {
+    const player = await apiGet('/api/players/' + playerId);
+    const ids = (player.character_ids || []).map(String).filter(id => id !== charId);
+    await apiPut('/api/players/' + playerId, { character_ids: ids });
+    const c = chars.find(ch => String(ch._id) === charId);
+    if (c) await _renderPlmContent(c);
+  } catch (err) { console.error('Unlink failed:', err.message); }
+};
+
+window._plmCreate = async (charId) => {
+  const did = document.getElementById('plm-did')?.value.trim();
+  const dname = document.getElementById('plm-dname')?.value.trim();
+  const drole = document.getElementById('plm-drole')?.value;
+  const errEl = document.getElementById('plm-err');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!did) {
+    if (errEl) { errEl.textContent = 'Discord ID is required.'; errEl.style.display = ''; }
+    return;
+  }
+  try {
+    await apiPost('/api/players', {
+      discord_id: did,
+      display_name: dname || '',
+      role: drole || 'player',
+      character_ids: [charId],
+    });
+    const c = chars.find(ch => String(ch._id) === charId);
+    if (c) await _renderPlmContent(c);
+  } catch (err) {
+    if (errEl) { errEl.textContent = err.message; errEl.style.display = ''; }
+  }
+};
+
 async function init() {
   try {
     chars = await apiGet('/api/characters');
@@ -431,6 +610,7 @@ Object.assign(window, {
     document.getElementById('cd-save-api').style.display = '';
     renderSheet(chars[editorState.editIdx]);
   },
+  createNewCharacter, openPlayerLinkModal,
   downloadCSV: () => downloadCSV(chars),
   markDirty, printSheet,
   shEdit, shEditStatus,
