@@ -25,6 +25,7 @@ export function applyDerivedMerits(c) {
 
   // Clear ephemeral tracking
   delete c._pt_nine_again_skills;
+  delete c._pt_dot4_bonus_skills;
   delete c._ohm_nine_again_skills;
   c._grant_pools = [];
 
@@ -53,10 +54,16 @@ export function applyDerivedMerits(c) {
       });
     }
 
-    // Dot 2+: nine_again on asset skills
+    // Dot 2: nine_again on first 2 asset skills only
     if (dots >= 2 && assets.length) {
       if (!c._pt_nine_again_skills) c._pt_nine_again_skills = new Set();
-      for (const sk of assets) c._pt_nine_again_skills.add(sk);
+      for (const sk of assets.slice(0, 2)) c._pt_nine_again_skills.add(sk);
+    }
+
+    // Dot 4: bonus dot on chosen asset skill
+    if (dots >= 4 && pt.dot4_skill) {
+      if (!c._pt_dot4_bonus_skills) c._pt_dot4_bonus_skills = new Set();
+      c._pt_dot4_bonus_skills.add(pt.dot4_skill);
     }
   }
 

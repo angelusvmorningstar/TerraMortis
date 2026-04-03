@@ -165,17 +165,20 @@ export function shRenderSkills(c,editMode) {
     skillCatOrder.forEach(cat=>{const curPri=sPri[cat]||'Tertiary',budget=SKILL_PRI_BUDGETS[curPri]||4,usedCP=(SKILL_CATS[cat]||[]).reduce((s,sk)=>s+(((c.skill_creation||{})[sk]||{}).cp||0),0),rem=budget-usedCP;
       h+='<div class="sh-attr-pri"><select onchange="shSetSkillPriority(\''+cat+'\',this.value)">'+PRI_LABELS.map(p=>'<option'+(curPri===p?' selected':'')+'>'+p+'</option>').join('')+'</select><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span></div>';});
     h+='</div>';
-    const totalSpecs=Object.values(c.skills||{}).reduce((s,sk)=>s+((sk&&sk.specs)?sk.specs.length:0),0);
-    const ptM=(c.merits||[]).find(m=>m.name==='Professional Training'),ptB=(ptM&&ptM.rating>=3)?2:0,freeS=3+ptB;
-    const scCls=totalSpecs>freeS?'sc-over':totalSpecs===freeS?'sc-full':'sc-val';
-    const specXP=Math.max(0,totalSpecs-freeS);
-    h+='<div class="sh-spec-counter">Specialisations <span class="'+scCls+'">'+totalSpecs+' / '+freeS+' free</span>'+(specXP?' <span style="font-size:8px;color:var(--crim)">('+specXP+' XP for extras)</span>':'')+(ptB?' <span style="font-size:8px;color:var(--txt3)">(incl. '+ptB+' from Prof. Training \u25CF\u25CF\u25CF)</span>':'')+'</div>';
+    const ptMSpec=(c.merits||[]).find(m=>m.name==='Professional Training');
+    const ptFreeSpec=(ptMSpec&&ptMSpec.rating>=3)?2:0;
+    const ptAssetSet=new Set((ptMSpec&&ptMSpec.rating>=3&&ptMSpec.asset_skills)?(ptMSpec.asset_skills||[]).filter(Boolean):[]);
+    let _assetSp=0,_nonAssetSp=0;
+    Object.entries(c.skills||{}).forEach(([sk,skillObj])=>{const cnt=(skillObj&&skillObj.specs)?skillObj.specs.length:0;if(ptAssetSet.has(sk))_assetSp+=cnt;else _nonAssetSp+=cnt;});
+    const ptFreeCov=Math.min(ptFreeSpec,_assetSp),paidSp=_nonAssetSp+Math.max(0,_assetSp-ptFreeCov);
+    const specXP=Math.max(0,paidSp-3),scCls=paidSp>3?'sc-over':paidSp===3?'sc-full':'sc-val';
+    h+='<div class="sh-spec-counter">Specialisations <span class="'+scCls+'">'+paidSp+' / 3 free</span>'+(ptFreeSpec?' + <span style="font-size:10px;color:var(--gold2)">'+ptFreeCov+' / '+ptFreeSpec+' PT (asset skills)</span>':'')+(specXP?' <span style="font-size:8px;color:var(--crim)">('+specXP+' XP)</span>':'')+'</div>';
   }
   h+='<div class="skills-3col">';
   if(editMode){
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
       const s=col[ri];
-      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
+      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),ptBn=c._pt_dot4_bonus_skills&&c._pt_dot4_bonus_skills.has(s)?1:0,hasDots=d>0||bn>0||ptBn>0,dotStr=hasDots?shDotsWithBonus(d,bn+ptBn):'\u2013';
       h+='<div class="sk-edit-cell"><div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':ohmNa?'<span class="sh-skill-na pt-na">9-Again (OHM)</span>':'')+'</div></div>';
       const cr=(c.skill_creation||{})[s]||{cp:0,free:0,xp:0},sE=s.replace(/'/g,"\\'"),sb=(cr.cp||0)+(cr.free||0),sxd=xpToDots(cr.xp||0,sb,2),st2=sb+sxd;
       const sFr=cr.free||0;
@@ -187,7 +190,7 @@ export function shRenderSkills(c,editMode) {
     });}
   } else {
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
-      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
+      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),ptBn=c._pt_dot4_bonus_skills&&c._pt_dot4_bonus_skills.has(s)?1:0,hasDots=d>0||bn>0||ptBn>0,dotStr=hasDots?shDotsWithBonus(d,bn+ptBn):'\u2013';
       h+='<div class="sh-skill-row'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':ohmNa?'<span class="sh-skill-na pt-na">9-Again (OHM)</span>':'')+'</div></div>';
     });}
   }
@@ -523,25 +526,43 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode) {
   h+='</div>';return h;
 }
 function _renderPT(c,m,si,rIdx,mc,dd,editMode,mciPool=0) {
-  const as=m.asset_skills||[],eDots=editMode?dd:m.rating,mx=Math.min(5,Math.max(2,eDots));
+  const as=m.asset_skills||[],eDots=editMode?dd:m.rating;
   const dots=['\u25CF','\u25CF\u25CF','\u25CF\u25CF\u25CF','\u25CF\u25CF\u25CF\u25CF','\u25CF\u25CF\u25CF\u25CF\u25CF'];
-  const PT_BENEFITS=[
-    'Networking: 2 dots Contacts ('+(m.role||'field')+')',
-    'Continuing Education: 9-again on Asset Skills',
-    'Breadth of Knowledge: third Asset Skill + 2 Specialisations',
-    'On the Job Training: +1 Skill dot in an Asset Skill',
-    'The Routine: spend WP for rote quality on an Asset Skill'
-  ];
+  const _skSel=(slotIdx,label)=>{const cur=as[slotIdx]||'';return'<select class="pt-skill-sel" onchange="shEditStandAssetSkill('+si+','+slotIdx+',this.value)"><option value="">'+(cur||label)+'</option>'+ALL_SKILLS.map(sk=>'<option'+(cur===sk?' selected':'')+'>'+esc(sk)+'</option>').join('')+'</select>';};
   let h='<div class="pt-block"><div class="pt-header"><span class="merit-name-sh">'+esc(m.name)+'</span>';
   if(editMode) h+='<input type="text" class="stand-name-input" value="'+esc(m.role||'')+'" placeholder="Role" onchange="shEditStandMerit('+si+',\'role\',this.value)">';
   else if(m.role) h+='<span class="merit-sub-sh">'+esc(m.role)+'</span>';
   h+='<span class="merit-dots-sh">'+shDots(eDots)+'</span></div>';
-  if(editMode){h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:mciPool>0});h+=_prereqWarn(c,m.name);h+='<div class="pt-skills-edit">';for(let s=0;s<mx;s++){const cur=as[s]||'';h+='<select class="pt-skill-sel" onchange="shEditStandAssetSkill('+si+','+s+',this.value)"><option value="">'+(cur?'':'\u2014 skill \u2014')+'</option>'+ALL_SKILLS.map(sk=>'<option'+(cur===sk?' selected':'')+'>'+sk+'</option>').join('')+'</select>';}h+='</div>';}
-  else {
-    if(as.filter(Boolean).length) h+='<div class="pt-assets">'+as.filter(Boolean).map(s=>'<span class="pt-skill-tag">'+esc(s)+'</span>').join('')+'</div>';
-    for(let d=0;d<eDots&&d<5;d++){
-      h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span><span class="mci-benefit-text">'+esc(PT_BENEFITS[d])+'</span></div>';
+  if(editMode){
+    h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:mciPool>0});
+    h+=_prereqWarn(c,m.name);
+    h+='<div class="pt-skills-edit">';
+    if(eDots>=1) h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF</span><span class="mci-benefit-text">Networking: 2 free Contacts'+(m.role?' ('+esc(m.role)+')':'')+'</span></div>';
+    if(eDots>=2){
+      h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF</span><div><span class="mci-benefit-text">Continuing Education: 9-Again on Asset Skills</span><div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">'+_skSel(0,'\u2014 skill 1 \u2014')+_skSel(1,'\u2014 skill 2 \u2014')+'</div></div></div>';
     }
+    if(eDots>=3){
+      const ptAssetSet3=new Set(as.filter(Boolean));
+      const _assetSp3=Object.entries(c.skills||{}).filter(([sk])=>ptAssetSet3.has(sk)).reduce((s,[,sk])=>s+(sk.specs?sk.specs.length:0),0);
+      const ptFreeCov3=Math.min(2,_assetSp3);
+      h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF</span><div><span class="mci-benefit-text">Breadth of Knowledge: 3rd Asset Skill + 2 PT Specialisations (Asset Skills only)</span><div style="display:flex;gap:6px;margin-top:4px;align-items:center">'+_skSel(2,'\u2014 3rd skill \u2014')+'<span style="font-size:10px;color:var(--gold2)">PT specs: '+ptFreeCov3+' / 2 used</span></div></div></div>';
+    }
+    if(eDots>=4){
+      const dot4=m.dot4_skill||'',validAs=as.filter(Boolean);
+      h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF\u25CF</span><div><span class="mci-benefit-text">On the Job Training: +1 dot in an Asset Skill</span><div style="display:flex;gap:4px;margin-top:4px"><select class="pt-skill-sel" onchange="shEditStandMerit('+si+',\'dot4_skill\',this.value)"><option value="">'+(dot4||'\u2014 choose \u2014')+'</option>'+validAs.map(sk=>'<option'+(dot4===sk?' selected':'')+'>'+esc(sk)+'</option>').join('')+'</select></div></div></div>';
+    }
+    if(eDots>=5) h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF\u25CF\u25CF</span><span class="mci-benefit-text">The Routine: spend 1 WP for Rote quality on any Asset Skill action</span></div>';
+    h+='</div>';
+  } else {
+    if(as.filter(Boolean).length) h+='<div class="pt-assets">'+as.filter(Boolean).map(s=>'<span class="pt-skill-tag">'+esc(s)+'</span>').join('')+'</div>';
+    const PT_BENEFITS=[
+      'Networking: 2 dots Contacts ('+(m.role||'field')+')',
+      'Continuing Education: 9-Again on Asset Skills ('+as.slice(0,2).filter(Boolean).join(', ')+')',
+      'Breadth of Knowledge: 3rd Asset Skill + 2 PT Specialisations (Asset Skills only)',
+      'On the Job Training: +1 dot in '+(m.dot4_skill?esc(m.dot4_skill):'an Asset Skill'),
+      'The Routine: spend 1 WP for Rote quality on any Asset Skill action'
+    ];
+    for(let d=0;d<eDots&&d<5;d++) h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span><span class="mci-benefit-text">'+PT_BENEFITS[d]+'</span></div>';
   }
   h+='</div>';return h;
 }

@@ -74,12 +74,20 @@ export function xpSpentAttrs(c) {
 /** XP spent on skills + specialisations beyond free allowance. */
 export function xpSpentSkills(c) {
   const skillXP = sumCreationXP(c.skill_creation);
-  // Specialisation XP: 1 per spec beyond free allowance
-  const totalSpecs = Object.values(c.skills || {}).reduce((s, sk) => s + ((sk && sk.specs) ? sk.specs.length : 0), 0);
+  // PT free specs (dot 3): 2 extra, but ONLY usable on asset skills — tracked separately
   const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
-  const ptB = (ptM && ptM.rating >= 3) ? 2 : 0;
-  const freeS = 3 + ptB;
-  const specXP = Math.max(0, totalSpecs - freeS);
+  const ptFree = (ptM && ptM.rating >= 3) ? 2 : 0;
+  const ptAssets = new Set((ptM && ptM.rating >= 3 && ptM.asset_skills) ? (ptM.asset_skills || []).filter(Boolean) : []);
+  let assetSpecs = 0, nonAssetSpecs = 0;
+  Object.entries(c.skills || {}).forEach(([sk, skillObj]) => {
+    const count = (skillObj && skillObj.specs) ? skillObj.specs.length : 0;
+    if (ptAssets.has(sk)) assetSpecs += count;
+    else nonAssetSpecs += count;
+  });
+  // PT free covers asset specs first; baseline 3 covers everything else
+  const ptFreeCovered = Math.min(ptFree, assetSpecs);
+  const paidSpecs = nonAssetSpecs + Math.max(0, assetSpecs - ptFreeCovered);
+  const specXP = Math.max(0, paidSpecs - 3);
   return skillXP + specXP;
 }
 
