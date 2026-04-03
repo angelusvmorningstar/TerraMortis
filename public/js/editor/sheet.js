@@ -72,17 +72,42 @@ function shDotsMixed(purchased,bonus) {
   if(!purchased&&!bonus) return '';
   return '<span class="merit-dots-sh">'+'\u25CF'.repeat(purchased)+'\u25CB'.repeat(bonus)+'</span>';
 }
+function _statusTrack(base,bonus,bonusColor){
+  let h='<div class="sh-status-track">';
+  for(let i=1;i<=5;i++){
+    if(i<=base) h+='<span class="sh-track-dot sh-track-base">\u25CF</span>';
+    else if(i<=base+bonus) h+='<span class="sh-track-dot" style="color:'+bonusColor+'">\u25CB</span>';
+    else h+='<span class="sh-track-dot sh-track-empty">\u25CB</span>';
+  }
+  return h+'</div>';
+}
+function _statusEditBtns(downFn,upFn){
+  return '<div class="sh-status-btns"><button class="sh-stat-lr" onclick="'+downFn+'">&#9664;</button><button class="sh-stat-lr" onclick="'+upFn+'">&#9654;</button></div>';
+}
 function _cityStatusDots(base,titleBonus) {
   if(!base&&!titleBonus) return '';
   return '<div class="sh-city-dots">'+'<span class="sh-city-dot crim">\u25CF</span>'.repeat(base)+'<span class="sh-city-dot gold">\u25CF</span>'.repeat(titleBonus)+'</div>';
 }
 function _cityStatusPip(editMode,base,total,titleBonus) {
-  if(editMode) return '<div class="sh-stat-pip sh-stat-pip-edit"><button class="sh-stat-adj" onclick="shStatusDown(\'city\')">&#x25BC;</button><div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div><button class="sh-stat-adj" onclick="shStatusUp(\'city\')">&#x25B2;</button><div class="sh-status-lbl">City</div></div>';
+  if(editMode) return '<div class="sh-stat-pip">'
+    +'<div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div>'
+    +'<div class="sh-status-lbl">City</div>'
+    +_statusTrack(base,titleBonus,'var(--gold2)')
+    +_statusEditBtns('shStatusDown(\'city\')','shStatusUp(\'city\')')
+    +'</div>';
   return '<div class="sh-stat-pip"><div class="sh-status-shape">'+CITY_SVG+'<span class="sh-status-n">'+total+'</span></div><div class="sh-status-lbl">City</div></div>';
 }
 
-function _statusPip(editMode,svg,val,lbl,key) {
-  if(editMode) return '<div class="sh-stat-pip sh-stat-pip-edit"><button class="sh-stat-adj" onclick="shStatusDown(\''+key+'\')">&#x25BC;</button><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><button class="sh-stat-adj" onclick="shStatusUp(\''+key+'\')">&#x25B2;</button><div class="sh-status-lbl">'+lbl+'</div></div>';
+function _statusPip(editMode,svg,val,lbl,key,trackBase,bonusDots,bonusColor){
+  if(editMode){
+    const tb=trackBase!==undefined?trackBase:val, bd=bonusDots||0, bc=bonusColor||'';
+    return '<div class="sh-stat-pip">'
+      +'<div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div>'
+      +'<div class="sh-status-lbl">'+lbl+'</div>'
+      +_statusTrack(tb,bd,bc)
+      +_statusEditBtns('shStatusDown(\''+key+'\')','shStatusUp(\''+key+'\')')
+      +'</div>';
+  }
   return '<div class="sh-stat-pip"><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><div class="sh-status-lbl">'+lbl+'</div></div>';
 }
 
@@ -112,8 +137,8 @@ export function shRenderStatsStrip(c) {
   const s=(i,v,l)=>'<div class="sh-stat-cell"><div class="sh-stat-icon">'+i+'<span class="sh-stat-n">'+v+'</span></div><div class="sh-stat-lbl">'+l+'</div></div>';
   const sEdit=(i,v,l,fnDown,fnUp)=>'<div class="sh-stat-cell sh-stat-editable"><div class="sh-stat-icon">'+i+'<span class="sh-stat-n">'+v+'</span></div><div class="sh-stat-edit-row"><button class="sh-stat-adj" onclick="'+fnDown+'">&#x25BC;</button><div class="sh-stat-lbl">'+l+'</div><button class="sh-stat-adj" onclick="'+fnUp+'">&#x25B2;</button></div></div>';
   const bp=c.blood_potency||0,hm=c.humanity||0;
-  const bpCell=editMode?sEdit(BP_SVG,bp,'BP','shEditBP('+(bp-1)+')','shEditBP('+(bp+1)+')'):s(BP_SVG,bp||1,'BP');
-  const humCell=editMode?sEdit(HUM_SVG,hm,'Humanity','shEditHumanity('+(hm-1)+')','shEditHumanity('+(hm+1)+')'):s(HUM_SVG,hm,'Humanity');
+  const bpCell=s(BP_SVG,bp||1,'BP');
+  const humCell=s(HUM_SVG,hm,'Humanity');
   // Safe Word: combined WP when mutually linked (both have the oath pointing to each other)
   const _swPact=(c.powers||[]).find(p=>p.category==='pact'&&(p.name||'').toLowerCase()==='oath of the safe word');
   const _swPartner=_swPact&&_swPact.partner?(state.chars||[]).find(ch=>ch.name===_swPact.partner):null;
@@ -177,8 +202,8 @@ export function shRenderSkills(c,editMode) {
     let _assetSp=0,_nonAssetSp=0;
     Object.entries(c.skills||{}).forEach(([sk,skillObj])=>{const cnt=(skillObj&&skillObj.specs)?skillObj.specs.length:0;if(ptAssetSet.has(sk))_assetSp+=cnt;else _nonAssetSp+=cnt;});
     const ptFreeCov=Math.min(ptFreeSpec,_assetSp),paidSp=_nonAssetSp+Math.max(0,_assetSp-ptFreeCov);
-    const specXP=Math.max(0,paidSp-3),scCls=paidSp>3?'sc-over':paidSp===3?'sc-full':'sc-val';
-    h+='<div class="sh-spec-counter">Specialisations <span class="'+scCls+'">'+paidSp+' / 3 free</span>'+(ptFreeSpec?' + <span style="font-size:10px;color:var(--gold2)">'+ptFreeCov+' / '+ptFreeSpec+' PT (asset skills)</span>':'')+(specXP?' <span style="font-size:8px;color:var(--crim)">('+specXP+' XP)</span>':'')+'</div>';
+    const specXP=Math.max(0,paidSp-3),cpSp=Math.min(paidSp,3),cpCls=cpSp===3?'sc-full':'sc-val';
+    h+='<div class="sh-spec-counter">Specialisations <span class="'+cpCls+'">'+cpSp+' / 3 CP</span>'+(specXP?' + <span style="font-size:10px;color:var(--crim)">'+specXP+' XP</span>':'')+(ptFreeSpec?' + <span style="font-size:10px;color:var(--gold2)">'+ptFreeCov+' / '+ptFreeSpec+' PT (asset skills)</span>':'')+'</div>';
   }
   h+='<div class="skills-3col">';
   if(editMode){
@@ -614,7 +639,23 @@ export function shRenderGeneralMerits(c,editMode) {
   const _meritBadge=editMode?_alertBadge(_meritAlert):'';
   let h='<div class="sh-sec"><div class="sh-sec-title">Merits'+_meritBadge+'</div><div class="merit-list">';
   if(editMode){
-    h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span><span class="sh-bp-cp-row">BP: <input class="attr-bd-input sh-bp-cp-input" type="number" min="0" value="'+bpCP+'" onchange="shEditBPCreation(+this.value)"> CP</span></div>';
+    const _bpXP=(c.bp_creation&&c.bp_creation.xp)||0,_bpLost=(c.bp_creation&&c.bp_creation.lost)||0;
+    const _bpDerived=Math.max(0,1+Math.floor(bpCP/5)+Math.floor(_bpXP/5)-_bpLost);
+    const _humLost=c.humanity_lost||0,_humXP=c.humanity_xp||0;
+    const _humDerived=Math.max(0,Math.min(10,(c.humanity_base||7)+Math.floor(_humXP/2)-_humLost));
+    h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span></div>';
+    h+='<div class="sh-bh-grid">'
+      +'<span class="sh-bh-lbl">BP</span>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">CP</span><input class="attr-bd-input" type="number" min="0" max="10" value="'+bpCP+'" onchange="shEditBPCreation(+this.value)"></label>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">XP</span><input class="attr-bd-input" type="number" min="0" value="'+_bpXP+'" onchange="shEditBPXP(+this.value)"></label>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">Lost</span><input class="attr-bd-input" type="number" min="0" value="'+_bpLost+'" onchange="shEditBPLost(+this.value)"></label>'
+      +'<span class="sh-bh-total">= BP '+_bpDerived+(_bpDerived>2?' <span class="sh-bh-alert">\u26A0 cap</span>':'')+'</span>'
+      +'<span class="sh-bh-lbl">Humanity</span>'
+      +'<span class="sh-bh-field"></span>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">XP</span><input class="attr-bd-input" type="number" min="0" value="'+_humXP+'" onchange="shEditHumanityXP(+this.value)"></label>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">Lost</span><input class="attr-bd-input" type="number" min="0" value="'+_humLost+'" onchange="shEditHumanityLost(+this.value)"></label>'
+      +'<span class="sh-bh-total">= Humanity '+_humDerived+'</span>'
+      +'</div>';
     h+=_renderPoolCounters(c,'general')+_renderPoolCounters(c,'influence')+_renderPoolCounters(c,'domain');
     const _genMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _KERBEROS_ASPECTS=['Monstrous','Competitive','Seductive'];
@@ -719,12 +760,12 @@ function _checkSingleTerm(c, term) {
       const type = name.slice(0, -7).trim().toLowerCase();
       if (type === 'city')    return ((c.status || {}).city    || 0) >= req;
       if (type === 'clan')    return ((c.status || {}).clan    || 0) >= req;
-      if (type === 'covenant')return ((c.status || {}).covenant|| 0) >= req;
+      if (type === 'covenant') return Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0) >= req;
       const cov = _COV_STATUS_MAP[type];
       if (!cov) return true;
-      // Own covenant: use c.status.covenant; others: use covenant_standings
+      // Own covenant: use effective status (incl. OTS floor); others: use covenant_standings
       const ownMatch = (c.covenant || '').toLowerCase().replace(/[^a-z]/g,'').includes(type.replace(/[^a-z]/g,''));
-      const dots = ownMatch ? ((c.status || {}).covenant || 0) : ((c.covenant_standings || {})[cov] || 0);
+      const dots = ownMatch ? Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0) : ((c.covenant_standings || {})[cov] || 0);
       return dots >= req;
     }
 
@@ -857,6 +898,7 @@ export function shRenderManoeuvres(c, editMode) {
 
   const mciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
     .reduce((s, m) => s + mciPoolTotal(m), 0);
+  const otsExtraPicks = c._ots_extra_picks || 0;
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div>';
 
@@ -867,7 +909,8 @@ export function shRenderManoeuvres(c, editMode) {
     const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
 
-    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
+    const maxPicks = totalDots + otsExtraPicks;
+    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + (otsExtraPicks ? ' <span style="font-size:9px;color:#9E7AE0">(+' + otsExtraPicks + ' OTS)</span>' : '') + '</span></div>';
 
     // Style Points — tag totals for unorthodox access
     const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
@@ -942,9 +985,9 @@ export function shRenderManoeuvres(c, editMode) {
     h += '</div>';
 
     // ── Picks editor ─────────────────────────────────────────
-    const remaining = totalDots - totalPicks;
+    const remaining = maxPicks - totalPicks;
     h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Manoeuvres Picked'
-      + '<span style="font-weight:normal;color:var(--txt2);margin-left:8px">' + totalPicks + ' / ' + totalDots + '</span></div>';
+      + '<span style="font-weight:normal;color:var(--txt2);margin-left:8px">' + totalPicks + ' / ' + maxPicks + '</span></div>';
     h += '<div class="man-list">';
 
     allPicks.forEach((pk, pi) => {
@@ -1093,6 +1136,9 @@ export function renderSheet(c) {
     ts.forEach((t,i)=>{h+='<div class="sh-ts-edit-row"><select class="sh-ts-hum" onchange="shEditTouchstone('+i+',\'humanity\',+this.value)">';for(let n=1;n<=10;n++)h+='<option'+(t.humanity===n?' selected':'')+'>'+n+'</option>';h+='</select><input class="sh-edit-input" value="'+esc(t.name||'')+'" onchange="shEditTouchstone('+i+',\'name\',this.value)" placeholder="Name" style="flex:2"><input class="sh-edit-input" value="'+esc(t.desc||'')+'" onchange="shEditTouchstone('+i+',\'desc\',this.value)" placeholder="Description" style="flex:3"><button class="sh-bane-rm" onclick="shRemoveTouchstone('+i+')" title="Remove">&times;</button></div>';});
     h+='<button class="sh-bane-add" onclick="shAddTouchstone()">+ Add Touchstone</button></div>';
   } else if(ts.length){const hum=c.humanity||0;h+=expRow('touchstones','Touchstones','',ts.map(t=>{const att=hum>=t.humanity;return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity '+t.humanity+' \u2014 <span style="color:'+(att?'rgba(140,200,140,.9)':'var(--txt3)')+';font-style:normal">'+(att?'Attached':'Detached')+'</span></span><span class="exp-ts-name">'+esc(t.name)+(t.desc?' <span class="exp-ts-desc">('+esc(t.desc)+')</span>':'')+'</span></div>';}).join(''));}
+  // Date of Embrace + Apparent Age
+  if(editMode||c.date_of_embrace) h+='<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>'+(editMode?'<input class="sh-edit-input" value="'+esc(c.date_of_embrace||'')+'" onchange="shEdit(\'date_of_embrace\',this.value)" placeholder="Date of Embrace">':'<span class="exp-val">'+esc(c.date_of_embrace)+'</span>')+'</div>';
+  if(editMode||c.apparent_age) h+='<div class="exp-row"><span class="exp-lbl labeled">App. Age</span>'+(editMode?'<input class="sh-edit-input" value="'+esc(c.apparent_age||'')+'" onchange="shEdit(\'apparent_age\',this.value)" placeholder="Apparent Age">':'<span class="exp-val">'+esc(c.apparent_age)+'</span>')+'</div>';
   h+='</div>'; // end left
   // Right panel
   h+='<div class="sh-hdr-right">';
@@ -1102,16 +1148,17 @@ export function renderSheet(c) {
   else{h+='<div class="sh-faction-label">'+esc(c.court_title||'\u2014')+'</div>';if(c.regent_territory)h+='<div class="sh-faction-bloodline">Regent \u2014 '+esc(c.regent_territory)+'</div>';}
   const cityBase=st.city||0,titleBonus=titleStatusBonus(c),cityTotal=cityBase+titleBonus;
   h+='<div class="sh-faction-sub">Title</div>'+_cityStatusDots(cityBase,titleBonus)+'</div>'+_cityStatusPip(editMode,cityBase,cityTotal,titleBonus)+'</div>';
-  const covRow=(img,editH,viewH,sub,svg,sVal,sLbl,sKey)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div>'+_statusPip(editMode,svg,sVal,sLbl,sKey)+'</div>';};
-  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>','Covenant',OTHER_SVG,st.covenant||0,'Cov.','covenant');
+  const covRow=(img,editH,viewH,sub,svg,sVal,sLbl,sKey,tBase,tBonus,tColor)=>{h+='<div class="sh-hdr-row">'+(img?'<div class="sh-faction-icon"><img src="'+img+'"></div>':'<div class="sh-icon-slot"></div>')+'<div class="sh-faction-text">'+(editMode?editH:viewH)+'<div class="sh-faction-sub">'+sub+'</div></div>'+_statusPip(editMode,svg,sVal,sLbl,sKey,tBase,tBonus,tColor)+'</div>';};
+  const _covBase=st.covenant||0,_covOTSBonus=c._ots_covenant_bonus||0,_covBonusDots=Math.max(0,_covOTSBonus-_covBase),_covEffective=Math.max(_covBase,_covOTSBonus);
+  covRow(covImg,'<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">'+COVENANTS.map(cv=>'<option'+(c.covenant===cv?' selected':'')+'>'+cv+'</option>').join('')+'</select>','<div class="sh-faction-label">'+esc(c.covenant||'\u2014')+'</div>',(_covBonusDots>0?'<div style="font-size:9px;letter-spacing:.03em">Covenant '+shDotsWithBonus(_covBase,_covBonusDots)+'<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>':'Covenant'),OTHER_SVG,_covEffective,'Cov.','covenant',_covBase,_covBonusDots,'#9E7AE0');
   if(editMode){const cOpts=CLANS.map(cl=>'<option'+(c.clan===cl?' selected':'')+'>'+cl+'</option>').join(''),bls=(BLOODLINE_CLANS[c.clan]||[]).slice().sort(),blO=bls.map(b=>'<option'+(c.bloodline===b?' selected':'')+'>'+b+'</option>').join('');
-    covRow(clanImg,'<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">'+cOpts+'</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>'+blO+'</select>','','Clan / Bloodline',OTHER_SVG,st.clan||0,'Clan','clan');}
-  else covRow(clanImg,'','<div class="sh-faction-label">'+esc(c.clan||'\u2014')+'</div>'+(bl?'<div class="sh-faction-bloodline">'+esc(bl)+'</div>':''),'Clan',OTHER_SVG,st.clan||0,'Clan','clan');
+    covRow(clanImg,'<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">'+cOpts+'</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>'+blO+'</select>','','Clan / Bloodline',OTHER_SVG,st.clan||0,'Clan','clan',st.clan||0,0,'');}
+  else covRow(clanImg,'','<div class="sh-faction-label">'+esc(c.clan||'\u2014')+'</div>'+(bl?'<div class="sh-faction-bloodline">'+esc(bl)+'</div>':''),'Clan',OTHER_SVG,st.clan||0,'Clan','clan',st.clan||0,0,'');
   h+='</div></div></div>'; // end right, body, hdr
   // Covenant strip
   const covLbls=['Carthian','Crone','Invictus','Lance'],covSM={'Carthian Movement':'Carthian','Circle of the Crone':'Crone','Invictus':'Invictus','Lancea et Sanctum':'Lance'},pLbl=covSM[c.covenant]||c.covenant;
   const covS=covLbls.filter(l=>l!==pLbl).map(l=>({label:l,status:(c.covenant_standings||{})[l]||0}));
-  if(covS.length){h+='<div class="cov-strip">';covS.forEach(cs=>{const a=cs.status>0;h+='<div class="cov-strip-cell"><span class="cov-strip-name'+(a?' active':'')+'">'+esc(cs.label)+'</span><span class="cov-strip-dot'+(a?' active':'')+'">'+(a?'\u25CB':'\u2013')+'</span></div>';});h+='</div>';}
+  if(covS.length){h+='<div class="cov-strip">';covS.forEach(cs=>{const a=cs.status>0,lq=cs.label.replace(/'/g,"\\'");if(editMode){h+='<div class="cov-strip-cell cov-strip-cell-edit"><span class="cov-strip-name'+(a?' active':'')+'">'+esc(cs.label)+'</span>'+_statusTrack(cs.status,0,'')+_statusEditBtns('shCovStandingDown(\''+lq+'\')','shCovStandingUp(\''+lq+'\')')+'</div>';}else{h+='<div class="cov-strip-cell"><span class="cov-strip-name'+(a?' active':'')+'">'+esc(cs.label)+'</span><span class="cov-strip-dot'+(a?' active':'')+'">'+(a?'\u25CB':'\u2013')+'</span></div>';}});h+='</div>';}
   h+=shRenderStatsStrip(c);
   if (isDesktop) {
     h+='<div class="sh-body">'+shRenderAttributes(c,editMode)+shRenderSkills(c,editMode)+'</div>';

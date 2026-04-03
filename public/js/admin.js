@@ -5,6 +5,7 @@ import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
+import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
@@ -19,8 +20,8 @@ import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditBPCreation, shEditHumanity,
-  shStatusUp, shStatusDown,
+  shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanityXP, shEditHumanityLost,
+  shStatusUp, shStatusDown, shCovStandingUp, shCovStandingDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,
@@ -165,7 +166,36 @@ document.getElementById('sidebar').addEventListener('click', e => {
 function charAlerts(c) {
   applyDerivedMerits(c);
   let red = false, yellow = false;
+
+  // XP overspend
   if (xpLeft(c) < 0) red = true;
+
+  // Merit CP overspend (budget: 10)
+  const meritCPUsed = (c.merit_creation || []).reduce((s, mc) => s + (mc ? mc.cp || 0 : 0), 0)
+    + (c.fighting_styles || []).reduce((s, fs) => s + (fs.cp || 0), 0)
+    + (c.powers || []).filter(p => p.category === 'pact').reduce((s, p) => s + (p.cp || 0), 0)
+    + ((c.bp_creation || {}).cp || 0);
+  if (meritCPUsed > 10) red = true;
+  // BP game cap (max BP 2 for this chronicle)
+  if ((c.blood_potency || 0) > 2) yellow = true;
+
+  // Attribute CP overspend (priority budgets: Primary 5, Secondary 4, Tertiary 3)
+  const atPri = c.attribute_priorities || {};
+  for (const cat of Object.keys(ATTR_CATS)) {
+    const budget = PRI_BUDGETS[atPri[cat] || 'Tertiary'] || 3;
+    const used = (ATTR_CATS[cat] || []).reduce((s, a) => s + (((c.attr_creation || {})[a] || {}).cp || 0), 0);
+    if (used > budget) red = true;
+  }
+
+  // Skill CP overspend (priority budgets: Primary 11, Secondary 7, Tertiary 4)
+  const skPri = c.skill_priorities || {};
+  for (const cat of Object.keys(SKILL_CATS)) {
+    const budget = SKILL_PRI_BUDGETS[skPri[cat] || 'Tertiary'] || 4;
+    const used = (SKILL_CATS[cat] || []).reduce((s, sk) => s + (((c.skill_creation || {})[sk] || {}).cp || 0), 0);
+    if (used > budget) red = true;
+  }
+
+  // Grant pool overspend / unspent
   for (const p of (c._grant_pools || [])) {
     const total = p.amount;
     let used;
@@ -406,7 +436,7 @@ Object.assign(window, {
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditBPCreation, shEditHumanity, shStatusUp, shStatusDown,
+  shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanityXP, shEditHumanityLost, shStatusUp, shStatusDown, shCovStandingUp, shCovStandingDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,

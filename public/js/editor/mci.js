@@ -245,6 +245,18 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // ── Oath of the Scapegoat: floor on covenant status + extra picks per dot ──
+  const otsOath = (c.merits || []).find(m => m.name === 'Oath of the Scapegoat');
+  c._ots_covenant_bonus = 0;
+  c._ots_extra_picks = 0;
+  if (otsOath) {
+    const otsDots = otsOath.rating || 0;
+    if (otsDots > 0) {
+      c._ots_covenant_bonus = otsDots;
+      c._ots_extra_picks = otsDots * 2;
+    }
+  }
+
   // ── Sync ratings from merit_creation (free + cp + xp) ──
   ensureMeritSync(c);
   (c.merits || []).forEach((m, i) => {
@@ -280,6 +292,11 @@ export function getMCIPoolUsed(c) {
   (c.merits || []).forEach((m, i) => { total += ((c.merit_creation || [])[i] || {}).free_mci || 0; });
   (c.fighting_styles || []).forEach(fs => { total += fs.free_mci || 0; });
   return total;
+}
+
+/** Sum all free_ots dots allocated across fighting styles (Oath of the Scapegoat pool). */
+export function getOTSPoolUsed(c) {
+  return (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
 }
 
 /** Check if a pool matches a merit name (supports single `name` or multi `names`). */

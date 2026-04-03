@@ -427,7 +427,8 @@ export function shAddPick(manName) {
   if (!c.fighting_picks) c.fighting_picks = [];
   const totalDots = (c.fighting_styles || [])
     .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0), 0);
-  if (c.fighting_picks.length >= totalDots) return;
+  const maxPicks = totalDots + (c._ots_extra_picks || 0);
+  if (c.fighting_picks.length >= maxPicks) return;
   const already = c.fighting_picks.some(pk =>
     (typeof pk === 'string' ? pk : pk.manoeuvre).toLowerCase() === manName.toLowerCase()
   );

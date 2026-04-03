@@ -166,29 +166,75 @@ export function shRemoveTouchstone(i) {
    BLOOD POTENCY & HUMANITY
 ══════════════════════════════════════════════════════════ */
 
+function _deriveBP(c) {
+  const bc = c.bp_creation || {};
+  return Math.max(0, 1 + Math.floor((bc.cp || 0) / 5) + Math.floor((bc.xp || 0) / 5) - (bc.lost || 0));
+}
+
+// Legacy direct setters (used by app.js player sheet)
 export function shEditBP(val) {
   if (state.editIdx < 0) return;
-  const n = Math.max(0, Math.min(10, parseInt(val) || 0));
-  state.chars[state.editIdx].blood_potency = n;
+  state.chars[state.editIdx].blood_potency = Math.max(0, Math.min(10, parseInt(val) || 0));
   _markDirty();
   _renderSheet(state.chars[state.editIdx]);
+}
+export function shEditHumanity(val) {
+  if (state.editIdx < 0) return;
+  state.chars[state.editIdx].humanity = Math.max(0, Math.min(10, parseInt(val) || 0));
+  _markDirty();
+  _renderSheet(state.chars[state.editIdx]);
+}
+
+function _deriveHumanity(c) {
+  return Math.max(0, Math.min(10, (c.humanity_base || 7) + Math.floor((c.humanity_xp || 0) / 2) - (c.humanity_lost || 0)));
 }
 
 export function shEditBPCreation(val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   if (!c.bp_creation) c.bp_creation = {};
-  c.bp_creation.cp = Math.max(0, val || 0);
+  c.bp_creation.cp = Math.max(0, Math.min(10, val || 0));
+  c.blood_potency = _deriveBP(c);
   _markDirty();
   _renderSheet(c);
 }
 
-export function shEditHumanity(val) {
+export function shEditBPXP(val) {
   if (state.editIdx < 0) return;
-  const n = Math.max(0, Math.min(10, parseInt(val) || 0));
-  state.chars[state.editIdx].humanity = n;
+  const c = state.chars[state.editIdx];
+  if (!c.bp_creation) c.bp_creation = {};
+  c.bp_creation.xp = Math.max(0, val || 0);
+  c.blood_potency = _deriveBP(c);
   _markDirty();
-  _renderSheet(state.chars[state.editIdx]);
+  _renderSheet(c);
+}
+
+export function shEditBPLost(val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.bp_creation) c.bp_creation = {};
+  c.bp_creation.lost = Math.max(0, val || 0);
+  c.blood_potency = _deriveBP(c);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditHumanityXP(val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  c.humanity_xp = Math.max(0, val || 0);
+  c.humanity = _deriveHumanity(c);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditHumanityLost(val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  c.humanity_lost = Math.max(0, val || 0);
+  c.humanity = _deriveHumanity(c);
+  _markDirty();
+  _renderSheet(c);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -209,6 +255,24 @@ export function shStatusDown(key) {
   const c = state.chars[state.editIdx];
   if (!c.status) c.status = {};
   c.status[key] = Math.max(0, (c.status[key] || 0) - 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shCovStandingUp(label) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.covenant_standings) c.covenant_standings = {};
+  c.covenant_standings[label] = Math.min(5, (c.covenant_standings[label] || 0) + 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shCovStandingDown(label) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.covenant_standings) c.covenant_standings = {};
+  c.covenant_standings[label] = Math.max(0, (c.covenant_standings[label] || 0) - 1);
   _markDirty();
   _renderSheet(c);
 }

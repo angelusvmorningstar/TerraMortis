@@ -124,8 +124,13 @@
 .sh-spec-counter{font-family:var(--fh);font-size:10px;letter-spacing:.04em;color:var(--txt3);text-align:center;margin-bottom:6px;}
 .sh-merit-cp-row{font-family:var(--fh);font-size:12px;letter-spacing:.04em;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .sh-merit-cp-lbl{color:var(--txt3);}
-.sh-bp-cp-row{margin-left:auto;color:var(--txt3);display:flex;align-items:center;gap:4px;}
-.sh-bp-cp-input{width:36px;padding:2px 4px;font-size:11px;text-align:center;}
+.sh-bh-grid{display:grid;grid-template-columns:62px 72px 72px 72px auto;align-items:center;row-gap:4px;font-family:var(--fh);font-size:11px;letter-spacing:.04em;margin-bottom:4px;}
+.sh-bh-lbl{color:var(--txt2);font-weight:600;}
+.sh-bh-field{display:flex;align-items:center;gap:3px;color:var(--txt3);}
+.sh-bh-field input{width:36px;padding:2px 4px;font-size:11px;text-align:center;}
+.sh-bh-flbl{color:var(--txt3);}
+.sh-bh-total{color:var(--txt2);padding-left:4px;}
+.sh-bh-alert{color:var(--gold);font-size:10px;margin-left:4px;}
 .sh-spec-counter .sc-val{color:var(--txt2);}
 .sh-spec-counter .sc-over{color:var(--err-a9);}
 .sh-spec-counter .sc-full{color:var(--green2-a8);}
@@ -319,6 +324,16 @@
 .sh-stat-adj:hover{color:var(--gold);}
 .sh-stat-edit-row{display:flex;align-items:center;gap:2px;}
 .sh-stat-editable .sh-stat-edit-row{display:flex;align-items:center;gap:2px;}
+
+/* ── Status track + edit buttons ── */
+.sh-status-track{display:flex;gap:3px;justify-content:center;margin-top:3px;}
+.sh-track-dot{font-size:13px;line-height:1;}
+.sh-track-base{color:var(--txt);}
+.sh-track-empty{color:var(--txt3);opacity:.4;}
+.sh-status-btns{display:flex;gap:4px;justify-content:center;margin-top:3px;}
+.sh-stat-lr{background:none;border:1px solid var(--surf3);border-radius:3px;color:var(--txt2);cursor:pointer;font-size:11px;padding:2px 7px;line-height:1;}
+.sh-stat-lr:hover{border-color:var(--gold2);color:var(--gold2);}
+.cov-strip-cell-edit{flex-direction:column;align-items:center;padding:4px 8px;}
 
 /* ── City Status dot bar (inherent + title) ── */
 .sh-city-dots{display:flex;gap:1px;justify-content:flex-start;margin-top:2px;}
