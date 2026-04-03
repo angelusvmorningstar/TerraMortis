@@ -196,15 +196,13 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Transportation",
-        "granted_by": "VM"
+        "area": "Transportation"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Underworld",
-        "granted_by": "VM"
+        "area": "Underworld"
       },
       {
         "category": "general",
@@ -535,15 +533,17 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
@@ -1406,15 +1406,13 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Media",
-        "granted_by": "VM"
+        "area": "Media"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Police",
-        "granted_by": "VM"
+        "area": "Police"
       },
       {
         "category": "general",
@@ -1739,15 +1737,17 @@
       },
       {
         "cp": 0,
-        "free": 3,
         "xp": 0,
-        "up": 0
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
@@ -3210,15 +3210,13 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Legal",
-        "granted_by": "VM"
+        "area": "Legal"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Underworld",
-        "granted_by": "VM"
+        "area": "Underworld"
       },
       {
         "category": "influence",
@@ -3539,15 +3537,17 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
@@ -8221,15 +8221,13 @@
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Occult",
-        "granted_by": "VM"
+        "area": "Occult"
       },
       {
         "category": "influence",
         "name": "Allies",
         "rating": 3,
-        "area": "Police",
-        "granted_by": "VM"
+        "area": "Police"
       },
       {
         "category": "general",
@@ -8557,21 +8555,24 @@
     "merit_creation": [
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 3,
+        "free_mci": 0,
+        "free_vm": 0
       },
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
-        "free": 0,
         "xp": 0,
-        "up": 3
+        "free": 0,
+        "free_mci": 0,
+        "free_vm": 3
       },
       {
         "cp": 0,
