@@ -28,8 +28,11 @@ export function dotsToXP(numDots, baseBeforeXP, costPerDot) {
 /** Starting XP awarded on character creation. */
 export function xpStarting() { return 10; }
 
-/** XP from voluntary humanity drops: 2 per dot lost. */
+/** XP from voluntary humanity drops: 2 per dot permanently lost. */
 export function xpHumanityDrop(c) {
+  // New model: humanity_lost tracks permanent losses explicitly
+  if (c.humanity_lost !== undefined) return (c.humanity_lost || 0) * 2;
+  // Backward compat: derive from stored humanity value
   return Math.max(0, (c.humanity_base || 7) - (c.humanity || 0)) * 2;
 }
 
@@ -122,14 +125,17 @@ export function xpSpentPowers(c) {
 
 /** XP spent on special: Blood Potency, Humanity, lost Willpower dots. */
 export function xpSpentSpecial(c) {
-  // Blood Potency: 5 XP per dot above starting, minus any dots already paid for via merit CP
-  const bpCPDots = Math.floor(((c.bp_creation || {}).cp || 0) / 5);
-  const bpXP = Math.max(0, (c.blood_potency || 1) - 1 - bpCPDots) * 5;
+  // Blood Potency: tracked directly in bp_creation.xp (new model) or derived (legacy)
+  const bpXP = (c.bp_creation || {}).xp !== undefined
+    ? ((c.bp_creation || {}).xp || 0)
+    : Math.max(0, (c.blood_potency || 1) - 1 - Math.floor(((c.bp_creation || {}).cp || 0) / 5)) * 5;
+  // Humanity: XP spent raising dots (new model only; old model net is captured in xpHumanityDrop)
+  const humXP = c.humanity_xp || 0;
   // Lost Willpower dots: stored in xp_log.spent.willpower
   const wpXP = ((c.xp_log || {}).spent || {}).willpower || 0;
   // Manual special: anything else tracked in xp_log
   const manualXP = ((c.xp_log || {}).spent || {}).special || 0;
-  return bpXP + wpXP + manualXP;
+  return bpXP + humXP + wpXP + manualXP;
 }
 
 // Devotions DB reference (set via setDevotionsDB)

@@ -20,7 +20,7 @@ import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditBPCreation, shEditHumanity,
+  shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanityXP, shEditHumanityLost,
   shStatusUp, shStatusDown, shCovStandingUp, shCovStandingDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
@@ -176,6 +176,8 @@ function charAlerts(c) {
     + (c.powers || []).filter(p => p.category === 'pact').reduce((s, p) => s + (p.cp || 0), 0)
     + ((c.bp_creation || {}).cp || 0);
   if (meritCPUsed > 10) red = true;
+  // BP game cap (max BP 2 for this chronicle)
+  if ((c.blood_potency || 0) > 2) yellow = true;
 
   // Attribute CP overspend (priority budgets: Primary 5, Secondary 4, Tertiary 3)
   const atPri = c.attribute_priorities || {};
@@ -434,7 +436,7 @@ Object.assign(window, {
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditBPCreation, shEditHumanity, shStatusUp, shStatusDown, shCovStandingUp, shCovStandingDown,
+  shEditBPCreation, shEditBPXP, shEditBPLost, shEditHumanityXP, shEditHumanityLost, shStatusUp, shStatusDown, shCovStandingUp, shCovStandingDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,

@@ -124,8 +124,12 @@
 .sh-spec-counter{font-family:var(--fh);font-size:10px;letter-spacing:.04em;color:var(--txt3);text-align:center;margin-bottom:6px;}
 .sh-merit-cp-row{font-family:var(--fh);font-size:12px;letter-spacing:.04em;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .sh-merit-cp-lbl{color:var(--txt3);}
-.sh-bp-cp-row{margin-left:auto;color:var(--txt3);display:flex;align-items:center;gap:4px;}
-.sh-bp-cp-input{width:36px;padding:2px 4px;font-size:11px;text-align:center;}
+.sh-bh-row{display:flex;align-items:center;gap:8px;font-family:var(--fh);font-size:11px;letter-spacing:.04em;margin-bottom:3px;flex-wrap:wrap;}
+.sh-bh-lbl{color:var(--txt2);min-width:56px;font-weight:600;}
+.sh-bh-field{display:flex;align-items:center;gap:3px;color:var(--txt3);}
+.sh-bh-field input{width:36px;padding:2px 4px;font-size:11px;text-align:center;}
+.sh-bh-total{color:var(--txt2);margin-left:4px;}
+.sh-bh-alert{color:var(--gold);font-size:10px;margin-left:4px;}
 .sh-spec-counter .sc-val{color:var(--txt2);}
 .sh-spec-counter .sc-over{color:var(--err-a9);}
 .sh-spec-counter .sc-full{color:var(--green2-a8);}

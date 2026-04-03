@@ -137,8 +137,8 @@ export function shRenderStatsStrip(c) {
   const s=(i,v,l)=>'<div class="sh-stat-cell"><div class="sh-stat-icon">'+i+'<span class="sh-stat-n">'+v+'</span></div><div class="sh-stat-lbl">'+l+'</div></div>';
   const sEdit=(i,v,l,fnDown,fnUp)=>'<div class="sh-stat-cell sh-stat-editable"><div class="sh-stat-icon">'+i+'<span class="sh-stat-n">'+v+'</span></div><div class="sh-stat-edit-row"><button class="sh-stat-adj" onclick="'+fnDown+'">&#x25BC;</button><div class="sh-stat-lbl">'+l+'</div><button class="sh-stat-adj" onclick="'+fnUp+'">&#x25B2;</button></div></div>';
   const bp=c.blood_potency||0,hm=c.humanity||0;
-  const bpCell=editMode?sEdit(BP_SVG,bp,'BP','shEditBP('+(bp-1)+')','shEditBP('+(bp+1)+')'):s(BP_SVG,bp||1,'BP');
-  const humCell=editMode?sEdit(HUM_SVG,hm,'Humanity','shEditHumanity('+(hm-1)+')','shEditHumanity('+(hm+1)+')'):s(HUM_SVG,hm,'Humanity');
+  const bpCell=s(BP_SVG,bp||1,'BP');
+  const humCell=s(HUM_SVG,hm,'Humanity');
   // Safe Word: combined WP when mutually linked (both have the oath pointing to each other)
   const _swPact=(c.powers||[]).find(p=>p.category==='pact'&&(p.name||'').toLowerCase()==='oath of the safe word');
   const _swPartner=_swPact&&_swPact.partner?(state.chars||[]).find(ch=>ch.name===_swPact.partner):null;
@@ -639,7 +639,13 @@ export function shRenderGeneralMerits(c,editMode) {
   const _meritBadge=editMode?_alertBadge(_meritAlert):'';
   let h='<div class="sh-sec"><div class="sh-sec-title">Merits'+_meritBadge+'</div><div class="merit-list">';
   if(editMode){
-    h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span><span class="sh-bp-cp-row">BP: <input class="attr-bd-input sh-bp-cp-input" type="number" min="0" value="'+bpCP+'" onchange="shEditBPCreation(+this.value)"> CP</span></div>';
+    const _bpXP=(c.bp_creation&&c.bp_creation.xp)||0,_bpLost=(c.bp_creation&&c.bp_creation.lost)||0;
+    const _bpDerived=Math.max(0,1+Math.floor(bpCP/5)+Math.floor(_bpXP/5)-_bpLost);
+    const _humLost=c.humanity_lost||0,_humXP=c.humanity_xp||0;
+    const _humDerived=Math.max(0,Math.min(10,(c.humanity_base||7)+Math.floor(_humXP/2)-_humLost));
+    h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span></div>';
+    h+='<div class="sh-bh-row"><span class="sh-bh-lbl">BP</span><label class="sh-bh-field">CP <input class="attr-bd-input" type="number" min="0" max="10" value="'+bpCP+'" onchange="shEditBPCreation(+this.value)"></label><label class="sh-bh-field">XP <input class="attr-bd-input" type="number" min="0" value="'+_bpXP+'" onchange="shEditBPXP(+this.value)"></label><label class="sh-bh-field">Lost <input class="attr-bd-input" type="number" min="0" value="'+_bpLost+'" onchange="shEditBPLost(+this.value)"></label><span class="sh-bh-total">= BP '+_bpDerived+(_bpDerived>2?' <span class="sh-bh-alert">\u26A0 exceeds cap</span>':'')+'</span></div>';
+    h+='<div class="sh-bh-row"><span class="sh-bh-lbl">Humanity</span><label class="sh-bh-field">Lost <input class="attr-bd-input" type="number" min="0" value="'+_humLost+'" onchange="shEditHumanityLost(+this.value)"></label><label class="sh-bh-field">XP <input class="attr-bd-input" type="number" min="0" value="'+_humXP+'" onchange="shEditHumanityXP(+this.value)"></label><span class="sh-bh-total">= Humanity '+_humDerived+'</span></div>';
     h+=_renderPoolCounters(c,'general')+_renderPoolCounters(c,'influence')+_renderPoolCounters(c,'domain');
     const _genMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _KERBEROS_ASPECTS=['Monstrous','Competitive','Seductive'];
