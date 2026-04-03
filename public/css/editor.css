@@ -443,5 +443,53 @@
 .man-exp-body .man-style{font-family:var(--fh);font-size:10px;letter-spacing:.06em;color:var(--txt2);margin-bottom:4px;}
 .man-exp-body .man-prereq{font-family:var(--fb);font-size:10px;color:var(--txt3);font-style:italic;margin-top:5px;line-height:1.4;}
 
-/* ── Sheet max width ── */
+/* ── Sheet max width (overridden in desktop mode) ── */
 #sh-content{max-width:640px;margin:0 auto;}
+.cd-sheet #sh-content,
+.char-detail #sh-content{max-width:none !important;}
+
+/* ── Desktop character sheet: 3-column layout ── */
+.sh-desktop{display:grid;grid-template-columns:4fr 3fr 3fr;gap:0 24px;align-items:start;}
+.sh-dcol{min-width:0;overflow:hidden;}
+
+/* Hide name row in view mode only when inside admin panel (header already shows it).
+   Player portal has no panel header, so name row stays visible there. */
+.char-detail .sh-desktop .sh-namerow{display:none;}
+.char-detail .sh-desktop.sh-editing .sh-namerow{display:block;}
+
+/* Stats strip wraps within column */
+.sh-desktop .sh-stats-strip{flex-wrap:wrap;}
+
+/* Breakdown inputs — larger on desktop */
+.sh-desktop .attr-bd-input,
+.sh-desktop .attr-bd-ro,
+.sh-desktop .merit-bd-input,
+.sh-desktop .sk-bd-row .attr-bd-input,
+.sh-desktop .disc-bd-row .attr-bd-input{width:44px;font-size:13px;padding:3px 4px;}
+.sh-desktop .bd-lbl{font-size:12px;}
+.sh-desktop .bd-val{font-size:13px;}
+
+/* Attribute grid */
+.sh-desktop .attr-grid,
+.sh-desktop .sh-sec .attr-grid{grid-template-columns:repeat(3,minmax(140px,1fr));gap:10px;}
+
+/* Skill grid */
+.sh-desktop .skills-3col{grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px;}
+
+/* Edit controls */
+.sh-desktop .sh-edit-select{font-size:13px;padding:5px 8px;}
+.sh-desktop .sh-edit-input{font-size:13px;padding:5px 8px;}
+.sh-desktop .exp-lbl{font-size:13px;}
+.sh-desktop .sh-ts-edit-row input{font-size:12px;padding:4px 8px;}
+.sh-desktop .sh-ts-hum{font-size:12px;padding:4px 6px;}
+.sh-desktop .infl-edit-row{padding:6px 10px;gap:8px;}
+.sh-desktop .infl-edit-row select,
+.sh-desktop .infl-edit-row input[type=text]{font-size:12px;padding:4px 8px;}
+.sh-desktop .gen-edit-row{padding:6px 10px;gap:8px;}
+.sh-desktop .gen-name-select,
+.sh-desktop .gen-qual-input{font-size:12px;padding:4px 8px;}
+.sh-desktop .sk-spec-input{font-size:13px;padding:3px 6px;}
+.sh-desktop .disc-bd-panel{padding:4px 8px;}
+.sh-desktop .dev-add-btn,
+.sh-desktop .sh-bane-add,
+.sh-desktop .sk-spec-add{font-size:13px;padding:6px 14px;}
