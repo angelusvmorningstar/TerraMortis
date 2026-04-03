@@ -490,23 +490,26 @@ export function shRenderManoeuvres(c, editMode) {
   let h = '<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div>';
 
   if (editMode) {
-    // Tag summary
     const tc = _tagCounts(c);
-    const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
-    if (tagEntries.length) {
-      h += '<div class="grant-pools">';
-      tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
-        h += '<div class="grant-pool-row"><span style="color:var(--gold2)">' + esc(tag) + '</span>: ' + count + ' dot' + (count === 1 ? '' : 's') + '</div>';
-      });
-      h += '</div>';
-    }
-
     const fStyles = styles.filter(fs => fs.type !== 'merit');
     const fMerits = styles.filter(fs => fs.type === 'merit');
     const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
 
     h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
+
+    // Style Points — tag totals for unorthodox access
+    const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
+    if (tagEntries.length) {
+      h += '<div class="grant-pools">';
+      h += '<div style="font-size:9px;letter-spacing:.07em;color:var(--txt3);margin-bottom:3px">STYLE POINTS (unorthodox access)</div>';
+      tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
+        h += '<div class="grant-pool-row"><span style="color:var(--gold2)">' + esc(tag) + '</span>'
+          + '<span style="margin-left:6px">' + shDots(Math.min(count, 5)) + '</span>'
+          + '<span style="font-size:10px;color:var(--txt3);margin-left:6px">rank 1\u2013' + count + '</span></div>';
+      });
+      h += '</div>';
+    }
 
     // ── Fighting Styles ──────────────────────────────────────
     h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:6px 0 2px">Fighting Styles</div>';
@@ -527,6 +530,7 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
+        + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
 
       h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove">&times; Remove</button>';
@@ -560,6 +564,7 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
+        + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">unorthodox via tags</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
 
       h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove">&times; Remove</button>';
@@ -577,6 +582,20 @@ export function shRenderManoeuvres(c, editMode) {
     // ── View mode ────────────────────────────────────────────
     const fStyles = styles.filter(fs => fs.type !== 'merit');
     const fMerits = styles.filter(fs => fs.type === 'merit');
+
+    // Style Points summary
+    const tc = _tagCounts(c);
+    const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
+    if (tagEntries.length) {
+      h += '<div class="grant-pools">';
+      h += '<div style="font-size:9px;letter-spacing:.07em;color:var(--txt3);margin-bottom:3px">STYLE POINTS</div>';
+      tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
+        h += '<div class="grant-pool-row"><span style="color:var(--gold2)">' + esc(tag) + '</span>'
+          + '<span style="margin-left:6px">' + shDots(Math.min(count, 5)) + '</span>'
+          + '<span style="font-size:10px;color:var(--txt3);margin-left:6px">rank 1\u2013' + count + '</span></div>';
+      });
+      h += '</div>';
+    }
 
     if (fStyles.length) {
       h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:2px 0 2px">FIGHTING STYLES</div>';
