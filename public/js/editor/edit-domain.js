@@ -416,6 +416,12 @@ export function shEditStyle(idx, field, val) {
       + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.free_mci || 0)), 0);
     val = Math.min(val, Math.max(0, mciTotal - otherMCI));
   }
+  if (field === 'free_ots') {
+    const otsOath = (c.merits || []).find(m => m.name === 'Oath of the Scapegoat');
+    const otsTotal = otsOath ? (otsOath.rating || 0) * 2 : 0;
+    const otherOTS = (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.free_ots || 0)), 0);
+    val = Math.min(val, Math.max(0, otsTotal - otherOTS));
+  }
   fs[field] = val;
   _markDirty();
   _renderSheet(c);
@@ -426,7 +432,7 @@ export function shAddPick(manName) {
   const c = state.chars[state.editIdx];
   if (!c.fighting_picks) c.fighting_picks = [];
   const totalDots = (c.fighting_styles || [])
-    .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0), 0);
+    .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0), 0);
   if (c.fighting_picks.length >= totalDots) return;
   const already = c.fighting_picks.some(pk =>
     (typeof pk === 'string' ? pk : pk.manoeuvre).toLowerCase() === manName.toLowerCase()

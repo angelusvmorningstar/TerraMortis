@@ -103,7 +103,7 @@ export function applyDerivedMerits(c) {
   _STYLE_RETAINER_GRANTS.forEach(styleName => {
     const hasStyle = (c.fighting_styles || []).some(fs =>
       fs.type !== 'merit' && fs.name === styleName &&
-      ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0) + (fs.up||0)) >= 1
+      ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0) + (fs.up||0)) >= 1
     );
     if (!hasStyle) return;
     const ri = (c.merits || []).findIndex(m => m.name === 'Retainer' && m.granted_by === styleName);
@@ -245,6 +245,22 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // ── Oath of the Scapegoat: auto-set covenant status + fighting style grant pool ──
+  const otsOath = (c.merits || []).find(m => m.name === 'Oath of the Scapegoat');
+  if (otsOath) {
+    const otsDots = otsOath.rating || 0;
+    if (otsDots > 0) {
+      if (!c.status) c.status = {};
+      c.status.covenant = otsDots;
+      c._grant_pools.push({
+        source: 'Oath of the Scapegoat',
+        name: '_ots_fs',
+        category: 'ots',
+        amount: otsDots * 2
+      });
+    }
+  }
+
   // ── Sync ratings from merit_creation (free + cp + xp) ──
   ensureMeritSync(c);
   (c.merits || []).forEach((m, i) => {
@@ -280,6 +296,11 @@ export function getMCIPoolUsed(c) {
   (c.merits || []).forEach((m, i) => { total += ((c.merit_creation || [])[i] || {}).free_mci || 0; });
   (c.fighting_styles || []).forEach(fs => { total += fs.free_mci || 0; });
   return total;
+}
+
+/** Sum all free_ots dots allocated across fighting styles (Oath of the Scapegoat pool). */
+export function getOTSPoolUsed(c) {
+  return (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
 }
 
 /** Check if a pool matches a merit name (supports single `name` or multi `names`). */
