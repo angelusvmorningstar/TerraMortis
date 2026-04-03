@@ -111,6 +111,23 @@ function _statusPip(editMode,svg,val,lbl,key,trackBase,bonusDots,bonusColor){
   return '<div class="sh-stat-pip"><div class="sh-status-shape">'+svg+'<span class="sh-status-n">'+val+'</span></div><div class="sh-status-lbl">'+lbl+'</div></div>';
 }
 
+/* ── Auto-detected notable features ── */
+function derivedFeatures(c) {
+  const out = [];
+  // Attributes at 5 (dots + bonus) — visible to others
+  const attrNames = ['Intelligence','Wits','Resolve','Strength','Dexterity','Stamina','Presence','Manipulation','Composure'];
+  for (const a of attrNames) {
+    const obj = (c.attributes || {})[a] || {};
+    if ((obj.dots || 0) + (obj.bonus || 0) >= 5) out.push('Inhumanly high ' + a);
+  }
+  // Giant merit
+  if ((c.merits || []).some(m => m.name === 'Giant')) out.push('Giant');
+  // Striking Looks
+  const sl = (c.merits || []).find(m => m.name === 'Striking Looks');
+  if (sl && (sl.rating || 0) > 0) out.push('Striking Looks ' + '\u25CF'.repeat(sl.rating));
+  return out;
+}
+
 export function toggleExp(id) {
   const row=document.getElementById('exp-row-'+id), body=document.getElementById('exp-body-'+id);
   if(!row||!body) return;
@@ -1129,8 +1146,18 @@ export function renderSheet(c) {
   if(curse) h+=expRow('curse','Curse',esc(curse.name),'<div>'+esc(curse.effect||'')+'</div>');
   if(editMode){regB.forEach((b,bi)=>{const ri=allB.indexOf(b);h+='<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName('+ri+',this.value)"><option value="">(select)</option>'+BANE_LIST.map(bn=>'<option'+(b.name===bn?' selected':'')+'>'+esc(bn)+'</option>').join('')+'</select><button class="sh-bane-rm" onclick="shRemoveBane('+ri+')" title="Remove">&times;</button></div><input class="sh-edit-input" value="'+esc(b.effect||'')+'" onchange="shEditBaneEffect('+ri+',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>';});h+='<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>';}
   else regB.forEach((b,i)=>{h+=expRow('bane'+i,'Bane',esc(b.name),'<div>'+esc(b.effect||'')+'</div>');});
-  // Features (read-only display)
-  if(c.features) h+='<div class="sh-features"><span class="exp-lbl labeled">Features</span><span class="sh-features-text">'+esc(c.features)+'</span></div>';
+  // Features: auto-detected + manual notes
+  const _autoFeat=derivedFeatures(c);
+  if(editMode||_autoFeat.length||c.features){
+    h+='<div class="sh-features-block">';
+    h+='<div class="sh-features-row"><span class="exp-lbl labeled">Features</span><span class="sh-features-auto">'+(_autoFeat.length?_autoFeat.map(f=>'<span class="sh-feat-tag">'+esc(f)+'</span>').join(''):'<span class="sh-feat-none">None detected</span>')+'</span></div>';
+    if(editMode){
+      h+='<input class="sh-edit-input sh-features-extra" value="'+esc(c.features||'')+'" onchange="shEdit(\'features\',this.value)" placeholder="Additional features\u2026" style="margin-top:4px;font-size:11px">';
+    } else if(c.features){
+      h+='<div class="sh-features-extra-view">'+esc(c.features)+'</div>';
+    }
+    h+='</div>';
+  }
   // Touchstones
   const ts=c.touchstones||[];
   if(editMode){

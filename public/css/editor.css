@@ -342,8 +342,14 @@
 .sh-city-dot.gold{color:var(--gold);}
 
 /* ── Features ── */
-.sh-features{display:flex;gap:8px;align-items:baseline;padding:4px 10px;font-family:var(--fb);font-size:11px;color:var(--txt2);}
-.sh-features-text{font-style:italic;}
+.sh-features-block{padding:4px 10px 2px;font-family:var(--fb);font-size:11px;}
+.sh-features-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+.sh-features-auto{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.sh-feat-tag{font-style:italic;color:var(--txt2);}
+.sh-feat-tag+.sh-feat-tag::before{content:'\B7';margin-right:4px;color:var(--txt3);}
+.sh-feat-none{color:var(--txt3);font-style:italic;}
+.sh-features-extra{width:100%;}
+.sh-features-extra-view{color:var(--txt3);font-style:italic;margin-top:2px;padding-left:2px;}
 
 /* ── Touchstone edit ── */
 .sh-touchstones-edit{padding:0 10px 4px;}
