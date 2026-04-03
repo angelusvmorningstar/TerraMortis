@@ -30,10 +30,11 @@ export function xpStarting() { return 10; }
 
 /** XP from voluntary humanity drops: 2 per dot permanently lost. */
 export function xpHumanityDrop(c) {
-  // New model: humanity_lost tracks permanent losses explicitly
-  if (c.humanity_lost !== undefined) return (c.humanity_lost || 0) * 2;
-  // Backward compat: derive from stored humanity value
-  return Math.max(0, (c.humanity_base || 7) - (c.humanity || 0)) * 2;
+  // Use explicit field if set; otherwise infer from stored humanity value
+  const lost = c.humanity_lost !== undefined
+    ? c.humanity_lost
+    : Math.max(0, (c.humanity_base || 7) - (c.humanity || 0));
+  return lost * 2;
 }
 
 /** XP from completed ordeals: 3 per ordeal. */

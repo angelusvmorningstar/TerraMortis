@@ -641,7 +641,9 @@ export function shRenderGeneralMerits(c,editMode) {
   if(editMode){
     const _bpXP=(c.bp_creation&&c.bp_creation.xp)||0,_bpLost=(c.bp_creation&&c.bp_creation.lost)||0;
     const _bpDerived=Math.max(0,1+Math.floor(bpCP/5)+Math.floor(_bpXP/5)-_bpLost);
-    const _humLost=c.humanity_lost||0,_humXP=c.humanity_xp||0;
+    // If humanity_lost not yet set, infer it from the stored drop so Lost input matches XP
+    const _humLost=c.humanity_lost!==undefined?c.humanity_lost:Math.max(0,(c.humanity_base||7)-(c.humanity||0));
+    const _humXP=c.humanity_xp||0;
     const _humDerived=Math.max(0,Math.min(10,(c.humanity_base||7)+Math.floor(_humXP/2)-_humLost));
     h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span></div>';
     h+='<div class="sh-bh-grid">'
