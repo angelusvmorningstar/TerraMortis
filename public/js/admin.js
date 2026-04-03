@@ -34,6 +34,7 @@ import {
   shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
+  shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
@@ -404,7 +405,7 @@ Object.assign(window, {
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditHumanity, shStatusUp, shStatusDown,
+  shEditBP, shEditBPCreation, shEditHumanity, shStatusUp, shStatusDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,
@@ -417,6 +418,7 @@ Object.assign(window, {
   shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT, shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
+  shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,

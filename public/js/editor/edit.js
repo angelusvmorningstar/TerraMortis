@@ -543,6 +543,47 @@ export function shToggleRiteFree(powerIdx) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   PACTS
+══════════════════════════════════════════════════════════ */
+
+export function shAddPact(name) {
+  if (state.editIdx < 0) return;
+  // Title-case (MERITS_DB stores lowercase keys/names; stored pacts use title case)
+  name = (name || '').trim().replace(/\b\w/g, ch => ch.toUpperCase());
+  if (!name) return;
+  const c = state.chars[state.editIdx];
+  if (!c.powers) c.powers = [];
+  if (c.powers.some(p => p.category === 'pact' && p.name.toLowerCase() === name.toLowerCase())) return;
+  c.powers.push({ category: 'pact', name });
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shRemovePact(powerIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.powers || !c.powers[powerIdx]) return;
+  c.powers.splice(powerIdx, 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditPact(powerIdx, field, val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const p = (c.powers || [])[powerIdx];
+  if (!p || p.category !== 'pact') return;
+  if (field === 'ohm_skill_0' || field === 'ohm_skill_1') {
+    if (!p.ohm_skills) p.ohm_skills = ['', ''];
+    p.ohm_skills[field === 'ohm_skill_0' ? 0 : 1] = val || '';
+  } else {
+    p[field] = val || null;
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
    MERIT CREATION POINTS
 ══════════════════════════════════════════════════════════ */
 

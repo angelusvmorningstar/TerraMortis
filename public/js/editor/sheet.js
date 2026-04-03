@@ -39,7 +39,7 @@ function _renderPoolCounters(c,category) {
   let h='<div class="grant-pools">';
   const seen=new Set();
   allPools.forEach(p=>{
-    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.category==='ohm'?'Allies/Contacts/Resources (OHM)':p.name);
+    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.category==='ohm'?'OHM: auto Contacts+Resources, pick Allies sphere':p.name);
     const key=p.source+'|'+label;
     if(seen.has(key)) return;
     seen.add(key);
@@ -108,7 +108,14 @@ export function shRenderStatsStrip(c) {
   const bp=c.blood_potency||0,hm=c.humanity||0;
   const bpCell=editMode?sEdit(BP_SVG,bp,'BP','shEditBP('+(bp-1)+')','shEditBP('+(bp+1)+')'):s(BP_SVG,bp||1,'BP');
   const humCell=editMode?sEdit(HUM_SVG,hm,'Humanity','shEditHumanity('+(hm-1)+')','shEditHumanity('+(hm+1)+')'):s(HUM_SVG,hm,'Humanity');
-  return '<div class="sh-stats-strip">'+bpCell+humCell+s(HEALTH_SVG,calcHealth(c),'Health')+s(WP_SVG,calcWillpowerMax(c),'Willpower')+s(STAT_SVG,calcSize(c),'Size')+s(STAT_SVG,calcSpeed(c),'Speed')+s(STAT_SVG,calcDefence(c),'Defence')+'</div>';
+  // Safe Word: combined WP when mutually linked (both have the oath pointing to each other)
+  const _swPact=(c.powers||[]).find(p=>p.category==='pact'&&(p.name||'').toLowerCase()==='oath of the safe word');
+  const _swPartner=_swPact&&_swPact.partner?(state.chars||[]).find(ch=>ch.name===_swPact.partner):null;
+  const _swActive=_swPartner&&((_swPartner.powers||[]).some(p=>p.category==='pact'&&(p.name||'').toLowerCase()==='oath of the safe word'&&p.partner===c.name));
+  const _wpBase=calcWillpowerMax(c);
+  const _wpVal=_swActive?_wpBase+calcWillpowerMax(_swPartner):_wpBase;
+  const _wpLbl=_swActive?'WP (shared)':'Willpower';
+  return '<div class="sh-stats-strip">'+bpCell+humCell+s(HEALTH_SVG,calcHealth(c),'Health')+s(WP_SVG,_wpVal,_wpLbl)+s(STAT_SVG,calcSize(c),'Size')+s(STAT_SVG,calcSpeed(c),'Speed')+s(STAT_SVG,calcDefence(c),'Defence')+'</div>';
 }
 
 export function shRenderAttributes(c,editMode) {
@@ -168,8 +175,8 @@ export function shRenderSkills(c,editMode) {
   if(editMode){
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
       const s=col[ri];
-      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
-      h+='<div class="sk-edit-cell"><div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
+      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
+      h+='<div class="sk-edit-cell"><div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':ohmNa?'<span class="sh-skill-na pt-na">9-Again (OHM)</span>':'')+'</div></div>';
       const cr=(c.skill_creation||{})[s]||{cp:0,free:0,xp:0},sE=s.replace(/'/g,"\\'"),sb=(cr.cp||0)+(cr.free||0),sxd=xpToDots(cr.xp||0,sb,2),st2=sb+sxd;
       const sFr=cr.free||0;
       h+='<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span> <span class="attr-bd-ro" style="color:var(--gold2)">'+sFr+'</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditSkillPt(\''+sE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+st2+'</span></div></div>';
@@ -180,8 +187,8 @@ export function shRenderSkills(c,editMode) {
     });}
   } else {
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
-      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
-      h+='<div class="sh-skill-row'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':'')+'</div></div>';
+      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),hasDots=d>0||bn>0,dotStr=hasDots?shDotsWithBonus(d,bn):'\u2013';
+      h+='<div class="sh-skill-row'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':ohmNa?'<span class="sh-skill-na pt-na">9-Again (OHM)</span>':'')+'</div></div>';
     });}
   }
   h+='</div></div>';
@@ -278,7 +285,77 @@ export function shRenderDisciplines(c,editMode) {
   }
   // Pacts
   const pctP=(c.powers||[]).filter(p=>p.category==='pact');
-  if(pctP.length){h+='<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">';pctP.forEach((p,i)=>{const gid='pact'+c.name.replace(/[^a-z]/gi,'')+i;h+='<div class="disc-tap-row" id="disc-row-'+gid+'" onclick="toggleDisc(\''+gid+'\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">'+esc(p.name)+'</span></div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-'+gid+'"><div class="disc-power">'+(p.stats?'<div class="disc-power-stats">'+esc(p.stats)+'</div>':'')+'<div class="disc-power-effect">'+esc(p.effect||'')+'</div></div></div>';});h+='</div></div>';}
+  if(pctP.length||editMode){
+    // Build oath list from MERITS_DB for the add dropdown
+    const _oathList=Object.entries(MERITS_DB||{}).filter(([,v])=>v.type==='Invictus Oath').map(([,v])=>v.name||'').filter(Boolean).sort();
+    const _toTitle=s=>s.replace(/\b\w/g,c=>c.toUpperCase());
+    const _allSkillOpts=ALL_SKILLS.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
+    const _charNames=(state.chars||[]).filter(ch=>ch.name&&ch.name!==c.name).map(ch=>'<option value="'+esc(ch.name)+'">'+esc(ch.name)+'</option>').join('');
+    h+='<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">';
+    pctP.forEach((p,i)=>{
+      // Find real index in c.powers
+      const realPi=(c.powers||[]).indexOf(p);
+      const gid='pact'+c.name.replace(/[^a-z]/gi,'')+i;
+      const isOHM=(p.name||'').toLowerCase()==='oath of the hard motherfucker';
+      const isSW=(p.name||'').toLowerCase()==='oath of the safe word';
+      const dbEntry=MERITS_DB[(p.name||'').toLowerCase()];
+      const effect=p.effect||(dbEntry&&dbEntry.desc)||'';
+      if(editMode){
+        h+='<div class="disc-tap-row" style="cursor:default"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">'+esc(_toTitle(p.name))+'</span>';
+        if(isOHM){
+          const sk0=(p.ohm_skills&&p.ohm_skills[0])||'';
+          const sk1=(p.ohm_skills&&p.ohm_skills[1])||'';
+          const ohmSphere=p.ohm_allies_sphere||'';
+          const _sphereOpts=INFLUENCE_SPHERES.map(s=>'<option value="'+esc(s)+'"'+(s.toLowerCase()===ohmSphere.toLowerCase()?' selected':'')+'>'+esc(s)+'</option>').join('');
+          h+='<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
+            +'<span style="font-size:11px;color:var(--txt3)">Auto: +1 Contacts, +1 Resources</span>'
+            +'</div>'
+            +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
+            +'<span style="font-size:11px;color:var(--txt3)">Allies sphere:</span>'
+            +'<select class="gen-qual-input" style="width:140px" onchange="shEditPact('+realPi+',\'ohm_allies_sphere\',this.value)"><option value="">-- pick sphere --</option>'+_sphereOpts+'</select>'
+            +'</div>'
+            +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
+            +'<span style="font-size:11px;color:var(--txt3)">9-again:</span>'
+            +'<select class="gen-qual-input" style="width:110px" onchange="shEditPact('+realPi+',\'ohm_skill_0\',this.value)"><option value="">-- skill --</option>'+_allSkillOpts.replace('value="'+esc(sk0)+'"','value="'+esc(sk0)+'" selected')+'</select>'
+            +'<select class="gen-qual-input" style="width:110px" onchange="shEditPact('+realPi+',\'ohm_skill_1\',this.value)"><option value="">-- skill --</option>'+_allSkillOpts.replace('value="'+esc(sk1)+'"','value="'+esc(sk1)+'" selected')+'</select>'
+            +'</div>';
+        }
+        if(isSW){
+          const partner=p.partner||'';
+          const sharedMerit=p.shared_merit||'';
+          h+='<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
+            +'<span style="font-size:11px;color:var(--txt3)">Partner:</span>'
+            +'<select class="gen-qual-input" style="width:130px" onchange="shEditPact('+realPi+',\'partner\',this.value)"><option value="">-- select --</option>'+_charNames.replace('value="'+esc(partner)+'"','value="'+esc(partner)+'" selected')+'</select>'
+            +'<span style="font-size:11px;color:var(--txt3)">Shared merit:</span>'
+            +'<input class="gen-qual-input" style="width:140px" type="text" value="'+esc(sharedMerit)+'" placeholder="merit name\u2026" onchange="shEditPact('+realPi+',\'shared_merit\',this.value)">'
+            +'</div>';
+        }
+        h+='</div>'
+          +'<button class="rm-btn" style="margin-left:auto" onclick="shRemovePact('+realPi+')">\u2212</button>'
+          +'</div>';
+      } else {
+        h+='<div class="disc-tap-row" id="disc-row-'+gid+'" onclick="toggleDisc(\''+gid+'\')">'
+          +'<div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">'+esc(_toTitle(p.name))+'</span>'
+          +(isOHM&&p.ohm_allies_sphere?'<span style="font-size:11px;color:var(--txt3);margin-left:8px">Allies: '+esc(p.ohm_allies_sphere)+'</span>':'')
+          +(isOHM&&p.ohm_skills&&p.ohm_skills.filter(Boolean).length?'<span style="font-size:11px;color:var(--txt3);margin-left:8px">9-again: '+p.ohm_skills.filter(Boolean).map(esc).join(', ')+'</span>':'')
+          +(isSW&&p.partner?'<span style="font-size:11px;color:var(--txt3);margin-left:8px">w/ '+esc(p.partner)+(p.shared_merit?' | '+esc(p.shared_merit):'')+'</span>':'')
+          +'</div><span class="disc-tap-arr">\u203A</span></div>'
+          +'<div class="disc-drawer" id="disc-drawer-'+gid+'"><div class="disc-power">'
+          +(p.stats?'<div class="disc-power-stats">'+esc(p.stats)+'</div>':'')
+          +'<div class="disc-power-effect">'+esc(effect)+'</div>'
+          +'</div></div>';
+      }
+    });
+    if(editMode){
+      h+='<div class="dev-add-row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+        +'<select id="pact-add-sel" class="gen-qual-input" style="flex:1;min-width:160px"><option value="">-- add oath --</option>'
+        +_oathList.map(n=>'<option value="'+esc(n)+'">'+esc(_toTitle(n))+'</option>').join('')
+        +'</select>'
+        +'<button class="dev-add-btn" onclick="shAddPact(document.getElementById(\'pact-add-sel\').value)">+ Add</button>'
+        +'</div>';
+    }
+    h+='</div></div>';
+  }
   return h;
 }
 
@@ -298,21 +375,19 @@ export function shRenderInfluenceMerits(c,editMode) {
     const _inflMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _inflHasVM=hasViralMythology(c);
     const _inflHasLK=hasLorekeeper(c);
-    const _inflHasOHM=hasOHM(c);
     const nonContacts=inflM.filter(m=>m.name!=='Contacts');
     nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,free_ohm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.free_ohm||0)+(mc.xp||0);
       h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span>';
       if(m.granted_by) h+='<span class="gen-granted-tag">'+esc(m.granted_by)+'</span>';
       h+='<button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
-      const _isOHMMerit=m.name==='Allies'||m.name==='Contacts'||m.name==='Resources';
-      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies',showLK:_inflHasLK&&m.name==='Retainer',showOHM:_inflHasOHM&&_isOHMMerit});h+=_prereqWarn(c,m.name);});
+      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies',showLK:_inflHasLK&&m.name==='Retainer'});h+=_prereqWarn(c,m.name);});
     // Contacts: single entry with sphere-per-dot
     const contactsEntry=inflM.find(m=>m.name==='Contacts');
     const cInf=calcContactsInfluence(c);
     if(contactsEntry){
       const cIdx=c.merits.indexOf(contactsEntry),cMc=(c.merit_creation&&c.merit_creation[cIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_ohm:0,xp:0},rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],frDots=cMc.free||0,baseDots=(cMc.cp||0)+(cMc.xp||0),spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
       h+='<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts '+shDots(rating)+(cInf?' \u2014 <span class="inf-val">'+cInf+'</span> inf':'')+'</div>';
-      h+=meritBdRow(cIdx,cMc,meritFixedRating(contactsEntry.name),{showMCI:_inflMciPool>0,showOHM:_inflHasOHM});
+      h+=meritBdRow(cIdx,cMc,meritFixedRating(contactsEntry.name),{showMCI:_inflMciPool>0});
       for(let d=0;d<rating;d++){
         const sp=spheres[d]||'';
         let src='';

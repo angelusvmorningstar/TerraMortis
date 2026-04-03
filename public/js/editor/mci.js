@@ -25,6 +25,7 @@ export function applyDerivedMerits(c) {
 
   // Clear ephemeral tracking
   delete c._pt_nine_again_skills;
+  delete c._ohm_nine_again_skills;
   c._grant_pools = [];
 
   // ── MCI grant pools ──
@@ -73,14 +74,48 @@ export function applyDerivedMerits(c) {
   }
 
 
-  // ── OHM grant pool (Allies/Contacts/Resources, 1 each = 3 total) ──
-  if (hasOHM(c)) {
+  // ── OHM: auto-apply 1 free dot each to Contacts and Resources; 1 to chosen Allies sphere ──
+  const ohmPact = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the hard motherfucker');
+  if (ohmPact) {
+    // Clear stale OHM free dots before re-applying
+    (c.merit_creation || []).forEach((mc, i) => {
+      if (!mc) return;
+      const m = (c.merits || [])[i];
+      if (!m || m.category !== 'influence') return;
+      if (m.name === 'Contacts' || m.name === 'Resources' || m.name === 'Allies') mc.free_ohm = 0;
+    });
+    // Auto-apply 1 free_ohm to Contacts and Resources (if they exist)
+    ['Contacts', 'Resources'].forEach(mName => {
+      const mi = (c.merits || []).findIndex(m => m.category === 'influence' && m.name === mName);
+      if (mi < 0) return;
+      if (!c.merit_creation) c.merit_creation = [];
+      if (!c.merit_creation[mi]) c.merit_creation[mi] = { cp: 0, xp: 0, free: 0 };
+      c.merit_creation[mi].free_ohm = 1;
+    });
+    // Auto-apply 1 free_ohm to the chosen Allies sphere (if set and merit exists)
+    const ohmSphere = (ohmPact.ohm_allies_sphere || '').trim();
+    if (ohmSphere) {
+      const mi = (c.merits || []).findIndex(m =>
+        m.category === 'influence' && m.name === 'Allies' &&
+        (m.area || '').toLowerCase() === ohmSphere.toLowerCase()
+      );
+      if (mi >= 0) {
+        if (!c.merit_creation[mi]) c.merit_creation[mi] = { cp: 0, xp: 0, free: 0 };
+        c.merit_creation[mi].free_ohm = 1;
+      }
+    }
+    // Grant pool for tracking display
     c._grant_pools.push({
       source: 'Oath of the Hard Motherfucker',
       names: ['Allies', 'Contacts', 'Resources'],
       category: 'ohm',
       amount: 3
     });
+    // 9-again on chosen skills
+    const skills = ohmPact.ohm_skills || [];
+    if (skills.length) {
+      c._ohm_nine_again_skills = new Set(skills.filter(Boolean));
+    }
   }
 
   // ── Lorekeeper grant pool (Herd/Retainer) ──

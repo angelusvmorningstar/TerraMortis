@@ -175,9 +175,9 @@ export function vmHerdPool(c) {
   return total;
 }
 
-/** Check if character has Oath of the Hard Motherfucker. */
+/** Check if character has Oath of the Hard Motherfucker (stored as a pact in c.powers). */
 export function hasOHM(c) {
-  return (c.merits || []).some(m => m.name === 'Oath of the Hard Motherfucker');
+  return (c.powers || []).some(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the hard motherfucker');
 }
 
 /** Count OHM bonus dots allocated via free_ohm on Allies, Contacts, and Resources entries. */

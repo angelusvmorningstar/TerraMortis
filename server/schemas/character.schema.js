@@ -351,8 +351,13 @@ export const characterSchema = {
         stats:     { type: 'string' },
         pool_size: { type: ['integer', 'null'] },
         effect:    { type: 'string' },
-        tradition: { type: 'string' },
-        free:      { type: 'boolean' }
+        tradition:    { type: 'string' },
+        free:         { type: 'boolean' },
+        // Pact-specific fields
+        ohm_skills:        { type: 'array', items: { type: 'string' }, maxItems: 2 },
+        ohm_allies_sphere: { type: ['string', 'null'] },
+        partner:           { type: ['string', 'null'] },
+        shared_merit:      { type: ['string', 'null'] }
       },
       additionalProperties: false
     },
