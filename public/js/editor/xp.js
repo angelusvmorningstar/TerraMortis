@@ -74,20 +74,33 @@ export function xpSpentAttrs(c) {
 /** XP spent on skills + specialisations beyond free allowance. */
 export function xpSpentSkills(c) {
   const skillXP = sumCreationXP(c.skill_creation);
-  // Specialisation XP: 1 per spec beyond free allowance
-  const totalSpecs = Object.values(c.skills || {}).reduce((s, sk) => s + ((sk && sk.specs) ? sk.specs.length : 0), 0);
+  // PT free specs (dot 3): 2 extra, but ONLY usable on asset skills — tracked separately
   const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
-  const ptB = (ptM && ptM.rating >= 3) ? 2 : 0;
-  const freeS = 3 + ptB;
-  const specXP = Math.max(0, totalSpecs - freeS);
+  const ptFree = (ptM && ptM.rating >= 3) ? 2 : 0;
+  const ptAssets = new Set((ptM && ptM.rating >= 3 && ptM.asset_skills) ? (ptM.asset_skills || []).filter(Boolean) : []);
+  let assetSpecs = 0, nonAssetSpecs = 0;
+  Object.entries(c.skills || {}).forEach(([sk, skillObj]) => {
+    const count = (skillObj && skillObj.specs) ? skillObj.specs.length : 0;
+    if (ptAssets.has(sk)) assetSpecs += count;
+    else nonAssetSpecs += count;
+  });
+  // MCI dot 1 free specs: each active MCI with dot1_choice === 'speciality' grants 1 free spec
+  const mciFreeSpecs = (c._mci_free_specs || []).filter(fs =>
+    fs.skill && fs.spec && (c.skills || {})[fs.skill] && ((c.skills[fs.skill].specs || []).includes(fs.spec))
+  ).length;
+  // PT free covers asset specs first; baseline 3 covers everything else
+  const ptFreeCovered = Math.min(ptFree, assetSpecs);
+  const paidSpecs = nonAssetSpecs + Math.max(0, assetSpecs - ptFreeCovered);
+  const specXP = Math.max(0, paidSpecs - 3 - mciFreeSpecs);
   return skillXP + specXP;
 }
 
-/** XP spent on all merits (general, influence, domain, standing) + fighting styles. */
+/** XP spent on all merits (general, influence, domain, standing) + fighting styles + pact oaths. */
 export function xpSpentMerits(c) {
   const meritXP = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
   const styleXP = (c.fighting_styles || []).reduce((t, fs) => t + (fs.xp || 0), 0);
-  return meritXP + styleXP;
+  const pactXP = (c.powers || []).filter(p => p.category === 'pact').reduce((t, p) => t + (p.xp || 0), 0);
+  return meritXP + styleXP + pactXP;
 }
 
 /** XP spent on powers — disciplines + devotions. */
@@ -109,8 +122,9 @@ export function xpSpentPowers(c) {
 
 /** XP spent on special: Blood Potency, Humanity, lost Willpower dots. */
 export function xpSpentSpecial(c) {
-  // Blood Potency: 5 XP per dot above starting (starting = 1 for most neonates)
-  const bpXP = Math.max(0, (c.blood_potency || 1) - 1) * 5;
+  // Blood Potency: 5 XP per dot above starting, minus any dots already paid for via merit CP
+  const bpCPDots = Math.floor(((c.bp_creation || {}).cp || 0) / 5);
+  const bpXP = Math.max(0, (c.blood_potency || 1) - 1 - bpCPDots) * 5;
   // Lost Willpower dots: stored in xp_log.spent.willpower
   const wpXP = ((c.xp_log || {}).spent || {}).willpower || 0;
   // Manual special: anything else tracked in xp_log
@@ -171,8 +185,8 @@ export function meritRating(c, m) {
  *   threshold is met, then shows fixedAt.
  */
 export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
-  const cp = mc.cp || 0, xp = mc.xp || 0, fr = mc.free || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0;
-  const total = cp + xp + fr + fmci + fvm + flk;
+  const cp = mc.cp || 0, xp = mc.xp || 0, fr = mc.free || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0, finv = mc.free_inv || 0, fpt = mc.free_pt || 0, fmdb = mc.free_mdb || 0;
+  const total = cp + xp + fr + fmci + fvm + flk + fohm + finv + fpt + fmdb;
   // Effective display: for fixed merits, only show dots once the threshold is reached
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
@@ -185,6 +199,8 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   if (opts.showMCI) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">MCI</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fmci + '" onchange="shEditMeritPt(' + realIdx + ',\'free_mci\',+this.value)"></div>';
   if (opts.showVM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">VM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fvm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_vm\',+this.value)"></div>';
   if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">LK</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
+  if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">OHM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
+  if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">INV</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
   return h;

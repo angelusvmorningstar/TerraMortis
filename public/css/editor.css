@@ -122,8 +122,10 @@
 
 /* ── Skill specs and breakdown ── */
 .sh-spec-counter{font-family:var(--fh);font-size:10px;letter-spacing:.04em;color:var(--txt3);text-align:center;margin-bottom:6px;}
-.sh-merit-cp-row{font-family:var(--fh);font-size:12px;letter-spacing:.04em;text-align:center;margin-bottom:4px;}
+.sh-merit-cp-row{font-family:var(--fh);font-size:12px;letter-spacing:.04em;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .sh-merit-cp-lbl{color:var(--txt3);}
+.sh-bp-cp-row{margin-left:auto;color:var(--txt3);display:flex;align-items:center;gap:4px;}
+.sh-bp-cp-input{width:36px;padding:2px 4px;font-size:11px;text-align:center;}
 .sh-spec-counter .sc-val{color:var(--txt2);}
 .sh-spec-counter .sc-over{color:var(--err-a9);}
 .sh-spec-counter .sc-full{color:var(--green2-a8);}
@@ -225,7 +227,9 @@
 .gen-granted-tag-view{font-size:9px;font-family:var(--fb);color:var(--gold2);background:var(--gold2-a12);border:1px solid var(--gold2-a25);padding:1px 5px;border-radius:2px;white-space:nowrap;}
 .merit-prereq-fail{opacity:.5;text-decoration:line-through;}
 .merit-prereq-fail-tag{font-size:9px;font-family:var(--fb);color:var(--err);background:var(--err-a12);border:1px solid var(--err-a25);padding:1px 5px;border-radius:2px;white-space:nowrap;margin-left:4px;}
-.gen-qual-input{width:120px;background:var(--w-a6);border:1px solid var(--w-a12);color:var(--txt1);font-size:11px;padding:3px 4px;}
+.gen-qual-input{width:120px;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:3px 4px;outline:none;}
+.gen-qual-input option{background:var(--surf2);color:var(--txt);}
+.gen-qual-input:focus{border-color:var(--gold);}
 
 /* ── Standing merit editing ── */
 .stand-name-input{flex:1;min-width:0;background:var(--w-a6);border:1px solid var(--w-a12);color:var(--txt1);font-size:12px;padding:3px 6px;}
@@ -234,7 +238,9 @@
 .pt-block{padding:6px 0 4px;}
 .pt-header{display:flex;align-items:center;gap:8px;padding:2px 8px 4px;}
 .pt-skills-edit{display:flex;flex-wrap:wrap;gap:4px;padding:4px 8px 6px;}
-.pt-skill-sel{background:var(--w-a6);border:1px solid var(--w-a12);color:var(--txt1);font-size:11px;padding:2px 4px;}
+.pt-skill-sel{background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt);font-size:11px;padding:2px 4px;outline:none;}
+.pt-skill-sel option{background:var(--surf2);color:var(--txt);}
+.pt-skill-sel:focus{border-color:var(--gold);}
 .pt-assets{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 6px;}
 .pt-skill-tag{background:var(--w-a8);border:1px solid var(--w-a10);color:var(--txt2);font-size:10px;padding:2px 6px;font-family:var(--fb);}
 
@@ -348,8 +354,12 @@
 /* ── Sheet sections ── */
 .sh-body{padding:0 14px 24px;}
 .sh-sec{margin-top:16px;}
-.sh-sec-title{font-family:var(--fh);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt);padding-bottom:5px;border-bottom:1px solid var(--bdr2);margin-bottom:8px;}
-.sh-sec-subtitle{font-family:var(--fh);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2);padding-bottom:4px;border-bottom:1px solid var(--bdr);margin-bottom:6px;margin-top:4px;}
+.sh-sec-title{font-family:var(--fh);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt);padding-bottom:5px;border-bottom:1px solid var(--bdr2);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.sh-sec-subtitle{font-family:var(--fh);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2);padding-bottom:4px;border-bottom:1px solid var(--bdr);margin-bottom:6px;margin-top:4px;display:flex;align-items:center;gap:5px;}
+.sh-sec-alert{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;font-family:var(--fb);line-height:1;flex-shrink:0;text-transform:none;letter-spacing:0;}
+.sh-sec-alert.red{background:rgba(180,30,30,.9);color:#fff;border:1px solid rgba(255,80,80,.4);}
+.sh-sec-alert.yellow{background:rgba(160,120,10,.85);color:#fff;border:1px solid rgba(220,180,50,.4);font-size:7px;}
+.sh-xp-badge.xp-over{color:var(--err)!important;}
 
 /* ── Sheet attribute grid ── */
 .sh-attr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;overflow:hidden;min-width:0;}
@@ -396,6 +406,15 @@
 .rite-free-badge:hover{background:rgba(var(--gold-rgb,224,196,122),.3);}
 .rite-xp-badge{background:rgba(139,0,0,.15);color:var(--crim);border-color:var(--crim);}
 .rite-xp-badge:hover{background:rgba(139,0,0,.3);}
+
+/* ── Pact oaths ── */
+.pact-edit-block{background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+.pact-edit-hdr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.pact-req-dots{font-size:10px;color:var(--txt3);font-family:var(--fb);}
+.pact-cp-xp{display:flex;align-items:center;gap:6px;font-size:11px;}
+.pact-controls{display:flex;flex-direction:column;gap:4px;padding-top:4px;border-top:0.5px solid var(--bdr);}
+.pact-ctrl-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--txt2);font-family:var(--fb);}
+.pact-ctrl-row label{font-size:10px;color:var(--txt3);white-space:nowrap;}
 
 /* ── Merits ── */
 .merit-list{display:flex;flex-direction:column;gap:3px;}

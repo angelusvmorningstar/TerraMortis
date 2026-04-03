@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: server
-    buildCommand: npm ci
+    buildCommand: npm ci && node migrate.js
     startCommand: npm start
     envVars:
       - key: NODE_ENV

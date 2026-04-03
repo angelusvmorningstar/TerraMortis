@@ -6,7 +6,7 @@
 
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { removeMerit, ensureMeritSync } from './merits.js';
-import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed } from './domain.js';
+import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -23,16 +23,95 @@ export function applyDerivedMerits(c) {
     }
   }
 
+  // Migrate legacy 'up' field → 'cp' in merit_creation (Excel import artifact)
+  (c.merit_creation || []).forEach(mc => {
+    if (!mc || !mc.up) return;
+    mc.cp = (mc.cp || 0) + mc.up;
+    delete mc.up;
+  });
+
+  // Migrate Fucking Thief stolen merits: backfill granted_by if missing
+  const ftMerit = (c.merits || []).find(m => m.name === 'Fucking Thief' && m.category === 'general');
+  if (ftMerit && ftMerit.qualifier) {
+    const stolenIdx = (c.merits || []).findIndex(m => m.name === ftMerit.qualifier && m.category === 'general' && !m.granted_by);
+    if (stolenIdx >= 0) c.merits[stolenIdx].granted_by = 'Fucking Thief';
+  }
+
+  // Migrate legacy 'Regular' fighting style → 'Fighting Merit' (type: merit)
+  (c.fighting_styles || []).forEach(fs => {
+    if (fs.name === 'Regular') { fs.name = 'Fighting Merit'; fs.type = 'merit'; }
+  });
+
+  // Migrate Mandragora Garden from general → domain if miscategorised
+  (c.merits || []).forEach(m => {
+    if (m.name === 'Mandragora Garden' && m.category !== 'domain') m.category = 'domain';
+  });
+  // De-duplicate domain Mandragora Gardens: keep the one with shared_with (proper domain entry),
+  // remove legacy extras (e.g. old general entry with granted_by). Splice in reverse index order.
+  {
+    const mgIdxs = (c.merits || []).reduce((a, m, i) => m.name === 'Mandragora Garden' ? [...a, i] : a, []);
+    if (mgIdxs.length > 1) {
+      // Prefer to keep: 1) has shared_with, 2) no granted_by, 3) first in array
+      let keepIdx = mgIdxs.find(i => (c.merits[i].shared_with || []).length > 0);
+      if (keepIdx === undefined) keepIdx = mgIdxs.find(i => !c.merits[i].granted_by);
+      if (keepIdx === undefined) keepIdx = mgIdxs[0];
+      const toRemove = mgIdxs.filter(i => i !== keepIdx).sort((a, b) => b - a);
+      for (const ri of toRemove) {
+        c.merits.splice(ri, 1);
+        if (c.merit_creation) c.merit_creation.splice(ri, 1);
+      }
+    }
+  }
+
   // Clear ephemeral tracking
   delete c._pt_nine_again_skills;
+  delete c._pt_dot4_bonus_skills;
+  delete c._mci_dot3_skills;
+  delete c._ohm_nine_again_skills;
   c._grant_pools = [];
+  c._mci_free_specs = [];
 
   // ── MCI grant pools ──
   const mcis = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation');
+  // Collect free specialisations granted by active MCIs at dot 1
+  mcis.filter(m => m.active !== false && (m.rating || 0) >= 1 && m.dot1_choice === 'speciality').forEach(m => {
+    if (m.dot1_spec_skill && m.dot1_spec) c._mci_free_specs.push({ skill: m.dot1_spec_skill, spec: m.dot1_spec });
+  });
+  // Collect bonus skill dots granted by active MCIs at dot 3
+  mcis.filter(m => m.active !== false && (m.rating || 0) >= 3 && m.dot3_choice === 'skill' && m.dot3_skill).forEach(m => {
+    if (!c._mci_dot3_skills) c._mci_dot3_skills = new Set();
+    c._mci_dot3_skills.add(m.dot3_skill);
+  });
   const totalMCIPool = mcis.filter(m => m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
   if (totalMCIPool > 0) {
     c._grant_pools.push({ source: 'MCI', name: '_mci', category: 'any', amount: totalMCIPool });
   }
+
+  // ── PT: clear stale free_pt before re-applying ──
+  (c.merit_creation || []).forEach(mc => { if (mc) mc.free_pt = 0; });
+
+  // ── MDB: clear stale free_mdb before re-applying ──
+  (c.merit_creation || []).forEach(mc => { if (mc) mc.free_mdb = 0; });
+
+  // ── K-9 / Falconry: clear then auto-apply 1 free dot to their granted Retainers ──
+  const _STYLE_RETAINER_GRANTS = ['K-9', 'Falconry'];
+  (c.merit_creation || []).forEach((mc, i) => {
+    if (!mc) return;
+    const m = (c.merits || [])[i];
+    if (m && m.name === 'Retainer' && _STYLE_RETAINER_GRANTS.includes(m.granted_by)) mc.free = 0;
+  });
+  _STYLE_RETAINER_GRANTS.forEach(styleName => {
+    const hasStyle = (c.fighting_styles || []).some(fs =>
+      fs.type !== 'merit' && fs.name === styleName &&
+      ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0) + (fs.up||0)) >= 1
+    );
+    if (!hasStyle) return;
+    const ri = (c.merits || []).findIndex(m => m.name === 'Retainer' && m.granted_by === styleName);
+    if (ri < 0) return;
+    if (!c.merit_creation) c.merit_creation = [];
+    if (!c.merit_creation[ri]) c.merit_creation[ri] = { cp: 0, xp: 0, free: 0 };
+    c.merit_creation[ri].free = 1;
+  });
 
   // ── PT grant pools ──
   const pts = (c.merits || []).filter(m => m.name === 'Professional Training');
@@ -41,21 +120,26 @@ export function applyDerivedMerits(c) {
     const role = pt.role || '';
     const assets = (pt.asset_skills || []).filter(Boolean);
 
-    // Dot 1: 2 dots of Contacts
-    if (dots >= 1 && role) {
-      c._grant_pools.push({
-        source: 'PT',
-        name: 'Contacts',
-        category: 'influence',
-        amount: 2,
-        qualifier: ''
-      });
+    // Dot 1: 2 free Contacts dots — auto-applied like OHM (no role required)
+    if (dots >= 1) {
+      const mi = (c.merits || []).findIndex(m => m.category === 'influence' && m.name === 'Contacts');
+      if (mi >= 0) {
+        if (!c.merit_creation) c.merit_creation = [];
+        if (!c.merit_creation[mi]) c.merit_creation[mi] = { cp: 0, xp: 0, free: 0 };
+        c.merit_creation[mi].free_pt = 2;
+      }
     }
 
-    // Dot 2+: nine_again on asset skills
+    // Dot 2: nine_again on first 2 asset skills only
     if (dots >= 2 && assets.length) {
       if (!c._pt_nine_again_skills) c._pt_nine_again_skills = new Set();
-      for (const sk of assets) c._pt_nine_again_skills.add(sk);
+      for (const sk of assets.slice(0, 2)) c._pt_nine_again_skills.add(sk);
+    }
+
+    // Dot 4: bonus dot on chosen asset skill
+    if (dots >= 4 && pt.dot4_skill) {
+      if (!c._pt_dot4_bonus_skills) c._pt_dot4_bonus_skills = new Set();
+      c._pt_dot4_bonus_skills.add(pt.dot4_skill);
     }
   }
 
@@ -72,6 +156,81 @@ export function applyDerivedMerits(c) {
     }
   }
 
+
+  // ── OHM: auto-apply 1 free dot each to Contacts and Resources; 1 to chosen Allies sphere ──
+  const ohmPact = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the hard motherfucker');
+  if (ohmPact) {
+    // Clear stale OHM free dots before re-applying
+    (c.merit_creation || []).forEach((mc, i) => {
+      if (!mc) return;
+      const m = (c.merits || [])[i];
+      if (!m || m.category !== 'influence') return;
+      if (m.name === 'Contacts' || m.name === 'Resources' || m.name === 'Allies') mc.free_ohm = 0;
+    });
+    // Auto-apply 1 free_ohm to Contacts and Resources (if they exist)
+    ['Contacts', 'Resources'].forEach(mName => {
+      const mi = (c.merits || []).findIndex(m => m.category === 'influence' && m.name === mName);
+      if (mi < 0) return;
+      if (!c.merit_creation) c.merit_creation = [];
+      if (!c.merit_creation[mi]) c.merit_creation[mi] = { cp: 0, xp: 0, free: 0 };
+      c.merit_creation[mi].free_ohm = 1;
+    });
+    // Auto-apply 1 free_ohm to the chosen Allies sphere (if set and merit exists)
+    const ohmSphere = (ohmPact.ohm_allies_sphere || '').trim();
+    if (ohmSphere) {
+      const mi = (c.merits || []).findIndex(m =>
+        m.category === 'influence' && m.name === 'Allies' &&
+        (m.area || '').toLowerCase() === ohmSphere.toLowerCase()
+      );
+      if (mi >= 0) {
+        if (!c.merit_creation[mi]) c.merit_creation[mi] = { cp: 0, xp: 0, free: 0 };
+        c.merit_creation[mi].free_ohm = 1;
+      }
+    }
+    // Grant pool for tracking display
+    c._grant_pools.push({
+      source: 'Oath of the Hard Motherfucker',
+      names: ['Allies', 'Contacts', 'Resources'],
+      category: 'ohm',
+      amount: 3
+    });
+    // 9-again on chosen skills
+    const skills = ohmPact.ohm_skills || [];
+    if (skills.length) {
+      c._ohm_nine_again_skills = new Set(skills.filter(Boolean));
+    }
+  }
+
+  // ── Invested grant pool (Herd/Mentor/Resources/Retainer = Invictus Status dots) ──
+  if (hasInvested(c)) {
+    const invPool = investedPool(c);
+    if (invPool > 0) {
+      c._grant_pools.push({
+        source: 'Invested',
+        names: ['Herd', 'Mentor', 'Resources', 'Retainer'],
+        category: 'inv',
+        amount: invPool
+      });
+    }
+  }
+
+  // ── MDB: auto-apply free_mdb to chosen Crúac Style = Mentor rating ──
+  const mdbMerit = (c.merits || []).find(m => m.name === 'The Mother-Daughter Bond');
+  if (mdbMerit && mdbMerit.qualifier) {
+    const mentorIdx = (c.merits || []).findIndex(m => m.category === 'influence' && m.name === 'Mentor');
+    if (mentorIdx >= 0) {
+      const mmc = (c.merit_creation || [])[mentorIdx] || {};
+      const mentorRating = (mmc.cp||0) + (mmc.free||0) + (mmc.free_mci||0) + (mmc.free_vm||0) + (mmc.free_lk||0) + (mmc.free_ohm||0) + (mmc.free_inv||0) + (mmc.free_pt||0) + (mmc.xp||0);
+      if (mentorRating > 0) {
+        const styleIdx = (c.merits || []).findIndex(m => m.category === 'general' && m.name === mdbMerit.qualifier);
+        if (styleIdx >= 0) {
+          if (!c.merit_creation) c.merit_creation = [];
+          if (!c.merit_creation[styleIdx]) c.merit_creation[styleIdx] = { cp: 0, xp: 0, free: 0 };
+          c.merit_creation[styleIdx].free_mdb = mentorRating;
+        }
+      }
+    }
+  }
 
   // ── Lorekeeper grant pool (Herd/Retainer) ──
   if (hasLorekeeper(c)) {
@@ -91,7 +250,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
     const mc = (c.merit_creation || [])[i] || {};
-    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.cp || 0) + (mc.xp || 0);
+    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.free_pt || 0) + (mc.free_mdb || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

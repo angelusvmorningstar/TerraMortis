@@ -10,7 +10,7 @@ import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { getPoolTotal, getPoolUsed, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { vmAlliesPool, vmAlliesUsed } from './domain.js';
+import { vmAlliesPool, vmAlliesUsed, investedPool, investedUsed } from './domain.js';
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
@@ -172,6 +172,15 @@ export function shEditBP(val) {
   state.chars[state.editIdx].blood_potency = n;
   _markDirty();
   _renderSheet(state.chars[state.editIdx]);
+}
+
+export function shEditBPCreation(val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.bp_creation) c.bp_creation = {};
+  c.bp_creation.cp = Math.max(0, val || 0);
+  _markDirty();
+  _renderSheet(c);
 }
 
 export function shEditHumanity(val) {
@@ -534,6 +543,49 @@ export function shToggleRiteFree(powerIdx) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   PACTS
+══════════════════════════════════════════════════════════ */
+
+export function shAddPact(name) {
+  if (state.editIdx < 0) return;
+  // Title-case (MERITS_DB stores lowercase keys/names; stored pacts use title case)
+  name = (name || '').trim().replace(/\b\w/g, ch => ch.toUpperCase());
+  if (!name) return;
+  const c = state.chars[state.editIdx];
+  if (!c.powers) c.powers = [];
+  if (c.powers.some(p => p.category === 'pact' && p.name.toLowerCase() === name.toLowerCase())) return;
+  c.powers.push({ category: 'pact', name });
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shRemovePact(powerIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.powers || !c.powers[powerIdx]) return;
+  c.powers.splice(powerIdx, 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditPact(powerIdx, field, val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const p = (c.powers || [])[powerIdx];
+  if (!p || p.category !== 'pact') return;
+  if (field === 'ohm_skill_0' || field === 'ohm_skill_1') {
+    if (!p.ohm_skills) p.ohm_skills = ['', ''];
+    p.ohm_skills[field === 'ohm_skill_0' ? 0 : 1] = val || '';
+  } else if (field === 'cp' || field === 'xp') {
+    p[field] = Math.max(0, parseInt(val) || 0);
+  } else {
+    p[field] = val || null;
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
    MERIT CREATION POINTS
 ══════════════════════════════════════════════════════════ */
 
@@ -625,9 +677,15 @@ export function shEditMeritPt(realIdx, field, val) {
     const otherFVM = vmAlliesUsed(c) - (mc.free_vm || 0);
     val = Math.min(val, Math.max(0, vmTotal - otherFVM));
   }
+  // Cap free_inv edits by remaining Invested pool
+  if (field === 'free_inv') {
+    const invTotal = investedPool(c);
+    const otherFINV = investedUsed(c) - (mc.free_inv || 0);
+    val = Math.min(val, Math.max(0, invTotal - otherFINV));
+  }
   mc[field] = val;
   // Sync stored rating
-  const total = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.xp || 0);
+  const total = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.xp || 0);
   if (c.merits[realIdx]) c.merits[realIdx].rating = total;
   _markDirty();
   _renderSheet(c);

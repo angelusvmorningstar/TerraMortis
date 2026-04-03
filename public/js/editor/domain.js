@@ -22,7 +22,7 @@ export function domMeritContrib(c, name) {
   const realIdx = (c.merits || []).indexOf(m);
   const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, free_mci: 0, xp: 0 };
   const purchased = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.xp || 0);
-  return purchased + (name === 'Herd' ? ssjHerdBonus(c) : 0);
+  return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0);
 }
 
 /** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked in merit_creation). */
@@ -30,6 +30,12 @@ export function ssjHerdBonus(c) {
   if (!(c.merits || []).some(m => m.name === 'Secret Society Junkie')) return 0;
   return (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation')
     .reduce((s, m) => s + (m.rating || 0), 0);
+}
+
+/** Flock bonus Herd dots: equal to Flock rating, can exceed cap of 5. */
+export function flockHerdBonus(c) {
+  const flock = (c.merits || []).find(m => m.name === 'Flock');
+  return flock ? (flock.rating || 0) : 0;
 }
 
 /**
@@ -63,7 +69,9 @@ export function domMeritTotal(c, name) {
     const p = (state.chars || []).find(ch => ch.name === pName);
     if (p) total += domMeritShareable(p, name);
   }
-  return Math.min(5, total);
+  // Herd can exceed 5 when Flock is present
+  const cap = (name === 'Herd' && flockHerdBonus(c) > 0) ? Infinity : 5;
+  return Math.min(cap, total);
 }
 
 /* ══════════════════════════════════════════════════════
@@ -171,6 +179,45 @@ export function vmHerdPool(c) {
     if (m.derived) return;
     const mc = (c.merit_creation || [])[i] || {};
     total += (mc.cp || 0) + (mc.xp || 0);
+  });
+  return total;
+}
+
+/** Check if character has Oath of the Hard Motherfucker (stored as a pact in c.powers). */
+export function hasOHM(c) {
+  return (c.powers || []).some(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the hard motherfucker');
+}
+
+/** Count OHM bonus dots allocated via free_ohm on Allies, Contacts, and Resources entries. */
+export function ohmUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.category !== 'influence') return;
+    if (m.name !== 'Allies' && m.name !== 'Contacts' && m.name !== 'Resources') return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.free_ohm || 0);
+  });
+  return total;
+}
+
+/** Check if character has the Invested merit. */
+export function hasInvested(c) {
+  return (c.merits || []).some(m => m.name === 'Invested');
+}
+
+/** Invested pool: dots equal to Invictus (covenant) Status. */
+export function investedPool(c) {
+  if (!hasInvested(c)) return 0;
+  return (c.status || {}).covenant || 0;
+}
+
+/** Count Invested bonus dots allocated via free_inv on Herd/Mentor/Resources/Retainer. */
+export function investedUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (!['Herd', 'Mentor', 'Resources', 'Retainer'].includes(m.name)) return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.free_inv || 0);
   });
   return total;
 }

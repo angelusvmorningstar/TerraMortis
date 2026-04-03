@@ -56,6 +56,7 @@ export const characterSchema = {
 
     // ── Core Stats ────────────────────────────────────────────
     blood_potency: { type: 'integer', minimum: 0, maximum: 10 },
+    bp_creation:   { type: 'object', properties: { cp: { type: 'integer', minimum: 0 } }, additionalProperties: false },
     humanity:      { type: 'integer', minimum: 0, maximum: 10 },
     humanity_base: { type: 'integer', minimum: 0, maximum: 10 },
     xp_total:      { type: 'number',  minimum: 0 },
@@ -330,6 +331,10 @@ export const characterSchema = {
         free_mci: { type: 'integer', minimum: 0 },
         free_vm:  { type: 'integer', minimum: 0 },
         free_lk:  { type: 'integer', minimum: 0 },
+        free_ohm: { type: 'integer', minimum: 0 },
+        free_inv: { type: 'integer', minimum: 0 },
+        free_pt:  { type: 'integer', minimum: 0 },
+        free_mdb: { type: 'integer', minimum: 0 },
         // Legacy field from Excel import — tolerated
         up:       { type: 'integer', minimum: 0 }
       },
@@ -349,8 +354,15 @@ export const characterSchema = {
         stats:     { type: 'string' },
         pool_size: { type: ['integer', 'null'] },
         effect:    { type: 'string' },
-        tradition: { type: 'string' },
-        free:      { type: 'boolean' }
+        tradition:    { type: 'string' },
+        free:         { type: 'boolean' },
+        // Pact-specific fields
+        cp:                { type: 'integer', minimum: 0 },
+        xp:                { type: 'integer', minimum: 0 },
+        ohm_skills:        { type: 'array', items: { type: 'string' }, maxItems: 2 },
+        ohm_allies_sphere: { type: ['string', 'null'] },
+        partner:           { type: ['string', 'null'] },
+        shared_merit:      { type: ['string', 'null'] }
       },
       additionalProperties: false
     },

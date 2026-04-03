@@ -5,7 +5,7 @@ import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
-import { vmAlliesUsed, lorekeeperUsed } from './editor/domain.js';
+import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initCityView } from './admin/city-views.js';
@@ -19,7 +19,7 @@ import {
   editFromSheet, shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditHumanity,
+  shEditBP, shEditBPCreation, shEditHumanity,
   shStatusUp, shStatusDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
@@ -34,6 +34,7 @@ import {
   shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
+  shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
@@ -171,6 +172,8 @@ function charAlerts(c) {
     if (p.category === 'any') used = getMCIPoolUsed(c);
     else if (p.category === 'vm') used = vmAlliesUsed(c);
     else if (p.category === 'lk') used = lorekeeperUsed(c);
+    else if (p.category === 'ohm') used = ohmUsed(c);
+    else if (p.category === 'inv') used = investedUsed(c);
     else used = getPoolUsed(c, p.names ? p.names[0] : p.name);
     if (used > total) red = true;
     else if (used < total) yellow = true;
@@ -403,7 +406,7 @@ Object.assign(window, {
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,
   shEditTouchstone, shAddTouchstone, shRemoveTouchstone,
-  shEditBP, shEditHumanity, shStatusUp, shStatusDown,
+  shEditBP, shEditBPCreation, shEditHumanity, shStatusUp, shStatusDown,
   shToggleOrdeal, shSetPriority, shSetClanAttr, shEditAttrPt,
   shSetSkillPriority, shEditSkillPt,
   shEditSpec, shRemoveSpec, shAddSpec,
@@ -416,6 +419,7 @@ Object.assign(window, {
   shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT, shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
+  shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
