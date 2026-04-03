@@ -91,11 +91,12 @@ export function xpSpentSkills(c) {
   return skillXP + specXP;
 }
 
-/** XP spent on all merits (general, influence, domain, standing) + fighting styles. */
+/** XP spent on all merits (general, influence, domain, standing) + fighting styles + pact oaths. */
 export function xpSpentMerits(c) {
   const meritXP = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
   const styleXP = (c.fighting_styles || []).reduce((t, fs) => t + (fs.xp || 0), 0);
-  return meritXP + styleXP;
+  const pactXP = (c.powers || []).filter(p => p.category === 'pact').reduce((t, p) => t + (p.xp || 0), 0);
+  return meritXP + styleXP + pactXP;
 }
 
 /** XP spent on powers — disciplines + devotions. */

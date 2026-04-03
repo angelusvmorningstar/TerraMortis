@@ -576,6 +576,8 @@ export function shEditPact(powerIdx, field, val) {
   if (field === 'ohm_skill_0' || field === 'ohm_skill_1') {
     if (!p.ohm_skills) p.ohm_skills = ['', ''];
     p.ohm_skills[field === 'ohm_skill_0' ? 0 : 1] = val || '';
+  } else if (field === 'cp' || field === 'xp') {
+    p[field] = Math.max(0, parseInt(val) || 0);
   } else {
     p[field] = val || null;
   }

@@ -405,6 +405,15 @@
 .rite-xp-badge{background:rgba(139,0,0,.15);color:var(--crim);border-color:var(--crim);}
 .rite-xp-badge:hover{background:rgba(139,0,0,.3);}
 
+/* ── Pact oaths ── */
+.pact-edit-block{background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+.pact-edit-hdr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.pact-req-dots{font-size:10px;color:var(--txt3);font-family:var(--fb);}
+.pact-cp-xp{display:flex;align-items:center;gap:6px;font-size:11px;}
+.pact-controls{display:flex;flex-direction:column;gap:4px;padding-top:4px;border-top:0.5px solid var(--bdr);}
+.pact-ctrl-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--txt2);font-family:var(--fb);}
+.pact-ctrl-row label{font-size:10px;color:var(--txt3);white-space:nowrap;}
+
 /* ── Merits ── */
 .merit-list{display:flex;flex-direction:column;gap:3px;}
 .merit-name-sh{font-family:var(--fh);font-size:11px;color:var(--txt2);letter-spacing:.02em;}

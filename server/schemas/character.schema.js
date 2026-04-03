@@ -355,6 +355,8 @@ export const characterSchema = {
         tradition:    { type: 'string' },
         free:         { type: 'boolean' },
         // Pact-specific fields
+        cp:                { type: 'integer', minimum: 0 },
+        xp:                { type: 'integer', minimum: 0 },
         ohm_skills:        { type: 'array', items: { type: 'string' }, maxItems: 2 },
         ohm_allies_sphere: { type: ['string', 'null'] },
         partner:           { type: ['string', 'null'] },

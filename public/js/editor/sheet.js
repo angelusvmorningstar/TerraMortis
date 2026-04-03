@@ -292,56 +292,71 @@ export function shRenderDisciplines(c,editMode) {
   // Pacts
   const pctP=(c.powers||[]).filter(p=>p.category==='pact');
   if(pctP.length||editMode){
-    // Build oath list from MERITS_DB for the add dropdown
-    const _oathList=Object.entries(MERITS_DB||{}).filter(([,v])=>v.type==='Invictus Oath').map(([,v])=>v.name||'').filter(Boolean).sort();
-    const _toTitle=s=>s.replace(/\b\w/g,c=>c.toUpperCase());
+    const _oathDB=Object.fromEntries(Object.entries(MERITS_DB||{}).filter(([,v])=>v.type==='Invictus Oath'));
+    const _toTitle=s=>s.replace(/\b\w/g,ch=>ch.toUpperCase());
     const _allSkillOpts=ALL_SKILLS.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
     const _charNames=(state.chars||[]).filter(ch=>ch.name&&ch.name!==c.name).map(ch=>'<option value="'+esc(ch.name)+'">'+esc(ch.name)+'</option>').join('');
     h+='<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">';
     pctP.forEach((p,i)=>{
-      // Find real index in c.powers
       const realPi=(c.powers||[]).indexOf(p);
       const gid='pact'+c.name.replace(/[^a-z]/gi,'')+i;
       const isOHM=(p.name||'').toLowerCase()==='oath of the hard motherfucker';
       const isSW=(p.name||'').toLowerCase()==='oath of the safe word';
-      const dbEntry=MERITS_DB[(p.name||'').toLowerCase()];
+      const dbEntry=_oathDB[(p.name||'').toLowerCase()];
       const effect=p.effect||(dbEntry&&dbEntry.desc)||'';
+      const reqDots=dbEntry&&dbEntry.rating?parseInt(dbEntry.rating)||0:0;
       if(editMode){
-        h+='<div class="disc-tap-row" style="cursor:default"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">'+esc(_toTitle(p.name))+'</span>';
+        const pcp=p.cp||0,pxp=p.xp||0,ptotal=pcp+pxp;
+        const ptColor=ptotal>=reqDots&&(reqDots===0||ptotal===reqDots)?'var(--gold2)':ptotal>0?'var(--err)':'var(--txt3)';
+        h+='<div class="pact-edit-block">'
+          +'<div class="pact-edit-hdr">'
+          +'<span class="disc-tap-name" style="font-size:12px;color:var(--txt2)">'+esc(_toTitle(p.name))+'</span>'
+          +(reqDots?'<span class="pact-req-dots">\u25CF'.repeat(reqDots)+' required</span>':'')
+          +'<div class="pact-cp-xp">'
+          +'<span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="'+pcp+'" onchange="shEditPact('+realPi+',\'cp\',+this.value)" style="width:36px">'
+          +'<span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="'+pxp+'" onchange="shEditPact('+realPi+',\'xp\',+this.value)" style="width:36px">'
+          +'<span style="font-size:11px;color:'+ptColor+'">= '+ptotal+' dot'+(ptotal===1?'':'s')+'</span>'
+          +'</div>'
+          +'<button class="dev-rm-btn" onclick="shRemovePact('+realPi+')" title="Remove oath">&times;</button>'
+          +'</div>';
+        // OHM-specific controls
         if(isOHM){
           const sk0=(p.ohm_skills&&p.ohm_skills[0])||'';
           const sk1=(p.ohm_skills&&p.ohm_skills[1])||'';
           const ohmSphere=p.ohm_allies_sphere||'';
           const _alliesMerits=(c.merits||[]).filter(m=>m.category==='influence'&&m.name==='Allies'&&m.area);
           const _alliesOpts=_alliesMerits.map(m=>'<option value="'+esc(m.area)+'"'+((m.area||'').toLowerCase()===ohmSphere.toLowerCase()?' selected':'')+'>'+esc(m.area)+'</option>').join('');
-          h+='<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
-            +'<span style="font-size:11px;color:var(--txt3)">Auto: +1 Contacts, +1 Resources</span>'
-            +'</div>'
-            +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
-            +'<span style="font-size:11px;color:var(--txt3)">+1 Allies:</span>'
+          h+='<div class="pact-controls">'
+            +'<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Auto grants:</span><span style="color:var(--gold2)">+1 Contacts, +1 Resources</span></div>'
+            +'<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">+1 Allies:</span>'
             +(_alliesMerits.length
-              ? '<select class="gen-qual-input" style="width:160px" onchange="shEditPact('+realPi+',\'ohm_allies_sphere\',this.value)"><option value="">-- pick Allies merit --</option>'+_alliesOpts+'</select>'
+              ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact('+realPi+',\'ohm_allies_sphere\',this.value)"><option value="">-- pick Allies merit --</option>'+_alliesOpts+'</select>'
               : '<span style="font-size:10px;color:var(--txt3);font-style:italic">Add an Allies merit first</span>')
             +'</div>'
-            +'<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
-            +'<span style="font-size:11px;color:var(--txt3)">9-again:</span>'
-            +'<select class="gen-qual-input" style="width:110px" onchange="shEditPact('+realPi+',\'ohm_skill_0\',this.value)"><option value="">-- skill --</option>'+_allSkillOpts.replace('value="'+esc(sk0)+'"','value="'+esc(sk0)+'" selected')+'</select>'
-            +'<select class="gen-qual-input" style="width:110px" onchange="shEditPact('+realPi+',\'ohm_skill_1\',this.value)"><option value="">-- skill --</option>'+_allSkillOpts.replace('value="'+esc(sk1)+'"','value="'+esc(sk1)+'" selected')+'</select>'
+            +'<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">9-Again skills:</span>'
+            +'<select class="gen-qual-input" style="width:120px" onchange="shEditPact('+realPi+',\'ohm_skill_0\',this.value)"><option value="">-- skill 1 --</option>'+_allSkillOpts.replace('value="'+esc(sk0)+'"','value="'+esc(sk0)+'" selected')+'</select>'
+            +'<select class="gen-qual-input" style="width:120px" onchange="shEditPact('+realPi+',\'ohm_skill_1\',this.value)"><option value="">-- skill 2 --</option>'+_allSkillOpts.replace('value="'+esc(sk1)+'"','value="'+esc(sk1)+'" selected')+'</select>'
+            +'</div>'
             +'</div>';
         }
+        // Safe Word-specific controls
         if(isSW){
           const partner=p.partner||'';
           const sharedMerit=p.shared_merit||'';
-          h+='<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center">'
-            +'<span style="font-size:11px;color:var(--txt3)">Partner:</span>'
-            +'<select class="gen-qual-input" style="width:130px" onchange="shEditPact('+realPi+',\'partner\',this.value)"><option value="">-- select --</option>'+_charNames.replace('value="'+esc(partner)+'"','value="'+esc(partner)+'" selected')+'</select>'
-            +'<span style="font-size:11px;color:var(--txt3)">Shared merit:</span>'
-            +'<input class="gen-qual-input" style="width:140px" type="text" value="'+esc(sharedMerit)+'" placeholder="merit name\u2026" onchange="shEditPact('+realPi+',\'shared_merit\',this.value)">'
+          const partnerChar=partner?(state.chars||[]).find(ch=>ch.name===partner):null;
+          const partnerHasSW=partnerChar&&(partnerChar.powers||[]).some(pp=>pp.category==='pact'&&(pp.name||'').toLowerCase()==='oath of the safe word'&&pp.partner===c.name);
+          h+='<div class="pact-controls">'
+            +'<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Partner:</span>'
+            +'<select class="gen-qual-input" style="width:160px" onchange="shEditPact('+realPi+',\'partner\',this.value)"><option value="">-- select character --</option>'+_charNames.replace('value="'+esc(partner)+'"','value="'+esc(partner)+'" selected')+'</select>'
+            +(partner&&!partnerHasSW?'<span style="font-size:10px;color:var(--txt3);font-style:italic;margin-left:4px">partner must also take this oath</span>':'')
+            +(partnerHasSW?'<span style="font-size:10px;color:var(--gold2);margin-left:4px">\u2713 mutually linked</span>':'')
+            +'</div>'
+            +'<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>'
+            +'<input class="gen-qual-input" style="width:180px" type="text" value="'+esc(sharedMerit)+'" placeholder="e.g. Striking Looks\u2026" onchange="shEditPact('+realPi+',\'shared_merit\',this.value)">'
+            +'</div>'
             +'</div>';
         }
-        h+='</div>'
-          +'<button class="rm-btn" style="margin-left:auto" onclick="shRemovePact('+realPi+')">\u2212</button>'
-          +'</div>';
+        h+='</div>';
       } else {
         h+='<div class="disc-tap-row" id="disc-row-'+gid+'" onclick="toggleDisc(\''+gid+'\')">'
           +'<div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">'+esc(_toTitle(p.name))+'</span>'
@@ -356,11 +371,14 @@ export function shRenderDisciplines(c,editMode) {
       }
     });
     if(editMode){
-      h+='<div class="dev-add-row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
-        +'<select id="pact-add-sel" class="gen-qual-input" style="flex:1;min-width:160px"><option value="">-- add oath --</option>'
-        +_oathList.map(n=>'<option value="'+esc(n)+'">'+esc(_toTitle(n))+'</option>').join('')
+      const _takenOaths=new Set(pctP.map(p=>(p.name||'').toLowerCase()));
+      const _addableOaths=Object.keys(_oathDB).filter(k=>!_takenOaths.has(k));
+      h+='<div class="dev-add-row" style="display:flex;gap:6px;align-items:center">'
+        +'<select id="pact-add-sel" class="gen-qual-input" style="flex:1;min-width:200px">'
+        +'<option value="">-- select oath to add --</option>'
+        +_addableOaths.map(k=>{const db=_oathDB[k];const dots=db&&db.rating?parseInt(db.rating)||0:0;return'<option value="'+esc(k)+'">'+esc(_toTitle(k))+(dots?' (\u25CF'.repeat(dots)+')':'')+'</option>';}).join('')
         +'</select>'
-        +'<button class="dev-add-btn" onclick="shAddPact(document.getElementById(\'pact-add-sel\').value)">+ Add</button>'
+        +'<button class="dev-add-btn" onclick="shAddPact(document.getElementById(\'pact-add-sel\').value)">+ Add Oath</button>'
         +'</div>';
     }
     h+='</div></div>';
@@ -583,7 +601,7 @@ export function shRenderGeneralMerits(c,editMode) {
   const oM=(c.merits||[]).filter(m=>m.category==='general');
   if(!editMode&&!oM.length) return '';
   const bpCP=(c.bp_creation&&c.bp_creation.cp)||0;
-  const meritCPUsed=(c.merit_creation||[]).reduce((s,mc)=>s+(mc?mc.cp||0:0),0)+(c.fighting_styles||[]).reduce((s,fs)=>s+(fs.cp||0),0)+bpCP;
+  const meritCPUsed=(c.merit_creation||[]).reduce((s,mc)=>s+(mc?mc.cp||0:0),0)+(c.fighting_styles||[]).reduce((s,fs)=>s+(fs.cp||0),0)+(c.powers||[]).filter(p=>p.category==='pact').reduce((s,p)=>s+(p.cp||0),0)+bpCP;
   const meritCPRem=10-meritCPUsed;
   const meritCPCls=meritCPRem<0?' over':meritCPRem===0?' full':'';
   let _meritAlert=meritCPRem<0?'red':null;
