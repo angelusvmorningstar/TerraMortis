@@ -54,11 +54,22 @@ export function applyDerivedMerits(c) {
   // Clear ephemeral tracking
   delete c._pt_nine_again_skills;
   delete c._pt_dot4_bonus_skills;
+  delete c._mci_dot3_skills;
   delete c._ohm_nine_again_skills;
   c._grant_pools = [];
+  c._mci_free_specs = [];
 
   // ── MCI grant pools ──
   const mcis = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation');
+  // Collect free specialisations granted by active MCIs at dot 1
+  mcis.filter(m => m.active !== false && (m.rating || 0) >= 1 && m.dot1_choice === 'speciality').forEach(m => {
+    if (m.dot1_spec_skill && m.dot1_spec) c._mci_free_specs.push({ skill: m.dot1_spec_skill, spec: m.dot1_spec });
+  });
+  // Collect bonus skill dots granted by active MCIs at dot 3
+  mcis.filter(m => m.active !== false && (m.rating || 0) >= 3 && m.dot3_choice === 'skill' && m.dot3_skill).forEach(m => {
+    if (!c._mci_dot3_skills) c._mci_dot3_skills = new Set();
+    c._mci_dot3_skills.add(m.dot3_skill);
+  });
   const totalMCIPool = mcis.filter(m => m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
   if (totalMCIPool > 0) {
     c._grant_pools.push({ source: 'MCI', name: '_mci', category: 'any', amount: totalMCIPool });

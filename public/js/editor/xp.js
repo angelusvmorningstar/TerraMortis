@@ -84,10 +84,14 @@ export function xpSpentSkills(c) {
     if (ptAssets.has(sk)) assetSpecs += count;
     else nonAssetSpecs += count;
   });
+  // MCI dot 1 free specs: each active MCI with dot1_choice === 'speciality' grants 1 free spec
+  const mciFreeSpecs = (c._mci_free_specs || []).filter(fs =>
+    fs.skill && fs.spec && (c.skills || {})[fs.skill] && ((c.skills[fs.skill].specs || []).includes(fs.spec))
+  ).length;
   // PT free covers asset specs first; baseline 3 covers everything else
   const ptFreeCovered = Math.min(ptFree, assetSpecs);
   const paidSpecs = nonAssetSpecs + Math.max(0, assetSpecs - ptFreeCovered);
-  const specXP = Math.max(0, paidSpecs - 3);
+  const specXP = Math.max(0, paidSpecs - 3 - mciFreeSpecs);
   return skillXP + specXP;
 }
 

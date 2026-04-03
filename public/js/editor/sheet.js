@@ -183,7 +183,7 @@ export function shRenderSkills(c,editMode) {
   if(editMode){
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
       const s=col[ri];
-      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),ptBn=c._pt_dot4_bonus_skills&&c._pt_dot4_bonus_skills.has(s)?1:0,hasDots=d>0||bn>0||ptBn>0,dotStr=hasDots?shDotsWithBonus(d,bn+ptBn):'\u2013';
+      const sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),ptBn=c._pt_dot4_bonus_skills&&c._pt_dot4_bonus_skills.has(s)?1:0,mciBn=c._mci_dot3_skills&&c._mci_dot3_skills.has(s)?1:0,hasDots=d>0||bn>0||ptBn>0||mciBn>0,dotStr=hasDots?shDotsWithBonus(d,bn+ptBn+mciBn):'\u2013';
       h+='<div class="sk-edit-cell"><div class="sh-skill-row sk-edit'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':ohmNa?'<span class="sh-skill-na pt-na">9-Again (OHM)</span>':'')+'</div></div>';
       const cr=(c.skill_creation||{})[s]||{cp:0,free:0,xp:0},sE=s.replace(/'/g,"\\'"),sb=(cr.cp||0)+(cr.free||0),sxd=xpToDots(cr.xp||0,sb,2),st2=sb+sxd;
       const sFr=cr.free||0;
@@ -195,7 +195,7 @@ export function shRenderSkills(c,editMode) {
     });}
   } else {
     for(let ri=0;ri<8;ri++){SKILL_COLS.forEach(col=>{
-      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),ptBn=c._pt_dot4_bonus_skills&&c._pt_dot4_bonus_skills.has(s)?1:0,hasDots=d>0||bn>0||ptBn>0,dotStr=hasDots?shDotsWithBonus(d,bn+ptBn):'\u2013';
+      const s=col[ri],sk=getSkillObj(c,s),d=sk.dots,bn=sk.bonus,sp=(sk.specs||[]).join(', '),na=sk.nine_again,ptNa=c._pt_nine_again_skills&&c._pt_nine_again_skills.has(s),ohmNa=c._ohm_nine_again_skills&&c._ohm_nine_again_skills.has(s),ptBn=c._pt_dot4_bonus_skills&&c._pt_dot4_bonus_skills.has(s)?1:0,mciBn=c._mci_dot3_skills&&c._mci_dot3_skills.has(s)?1:0,hasDots=d>0||bn>0||ptBn>0||mciBn>0,dotStr=hasDots?shDotsWithBonus(d,bn+ptBn+mciBn):'\u2013';
       h+='<div class="sh-skill-row'+(hasDots?' has-dots':'')+'"><div class="skill-name-wrap"><span class="sh-skill-name">'+s+'</span>'+(sp?'<span class="sh-skill-spec">'+formatSpecs(c,sk.specs)+'</span>':'')+'</div><div class="skill-dots-wrap"><span class="'+(hasDots?'sh-skill-dots':'sh-skill-zero')+'">'+dotStr+'</span>'+(na?'<span class="sh-skill-na">9-Again</span>':ptNa?'<span class="sh-skill-na pt-na">9-Again (PT)</span>':ohmNa?'<span class="sh-skill-na pt-na">9-Again (OHM)</span>':'')+'</div></div>';
     });}
   }
@@ -525,9 +525,9 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode) {
     for(let d=0;d<5&&d<eDots;d++){
       h+='<div class="mci-benefit-row"><span class="mci-dot-lbl">'+dots[d]+'</span><div class="mci-dot-content">';
       if(d===0){
-        h+='<button class="mci-choice-btn'+(d1c==='speciality'?' mci-choice-active':'')+'" onclick="shEditMCIDot('+si+',\'dot1_choice\',\'speciality\')">Speciality</button>';
+        h+='<button class="mci-choice-btn'+(d1c==='speciality'?' mci-choice-active':'')+'" onclick="shEditMCIDot('+si+',\'dot1_choice\',\'speciality\')">Specialisation</button>';
         h+='<button class="mci-choice-btn'+(d1c==='merits'?' mci-choice-active':'')+'" onclick="shEditMCIDot('+si+',\'dot1_choice\',\'merits\')">1 Merit</button>';
-        if(d1c==='speciality') h+='<input type="text" class="stand-name-input" value="'+esc(m.dot1_spec||'')+'" placeholder="Speciality" onchange="shEditMCIDot('+si+',\'dot1_spec\',this.value)">';
+        if(d1c==='speciality'){h+='<select class="pt-skill-sel" onchange="shEditMCIDot('+si+',\'dot1_spec_skill\',this.value)"><option value="">'+(m.dot1_spec_skill||'\u2014 skill \u2014')+'</option>'+ALL_SKILLS.map(sk=>'<option'+(m.dot1_spec_skill===sk?' selected':'')+'>'+esc(sk)+'</option>').join('')+'</select>';h+='<input type="text" class="stand-name-input" value="'+esc(m.dot1_spec||'')+'" placeholder="Specialisation" onchange="shEditMCIDot('+si+',\'dot1_spec\',this.value)">';}
       } else if(d===1){
         h+='<span class="mci-benefit-text">1 merit dot</span>';
       } else if(d===2){
@@ -549,7 +549,7 @@ function _renderMCI(c,m,si,rIdx,mc,dd,editMode) {
     const d1c=m.dot1_choice||'merits',d3c=m.dot3_choice||'merits',d5c=m.dot5_choice||'merits';
     for(let d=0;d<5&&d<m.rating;d++){
       let txt;
-      if(d===0) txt=d1c==='speciality'?'Speciality'+(m.dot1_spec?' ('+m.dot1_spec+')':''):'1 merit dot';
+      if(d===0) txt=d1c==='speciality'?'Specialisation'+(m.dot1_spec_skill?' \u2014 '+m.dot1_spec_skill+(m.dot1_spec?' ('+m.dot1_spec+')':''):''):'1 merit dot';
       else if(d===1) txt='1 merit dot';
       else if(d===2) txt=d3c==='skill'?'Skill Dot'+(m.dot3_skill?' ('+m.dot3_skill+')':''):'2 merit dots';
       else if(d===3) txt='3 merit dots';
