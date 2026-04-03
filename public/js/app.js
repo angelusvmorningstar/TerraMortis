@@ -297,7 +297,7 @@ function openPanel(mode) {
     } else {
       const powers = suiteState.rollChar.powers || [];
       const groups = {};
-      const SORCERY_THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
+      const SORCERY_THEMES = [];
       powers.forEach(p => {
         const lookupKey = p.name || '';
         const pi = getPool(suiteState.rollChar, lookupKey);

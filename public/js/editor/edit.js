@@ -487,6 +487,53 @@ export function shRemoveDevotion(idx) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   RITES
+══════════════════════════════════════════════════════════ */
+
+export function shAddRite(tradition, name, level) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  name = (name || '').trim();
+  if (!name) return;
+  level = Math.max(1, Math.min(5, parseInt(level) || 1));
+  const discDots = tradition === 'Cruac' ? (c.disciplines || {}).Cruac || 0 : (c.disciplines || {}).Theban || 0;
+  const pool = discDots * 2;
+  const usedFree = (c.powers || []).filter(p => p.category === 'rite' && p.tradition === tradition && p.free).length;
+  const free = level <= discDots && usedFree < pool;
+  if (!c.powers) c.powers = [];
+  c.powers.push({ category: 'rite', name, tradition, level, free });
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shRemoveRite(powerIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.powers || !c.powers[powerIdx]) return;
+  c.powers.splice(powerIdx, 1);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shToggleRiteFree(powerIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const p = (c.powers || [])[powerIdx];
+  if (!p || p.category !== 'rite') return;
+  const discDots = p.tradition === 'Cruac' ? (c.disciplines || {}).Cruac || 0 : (c.disciplines || {}).Theban || 0;
+  if (!p.free) {
+    const pool = discDots * 2;
+    const usedFree = (c.powers || []).filter((q, qi) => qi !== powerIdx && q.category === 'rite' && q.tradition === p.tradition && q.free).length;
+    if (usedFree >= pool || p.level > discDots) return;
+    p.free = true;
+  } else {
+    p.free = false;
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
+/* ══════════════════════════════════════════════════════════
    MERIT CREATION POINTS
 ══════════════════════════════════════════════════════════ */
 
