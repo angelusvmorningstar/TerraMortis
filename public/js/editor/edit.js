@@ -30,8 +30,7 @@ export {
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditDerivedMeritArea,
-  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
-  shCovStandingUp, shCovStandingDown
+  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick
 };
 
 /* ── Callback registration (avoids circular deps with main.js / sheet.js) ── */
