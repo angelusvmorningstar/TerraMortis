@@ -446,6 +446,7 @@
 /* ── Sheet max width (overridden in desktop mode) ── */
 #sh-content{max-width:640px;margin:0 auto;}
 .cd-sheet #sh-content,
+#sh-content.cd-sheet,
 .char-detail #sh-content{max-width:none !important;}
 
 /* ── Desktop character sheet: 3-column layout ── */
