@@ -11,7 +11,7 @@ import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed } from './domain.js';
+import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
@@ -32,12 +32,14 @@ function _renderPoolCounters(c,category) {
   const anyPools=category==='general'?(c._grant_pools||[]).filter(p=>p.category==='any'):[];
   // Also include 'vm' category pools (VM Allies bonus) in the influence section
   const vmPools=category==='influence'?(c._grant_pools||[]).filter(p=>p.category==='vm'):[];
-  const allPools=[...pools,...anyPools,...vmPools];
+  // Also include 'ohm' category pools (OHM grants) in the influence section
+  const ohmPools=category==='influence'?(c._grant_pools||[]).filter(p=>p.category==='ohm'):[];
+  const allPools=[...pools,...anyPools,...vmPools,...ohmPools];
   if(!allPools.length) return '';
   let h='<div class="grant-pools">';
   const seen=new Set();
   allPools.forEach(p=>{
-    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.name);
+    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.category==='ohm'?'Allies/Contacts/Resources (OHM)':p.name);
     const key=p.source+'|'+label;
     if(seen.has(key)) return;
     seen.add(key);
@@ -45,11 +47,18 @@ function _renderPoolCounters(c,category) {
     if(p.category==='any'){pTotal=p.amount;pUsed=getMCIPoolUsed(c);}
     else if(p.category==='vm'){pTotal=p.amount;pUsed=vmAlliesUsed(c);}
     else if(p.category==='lk'){pTotal=p.amount;pUsed=lorekeeperUsed(c);}
+    else if(p.category==='ohm'){pTotal=p.amount;pUsed=ohmUsed(c);}
     else{const lookupName=p.names?p.names[0]:p.name;pTotal=getPoolTotal(c,lookupName);pUsed=getPoolUsed(c,lookupName);}
     const cls=pUsed>pTotal?'sc-over':pUsed===pTotal?'sc-full':'sc-val';
     h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(p.source)+'</span>: '+esc(label)+' free dots <span class="'+cls+'">'+pUsed+'/'+pTotal+'</span></div>';
   });
   h+='</div>';return h;
+}
+
+/** Render a small red or yellow alert badge for a section title (edit mode only). */
+function _alertBadge(lvl) {
+  if(!lvl) return '';
+  return lvl==='red'?'<span class="sh-sec-alert red" title="Data error">!</span>':'<span class="sh-sec-alert yellow" title="Unspent pool dots">&#9679;</span>';
 }
 
 /** Render merit dots split into purchased (full gold) and bonus (empty circle). */
@@ -198,7 +207,7 @@ export function shRenderDisciplines(c,editMode) {
   if(editMode){
     const clanD=CLAN_DISCS[c.clan]||[],blD=BLOODLINE_DISCS[c.bloodline]||null,inCL=blD||clanD,dc=c.disc_creation||{};
     const iCP=Object.entries(dc).filter(([d])=>inCL.includes(d)).reduce((s,[,v])=>s+(v.cp||0),0),oCP=Object.entries(dc).filter(([d])=>!inCL.includes(d)).reduce((s,[,v])=>s+(v.cp||0),0),rem=3-iCP-oCP;
-    h+='<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-cp-counter"><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span><span style="color:'+(iCP>=2?'rgba(140,200,140,.8)':'rgba(200,80,80,.9)')+'">In-clan: '+iCP+' (min 2)</span><span style="color:'+(oCP<=1?'rgba(140,200,140,.8)':'rgba(200,80,80,.9)')+'">Out-of-clan: '+oCP+' (max 1)</span></div><div class="disc-list">';
+    h+='<div class="sh-sec"><div class="sh-sec-title">Disciplines'+_alertBadge(iCP<2||oCP>1||rem!==0?'red':null)+'</div><div class="disc-cp-counter"><span class="sh-cp-remaining'+(rem<0?' over':rem===0?' full':'')+'">'+rem+' CP</span><span style="color:'+(iCP>=2?'rgba(140,200,140,.8)':'rgba(200,80,80,.9)')+'">In-clan: '+iCP+' (min 2)</span><span style="color:'+(oCP<=1?'rgba(140,200,140,.8)':'rgba(200,80,80,.9)')+'">Out-of-clan: '+oCP+' (max 1)</span></div><div class="disc-list">';
     CORE_DISCS.forEach(d=>{h+=renderDiscEditRow(d,(c.disciplines||{})[d]||0,inCL.includes(d),null);});
     h+='</div></div>';
     const cn=(c.covenant||'').toLowerCase(),showCr=cn.includes('crone')||(c.disciplines||{}).Cruac>0,showTh=cn.includes('lancea')||(c.disciplines||{}).Theban>0;
@@ -229,7 +238,9 @@ export function shRenderDisciplines(c,editMode) {
     const cruacPool=cruacDots*2, thebanPool=thebanDots*2;
     const cruacFreeUsed=ritP.filter(p=>p.tradition==='Cruac'&&p.free).length;
     const thebanFreeUsed=ritP.filter(p=>p.tradition==='Theban'&&p.free).length;
-    h+='<div class="sh-sec"><div class="sh-sec-title">Rites</div>';
+    const _riteOver=cruacFreeUsed>cruacPool||thebanFreeUsed>thebanPool;
+    const _riteBadge=editMode?_alertBadge(_riteOver?'red':cruacFreeUsed<cruacPool||thebanFreeUsed<thebanPool?'yellow':null):'';
+    h+='<div class="sh-sec"><div class="sh-sec-title">Rites'+_riteBadge+'</div>';
     if(editMode){
       h+='<div class="grant-pools">';
       if(cruacDots>0){const cls=cruacFreeUsed>cruacPool?' sc-over':cruacFreeUsed===cruacPool?' sc-full':' sc-val';h+='<div class="grant-pool-row"><span style="color:rgba(220,160,120,.9)">Cruac</span> free rites <span class="'+cls+'">'+cruacFreeUsed+'/'+cruacPool+'</span><span style="font-size:9px;color:var(--txt3);margin-left:6px">rank \u2264 '+cruacDots+'</span></div>';}
@@ -275,25 +286,33 @@ export function shRenderInfluenceMerits(c,editMode) {
   const inflM=(c.merits||[]).filter(m=>m.category==='influence');
   if(!editMode&&!inflM.length) return '';
   const totalInfl=calcTotalInfluence(c);
-  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits</div><div class="merit-list">';
+  const _inflVmPools=(c._grant_pools||[]).filter(p=>p.category==='vm');
+  const _inflOhmPools=(c._grant_pools||[]).filter(p=>p.category==='ohm');
+  let _inflAlert=null;
+  _inflVmPools.forEach(p=>{const u=vmAlliesUsed(c);if(u>p.amount)_inflAlert='red';else if(u<p.amount&&_inflAlert!=='red')_inflAlert='yellow';});
+  _inflOhmPools.forEach(p=>{const u=ohmUsed(c);if(u>p.amount)_inflAlert='red';else if(u<p.amount&&_inflAlert!=='red')_inflAlert='yellow';});
+  const _inflBadge=editMode?_alertBadge(_inflAlert):'';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits'+_inflBadge+'</div><div class="merit-list">';
   if(editMode){
     // All non-Contacts influence merits
     const _inflMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _inflHasVM=hasViralMythology(c);
     const _inflHasLK=hasLorekeeper(c);
+    const _inflHasOHM=hasOHM(c);
     const nonContacts=inflM.filter(m=>m.name!=='Contacts');
-    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.xp||0);
+    nonContacts.forEach(m=>{const idx=inflM.indexOf(m),inf=calcMeritInfluence(m),tOpts=INFLUENCE_MERIT_TYPES.map(t=>'<option'+(m.name===t?' selected':'')+'>'+t+'</option>').join(''),rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_lk:0,free_ohm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.free_lk||0)+(mc.free_ohm||0)+(mc.xp||0);
       h+='<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit('+idx+',\'name\',this.value);renderSheet(chars[editIdx])">'+tOpts+'</select>'+_inflArea(m,idx,false)+'<span class="infl-dots-derived">'+shDots(dd)+'</span><span class="infl-inf">'+(inf?'<span class="inf-val">'+inf+'</span> inf':'')+'</span>';
       if(m.granted_by) h+='<span class="gen-granted-tag">'+esc(m.granted_by)+'</span>';
       h+='<button class="dev-rm-btn" onclick="shRemoveInflMerit('+idx+')" title="Remove">&times;</button></div>';
-      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies',showLK:_inflHasLK&&m.name==='Retainer'});h+=_prereqWarn(c,m.name);});
+      const _isOHMMerit=m.name==='Allies'||m.name==='Contacts'||m.name==='Resources';
+      h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_inflMciPool>0,showVM:_inflHasVM&&m.name==='Allies',showLK:_inflHasLK&&m.name==='Retainer',showOHM:_inflHasOHM&&_isOHMMerit});h+=_prereqWarn(c,m.name);});
     // Contacts: single entry with sphere-per-dot
     const contactsEntry=inflM.find(m=>m.name==='Contacts');
     const cInf=calcContactsInfluence(c);
     if(contactsEntry){
-      const cIdx=c.merits.indexOf(contactsEntry),cMc=(c.merit_creation&&c.merit_creation[cIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],frDots=cMc.free||0,baseDots=(cMc.cp||0)+(cMc.xp||0),spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
+      const cIdx=c.merits.indexOf(contactsEntry),cMc=(c.merit_creation&&c.merit_creation[cIdx])||{cp:0,free:0,free_mci:0,free_vm:0,free_ohm:0,xp:0},rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],frDots=cMc.free||0,baseDots=(cMc.cp||0)+(cMc.xp||0),spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
       h+='<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts '+shDots(rating)+(cInf?' \u2014 <span class="inf-val">'+cInf+'</span> inf':'')+'</div>';
-      h+=meritBdRow(cIdx,cMc,meritFixedRating(contactsEntry.name),{showMCI:_inflMciPool>0});
+      h+=meritBdRow(cIdx,cMc,meritFixedRating(contactsEntry.name),{showMCI:_inflMciPool>0,showOHM:_inflHasOHM});
       for(let d=0;d<rating;d++){
         const sp=spheres[d]||'';
         let src='';
@@ -331,7 +350,11 @@ function _inflArea(m,idx,isC) {
 export function shRenderDomainMerits(c,editMode) {
   const chars=state.chars,domM=(c.merits||[]).filter(m=>m.category==='domain');
   if(!editMode&&!domM.length) return '';
-  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits</div><div class="merit-list">';
+  const _domLkPools=(c._grant_pools||[]).filter(p=>p.category==='lk');
+  let _domAlert=null;
+  _domLkPools.forEach(p=>{const u=lorekeeperUsed(c);if(u>p.amount)_domAlert='red';else if(u<p.amount&&_domAlert!=='red')_domAlert='yellow';});
+  const _domBadge=editMode?_alertBadge(_domAlert):'';
+  let h='<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits'+_domBadge+'</div><div class="merit-list">';
   if(editMode){
     const _domMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _hasLK=hasLorekeeper(c);
@@ -454,7 +477,10 @@ export function shRenderGeneralMerits(c,editMode) {
   const meritCPUsed=(c.merit_creation||[]).reduce((s,mc)=>s+(mc?mc.cp||0:0),0)+(c.fighting_styles||[]).reduce((s,fs)=>s+(fs.cp||0),0);
   const meritCPRem=10-meritCPUsed;
   const meritCPCls=meritCPRem<0?' over':meritCPRem===0?' full':'';
-  let h='<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">';
+  let _meritAlert=meritCPRem<0?'red':null;
+  for(const _p of (c._grant_pools||[]).filter(_p2=>_p2.category==='any')){const _u=getMCIPoolUsed(c);if(_u>_p.amount){_meritAlert='red';break;}else if(_u<_p.amount&&_meritAlert!=='red')_meritAlert='yellow';}
+  const _meritBadge=editMode?_alertBadge(_meritAlert):'';
+  let h='<div class="sh-sec"><div class="sh-sec-title">Merits'+_meritBadge+'</div><div class="merit-list">';
   if(editMode){
     h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span></div>';
     h+=_renderPoolCounters(c,'general')+_renderPoolCounters(c,'influence')+_renderPoolCounters(c,'domain');
@@ -897,7 +923,7 @@ export function renderSheet(c) {
   // Header
   h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(displayName(c)))+'</div>';
   if(editMode){h+='<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.honorific||'')+'" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.moniker||'')+'" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';}
-  h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
+  h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge'+(xpLeft(c)<0?' xp-over':'')+'">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
   if(editMode){const eT=xpEarned(c),sT=xpSpent(c);
     h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+xpStarting()+'</td><td>Attributes</td><td>'+xpSpentAttrs(c)+'</td></tr><tr><td>Humanity Drop</td><td>'+xpHumanityDrop(c)+'</td><td>Skills + Specs</td><td>'+xpSpentSkills(c)+'</td></tr><tr><td>Ordeals</td><td>'+xpOrdeals(c)+'</td><td>Merits</td><td>'+xpSpentMerits(c)+'</td></tr><tr><td>Game</td><td>'+xpGame(c)+'</td><td>Powers</td><td>'+xpSpentPowers(c)+'</td></tr><tr><td></td><td></td><td>Special</td><td>'+xpSpentSpecial(c)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
     const ords=c.ordeals||[];if(ords.length){h+='<div class="sh-ordeals">';ords.forEach(o=>{h+='<span class="sh-ordeal'+(o.complete?' done':'')+'"><span class="sh-ordeal-dot">'+(o.complete?'\u25CF':'\u25CB')+'</span><span class="sh-ordeal-label">'+esc(o.name)+'</span></span>';});h+='</div>';}}

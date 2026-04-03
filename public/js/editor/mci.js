@@ -6,7 +6,7 @@
 
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { removeMerit, ensureMeritSync } from './merits.js';
-import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed } from './domain.js';
+import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM } from './domain.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -73,6 +73,16 @@ export function applyDerivedMerits(c) {
   }
 
 
+  // ── OHM grant pool (Allies/Contacts/Resources, 1 each = 3 total) ──
+  if (hasOHM(c)) {
+    c._grant_pools.push({
+      source: 'Oath of the Hard Motherfucker',
+      names: ['Allies', 'Contacts', 'Resources'],
+      category: 'ohm',
+      amount: 3
+    });
+  }
+
   // ── Lorekeeper grant pool (Herd/Retainer) ──
   if (hasLorekeeper(c)) {
     const lkPool = lorekeeperPool(c);
@@ -91,7 +101,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
     const mc = (c.merit_creation || [])[i] || {};
-    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.cp || 0) + (mc.xp || 0);
+    const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

@@ -175,6 +175,23 @@ export function vmHerdPool(c) {
   return total;
 }
 
+/** Check if character has Oath of the Hard Motherfucker. */
+export function hasOHM(c) {
+  return (c.merits || []).some(m => m.name === 'Oath of the Hard Motherfucker');
+}
+
+/** Count OHM bonus dots allocated via free_ohm on Allies, Contacts, and Resources entries. */
+export function ohmUsed(c) {
+  let total = 0;
+  (c.merits || []).forEach((m, i) => {
+    if (m.category !== 'influence') return;
+    if (m.name !== 'Allies' && m.name !== 'Contacts' && m.name !== 'Resources') return;
+    const mc = (c.merit_creation || [])[i] || {};
+    total += (mc.free_ohm || 0);
+  });
+  return total;
+}
+
 /** Check if character has the Lorekeeper merit. */
 export function hasLorekeeper(c) {
   return (c.merits || []).some(m => m.name === 'Lorekeeper');
