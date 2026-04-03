@@ -166,8 +166,6 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  max-width: 720px;
-  margin: 0 auto;
 }
 
 #tab-bar::-webkit-scrollbar { display: none; }
@@ -201,6 +199,13 @@ body {
   padding: 16px;
   max-width: 720px;
   margin: 0 auto;
+}
+
+/* Sheet tab: full width for desktop 3-col layout */
+#tab-sheet {
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .tab-panel { display: none; }
