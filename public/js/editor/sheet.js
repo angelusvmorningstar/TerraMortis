@@ -644,8 +644,18 @@ export function shRenderGeneralMerits(c,editMode) {
     const _humLost=c.humanity_lost||0,_humXP=c.humanity_xp||0;
     const _humDerived=Math.max(0,Math.min(10,(c.humanity_base||7)+Math.floor(_humXP/2)-_humLost));
     h+='<div class="sh-merit-cp-row"><span class="sh-cp-remaining'+meritCPCls+'">'+meritCPUsed+' / 10 CP</span><span class="sh-merit-cp-lbl"> creation points used</span></div>';
-    h+='<div class="sh-bh-row"><span class="sh-bh-lbl">BP</span><label class="sh-bh-field">CP <input class="attr-bd-input" type="number" min="0" max="10" value="'+bpCP+'" onchange="shEditBPCreation(+this.value)"></label><label class="sh-bh-field">XP <input class="attr-bd-input" type="number" min="0" value="'+_bpXP+'" onchange="shEditBPXP(+this.value)"></label><label class="sh-bh-field">Lost <input class="attr-bd-input" type="number" min="0" value="'+_bpLost+'" onchange="shEditBPLost(+this.value)"></label><span class="sh-bh-total">= BP '+_bpDerived+(_bpDerived>2?' <span class="sh-bh-alert">\u26A0 exceeds cap</span>':'')+'</span></div>';
-    h+='<div class="sh-bh-row"><span class="sh-bh-lbl">Humanity</span><label class="sh-bh-field">Lost <input class="attr-bd-input" type="number" min="0" value="'+_humLost+'" onchange="shEditHumanityLost(+this.value)"></label><label class="sh-bh-field">XP <input class="attr-bd-input" type="number" min="0" value="'+_humXP+'" onchange="shEditHumanityXP(+this.value)"></label><span class="sh-bh-total">= Humanity '+_humDerived+'</span></div>';
+    h+='<div class="sh-bh-grid">'
+      +'<span class="sh-bh-lbl">BP</span>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">CP</span><input class="attr-bd-input" type="number" min="0" max="10" value="'+bpCP+'" onchange="shEditBPCreation(+this.value)"></label>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">XP</span><input class="attr-bd-input" type="number" min="0" value="'+_bpXP+'" onchange="shEditBPXP(+this.value)"></label>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">Lost</span><input class="attr-bd-input" type="number" min="0" value="'+_bpLost+'" onchange="shEditBPLost(+this.value)"></label>'
+      +'<span class="sh-bh-total">= BP '+_bpDerived+(_bpDerived>2?' <span class="sh-bh-alert">\u26A0 cap</span>':'')+'</span>'
+      +'<span class="sh-bh-lbl">Humanity</span>'
+      +'<span class="sh-bh-field"></span>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">XP</span><input class="attr-bd-input" type="number" min="0" value="'+_humXP+'" onchange="shEditHumanityXP(+this.value)"></label>'
+      +'<label class="sh-bh-field"><span class="sh-bh-flbl">Lost</span><input class="attr-bd-input" type="number" min="0" value="'+_humLost+'" onchange="shEditHumanityLost(+this.value)"></label>'
+      +'<span class="sh-bh-total">= Humanity '+_humDerived+'</span>'
+      +'</div>';
     h+=_renderPoolCounters(c,'general')+_renderPoolCounters(c,'influence')+_renderPoolCounters(c,'domain');
     const _genMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
     const _KERBEROS_ASPECTS=['Monstrous','Competitive','Seductive'];
