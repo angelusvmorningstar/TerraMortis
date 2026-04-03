@@ -1,6 +1,6 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 
-import { apiGet, apiPut } from './data/api.js';
+import { apiGet, apiPut, apiPost } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
@@ -351,6 +351,66 @@ function closeCharDetail() {
   document.getElementById('char-detail').style.display = 'none';
 }
 
+async function createNewCharacter() {
+  const name = prompt('Character name:');
+  if (!name || !name.trim()) return;
+
+  const blank = {
+    name: name.trim(),
+    player: '',
+    honorific: null,
+    moniker: null,
+    concept: '',
+    pronouns: '',
+    clan: '',
+    bloodline: null,
+    covenant: '',
+    humanity: 7,
+    humanity_base: 7,
+    blood_potency: 1,
+    bp_creation: { cp: 0, xp: 0, lost: 0 },
+    status: { city: 0, clan: 0, covenant: 0 },
+    covenant_standings: {},
+    attribute_priorities: {},
+    skill_priorities: {},
+    attributes: Object.fromEntries(
+      ['Intelligence','Wits','Resolve','Strength','Dexterity','Stamina','Presence','Manipulation','Composure']
+        .map(a => [a, { dots: 1, bonus: 0 }])
+    ),
+    attr_creation: {},
+    skills: Object.fromEntries(
+      ['Academics','Computer','Crafts','Investigation','Medicine','Occult','Politics','Science',
+       'Athletics','Brawl','Drive','Firearms','Larceny','Stealth','Survival','Weaponry',
+       'Animal Ken','Empathy','Expression','Intimidation','Persuasion','Socialise','Streetwise','Subterfuge']
+        .map(s => [s, { dots: 0, bonus: 0, specs: [], nine_again: false }])
+    ),
+    skill_creation: {},
+    merits: [],
+    merit_creation: [],
+    powers: [],
+    banes: [],
+    ordeals: [],
+    touchstones: [],
+    fighting_styles: [],
+    fighting_picks: [],
+    willpower: {},
+    mask: null,
+    dirge: null,
+    features: '',
+    retired: false,
+  };
+
+  try {
+    const created = await apiPost('/api/characters', blank);
+    chars.push(created);
+    renderCharGrid();
+    editorState.editMode = true;
+    openCharDetail(created);
+  } catch (err) {
+    alert('Failed to create character: ' + err.message);
+  }
+}
+
 async function saveCharToApi() {
   const idx = editorState.editIdx;
   const c = chars[idx];
@@ -431,6 +491,7 @@ Object.assign(window, {
     document.getElementById('cd-save-api').style.display = '';
     renderSheet(chars[editorState.editIdx]);
   },
+  createNewCharacter,
   downloadCSV: () => downloadCSV(chars),
   markDirty, printSheet,
   shEdit, shEditStatus,
