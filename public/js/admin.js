@@ -4,7 +4,7 @@ import { apiGet, apiPut } from './data/api.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
-import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed, getOTSPoolUsed } from './editor/mci.js';
+import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
@@ -202,7 +202,6 @@ function charAlerts(c) {
     else if (p.category === 'lk') used = lorekeeperUsed(c);
     else if (p.category === 'ohm') used = ohmUsed(c);
     else if (p.category === 'inv') used = investedUsed(c);
-    else if (p.category === 'ots') used = getOTSPoolUsed(c);
     else used = getPoolUsed(c, p.names ? p.names[0] : p.name);
     if (used > total) red = true;
     else if (used < total) yellow = true;

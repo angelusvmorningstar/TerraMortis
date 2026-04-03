@@ -10,7 +10,7 @@ import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
-import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed, getOTSPoolUsed } from './mci.js';
+import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
@@ -44,7 +44,7 @@ function _renderPoolCounters(c,category) {
   let h='<div class="grant-pools">';
   const seen=new Set();
   allPools.forEach(p=>{
-    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.category==='ohm'?'OHM: auto Contacts+Resources, pick Allies sphere':p.category==='inv'?'Herd/Mentor/Resources/Retainer (Invested)':p.category==='ots'?'Physical Fighting Style dots':p.name);
+    const label=p.names?p.names.join('/'):(p.category==='any'?'any merit':p.category==='vm'?'Allies (VM bonus)':p.category==='ohm'?'OHM: auto Contacts+Resources, pick Allies sphere':p.category==='inv'?'Herd/Mentor/Resources/Retainer (Invested)':p.name);
     const key=p.source+'|'+label;
     if(seen.has(key)) return;
     seen.add(key);
@@ -54,7 +54,6 @@ function _renderPoolCounters(c,category) {
     else if(p.category==='lk'){pTotal=p.amount;pUsed=lorekeeperUsed(c);}
     else if(p.category==='ohm'){pTotal=p.amount;pUsed=ohmUsed(c);}
     else if(p.category==='inv'){pTotal=p.amount;pUsed=investedUsed(c);}
-    else if(p.category==='ots'){pTotal=p.amount;pUsed=getOTSPoolUsed(c);}
     else{const lookupName=p.names?p.names[0]:p.name;pTotal=getPoolTotal(c,lookupName);pUsed=getPoolUsed(c,lookupName);}
     const cls=pUsed>pTotal?'sc-over':pUsed===pTotal?'sc-full':'sc-val';
     h+='<div class="grant-pool-row"><span style="color:var(--gold2)">'+esc(p.source)+'</span>: '+esc(label)+' free dots <span class="'+cls+'">'+pUsed+'/'+pTotal+'</span></div>';
@@ -652,7 +651,7 @@ export function shRenderGeneralMerits(c,editMode) {
 function _tagCounts(c) {
   const counts = {};
   (c.fighting_styles || []).forEach(fs => {
-    const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
+    const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
     const tags = STYLE_TAGS[fs.name] || [];
     tags.forEach(t => { counts[t] = (counts[t] || 0) + dots; });
   });
@@ -858,8 +857,7 @@ export function shRenderManoeuvres(c, editMode) {
 
   const mciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
     .reduce((s, m) => s + mciPoolTotal(m), 0);
-  const otsOath = (c.merits || []).find(m => m.name === 'Oath of the Scapegoat');
-  const otsPool = otsOath ? (otsOath.rating || 0) * 2 : 0;
+  const otsExtraPicks = c._ots_extra_picks || 0;
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div>';
 
@@ -867,15 +865,11 @@ export function shRenderManoeuvres(c, editMode) {
     const tc = _tagCounts(c);
     const fStyles = styles.filter(fs => fs.type !== 'merit');
     const fMerits = styles.filter(fs => fs.type === 'merit');
-    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
+    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
 
-    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
-    if (otsPool > 0) {
-      const otsUsed = getOTSPoolUsed(c);
-      const otsCls = otsUsed > otsPool ? 'sc-over' : otsUsed === otsPool ? 'sc-full' : 'sc-val';
-      h += '<div class="grant-pools"><div class="grant-pool-row"><span style="color:#9E7AE0">Oath of the Scapegoat</span>: Physical Fighting Style dots <span class="' + otsCls + '">' + otsUsed + '/' + otsPool + '</span></div></div>';
-    }
+    const maxPicks = totalDots + otsExtraPicks;
+    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + (otsExtraPicks ? ' <span style="font-size:9px;color:#9E7AE0">(+' + otsExtraPicks + ' OTS)</span>' : '') + '</span></div>';
 
     // Style Points — tag totals for unorthodox access
     const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
@@ -895,7 +889,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '<div class="man-list">';
     fStyles.forEach(fs => {
       const si = styles.indexOf(fs);
-      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
+      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
       const tags = STYLE_TAGS[fs.name] || [];
       const fsUp = fs.up || 0;
 
@@ -908,7 +902,6 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
-        + (otsPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
@@ -931,7 +924,7 @@ export function shRenderManoeuvres(c, editMode) {
     const fmEntry = fMerits.find(fs => fs.name === 'Fighting Merit');
     if (fmEntry) {
       const si = styles.indexOf(fmEntry);
-      const dots = (fmEntry.cp || 0) + (fmEntry.free || 0) + (fmEntry.free_mci || 0) + (fmEntry.free_ots || 0) + (fmEntry.xp || 0);
+      const dots = (fmEntry.cp || 0) + (fmEntry.free || 0) + (fmEntry.free_mci || 0) + (fmEntry.xp || 0);
       const fsUp = fmEntry.up || 0;
       h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">Fighting Merit</span></div>'
         + '<span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
@@ -940,7 +933,6 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
-        + (otsPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fmEntry.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
@@ -952,9 +944,9 @@ export function shRenderManoeuvres(c, editMode) {
     h += '</div>';
 
     // ── Picks editor ─────────────────────────────────────────
-    const remaining = totalDots - totalPicks;
+    const remaining = maxPicks - totalPicks;
     h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Manoeuvres Picked'
-      + '<span style="font-weight:normal;color:var(--txt2);margin-left:8px">' + totalPicks + ' / ' + totalDots + '</span></div>';
+      + '<span style="font-weight:normal;color:var(--txt2);margin-left:8px">' + totalPicks + ' / ' + maxPicks + '</span></div>';
     h += '<div class="man-list">';
 
     allPicks.forEach((pk, pi) => {
@@ -1008,7 +1000,7 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:2px 0 2px">FIGHTING STYLES</div>';
       h += '<div class="man-list">';
       fStyles.forEach(fs => {
-        const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
+        const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
         const tags = STYLE_TAGS[fs.name] || [];
         h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
           + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
@@ -1021,7 +1013,7 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:6px 0 2px">FIGHTING MERITS</div>';
       h += '<div class="man-list">';
       fMerits.forEach(fs => {
-        const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
+        const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
         const tags = STYLE_TAGS[fs.name] || [];
         h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
           + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
