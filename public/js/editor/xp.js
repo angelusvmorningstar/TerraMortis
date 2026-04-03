@@ -100,7 +100,11 @@ export function xpSpentPowers(c) {
       const db = _devotionsDB ? _devotionsDB.find(d => d.n === p.name) : null;
       return t + (db ? db.xp || 0 : 0);
     }, 0);
-  return discXP + devXP;
+  // Rite XP: paid rites cost 1 XP (rank 1-3) or 2 XP (rank 4-5)
+  const riteXP = (c.powers || [])
+    .filter(p => p.category === 'rite' && !p.free)
+    .reduce((t, p) => t + (p.level >= 4 ? 2 : 1), 0);
+  return discXP + devXP + riteXP;
 }
 
 /** XP spent on special: Blood Potency, Humanity, lost Willpower dots. */
