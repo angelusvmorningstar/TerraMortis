@@ -7037,8 +7037,8 @@ export const CHARS_DATA = [
       },
       {
         "cp": 0,
-        "free": 0,
-        "xp": 1
+        "free": 1,
+        "xp": 0
       },
       {
         "cp": 0,
@@ -14143,8 +14143,8 @@ export const CHARS_DATA = [
       },
       {
         "cp": 0,
-        "free": 0,
-        "xp": 1
+        "free": 1,
+        "xp": 0
       },
       {
         "cp": 1,
