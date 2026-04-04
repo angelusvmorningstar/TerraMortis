@@ -14,6 +14,13 @@ import { calcTotalInfluence } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
 
+// Convert UTC ISO string to datetime-local input value (local time)
+function isoToLocalInput(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 let submissions = [];
 let characters = [];
 let charMap = new Map();
@@ -331,7 +338,7 @@ async function loadCycleById(cycleId) {
     statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
   }
   if (isActive) {
-    const dtVal = cycle.deadline_at ? cycle.deadline_at.slice(0, 16) : '';
+    const dtVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
     statusHtml += `<label class="dt-deadline-edit"><span>Set deadline</span><input type="datetime-local" class="dt-deadline-input" id="dt-deadline-input" value="${esc(dtVal)}"></label>`;
   }
   if (!isActive) {
@@ -339,19 +346,6 @@ async function loadCycleById(cycleId) {
     statusHtml += `<button class="dt-btn" id="dt-apply-ambience" style="${alreadyApplied ? 'opacity:.5' : ''}" title="${alreadyApplied ? 'Ambience already applied for this cycle' : 'Apply ambience changes from this cycle\'s resolved projects'}">
       ${alreadyApplied ? '\u2713 Ambience applied' : 'Apply Ambience Changes'}
     </button>`;
-  }
-
-  // ── Regency (GC-1) ──
-  if (isActive) {
-    const activeChars = characters.filter(c => !c.retired).sort((a, b) => (c => c.moniker || c.name)(a).localeCompare((c => c.moniker || c.name)(b)));
-    const opts = activeChars.map(c => {
-      const label = esc(c.moniker || c.name);
-      const sel = cycle.regency_character_id === String(c._id) ? ' selected' : '';
-      return `<option value="${esc(String(c._id))}"${sel}>${label}</option>`;
-    }).join('');
-    statusHtml += `<label class="dt-deadline-edit"><span>Regent</span><select id="dt-regency-sel"><option value="">-- none --</option>${opts}</select></label>`;
-  } else if (cycle.regency_character_name) {
-    statusHtml += `<span class="dt-deadline">Regent: <strong>${esc(cycle.regency_character_name)}</strong></span>`;
   }
 
   statusEl.innerHTML = statusHtml;
@@ -367,19 +361,6 @@ async function loadCycleById(cycleId) {
     const idx = allCycles.findIndex(c => c._id === cycleId);
     if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
     await loadCycleById(cycleId);
-  });
-
-  // Wire regency dropdown
-  document.getElementById('dt-regency-sel')?.addEventListener('change', async e => {
-    const charId = e.target.value;
-    const char = characters.find(c => String(c._id) === charId) || null;
-    const updates = {
-      regency_character_id: charId || null,
-      regency_character_name: char ? (char.moniker || char.name) : null,
-    };
-    await updateCycle(cycleId, updates);
-    const idx = allCycles.findIndex(c => c._id === cycleId);
-    if (idx >= 0) Object.assign(allCycles[idx], updates);
   });
 
   // Wire ambience apply button

@@ -1,8 +1,10 @@
 /**
- * Session banner — fetches next game date from Google Calendar via iCal proxies.
- * No external dependencies. Populates #bn-date, #bn-time, #bn-deadline.
+ * Session banner — populates #bn-date, #bn-time, #bn-deadline.
+ * Primary source: TM Suite API (/api/game_sessions/next).
+ * Fallback: Google Calendar iCal via CORS proxies.
  */
 (function () {
+  const API_URL  = 'https://tm-suite-api.onrender.com/api/game_sessions/next';
   const CAL_ID   = 'terramortislarp@gmail.com';
   const ICAL_URL = 'https://calendar.google.com/calendar/ical/' + encodeURIComponent(CAL_ID) + '/public/basic.ics';
 
@@ -22,8 +24,28 @@
     return m === 0 ? h12 + '\u202f' + ap : h12 + ':' + String(m).padStart(2, '0') + '\u202f' + ap;
   }
 
+  function populateFromSession(session) {
+    // Parse date as local time (avoid UTC-offset day shift)
+    const [yr, mo, dy] = session.session_date.split('-').map(Number);
+    const dt = new Date(yr, mo - 1, dy);
+    document.getElementById('bn-date').textContent =
+      DAYS[dt.getDay()] + ' ' + dy + ' ' + MONTHS[mo - 1] + ' ' + yr;
+
+    if (session.doors_open) {
+      const [h, m] = session.doors_open.split(':').map(Number);
+      document.getElementById('bn-time').textContent = fmt12(h, m);
+    } else {
+      document.getElementById('bn-time').textContent = '—';
+    }
+
+    document.getElementById('bn-deadline').innerHTML = session.downtime_deadline
+      ? 'Downtime deadline: <strong>' + session.downtime_deadline + '</strong>'
+      : 'Downtime deadline: <strong>Midnight, Friday before game night</strong>';
+  }
+
+  // ── iCal fallback ────────────────────────────────────────────────────────────
+
   function parseIcal(text) {
-    // Unfold RFC 5545 line continuations, normalise line endings
     text = text.replace(/\r\n[ \t]/g, '').replace(/\r/g, '');
     const events = [];
     const blocks = text.split('BEGIN:VEVENT');
@@ -55,7 +77,7 @@
     return events;
   }
 
-  function populate(text) {
+  function populateFromIcal(text) {
     const now    = new Date();
     const events = parseIcal(text).filter(e => e.dt > now);
     if (!events.length) { setFallback('no upcoming events in feed'); return; }
@@ -81,17 +103,31 @@
   }
 
   async function loadBanner() {
+    // 1. Try the TM Suite API first (set via admin Engine panel)
+    try {
+      const res = await fetch(API_URL, { cache: 'no-cache' });
+      if (res.ok) {
+        const session = await res.json();
+        if (session && session.session_date) {
+          populateFromSession(session);
+          return;
+        }
+      }
+    } catch (e) { /* fall through to iCal */ }
+
+    // 2. Fall back to Google Calendar iCal via CORS proxies
     for (let i = 0; i < PROXIES.length; i++) {
       try {
         const res = await fetch(PROXIES[i](ICAL_URL), { cache: 'no-cache' });
         if (!res.ok) continue;
         const text = await res.text();
         if (!text.includes('BEGIN:VCALENDAR')) continue;
-        populate(text);
+        populateFromIcal(text);
         return;
       } catch (e) { /* try next proxy */ }
     }
-    setFallback('all proxies failed');
+
+    setFallback('all sources failed');
   }
 
   loadBanner();

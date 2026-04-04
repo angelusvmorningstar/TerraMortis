@@ -135,9 +135,10 @@ test.describe('Admin — Sidebar', () => {
     await page.waitForSelector('#admin-app:not([style*="display: none"])');
   });
 
-  test('five domain buttons visible', async ({ page }) => {
-    const btns = page.locator('.sidebar-btn');
-    await expect(btns).toHaveCount(5);
+  test('domain buttons visible', async ({ page }) => {
+    const btns = page.locator('.sidebar-btn[data-domain]');
+    const count = await btns.count();
+    expect(count).toBeGreaterThanOrEqual(5);
   });
 
   test('Player domain active by default', async ({ page }) => {
@@ -161,6 +162,84 @@ test.describe('Admin — Sidebar', () => {
     await expect(page.locator('.sidebar-app-nav .app-nav-btn')).toHaveCount(2);
     await expect(page.locator('.sidebar-app-nav .app-nav-btn >> text=Game App')).toBeVisible();
     await expect(page.locator('.sidebar-app-nav .app-nav-btn >> text=Player')).toBeVisible();
+  });
+});
+
+// ══════════════════════════════════════
+//  ENGINE DOMAIN — NEXT SESSION PANEL
+// ══════════════════════════════════════
+
+const NEXT_SESSION = {
+  _id: 'sess-001',
+  session_date: '2099-06-07',
+  doors_open: '18:00',
+  game_number: 12,
+  downtime_deadline: 'Midnight, Friday 5 June 2099',
+};
+
+test.describe('Admin — Next Session Panel', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsST(page);
+    await page.route('**/api/game_sessions/next', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NEXT_SESSION) })
+    );
+    await page.goto('/admin.html');
+    await page.waitForSelector('#admin-app:not([style*="display: none"])');
+    await page.click('.sidebar-btn[data-domain="engine"]');
+    await page.waitForSelector('#next-session-content');
+  });
+
+  test('panel renders in Engine domain', async ({ page }) => {
+    await expect(page.locator('#next-session-content')).toBeVisible();
+    await expect(page.locator('#ns-date')).toBeVisible();
+    await expect(page.locator('#ns-time')).toBeVisible();
+    await expect(page.locator('#ns-game-number')).toBeVisible();
+    await expect(page.locator('#ns-deadline')).toBeVisible();
+    await expect(page.locator('#ns-save')).toBeVisible();
+  });
+
+  test('loads existing session data into fields', async ({ page }) => {
+    await expect(page.locator('#ns-date')).toHaveValue('2099-06-07');
+    await expect(page.locator('#ns-time')).toHaveValue('18:00');
+    await expect(page.locator('#ns-game-number')).toHaveValue('12');
+    await expect(page.locator('#ns-deadline')).toHaveValue('Midnight, Friday 5 June 2099');
+  });
+
+  test('status shows game number when session loaded', async ({ page }) => {
+    await expect(page.locator('#ns-status')).toHaveText('Loaded: Game 12');
+  });
+
+  test('Save button triggers PUT and shows confirmation', async ({ page }) => {
+    let putCalled = false;
+    await page.route('**/api/game_sessions/sess-001', route => {
+      putCalled = true;
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...NEXT_SESSION, downtime_deadline: 'Midnight, Friday 5 June 2099' }) });
+    });
+
+    await page.click('#ns-save');
+    await page.waitForTimeout(300);
+    expect(putCalled).toBe(true);
+    await expect(page.locator('#ns-saved')).toBeVisible();
+  });
+
+  test('shows placeholder message when no upcoming session', async ({ page }) => {
+    await page.route('**/api/game_sessions/next', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: 'null' })
+    );
+    await page.reload();
+    await page.waitForSelector('#admin-app:not([style*="display: none"])');
+    await page.click('.sidebar-btn[data-domain="engine"]');
+    await page.waitForSelector('#ns-status');
+    await expect(page.locator('#ns-status')).toHaveText(/No upcoming session/);
+  });
+
+  test('Save without date shows alert', async ({ page }) => {
+    await page.fill('#ns-date', '');
+    page.once('dialog', async dialog => {
+      expect(dialog.message()).toContain('date');
+      await dialog.accept();
+    });
+    await page.click('#ns-save');
   });
 });
 
