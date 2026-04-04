@@ -47,7 +47,7 @@
   <div class="tab-wrap">
 
     <!-- ═══ CHARACTERS TAB (Editor list) ═══ -->
-    <div id="t-chars" class="tab">
+    <div id="t-chars" class="tab active">
       <div class="list-toolbar">
         <input class="list-search" type="text" placeholder="Search characters..." oninput="filterList()">
         <select class="list-filter" id="filter-clan" onchange="filterList()">
@@ -67,7 +67,6 @@
     <div id="t-editor" class="tab">
       <div class="sheet-topbar">
         <button onclick="goTab('chars')">&larr; Back</button>
-        <button class="sheet-edit-btn" onclick="editFromSheet()">Edit</button>
         <button class="sheet-edit-btn" onclick="printSheet()">Print</button>
       </div>
       <div id="sh-content"></div>
@@ -92,7 +91,7 @@
     </div>
 
     <!-- ═══ ROLL TAB ═══ -->
-    <div id="t-roll" class="tab active">
+    <div id="t-roll" class="tab">
       <div class="shortcut-row">
         <button class="sc-btn" id="sc-char" onclick="openPanel('char')">
           <span class="sc-label" id="sc-char-lbl">Character</span>
@@ -202,21 +201,41 @@
       <div id="terr-root"></div>
     </div>
 
+    <!-- ═══ TRACKER TAB ═══ -->
+    <div id="t-tracker" class="tab">
+      <div class="ga-stub">
+        <div class="ga-stub-title">Live Tracker</div>
+        <div class="ga-stub-sub">Per-character Vitae, Willpower, Health &amp; Conditions — coming in 6.5</div>
+      </div>
+    </div>
+
+    <!-- ═══ RULES TAB ═══ -->
+    <div id="t-rules" class="tab">
+      <div class="ga-stub">
+        <div class="ga-stub-title">Rules Reference</div>
+        <div class="ga-stub-sub">Roll mechanics, resistance formulas, discipline summaries — coming in 6.6</div>
+      </div>
+    </div>
+
   </div><!-- /tab-wrap -->
 
   <!-- ═══ BOTTOM NAV ═══ -->
   <nav id="bnav">
+    <button class="nbtn on" id="n-chars" onclick="goTab('chars')">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.19 13.89 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      Characters
+    </button>
     <button class="nbtn" id="n-roll" onclick="goTab('roll')">
       <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>
       Roll
     </button>
-    <button class="nbtn on" id="n-chars" onclick="goTab('chars')">
-      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.19 13.89 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-      Character
+    <button class="nbtn" id="n-tracker" onclick="goTab('tracker')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      Tracker
     </button>
-    <button class="nbtn" id="n-territory" onclick="goTab('territory')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-      Territory
+    <button class="nbtn" id="n-rules" onclick="goTab('rules')">
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Rules
     </button>
   </nav>
 </div>

@@ -127,6 +127,8 @@ const TAB_SUBTITLES = {
   roll: 'Roll',
   sheets: 'Sheets',
   territory: 'Territory',
+  tracker: 'Live Tracker',
+  rules: 'Rules Reference',
 };
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
@@ -558,7 +560,7 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
-      goTab('roll');
+      goTab('chars');
       return;
     }
   }
@@ -574,9 +576,13 @@ function applyRoleRestrictions() {
   const role = getRole();
   const isST = role === 'st';
 
-  // Territory tab — ST only
-  const terrNav = document.getElementById('n-territory');
-  if (terrNav && !isST) terrNav.style.display = 'none';
+  // Tracker and Rules tabs hidden for players
+  if (!isST) {
+    const trackerNav = document.getElementById('n-tracker');
+    if (trackerNav) trackerNav.style.display = 'none';
+    const rulesNav = document.getElementById('n-rules');
+    if (rulesNav) rulesNav.style.display = 'none';
+  }
 
   // Feeding test in Roll tab — ST only
   const feedSec = document.getElementById('feed-section');
