@@ -421,6 +421,8 @@ function collectResponses() {
   const skSkillEl = document.getElementById('dt-skill_acq_pool_skill');
   responses['skill_acq_pool_attr'] = skAttrEl ? skAttrEl.value : '';
   responses['skill_acq_pool_skill'] = skSkillEl ? skSkillEl.value : '';
+  const skSpecEl = document.getElementById('dt-skill_acq_pool_spec');
+  responses['skill_acq_pool_spec'] = skSpecEl ? skSpecEl.value : '';
   const skAcqMeritCbs = document.querySelectorAll('[data-skill-acq-merit-cb]:checked');
   const skAcqMeritKeys = [];
   skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
@@ -846,6 +848,20 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // Skill acquisition spec chip toggle
+    const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
+    if (skAcqSpec) {
+      const sp = skAcqSpec.dataset.skillAcqSpec;
+      const input = document.getElementById('dt-skill_acq_pool_spec');
+      // Toggle: click same spec to deselect
+      if (input) input.value = input.value === sp ? '' : sp;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // Availability dot selector
     const acqDot = e.target.closest('[data-acq-dot]');
     if (acqDot) {
@@ -1033,6 +1049,19 @@ function renderForm(container) {
     const xpItem = e.target.closest('[data-xp-item]');
     const xpDots = e.target.closest('[data-xp-dots]');
     if (xpCat || xpItem || xpDots) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Skill acquisition pool change — re-render for spec chips
+    if (e.target.id === 'dt-skill_acq_pool_skill' || e.target.id === 'dt-skill_acq_pool_attr') {
+      // Clear spec if skill changed
+      if (e.target.id === 'dt-skill_acq_pool_skill') {
+        const specInput = document.getElementById('dt-skill_acq_pool_spec');
+        if (specInput) specInput.value = '';
+      }
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2020,12 +2049,38 @@ function renderAcquisitionsSection(saved) {
   }
   h += '</select>';
 
+  // Specialisation chips (if selected skill has specs)
+  const skSavedSpec = saved['skill_acq_pool_spec'] || '';
+  const hasAoE = (c.merits || []).some(m => m.name?.toLowerCase() === 'area of expertise');
+  let specBonus = 0;
+  let skSpecs = [];
+  if (skSavedSkill && c.skills?.[skSavedSkill]?.specs?.length) {
+    skSpecs = c.skills[skSavedSkill].specs;
+    if (skSavedSpec && skSpecs.includes(skSavedSpec)) {
+      specBonus = hasAoE ? 2 : 1;
+    }
+  }
+
   // Pool total
   let skTotal = 0;
   if (skSavedAttr) { const a = c.attributes?.[skSavedAttr]; if (a) skTotal += (a.dots || 0) + (a.bonus || 0); }
   if (skSavedSkill) { const s = c.skills?.[skSavedSkill]; if (s) skTotal += (s.dots || 0) + (s.bonus || 0); }
+  skTotal += specBonus;
   h += `<span class="dt-pool-total">${skTotal || '\u2014'}</span>`;
-  h += '</div></div>';
+  h += '</div>';
+
+  // Spec chips row + hidden input
+  h += `<input type="hidden" id="dt-skill_acq_pool_spec" value="${esc(skSavedSpec)}">`;
+  if (skSpecs.length) {
+    h += '<div class="dt-feed-spec-row" style="margin-top:6px;">';
+    h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
+    for (const sp of skSpecs) {
+      const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE ? 2 : 1}</span></button>`;
+    }
+    h += '</div>';
+  }
+  h += '</div>';
 
   // Relevant merits for this acquisition
   let skMeritPicks = [];
