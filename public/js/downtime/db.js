@@ -67,12 +67,16 @@ export async function upsertCycle(parsedSubmissions) {
   }
 
   const existing = await getSubmissionsForCycle(cycle._id);
-  const existingMap = new Map(existing.map(s => [s.character_name, s]));
+  // Index by character_name AND character_id so portal submissions (which lack character_name)
+  // are still found when a CSV row matches the same character.
+  const byName = new Map(existing.filter(s => s.character_name).map(s => [s.character_name, s]));
+  const byId   = new Map(existing.filter(s => s.character_id).map(s => [String(s.character_id), s]));
 
   let created = 0, updated = 0, unchanged = 0;
 
   for (const parsed of parsedSubmissions) {
     const charName = parsed.submission.character_name;
+    const charId   = parsed._character_id ? String(parsed._character_id) : null;
     const doc = {
       cycle_id: cycle._id,
       character_id: parsed._character_id || null,
@@ -84,7 +88,8 @@ export async function upsertCycle(parsedSubmissions) {
       updated_at: new Date().toISOString(),
     };
 
-    const prev = existingMap.get(charName);
+    // Match by name first (CSV-sourced), then by character_id (portal-sourced)
+    const prev = byName.get(charName) || (charId ? byId.get(charId) : null);
     if (prev) {
       await apiPut('/api/downtime_submissions/' + prev._id, doc);
       updated++;
