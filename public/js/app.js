@@ -61,7 +61,7 @@ import {
   handleDtImport as _handleDtImport,
   setImportCallbacks,
 } from './suite/import.js';
-import { loadCharsFromApi } from './data/loader.js';
+import { loadCharsFromApi, sanitiseChar } from './data/loader.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -272,6 +272,7 @@ function loadChars() {
       }
     }
   } catch (e) { /* ignore */ }
+  data.forEach(sanitiseChar);
   const chars = data.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
   suiteState.chars = chars;
   window._charNames = chars.map(c => c.name);

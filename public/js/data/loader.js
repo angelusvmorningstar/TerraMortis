@@ -12,6 +12,26 @@ import { apiGet } from './api.js';
 const LS_KEY = 'tm_chars_db';
 
 /**
+ * Strip zero-dot disciplines from a character object.
+ * Treats disciplines with 0 dots as absent everywhere in the app,
+ * preventing rendering bugs and broken pool calculations.
+ */
+export function sanitiseChar(c) {
+  if (c?.disciplines) {
+    for (const [key, val] of Object.entries(c.disciplines)) {
+      if (val === 0) delete c.disciplines[key];
+    }
+  }
+  return c;
+}
+
+/** Sanitise an array of characters. */
+function sanitiseAll(chars) {
+  if (Array.isArray(chars)) chars.forEach(sanitiseChar);
+  return chars;
+}
+
+/**
  * Fetch characters from the API, cache to localStorage, return the array.
  * If the API is unreachable, silently falls back to localStorage.
  * If localStorage is also empty, returns null (caller should fall back to embedded data).
@@ -20,6 +40,7 @@ export async function loadCharsFromApi() {
   try {
     const chars = await apiGet('/api/characters');
     if (Array.isArray(chars) && chars.length) {
+      sanitiseAll(chars);
       localStorage.setItem(LS_KEY, JSON.stringify(chars));
       return chars;
     }
@@ -33,8 +54,8 @@ export async function loadCharsFromApi() {
     if (raw) {
       const parsed = JSON.parse(raw);
       // Handle both v2 wrapper format and raw array
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-      if (parsed && parsed.v === 2 && Array.isArray(parsed.chars) && parsed.chars.length) return parsed.chars;
+      if (Array.isArray(parsed) && parsed.length) return sanitiseAll(parsed);
+      if (parsed && parsed.v === 2 && Array.isArray(parsed.chars) && parsed.chars.length) return sanitiseAll(parsed.chars);
     }
   } catch {
     // Corrupt localStorage — fall through

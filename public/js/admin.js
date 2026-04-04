@@ -1,6 +1,7 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 
 import { apiGet, apiPut, apiPost } from './data/api.js';
+import { sanitiseChar } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
@@ -595,6 +596,7 @@ window._plmCreate = async (charId) => {
 async function init() {
   try {
     chars = await apiGet('/api/characters');
+    chars.forEach(sanitiseChar);
     await loadGameXP();
     renderCharGrid();
   } catch (err) {

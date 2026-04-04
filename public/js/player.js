@@ -81,6 +81,8 @@ function renderSidebarUser() {
 async function loadCharacters() {
   try {
     chars = await apiGet('/api/characters?mine=1');
+    // Sanitise: strip zero-dot disciplines (treated as absent)
+    chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if (v === 0) delete c.disciplines[k]; } });
   } catch (err) {
     document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">Failed to load characters: ${esc(err.message)}</p>`;
