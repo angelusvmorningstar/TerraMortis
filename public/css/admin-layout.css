@@ -778,6 +778,20 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.dt-deadline { font-size: 12px; color: var(--txt-dim); }
+.dt-deadline-past { color: var(--crim); font-weight: 600; }
+.dt-deadline-edit { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt-dim); margin-left: 8px; }
+.dt-deadline-input {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--fh);
+  font-size: 12px;
+  color-scheme: dark;
 }
 
 .dt-cycle-info {
@@ -1007,6 +1021,80 @@ body {
 .dt-sub-approved { border-left: 3px solid #6a6; }
 .dt-sub-modified { border-left: 3px solid var(--gold2); }
 .dt-sub-rejected { border-left: 3px solid var(--crim2, #B22222); }
+
+/* ── Feeding Matrix & Conflicts ── */
+.dt-matrix-panel, .dt-conflict-panel {
+  margin-bottom: 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.dt-matrix-toggle {
+  padding: 8px 12px;
+  background: var(--surf2);
+  font-family: var(--fh);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dt-matrix-toggle:hover { background: var(--surf3); }
+.dt-matrix-wrap { overflow-x: auto; }
+.dt-matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dt-matrix-table th, .dt-matrix-table td { padding: 5px 8px; border: 1px solid var(--bdr); text-align: center; }
+.dt-matrix-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
+.dt-matrix-char { text-align: left; font-size: 12px; white-space: nowrap; }
+.dt-matrix-amb { font-size: 10px; color: var(--txt-dim); font-family: var(--fb, sans-serif); }
+.dt-matrix-resident { background: rgba(58,138,58,.12); color: #3a8a3a; font-weight: 600; }
+.dt-matrix-poach { background: rgba(224,196,122,.1); color: var(--gold2); }
+.dt-matrix-other { color: var(--txt-dim); }
+.dt-matrix-empty { color: var(--txt-dim); opacity: .4; }
+.dt-matrix-overcap { background: rgba(139,0,0,.15); color: var(--crim); font-weight: 700; }
+.dt-matrix-row { cursor: pointer; }
+.dt-matrix-row:hover td { background: var(--surf2); }
+.dt-matrix-note { font-size: 11px; color: var(--txt-dim); padding: 6px 12px; margin: 0; }
+.dt-conflict-list { padding: 8px 12px; }
+.dt-conflict-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--bdr); }
+.dt-conflict-item:last-child { border-bottom: none; }
+.dt-conflict-type { font-family: var(--fh); color: var(--gold2); }
+.dt-conflict-char { color: var(--gold2); cursor: pointer; text-decoration: underline; }
+.dt-conflict-char:hover { color: var(--txt); }
+
+/* ── Project & Merit Resolution Panels ── */
+.dt-proj-detail, .dt-merit-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+.dt-proj-slot {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.dt-proj-resolved { border-left: 3px solid #3a8a3a; }
+.dt-proj-unresolved { border-left: 3px solid var(--gold2); }
+.dt-proj-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.dt-proj-type { font-family: var(--fh); font-size: 13px; font-weight: 600; color: var(--gold2); }
+.dt-merit-action-type { font-size: 12px; color: var(--txt-dim); }
+.dt-proj-done-badge { font-size: 11px; color: #3a8a3a; background: rgba(58,138,58,.12); padding: 1px 6px; border-radius: 10px; }
+.dt-proj-pending-badge { font-size: 11px; color: var(--gold2); background: rgba(224,196,122,.1); padding: 1px 6px; border-radius: 10px; }
+.dt-merit-passive { font-size: 11px; color: var(--txt-dim); }
+.dt-proj-outcome { font-size: 12px; color: var(--txt-dim); margin-bottom: 4px; }
+.dt-proj-desc { font-size: 12px; margin-bottom: 8px; }
+.dt-merit-warn { font-size: 11px; color: var(--crim); background: rgba(139,0,0,.08); border-radius: 4px; padding: 4px 8px; margin: 4px 0; }
+.dt-pool-builder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }
+.dt-pool-sel { background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 6px; border-radius: 4px; font-family: var(--fh); font-size: 12px; }
+.dt-pool-mod { width: 60px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 6px; border-radius: 4px; font-family: var(--fh); font-size: 12px; text-align: center; }
+.dt-pool-display { font-size: 12px; color: var(--gold2); font-family: var(--fh); }
+.dt-resolve-badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; margin: 4px 0; display: inline-block; }
+.dt-succ-ok { background: rgba(58,138,58,.15); color: #3a8a3a; }
+.dt-succ-exc { background: rgba(224,196,122,.2); color: var(--gold2); }
+.dt-succ-fail { background: rgba(139,0,0,.12); color: var(--crim); }
+.dt-proj-note { width: 100%; margin-top: 6px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
 
 .dt-approval-detail {
   margin-top: 10px;

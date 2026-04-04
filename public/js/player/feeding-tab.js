@@ -12,6 +12,7 @@ import { apiGet, apiPut } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
 import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
+import { SKILLS_MENTAL } from '../data/constants.js';
 import { getRole } from '../auth/discord.js';
 
 // Dice math (10-again)
@@ -116,12 +117,16 @@ function buildPool(method, discName, specName) {
   const hasAoE = (c.merits || []).some(m => m.name?.toLowerCase() === 'area of expertise');
   const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE ? 2 : 1) : 0;
   const discVal = (discName && c.disciplines?.[discName]) || 0;
+  const unskilled = bestSV === 0
+    ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
+    : 0;
 
-  poolTotal = Math.max(0, bestAV + bestSV + discVal + specBonus);
+  poolTotal = Math.max(0, bestAV + bestSV + discVal + specBonus + unskilled);
 
   const parts = [`${bestAV} ${bestA}`, `${bestSV} ${bestS}`];
   if (discVal) parts.push(`${discVal} ${discName}`);
   if (specBonus) parts.push(`${specBonus} ${specName}`);
+  if (unskilled) parts.push(`\u2212${Math.abs(unskilled)} (unskilled)`);
   poolBreakdown = parts.join(' + ') + ` = ${poolTotal}`;
 }
 

@@ -120,6 +120,16 @@
   color: #7A6A50;
 }
 
+.reading-pane .qf-deadline {
+  font-size: 13px;
+  color: var(--txt-dim);
+  margin: 0 0 4px;
+}
+.reading-pane .qf-deadline-closed {
+  color: var(--crim);
+  font-weight: 600;
+}
+
 /* ── Required marker ── */
 
 .reading-pane .qf-req {

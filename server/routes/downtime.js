@@ -102,7 +102,7 @@ submissionsRouter.put('/:id', async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID format' });
 
-  // Player: verify ownership
+  // Player: verify ownership and deadline
   if (req.user.role === 'player') {
     const existing = await submissions().findOne({ _id: oid });
     if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
@@ -110,6 +110,17 @@ submissionsRouter.put('/:id', async (req, res) => {
     const charIds = (req.user.character_ids || []).map(id => id.toString());
     if (!charIds.includes(existing.character_id?.toString())) {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your submission' });
+    }
+
+    // Enforce cycle deadline
+    if (existing.cycle_id) {
+      const cycleOid = existing.cycle_id instanceof ObjectId ? existing.cycle_id : parseId(String(existing.cycle_id));
+      if (cycleOid) {
+        const cycle = await cycles().findOne({ _id: cycleOid });
+        if (cycle?.deadline_at && new Date(cycle.deadline_at) < new Date()) {
+          return res.status(403).json({ error: 'DEADLINE_PASSED', message: 'Submissions for this cycle are closed.' });
+        }
+      }
     }
 
     // Players cannot modify st_review fields

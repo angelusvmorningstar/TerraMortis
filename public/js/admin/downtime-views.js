@@ -5,9 +5,12 @@
 
 import { apiGet } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { TERRITORY_DATA, AMBIENCE_CAP } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
-import { getAttrVal, getSkillObj } from '../data/accessors.js';
+import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
+import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
+import { showRollModal } from '../downtime/roller.js';
 
 let submissions = [];
 let characters = [];
@@ -55,6 +58,8 @@ function buildShell() {
     </div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
+    <div id="dt-matrix"></div>
+    <div id="dt-conflicts"></div>
     <div id="dt-submissions" class="dt-submissions"></div>`;
 }
 
@@ -104,11 +109,14 @@ function buildFeedingPool(char, methodId, ambienceMod) {
   const fg = (char.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgVal = fg ? (fg.rating || 0) : 0;
   const amb = ambienceMod || 0;
-  const total = Math.max(0, bestAttr + bestSkill + fgVal + amb);
+  const unskilled = bestSkill === 0
+    ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
+    : 0;
+  const total = Math.max(0, bestAttr + bestSkill + fgVal + amb + unskilled);
 
   return {
     total,
-    breakdown: { attr: bestAttrName, attrVal: bestAttr, skill: bestSkillName, skillVal: bestSkill, fg: fgVal, ambience: amb },
+    breakdown: { attr: bestAttrName, attrVal: bestAttr, skill: bestSkillName, skillVal: bestSkill, fg: fgVal, ambience: amb, unskilled },
   };
 }
 
@@ -154,13 +162,36 @@ async function loadCycleById(cycleId) {
   }
 
   const isActive = cycle.status === 'active';
-  statusEl.innerHTML = `<span class="dt-status-badge dt-status-${isActive ? 'pending' : 'approved'}">${isActive ? 'active' : 'closed'}</span>` +
+  const deadlineStr = cycle.deadline_at
+    ? new Date(cycle.deadline_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : null;
+  const deadlinePast = cycle.deadline_at && new Date(cycle.deadline_at) < new Date();
+  let statusHtml = `<span class="dt-status-badge dt-status-${isActive ? 'pending' : 'approved'}">${isActive ? 'active' : 'closed'}</span>` +
     `<span class="domain-count">${cycle.submission_count || 0} submissions</span>`;
+  if (deadlineStr) {
+    statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
+  }
+  if (isActive) {
+    const dtVal = cycle.deadline_at ? cycle.deadline_at.slice(0, 16) : '';
+    statusHtml += `<label class="dt-deadline-edit"><span>Set deadline</span><input type="datetime-local" class="dt-deadline-input" id="dt-deadline-input" value="${esc(dtVal)}"></label>`;
+  }
+  statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
+
+  // Wire deadline input
+  document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
+    const val = e.target.value; // datetime-local string or empty
+    await updateCycle(cycleId, { deadline_at: val ? new Date(val).toISOString() : null });
+    const idx = allCycles.findIndex(c => c._id === cycleId);
+    if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
+    await loadCycleById(cycleId);
+  });
 
   expandedId = null;
   submissions = await getSubmissionsForCycle(cycleId);
   renderMatchSummary();
+  renderFeedingMatrix();
+  renderConflicts();
   renderSubmissions();
 }
 
@@ -240,6 +271,8 @@ function renderSubmissions() {
 
     if (isExpanded) {
       h += renderFeedingDetail(s, raw, char);
+      h += renderProjectsPanel(s, raw, char);
+      h += renderMeritActionsPanel(s, raw, char);
       h += renderStNotes(s, raw);
       h += renderApproval(s);
     }
@@ -249,6 +282,20 @@ function renderSubmissions() {
   }).join('') + '</div>';
 
   // Card click delegation
+  // Restore pool builder select values (innerHTML can't set selected across render)
+  el.querySelectorAll('.dt-pool-sel').forEach(sel => {
+    const subId = sel.dataset.subId;
+    const field = sel.dataset.field;
+    const projIdx = sel.dataset.projIdx !== undefined ? +sel.dataset.projIdx : null;
+    const meritIdx = sel.dataset.meritIdx !== undefined ? +sel.dataset.meritIdx : null;
+    const sub = submissions.find(s => s._id === subId);
+    if (!sub) return;
+    let val = '';
+    if (projIdx !== null) val = (sub._proj_pending || [])[projIdx]?.[field] || '';
+    else if (meritIdx !== null) val = (sub._merit_pending || [])[meritIdx]?.[field] || '';
+    if (val) sel.value = val;
+  });
+
   el.querySelectorAll('.dt-sub-clickable').forEach(row => {
     row.addEventListener('click', () => {
       const card = row.closest('.dt-sub-card');
@@ -275,6 +322,148 @@ function renderSubmissions() {
   // Approval button delegation
   el.querySelectorAll('.dt-approval-btn').forEach(btn => {
     btn.addEventListener('click', e => { e.stopPropagation(); handleApproval(btn.dataset.subId, btn.dataset.status); });
+  });
+
+  // Project pool select delegation
+  el.querySelectorAll('.dt-proj-sel').forEach(sel => {
+    sel.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = sel.dataset.subId;
+      const idx = +sel.dataset.projIdx;
+      const field = sel.dataset.field;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._proj_pending) sub._proj_pending = [];
+      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
+      sub._proj_pending[idx][field] = sel.value;
+      renderSubmissions();
+    });
+  });
+
+  // Project modifier input delegation
+  el.querySelectorAll('.dt-proj-mod').forEach(inp => {
+    inp.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = inp.dataset.subId;
+      const idx = +inp.dataset.projIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._proj_pending) sub._proj_pending = [];
+      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
+      sub._proj_pending[idx].modifier = parseInt(inp.value) || 0;
+      renderSubmissions();
+    });
+  });
+
+  // Project roll button delegation
+  el.querySelectorAll('.dt-proj-roll-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const idx = +btn.dataset.projIdx;
+      const sub = submissions.find(s => s._id === subId);
+      const char = sub ? findCharacter(sub.character_name) : null;
+      const pen = (sub?._proj_pending || [])[idx] || {};
+      const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
+      showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
+        handleProjectRollSave(subId, idx, pool, result);
+      });
+    });
+  });
+
+  // Project note delegation (save on blur)
+  el.querySelectorAll('.dt-proj-note').forEach(ta => {
+    ta.addEventListener('blur', e => {
+      e.stopPropagation();
+      const subId = ta.dataset.subId;
+      const idx = +ta.dataset.projIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._proj_pending) sub._proj_pending = [];
+      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
+      sub._proj_pending[idx].st_note = ta.value;
+    });
+  });
+
+  // Merit action pool select/mod delegation
+  el.querySelectorAll('.dt-merit-sel').forEach(sel => {
+    sel.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = sel.dataset.subId;
+      const idx = +sel.dataset.meritIdx;
+      const field = sel.dataset.field;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._merit_pending) sub._merit_pending = [];
+      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
+      sub._merit_pending[idx][field] = sel.value;
+      renderSubmissions();
+    });
+  });
+
+  // Merit modifier input delegation
+  el.querySelectorAll('.dt-merit-mod').forEach(inp => {
+    inp.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = inp.dataset.subId;
+      const idx = +inp.dataset.meritIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._merit_pending) sub._merit_pending = [];
+      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
+      sub._merit_pending[idx].modifier = parseInt(inp.value) || 0;
+      renderSubmissions();
+    });
+  });
+
+  // Merit roll button delegation
+  el.querySelectorAll('.dt-merit-roll-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const idx = +btn.dataset.meritIdx;
+      const sub = submissions.find(s => s._id === subId);
+      const char = sub ? findCharacter(sub.character_name) : null;
+      const pen = (sub?._merit_pending || [])[idx] || {};
+      const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
+      showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
+        handleMeritRollSave(subId, idx, pool, result);
+      });
+    });
+  });
+
+  // Merit note delegation (save on blur)
+  el.querySelectorAll('.dt-merit-note').forEach(ta => {
+    ta.addEventListener('blur', e => {
+      e.stopPropagation();
+      const subId = ta.dataset.subId;
+      const idx = +ta.dataset.meritIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._merit_pending) sub._merit_pending = [];
+      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
+      sub._merit_pending[idx].st_note = ta.value;
+    });
+  });
+
+  // Merit "no roll needed" delegation
+  el.querySelectorAll('.dt-merit-noroll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const idx = +btn.dataset.meritIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const pending = (sub._merit_pending || [])[idx] || {};
+      const resolved = [...(sub.merit_actions_resolved || [])];
+      while (resolved.length <= idx) resolved.push(null);
+      resolved[idx] = { no_roll: true, st_note: pending.st_note || '', resolved_at: new Date().toISOString() };
+      try {
+        await updateSubmission(subId, { merit_actions_resolved: resolved });
+        sub.merit_actions_resolved = resolved;
+        renderSubmissions();
+      } catch (err) { console.error('Failed to save merit no-roll:', err.message); }
+    });
   });
 
   // Roll button delegation
@@ -334,6 +523,7 @@ function renderFeedingDetail(s, raw, char) {
         h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
         h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
         if (bd.fg) h += ` + ${bd.fg} FG`;
+        if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
         h += ` = <b>${pool.total}</b></span></div>`;
       }
     }
@@ -537,4 +727,463 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// ── Feeding Matrix (Story 1.4) ───────────────────────────────────────────────
+
+// Canonical territory columns for the matrix (CSV keys in feeding.territories)
+const MATRIX_TERRS = [
+  { csvKey: 'The Academy',      label: 'Academy',     ambienceKey: 'The Academy' },
+  { csvKey: 'The City Harbour', label: 'Harbour',     ambienceKey: 'The Harbour' },
+  { csvKey: 'The Docklands',    label: 'Docklands',   ambienceKey: 'The Dockyards' },
+  { csvKey: 'The Second City',  label: 'Second City', ambienceKey: 'The Second City' },
+  { csvKey: 'The Northern Shore', label: 'North Shore', ambienceKey: 'The North Shore' },
+  { csvKey: 'The Barrens',      label: 'Barrens',     ambienceKey: null },
+];
+
+function getTerritoryAmbience(ambienceKey) {
+  if (!ambienceKey) return null;
+  const td = TERRITORY_DATA.find(t => t.name === ambienceKey);
+  return td?.ambience || null;
+}
+
+function renderFeedingMatrix() {
+  const el = document.getElementById('dt-matrix');
+  if (!el) return;
+  if (!submissions.length) { el.innerHTML = ''; return; }
+
+  // Determine which territory columns actually have any data
+  const activeCols = MATRIX_TERRS.filter(t =>
+    submissions.some(s => {
+      const terrs = (s._raw || {}).feeding?.territories || {};
+      const v = terrs[t.csvKey];
+      return v && v !== 'Not feeding here';
+    })
+  );
+
+  if (!activeCols.length) { el.innerHTML = ''; return; }
+
+  // Count residents per territory (residents only, not poachers — poachers don't count toward cap)
+  const residentCounts = {};
+  for (const t of activeCols) {
+    residentCounts[t.csvKey] = submissions.filter(s => {
+      const v = ((s._raw || {}).feeding?.territories || {})[t.csvKey];
+      return v === 'Resident';
+    }).length;
+  }
+
+  const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
+
+  // Collapsible state via data attr
+  const isOpen = el.dataset.open !== 'false';
+
+  let h = `<div class="dt-matrix-panel">`;
+  h += `<div class="dt-matrix-toggle" id="dt-matrix-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Matrix <span class="domain-count">${sorted.length} characters</span></div>`;
+
+  if (isOpen) {
+    h += `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
+    h += '<thead><tr><th>Character</th>';
+    for (const t of activeCols) {
+      const ambience = getTerritoryAmbience(t.ambienceKey);
+      h += `<th title="${esc(ambience || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(ambience || 'N/A')}</span></th>`;
+    }
+    h += '</tr></thead><tbody>';
+
+    for (const s of sorted) {
+      const terrs = (s._raw || {}).feeding?.territories || {};
+      h += `<tr class="dt-matrix-row" data-sub-id="${esc(s._id)}"><td class="dt-matrix-char">${esc(s.character_name || '?')}</td>`;
+      for (const t of activeCols) {
+        const status = terrs[t.csvKey];
+        if (!status || status === 'Not feeding here') {
+          h += '<td class="dt-matrix-empty">—</td>';
+        } else {
+          const cls = status === 'Resident' ? 'dt-matrix-resident' : status === 'Poaching' ? 'dt-matrix-poach' : 'dt-matrix-other';
+          h += `<td class="${cls}">${esc(status)}</td>`;
+        }
+      }
+      h += '</tr>';
+    }
+
+    // Footer: counts vs caps
+    h += '<tfoot><tr><td><strong>Residents</strong></td>';
+    for (const t of activeCols) {
+      const ambience = getTerritoryAmbience(t.ambienceKey);
+      const cap = ambience ? (AMBIENCE_CAP[ambience] ?? null) : null;
+      const count = residentCounts[t.csvKey] || 0;
+      const overCap = cap !== null && count > cap;
+      h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
+    }
+    h += '</tr></tfoot>';
+    h += '</table>';
+    h += '<p class="dt-matrix-note">Cap = Resident PCs only. Herds, cults, and animal feeding do not count toward territory cap.</p>';
+    h += '</div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-matrix-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderFeedingMatrix();
+  });
+
+  el.querySelectorAll('.dt-matrix-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.dataset.subId;
+      expandedId = expandedId === id ? null : id;
+      renderSubmissions();
+      row.closest('.dt-matrix-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+}
+
+// ── Cross-Character Conflicts (Story 1.11) ───────────────────────────────────
+
+const COMPETING_ACTIONS = ['increase ambience', 'decrease ambience', 'ambience', 'patrol', 'scout', 'attack', 'hide', 'block', 'protect'];
+
+function renderConflicts() {
+  const el = document.getElementById('dt-conflicts');
+  if (!el) return;
+  if (!submissions.length) { el.innerHTML = ''; return; }
+
+  const conflicts = [];
+
+  // Check for competing territory actions across submissions
+  const byTerritory = {};
+  for (const s of submissions) {
+    const raw = s._raw || {};
+    const projects = raw.projects || [];
+    for (const proj of projects) {
+      if (!proj.action_type) continue;
+      const lc = proj.action_type.toLowerCase();
+      const isCompeting = COMPETING_ACTIONS.some(a => lc.includes(a));
+      if (!isCompeting) continue;
+      const territory = proj.description?.match(/The (Academy|Harbour|Docklands|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
+      const key = lc + '::' + territory.toLowerCase();
+      if (!byTerritory[key]) byTerritory[key] = [];
+      byTerritory[key].push({ subId: s._id, name: s.character_name, action: proj.action_type, territory });
+    }
+  }
+  for (const [, entries] of Object.entries(byTerritory)) {
+    if (entries.length >= 2) {
+      conflicts.push({ type: 'Competing territory action', entries, detail: `${entries[0].action} — ${entries[0].territory}` });
+    }
+  }
+
+  // Check for characters targeting each other (Attack)
+  for (const s of submissions) {
+    const projects = (s._raw || {}).projects || [];
+    for (const proj of projects) {
+      if (!proj.action_type?.toLowerCase().includes('attack')) continue;
+      const targetName = proj.description?.match(/\b([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b/)?.[0];
+      if (targetName && submissions.some(s2 => s2 !== s && (s2.character_name || '').includes(targetName))) {
+        conflicts.push({ type: 'Direct attack', entries: [{ subId: s._id, name: s.character_name, action: proj.action_type }], detail: `${s.character_name} targeting ${targetName}` });
+      }
+    }
+  }
+
+  const isOpen = el.dataset.open !== 'false';
+
+  let h = `<div class="dt-conflict-panel">`;
+  h += `<div class="dt-matrix-toggle" id="dt-conflicts-toggle">${isOpen ? '\u25BC' : '\u25BA'} Conflicts <span class="domain-count">${conflicts.length} detected</span>`;
+  if (!conflicts.length) h += ' <span class="dt-matrix-note" style="display:inline;margin-left:8px;">None detected</span>';
+  h += '</div>';
+
+  if (isOpen && conflicts.length) {
+    h += '<div class="dt-conflict-list">';
+    for (const c of conflicts) {
+      h += `<div class="dt-conflict-item"><span class="dt-conflict-type">${esc(c.type)}</span> — ${esc(c.detail)}: `;
+      h += c.entries.map(e => `<span class="dt-conflict-char" data-sub-id="${esc(e.subId)}">${esc(e.name)}</span>`).join(', ');
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-conflicts-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderConflicts();
+  });
+
+  el.querySelectorAll('.dt-conflict-char').forEach(span => {
+    span.addEventListener('click', () => {
+      expandedId = span.dataset.subId;
+      renderSubmissions();
+      document.getElementById('dt-submissions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+// ── Generic pool builder (projects + merit actions) ────────────────────────
+
+/**
+ * Build a dice pool from explicit attr/skill/disc selections.
+ * Applies unskilled penalty: -3 mental at 0 dots, -1 others at 0 dots.
+ * Returns { total, expression, unskilled, attrVal, skillVal, discVal, modifier }.
+ */
+function buildGenericPool(char, attrName, skillName, discName, modifier) {
+  const attrVal = attrName ? getAttrVal(char, attrName) : 0;
+  const skillVal = skillName ? skDots(char, skillName) : 0;
+  const discVal = (discName && char?.disciplines?.[discName]) || 0;
+  const mod = modifier || 0;
+  const unskilled = skillName && skillVal === 0
+    ? (SKILLS_MENTAL.includes(skillName) ? -3 : -1)
+    : 0;
+  const total = Math.max(1, attrVal + skillVal + discVal + mod + unskilled);
+
+  const parts = [];
+  if (attrName) parts.push(`${attrVal} ${attrName}`);
+  if (skillName) parts.push(`${skillVal} ${skillName}`);
+  if (discVal) parts.push(`${discVal} ${discName}`);
+  if (mod) parts.push(`${mod > 0 ? '+' : ''}${mod}`);
+  if (unskilled) parts.push(`\u2212${Math.abs(unskilled)} unskilled`);
+  const expression = (parts.join(' + ') || '0') + ` = ${total}`;
+
+  return { total, expression, unskilled, attrVal, skillVal, discVal, modifier: mod };
+}
+
+function attrOptions(char) {
+  return ALL_ATTRS.map(a => {
+    const v = char ? getAttrVal(char, a) : 0;
+    return `<option value="${esc(a)}">${esc(a)} (${v})</option>`;
+  }).join('');
+}
+
+function skillOptions(char) {
+  let h = '<option value="">— Skill —</option>';
+  for (const [cat, skills] of Object.entries(SKILL_CATS)) {
+    h += `<optgroup label="${esc(cat)}">`;
+    for (const s of skills) {
+      const v = char ? skDots(char, s) : 0;
+      h += `<option value="${esc(s)}">${esc(s)} (${v})</option>`;
+    }
+    h += '</optgroup>';
+  }
+  return h;
+}
+
+function discOptions(char) {
+  let h = '<option value="">— Discipline —</option>';
+  if (!char?.disciplines) return h;
+  for (const [d, v] of Object.entries(char.disciplines)) {
+    if (v > 0) h += `<option value="${esc(d)}">${esc(d)} (${v})</option>`;
+  }
+  return h;
+}
+
+/**
+ * @param {string} selClass - CSS class to add to selects (e.g. 'dt-proj-sel' or 'dt-merit-sel')
+ * @param {string} modClass - CSS class to add to modifier input
+ */
+function poolBuilderUI(subId, idxField, idxVal, char, pen, compactPool, selClass = 'dt-proj-sel', modClass = 'dt-proj-mod') {
+  const selVal = (v) => v ? ` data-selected="${esc(v)}"` : '';
+
+  let h = `<div class="dt-pool-builder">`;
+  h += `<select class="${selClass} dt-pool-sel" data-sub-id="${esc(subId)}" data-${esc(idxField)}="${idxVal}" data-field="attr">`;
+  h += `<option value="">— Attr —</option>${attrOptions(char)}`;
+  h += '</select>';
+  h += `<select class="${selClass} dt-pool-sel" data-sub-id="${esc(subId)}" data-${esc(idxField)}="${idxVal}" data-field="skill">`;
+  h += skillOptions(char);
+  h += '</select>';
+  h += `<select class="${selClass} dt-pool-sel" data-sub-id="${esc(subId)}" data-${esc(idxField)}="${idxVal}" data-field="disc">`;
+  h += discOptions(char);
+  h += '</select>';
+  h += `<input class="${modClass} dt-pool-mod" type="number" value="${pen.modifier || 0}" placeholder="Mod" title="Modifier"
+    data-sub-id="${esc(subId)}" data-${esc(idxField)}="${idxVal}">`;
+
+  if (pen.attr) {
+    h += `<span class="dt-pool-display">${esc(compactPool.expression)}</span>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+// Render dice result badge for project/merit panels
+function renderResolveBadge(roll) {
+  if (!roll) return '';
+  const rc = roll.exceptional ? 'dt-succ-exc' : roll.successes === 0 ? 'dt-succ-fail' : 'dt-succ-ok';
+  return `<span class="dt-resolve-badge ${rc}">${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''}</span>`;
+}
+
+// ── Project Resolution Panel (Story 1.2) ────────────────────────────────────
+
+function renderProjectsPanel(s, raw, char) {
+  const projects = raw.projects || [];
+  if (!projects.length) return '';
+
+  const resolved = s.projects_resolved || [];
+  const pending = s._proj_pending || [];
+
+  let h = '<div class="dt-proj-detail">';
+  h += '<div class="dt-feed-header">Projects</div>';
+
+  projects.forEach((proj, i) => {
+    const res = resolved[i];
+    const pen = pending[i] || {};
+    const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
+    const isResolved = !!res?.roll;
+
+    h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : ' dt-proj-unresolved'}">`;
+    h += `<div class="dt-proj-header">`;
+    h += `<span class="dt-proj-type">${esc(proj.action_type)}</span>`;
+    h += isResolved
+      ? ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`
+      : ` <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>`;
+    h += '</div>';
+
+    if (proj.desired_outcome) h += `<div class="dt-proj-outcome"><em>Desired:</em> ${esc(proj.desired_outcome)}</div>`;
+    if (proj.description) h += `<div class="dt-proj-desc">${esc(proj.description)}</div>`;
+
+    // Pool builder
+    if (char) {
+      h += poolBuilderUI(s._id, 'proj-idx', i, char, pen, pool);
+      h += `<button class="dt-btn dt-proj-roll-btn" data-sub-id="${esc(s._id)}" data-proj-idx="${i}"
+        ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
+    }
+
+    if (isResolved) h += renderResolveBadge(res.roll);
+
+    // ST note
+    const note = res?.st_note || pen.st_note || '';
+    h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project...">${esc(note)}</textarea>`;
+
+    h += '</div>';
+  });
+
+  h += '</div>';
+  return h;
+}
+
+async function handleProjectRollSave(subId, projIdx, pool, rollResult) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+
+  const pending = (sub._proj_pending || [])[projIdx] || {};
+  const resolved = [...(sub.projects_resolved || [])];
+  while (resolved.length <= projIdx) resolved.push(null);
+  resolved[projIdx] = {
+    action_type: ((sub._raw || {}).projects || [])[projIdx]?.action_type || '',
+    pool: { ...pool },
+    roll: rollResult,
+    st_note: pending.st_note || '',
+    resolved_at: new Date().toISOString(),
+  };
+
+  try {
+    await updateSubmission(subId, { projects_resolved: resolved });
+    sub.projects_resolved = resolved;
+    renderSubmissions();
+  } catch (err) {
+    console.error('Failed to save project roll:', err.message);
+  }
+}
+
+// ── Merit Actions Panel (Story 1.3) ─────────────────────────────────────────
+
+const PASSIVE_MERIT_ACTIONS = ['no action taken', 'passive', 'none'];
+const MERIT_NO_ROLL = ['allies within favour', 'allies_favour'];
+const INVESTIGATE_WARNING_TYPES = ['investigate', 'investigation', 'gather info', 'gather information'];
+
+function renderMeritActionsPanel(s, raw, char) {
+  const spheres = raw.sphere_actions || [];
+  const contacts = raw.contact_actions || {};
+  const retainers = raw.retainer_actions || {};
+
+  const allMeritActions = [
+    ...spheres,
+    ...(contacts.requests || []).map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r })),
+    ...(retainers.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r })),
+  ];
+
+  if (!allMeritActions.length) return '';
+
+  const resolved = s.merit_actions_resolved || [];
+  const pending = s._merit_pending || [];
+
+  let h = '<div class="dt-merit-detail">';
+  h += '<div class="dt-feed-header">Merit Actions</div>';
+
+  allMeritActions.forEach((action, i) => {
+    const res = resolved[i];
+    const pen = pending[i] || {};
+    const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
+    const isResolved = !!res?.roll || res?.no_roll;
+    const actionLower = (action.action_type || '').toLowerCase();
+    const isPassive = PASSIVE_MERIT_ACTIONS.some(p => actionLower.includes(p));
+    const isInvestigate = INVESTIGATE_WARNING_TYPES.some(p => actionLower.includes(p));
+
+    h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : (isPassive ? '' : ' dt-proj-unresolved')}">`;
+    h += `<div class="dt-proj-header">`;
+    h += `<span class="dt-proj-type">${esc(action.merit_type)}</span>`;
+    h += ` <span class="dt-merit-action-type">${esc(action.action_type)}</span>`;
+    if (isResolved) {
+      h += res.no_roll
+        ? ' <span class="dt-proj-done-badge">\u2713 No roll needed</span>'
+        : ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`;
+    } else if (isPassive) {
+      h += ' <span class="dt-merit-passive">Passive — no action</span>';
+    } else {
+      h += ' <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>';
+    }
+    h += '</div>';
+
+    if (action.description) h += `<div class="dt-proj-desc">${esc(action.description)}</div>`;
+    if (action.desired_outcome) h += `<div class="dt-proj-outcome"><em>Desired:</em> ${esc(action.desired_outcome)}</div>`;
+
+    if (isInvestigate) {
+      h += `<div class="dt-merit-warn">\u26A0 Contacts/Allies cannot surface Kindred identities or investigation-threshold intel.</div>`;
+    }
+
+    if (!isPassive && char) {
+      h += poolBuilderUI(s._id, 'merit-idx', i, char, pen, pool, 'dt-merit-sel', 'dt-merit-mod');
+      h += `<button class="dt-btn dt-merit-roll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
+        ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
+      if (!isResolved) {
+        h += `<button class="dt-btn dt-merit-noroll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
+          style="margin-left:8px;opacity:.7">No roll needed</button>`;
+      }
+    }
+
+    if (isResolved && res.roll) h += renderResolveBadge(res.roll);
+
+    const note = res?.st_note || pen.st_note || '';
+    h += `<textarea class="dt-merit-note" data-sub-id="${esc(s._id)}" data-merit-idx="${i}" placeholder="ST note for this action...">${esc(note)}</textarea>`;
+
+    h += '</div>';
+  });
+
+  h += '</div>';
+  return h;
+}
+
+async function handleMeritRollSave(subId, meritIdx, pool, rollResult) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+
+  const pending = (sub._merit_pending || [])[meritIdx] || {};
+  const allActions = [
+    ...((sub._raw || {}).sphere_actions || []),
+    ...((sub._raw?.contact_actions?.requests || []).map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r }))),
+    ...((sub._raw?.retainer_actions?.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r }))),
+  ];
+  const resolved = [...(sub.merit_actions_resolved || [])];
+  while (resolved.length <= meritIdx) resolved.push(null);
+  resolved[meritIdx] = {
+    merit_type: allActions[meritIdx]?.merit_type || '',
+    action_type: allActions[meritIdx]?.action_type || '',
+    pool: { ...pool },
+    roll: rollResult,
+    st_note: pending.st_note || '',
+    resolved_at: new Date().toISOString(),
+  };
+
+  try {
+    await updateSubmission(subId, { merit_actions_resolved: resolved });
+    sub.merit_actions_resolved = resolved;
+    renderSubmissions();
+  } catch (err) {
+    console.error('Failed to save merit action roll:', err.message);
+  }
 }

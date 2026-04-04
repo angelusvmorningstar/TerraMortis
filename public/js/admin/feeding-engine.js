@@ -5,6 +5,7 @@
 
 import { esc, displayName } from '../data/helpers.js';
 import { getAttrVal, skDots, calcVitaeMax } from '../data/accessors.js';
+import { SKILLS_MENTAL } from '../data/constants.js';
 
 // ── Dice math (10-again, no state coupling) ──
 
@@ -94,9 +95,12 @@ function buildPool() {
   const terr = FEED_TERRS.find(t => t.id === feedTerrId) || FEED_TERRS[0];
   const ambMod = terr.ambienceMod || 0;
   const discVal = (feedDiscName && feedChar.disciplines?.[feedDiscName]) || 0;
-  const total = Math.max(0, bestAttrVal + bestSkillVal + discVal + ambMod);
+  const unskilled = bestSkillVal === 0
+    ? (m.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
+    : 0;
+  const total = Math.max(0, bestAttrVal + bestSkillVal + discVal + ambMod + unskilled);
 
-  return { bestAttrName, bestAttrVal, bestSkillName, bestSkillVal, bestSkillSpec, discVal, discName: feedDiscName, ambMod, ambience: terr.ambience || '', total };
+  return { bestAttrName, bestAttrVal, bestSkillName, bestSkillVal, bestSkillSpec, discVal, discName: feedDiscName, ambMod, ambience: terr.ambience || '', unskilled, total };
 }
 
 // ── Render ──
@@ -172,6 +176,7 @@ function render() {
       if (pool.bestSkillSpec) h += ` <span class="feed-dim">[${esc(pool.bestSkillSpec)}]</span>`;
       if (pool.discVal) h += `<br>+ <span>${pool.discVal}</span> ${esc(pool.discName)}`;
       if (pool.ambMod !== 0) h += `<br>${pool.ambMod > 0 ? '+ ' : '\u2212 '}<span>${Math.abs(pool.ambMod)}</span> Ambience (${esc(pool.ambience)})`;
+      if (pool.unskilled) h += `<br>\u2212 <span>${Math.abs(pool.unskilled)}</span> <span class="feed-dim">(unskilled)</span>`;
       h += '</div>';
       h += '<div class="feed-pool-total">';
       h += `<div class="feed-pool-n">${pool.total}</div>`;

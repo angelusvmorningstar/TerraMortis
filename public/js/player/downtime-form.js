@@ -499,6 +499,12 @@ function renderForm(container) {
   h += `<h3 class="qf-title">Downtime Submission</h3>`;
   if (currentCycle) {
     h += `<p class="qf-section-intro">${esc(currentCycle.label || currentCycle.title || 'Current Cycle')}</p>`;
+    if (currentCycle.deadline_at) {
+      const dl = new Date(currentCycle.deadline_at);
+      const past = dl < new Date();
+      const dlStr = dl.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      h += `<p class="qf-deadline${past ? ' qf-deadline-closed' : ''}">${past ? 'Submissions closed' : 'Open until ' + dlStr}</p>`;
+    }
   }
   h += '<div class="qf-meta">';
   if (isSubmitted) {
