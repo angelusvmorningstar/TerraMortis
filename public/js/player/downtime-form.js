@@ -311,14 +311,19 @@ function collectResponses() {
 }
 
 async function saveDraft() {
-  const responses = collectResponses();
   const statusEl = document.getElementById('dt-save-status');
+  if (!currentCycle) {
+    if (statusEl) statusEl.textContent = 'No active cycle — contact your ST';
+    return;
+  }
+  const responses = collectResponses();
 
   try {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
-        cycle_id: currentCycle?._id || null,
+        character_name: currentChar.name,
+        cycle_id: currentCycle._id,
         status: 'draft',
         responses,
       });
@@ -350,6 +355,7 @@ async function submitForm() {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
+        character_name: currentChar.name,
         cycle_id: currentCycle?._id || null,
         status: 'submitted',
         responses,
