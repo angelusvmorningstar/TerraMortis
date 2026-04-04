@@ -81,7 +81,7 @@ const ACTION_SHORT = {
 const ACTION_FIELDS = {
   '': [],
   'feed': ['summary'],
-  'xp_spend': ['title', 'xp', 'description'],
+  'xp_spend': ['xp_note'],
   'ambience_increase': ['title', 'territory', 'pools', 'cast'],
   'ambience_decrease': ['title', 'territory', 'pools', 'cast'],
   'attack': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
@@ -1478,6 +1478,15 @@ function renderProjectSlots(saved) {
     }
 
     // ── Title ──
+    // ── XP Spend note ──
+    if (fields.includes('xp_note')) {
+      h += '<div class="dt-proj-feed-summary">';
+      h += '<p>This action dedicates a Project slot to XP spending.</p>';
+      h += '<p>Each XP Spend action allows purchasing <strong>1 dot</strong> of an Attribute, Skill, Discipline, Devotion, or Rite in the <strong>Admin</strong> section below.</p>';
+      h += '<p class="qf-desc" style="margin:6px 0 0;">Merits at 1\u20133 dots can be purchased freely without dedicating an action.</p>';
+      h += '</div>';
+    }
+
     if (fields.includes('title')) {
       h += renderQuestion({
         key: `project_${n}_title`, label: 'Project Title',
@@ -1805,20 +1814,36 @@ function getItemsForCategory(category) {
   }
 }
 
-function renderXpRow(idx, row) {
+function renderXpRow(idx, row, xpActions, dotsRemaining) {
   let h = `<div class="dt-xp-row" data-xp-row="${idx}">`;
+
+  // Filter categories based on action budget
+  const filteredCats = XP_CATEGORIES.filter(opt => {
+    if (!opt.value) return true; // "Select" placeholder always shown
+    if (opt.value === 'merit') return true; // merits 1-3 always available
+    return xpActions > 0; // all others need at least 1 XP action
+  });
 
   // Category dropdown
   h += `<select class="qf-select dt-xp-cat" data-xp-cat="${idx}">`;
-  for (const opt of XP_CATEGORIES) {
+  for (const opt of filteredCats) {
     const sel = row.category === opt.value ? ' selected' : '';
     h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
   }
   h += '</select>';
 
-  // Item dropdown (populated based on category)
+  // Item dropdown (populated based on category, filtered by action budget)
   if (row.category) {
-    const items = getItemsForCategory(row.category);
+    let items = getItemsForCategory(row.category);
+    // If no XP actions and category is merit, filter to merits <= 3 dots only
+    if (row.category === 'merit' && xpActions === 0) {
+      items = items.filter(item => {
+        const parts = item.value.split('|');
+        if (parts[1] === 'flat') return parseInt(parts[2], 10) <= 3;
+        if (parts[1] === 'grad') return parseInt(parts[2], 10) < 3; // currentDots < 3
+        return true;
+      });
+    }
     h += `<select class="qf-select dt-xp-item" data-xp-item="${idx}">`;
     h += '<option value="">— Select —</option>';
     for (const item of items) {
@@ -2837,7 +2862,7 @@ function renderQuestion(q, value) {
       }
 
       // Blood type selection (always shown)
-      const BLOOD_TYPES = ['Cold', 'Animal', 'Human', 'Kindred'];
+      const BLOOD_TYPES = ['Animal', 'Human', 'Kindred'];
       let savedBlood = [];
       try { savedBlood = JSON.parse(responseDoc?.responses?.['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
       h += '<div class="qf-field">';
@@ -2887,6 +2912,26 @@ function renderQuestion(q, value) {
         xpRows.push({ category: '', item: '', cost: 0 });
       }
 
+      // Count XP Spend project actions → dot budget for non-merit purchases
+      const saved = responseDoc?.responses || {};
+      let xpActions = 0;
+      for (let n = 1; n <= 4; n++) {
+        if (saved[`project_${n}_action`] === 'xp_spend') xpActions++;
+      }
+
+      // Count dots already allocated to non-merit categories
+      let dotsUsed = 0;
+      for (const r of xpRows) {
+        if (!r.category || !r.item) continue;
+        if (r.category === 'merit') continue; // merits 1-3 are free
+        if (r.category === 'devotion') {
+          dotsUsed++; // devotions count as 1 action each
+        } else {
+          dotsUsed += (r.dotsBuying || 1);
+        }
+      }
+      const dotsRemaining = xpActions - dotsUsed;
+
       const budget = xpLeft(currentChar);
       const totalSpent = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
       const remaining = budget - totalSpent;
@@ -2897,8 +2942,18 @@ function renderQuestion(q, value) {
       h += ` / ${budget} XP remaining`;
       h += '</div>';
 
+      // Action budget indicator
+      h += '<div class="dt-xp-action-budget">';
+      if (xpActions > 0) {
+        h += `<span class="dt-xp-action-count">${xpActions} XP Spend action${xpActions > 1 ? 's' : ''}</span>`;
+        h += ` \u2014 <span class="${dotsRemaining < 0 ? 'dt-influence-over' : ''}">${dotsRemaining} dot${dotsRemaining !== 1 ? 's' : ''} remaining</span>`;
+      } else {
+        h += '<span class="dt-xp-action-none">No XP Spend actions allocated \u2014 only Merits (1\u20133 dots) available</span>';
+      }
+      h += '</div>';
+
       for (let i = 0; i < xpRows.length; i++) {
-        h += renderXpRow(i, xpRows[i]);
+        h += renderXpRow(i, xpRows[i], xpActions, dotsRemaining);
       }
       h += '</div>';
       break;
