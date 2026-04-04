@@ -774,9 +774,12 @@ function renderForm(container) {
   // Update section completion ticks on initial render
   updateSectionTicks(container);
 
-  // Apply rote feeding to project 1 if active (after re-render)
+  // Ensure rote feeding data is set in saved responses (no re-render)
   if (feedRoteAction && feedMethodId) {
-    applyRoteToProject1(container);
+    const s = responseDoc?.responses;
+    if (s && s['project_1_action'] !== 'feed') {
+      s['project_1_action'] = 'feed';
+    }
   }
 
   // Wire events — skip if already wired (prevent listener stacking on re-render)
@@ -817,8 +820,6 @@ function renderForm(container) {
     if (e.target.id === 'dt-feed-rote') {
       feedRoteAction = e.target.checked;
       applyRoteToProject1(container);
-      scheduleSave();
-      updateSectionTicks(container);
       return;
     }
     const gateInput = e.target.closest('[data-gate]');
@@ -1042,24 +1043,21 @@ function renderForm(container) {
 // ── Rote feeding → Project 1 ──
 
 function applyRoteToProject1(container) {
+  const responses = collectResponses();
   if (feedRoteAction && feedMethodId) {
-    // Save rote into responses so renderProjectSlots picks it up
-    const responses = collectResponses();
     responses['project_1_action'] = 'feed';
-    if (responseDoc) responseDoc.responses = responses;
-    else responseDoc = { responses };
     activeProjectTab = 1;
-    renderForm(container);
+  } else if (responses['project_1_action'] === 'feed') {
+    responses['project_1_action'] = '';
+    responses['project_1_outcome'] = '';
+    responses['project_1_description'] = '';
   } else {
-    // Rote unchecked — clear project 1 if it was set to "feed"
-    const saved = responseDoc?.responses || {};
-    if (saved['project_1_action'] === 'feed') {
-      saved['project_1_action'] = '';
-      saved['project_1_outcome'] = '';
-      saved['project_1_description'] = '';
-      renderForm(container);
-    }
+    return; // nothing to change
   }
+  if (responseDoc) responseDoc.responses = responses;
+  else responseDoc = { responses };
+  renderForm(container);
+  scheduleSave();
 }
 
 // ── Project slots (tabbed UI) ──

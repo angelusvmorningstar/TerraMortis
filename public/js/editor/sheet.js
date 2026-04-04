@@ -271,7 +271,7 @@ export function shRenderDisciplines(c,editMode) {
     const cn=(c.covenant||'').toLowerCase(),showCr=cn.includes('crone')||(c.disciplines||{}).Cruac>0,showTh=cn.includes('lancea')||(c.disciplines||{}).Theban>0;
     if(showCr||showTh){h+='<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';if(showCr)h+=renderDiscEditRow('Cruac',(c.disciplines||{}).Cruac||0,false,'color:rgba(220,160,120,.9)');if(showTh)h+=renderDiscEditRow('Theban',(c.disciplines||{}).Theban||0,false,'color:rgba(220,160,120,.9)');h+='</div></div>';}
   } else if(c.disciplines&&Object.keys(c.disciplines).length){
-    const de=Object.entries(c.disciplines),core=de.filter(([d])=>CORE_DISCS.includes(d)),rit=de.filter(([d])=>RITUAL_DISCS.includes(d));
+    const de=Object.entries(c.disciplines).filter(([,r])=>r>0).sort(([a],[b])=>a.localeCompare(b)),core=de.filter(([d])=>CORE_DISCS.includes(d)),rit=de.filter(([d])=>RITUAL_DISCS.includes(d));
     if(core.length){h+='<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-list">';core.forEach(([d,r])=>{h+=renderDiscRow(d,r,null);});h+='</div></div>';}
     if(rit.length){h+='<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';rit.forEach(([d,r])=>{h+=renderDiscRow(d,r,'color:rgba(220,160,120,.9)');});h+='</div></div>';}
   }
@@ -477,7 +477,7 @@ export function shRenderInfluenceMerits(c,editMode) {
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddInflMerit(\'Allies\')">+ Add Allies / Other</button></div>';
     h+='<div class="infl-total">Total Influence: <span class="inf-n">'+totalInfl+'</span></div>';
   } else {
-    inflM.filter(m=>m.name!=='Contacts').forEach((m,idx)=>{const area=(m.area||'').trim()||null,gt=m.name==='Retainer'&&m.ghoul?' (ghoul)':'',tags=m._grant_sources||[],gb=tags.length?(' <span class="gen-granted-tag-view">'+tags.join(', ')+'</span>'):'';
+    inflM.filter(m=>m.name!=='Contacts').slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach((m,idx)=>{const area=(m.area||'').trim()||null,gt=m.name==='Retainer'&&m.ghoul?' (ghoul)':'',tags=m._grant_sources||[],gb=tags.length?(' <span class="gen-granted-tag-view">'+tags.join(', ')+'</span>'):'';
       const iRIdx=c.merits.indexOf(m),iMc=(c.merit_creation&&c.merit_creation[iRIdx])||{};
       const iPurch=(iMc.cp||0)+(iMc.xp||0),iBon=(iMc.free||0)+(iMc.free_mci||0)+(iMc.free_vm||0);
       h+=shRenderMeritRow((area?m.name+' ('+area+gt+')':m.name+gt)+(m.rating?' '+shDots(m.rating):'')+gb,'infl',idx,shDotsMixed(iPurch,iBon));});
@@ -524,7 +524,7 @@ export function shRenderDomainMerits(c,editMode) {
       h+='</div>';});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
-    domM.forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},_dRaw=(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.free_lk||0)+(dMc.free_inv||0)+(dMc.xp||0),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0,flockB=!dp&&m.name==='Herd'?flockHerdBonus(c):0,dPurch=(ssjB>0||flockB>0)?_dRaw:Math.min(5,_dRaw);
+    domM.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(m=>{const dp=m.shared_with&&m.shared_with.length?m.shared_with:null,de=domMeritTotal(c,m.name),dO=domMeritContrib(c,m.name),dRIdx=c.merits.indexOf(m),dMc=(c.merit_creation&&c.merit_creation[dRIdx])||{},_dRaw=(dMc.cp||0)+(dMc.free||0)+(dMc.free_mci||0)+(dMc.free_vm||0)+(dMc.free_lk||0)+(dMc.free_inv||0)+(dMc.xp||0),ssjB=!dp&&m.name==='Herd'?ssjHerdBonus(c):0,flockB=!dp&&m.name==='Herd'?flockHerdBonus(c):0,dPurch=(ssjB>0||flockB>0)?_dRaw:Math.min(5,_dRaw);
       const dotHtml=(ssjB>0||flockB>0)?shDotsMixed(dPurch,Math.max(0,de-dPurch)):'<span class="merit-dots-sh">'+shDots(de)+'</span>';
       h+='<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">'+esc(m.name)+'</div>'+(dp?'<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 '+dp.map(n=>{const p=chars.find(ch=>ch.name===n),pd=p?domMeritShareable(p,m.name):0;return esc(n)+(pd?' '+shDots(pd):'');}).join(', ')+'</div>':'')+'</div><div style="text-align:right">'+(dp?'<div class="dom-total-view">'+shDots(de)+'</div><div class="dom-own-view">mine: '+shDots(dO)+'</div>':dotHtml)+'</div></div>';});
   }
@@ -536,7 +536,8 @@ export function shRenderStandingMerits(c,editMode) {
   if(!editMode&&!standM.length) return '';
   let h='<div class="sh-sec"><div class="sh-sec-subtitle">Standing Merits</div><div class="merit-list">';
   const _standMciPool=(c.merits||[]).filter(m=>m.name==='Mystery Cult Initiation'&&m.active!==false).reduce((s,m)=>s+mciPoolTotal(m),0);
-  standM.forEach((m,si)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0);
+  const _standSorted=editMode?standM:standM.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  _standSorted.forEach((m,si)=>{const rIdx=c.merits.indexOf(m),mc=(c.merit_creation&&c.merit_creation[rIdx])||{cp:0,free:0,free_mci:0,free_vm:0,xp:0},dd=(mc.cp||0)+(mc.free||0)+(mc.free_mci||0)+(mc.free_vm||0)+(mc.xp||0);
     if(m.name==='Mystery Cult Initiation') h+=_renderMCI(c,m,si,rIdx,mc,dd,editMode);
     else if(m.name==='Professional Training') h+=_renderPT(c,m,si,rIdx,mc,dd,editMode,_standMciPool);
     else if(editMode){h+='<div class="infl-edit-row"><input type="text" class="gen-name-input" value="'+esc(m.name)+'" placeholder="Merit name" onchange="shEditStandMerit('+si+',\'name\',this.value)"><span class="infl-dots-derived">'+shDots(dd)+'</span></div>';h+=meritBdRow(rIdx,mc,meritFixedRating(m.name),{showMCI:_standMciPool>0});h+=_prereqWarn(c,m.name);}
@@ -696,7 +697,7 @@ export function shRenderGeneralMerits(c,editMode) {
         h+=_prereqWarn(c,m.name,m);}});
     h+='<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddGenMerit()">+ Add Merit</button></div>';
   } else {
-    oM.forEach((m,i)=>{const qual=m.qualifier?' ('+m.qualifier+')':'';
+    oM.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach((m,i)=>{const qual=m.qualifier?' ('+m.qualifier+')':'';
       const pw=_prereqWarn(c,m.name,m);
       const rIdx=c.merits.indexOf(m),mc2=(c.merit_creation&&c.merit_creation[rIdx])||{};
       const purch=(mc2.cp||0)+(mc2.xp||0),bon=(mc2.free||0)+(mc2.free_mci||0)+(mc2.free_vm||0);
