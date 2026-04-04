@@ -381,15 +381,18 @@ function collectResponses() {
     responses[`contact_${n}`] = combined;
   }
 
-  // Retainer fields
-  let retainerIdx = 0;
-  for (const m of detectedMerits.retainers) {
-    const key = meritKey(m);
-    if (gateValues[`merit_${key}`] !== 'yes') continue;
-    retainerIdx++;
-    const el = document.getElementById(`dt-retainer_${retainerIdx}`);
-    if (el) responses[`retainer_${retainerIdx}`] = el.value;
-    responses[`retainer_${retainerIdx}_merit`] = meritLabel(m);
+  // Retainer fields (expandable table)
+  const maxRetainers = detectedMerits.retainers.length;
+  for (let n = 1; n <= maxRetainers; n++) {
+    const typeEl = document.getElementById(`dt-retainer_${n}_type`);
+    const taskEl = document.getElementById(`dt-retainer_${n}_task`);
+    const meritEl = document.getElementById(`dt-retainer_${n}_merit`);
+    responses[`retainer_${n}_type`] = typeEl ? typeEl.value : '';
+    responses[`retainer_${n}_task`] = taskEl ? taskEl.value : '';
+    responses[`retainer_${n}_merit`] = meritEl ? meritEl.value : '';
+    // Backwards compat: combined value in old key
+    const combined = [responses[`retainer_${n}_type`], responses[`retainer_${n}_task`]].filter(Boolean).join('\n');
+    responses[`retainer_${n}`] = combined;
   }
 
   return responses;
@@ -824,7 +827,29 @@ function renderForm(container) {
       const reqEl = document.getElementById(`dt-contact_${n}_request`);
       if (infoEl) infoEl.value = '';
       if (reqEl) reqEl.value = '';
-      // Update saved data and re-render
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+    // Retainer row toggle
+    const retainerToggle = e.target.closest('[data-retainer-toggle]');
+    if (retainerToggle && !e.target.closest('[data-retainer-clear]')) {
+      const n = retainerToggle.dataset.retainerToggle;
+      const panel = container.querySelector(`[data-retainer-panel="${n}"]`);
+      if (panel) panel.classList.toggle('dt-contact-panel-hidden');
+      return;
+    }
+    // Retainer clear button
+    const retainerClear = e.target.closest('[data-retainer-clear]');
+    if (retainerClear) {
+      const n = retainerClear.dataset.retainerClear;
+      const typeEl = document.getElementById(`dt-retainer_${n}_type`);
+      const taskEl = document.getElementById(`dt-retainer_${n}_task`);
+      if (typeEl) typeEl.value = '';
+      if (taskEl) taskEl.value = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2114,28 +2139,52 @@ function renderMeritToggles(saved) {
     h += '</div></div>';
   }
 
-  // ── Retainers ──
+  // ── Retainers (expandable table) ──
   if (hasRetainers) {
+    const maxRetainers = detectedMerits.retainers.length;
     h += '<div class="qf-section collapsed" data-section-key="retainers">';
     h += '<h4 class="qf-section-title">Retainers: Task Delegation<span class="qf-section-tick">✔</span></h4>';
     h += '<div class="qf-section-body">';
-    h += '<p class="qf-section-intro">Your character has the following Retainer merits. Select which you wish to task this Downtime.</p>';
+    h += '<p class="qf-section-intro">Click a retainer to expand and assign a task for this Downtime.</p>';
 
-    let retainerIdx = 0;
-    for (const m of detectedMerits.retainers) {
-      const key = meritKey(m);
-      const active = gateValues[`merit_${key}`] === 'yes';
+    h += '<div class="dt-contacts-table">';
+    for (let n = 1; n <= maxRetainers; n++) {
+      const m = detectedMerits.retainers[n - 1];
+      const area = m.area || m.qualifier || 'Retainer';
+      const dots = '\u25CF'.repeat(m.rating || 1);
+      const ghoulTag = m.ghoul ? ' (Ghoul)' : '';
+      const savedType = saved[`retainer_${n}_type`] || '';
+      const savedTask = saved[`retainer_${n}_task`] || '';
+      const isUsed = savedType || savedTask;
+      const expanded = isUsed;
 
-      let formHtml = '';
-      if (active) {
-        retainerIdx++;
-        formHtml += renderQuestion({
-          key: `retainer_${retainerIdx}`, label: 'Task Description',
-          type: 'textarea', required: false, desc: 'Area of Expertise:\nSupporting Info:\nRequest:',
-        }, saved[`retainer_${retainerIdx}`] || '');
+      h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-retainer-row="${n}">`;
+      // Header
+      h += `<div class="dt-contact-header" data-retainer-toggle="${n}">`;
+      h += `<span class="dt-contact-area">${esc(area)}${esc(ghoulTag)}</span>`;
+      h += `<span class="dt-contact-dots">${dots}</span>`;
+      h += `<span class="dt-contact-status">${isUsed ? 'Tasked' : 'Idle'}</span>`;
+      if (isUsed) {
+        h += `<button type="button" class="dt-contact-clear" data-retainer-clear="${n}" title="Clear and close">\u2715</button>`;
       }
-      h += renderMeritToggle(m, saved, formHtml);
+      h += '</div>';
+
+      // Expandable panel
+      h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-retainer-panel="${n}">`;
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-retainer_${n}_type">Task Type</label>`;
+      h += `<input type="text" id="dt-retainer_${n}_type" class="qf-input" value="${esc(savedType)}" placeholder="e.g. Guard, Investigate, Deliver, Procure">`;
+      h += '</div>';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-retainer_${n}_task">Task Description</label>`;
+      h += `<textarea id="dt-retainer_${n}_task" class="qf-textarea" rows="3" placeholder="What do you want them to do?">${esc(savedTask)}</textarea>`;
+      h += '</div>';
+      h += `<input type="hidden" id="dt-retainer_${n}_merit" value="${esc(meritLabel(m))}">`;
+      h += '</div>'; // panel
+      h += '</div>'; // row
     }
+    h += '</div>';
+
     h += '</div></div>';
   }
 
@@ -2157,6 +2206,19 @@ function updateSectionTicks(container) {
     if (key === 'projects') {
       const p1Action = document.getElementById('dt-project_1_action');
       tick.classList.toggle('visible', !!(p1Action && p1Action.value));
+      return;
+    }
+
+    // Retainers: tick when any retainer has content
+    if (key === 'retainers') {
+      const maxR = detectedMerits.retainers.length;
+      let anyUsed = false;
+      for (let n = 1; n <= maxR; n++) {
+        const t = document.getElementById(`dt-retainer_${n}_type`);
+        const d = document.getElementById(`dt-retainer_${n}_task`);
+        if ((t && t.value.trim()) || (d && d.value.trim())) { anyUsed = true; break; }
+      }
+      tick.classList.toggle('visible', anyUsed);
       return;
     }
 
