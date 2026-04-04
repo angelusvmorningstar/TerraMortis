@@ -9,6 +9,7 @@ import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSub
 import { TERRITORY_DATA, AMBIENCE_CAP } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
+import { displayName } from '../data/helpers.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
 
@@ -56,6 +57,7 @@ function buildShell() {
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
       <span id="dt-cycle-status" class="dt-cycle-status"></span>
     </div>
+    <div id="dt-regency-bar"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
     <div id="dt-matrix"></div>
@@ -124,6 +126,56 @@ function buildFeedingPool(char, methodId, ambienceMod) {
 
 // ── Cycle loading ───────────────────────────────────────────────────────────
 
+function renderRegencyBar(cycle, isActive) {
+  const el = document.getElementById('dt-regency-bar');
+  if (!el) return;
+
+  const currentId = cycle.regency_character_id ? String(cycle.regency_character_id) : '';
+  const currentName = cycle.regency_character_name || '';
+
+  if (!isActive) {
+    // Closed cycle — read-only display
+    el.innerHTML = currentName
+      ? `<div class="dt-regency-bar"><span class="dt-regency-label">Regent</span><span class="dt-regency-confirmed">\u2713 ${esc(currentName)}</span></div>`
+      : `<div class="dt-regency-bar"><span class="dt-regency-label">Regent</span><span class="dt-regency-none">Not recorded</span></div>`;
+    return;
+  }
+
+  // Active cycle — editable dropdown
+  const activeChars = characters.filter(c => !c.retired);
+  let opts = '<option value="">— None —</option>';
+  for (const c of activeChars) {
+    const id = String(c._id);
+    const name = esc(displayName(c));
+    opts += `<option value="${id}"${id === currentId ? ' selected' : ''}>${name}</option>`;
+  }
+
+  el.innerHTML = `<div class="dt-regency-bar">` +
+    `<span class="dt-regency-label">Regent</span>` +
+    `<select id="dt-regent-sel" class="dt-regent-sel">${opts}</select>` +
+    `<button class="dt-btn dt-btn-sm" id="dt-regent-save">Save</button>` +
+    (currentName ? `<span class="dt-regency-confirmed">\u2713 ${esc(currentName)}</span>` : '') +
+    `</div>`;
+
+  document.getElementById('dt-regent-save').addEventListener('click', async () => {
+    const sel = document.getElementById('dt-regent-sel');
+    const chosenId = sel.value;
+    const chosenChar = characters.find(c => String(c._id) === chosenId) || null;
+    const chosenName = chosenChar ? displayName(chosenChar) : '';
+    await updateCycle(cycle._id, {
+      regency_character_id: chosenId || null,
+      regency_character_name: chosenName || null,
+    });
+    // Update local cache and re-render bar
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) {
+      allCycles[idx].regency_character_id = chosenId || null;
+      allCycles[idx].regency_character_name = chosenName || null;
+    }
+    renderRegencyBar({ ...cycle, regency_character_id: chosenId, regency_character_name: chosenName }, true);
+  });
+}
+
 async function loadAllCycles() {
   allCycles = await getCycles();
   allCycles.sort((a, b) => (b.loaded_at || '').localeCompare(a.loaded_at || ''));
@@ -185,6 +237,9 @@ async function loadCycleById(cycleId) {
   }
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
+
+  // ── Regency bar (GC-1) ──
+  renderRegencyBar(cycle, isActive);
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
