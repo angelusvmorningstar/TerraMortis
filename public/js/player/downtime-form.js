@@ -10,7 +10,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, parseOutcomeSections } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
@@ -30,6 +30,7 @@ let currentChar = null;
 let currentCycle = null;
 let gateValues = {};
 let saveTimer = null;
+let priorPublishedLabel = null; // label of most recent published cycle other than current
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [] };
@@ -391,26 +392,15 @@ async function saveResidency(responses) {
  * outcome_text is a markdown-style string with ## section headers.
  */
 function renderDowntimeResults(outcomeText, sub) {
-  const sections = [];
-  let current = null;
-
-  for (const line of outcomeText.split('\n')) {
-    if (line.startsWith('## ')) {
-      if (current) sections.push(current);
-      current = { heading: line.slice(3).trim(), lines: [] };
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  if (current) sections.push(current);
+  const sections = parseOutcomeSections(outcomeText);
 
   let h = '<div class="qf-results">';
   h += '<h3 class="qf-results-title">Downtime Results</h3>';
 
-  if (sections.length === 0) {
-    h += `<div class="qf-results-body"><p>${esc(outcomeText)}</p></div>`;
-  } else {
-    for (const sec of sections) {
+  for (const sec of sections) {
+    if (!sec.heading) {
+      h += `<div class="qf-results-body"><p>${esc(sec.lines.join('\n').trim())}</p></div>`;
+    } else {
       const isMech = sec.heading === 'Mechanical Outcomes';
       h += `<div class="qf-results-section${isMech ? ' qf-results-mech' : ''}">`;
       h += `<h4 class="qf-results-section-head">${esc(sec.heading)}</h4>`;
@@ -418,7 +408,6 @@ function renderDowntimeResults(outcomeText, sub) {
       if (isMech) {
         h += `<pre class="qf-results-pre">${esc(body)}</pre>`;
       } else {
-        // Convert blank lines to paragraph breaks
         const paras = body.split(/\n{2,}/).filter(Boolean);
         h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
       }
@@ -447,6 +436,7 @@ export async function renderDowntimeTab(targetEl, char) {
   } catch { /* no cycles */ }
 
   // Load existing submission for this character + cycle
+  priorPublishedLabel = null;
   if (currentCycle) {
     try {
       const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
@@ -454,6 +444,26 @@ export async function renderDowntimeTab(targetEl, char) {
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
     } catch { /* no submission */ }
+  }
+
+  // Check for published outcomes from previous cycles (for "results available" banner)
+  if (currentCycle?.status === 'active' && !responseDoc?.published_outcome) {
+    try {
+      const allSubs = await apiGet('/api/downtime_submissions');
+      const charId = String(currentChar._id);
+      const currentCycleId = String(currentCycle._id);
+      const priorPublished = allSubs
+        .filter(s => String(s.character_id) === charId && s.published_outcome && String(s.cycle_id) !== currentCycleId)
+        .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+      if (priorPublished.length) {
+        // Try to find cycle label
+        try {
+          const cycles = await apiGet('/api/downtime_cycles');
+          const priorCycle = cycles.find(c => String(c._id) === String(priorPublished[0].cycle_id));
+          priorPublishedLabel = priorCycle?.label || 'previous cycle';
+        } catch { priorPublishedLabel = 'previous cycle'; }
+      }
+    } catch { /* ignore */ }
   }
 
   // Auto-detect attendance from most recent game session
@@ -557,6 +567,11 @@ function renderForm(container) {
     h += renderDowntimeResults(published, responseDoc);
   } else if (pending) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">&#x23F3; Your submission has been received. Results are being prepared.</p></div>';
+  }
+
+  // Banner: prior cycle results published, visible in Story tab
+  if (!published && priorPublishedLabel) {
+    h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
   }
 
   // Header

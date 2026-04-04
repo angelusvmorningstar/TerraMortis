@@ -75,7 +75,11 @@ function buildShell() {
 async function loadCharacters() {
   try {
     characters = await apiGet('/api/characters');
-    charMap = new Map(characters.map(c => [(c.name || '').toLowerCase().trim(), c]));
+    charMap = new Map();
+    for (const c of characters) {
+      if (c.name) charMap.set(c.name.toLowerCase().trim(), c);
+      if (c.moniker) charMap.set(c.moniker.toLowerCase().trim(), c);
+    }
   } catch {
     characters = [];
     charMap = new Map();
@@ -84,7 +88,21 @@ async function loadCharacters() {
 
 export function findCharacter(submissionName) {
   if (!submissionName) return null;
-  return charMap.get(submissionName.toLowerCase().trim()) || null;
+  const key = submissionName.toLowerCase().trim();
+
+  // Exact match on name or moniker
+  const exact = charMap.get(key);
+  if (exact) return exact;
+
+  // Fallback: check if any character name/moniker appears as a word within the submission name
+  for (const c of characters) {
+    const cName = (c.name || '').toLowerCase().trim();
+    const cMoniker = (c.moniker || '').toLowerCase().trim();
+    if (cName && key.includes(cName)) return c;
+    if (cMoniker && key.includes(cMoniker)) return c;
+  }
+
+  return null;
 }
 
 const FEED_METHODS = [

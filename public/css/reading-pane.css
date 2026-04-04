@@ -130,6 +130,17 @@
   font-weight: 600;
 }
 
+/* ── Prior cycle results banner ── */
+.reading-pane .qf-results-banner {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: rgba(224,196,122,0.08);
+  border: 1px solid rgba(224,196,122,0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--gold2);
+}
+
 /* ── Story 1.10: Player results view ── */
 .reading-pane .qf-results {
   margin-bottom: 24px;
@@ -223,3 +234,4 @@
   filter: sepia(1) brightness(.3) saturate(2) !important;
   opacity: .8 !important;
 }
+
