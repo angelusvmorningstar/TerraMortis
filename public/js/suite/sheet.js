@@ -287,7 +287,7 @@ export function renderSheet() {
         <div class="disc-drawer" id="disc-drawer-${id}">${drawerHtml}</div>`;
     }
 
-    const discEntries = Object.entries(c.disciplines);
+    const discEntries = Object.entries(c.disciplines).filter(([, r]) => r > 0);
     const coreDiscs = discEntries.filter(([d]) => CORE_DISCS.includes(d));
     const ritualDiscs = discEntries.filter(([d]) => RITUAL_DISCS.includes(d));
     const themeDiscs = discEntries.filter(([d]) => SORCERY_THEMES.includes(d));
