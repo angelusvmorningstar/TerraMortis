@@ -1963,6 +1963,14 @@ function updateSectionTicks(container) {
       return;
     }
 
+    // Territory: tick when any feeding territory has a resident/poach selection
+    if (key === 'territory') {
+      const feedRadios = body.querySelectorAll('input[type="radio"]:checked');
+      const hasSelection = Array.from(feedRadios).some(r => r.value === 'resident' || r.value === 'poach');
+      tick.classList.toggle('visible', hasSelection);
+      return;
+    }
+
     // Gates section: complete when all gates have a selection
     if (key === 'gates') {
       const radios = body.querySelectorAll('[data-gate]');
