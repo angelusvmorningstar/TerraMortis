@@ -312,6 +312,9 @@ function collectResponses() {
     responses[`project_${n}_title`] = titleEl ? titleEl.value : '';
     responses[`project_${n}_territory`] = terrEl ? terrEl.value : '';
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
+    // Secondary feed method (rote feed action)
+    const feedMethod2El = document.getElementById(`dt-project_${n}_feed_method2`);
+    if (feedMethod2El) responses[`project_${n}_feed_method2`] = feedMethod2El.value;
 
     // Cast checkboxes
     const castHidden = document.querySelectorAll(`input[type="hidden"][data-proj-cast-cb="${n}"]`);
@@ -1283,7 +1286,7 @@ function renderProjectSlots(saved) {
     }
     h += '</select></div>';
 
-    // ── Feed summary ──
+    // ── Feed (rote) — primary summary + secondary hunt ──
     if (fields.includes('summary')) {
       const method = FEED_METHODS.find(m => m.id === feedMethodId);
       const methodName = method ? method.name : feedMethodId || 'Not selected';
@@ -1291,9 +1294,46 @@ function renderProjectSlots(saved) {
       if (feedDiscName) poolSummary += ` + ${feedDiscName}`;
       if (feedSpecName) poolSummary += ` (${feedSpecName})`;
       h += '<div class="dt-proj-feed-summary">';
-      h += '<p>This action dedicates a Project slot to feeding. Details are configured in the <strong>Feeding</strong> section above.</p>';
-      h += `<p class="dt-proj-feed-method">Method: <strong>${esc(poolSummary)}</strong></p>`;
+      h += `<p>Primary hunt from Feeding section receives <strong>Rote quality</strong>.</p>`;
+      h += `<p class="dt-proj-feed-method">Rote Pool: <strong>${esc(poolSummary)}</strong></p>`;
       h += '</div>';
+
+      // Secondary hunt — additional method, pool, territory, description
+      h += '<p class="qf-section-intro" style="margin-top:14px;">You may also conduct a second hunt with a different approach.</p>';
+
+      // Secondary method selector
+      const savedMethod2 = saved[`project_${n}_feed_method2`] || '';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-project_${n}_feed_method2">Secondary Hunt Method</label>`;
+      h += `<select id="dt-project_${n}_feed_method2" class="qf-select">`;
+      h += '<option value="">— Same as primary —</option>';
+      for (const fm of FEED_METHODS) {
+        const sel = savedMethod2 === fm.id ? ' selected' : '';
+        h += `<option value="${esc(fm.id)}"${sel}>${esc(fm.name)} \u2014 ${esc(fm.desc)}</option>`;
+      }
+      h += '</select></div>';
+
+      // Secondary dice pool
+      h += renderDicePool(n, 'pool', 'Secondary Hunt Dice Pool', attrs, skills, discs, saved);
+
+      // Territory for this hunt
+      const savedTerr = saved[`project_${n}_territory`] || '';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-project_${n}_territory">Hunting Territory</label>`;
+      h += `<select id="dt-project_${n}_territory" class="qf-select">`;
+      h += '<option value="">— No Territory —</option>';
+      for (const t of TERRITORY_DATA) {
+        const sel = savedTerr === t.id ? ' selected' : '';
+        h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
+      }
+      h += '</select></div>';
+
+      // Description
+      h += renderQuestion({
+        key: `project_${n}_description`, label: 'Description',
+        type: 'textarea', required: false,
+        desc: 'Describe the additional hunt \u2014 where, how, and any relevant context.',
+      }, saved[`project_${n}_description`] || '');
     }
 
     // ── Title ──

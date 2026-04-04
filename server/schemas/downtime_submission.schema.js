@@ -139,29 +139,33 @@ export const downtimeSubmissionSchema = {
         project_4_pool2_disc:  { type: 'string' },
 
         // Proposed new project fields (decomposing description)
-        project_1_title:     { type: 'string' },
-        project_1_cast:      { type: 'string' },  // JSON array of character IDs
-        project_1_xp:        { type: 'string' },  // XP expenditure note
-        project_1_merits:    { type: 'string' },  // JSON array of merit names
-        project_1_territory: { type: 'string', enum: territoryEnum },
+        project_1_title:        { type: 'string' },
+        project_1_cast:         { type: 'string' },  // JSON array of character IDs
+        project_1_xp:           { type: 'string' },  // XP expenditure note
+        project_1_merits:       { type: 'string' },  // JSON array of merit names
+        project_1_territory:    { type: 'string', enum: territoryEnum },
+        project_1_feed_method2: { type: 'string', enum: feedMethodEnum },  // Secondary hunt method (rote feed)
 
-        project_2_title:     { type: 'string' },
-        project_2_cast:      { type: 'string' },
-        project_2_xp:        { type: 'string' },
-        project_2_merits:    { type: 'string' },
-        project_2_territory: { type: 'string', enum: territoryEnum },
+        project_2_title:        { type: 'string' },
+        project_2_cast:         { type: 'string' },
+        project_2_xp:           { type: 'string' },
+        project_2_merits:       { type: 'string' },
+        project_2_territory:    { type: 'string', enum: territoryEnum },
+        project_2_feed_method2: { type: 'string', enum: feedMethodEnum },
 
-        project_3_title:     { type: 'string' },
-        project_3_cast:      { type: 'string' },
-        project_3_xp:        { type: 'string' },
-        project_3_merits:    { type: 'string' },
-        project_3_territory: { type: 'string', enum: territoryEnum },
+        project_3_title:        { type: 'string' },
+        project_3_cast:         { type: 'string' },
+        project_3_xp:           { type: 'string' },
+        project_3_merits:       { type: 'string' },
+        project_3_territory:    { type: 'string', enum: territoryEnum },
+        project_3_feed_method2: { type: 'string', enum: feedMethodEnum },
 
-        project_4_title:     { type: 'string' },
-        project_4_cast:      { type: 'string' },
-        project_4_xp:        { type: 'string' },
-        project_4_merits:    { type: 'string' },
-        project_4_territory: { type: 'string', enum: territoryEnum },
+        project_4_title:        { type: 'string' },
+        project_4_cast:         { type: 'string' },
+        project_4_xp:           { type: 'string' },
+        project_4_merits:       { type: 'string' },
+        project_4_territory:    { type: 'string', enum: territoryEnum },
+        project_4_feed_method2: { type: 'string', enum: feedMethodEnum },
 
         // ── Sphere actions (up to 5) ──
         sphere_1_action:      { type: 'string', enum: sphereActionEnum },
