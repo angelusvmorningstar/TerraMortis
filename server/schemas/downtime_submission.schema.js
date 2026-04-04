@@ -233,6 +233,8 @@ export const downtimeSubmissionSchema = {
         skill_acq_description: { type: 'string' },   // Skill acquisition description
         skill_acq_pool_attr:   { type: 'string' },   // Pool attribute name
         skill_acq_pool_skill:  { type: 'string' },   // Pool skill name
+        skill_acq_pool_spec:   { type: 'string' },   // Pool skill specialisation
+        skill_acq_availability:{ type: 'string' },   // "1"-"5" dot rating
         skill_acq_merits:      { type: 'string' },   // JSON array of merit keys
 
         // ── Vamping ──

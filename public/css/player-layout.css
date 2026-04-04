@@ -1107,6 +1107,32 @@ body {
   font-style: italic;
 }
 
+/* ── Skill acquisition pool row (compact) ── */
+.dt-acq-card .dt-dice-pool-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.dt-acq-card .dt-dice-pool-row .qf-select {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 8px;
+}
+.dt-acq-card .dt-pool-label {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--gold2, #E0C47A);
+  margin-bottom: 6px;
+}
+.dt-acq-card .dt-pool-total {
+  font-family: var(--fh);
+  font-size: 18px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
 /* Reading pane overrides for acquisitions */
 .reading-pane .dt-acq-card { background: #FFF8EE; border-color: rgba(139,0,0,.12); }
 .reading-pane .dt-acq-card-title { color: #5A1A1A; }
