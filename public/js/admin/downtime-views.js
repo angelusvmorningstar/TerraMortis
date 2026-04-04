@@ -1230,11 +1230,14 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   setPhaseState(overlay, 'tracks', 'running');
   const trackErrors = [];
   const approvedSubs = submissions.filter(s =>
-    (s.approval_status === 'approved' || s.approval_status === 'modified') && s._character_id
+    (s.approval_status === 'approved' || s.approval_status === 'modified') &&
+    (s.character_id || s.character_name)
   );
 
   for (const sub of approvedSubs) {
-    const char = characters.find(c => String(c._id) === String(sub._character_id));
+    const char = sub.character_id
+      ? characters.find(c => String(c._id) === String(sub.character_id))
+      : findCharacter(sub.character_name);
     if (!char) continue;
     const vitaeSpent    = sub.st_review?.vitae_spent    || 0;
     const wpSpent       = sub.st_review?.willpower_spent || 0;
