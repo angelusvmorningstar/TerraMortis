@@ -1026,6 +1026,17 @@ body {
 
 .dt-proj-pane-hidden { display: none; }
 
+/* ── Sphere merit info header ── */
+.dt-sphere-merit-info {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--gold2, #E0C47A);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(201,169,98,.12);
+}
+.reading-pane .dt-sphere-merit-info { color: #5A1A1A; border-bottom-color: rgba(139,0,0,.12); }
+
 /* ── Project feed summary ── */
 .dt-proj-feed-summary {
   padding: 12px 14px;
