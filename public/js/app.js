@@ -42,6 +42,7 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
+import { renderCharPools } from './game/char-pools.js';
 import { printSheet } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -113,6 +114,17 @@ function openChar(idx) {
   renderIdentityTab(c);
   renderAttrsTab(c);
   editorRenderSheet(c);
+
+  // Render pools panel — sets rollChar so Roll tab banner shows this character
+  const poolsEl = document.getElementById('gcp-panel');
+  if (poolsEl) {
+    suiteState.rollChar = c;
+    renderCharPools(poolsEl, c, (p) => {
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
+      goTab('roll');
+    });
+  }
+
   goTab('editor');
 }
 
