@@ -465,16 +465,19 @@ async function saveDraft() {
 
 async function submitForm() {
   const responses = collectResponses();
+  const btn = document.getElementById('dt-btn-submit');
 
   // AC2: Validate XP spend against available budget before submitting
   const xpRows = JSON.parse(responses.xp_spend || '[]');
   const xpSpent = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
   const xpBudget = xpLeft(currentChar);
   if (xpSpent > xpBudget) {
-    const statusEl = document.getElementById('dt-save-status');
-    if (statusEl) statusEl.textContent = `XP over budget: spending ${xpSpent} XP but only ${xpBudget} available. Remove items before submitting.`;
+    showToast(`XP over budget: spending ${xpSpent} XP but only ${xpBudget} available.`, 'error');
     return;
   }
+
+  // Visual feedback — disable button, show loading
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting\u2026'; }
 
   try {
     if (!responseDoc) {
@@ -493,12 +496,28 @@ async function submitForm() {
         submitted_at: new Date().toISOString(),
       });
     }
-    // Residency is now saved in the Regency tab
+    showToast('Downtime submitted successfully!', 'success');
     renderForm(document.getElementById('dt-container'));
   } catch (err) {
-    const statusEl = document.getElementById('dt-save-status');
-    if (statusEl) statusEl.textContent = 'Submit failed: ' + err.message;
+    showToast('Submit failed: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit Downtime'; }
   }
+}
+
+function showToast(message, type) {
+  // Remove any existing toast
+  document.getElementById('dt-toast')?.remove();
+  const toast = document.createElement('div');
+  toast.id = 'dt-toast';
+  toast.className = `dt-toast dt-toast-${type || 'info'}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  // Trigger animation
+  requestAnimationFrame(() => toast.classList.add('dt-toast-show'));
+  setTimeout(() => {
+    toast.classList.remove('dt-toast-show');
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
 }
 
 /** Persist residency list to territory_residency collection for cross-cycle continuity. */

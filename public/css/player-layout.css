@@ -1143,6 +1143,30 @@ body {
 .reading-pane .dt-acq-dot-filled { color: #5A1A1A; }
 .reading-pane .dt-acq-avail-label { color: #7A6A50; }
 
+/* ── Toast notification ── */
+.dt-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-family: var(--fh, 'Cinzel', serif);
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity .3s, transform .3s;
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,.4);
+}
+.dt-toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.dt-toast-success { background: #1B3A1B; color: #4CAF50; border: 1px solid rgba(76,175,80,.3); }
+.dt-toast-error { background: #3A1B1B; color: #E57373; border: 1px solid rgba(229,115,115,.3); }
+.dt-toast-info { background: var(--surf2, #252119); color: var(--gold2, #E0C47A); border: 1px solid rgba(201,169,98,.3); }
+
 /* ── XP action budget indicator ── */
 .dt-xp-action-budget {
   font-size: 12px;
