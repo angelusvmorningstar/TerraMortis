@@ -1660,6 +1660,23 @@ body {
 .feeding-pool-total { font-family: var(--fhd); font-size: 22px; color: var(--gold2); }
 .feeding-method-label { font-size: 14px; color: var(--txt2); }
 .feeding-method-desc { font-size: 13px; color: var(--txt3); font-style: italic; margin-top: 4px; margin-bottom: 12px; }
+
+/* ── Feeding summary (synced from downtime submission) ── */
+.feeding-summary {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: rgba(201,169,98,.06);
+  border: 1px solid rgba(201,169,98,.12);
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--txt2, #aaa);
+}
+.feeding-sum-row { margin-bottom: 4px; }
+.feeding-sum-row:last-child { margin-bottom: 0; }
+.feeding-sum-label { font-weight: 600; color: var(--gold2, #E0C47A); }
+.feeding-sum-rote { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(201,169,98,.1); }
+.feeding-sum-sub { margin-top: 3px; padding-left: 14px; font-style: italic; color: var(--txt3, #777); }
 .feeding-state-detail { font-size: 14px; color: var(--txt2); margin-bottom: 16px; }
 .feeding-no-sub .dt-feed-methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
 .feeding-no-sub .dt-feed-card { padding: 14px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; cursor: pointer; text-align: left; color: var(--txt); }
