@@ -1306,6 +1306,42 @@ body {
 .dt-appr-rejected.active { background: rgba(178, 34, 34, 0.15); color: var(--crim2); border-color: var(--crim2); }
 .dt-appr-pending.active { background: rgba(138, 126, 110, 0.15); color: var(--txt3); border-color: var(--txt3); }
 
+/* ── Expenditure Panel (GC-3) ── */
+.dt-exp-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+.dt-exp-fields {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.dt-exp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dt-exp-lbl {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--txt3);
+  font-family: var(--fh);
+}
+.dt-exp-input {
+  width: 72px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt);
+  font-size: 14px;
+  padding: 4px 8px;
+  font-family: var(--fb);
+}
+.dt-exp-input:focus { outline: 1px solid var(--gold); }
+
 /* ── ST Notes ── */
 .dt-notes-detail {
   margin-top: 10px;

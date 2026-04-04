@@ -362,6 +362,7 @@ function renderSubmissions() {
       h += renderMechanicalSummaryPanel(s);
       h += renderStNotes(s, raw);
       h += renderApproval(s);
+      h += renderExpenditurePanel(s);
       h += renderPublishPanel(s);
     }
 
@@ -422,6 +423,24 @@ function renderSubmissions() {
         if (!sub.st_review) sub.st_review = {};
         sub.st_review.mechanical_summary = ta.value;
       } catch (err) { console.error('Mech summary save error:', err.message); }
+    });
+  });
+
+  // Expenditure inputs autosave on blur (GC-3)
+  el.querySelectorAll('.dt-exp-input').forEach(input => {
+    input.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const subId = input.dataset.subId;
+      const field = input.dataset.expField;
+      const val = parseInt(input.value, 10);
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      try {
+        await updateSubmission(subId, { [field]: isNaN(val) ? 0 : val });
+        if (!sub.st_review) sub.st_review = {};
+        const key = field.replace('st_review.', '');
+        sub.st_review[key] = isNaN(val) ? 0 : val;
+      } catch (err) { console.error('Expenditure save error:', err.message); }
     });
   });
 
@@ -786,6 +805,31 @@ async function handleSaveNotes(subId) {
 }
 
 // ── Approval ────────────────────────────────────────────────────────────────
+
+// ── Expenditure Tracking (GC-3) ─────────────────────────────────────────────
+
+function renderExpenditurePanel(s) {
+  const vitae    = s.st_review?.vitae_spent    ?? '';
+  const wp       = s.st_review?.willpower_spent ?? '';
+  const influence = s.st_review?.influence_spent ?? '';
+
+  let h = '<div class="dt-exp-panel">';
+  h += '<div class="dt-feed-header">Expenditure</div>';
+  h += '<div class="dt-exp-fields">';
+  for (const [label, field, val] of [
+    ['Vitae', 'vitae_spent', vitae],
+    ['Willpower', 'willpower_spent', wp],
+    ['Influence', 'influence_spent', influence],
+  ]) {
+    h += `<label class="dt-exp-field">`;
+    h += `<span class="dt-exp-lbl">${label}</span>`;
+    h += `<input type="number" class="dt-exp-input" data-sub-id="${s._id}" data-exp-field="st_review.${field}" min="0" max="99" value="${esc(String(val))}">`;
+    h += `</label>`;
+  }
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
 
 const APPROVAL_STATUSES = ['pending', 'approved', 'modified', 'rejected'];
 
