@@ -46,6 +46,7 @@ import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
+import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 import { printSheet } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -191,6 +192,7 @@ function goTab(t) {
   // Tab-specific init
   if (t === 'territory') mountTerr();
   if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
+  if (t === 'rules') initRules(document.getElementById('t-rules'));
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
     const role = getRole();
@@ -682,8 +684,10 @@ function renderUserHeader() {
   userEl.innerHTML = `<img src="${avatarUrl}" style="width:24px;height:24px;border-radius:50%;"><span>${name}</span><button onclick="logout()" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;font-family:var(--fh);">Log out</button>`;
 }
 
-// Expose logout to onclick
+// Expose functions used in inline onclick handlers
 window.logout = logout;
+window.openRulesOverlay  = openRulesOverlay;
+window.closeRulesOverlay = closeRulesOverlay;
 
 boot();
 const logo = document.getElementById('topbar-logo');
