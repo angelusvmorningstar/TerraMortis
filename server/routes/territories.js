@@ -19,6 +19,19 @@ router.get('/', async (req, res) => {
   res.json(docs);
 });
 
+// POST /api/territories — create or upsert by territory id field
+router.post('/', async (req, res) => {
+  const { id, ...fields } = req.body;
+  if (!id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'id required' });
+
+  const result = await col().findOneAndUpdate(
+    { id },
+    { $set: { id, ...fields, updated_at: new Date().toISOString() } },
+    { upsert: true, returnDocument: 'after' }
+  );
+  res.status(201).json(result);
+});
+
 // PUT /api/territories/:id — update one
 router.put('/:id', async (req, res) => {
   const oid = parseId(req.params.id);

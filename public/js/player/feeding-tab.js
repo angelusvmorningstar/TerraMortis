@@ -39,6 +39,8 @@ let poolTotal = 0;
 let poolBreakdown = '';
 let rollResult = null;
 let feedingRecord = null; // persisted feeding_rolls record from DB
+let responseSubId = null; // submission _id for persisting player roll
+let publishedFeedingText = null; // extracted Feeding section from published_outcome
 
 export async function renderFeedingTab(el, char) {
   currentChar = char;
@@ -53,45 +55,61 @@ export async function renderFeedingTab(el, char) {
   feedingRecord = null;
   declaredMethod = null;
   selectedMethodId = '';
+  responseSubId = null;
+  publishedFeedingText = null;
 
-  // Check for existing feeding roll (already rolled this cycle)
-  // TODO: load from feeding_rolls collection when game cycles exist
-  // For now, check localStorage as a simple lock
+  // Load submission first — it is the authoritative source for roll state
+  let mySub = null;
+  try {
+    const subs = await apiGet('/api/downtime_submissions');
+    mySub = subs.find(s =>
+      (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
+    ) || null;
+  } catch { /* no submissions */ }
+
+  if (mySub) {
+    responseSubId = mySub._id;
+
+    // Extract feeding section from published outcome if available
+    if (mySub.published_outcome) {
+      const feedMatch = mySub.published_outcome.match(/##\s*Feeding\s*\n([\s\S]*?)(?=\n##\s|\s*$)/);
+      if (feedMatch) publishedFeedingText = feedMatch[1].trim();
+    }
+
+    // Check DB-persisted player roll first
+    if (mySub.feeding_roll_player) {
+      rollResult = mySub.feeding_roll_player;
+      feedingState = 'rolled';
+      render();
+      return;
+    }
+  }
+
+  // Fall back to localStorage lock
   const lockKey = `tm_feed_rolled_${char._id}`;
   const existing = localStorage.getItem(lockKey);
   if (existing) {
     try {
-      const data = JSON.parse(existing);
-      rollResult = data;
+      rollResult = JSON.parse(existing);
       feedingState = 'rolled';
       render();
       return;
     } catch { /* ignore */ }
   }
 
-  // Try to load feeding declaration from latest downtime submission
-  try {
-    const subs = await apiGet('/api/downtime_submissions');
-    const mySub = subs.find(s =>
-      (s.character_id === char._id || s.character_id?.toString() === char._id?.toString()) &&
-      s.status === 'submitted'
-    );
-
-    if (mySub?.responses?.['_feed_method']) {
-      const methodId = mySub.responses['_feed_method'];
-      declaredMethod = FEED_METHODS.find(m => m.id === methodId) || null;
-      declaredDisc = mySub.responses['_feed_disc'] || '';
-      declaredSpec = mySub.responses['_feed_spec'] || '';
-      if (declaredMethod) {
-        buildPool(declaredMethod, declaredDisc, declaredSpec);
-        feedingState = 'ready';
-      } else {
-        feedingState = 'no_submission';
-      }
+  // Determine method from submitted downtime declaration
+  if (mySub?.responses?.['_feed_method']) {
+    const methodId = mySub.responses['_feed_method'];
+    declaredMethod = FEED_METHODS.find(m => m.id === methodId) || null;
+    declaredDisc = mySub.responses['_feed_disc'] || '';
+    declaredSpec = mySub.responses['_feed_spec'] || '';
+    if (declaredMethod) {
+      buildPool(declaredMethod, declaredDisc, declaredSpec);
+      feedingState = 'ready';
     } else {
       feedingState = 'no_submission';
     }
-  } catch {
+  } else {
     feedingState = 'no_submission';
   }
 
@@ -205,6 +223,14 @@ function render() {
   if (feedingState === 'rolled' && rollResult) {
     const { cols, successes, vessels, safeVitae, methodName } = rollResult;
 
+    // Show ST-confirmed result if published
+    if (publishedFeedingText) {
+      h += `<div class="feeding-confirmed">`;
+      h += `<div class="feeding-confirmed-head">&#x2713; Confirmed Result</div>`;
+      h += `<p class="feeding-confirmed-body">${esc(publishedFeedingText)}</p>`;
+      h += `</div>`;
+    }
+
     h += '<div class="feeding-result">';
     if (methodName) h += `<p class="feeding-method-label">Method: <strong>${esc(methodName)}</strong></p>`;
     h += `<div class="feeding-suc">${successes}</div>`;
@@ -266,10 +292,14 @@ function wireEvents() {
   container.querySelector('#feeding-roll-btn')?.addEventListener('click', doFeedingRoll);
 
   // ST re-roll
-  container.querySelector('#feeding-reroll-btn')?.addEventListener('click', () => {
+  container.querySelector('#feeding-reroll-btn')?.addEventListener('click', async () => {
     const lockKey = `tm_feed_rolled_${currentChar._id}`;
     localStorage.removeItem(lockKey);
     rollResult = null;
+    // Clear DB lock
+    if (responseSubId) {
+      try { await apiPut(`/api/downtime_submissions/${responseSubId}`, { feeding_roll_player: null }); } catch { /* ignore */ }
+    }
     // Reset to ready or no_submission
     if (declaredMethod) {
       feedingState = 'ready';
@@ -281,7 +311,7 @@ function wireEvents() {
   });
 }
 
-function doFeedingRoll() {
+async function doFeedingRoll() {
   if (poolTotal <= 0) return;
 
   const cols = rollDice(poolTotal);
@@ -301,10 +331,16 @@ function doFeedingRoll() {
 
   feedingState = 'rolled';
 
-  // Persist to localStorage to lock (prevents re-rolling on refresh)
-  // TODO: persist to API feeding_rolls collection when game cycles exist
+  // Persist to localStorage as fallback
   const lockKey = `tm_feed_rolled_${currentChar._id}`;
   localStorage.setItem(lockKey, JSON.stringify(rollResult));
+
+  // Persist to DB submission record (primary lock source)
+  if (responseSubId) {
+    try {
+      await apiPut(`/api/downtime_submissions/${responseSubId}`, { feeding_roll_player: rollResult });
+    } catch { /* localStorage fallback already set */ }
+  }
 
   render();
 }

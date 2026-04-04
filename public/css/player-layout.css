@@ -1121,6 +1121,17 @@ body {
 .feeding-flow-num { width: 24px; height: 24px; border-radius: 50%; background: var(--bdr); color: var(--txt); font-family: var(--fh); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .feeding-flow-step.done .feeding-flow-num { background: var(--green-a45); color: #fff; }
 
+.feeding-confirmed {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(58,138,58,.08);
+  border: 1px solid rgba(58,138,58,.3);
+  border-radius: 8px;
+  border-left: 3px solid #3a8a3a;
+}
+.feeding-confirmed-head { font-family: var(--fh); font-size: 12px; color: #3a8a3a; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.feeding-confirmed-body { margin: 0; font-size: 13px; line-height: 1.5; }
+
 .feeding-result { text-align: center; padding: 24px; }
 .feeding-suc { font-family: var(--fhd); font-size: 48px; color: var(--gold2); }
 .feeding-suc-label { font-family: var(--fh); font-size: 13px; color: var(--txt3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 16px; }
