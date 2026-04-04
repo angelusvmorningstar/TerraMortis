@@ -285,10 +285,9 @@ export const DOWNTIME_SECTIONS = [
       {
         key: 'form_rating',
         label: 'How would you rate this Downtime form for clarity and ease of use?',
-        type: 'select',
+        type: 'star_rating',
         required: false,
         desc: null,
-        options: numRange(1, 10),
       },
       {
         key: 'form_feedback',
