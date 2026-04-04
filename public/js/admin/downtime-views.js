@@ -340,6 +340,20 @@ async function loadCycleById(cycleId) {
       ${alreadyApplied ? '\u2713 Ambience applied' : 'Apply Ambience Changes'}
     </button>`;
   }
+
+  // ── Regency (GC-1) ──
+  if (isActive) {
+    const activeChars = characters.filter(c => !c.retired).sort((a, b) => (c => c.moniker || c.name)(a).localeCompare((c => c.moniker || c.name)(b)));
+    const opts = activeChars.map(c => {
+      const label = esc(c.moniker || c.name);
+      const sel = cycle.regency_character_id === String(c._id) ? ' selected' : '';
+      return `<option value="${esc(String(c._id))}"${sel}>${label}</option>`;
+    }).join('');
+    statusHtml += `<label class="dt-deadline-edit"><span>Regent</span><select id="dt-regency-sel"><option value="">-- none --</option>${opts}</select></label>`;
+  } else if (cycle.regency_character_name) {
+    statusHtml += `<span class="dt-deadline">Regent: <strong>${esc(cycle.regency_character_name)}</strong></span>`;
+  }
+
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
 
@@ -353,6 +367,19 @@ async function loadCycleById(cycleId) {
     const idx = allCycles.findIndex(c => c._id === cycleId);
     if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
     await loadCycleById(cycleId);
+  });
+
+  // Wire regency dropdown
+  document.getElementById('dt-regency-sel')?.addEventListener('change', async e => {
+    const charId = e.target.value;
+    const char = characters.find(c => String(c._id) === charId) || null;
+    const updates = {
+      regency_character_id: charId || null,
+      regency_character_name: char ? (char.moniker || char.name) : null,
+    };
+    await updateCycle(cycleId, updates);
+    const idx = allCycles.findIndex(c => c._id === cycleId);
+    if (idx >= 0) Object.assign(allCycles[idx], updates);
   });
 
   // Wire ambience apply button
@@ -1203,11 +1230,14 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   setPhaseState(overlay, 'tracks', 'running');
   const trackErrors = [];
   const approvedSubs = submissions.filter(s =>
-    (s.approval_status === 'approved' || s.approval_status === 'modified') && s._character_id
+    (s.approval_status === 'approved' || s.approval_status === 'modified') &&
+    (s.character_id || s.character_name)
   );
 
   for (const sub of approvedSubs) {
-    const char = characters.find(c => String(c._id) === String(sub._character_id));
+    const char = sub.character_id
+      ? characters.find(c => String(c._id) === String(sub.character_id))
+      : findCharacter(sub.character_name);
     if (!char) continue;
     const vitaeSpent    = sub.st_review?.vitae_spent    || 0;
     const wpSpent       = sub.st_review?.willpower_spent || 0;
@@ -1865,15 +1895,18 @@ function getPrimaryTerritory(sub) {
   return null;
 }
 
-/** Look up ambience string for a territory display name. */
-function getTerritoryAmbienceByName(terrName) {
+/** Look up territory record by display name. Returns { ambience, ambienceMod } or null. */
+function getTerritoryByName(terrName) {
   if (!terrName) return null;
-  // TERRITORY_DATA names may differ slightly from FEEDING_TERRITORIES labels
-  const td = TERRITORY_DATA.find(t =>
+  return TERRITORY_DATA.find(t =>
     terrName.toLowerCase().includes(t.name.toLowerCase().replace(/^the\s+/i, '')) ||
     t.name.toLowerCase().includes(terrName.toLowerCase().replace(/^the\s+/i, ''))
-  );
-  return td?.ambience || null;
+  ) || null;
+}
+
+/** Look up ambience string for a territory display name. */
+function getTerritoryAmbienceByName(terrName) {
+  return getTerritoryByName(terrName)?.ambience || null;
 }
 
 /** Build best generic pool (highest total across all methods) for a character with no submission. */
@@ -1926,13 +1959,16 @@ function renderFeedingScene() {
 
       // Territory + ambience
       const territory = getPrimaryTerritory(sub);
-      const ambience = getTerritoryAmbienceByName(territory);
+      const terrRec = getTerritoryByName(territory);
+      const ambience = terrRec?.ambience || null;
+      const ambienceMod = terrRec?.ambienceMod ?? 0;
+      const ambModStr = ambienceMod > 0 ? `+${ambienceMod}` : String(ambienceMod);
 
       // Pool
       let poolTotal = '—';
       let poolNote = '';
       if (hasSub && methodId && methodObj) {
-        const pool = buildFeedingPool(char, methodId, 0);
+        const pool = buildFeedingPool(char, methodId, ambienceMod);
         poolTotal = pool ? pool.total : '?';
       } else if (!hasSub) {
         const best = bestGenericPool(char);
@@ -1947,7 +1983,7 @@ function renderFeedingScene() {
       h += `<td class="dt-scene-name">${esc(displayName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
       h += `<td>${methodName ? esc(methodName) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td>${territory ? esc(territory) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
-      h += `<td>${ambience ? `<span class="dt-scene-amb">${esc(ambience)}</span>` : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
+      h += `<td>${ambience ? `<span class="dt-scene-amb">${esc(ambience)} <span class="dt-scene-mod">(${ambModStr})</span></span>` : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
       h += `<td class="dt-scene-pool">${poolTotal}${poolNote ? ` <span class="dt-scene-dim">(${esc(poolNote)})</span>` : ''}</td>`;
       h += `<td><label class="dt-scene-rote-lbl"><input type="checkbox" class="dt-scene-rote" data-sub-id="${esc(sub?._id || '')}" ${rote ? 'checked' : ''} ${!hasSub ? 'disabled' : ''}></label></td>`;
       h += '</tr>';

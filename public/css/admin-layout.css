@@ -1197,6 +1197,7 @@ body {
   padding: 1px 6px;
   color: var(--txt2);
 }
+.dt-scene-mod { color: var(--txt3); font-size: 10px; }
 .dt-scene-dim { color: var(--txt3); }
 .dt-scene-rote-lbl { cursor: pointer; }
 
