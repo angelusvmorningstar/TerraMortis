@@ -9,7 +9,7 @@ import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSub
 import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, sortName } from '../data/helpers.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
@@ -1900,7 +1900,7 @@ function renderFeedingScene() {
   }
 
   const isOpen = el.dataset.open !== 'false';
-  const sorted = [...activeChars].sort((a, b) => (displayName(a)).localeCompare(displayName(b)));
+  const sorted = [...activeChars].sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
   let h = '<div class="dt-scene-panel">';
   h += `<div class="dt-scene-toggle" id="dt-scene-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Scene Summary <span class="domain-count">${sorted.length} characters</span></div>`;
