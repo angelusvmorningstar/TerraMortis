@@ -521,6 +521,43 @@ body {
 
 .qf-req { color: var(--crim2); font-weight: 700; }
 
+/* ── Status badges ── */
+.dt-status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.dt-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.dt-badge-on {
+  background: rgba(76,175,80,.12);
+  color: #4CAF50;
+  border: 1px solid rgba(76,175,80,.25);
+}
+.dt-badge-off {
+  background: rgba(139,0,0,.08);
+  color: var(--crim, #8B0000);
+  border: 1px solid rgba(139,0,0,.15);
+}
+.dt-badge-info {
+  background: rgba(201,169,98,.1);
+  color: var(--gold2, #E0C47A);
+  border: 1px solid rgba(201,169,98,.2);
+}
+
+/* Reading pane badge overrides */
+.reading-pane .dt-badge-on { background: rgba(76,175,80,.08); color: #2A7A2A; border-color: rgba(76,175,80,.2); }
+.reading-pane .dt-badge-off { background: rgba(139,0,0,.06); color: #8B0000; border-color: rgba(139,0,0,.15); }
+.reading-pane .dt-badge-info { background: rgba(139,0,0,.04); color: #5A1A1A; border-color: rgba(139,0,0,.1); }
+
 .qf-section {
   margin-bottom: 28px;
   padding-bottom: 20px;
