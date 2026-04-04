@@ -45,7 +45,7 @@ import { xpLeft } from './editor/xp.js';
 import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { loadDtLookup } from './game/dt-lookup.js';
-import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond } from './game/tracker.js';
+import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { printSheet } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -576,6 +576,7 @@ Object.assign(window, {
   trackerAdj,
   trackerAddCondition,
   trackerRemoveCond,
+  trackerToggle,
 
   // Game — sheet/DT toggle
   setSheetView,

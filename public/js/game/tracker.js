@@ -8,6 +8,9 @@ import { displayName, esc } from '../data/helpers.js';
 
 const KEY = 'tm_tracker_state';
 
+// UI-only — which cards are currently expanded (collapsed by default)
+const _expanded = new Set();
+
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
 }
@@ -33,6 +36,16 @@ function ensure(state, c) {
 // ── Public API ──
 
 let _el = null;
+
+export function trackerToggle(charId) {
+  if (_expanded.has(charId)) _expanded.delete(charId);
+  else _expanded.add(charId);
+  // Patch just the card to avoid re-rendering the whole list
+  const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+  if (!c) return;
+  const state = load();
+  patchCard(charId, c, ensure(state, c));
+}
 
 export function initTracker(el) {
   _el = el;
@@ -123,18 +136,29 @@ function patchCard(charId, c, cs) {
 }
 
 function cardHtml(id, c, cs) {
-  const vpMax = calcVitaeMax(c);
-  const wpMax = calcWillpowerMax(c);
-  const hpMax = calcHealth(c);
-  const dmg   = cs.bashing + cs.lethal + cs.aggravated;
+  const vpMax   = calcVitaeMax(c);
+  const wpMax   = calcWillpowerMax(c);
+  const hpMax   = calcHealth(c);
+  const dmg     = cs.bashing + cs.lethal + cs.aggravated;
+  const open    = _expanded.has(id);
+  const chevron = open ? '\u25B2' : '\u25BC';
 
-  let h = `<div class="trk-card" id="trk-card-${id}">`;
+  let h = `<div class="trk-card${open ? ' trk-open' : ''}" id="trk-card-${id}">`;
 
-  // Header
-  h += `<div class="trk-card-hd">`;
+  // Header — always visible, tappable to toggle
+  const dmgStr  = dmg > 0 ? `<span class="trk-hd-dmg">${dmg}dmg</span>` : '';
+  const condStr = (cs.conditions || []).length > 0 ? `<span class="trk-hd-cond">${cs.conditions.length} cond</span>` : '';
+  h += `<button class="trk-card-hd" onclick="trackerToggle('${id}')">`;
   h += `<span class="trk-name">${esc(displayName(c))}</span>`;
-  h += `<span class="trk-clan">${esc(c.clan || '')}</span>`;
-  h += '</div>';
+  h += `<span class="trk-hd-meta">`;
+  h += `<span class="trk-hd-v">V ${cs.vitae}/${vpMax}</span>`;
+  h += `<span class="trk-hd-w">WP ${cs.willpower}/${wpMax}</span>`;
+  h += dmgStr + condStr;
+  h += `</span>`;
+  h += `<span class="trk-chev">${chevron}</span>`;
+  h += '</button>';
+
+  if (!open) { h += '</div>'; return h; }
 
   // Vitae
   h += counter('Vitae',      id, 'vitae',     cs.vitae,     vpMax, 'trk-row-v');
