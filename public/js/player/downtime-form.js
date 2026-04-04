@@ -694,7 +694,19 @@ function renderForm(container) {
   h += '<button class="qf-btn qf-btn-submit" id="dt-btn-submit">Submit Downtime</button>';
   h += '</div>';
 
+  // Capture expanded sections before re-render
+  const expandedSections = new Set();
+  container.querySelectorAll('.qf-section[data-section-key]:not(.collapsed)').forEach(el => {
+    expandedSections.add(el.dataset.sectionKey);
+  });
+
   container.innerHTML = h;
+
+  // Restore expanded state
+  expandedSections.forEach(key => {
+    const el = container.querySelector(`.qf-section[data-section-key="${key}"]`);
+    if (el) el.classList.remove('collapsed');
+  });
 
   // Update section completion ticks on initial render
   updateSectionTicks(container);
@@ -1629,45 +1641,56 @@ function updateSectionTicks(container) {
       return;
     }
 
-    // For all other sections: check inputs, textareas, selects inside the body
-    const inputs = body.querySelectorAll('input:not([type="hidden"]):not([type="radio"]), textarea, select');
-    const radios = body.querySelectorAll('input[type="radio"]');
-    const hiddenInputs = body.querySelectorAll('input[type="hidden"]');
+    // For all other sections: tick only when ALL visible fields are filled.
+    // Skip fields inside hidden (gated) sub-sections.
+    const fields = body.querySelectorAll('.qf-field:not(.dt-feedback-hidden)');
+    let totalFields = 0;
+    let filledFields = 0;
 
-    let hasRequired = false;
-    let allRequiredFilled = true;
-    let anyFilled = false;
+    fields.forEach(field => {
+      // Skip if inside a hidden gated section
+      if (field.closest('.dt-gated-hidden')) return;
+      // Skip if the field itself is hidden (e.g. feedback before rating)
+      if (field.classList.contains('dt-feedback-hidden')) return;
 
-    inputs.forEach(el => {
-      const field = el.closest('.qf-field');
-      const isRequired = field?.querySelector('.qf-req');
-      const val = el.value.trim();
-      if (val) anyFilled = true;
-      if (isRequired) {
-        hasRequired = true;
-        if (!val) allRequiredFilled = false;
+      // Find the input element(s) in this field
+      const textarea = field.querySelector('textarea');
+      const input = field.querySelector('input:not([type="hidden"]):not([type="radio"])');
+      const select = field.querySelector('select');
+      const hiddenInput = field.querySelector('input[type="hidden"]');
+      const radioGroup = field.querySelectorAll('input[type="radio"]');
+      const meritToggle = field.querySelector('[data-merit-toggle]');
+
+      // Merit toggle fields: skip (they're action selectors, not content)
+      if (meritToggle) return;
+
+      let hasField = false;
+      let isFilled = false;
+
+      if (textarea) {
+        hasField = true;
+        isFilled = textarea.value.trim().length > 0;
+      } else if (select) {
+        hasField = true;
+        isFilled = select.value.trim().length > 0;
+      } else if (input) {
+        hasField = true;
+        isFilled = input.value.trim().length > 0;
+      } else if (hiddenInput) {
+        hasField = true;
+        isFilled = hiddenInput.value.trim().length > 0;
+      } else if (radioGroup.length > 0) {
+        hasField = true;
+        isFilled = !!field.querySelector('input[type="radio"]:checked');
+      }
+
+      if (hasField) {
+        totalFields++;
+        if (isFilled) filledFields++;
       }
     });
 
-    // Check hidden inputs (e.g. star rating)
-    hiddenInputs.forEach(el => {
-      if (el.value.trim()) anyFilled = true;
-    });
-
-    // Check radio groups
-    const radioNames = new Set();
-    radios.forEach(r => radioNames.add(r.name));
-    for (const name of radioNames) {
-      const checked = body.querySelector(`input[name="${name}"]:checked`);
-      if (checked && checked.value) anyFilled = true;
-    }
-
-    // Check selects with a non-empty first option (project action selectors etc.)
-    body.querySelectorAll('select').forEach(sel => {
-      if (sel.value) anyFilled = true;
-    });
-
-    const complete = hasRequired ? allRequiredFilled : anyFilled;
+    const complete = totalFields > 0 && filledFields === totalFields;
     tick.classList.toggle('visible', complete);
   });
 }
