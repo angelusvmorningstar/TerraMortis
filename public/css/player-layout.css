@@ -1451,6 +1451,24 @@ body {
   border-color: rgba(139,0,0,.12);
 }
 
+/* ── Blood type checkboxes ── */
+.dt-feed-blood-types {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.dt-feed-blood-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text1, #E8E0D0);
+}
+.dt-feed-blood-label input { accent-color: var(--gold2, #E0C47A); width: 16px; height: 16px; }
+.reading-pane .dt-feed-blood-label { color: #2A1F14; }
+.reading-pane .dt-feed-blood-label input { accent-color: #8B0000; }
+
 /* ── Rote feeding checkbox ── */
 .dt-feed-rote { margin-bottom: 0; }
 .dt-feed-rote-label {
