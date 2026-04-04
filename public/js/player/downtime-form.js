@@ -43,6 +43,8 @@ let persistedResidency = [];
 
 // Characters who attended last game (for shoutout picks)
 let lastGameAttendees = [];
+// All active characters (for cast picker modal)
+let allCharacters = [];
 
 // Map of territory name → Set of resident character IDs (for feeding grid indicators)
 let residencyByTerritory = {};
@@ -289,9 +291,9 @@ function collectResponses() {
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
 
     // Cast checkboxes
-    const castCbs = document.querySelectorAll(`[data-proj-cast-cb="${n}"]:checked`);
+    const castHidden = document.querySelectorAll(`input[type="hidden"][data-proj-cast-cb="${n}"]`);
     const castIds = [];
-    castCbs.forEach(cb => castIds.push(cb.value));
+    castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
     responses[`project_${n}_cast`] = JSON.stringify(castIds);
 
     // Merit checkboxes
@@ -532,15 +534,21 @@ export async function renderDowntimeTab(targetEl, char) {
     lastGameAttendees = att.attendees || [];
   } catch { /* fall back — leave gateValues.attended unset */ }
 
-  // If attendee list empty (player can't access game_sessions), use character names
-  if (!lastGameAttendees.length) {
-    try {
-      const names = await apiGet('/api/characters/names');
-      lastGameAttendees = names
-        .filter(c => c._id !== currentChar._id && c._id?.toString() !== currentChar._id?.toString())
-        .map(c => ({ id: c._id, name: c.moniker || c.name }));
-    } catch { /* ignore */ }
-  }
+  // Load all character names for cast picker
+  try {
+    const names = await apiGet('/api/characters/names');
+    const others = names.filter(c => c._id !== currentChar._id && c._id?.toString() !== currentChar._id?.toString());
+    allCharacters = others.map(c => ({
+      id: c._id,
+      name: c.moniker || c.name,
+      fullName: c.name,
+      player: c.player || '',
+    }));
+    // If attendee list empty, fall back to full list
+    if (!lastGameAttendees.length) {
+      lastGameAttendees = others.map(c => ({ id: c._id, name: c.moniker || c.name }));
+    }
+  } catch { /* ignore */ }
 
   // Auto-detect regent status from character data
   gateValues.is_regent = currentChar.regent_territory ? 'yes' : 'no';
@@ -788,6 +796,12 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // Cast picker modal
+    const castBtn = e.target.closest('[data-cast-open]');
+    if (castBtn) {
+      openCastModal(parseInt(castBtn.dataset.castOpen, 10), container);
+      return;
+    }
     // Project tab switching
     const tab = e.target.closest('[data-proj-tab]');
     if (tab) {
@@ -1040,6 +1054,91 @@ function renderForm(container) {
   document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
 }
 
+// ── Cast picker modal ──
+
+function openCastModal(slotNum, container) {
+  const saved = responseDoc?.responses || {};
+  let castPicks = [];
+  try { castPicks = JSON.parse(saved[`project_${slotNum}_cast`] || '[]'); } catch { /* ignore */ }
+  const attendeeIds = new Set(lastGameAttendees.map(a => String(a.id)));
+
+  // Build modal HTML
+  let h = '<div class="dt-cast-overlay" id="dt-cast-overlay">';
+  h += '<div class="dt-cast-modal">';
+  h += '<div class="dt-cast-modal-header">';
+  h += `<h4>Select Characters — Action ${slotNum}</h4>`;
+  h += '<button type="button" class="dt-cast-modal-close" id="dt-cast-close">\u00D7</button>';
+  h += '</div>';
+
+  // Filter toggle
+  h += '<div class="dt-cast-filter">';
+  h += '<label class="dt-cast-filter-label"><input type="checkbox" id="dt-cast-filter-att"> Show only last game attendees</label>';
+  h += '</div>';
+
+  h += '<div class="dt-cast-list" id="dt-cast-list">';
+  for (const c of allCharacters) {
+    const isAtt = attendeeIds.has(String(c.id));
+    const checked = castPicks.includes(c.id) || castPicks.includes(String(c.id)) ? ' checked' : '';
+    const initials = (c.name || '?').split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    h += `<label class="dt-cast-item${isAtt ? ' dt-cast-att' : ''}" data-att="${isAtt ? '1' : '0'}">`;
+    h += `<div class="dt-cast-avatar">${initials}</div>`;
+    h += '<div class="dt-cast-info">';
+    h += `<div class="dt-cast-charname">${esc(c.name)}</div>`;
+    if (c.player) h += `<div class="dt-cast-player">${esc(c.player)}</div>`;
+    h += '</div>';
+    h += `<input type="checkbox" class="dt-cast-check" value="${esc(String(c.id))}"${checked}>`;
+    h += '</label>';
+  }
+  if (!allCharacters.length) {
+    h += '<p class="dt-cast-empty">No characters available.</p>';
+  }
+  h += '</div>';
+
+  h += '<div class="dt-cast-modal-footer">';
+  h += '<button type="button" class="qf-btn qf-btn-save" id="dt-cast-confirm">Confirm</button>';
+  h += '</div>';
+  h += '</div></div>';
+
+  // Insert into DOM
+  const overlay = document.createElement('div');
+  overlay.innerHTML = h;
+  document.body.appendChild(overlay.firstElementChild);
+
+  // Filter toggle
+  document.getElementById('dt-cast-filter-att')?.addEventListener('change', (e) => {
+    const onlyAtt = e.target.checked;
+    document.querySelectorAll('.dt-cast-item').forEach(item => {
+      if (onlyAtt && item.dataset.att === '0') {
+        item.style.display = 'none';
+      } else {
+        item.style.display = '';
+      }
+    });
+  });
+
+  // Close
+  const closeModal = () => {
+    document.getElementById('dt-cast-overlay')?.remove();
+  };
+  document.getElementById('dt-cast-close')?.addEventListener('click', closeModal);
+  document.getElementById('dt-cast-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'dt-cast-overlay') closeModal();
+  });
+
+  // Confirm
+  document.getElementById('dt-cast-confirm')?.addEventListener('click', () => {
+    const selected = [];
+    document.querySelectorAll('.dt-cast-check:checked').forEach(cb => selected.push(cb.value));
+    const responses = collectResponses();
+    responses[`project_${slotNum}_cast`] = JSON.stringify(selected);
+    if (responseDoc) responseDoc.responses = responses;
+    else responseDoc = { responses };
+    closeModal();
+    renderForm(container);
+    scheduleSave();
+  });
+}
+
 // ── Rote feeding → Project 1 ──
 
 function applyRoteToProject1(container) {
@@ -1178,21 +1277,28 @@ function renderProjectSlots(saved) {
     if (fields.includes('cast')) {
       let castPicks = [];
       try { castPicks = JSON.parse(saved[`project_${n}_cast`] || '[]'); } catch { /* ignore */ }
+      // Build summary of selected characters
+      const castNames = castPicks.map(id => {
+        const c = allCharacters.find(ch => ch.id === id || String(ch.id) === String(id));
+        return c ? c.name : '';
+      }).filter(Boolean);
       h += '<div class="qf-field">';
       h += `<label class="qf-label">Characters Involved</label>`;
-      h += '<p class="qf-desc">Select other PCs collaborating with or targeted by this action.</p>';
-      h += `<div class="dt-proj-cast" data-proj-cast="${n}">`;
-      for (const att of lastGameAttendees) {
-        const checked = castPicks.includes(att.id) ? ' checked' : '';
-        h += `<label class="dt-proj-cast-label">`;
-        h += `<input type="checkbox" value="${esc(att.id)}" data-proj-cast-cb="${n}"${checked}>`;
-        h += `<span>${esc(att.name)}</span>`;
-        h += '</label>';
+      h += `<div class="dt-cast-summary" data-cast-slot="${n}">`;
+      if (castNames.length) {
+        h += `<span class="dt-cast-pills">`;
+        castNames.forEach(name => { h += `<span class="dt-cast-pill">${esc(name)}</span>`; });
+        h += '</span>';
+      } else {
+        h += '<span class="dt-cast-none">None selected</span>';
       }
-      if (!lastGameAttendees.length) {
-        h += '<p class="qf-desc">No attendee data available.</p>';
-      }
-      h += '</div></div>';
+      h += `<button type="button" class="dt-cast-btn" data-cast-open="${n}">Select\u2026</button>`;
+      h += '</div>';
+      // Hidden inputs to preserve state
+      castPicks.forEach(id => {
+        h += `<input type="hidden" data-proj-cast-cb="${n}" value="${esc(String(id))}">`;
+      });
+      h += '</div>';
     }
 
     // ── Merits (applicable character merits) ──

@@ -1038,14 +1038,164 @@ body {
 .dt-proj-feed-summary p:last-child { margin-bottom: 0; }
 .dt-proj-feed-method { color: var(--gold2, #E0C47A); }
 
-/* ── Cast & merit checkbox grids ── */
-.dt-proj-cast,
+/* ── Cast summary + button ── */
+.dt-cast-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dt-cast-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.dt-cast-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  background: rgba(201,169,98,.15);
+  color: var(--gold2, #E0C47A);
+  border: 1px solid rgba(201,169,98,.25);
+}
+.dt-cast-none { font-size: 13px; color: var(--text2, #aaa); font-style: italic; }
+.dt-cast-btn {
+  padding: 5px 14px;
+  border: 1px solid rgba(201,169,98,.3);
+  border-radius: 4px;
+  background: var(--surf2, #252119);
+  color: var(--gold2, #E0C47A);
+  font-family: var(--fh);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dt-cast-btn:hover { background: var(--surf3, #333); }
+
+/* ── Cast picker modal ── */
+.dt-cast-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0,0,0,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.dt-cast-modal {
+  background: var(--surf1, #1A1714);
+  border: 1px solid rgba(201,169,98,.25);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.dt-cast-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(201,169,98,.12);
+}
+.dt-cast-modal-header h4 {
+  margin: 0;
+  font-family: var(--fh);
+  font-size: 16px;
+  color: var(--gold2, #E0C47A);
+}
+.dt-cast-modal-close {
+  background: none;
+  border: none;
+  color: var(--text2, #aaa);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.dt-cast-modal-close:hover { color: var(--text1, #E8E0D0); }
+
+.dt-cast-filter {
+  padding: 8px 18px;
+  border-bottom: 1px solid rgba(201,169,98,.08);
+}
+.dt-cast-filter-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text2, #aaa);
+  cursor: pointer;
+}
+.dt-cast-filter-label input { accent-color: var(--gold2, #E0C47A); }
+
+.dt-cast-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.dt-cast-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.dt-cast-item:hover { background: rgba(201,169,98,.06); }
+.dt-cast-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surf3, #333);
+  color: var(--gold2, #E0C47A);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fh);
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid rgba(201,169,98,.2);
+}
+.dt-cast-info { flex: 1; min-width: 0; }
+.dt-cast-charname {
+  font-size: 14px;
+  color: var(--text1, #E8E0D0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-cast-player {
+  font-size: 11px;
+  color: var(--text2, #aaa);
+  margin-top: 1px;
+}
+.dt-cast-check {
+  accent-color: var(--gold2, #E0C47A);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.dt-cast-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text2, #aaa);
+  font-size: 13px;
+}
+.dt-cast-modal-footer {
+  padding: 10px 18px 14px;
+  border-top: 1px solid rgba(201,169,98,.12);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Merit checkbox grids ── */
 .dt-proj-merits {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
 }
-.dt-proj-cast-label,
 .dt-proj-merit-label {
   display: flex;
   align-items: center;
@@ -1054,7 +1204,6 @@ body {
   cursor: pointer;
   color: var(--text1, #E8E0D0);
 }
-.dt-proj-cast-label input,
 .dt-proj-merit-label input {
   accent-color: var(--gold2, #E0C47A);
 }
@@ -1083,10 +1232,12 @@ body {
 }
 .reading-pane .dt-proj-feed-summary p { color: #3A2A1A; }
 .reading-pane .dt-proj-feed-method { color: #5A1A1A; }
-.reading-pane .dt-proj-cast-label,
 .reading-pane .dt-proj-merit-label { color: #2A1F14; }
-.reading-pane .dt-proj-cast-label input,
 .reading-pane .dt-proj-merit-label input { accent-color: #8B0000; }
+.reading-pane .dt-cast-pill { background: rgba(139,0,0,.08); color: #5A1A1A; border-color: rgba(139,0,0,.2); }
+.reading-pane .dt-cast-none { color: #7A6A50; }
+.reading-pane .dt-cast-btn { background: #E8DCC8; color: #5A1A1A; border-color: rgba(139,0,0,.2); }
+.reading-pane .dt-cast-btn:hover { background: rgba(139,0,0,.08); }
 .reading-pane .dt-pool-total { color: #5A1A1A; }
 
 /* ── Dice pool row ── */
