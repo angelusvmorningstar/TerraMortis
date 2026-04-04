@@ -16,6 +16,7 @@ import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
 import { initSessionTracker } from './admin/session-tracker.js';
+import { initDataPortabilityView } from './admin/data-portability.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
@@ -155,6 +156,7 @@ function switchDomain(domain) {
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);
+  if (domain === 'data') initDataPortabilityView(chars);
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
