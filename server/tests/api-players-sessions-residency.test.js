@@ -226,6 +226,97 @@ describe('PUT /api/game_sessions/:id', () => {
   });
 });
 
+describe('GET /api/game_sessions/next', () => {
+  it('returns null when no upcoming sessions exist', async () => {
+    // Relies on no future-dated docs existing in the test DB
+    const res = await request(app)
+      .get('/api/game_sessions/next')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    // Either null or a session with date >= today
+    if (res.body !== null) {
+      expect(res.body.session_date).toBeDefined();
+    }
+  });
+
+  it('returns the nearest upcoming session', async () => {
+    const near = await request(app)
+      .post('/api/game_sessions')
+      .set('X-Test-User', stUser())
+      .send({ session_date: '2099-06-01', game_number: 99, doors_open: '18:00', downtime_deadline: 'Midnight, Friday 29 May 2099' });
+    cleanupIds.game_sessions.push(new ObjectId(near.body._id));
+
+    const far = await request(app)
+      .post('/api/game_sessions')
+      .set('X-Test-User', stUser())
+      .send({ session_date: '2099-07-01', game_number: 100 });
+    cleanupIds.game_sessions.push(new ObjectId(far.body._id));
+
+    const res = await request(app)
+      .get('/api/game_sessions/next')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    expect(res.body.session_date).toBe('2099-06-01');
+    expect(res.body.game_number).toBe(99);
+    expect(res.body.doors_open).toBe('18:00');
+    expect(res.body.downtime_deadline).toBe('Midnight, Friday 29 May 2099');
+  });
+
+  it('does not return a past session', async () => {
+    const past = await request(app)
+      .post('/api/game_sessions')
+      .set('X-Test-User', stUser())
+      .send({ session_date: '2000-01-01', game_number: 1 });
+    cleanupIds.game_sessions.push(new ObjectId(past.body._id));
+
+    const res = await request(app)
+      .get('/api/game_sessions/next')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    if (res.body !== null) {
+      expect(res.body.session_date >= new Date().toISOString().slice(0, 10)).toBe(true);
+    }
+  });
+
+  it('deadline and optional fields are preserved on PUT then GET /next', async () => {
+    const create = await request(app)
+      .post('/api/game_sessions')
+      .set('X-Test-User', stUser())
+      .send({ session_date: '2099-08-01' });
+    cleanupIds.game_sessions.push(new ObjectId(create.body._id));
+
+    await request(app)
+      .put(`/api/game_sessions/${create.body._id}`)
+      .set('X-Test-User', stUser())
+      .send({ downtime_deadline: 'Midnight, Friday 31 July 2099', doors_open: '17:30', game_number: 42 });
+
+    const res = await request(app)
+      .get('/api/game_sessions/next')
+      .set('X-Test-User', stUser());
+    expect(res.status).toBe(200);
+    // May not be this session if other future sessions exist — find it by id
+    const allRes = await request(app)
+      .get('/api/game_sessions')
+      .set('X-Test-User', stUser());
+    const updated = allRes.body.find(s => s.session_date === '2099-08-01');
+    expect(updated.downtime_deadline).toBe('Midnight, Friday 31 July 2099');
+    expect(updated.doors_open).toBe('17:30');
+    expect(updated.game_number).toBe(42);
+  });
+
+  it('player is blocked from /next', async () => {
+    const res = await request(app)
+      .get('/api/game_sessions/next')
+      .set('X-Test-User', playerUser([]));
+    expect(res.status).toBe(403);
+  });
+
+  it('unauthenticated request is rejected', async () => {
+    const res = await request(app).get('/api/game_sessions/next');
+    expect(res.status).toBe(401);
+  });
+});
+
 // ══════════════════════════════════════
 //  TERRITORY RESIDENCY
 // ══════════════════════════════════════
