@@ -1026,6 +1026,91 @@ body {
 
 .dt-proj-pane-hidden { display: none; }
 
+/* ── Contacts table ── */
+.dt-contacts-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dt-contact-row {
+  border: 1px solid rgba(201,169,98,.1);
+  border-radius: 5px;
+  overflow: hidden;
+  transition: border-color .15s;
+}
+.dt-contact-row.dt-contact-used {
+  border-color: rgba(201,169,98,.25);
+}
+.dt-contact-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: var(--surf1, #1A1714);
+  transition: background .1s;
+}
+.dt-contact-header:hover { background: var(--surf2, #252119); }
+.dt-contact-area {
+  font-family: var(--fh);
+  font-size: 14px;
+  color: var(--text1, #E8E0D0);
+  flex: 1;
+  min-width: 0;
+}
+.dt-contact-dots {
+  font-size: 12px;
+  color: var(--gold2, #E0C47A);
+  letter-spacing: 2px;
+}
+.dt-contact-status {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.dt-contact-row:not(.dt-contact-used) .dt-contact-status {
+  color: var(--text2, #aaa);
+  background: rgba(255,255,255,.04);
+}
+.dt-contact-used .dt-contact-status {
+  color: #4CAF50;
+  background: rgba(76,175,80,.1);
+}
+.dt-contact-clear {
+  background: none;
+  border: none;
+  color: var(--text2, #aaa);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  opacity: .6;
+  transition: opacity .1s, color .1s;
+}
+.dt-contact-clear:hover { opacity: 1; color: var(--crim, #8B0000); }
+.dt-contact-panel {
+  padding: 12px 14px;
+  background: var(--surf2, #252119);
+  border-top: 1px solid rgba(201,169,98,.08);
+}
+.dt-contact-panel-hidden { display: none; }
+.dt-contact-panel .qf-field { margin-bottom: 12px; }
+.dt-contact-panel .qf-field:last-child { margin-bottom: 0; }
+
+/* Reading pane overrides for contacts */
+.reading-pane .dt-contact-header { background: #E8DCC8; }
+.reading-pane .dt-contact-header:hover { background: #FFF8EE; }
+.reading-pane .dt-contact-area { color: #2A1F14; }
+.reading-pane .dt-contact-dots { color: #5A1A1A; }
+.reading-pane .dt-contact-row:not(.dt-contact-used) .dt-contact-status { color: #7A6A50; background: rgba(0,0,0,.04); }
+.reading-pane .dt-contact-panel { background: #FFF8EE; border-top-color: rgba(139,0,0,.08); }
+.reading-pane .dt-contact-row { border-color: rgba(139,0,0,.1); }
+.reading-pane .dt-contact-row.dt-contact-used { border-color: rgba(139,0,0,.2); }
+.reading-pane .dt-contact-clear:hover { color: #8B0000; }
+
 /* ── Sphere merit info header ── */
 .dt-sphere-merit-info {
   font-family: var(--fh);
