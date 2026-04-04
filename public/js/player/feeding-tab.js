@@ -41,6 +41,7 @@ let rollResult = null;
 let feedingRecord = null; // persisted feeding_rolls record from DB
 let responseSubId = null; // submission _id for persisting player roll
 let publishedFeedingText = null; // extracted Feeding section from published_outcome
+let currentSub = null; // full submission doc for summary rendering
 
 export async function renderFeedingTab(el, char) {
   currentChar = char;
@@ -57,6 +58,7 @@ export async function renderFeedingTab(el, char) {
   selectedMethodId = '';
   responseSubId = null;
   publishedFeedingText = null;
+  currentSub = null;
 
   // Load submission first — it is the authoritative source for roll state
   let mySub = null;
@@ -68,6 +70,7 @@ export async function renderFeedingTab(el, char) {
   } catch { /* no submissions */ }
 
   if (mySub) {
+    currentSub = mySub;
     responseSubId = mySub._id;
 
     // Extract feeding section from published outcome if available
@@ -114,6 +117,69 @@ export async function renderFeedingTab(el, char) {
   }
 
   render();
+}
+
+function renderFeedingSummary() {
+  // Only show summary for submitted downtimes (not drafts)
+  if (!currentSub || currentSub.status !== 'submitted') return '';
+  const r = currentSub.responses || {};
+  let h = '<div class="feeding-summary">';
+
+  // Blood types
+  let bloodTypes = [];
+  try { bloodTypes = JSON.parse(r['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
+  if (bloodTypes.length) {
+    h += `<div class="feeding-sum-row"><span class="feeding-sum-label">Blood:</span> ${bloodTypes.map(b => esc(b)).join(', ')}</div>`;
+  }
+
+  // Territories
+  let territories = {};
+  try { territories = JSON.parse(r['feeding_territories'] || '{}'); } catch { /* ignore */ }
+  const feedTerrs = Object.entries(territories)
+    .filter(([, v]) => v === 'resident' || v === 'poach')
+    .map(([k, v]) => {
+      const t = TERRITORY_DATA.find(td => td.id === k || k.includes(td.id));
+      const name = t ? t.name : k.replace(/_/g, ' ');
+      return `${name} (${v})`;
+    });
+  if (feedTerrs.length) {
+    h += `<div class="feeding-sum-row"><span class="feeding-sum-label">Territory:</span> ${feedTerrs.map(t => esc(t)).join(', ')}</div>`;
+  }
+
+  // Description
+  if (r['feeding_description']) {
+    h += `<div class="feeding-sum-row"><span class="feeding-sum-label">Description:</span> ${esc(r['feeding_description'])}</div>`;
+  }
+
+  // Rote + secondary hunt
+  if (r['_feed_rote'] === 'yes') {
+    h += '<div class="feeding-sum-rote">';
+    h += '<span class="feeding-sum-label">Rote:</span> Project action dedicated to feeding';
+    // Find the feed project slot
+    for (let n = 1; n <= 4; n++) {
+      if (r[`project_${n}_action`] === 'feed') {
+        const method2 = r[`project_${n}_feed_method2`];
+        if (method2) {
+          const m2 = FEED_METHODS.find(fm => fm.id === method2);
+          h += ` \u2014 Secondary method: <strong>${esc(m2?.name || method2)}</strong>`;
+        }
+        const projTerr = r[`project_${n}_territory`];
+        if (projTerr) {
+          const t = TERRITORY_DATA.find(td => td.id === projTerr);
+          h += ` in <strong>${esc(t?.name || projTerr)}</strong>`;
+        }
+        const projDesc = r[`project_${n}_description`];
+        if (projDesc) {
+          h += `<div class="feeding-sum-sub">${esc(projDesc)}</div>`;
+        }
+        break;
+      }
+    }
+    h += '</div>';
+  }
+
+  h += '</div>';
+  return h;
 }
 
 function buildPool(method, discName, specName) {
@@ -168,6 +234,7 @@ function render() {
     h += `<span class="feeding-pool-breakdown">${esc(poolBreakdown)}</span>`;
     h += `<span class="feeding-pool-total">${poolTotal} dice</span>`;
     h += '</div>';
+    h += renderFeedingSummary();
     h += '<p class="feeding-warning">You only get one roll. Once you roll, you are committed to the result.</p>';
     h += `<button id="feeding-roll-btn" class="feeding-roll-btn">Roll Feeding (${poolTotal} dice)</button>`;
     h += '</div>';
@@ -233,6 +300,7 @@ function render() {
 
     h += '<div class="feeding-result">';
     if (methodName) h += `<p class="feeding-method-label">Method: <strong>${esc(methodName)}</strong></p>`;
+    h += renderFeedingSummary();
     h += `<div class="feeding-suc">${successes}</div>`;
     h += `<div class="feeding-suc-label">success${successes !== 1 ? 'es' : ''}</div>`;
 
