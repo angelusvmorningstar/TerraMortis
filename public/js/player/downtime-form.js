@@ -683,27 +683,27 @@ function renderForm(container) {
   h += '<span id="dt-save-status" class="qf-save-status"></span>';
   h += '</div>';
   h += '<p class="qf-intro">Your responses auto-save as you type.</p>';
-  h += '</div>';
 
-  // Auto-detected status (attendance + regency)
-  h += '<div class="qf-section collapsed" data-section-key="status">';
-  h += '<h4 class="qf-section-title">Character Status<span class="qf-section-tick visible">✔</span></h4>';
-  h += '<div class="qf-section-body">';
+  // Status badges
+  h += '<div class="dt-status-badges">';
   if (gateValues.attended === 'yes') {
-    h += '<p class="qf-section-intro">Attended last game — Court section enabled.</p>';
+    h += '<span class="dt-badge dt-badge-on">Attended</span>';
   } else {
-    h += '<p class="qf-section-intro">Did not attend last game — Court section skipped.</p>';
+    h += '<span class="dt-badge dt-badge-off">Absent</span>';
   }
   if (gateValues.is_regent === 'yes') {
-    h += `<p class="qf-section-intro">Regent of ${esc(currentChar.regent_territory)} — Regency section enabled.</p>`;
+    h += `<span class="dt-badge dt-badge-on">Regent \u2014 ${esc(currentChar.regent_territory)}</span>`;
   }
   if (gateValues.has_sorcery === 'yes') {
     const traditions = [];
     if (currentChar.disciplines?.Cruac) traditions.push('Cruac');
-    if (currentChar.disciplines?.Theban) traditions.push('Theban Sorcery');
-    h += `<p class="qf-section-intro">${traditions.join(' and ')} practitioner — Blood Sorcery section enabled.</p>`;
+    if (currentChar.disciplines?.Theban) traditions.push('Theban');
+    h += `<span class="dt-badge dt-badge-on">${traditions.join(' / ')}</span>`;
   }
-  h += '</div></div>';
+  const bp = currentChar.blood_potency || 0;
+  if (bp) h += `<span class="dt-badge dt-badge-info">BP ${bp}</span>`;
+  h += '</div>';
+  h += '</div>';
 
   // Static sections: Court, Feeding (Regency + Projects rendered specially)
   for (const section of DOWNTIME_SECTIONS) {
@@ -738,28 +738,6 @@ function renderForm(container) {
   // ── Dynamic merit sections ──
   h += renderMeritToggles(saved);
 
-  // Remaining static sections: Acquisitions, Blood Sorcery, Vamping, Admin
-  if (DOWNTIME_GATES.length) {
-    h += '<div class="qf-section collapsed" data-section-key="gates">';
-    h += '<h4 class="qf-section-title">Additional Sections<span class="qf-section-tick">✔</span></h4>';
-    h += '<div class="qf-section-body">';
-    for (const gate of DOWNTIME_GATES) {
-      const val = gateValues[gate.key] || saved[`_gate_${gate.key}`] || '';
-      h += `<div class="qf-field">`;
-      h += `<label class="qf-label">${esc(gate.label)}</label>`;
-      h += `<div class="qf-radio-group">`;
-      for (const opt of gate.options) {
-        const checked = val === opt.value ? ' checked' : '';
-        h += `<label class="qf-radio-label">`;
-        h += `<input type="radio" name="gate-${gate.key}" value="${esc(opt.value)}"${checked} data-gate="${gate.key}">`;
-        h += `<span>${esc(opt.label)}</span>`;
-        h += `</label>`;
-      }
-      h += '</div></div>';
-    }
-    h += '</div></div>';
-  }
-
   // ── Blood Sorcery (dynamic rite selector) ──
   if (gateValues.has_sorcery === 'yes') {
     h += renderSorcerySection(saved);
@@ -768,7 +746,8 @@ function renderForm(container) {
   for (const key of ['acquisitions', 'vamping', 'admin']) {
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
-    const isGated = section.gate && gateValues[section.gate] !== 'yes';
+    // Acquisitions is always shown now (no gate); other gated sections hide if gate not met
+    const isGated = section.gate && section.key !== 'acquisitions' && gateValues[section.gate] !== 'yes';
     const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
 
     h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}" data-section-key="${section.key}">`;
@@ -2134,9 +2113,6 @@ function updateSectionTicks(container) {
 
     const key = section.dataset.sectionKey;
 
-    // Status section is always complete (informational only)
-    if (key === 'status') { tick.classList.add('visible'); return; }
-
     // Projects: tick when project 1 has an action selected
     if (key === 'projects') {
       const p1Action = document.getElementById('dt-project_1_action');
@@ -2174,19 +2150,6 @@ function updateSectionTicks(container) {
       const feedRadios = body.querySelectorAll('input[type="radio"]:checked');
       const hasSelection = Array.from(feedRadios).some(r => r.value === 'resident' || r.value === 'poach');
       tick.classList.toggle('visible', hasSelection);
-      return;
-    }
-
-    // Gates section: complete when all gates have a selection
-    if (key === 'gates') {
-      const radios = body.querySelectorAll('[data-gate]');
-      const gateNames = new Set();
-      radios.forEach(r => gateNames.add(r.dataset.gate));
-      let allAnswered = true;
-      for (const g of gateNames) {
-        if (!body.querySelector(`[data-gate="${g}"]:checked`)) { allAnswered = false; break; }
-      }
-      tick.classList.toggle('visible', allAnswered);
       return;
     }
 
