@@ -1065,6 +1065,71 @@ body {
 .dt-sub-modified { border-left: 3px solid var(--gold2); }
 .dt-sub-rejected { border-left: 3px solid var(--crim2, #B22222); }
 
+/* ── Feeding Scene Summary (GC-2) ── */
+.dt-scene-panel {
+  margin-bottom: 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.dt-scene-toggle {
+  padding: 8px 12px;
+  background: var(--surf2);
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--txt2);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dt-scene-toggle:hover { background: var(--surf3, var(--surf2)); }
+.dt-scene-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.dt-scene-table th {
+  padding: 6px 12px;
+  text-align: left;
+  font-family: var(--fh);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--txt3);
+  background: var(--surf);
+  border-bottom: 1px solid var(--bdr);
+}
+.dt-scene-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--bdr);
+  color: var(--txt2);
+}
+.dt-scene-table tbody tr:last-child td { border-bottom: none; }
+.dt-scene-nosub td { opacity: 0.6; }
+.dt-scene-nosub-badge {
+  font-size: 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--txt3);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.dt-scene-name { color: var(--txt); font-weight: 500; }
+.dt-scene-pool { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--gold2); }
+.dt-scene-amb {
+  font-size: 11px;
+  background: var(--surf2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: var(--txt2);
+}
+.dt-scene-dim { color: var(--txt3); }
+.dt-scene-rote-lbl { cursor: pointer; }
+
 /* ── Feeding Matrix & Conflicts ── */
 .dt-matrix-panel, .dt-conflict-panel {
   margin-bottom: 12px;

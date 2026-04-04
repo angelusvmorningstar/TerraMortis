@@ -6,7 +6,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP } from '../player/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
 import { displayName } from '../data/helpers.js';
@@ -60,6 +60,7 @@ function buildShell() {
     <div id="dt-regency-bar"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
+    <div id="dt-feeding-scene"></div>
     <div id="dt-matrix"></div>
     <div id="dt-conflicts"></div>
     <div id="dt-investigations"></div>
@@ -256,6 +257,7 @@ async function loadCycleById(cycleId) {
   expandedId = null;
   submissions = await getSubmissionsForCycle(cycleId);
   renderMatchSummary();
+  renderFeedingScene();
   renderFeedingMatrix();
   renderConflicts();
   await loadInvestigations(cycleId);
@@ -1409,6 +1411,139 @@ function renderNpcForm(npc) {
   h += `<textarea class="dt-narr-textarea" id="dt-npc-notes-${id}" placeholder="Notes (ST only)" style="min-height:36px;margin-top:6px">${v('notes')}</textarea>`;
   h += '</div>';
   return h;
+}
+
+// ── Feeding Scene Summary (GC-2) ────────────────────────────────────────────
+
+/** Derive the primary feeding territory (resident > poacher) from a submission's territory grid. */
+function getPrimaryTerritory(sub) {
+  if (!sub?.responses?.feeding_territories) return null;
+  let grid;
+  try { grid = JSON.parse(sub.responses.feeding_territories); } catch { return null; }
+  // Prefer resident, fall back to poacher
+  for (const status of ['resident', 'poacher']) {
+    for (const [key, val] of Object.entries(grid)) {
+      if (val === status) {
+        return FEEDING_TERRITORIES.find(t =>
+          t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+        ) || null;
+      }
+    }
+  }
+  return null;
+}
+
+/** Look up ambience string for a territory display name. */
+function getTerritoryAmbienceByName(terrName) {
+  if (!terrName) return null;
+  // TERRITORY_DATA names may differ slightly from FEEDING_TERRITORIES labels
+  const td = TERRITORY_DATA.find(t =>
+    terrName.toLowerCase().includes(t.name.toLowerCase().replace(/^the\s+/i, '')) ||
+    t.name.toLowerCase().includes(terrName.toLowerCase().replace(/^the\s+/i, ''))
+  );
+  return td?.ambience || null;
+}
+
+/** Build best generic pool (highest total across all methods) for a character with no submission. */
+function bestGenericPool(char) {
+  let best = null;
+  for (const m of FEED_METHODS) {
+    const p = buildFeedingPool(char, m.id, 0);
+    if (p && (!best || p.total > best.total)) {
+      best = { ...p, methodName: m.name };
+    }
+  }
+  return best;
+}
+
+function renderFeedingScene() {
+  const el = document.getElementById('dt-feeding-scene');
+  if (!el) return;
+
+  const activeChars = characters.filter(c => !c.retired);
+  if (!activeChars.length) { el.innerHTML = ''; return; }
+
+  // Build a map from character _id → submission for quick lookup
+  const subByCharId = new Map();
+  for (const s of submissions) {
+    const char = findCharacter(s.character_name);
+    if (char) subByCharId.set(String(char._id), s);
+  }
+
+  const isOpen = el.dataset.open !== 'false';
+  const sorted = [...activeChars].sort((a, b) => (displayName(a)).localeCompare(displayName(b)));
+
+  let h = '<div class="dt-scene-panel">';
+  h += `<div class="dt-scene-toggle" id="dt-scene-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Scene Summary <span class="domain-count">${sorted.length} characters</span></div>`;
+
+  if (isOpen) {
+    h += '<table class="dt-scene-table">';
+    h += '<thead><tr>';
+    h += '<th>Character</th><th>Method</th><th>Territory</th><th>Ambience</th><th>Pool</th><th>Rote</th>';
+    h += '</tr></thead><tbody>';
+
+    for (const char of sorted) {
+      const charId = String(char._id);
+      const sub = subByCharId.get(charId) || null;
+      const hasSub = !!sub;
+
+      // Method
+      const methodId = sub?.responses?.['_feed_method'] || null;
+      const methodObj = FEED_METHODS_DATA.find(m => m.id === methodId);
+      const methodName = methodObj?.name || (hasSub ? 'Other / Custom' : null);
+
+      // Territory + ambience
+      const territory = getPrimaryTerritory(sub);
+      const ambience = getTerritoryAmbienceByName(territory);
+
+      // Pool
+      let poolTotal = '—';
+      let poolNote = '';
+      if (hasSub && methodId && methodObj) {
+        const pool = buildFeedingPool(char, methodId, 0);
+        poolTotal = pool ? pool.total : '?';
+      } else if (!hasSub) {
+        const best = bestGenericPool(char);
+        if (best) { poolTotal = best.total; poolNote = best.methodName; }
+      }
+
+      // Rote flag (ST-set, stored on st_review)
+      const rote = sub?.st_review?.feeding_rote || false;
+      const rowClass = hasSub ? '' : ' dt-scene-nosub';
+
+      h += `<tr class="dt-scene-row${rowClass}" data-char-id="${esc(charId)}">`;
+      h += `<td class="dt-scene-name">${esc(displayName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
+      h += `<td>${methodName ? esc(methodName) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
+      h += `<td>${territory ? esc(territory) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
+      h += `<td>${ambience ? `<span class="dt-scene-amb">${esc(ambience)}</span>` : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
+      h += `<td class="dt-scene-pool">${poolTotal}${poolNote ? ` <span class="dt-scene-dim">(${esc(poolNote)})</span>` : ''}</td>`;
+      h += `<td><label class="dt-scene-rote-lbl"><input type="checkbox" class="dt-scene-rote" data-sub-id="${esc(sub?._id || '')}" ${rote ? 'checked' : ''} ${!hasSub ? 'disabled' : ''}></label></td>`;
+      h += '</tr>';
+    }
+
+    h += '</tbody></table>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-scene-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderFeedingScene();
+  });
+
+  el.querySelectorAll('.dt-scene-rote').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const subId = cb.dataset.subId;
+      if (!subId) return;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const val = cb.checked;
+      await updateSubmission(subId, { 'st_review.feeding_rote': val });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.feeding_rote = val;
+    });
+  });
 }
 
 // ── Feeding Matrix (Story 1.4) ───────────────────────────────────────────────
