@@ -18,10 +18,7 @@ import { xpLeft } from '../editor/xp.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { meritQualifies } from '../editor/merits.js';
-import { getRole, getUser } from '../auth/discord.js';
-
-// DEV OVERRIDE: show all gated sections for styling (remove when done)
-const _DEV_SHOW_ALL = getUser()?.id === '469356244398899201';
+import { getRole } from '../auth/discord.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -659,27 +656,6 @@ export async function renderDowntimeTab(targetEl, char) {
 
   // Detect merits and auto-gate sorcery
   detectMerits();
-
-  // DEV OVERRIDE: force all gates open and inject dummy merits for styling
-  if (_DEV_SHOW_ALL) {
-    gateValues.attended = 'yes';
-    gateValues.is_regent = 'yes';
-    gateValues.has_sorcery = 'yes';
-    if (!currentChar.regent_territory) currentChar.regent_territory = 'The Academy';
-    if (!detectedMerits.retainers.length) {
-      detectedMerits.retainers = [
-        { name: 'Retainer', area: 'Ghoul Bodyguard', rating: 2, ghoul: true, category: 'influence' },
-        { name: 'Retainer', area: 'Mortal Spy', rating: 1, category: 'influence' },
-      ];
-    }
-    if (!detectedMerits.contacts.length) {
-      detectedMerits.contacts = [
-        { name: 'Contacts', area: 'Police', rating: 1, category: 'influence' },
-        { name: 'Contacts', area: 'Underworld', rating: 1, category: 'influence' },
-        { name: 'Contacts', area: 'Occult Scholars', rating: 1, category: 'influence' },
-      ];
-    }
-  }
 
   // Restore saved states
   if (responseDoc?.responses) {
