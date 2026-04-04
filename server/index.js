@@ -11,7 +11,7 @@ import sessionsRouter from './routes/sessions.js';
 import { cyclesRouter, submissionsRouter } from './routes/downtime.js';
 import investigationsRouter from './routes/investigations.js';
 import npcsRouter from './routes/npcs.js';
-import gameSessionsRouter from './routes/game-sessions.js';
+import gameSessionsRouter, { getNextSession } from './routes/game-sessions.js';
 import playersRouter from './routes/players.js';
 import questionnaireRouter from './routes/questionnaire.js';
 import historyRouter from './routes/history.js';
@@ -57,6 +57,9 @@ app.use('/api/history', requireAuth, historyRouter);
 app.use('/api/ordeal-responses', requireAuth, ordealResponsesRouter);
 app.use('/api/territory-residency', requireAuth, residencyRouter);
 app.use('/api/attendance', requireAuth, attendanceRouter);
+
+// Public game session endpoint — used by website banner (no auth)
+app.get('/api/game_sessions/next', getNextSession);
 
 // ST-only routes — require both auth and ST role
 app.use('/api/territories', requireAuth, requireRole('st'), territoriesRouter);

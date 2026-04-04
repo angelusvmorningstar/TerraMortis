@@ -12,14 +12,16 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/game_sessions/next — nearest upcoming session (used by public website banner)
-router.get('/next', async (req, res) => {
+// Also exported as a standalone handler so index.js can mount it without auth.
+export async function getNextSession(req, res) {
   const today = new Date().toISOString().slice(0, 10);
   const session = await col().findOne(
     { session_date: { $gte: today } },
     { sort: { session_date: 1 } }
   );
   res.json(session || null);
-});
+}
+router.get('/next', getNextSession);
 
 // GET /api/game_sessions/:id — single session
 router.get('/:id', async (req, res) => {
