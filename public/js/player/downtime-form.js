@@ -335,6 +335,16 @@ async function saveDraft() {
 async function submitForm() {
   const responses = collectResponses();
 
+  // AC2: Validate XP spend against available budget before submitting
+  const xpRows = JSON.parse(responses.xp_spend || '[]');
+  const xpSpent = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
+  const xpBudget = xpLeft(currentChar);
+  if (xpSpent > xpBudget) {
+    const statusEl = document.getElementById('dt-save-status');
+    if (statusEl) statusEl.textContent = `XP over budget: spending ${xpSpent} XP but only ${xpBudget} available. Remove items before submitting.`;
+    return;
+  }
+
   try {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
