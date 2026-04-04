@@ -12,7 +12,7 @@ document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 
 // Nav active state on scroll
 const navLinks = document.querySelectorAll('.nav-a');
-const secs = ['pitch', 'factions', 'onboard', 'tools', 'cta'].map(id => document.getElementById(id));
+const secs = ['pitch', 'factions', 'onboard', 'tools', 'portal', 'cta'].map(id => document.getElementById(id));
 window.addEventListener('scroll', () => {
   let cur = '';
   secs.forEach(s => { if (s && window.scrollY >= s.offsetTop - 130) cur = s.id; });

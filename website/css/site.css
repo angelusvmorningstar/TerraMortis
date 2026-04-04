@@ -152,6 +152,24 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(13,11,9,.96)
 .tc-btn.p{background:var(--crimson);border-color:var(--crimson);color:var(--text);}
 .tc-btn.p:hover{background:var(--crimson-l);border-color:var(--crimson-l);}
 
+/* PLAYER PORTAL */
+#portal{border-bottom:1px solid var(--border);}
+.portal-split{display:grid;grid-template-columns:1fr 380px;gap:4rem;align-items:start;margin-top:2rem;}
+@media(max-width:900px){.portal-split{grid-template-columns:1fr;gap:2rem;}}
+.portal-features{list-style:none;margin-top:1.5rem;display:flex;flex-direction:column;gap:.75rem;}
+.portal-features li{font-size:.9rem;color:var(--text-2);padding-left:1.4rem;position:relative;line-height:1.65;}
+.portal-features li::before{content:'◆';position:absolute;left:0;font-size:.45rem;color:var(--crimson);top:.45em;}
+.portal-card{background:var(--surface);border:1px solid var(--border);position:relative;}
+.portal-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--crimson);}
+.portal-card-inner{padding:2rem;}
+.portal-card-h{font-family:var(--fh2);font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:.7rem;margin-top:.3rem;}
+.portal-card-p{font-size:.88rem;color:var(--text-2);line-height:1.68;margin-bottom:1.6rem;}
+.portal-discord-btn{display:flex;align-items:center;justify-content:center;gap:.65rem;background:#5865F2;color:#fff;text-decoration:none;padding:.9rem 1.5rem;font-family:var(--fh2);font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;width:100%;}
+.portal-discord-btn:hover{background:#4752C4;}
+.portal-note{font-size:.78rem;color:var(--text-3);line-height:1.65;margin-top:1.1rem;text-align:center;}
+.portal-note a{color:var(--gold);text-decoration:none;}
+.portal-note a:hover{text-decoration:underline;}
+
 /* CTA */
 #cta{text-align:center;padding:5.5rem 2rem 6.5rem;position:relative;overflow:hidden;}
 #cta::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 45% at 50% 50%,rgba(139,0,0,.09) 0%,transparent 65%);pointer-events:none;}
