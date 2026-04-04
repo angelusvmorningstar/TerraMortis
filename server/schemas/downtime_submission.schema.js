@@ -82,6 +82,8 @@ export const downtimeSubmissionSchema = {
         _feed_custom_attr:  { type: 'string' },
         _feed_custom_skill: { type: 'string' },
         _feed_custom_disc:  { type: 'string' },
+        _feed_rote:           { type: 'string', enum: ['yes', ''] },
+        _feed_blood_types:    { type: 'string' },  // JSON array: subset of ["Cold","Animal","Human","Kindred"]
         feeding_description:  { type: 'string' },
         feeding_territories:  { type: 'string' },  // JSON object: territory_slug → "resident"/"poach"/"none"
         influence_spend:      { type: 'string' },  // JSON object: territory_slug → integer

@@ -230,6 +230,10 @@ function collectResponses() {
         responses['_feed_custom_skill'] = feedCustomSkill;
         responses['_feed_custom_disc'] = feedCustomDisc;
         responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
+        // Blood type checkboxes
+        const bloodChecked = [];
+        document.querySelectorAll('[data-blood-type]:checked').forEach(cb => bloodChecked.push(cb.value));
+        responses['_feed_blood_types'] = JSON.stringify(bloodChecked);
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
         continue;
@@ -2397,6 +2401,22 @@ function renderQuestion(q, value) {
         if (customTotal) h += `<span class="dt-feed-total">= ${customTotal} dice</span>`;
         h += '</div></div>';
       }
+
+      // Blood type selection (always shown)
+      const BLOOD_TYPES = ['Cold', 'Animal', 'Human', 'Kindred'];
+      let savedBlood = [];
+      try { savedBlood = JSON.parse(responseDoc?.responses?.['_feed_blood_types'] || '[]'); } catch { /* ignore */ }
+      h += '<div class="qf-field">';
+      h += '<label class="qf-label">Blood Type</label>';
+      h += '<div class="dt-feed-blood-types">';
+      for (const bt of BLOOD_TYPES) {
+        const checked = savedBlood.includes(bt) ? ' checked' : '';
+        h += `<label class="dt-feed-blood-label">`;
+        h += `<input type="checkbox" value="${esc(bt)}" data-blood-type${checked}>`;
+        h += `<span>${esc(bt)}</span>`;
+        h += '</label>';
+      }
+      h += '</div></div>';
 
       // ROTE checkbox + description (shown when method selected)
       if (feedMethodId) {

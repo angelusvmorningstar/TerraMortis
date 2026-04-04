@@ -59,6 +59,8 @@ and parsed on read. Empty strings indicate unanswered.
 | `_feed_custom_attr` | string | no | Custom pool attribute (for "other" method) |
 | `_feed_custom_skill` | string | no | Custom pool skill |
 | `_feed_custom_disc` | string | no | Custom pool discipline |
+| `_feed_rote` | string | no | `"yes"` / `""` — dedicates Project 1 to feeding |
+| `_feed_blood_types` | JSON string | no | Array subset of `["Cold","Animal","Human","Kindred"]`. Example: `'["Human","Kindred"]'` |
 | `feeding_description` | string | no | Narrative feeding description |
 | `feeding_territories` | JSON string | yes | Object keyed by territory slug → `"resident"` / `"poach"` / `"none"`. Example: `'{"the_academy":"resident","the_docklands":"none",...}'` |
 | `influence_spend` | JSON string | no | Object keyed by territory slug → integer (-N to +N). Example: `'{"the_academy":2,"the_docklands":-1,...}'` |
