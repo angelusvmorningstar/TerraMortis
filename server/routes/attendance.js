@@ -36,7 +36,8 @@ router.get('/', async (req, res) => {
   }
 
   function matchesChar(a) {
-    return String(a.character_id) === charId || (charName && a.character_name === charName);
+    return String(a.character_id) === charId
+      || (charName && (a.character_name === charName || a.name === charName));
   }
 
   let attended = false;
@@ -47,7 +48,7 @@ router.get('/', async (req, res) => {
 
   const attendees = attendance
     .filter(a => a.attended && !matchesChar(a))
-    .map(a => ({ id: String(a.character_id), name: a.character_display || a.character_name || '' }))
+    .map(a => ({ id: String(a.character_id), name: a.display_name || a.character_display || a.name || a.character_name || '' }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   res.json({ attended, attendees });
