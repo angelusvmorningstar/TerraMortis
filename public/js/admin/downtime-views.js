@@ -10,6 +10,7 @@ import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
 import { displayName } from '../data/helpers.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
 
@@ -58,6 +59,7 @@ function buildShell() {
       <span id="dt-cycle-status" class="dt-cycle-status"></span>
     </div>
     <div id="dt-regency-bar"></div>
+    <div id="dt-snapshot"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
     <div id="dt-feeding-scene"></div>
@@ -126,6 +128,140 @@ function buildFeedingPool(char, methodId, ambienceMod) {
 }
 
 // ── Cycle loading ───────────────────────────────────────────────────────────
+
+// ── End-of-Cycle Snapshot (GC-4) ────────────────────────────────────────────
+
+/**
+ * Capture prestige, eminence, and ascendancy for all active characters
+ * and save the snapshot to the cycle document.
+ * Called by GC-5 reset wizard.
+ */
+export async function takeSnapshot(cycleId) {
+  const activeChars = characters.filter(c => !c.retired);
+
+  // Per-character: prestige = clan status + covenant status, plus influence budget
+  const charData = activeChars.map(c => ({
+    character_id: String(c._id),
+    name: displayName(c),
+    clan: c.clan || '',
+    covenant: c.covenant || '',
+    prestige: (c.status?.clan || 0) + (c.status?.covenant || 0),
+    influence: calcTotalInfluence(c),
+  }));
+
+  // Clan eminence: sum of all active chars' city status per clan
+  const eminenceMap = {};
+  for (const c of activeChars) {
+    const clan = c.clan || 'Unknown';
+    eminenceMap[clan] = (eminenceMap[clan] || 0) + (c.status?.city || 0);
+  }
+  const eminence = Object.entries(eminenceMap)
+    .map(([clan, total]) => ({ clan, total }))
+    .sort((a, b) => b.total - a.total);
+
+  // Covenant ascendancy: sum of all active chars' city status per covenant
+  const ascendancyMap = {};
+  for (const c of activeChars) {
+    const cov = c.covenant || 'Unaligned';
+    ascendancyMap[cov] = (ascendancyMap[cov] || 0) + (c.status?.city || 0);
+  }
+  const ascendancy = Object.entries(ascendancyMap)
+    .map(([covenant, total]) => ({ covenant, total }))
+    .sort((a, b) => b.total - a.total);
+
+  const snapshot = {
+    taken_at: new Date().toISOString(),
+    characters: charData,
+    eminence,
+    ascendancy,
+  };
+
+  await updateCycle(cycleId, { snapshot });
+  const idx = allCycles.findIndex(c => c._id === cycleId);
+  if (idx >= 0) allCycles[idx].snapshot = snapshot;
+  return snapshot;
+}
+
+/**
+ * Add monthly influence income to each active character's influence_balance.
+ * Called by GC-5 reset wizard after takeSnapshot.
+ * Returns array of { name, error } for any failures.
+ */
+export async function applyInfluenceIncome() {
+  const activeChars = characters.filter(c => !c.retired);
+  const errors = [];
+
+  for (const c of activeChars) {
+    const income = calcTotalInfluence(c);
+    const newBalance = (c.influence_balance || 0) + income;
+    try {
+      await apiPut(`/api/characters/${c._id}`, {
+        name: c.name,
+        influence_balance: newBalance,
+      });
+      c.influence_balance = newBalance;
+    } catch (err) {
+      errors.push({ name: displayName(c), error: err.message });
+    }
+  }
+
+  return errors;
+}
+
+/** Render the historical snapshot for a closed cycle. No-ops for active cycles or cycles without data. */
+function renderSnapshotPanel(cycle) {
+  const el = document.getElementById('dt-snapshot');
+  if (!el) return;
+
+  const snap = cycle.snapshot;
+  if (!snap || cycle.status === 'active') { el.innerHTML = ''; return; }
+
+  const takenAt = new Date(snap.taken_at).toLocaleString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+  const isOpen = el.dataset.open !== 'false';
+
+  let h = '<div class="dt-snapshot-panel">';
+  h += `<div class="dt-snapshot-toggle" id="dt-snapshot-toggle">${isOpen ? '\u25BC' : '\u25BA'} Cycle Snapshot <span class="domain-count">${esc(takenAt)}</span></div>`;
+
+  if (isOpen) {
+    const sorted = [...snap.characters].sort((a, b) => b.prestige - a.prestige || b.influence - a.influence);
+
+    h += '<div class="dt-snapshot-body">';
+
+    // Prestige table
+    h += '<table class="dt-snapshot-table">';
+    h += '<thead><tr><th>Character</th><th>Clan</th><th>Covenant</th><th>Prestige</th><th>Influence</th></tr></thead><tbody>';
+    for (const c of sorted) {
+      h += `<tr><td>${esc(c.name)}</td><td>${esc(c.clan)}</td><td>${esc(c.covenant)}</td>`;
+      h += `<td class="dt-snap-val">${c.prestige}</td><td class="dt-snap-val">${c.influence}</td></tr>`;
+    }
+    h += '</tbody></table>';
+
+    // Eminence + Ascendancy side by side
+    h += '<div class="dt-snapshot-factions">';
+    h += '<div class="dt-snapshot-faction-col"><div class="dt-snapshot-head">Clan Eminence</div>';
+    for (const e of snap.eminence) {
+      h += `<div class="dt-snap-faction-row"><span>${esc(e.clan)}</span><span class="dt-snap-val">${e.total}</span></div>`;
+    }
+    h += '</div>';
+    h += '<div class="dt-snapshot-faction-col"><div class="dt-snapshot-head">Covenant Ascendancy</div>';
+    for (const a of snap.ascendancy) {
+      h += `<div class="dt-snap-faction-row"><span>${esc(a.covenant)}</span><span class="dt-snap-val">${a.total}</span></div>`;
+    }
+    h += '</div></div>'; // factions
+
+    h += '</div>'; // body
+  }
+
+  h += '</div>'; // panel
+  el.innerHTML = h;
+
+  document.getElementById('dt-snapshot-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderSnapshotPanel(cycle);
+  });
+}
 
 function renderRegencyBar(cycle, isActive) {
   const el = document.getElementById('dt-regency-bar');
@@ -241,6 +377,9 @@ async function loadCycleById(cycleId) {
 
   // ── Regency bar (GC-1) ──
   renderRegencyBar(cycle, isActive);
+
+  // ── Snapshot panel (GC-4) ──
+  renderSnapshotPanel(cycle);
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
