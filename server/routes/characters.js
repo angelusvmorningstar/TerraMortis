@@ -16,13 +16,14 @@ function parseId(id) {
 }
 
 // GET /api/characters — ST gets all, player gets only their characters
+// ?mine=1 forces the player-only path for any role (used by player portal)
 router.get('/', async (req, res) => {
-  if (req.user.role === 'st') {
+  if (req.user.role === 'st' && !req.query.mine) {
     const chars = await col().find().toArray();
     return res.json(chars);
   }
 
-  // Player: return only their linked characters
+  // Player (or ST with ?mine=1): return only their linked characters
   const ids = (req.user.character_ids || []).map(id =>
     id instanceof ObjectId ? id : new ObjectId(id)
   );

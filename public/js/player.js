@@ -80,7 +80,7 @@ function renderSidebarUser() {
 
 async function loadCharacters() {
   try {
-    chars = await apiGet('/api/characters');
+    chars = await apiGet('/api/characters?mine=1');
   } catch (err) {
     document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">Failed to load characters: ${esc(err.message)}</p>`;
