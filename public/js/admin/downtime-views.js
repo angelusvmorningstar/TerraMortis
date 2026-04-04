@@ -58,7 +58,6 @@ function buildShell() {
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
       <span id="dt-cycle-status" class="dt-cycle-status"></span>
     </div>
-    <div id="dt-regency-bar"></div>
     <div id="dt-snapshot"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
@@ -281,55 +280,6 @@ function renderSnapshotPanel(cycle) {
   });
 }
 
-function renderRegencyBar(cycle, isActive) {
-  const el = document.getElementById('dt-regency-bar');
-  if (!el) return;
-
-  const currentId = cycle.regency_character_id ? String(cycle.regency_character_id) : '';
-  const currentName = cycle.regency_character_name || '';
-
-  if (!isActive) {
-    // Closed cycle — read-only display
-    el.innerHTML = currentName
-      ? `<div class="dt-regency-bar"><span class="dt-regency-label">Regent</span><span class="dt-regency-confirmed">\u2713 ${esc(currentName)}</span></div>`
-      : `<div class="dt-regency-bar"><span class="dt-regency-label">Regent</span><span class="dt-regency-none">Not recorded</span></div>`;
-    return;
-  }
-
-  // Active cycle — editable dropdown
-  const activeChars = characters.filter(c => !c.retired);
-  let opts = '<option value="">— None —</option>';
-  for (const c of activeChars) {
-    const id = String(c._id);
-    const name = esc(displayName(c));
-    opts += `<option value="${id}"${id === currentId ? ' selected' : ''}>${name}</option>`;
-  }
-
-  el.innerHTML = `<div class="dt-regency-bar">` +
-    `<span class="dt-regency-label">Regent</span>` +
-    `<select id="dt-regent-sel" class="dt-regent-sel">${opts}</select>` +
-    `<button class="dt-btn dt-btn-sm" id="dt-regent-save">Save</button>` +
-    (currentName ? `<span class="dt-regency-confirmed">\u2713 ${esc(currentName)}</span>` : '') +
-    `</div>`;
-
-  document.getElementById('dt-regent-save').addEventListener('click', async () => {
-    const sel = document.getElementById('dt-regent-sel');
-    const chosenId = sel.value;
-    const chosenChar = characters.find(c => String(c._id) === chosenId) || null;
-    const chosenName = chosenChar ? displayName(chosenChar) : '';
-    await updateCycle(cycle._id, {
-      regency_character_id: chosenId || null,
-      regency_character_name: chosenName || null,
-    });
-    // Update local cache and re-render bar
-    const idx = allCycles.findIndex(c => c._id === cycle._id);
-    if (idx >= 0) {
-      allCycles[idx].regency_character_id = chosenId || null;
-      allCycles[idx].regency_character_name = chosenName || null;
-    }
-    renderRegencyBar({ ...cycle, regency_character_id: chosenId, regency_character_name: chosenName }, true);
-  });
-}
 
 async function loadAllCycles() {
   allCycles = await getCycles();
@@ -392,9 +342,6 @@ async function loadCycleById(cycleId) {
   }
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
-
-  // ── Regency bar (GC-1) ──
-  renderRegencyBar(cycle, isActive);
 
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
@@ -1118,18 +1065,15 @@ function buildWizardChecklistHtml(cycle) {
     !s.st_review?.vitae_spent && !s.st_review?.willpower_spent && !s.st_review?.influence_spent
   );
   const noFeed = submissions.filter(s => !s.feeding_roll);
-  const hasRegency = !!cycle.regency_character_id;
 
   let items = '';
   if (readySubs.length) items += `<li class="gc-chk-ok">&#10003; ${readySubs.length} submission${readySubs.length !== 1 ? 's' : ''} ready to publish</li>`;
-  if (hasRegency) items += `<li class="gc-chk-ok">&#10003; Regent: ${esc(cycle.regency_character_name || 'set')}</li>`;
   if (pendingSubs.length) items += `<li class="gc-chk-warn">&#9651; ${pendingSubs.length} submission${pendingSubs.length !== 1 ? 's' : ''} not yet reviewed</li>`;
   if (missingExp.length) items += `<li class="gc-chk-warn">&#9651; ${missingExp.length} approved submission${missingExp.length !== 1 ? 's' : ''} missing expenditure data</li>`;
   if (noFeed.length) items += `<li class="gc-chk-warn">&#9651; ${noFeed.length} submission${noFeed.length !== 1 ? 's' : ''} with no feeding roll</li>`;
-  if (!hasRegency) items += `<li class="gc-chk-warn">&#9651; No regent locked in for this cycle</li>`;
   if (!items) items = '<li class="gc-chk-ok">&#10003; All checks passed</li>';
 
-  const hasWarnings = pendingSubs.length || missingExp.length || noFeed.length || !hasRegency;
+  const hasWarnings = pendingSubs.length || missingExp.length || noFeed.length;
 
   return `<div class="gc-wizard-box">
     <div class="gc-wizard-title">Cycle Reset Wizard</div>
