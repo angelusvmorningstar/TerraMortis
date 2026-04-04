@@ -364,15 +364,18 @@ function collectResponses() {
     responses[`sphere_${n}_cast`] = JSON.stringify(castIds);
   }
 
-  // Contact fields
-  let contactIdx = 0;
-  for (const m of detectedMerits.contacts) {
-    const key = meritKey(m);
-    if (gateValues[`merit_${key}`] !== 'yes') continue;
-    contactIdx++;
-    const el = document.getElementById(`dt-contact_${contactIdx}`);
-    if (el) responses[`contact_${contactIdx}`] = el.value;
-    responses[`contact_${contactIdx}_merit`] = meritLabel(m);
+  // Contact fields (expandable table — up to 5)
+  const maxContacts = Math.min(detectedMerits.contacts.length, 5);
+  for (let n = 1; n <= maxContacts; n++) {
+    const infoEl = document.getElementById(`dt-contact_${n}_info`);
+    const reqEl = document.getElementById(`dt-contact_${n}_request`);
+    const meritEl = document.getElementById(`dt-contact_${n}_merit`);
+    responses[`contact_${n}_info`] = infoEl ? infoEl.value : '';
+    responses[`contact_${n}_request`] = reqEl ? reqEl.value : '';
+    responses[`contact_${n}_merit`] = meritEl ? meritEl.value : '';
+    // Backwards compat: also store combined value in old key
+    const combined = [responses[`contact_${n}_info`], responses[`contact_${n}_request`]].filter(Boolean).join('\n');
+    responses[`contact_${n}`] = combined;
   }
 
   // Retainer fields
@@ -823,6 +826,30 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // Contact row toggle
+    const contactToggle = e.target.closest('[data-contact-toggle]');
+    if (contactToggle && !e.target.closest('[data-contact-clear]')) {
+      const n = contactToggle.dataset.contactToggle;
+      const panel = container.querySelector(`[data-contact-panel="${n}"]`);
+      if (panel) panel.classList.toggle('dt-contact-panel-hidden');
+      return;
+    }
+    // Contact clear button
+    const contactClear = e.target.closest('[data-contact-clear]');
+    if (contactClear) {
+      const n = contactClear.dataset.contactClear;
+      const infoEl = document.getElementById(`dt-contact_${n}_info`);
+      const reqEl = document.getElementById(`dt-contact_${n}_request`);
+      if (infoEl) infoEl.value = '';
+      if (reqEl) reqEl.value = '';
+      // Update saved data and re-render
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
     // Cast picker modal
     const castBtn = e.target.closest('[data-cast-open]');
     if (castBtn) {
@@ -2019,30 +2046,52 @@ function renderMeritToggles(saved) {
     h += '</div></div>';
   }
 
-  // ── Contacts ──
+  // ── Contacts (expandable table) ──
   if (hasContacts) {
+    const maxContacts = Math.min(detectedMerits.contacts.length, 5);
     h += '<div class="qf-section collapsed" data-section-key="contacts">';
     h += '<h4 class="qf-section-title">Contacts: Requests for Information<span class="qf-section-tick">✔</span></h4>';
     h += '<div class="qf-section-body">';
-    h += '<p class="qf-section-intro">Your character has the following Contacts. Select which you wish to use this Downtime (maximum 5 information requests).</p>';
+    h += '<p class="qf-section-intro">Click a contact to expand and submit an information request. Maximum 5 requests per Downtime.</p>';
 
-    let contactIdx = 0;
-    for (const m of detectedMerits.contacts) {
-      const key = meritKey(m);
-      const active = gateValues[`merit_${key}`] === 'yes';
+    h += '<div class="dt-contacts-table">';
+    for (let n = 1; n <= maxContacts; n++) {
+      const m = detectedMerits.contacts[n - 1];
+      const area = m.area || m.qualifier || 'General';
+      const dots = '\u25CF'.repeat(m.rating || 1);
+      const savedInfo = saved[`contact_${n}_info`] || '';
+      const savedReq = saved[`contact_${n}_request`] || '';
+      const isUsed = savedInfo || savedReq;
+      const expanded = isUsed;
 
-      let formHtml = '';
-      if (active) {
-        contactIdx++;
-        if (contactIdx <= 5) {
-          formHtml += renderQuestion({
-            key: `contact_${contactIdx}`, label: `${m.area || 'Contact'}: Information Request`,
-            type: 'textarea', required: false, desc: 'Supporting Info:\nRequest:',
-          }, saved[`contact_${contactIdx}`] || '');
-        }
+      h += `<div class="dt-contact-row${isUsed ? ' dt-contact-used' : ''}" data-contact-row="${n}">`;
+      // Header (clickable)
+      h += `<div class="dt-contact-header" data-contact-toggle="${n}">`;
+      h += `<span class="dt-contact-area">${esc(area)}</span>`;
+      h += `<span class="dt-contact-dots">${dots}</span>`;
+      h += `<span class="dt-contact-status">${isUsed ? 'Used' : 'Unused'}</span>`;
+      if (isUsed) {
+        h += `<button type="button" class="dt-contact-clear" data-contact-clear="${n}" title="Clear and close">\u2715</button>`;
       }
-      h += renderMeritToggle(m, saved, formHtml);
+      h += '</div>';
+
+      // Expandable panel
+      h += `<div class="dt-contact-panel${expanded ? '' : ' dt-contact-panel-hidden'}" data-contact-panel="${n}">`;
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-contact_${n}_info">Supporting Info</label>`;
+      h += `<input type="text" id="dt-contact_${n}_info" class="qf-input" value="${esc(savedInfo)}" placeholder="Context, leverage, or relevant details">`;
+      h += '</div>';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-contact_${n}_request">Request</label>`;
+      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="What do you want to know?">${esc(savedReq)}</textarea>`;
+      h += '</div>';
+      // Store merit label
+      h += `<input type="hidden" id="dt-contact_${n}_merit" value="${esc(meritLabel(m))}">`;
+      h += '</div>'; // panel
+      h += '</div>'; // row
     }
+    h += '</div>';
+
     h += '</div></div>';
   }
 
@@ -2092,6 +2141,19 @@ function updateSectionTicks(container) {
     if (key === 'projects') {
       const p1Action = document.getElementById('dt-project_1_action');
       tick.classList.toggle('visible', !!(p1Action && p1Action.value));
+      return;
+    }
+
+    // Contacts: tick when any contact has content
+    if (key === 'contacts') {
+      const maxC = Math.min(detectedMerits.contacts.length, 5);
+      let anyUsed = false;
+      for (let n = 1; n <= maxC; n++) {
+        const info = document.getElementById(`dt-contact_${n}_info`);
+        const req = document.getElementById(`dt-contact_${n}_request`);
+        if ((info && info.value.trim()) || (req && req.value.trim())) { anyUsed = true; break; }
+      }
+      tick.classList.toggle('visible', anyUsed);
       return;
     }
 
