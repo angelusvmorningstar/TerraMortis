@@ -2098,6 +2098,23 @@ body {
 
 .pv-req { color: var(--gold2); }
 
+.pv-char-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 0 4px;
+}
+.pv-char-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--txt);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pv-char-cb { accent-color: var(--gold2); cursor: pointer; }
+
 .pv-input, .pv-select {
   padding: 6px 9px;
   background: var(--surf2);

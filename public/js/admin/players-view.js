@@ -173,12 +173,33 @@ function playerForm(p, formId) {
         </select>
       </label>
     </div>
+    <div class="pv-label">
+      <span>Linked characters</span>
+      <div class="pv-char-list">${buildCharCheckboxes(p)}</div>
+      <span class="pv-hint">Characters this player can access when logged in.</span>
+    </div>
     <p class="pv-err" id="pv-form-err" style="display:none"></p>
     <div class="pv-form-actions">
       <button class="btn-sm pv-save-btn" data-form-id="${esc(formId)}">${isNew ? 'Create' : 'Save'}</button>
       <button class="dt-btn pv-cancel-btn">Cancel</button>
     </div>
   </div>`;
+}
+
+function buildCharCheckboxes(p) {
+  const linkedIds = new Set((p?.character_ids || []).map(id => String(id)));
+  const active = chars.filter(c => !c.retired).sort((a, b) =>
+    (a.moniker || a.name).localeCompare(b.moniker || b.name)
+  );
+  if (!active.length) return '<span class="pv-dim">No characters in database.</span>';
+  return active.map(c => {
+    const id = String(c._id);
+    const checked = linkedIds.has(id) ? 'checked' : '';
+    return `<label class="pv-char-check">
+      <input type="checkbox" class="pv-char-cb" value="${esc(id)}" ${checked}>
+      ${esc(c.moniker || c.name)}
+    </label>`;
+  }).join('');
 }
 
 // ── Event binding ─────────────────────────────────────────────────────────────
@@ -225,11 +246,14 @@ async function handleSave(formId) {
     return;
   }
 
+  const characterIds = [...document.querySelectorAll('.pv-char-cb:checked')].map(cb => cb.value);
+
   const body = {
     display_name:      name,
     discord_username:  username || null,
     discord_id:        did || null,
     role:              role || 'player',
+    character_ids:     characterIds,
   };
 
   try {
