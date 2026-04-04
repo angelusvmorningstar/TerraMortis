@@ -60,6 +60,22 @@ Epics 1–4 are complete and listed as reference only. Active work begins at Epi
 - FR-6-05: ST can track per-character live game state (Vitae, Willpower, Health, Conditions) with a reset-all function at session start; state persists for the duration of the session without requiring manual save
 - FR-6-06: ST can access a searchable rules quick reference (roll mechanics, resistance formulas, discipline summaries, merit effects) without leaving the character view
 
+**Epic OR: Ordeal System**
+
+- FR-OR-01: ST can import historical ordeal submissions from Google Forms Excel exports (Lore Mastery, Rules Mastery, Covenant Questionnaire, Character History) into MongoDB, with player-to-character resolution by email and name; existing Review Data tab comments are imported as draft markings
+- FR-OR-02: ST can browse all ordeal submissions in the admin app by ordeal type or by character; each view shows the player's response alongside the rubric expected answer
+- FR-OR-03: ST can mark each answer Yes / Close / No, add per-answer feedback, add overall feedback, and mark the ordeal complete; marking persists between sessions
+- FR-OR-04: On ordeal completion, 3 XP is awarded to the character and ordeal status updates in the player portal
+- FR-OR-05: ST can view and edit rubric entries (expected answers and marking notes) per question per ordeal type from within the admin app
+
+**Epic AR: Archive and Documents**
+
+- FR-AR-01: All 31 dossiers, 27 Downtime 1 ST responses, and 4 character history Word doc submissions are converted from .docx to HTML via mammoth and stored in `archive_documents` linked to character IDs
+- FR-AR-02: Players can view their own archive documents (dossier, downtime responses, history) in-browser in the Archive tab; no other character's documents are accessible
+- FR-AR-03: ST can upload a new .docx for any character via the admin app; mammoth conversion runs server-side and the document is stored immediately
+- FR-AR-04: Players can view the Terra Mortis city map and a who's who of active characters (name, clan, covenant, court position) in the City tab
+- FR-AR-05: Players can read the primer as a formatted web page; ST can update primer content from the admin app without a redeploy
+
 **Data Portability**
 
 - FR-DP-01: Any collection (characters, territories, game sessions, attendance, investigations, NPCs) can be exported as a CSV file with all fields represented; nested fields (e.g. character merits array, disciplines map) require a defined flat export format to be specified before implementation — round-trip fidelity depends on this format being established
@@ -140,6 +156,16 @@ N/A — No UX design document exists. UI patterns are defined inline in Architec
 | FR-6-04 | Epic 6 | 6.4 |
 | FR-6-05 | Epic 6 | 6.5 |
 | FR-6-06 | Epic 6 | 6.6 |
+| FR-OR-01 | Epic OR | OR-1 |
+| FR-OR-02 | Epic OR | OR-2 |
+| FR-OR-03 | Epic OR | OR-2 |
+| FR-OR-04 | Epic OR | OR-2 |
+| FR-OR-05 | Epic OR | OR-3 |
+| FR-AR-01 | Epic AR | AR-1 |
+| FR-AR-02 | Epic AR | AR-2 |
+| FR-AR-03 | Epic AR | AR-3 |
+| FR-AR-04 | Epic AR | AR-4 |
+| FR-AR-05 | Epic AR | AR-5 |
 | FR-DP-01 | Data Portability | DP-1 |
 | FR-DP-02 | Data Portability | DP-2 |
 | FR-DP-03 | Data Portability | DP-2 |
@@ -172,6 +198,14 @@ The ST can manage the full post-game cycle from one place — lock in Regency, c
 ### Epic DP: Data Portability
 The ST can export any collection as CSV and re-import it cleanly. Import errors are reported row-by-row without aborting the batch. Round-trip fidelity guaranteed.
 **FRs covered:** FR-DP-01, FR-DP-02, FR-DP-03, FR-DP-04, FR-DP-05
+
+### Epic OR: Ordeal System
+Import historical Google Forms ordeal data, mark player responses against rubrics with Yes/Close/No per-answer feedback, award XP on completion, surface status to players.
+**FRs covered:** FR-OR-01, FR-OR-02, FR-OR-03, FR-OR-04, FR-OR-05
+
+### Epic AR: Archive and Documents
+Convert all ST-authored .docx files (dossiers, downtime responses, histories) to HTML and store in MongoDB. Players read their archive in-portal. ST uploads future cycle documents from admin. City map, who's who, and primer page round out the player portal.
+**FRs covered:** FR-AR-01, FR-AR-02, FR-AR-03, FR-AR-04, FR-AR-05
 
 ### Epic 6: Live Game App
 The ST can look up any character, view pre-calculated dice pools, resolve contested rolls, check downtime submissions, and track live game state — all from a tablet-optimised interface on game day.
@@ -785,4 +819,333 @@ So that I can access the information the ST has made available to me without see
 **Given** the ST marks a lore document as restricted
 **When** a player without that permission views the library
 **Then** the restricted document is not shown
+
+---
+
+## Epic OR: Ordeal System
+
+The ST can import all historical ordeal submissions from Google Forms, mark player responses against rubrics with per-answer feedback, and award XP on approval. Players can see their ordeal status and ST feedback in the portal.
+
+**FRs covered:** FR-OR-01 through FR-OR-05 (below)
+**NFRs:** NFR6, NFR8, NFR12
+**Depends on:** Epic 2 (API), Epic 5 (player portal for OR-4)
+
+### Functional Requirements
+
+- FR-OR-01: ST can import historical ordeal submissions (Lore Mastery, Rules Mastery, Covenant Questionnaire, Character History) from Google Forms Excel exports into MongoDB, with player-to-character resolution by email and name matching; existing ST review comments from the Excel Review Data tabs are imported as draft markings
+- FR-OR-02: ST can view all ordeal submissions in the admin Downtime domain, browseable by ordeal type or by character; each view shows the player's response alongside the rubric expected answer for that question
+- FR-OR-03: ST can mark each answer as Yes / Close / No, add per-answer text feedback, add overall feedback, and mark the ordeal as complete; marking state persists between sessions
+- FR-OR-04: On ordeal completion, XP is awarded to the character (3 XP per completed ordeal) and the ordeal status updates in the player's portal view
+- FR-OR-05: ST can view and edit rubric entries (expected answers and marking notes) per question per ordeal type from within the admin app
+
+### Story OR-1: Ordeal Import Script
+
+As an ST,
+I want all historical Google Forms ordeal responses imported into MongoDB,
+So that the data is in the system and no longer locked inside Excel files.
+
+**Acceptance Criteria:**
+
+**Given** the five Google Forms Excel files and the player-character mapping from Character Details
+**When** the import script runs
+**Then** one `ordeal_submissions` document is created per player per ordeal type for all submissions matching known player emails
+**And** submissions from non-players (email not in players collection) are skipped with a logged warning
+**And** each document stores the full question-answer array for that ordeal type
+**And** for Covenant Questionnaire submissions, only the columns belonging to the character's covenant are stored (plus the shared Q1)
+
+**Given** existing ST review comments in the Review Data tabs
+**When** the import script runs
+**Then** each reviewer comment is stored as a draft `marking.answers[n].feedback` on the corresponding submission
+**And** `marking.status` is set to `'in_progress'` for any submission with at least one review comment, `'unmarked'` otherwise
+
+**Given** the four Word doc history submissions (Carver, Edna Judge, René Meyer, Ryan Ambrose)
+**When** the import script runs
+**Then** each is converted to HTML via mammoth and stored as an `ordeal_submissions` document with `source: 'word_doc'` and `ordeal_type: 'character_history'`
+
+**Given** René Meyer has both a form submission and a Word doc for Character History
+**When** both are imported
+**Then** both documents are stored with distinct `source` values; neither is discarded
+
+**Given** the import script completes
+**When** it exits
+**Then** a summary is printed: total imported, skipped (non-player), draft markings carried over, errors
+
+**Schema — `ordeal_submissions` collection:**
+```
+{
+  _id: ObjectId,
+  character_id: ObjectId,
+  player_id: ObjectId,
+  ordeal_type: "lore_mastery" | "rules_mastery" | "covenant_questionnaire" | "character_history",
+  covenant: String | null,       // covenant_questionnaire only
+  submitted_at: Date,
+  source: "google_form" | "word_doc",
+  responses: [
+    { question: String, answer: String }
+  ],
+  marking: {
+    status: "unmarked" | "in_progress" | "complete",
+    marked_by: String | null,
+    marked_at: Date | null,
+    overall_feedback: String,
+    xp_awarded: Number | null,
+    answers: [
+      {
+        question_index: Number,
+        result: "yes" | "close" | "no" | null,
+        feedback: String
+      }
+    ]
+  }
+}
+```
+
+**Schema — `ordeal_rubrics` collection:**
+```
+{
+  _id: ObjectId,
+  ordeal_type: String,
+  covenant: String | null,
+  questions: [
+    {
+      index: Number,
+      question: String,
+      expected_answer: String,
+      marking_notes: String
+    }
+  ]
+}
+```
+
+**Seed file:** `data/ordeal_rubrics_seed.json` exists with placeholder answers; import script seeds this collection on first run if empty.
+
+### Story OR-2: Ordeal Marking UI
+
+As an ST,
+I want to review and mark ordeal submissions from within the admin app,
+So that I can replace the Excel workflow with something that persists and feeds into the system.
+
+**Acceptance Criteria:**
+
+**Given** the ST opens the Downtime domain in admin
+**When** they navigate to the Ordeals section
+**Then** a two-panel view is shown: left panel lists all ordeals grouped by type (Lore Mastery, Rules Mastery, Covenant Questionnaire, Character History); each entry shows character name and marking status (Unmarked / In Progress / Complete)
+
+**Given** the ST selects a submission
+**When** it loads
+**Then** each question is shown with three columns: the question text, the player's answer, and the rubric expected answer
+**And** a Yes / Close / No toggle and a text feedback field appear per row
+**And** any draft feedback imported from Excel is pre-populated
+
+**Given** the ST marks all answers and clicks "Mark Complete"
+**When** the save action fires
+**Then** `marking.status` is set to `'complete'`, `marking.marked_by` and `marking.marked_at` are recorded
+**And** 3 XP is added to the character's XP log with source `ordeal_[type]`
+**And** the submission status in the left panel updates to Complete
+
+**Given** the ST marks an ordeal as complete
+**When** the player next views their Ordeals tab
+**Then** the ordeal shows status Approved and any overall feedback is visible
+**And** per-answer feedback is visible per question
+
+**Given** a Covenant Questionnaire submission
+**When** it loads in the marking view
+**Then** only the questions for that character's covenant are shown (not all 88 columns)
+
+### Story OR-3: Rubric Editor
+
+As an ST,
+I want to view and update the expected answers and marking notes for each ordeal question,
+So that rubric knowledge is in the system rather than in my head.
+
+**Acceptance Criteria:**
+
+**Given** the ST navigates to the Rubric section of the Ordeals tab
+**When** they select an ordeal type (and covenant for Covenant Questionnaire)
+**Then** all questions are listed with their current expected answer and marking notes
+
+**Given** the ST edits an expected answer
+**When** they save
+**Then** the `ordeal_rubrics` document is updated
+**And** the updated answer appears immediately in the marking view for that question
+
+**Given** questions currently have placeholder text
+**When** the rubric editor loads
+**Then** placeholder entries are visually flagged (e.g. italicised or dimmed) to indicate they need filling in
+
+### Story OR-4: Player Ordeal Status View
+
+As a player,
+I want to see my ordeal submission status and any ST feedback,
+So that I know what I've completed, what's pending review, and what I need to resubmit.
+
+**Acceptance Criteria:**
+
+**Given** a player opens the Ordeals tab
+**When** it renders
+**Then** all four ordeal types are listed with current status: Not Submitted / Submitted / In Review / Approved
+
+**Given** an ordeal is marked Complete by an ST
+**When** the player views it
+**Then** the status shows Approved and any overall feedback is displayed
+**And** per-answer feedback is shown per question (without revealing the rubric expected answer or ST marking notes)
+
+**Given** an ordeal is In Progress (draft marking exists)
+**When** the player views it
+**Then** no partial feedback is shown; status shows Submitted
+
+---
+
+## Epic AR: Archive and Documents
+
+ST-authored documents (dossiers, downtime responses, character histories) are stored in MongoDB as HTML and surfaced to players in their Archive tab. The player portal also includes a city map, a who's who page, and a web-readable primer.
+
+**FRs covered:** FR-AR-01 through FR-AR-05 (below)
+**NFRs:** NFR6, NFR8, NFR12
+**Depends on:** Epic 2 (API), Epic 5 (player auth)
+
+### Functional Requirements
+
+- FR-AR-01: All 31 character dossiers, 27 Downtime 1 ST response documents, and 4 character history Word doc submissions are converted from .docx to HTML via mammoth and stored in a new `archive_documents` MongoDB collection linked to character IDs
+- FR-AR-02: Players can view their own archive documents (dossier, downtime responses, history submissions) in a readable in-browser format in the Archive tab; documents from other characters are not accessible
+- FR-AR-03: ST can upload a new .docx document for any character via the admin app, triggering mammoth conversion and storage; this is the workflow for delivering future downtime cycle responses
+- FR-AR-04: Players can view the Terra Mortis city map as a full-screen image in the portal
+- FR-AR-05: Players can view a who's who page listing all active characters with court positions, covenant, and clan — no private ST data included
+
+### Story AR-1: Document Import Script
+
+As an ST,
+I want all existing dossiers, downtime responses, and history submissions imported into MongoDB as HTML,
+So that players can read them in-browser and the documents are no longer scattered as Word files.
+
+**Acceptance Criteria:**
+
+**Given** the 31 `*_Dossier.docx` files in the project root
+**When** the import script runs
+**Then** each is converted to HTML via mammoth and stored as an `archive_documents` document with `type: 'dossier'`, `cycle: null`, `visible_to_player: true`
+**And** each document is linked to the correct character by matching the filename stem to the characters collection (using the name mapping table in the script)
+
+**Given** the 27 `*_Downtime1.docx` files in the project root
+**When** the import script runs
+**Then** each is converted and stored with `type: 'downtime_response'`, `cycle: 1`, `title: 'Downtime 1 Response'`
+**And** characters who did not submit downtime (no matching file) have no downtime_response document for cycle 1 — this is not an error
+
+**Given** the 4 character history Word doc submissions
+**When** the import script runs
+**Then** each is converted and stored with `type: 'history_submission'`, `cycle: null`, `title: 'Character History'`
+
+**Given** filename-to-character mismatches (Mac/Macheath, Cazz/Casimir, Charlie Ballsack/Balsac)
+**When** the import script resolves character IDs
+**Then** the script uses a hardcoded name mapping table to handle known mismatches; unresolved names are logged as warnings and skipped rather than erroring
+
+**Given** the import script completes
+**When** it exits
+**Then** a summary is printed: documents imported by type, skipped (unresolved character), conversion errors
+
+**Schema — `archive_documents` collection:**
+```
+{
+  _id: ObjectId,
+  character_id: ObjectId,
+  type: "dossier" | "downtime_response" | "history_submission",
+  cycle: Number | null,
+  title: String,
+  content_html: String,
+  visible_to_player: Boolean,
+  created_at: Date
+}
+```
+
+**New API routes:**
+- `GET /api/archive_documents/:character_id` — returns all documents for a character; player token enforced to own character only; `visible_to_player: false` documents excluded for player tokens
+- `POST /api/archive_documents` — ST only; accepts `character_id`, `type`, `cycle`, `title`, `content_html`
+
+### Story AR-2: Player Archive Tab
+
+As a player,
+I want an Archive tab where I can read my dossier, downtime responses, and character history,
+So that I have a permanent record of my character's story in one place.
+
+**Acceptance Criteria:**
+
+**Given** a player opens the Archive tab
+**When** it renders
+**Then** documents are grouped by type: Dossier (pinned at top), Downtime Responses (reverse-chronological by cycle), Character History
+
+**Given** a player selects a document
+**When** it loads
+**Then** the mammoth-converted HTML is rendered in a styled reading pane using the app's body font (Lora) and dark theme
+**And** no download button or raw HTML is exposed
+
+**Given** a character has no documents of a given type
+**When** the Archive tab renders
+**Then** that section is omitted rather than shown as empty
+
+**Given** the player token on `GET /api/archive_documents/:character_id`
+**When** the request is processed
+**Then** only documents for that player's own character are returned
+**And** documents with `visible_to_player: false` are excluded
+
+### Story AR-3: Admin Document Upload
+
+As an ST,
+I want to upload a .docx file for any character from within the admin app,
+So that I can deliver future downtime cycle responses without running a script.
+
+**Acceptance Criteria:**
+
+**Given** the ST opens a character record in the admin Player domain
+**When** they navigate to the Archive section
+**Then** existing documents for that character are listed with type, cycle, and creation date
+
+**Given** the ST selects "Upload Document"
+**When** they choose a .docx file, set type and cycle, and confirm
+**Then** the file is sent to `POST /api/archive_documents/upload`, converted via mammoth server-side, and stored
+**And** the document appears immediately in the character's archive list
+
+**Given** a mammoth conversion error (corrupted file, unsupported format)
+**When** the upload is attempted
+**Then** a clear error message is shown and no document is stored
+
+### Story AR-4: City Map and Who's Who
+
+As a player,
+I want to see the Terra Mortis city map and a who's who of active characters,
+So that I can orient myself in the setting between games.
+
+**Acceptance Criteria:**
+
+**Given** a player navigates to the City tab in the portal
+**When** it renders
+**Then** the city map image (`Terra Mortis Map.png`) is displayed full-width with pinch-to-zoom on mobile
+
+**Given** the who's who section renders below the map
+**When** it loads
+**Then** all active (non-retired) characters are listed with: display name, clan, covenant, and any court position held
+**And** no private ST fields (haven, st_review, notes, XP data) are included
+**And** characters are sorted by covenant then sort name
+
+**Given** `GET /api/characters` is called with a player token for the who's who
+**When** the response is built
+**Then** only public fields are returned: `name`, `honorific`, `moniker`, `clan`, `covenant`, `court_position` (if any)
+
+### Story AR-5: Primer Page
+
+As a player,
+I want to read the Terra Mortis primer as a web page,
+So that I do not need to download and open a PDF.
+
+**Acceptance Criteria:**
+
+**Given** a player navigates to the Primer tab in the portal
+**When** it renders
+**Then** the primer content is displayed as formatted HTML in a readable single-column layout
+
+**Given** the primer content is stored as a single `archive_documents` document with `type: 'primer'` and no `character_id`
+**When** the ST updates it via the admin app
+**Then** the player-facing view reflects the update immediately
+
+**Given** the primer has section headings
+**When** it renders
+**Then** a sticky table of contents with anchor links is shown on the left (desktop) or as a collapsible menu (mobile)
 
