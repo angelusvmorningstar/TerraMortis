@@ -679,6 +679,11 @@ function renderForm(container) {
     h += '</div>';
   }
 
+  // Hide feedback textarea until a rating is provided
+  if (!saved['form_rating']) {
+    h = h.replace('dt-feedback-field', 'dt-feedback-field dt-feedback-hidden');
+  }
+
   // Actions
   h += '<div class="qf-actions">';
   h += '<button class="qf-btn qf-btn-save" id="dt-btn-save">Save Draft</button>';
@@ -852,6 +857,59 @@ function renderForm(container) {
       }
     }
 
+    scheduleSave();
+  });
+
+  // ── Star rating hover + click ──
+  container.addEventListener('mouseover', (e) => {
+    const half = e.target.closest('[data-star-val]');
+    if (!half) return;
+    const row = half.closest('.dt-star-row');
+    if (!row) return;
+    const hoverVal = parseInt(half.dataset.starVal, 10);
+    row.querySelectorAll('[data-star-val]').forEach(el => {
+      const v = parseInt(el.dataset.starVal, 10);
+      el.classList.toggle('dt-star-hover', v <= hoverVal);
+    });
+    const label = row.querySelector('.dt-star-label');
+    if (label) label.textContent = hoverVal + '/10';
+  });
+
+  container.addEventListener('mouseout', (e) => {
+    const half = e.target.closest('[data-star-val]');
+    if (!half) return;
+    const row = half.closest('.dt-star-row');
+    if (!row) return;
+    const input = document.getElementById(row.dataset.starInput);
+    const cur = parseInt(input?.value, 10) || 0;
+    row.querySelectorAll('[data-star-val]').forEach(el => {
+      el.classList.remove('dt-star-hover');
+    });
+    const label = row.querySelector('.dt-star-label');
+    if (label) label.textContent = cur ? cur + '/10' : '';
+  });
+
+  container.addEventListener('click', (e) => {
+    const half = e.target.closest('[data-star-val]');
+    if (!half) return;
+    const row = half.closest('.dt-star-row');
+    if (!row) return;
+    const val = parseInt(half.dataset.starVal, 10);
+    const input = document.getElementById(row.dataset.starInput);
+    if (input) {
+      input.value = val;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    // Update filled state
+    row.querySelectorAll('[data-star-val]').forEach(el => {
+      const v = parseInt(el.dataset.starVal, 10);
+      el.classList.toggle('dt-star-filled', v <= val);
+    });
+    const label = row.querySelector('.dt-star-label');
+    if (label) label.textContent = val + '/10';
+    // Reveal feedback field
+    const fb = container.querySelector('.dt-feedback-field');
+    if (fb) fb.classList.remove('dt-feedback-hidden');
     scheduleSave();
   });
 
@@ -1533,7 +1591,8 @@ function updateMeritSections(container) {
 
 function renderQuestion(q, value) {
   const reqMark = q.required ? ' <span class="qf-req">*</span>' : '';
-  let h = `<div class="qf-field">`;
+  const extraClass = q.key === 'form_feedback' ? ' dt-feedback-field' : '';
+  let h = `<div class="qf-field${extraClass}">`;
   h += `<label class="qf-label" for="dt-${q.key}">${esc(q.label)}${reqMark}</label>`;
 
   if (q.desc) {
@@ -1559,6 +1618,26 @@ function renderQuestion(q, value) {
       }
       h += '</select>';
       break;
+
+    case 'star_rating': {
+      const cur = parseInt(value, 10) || 0;
+      h += `<input type="hidden" id="dt-${q.key}" value="${cur ? cur : ''}">`;
+      h += '<div class="dt-star-row" data-star-input="dt-' + q.key + '">';
+      for (let s = 1; s <= 5; s++) {
+        const leftVal = s * 2 - 1;
+        const rightVal = s * 2;
+        const leftFill = cur >= leftVal ? ' dt-star-filled' : '';
+        const rightFill = cur >= rightVal ? ' dt-star-filled' : '';
+        h += `<span class="dt-star" data-star="${s}">`;
+        h += `<span class="dt-star-half dt-star-left${leftFill}" data-star-val="${leftVal}">★</span>`;
+        h += `<span class="dt-star-half dt-star-right${rightFill}" data-star-val="${rightVal}">★</span>`;
+        h += '</span>';
+      }
+      if (cur) h += `<span class="dt-star-label">${cur}/10</span>`;
+      else h += '<span class="dt-star-label"></span>';
+      h += '</div>';
+      break;
+    }
 
     case 'radio':
       h += `<div class="qf-radio-group" id="dt-${q.key}">`;
