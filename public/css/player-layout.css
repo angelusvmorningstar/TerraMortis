@@ -334,6 +334,11 @@ body {
 .xpl-ok .xpl-bal-val { color: var(--green2, #6aaa6a); }
 .xpl-over .xpl-bal-val { color: var(--crim2, #B22222); }
 
+.xpl-log { padding: 20px; max-width: 760px; }
+.xpl-log-cols { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+.xpl-log-col { flex: 1; min-width: 240px; }
+.xpl-over-warn { margin: 6px 0 0; font-size: 12px; color: var(--crim2, #B22222); }
+
 /* ── Ordeals ── */
 
 .ordeals-container {
