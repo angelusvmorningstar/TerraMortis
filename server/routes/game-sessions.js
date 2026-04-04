@@ -2,6 +2,15 @@ import { Router } from 'express';
 import { getCollection } from '../db.js';
 import { ObjectId } from 'mongodb';
 
+function formatDeadline(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleString('en-AU', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+    timeZone: 'Australia/Sydney',
+  });
+}
+
 const router = Router();
 const col = () => getCollection('game_sessions');
 
@@ -19,7 +28,17 @@ export async function getNextSession(req, res) {
     { session_date: { $gte: today } },
     { sort: { session_date: 1 } }
   );
-  res.json(session || null);
+  if (!session) return res.json(null);
+
+  // Merge active downtime cycle deadline if session has none
+  if (!session.downtime_deadline) {
+    const cycle = await getCollection('downtime_cycles').findOne({ status: 'active' });
+    if (cycle?.deadline_at) {
+      session.downtime_deadline = formatDeadline(cycle.deadline_at);
+    }
+  }
+
+  res.json(session);
 }
 router.get('/next', getNextSession);
 

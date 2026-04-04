@@ -1,7 +1,7 @@
 /**
  * Next Session panel — lets STs set the upcoming game date, doors-open time,
- * game number, and downtime deadline. Rendered at the top of the Engine domain.
- * Data is stored on the game_sessions document and read by the public website banner.
+ * and game number. Rendered at the top of the Engine domain.
+ * Downtime deadline is read from the active downtime cycle (set in the Downtime tab).
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
@@ -37,14 +37,11 @@ function buildPanel() {
       <input type="number" id="ns-game-number" min="1" style="width:5rem;">
     </label>
   </div>
-  <label class="dt-deadline-edit" style="margin-bottom:1.1rem;">
-    <span>Downtime Deadline</span>
-    <input type="text" id="ns-deadline" placeholder="e.g. Midnight, 8 April 2026" style="flex:1;min-width:200px;">
-  </label>
   <div style="display:flex;align-items:center;gap:.75rem;">
     <button class="dt-btn" id="ns-save">Save</button>
     <span id="ns-saved" style="font-size:.8rem;color:var(--muted);display:none;">Saved.</span>
   </div>
+  <p style="margin:.75rem 0 0;font-size:.75rem;color:var(--muted);">Downtime deadline is set via the active cycle in the Downtime tab.</p>
 </div>`;
 }
 
@@ -54,10 +51,9 @@ async function loadNext() {
     const session = await apiGet('/api/game_sessions/next');
     if (session && session._id) {
       _sessionId = session._id;
-      document.getElementById('ns-date').value         = session.session_date || '';
-      document.getElementById('ns-time').value         = session.doors_open || '';
-      document.getElementById('ns-game-number').value  = session.game_number != null ? session.game_number : '';
-      document.getElementById('ns-deadline').value     = session.downtime_deadline || '';
+      document.getElementById('ns-date').value        = session.session_date || '';
+      document.getElementById('ns-time').value        = session.doors_open || '';
+      document.getElementById('ns-game-number').value = session.game_number != null ? session.game_number : '';
       status.textContent = session.game_number != null
         ? `Loaded: Game ${session.game_number}`
         : `Loaded: ${session.session_date}`;
@@ -76,10 +72,9 @@ async function saveNext() {
 
   const gameNum = document.getElementById('ns-game-number').value;
   const body = {
-    session_date:       date,
-    doors_open:         document.getElementById('ns-time').value || undefined,
-    downtime_deadline:  document.getElementById('ns-deadline').value || undefined,
-    game_number:        gameNum ? parseInt(gameNum, 10) : undefined,
+    session_date: date,
+    doors_open:   document.getElementById('ns-time').value || undefined,
+    game_number:  gameNum ? parseInt(gameNum, 10) : undefined,
   };
 
   try {
