@@ -62,11 +62,11 @@ export const AMBIENCE_CAP = {
 
 // Territory definitions with current ambience (mirrors city-views.js)
 export const TERRITORY_DATA = [
-  { id: 'academy',    name: 'The Academy',    ambience: 'Curated' },
-  { id: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled' },
-  { id: 'harbour',    name: 'The Harbour',    ambience: 'Untended' },
-  { id: 'northshore', name: 'The North Shore', ambience: 'Tended' },
-  { id: 'secondcity', name: 'The Second City', ambience: 'Tended' },
+  { id: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },
+  { id: 'dockyards',  name: 'The Dockyards',  ambience: 'Settled',  ambienceMod:  0 },
+  { id: 'harbour',    name: 'The Harbour',    ambience: 'Untended', ambienceMod: -2 },
+  { id: 'northshore', name: 'The North Shore', ambience: 'Tended',  ambienceMod: +2 },
+  { id: 'secondcity', name: 'The Second City', ambience: 'Tended',  ambienceMod: +2 },
 ];
 
 // Helper: generate select options for a numeric range (inclusive)
