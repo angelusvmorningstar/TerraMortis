@@ -466,23 +466,15 @@ export async function renderDowntimeTab(targetEl, char) {
     } catch { /* ignore */ }
   }
 
-  // Auto-detect attendance from most recent game session
+  // Auto-detect attendance from the game session matching this downtime cycle
   lastGameAttendees = [];
   try {
-    const sessions = await apiGet('/api/game_sessions');
-    if (sessions.length) {
-      const latest = sessions[0]; // sorted newest first by API
-      const entry = (latest.attendance || []).find(a =>
-        a.character_id === currentChar._id || a.character_id?.toString() === currentChar._id?.toString()
-      );
-      gateValues.attended = entry?.attended ? 'yes' : 'no';
-      // Build attendee list (excluding current character)
-      lastGameAttendees = (latest.attendance || [])
-        .filter(a => a.attended && a.character_id !== currentChar._id && a.character_id?.toString() !== currentChar._id?.toString())
-        .map(a => ({ id: a.character_id, name: a.character_display || a.character_name || '' }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    }
-  } catch { /* game_sessions is ST-only — fall back */ }
+    let attUrl = '/api/attendance?character_id=' + encodeURIComponent(String(currentChar._id));
+    if (currentCycle?.game_number) attUrl += '&game_number=' + currentCycle.game_number;
+    const att = await apiGet(attUrl);
+    gateValues.attended = att.attended ? 'yes' : 'no';
+    lastGameAttendees = att.attendees || [];
+  } catch { /* fall back — leave gateValues.attended unset */ }
 
   // If attendee list empty (player can't access game_sessions), use character names
   if (!lastGameAttendees.length) {

@@ -17,6 +17,7 @@ import questionnaireRouter from './routes/questionnaire.js';
 import historyRouter from './routes/history.js';
 import ordealResponsesRouter from './routes/ordeal-responses.js';
 import residencyRouter from './routes/territory-residency.js';
+import attendanceRouter from './routes/attendance.js';
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/questionnaire', requireAuth, questionnaireRouter);
 app.use('/api/history', requireAuth, historyRouter);
 app.use('/api/ordeal-responses', requireAuth, ordealResponsesRouter);
 app.use('/api/territory-residency', requireAuth, residencyRouter);
+app.use('/api/attendance', requireAuth, attendanceRouter);
 
 // ST-only routes — require both auth and ST role
 app.use('/api/territories', requireAuth, requireRole('st'), territoriesRouter);

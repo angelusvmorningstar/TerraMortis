@@ -1012,7 +1012,7 @@ async function processFile(file) {
   }
 
   try {
-    const result = await upsertCycle(parsed, file.name.replace('.csv', ''));
+    const result = await upsertCycle(parsed);
     warnEl.innerHTML = `<div class="dt-success">Loaded ${result.created} new, ${result.updated} updated submissions.</div>`;
     await loadAllCycles();
   } catch (err) {
@@ -1023,36 +1023,39 @@ async function processFile(file) {
 
 // ── Cycle Reset Wizard (GC-5) ────────────────────────────────────────────────
 
-function openResetWizard() {
+async function openResetWizard() {
   const cycle = allCycles.find(c => c._id === selectedCycleId);
+
+  // Compute next game number
+  let nextNum;
+  if (cycle?.game_number) {
+    nextNum = cycle.game_number + 1;
+  } else {
+    const closedCount = allCycles.filter(c => c.status === 'closed').length;
+    // If there's an active cycle it counts as one game, next is one more
+    nextNum = closedCount + (allCycles.some(c => c.status === 'active') ? 2 : 1);
+  }
+
   if (!cycle || cycle.status !== 'active') {
-    // No active cycle to close — just prompt for a new one
-    promptNewCycleOnly();
+    // No active cycle to close — create the next one directly
+    if (!confirm(`Create Downtime ${nextNum}?`)) return;
+    await createCycle(nextNum);
+    await loadAllCycles();
     return;
   }
 
   const overlay = document.createElement('div');
   overlay.className = 'gc-wizard-overlay';
-  overlay.innerHTML = buildWizardChecklistHtml(cycle);
+  overlay.innerHTML = buildWizardChecklistHtml(cycle, nextNum);
   document.body.appendChild(overlay);
 
   overlay.querySelector('#gc-cancel').addEventListener('click', () => overlay.remove());
   overlay.querySelector('#gc-begin').addEventListener('click', () => {
-    const labelInput = overlay.querySelector('#gc-label-input');
-    const label = labelInput?.value.trim();
-    if (!label) { labelInput?.focus(); return; }
-    switchToPhaseView(overlay, cycle, label);
+    switchToPhaseView(overlay, cycle, nextNum);
   });
 }
 
-async function promptNewCycleOnly() {
-  const label = prompt('Cycle label (e.g. "March 2026"):');
-  if (!label) return;
-  await createCycle(label);
-  await loadAllCycles();
-}
-
-function buildWizardChecklistHtml(cycle) {
+function buildWizardChecklistHtml(cycle, nextNum) {
   const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
   const pendingSubs = submissions.filter(s => {
     const vis = s.st_review?.outcome_visibility;
@@ -1081,8 +1084,8 @@ function buildWizardChecklistHtml(cycle) {
     <ul class="gc-checklist">${items}</ul>
     ${hasWarnings ? '<p class="gc-chk-note">Warnings are advisory. You may still proceed.</p>' : ''}
     <div class="gc-label-row">
-      <label class="gc-label-lbl">New cycle label</label>
-      <input id="gc-label-input" class="gc-label-input" type="text" placeholder="e.g. May 2026">
+      <span class="gc-label-lbl">New cycle</span>
+      <span class="gc-next-cycle-name">Downtime ${nextNum}</span>
     </div>
     <div class="gc-wizard-actions">
       <button id="gc-cancel" class="dt-btn">Cancel</button>
@@ -1124,17 +1127,17 @@ function setPhaseState(overlay, id, state, detail) {
   if (item) item.dataset.state = state;
 }
 
-function switchToPhaseView(overlay, cycle, newLabel) {
+function switchToPhaseView(overlay, cycle, nextNum) {
   overlay.querySelector('.gc-wizard-box').innerHTML = `
     <div class="gc-wizard-title">Resetting Cycle&hellip;</div>
     <div class="gc-wizard-sub">Do not close this window.</div>
     ${buildPhaseListHtml()}
     <div id="gc-wizard-footer" class="gc-wizard-footer"></div>
   `;
-  runWizardPhases(overlay, cycle, newLabel);
+  runWizardPhases(overlay, cycle, nextNum);
 }
 
-async function runWizardPhases(overlay, cycle, newLabel) {
+async function runWizardPhases(overlay, cycle, nextNum) {
   const footer = overlay.querySelector('#gc-wizard-footer');
   const cycleId = cycle._id;
   const rollback = { income_prev: null, published_ids: [], tracks_prev: [] };
@@ -1241,7 +1244,7 @@ async function runWizardPhases(overlay, cycle, newLabel) {
   setPhaseState(overlay, 'new-cycle', 'running');
   try {
     await closeCycle(cycleId);
-    await createCycle(newLabel);
+    await createCycle(nextNum);
     setPhaseState(overlay, 'new-cycle', 'done');
   } catch (err) { fail('new-cycle', err.message); return; }
 

@@ -12,6 +12,7 @@ import { cyclesRouter, submissionsRouter } from '../../routes/downtime.js';
 import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
 import residencyRouter from '../../routes/territory-residency.js';
+import attendanceRouter from '../../routes/attendance.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -45,6 +46,7 @@ export function createTestApp() {
   app.use('/api/downtime_submissions', mockAuth, submissionsRouter);
   app.use('/api/players', mockAuth, playersRouter);
   app.use('/api/territory-residency', mockAuth, residencyRouter);
+  app.use('/api/attendance', mockAuth, attendanceRouter);
 
   // ST-only routes
   app.use('/api/territories', mockAuth, requireRole('st'), territoriesRouter);
