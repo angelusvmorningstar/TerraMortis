@@ -585,8 +585,9 @@ function renderForm(container) {
   h += '</div>';
 
   // Auto-detected status (attendance + regency)
-  h += '<div class="qf-section">';
-  h += '<h4 class="qf-section-title">Character Status</h4>';
+  h += '<div class="qf-section collapsed" data-section-key="status">';
+  h += '<h4 class="qf-section-title">Character Status<span class="qf-section-tick visible">✔</span></h4>';
+  h += '<div class="qf-section-body">';
   if (gateValues.attended === 'yes') {
     h += '<p class="qf-section-intro">Attended last game — Court section enabled.</p>';
   } else {
@@ -601,7 +602,7 @@ function renderForm(container) {
     if (currentChar.disciplines?.Theban) traditions.push('Theban Sorcery');
     h += `<p class="qf-section-intro">${traditions.join(' and ')} practitioner — Blood Sorcery section enabled.</p>`;
   }
-  h += '</div>';
+  h += '</div></div>';
 
   // Static sections: Court, Feeding (Regency + Projects rendered specially)
   for (const section of DOWNTIME_SECTIONS) {
@@ -613,10 +614,11 @@ function renderForm(container) {
     if (section.key === 'admin') continue;
 
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
-    const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section';
+    const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
 
-    h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}">`;
-    h += `<h4 class="qf-section-title">${esc(section.title)}</h4>`;
+    h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}" data-section-key="${section.key}">`;
+    h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+    h += '<div class="qf-section-body">';
     if (section.intro) {
       h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
     }
@@ -624,7 +626,7 @@ function renderForm(container) {
       const val = saved[q.key] || '';
       h += renderQuestion(q, val);
     }
-    h += '</div>';
+    h += '</div></div>';
   }
 
   // ── Projects section with dynamic slots ──
@@ -637,8 +639,9 @@ function renderForm(container) {
 
   // Remaining static sections: Acquisitions, Blood Sorcery, Vamping, Admin
   if (DOWNTIME_GATES.length) {
-    h += '<div class="qf-section">';
-    h += '<h4 class="qf-section-title">Additional Sections</h4>';
+    h += '<div class="qf-section collapsed" data-section-key="gates">';
+    h += '<h4 class="qf-section-title">Additional Sections<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
     for (const gate of DOWNTIME_GATES) {
       const val = gateValues[gate.key] || saved[`_gate_${gate.key}`] || '';
       h += `<div class="qf-field">`;
@@ -653,7 +656,7 @@ function renderForm(container) {
       }
       h += '</div></div>';
     }
-    h += '</div>';
+    h += '</div></div>';
   }
 
   // ── Blood Sorcery (dynamic rite selector) ──
@@ -665,10 +668,11 @@ function renderForm(container) {
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
-    const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section';
+    const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
 
-    h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}">`;
-    h += `<h4 class="qf-section-title">${esc(section.title)}</h4>`;
+    h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}" data-section-key="${section.key}">`;
+    h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+    h += '<div class="qf-section-body">';
     if (section.intro) {
       h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
     }
@@ -676,7 +680,7 @@ function renderForm(container) {
       const val = saved[q.key] || '';
       h += renderQuestion(q, val);
     }
-    h += '</div>';
+    h += '</div></div>';
   }
 
   // Hide feedback textarea until a rating is provided
@@ -692,11 +696,27 @@ function renderForm(container) {
 
   container.innerHTML = h;
 
+  // Update section completion ticks on initial render
+  updateSectionTicks(container);
+
   // Wire events — skip if already wired (prevent listener stacking on re-render)
   if (container._dtWired) return;
   container._dtWired = true;
 
-  container.addEventListener('input', scheduleSave);
+  // Section collapse/expand toggle
+  container.addEventListener('click', (e) => {
+    const title = e.target.closest('.qf-section-title');
+    if (!title) return;
+    // Don't toggle if clicking inside an interactive child (e.g. star rating)
+    if (e.target.closest('[data-star-val]')) return;
+    const section = title.closest('.qf-section');
+    if (section) section.classList.toggle('collapsed');
+  });
+
+  container.addEventListener('input', (e) => {
+    scheduleSave();
+    updateSectionTicks(container);
+  });
   container.addEventListener('change', (e) => {
     const gateInput = e.target.closest('[data-gate]');
     if (gateInput) {
@@ -792,6 +812,7 @@ function renderForm(container) {
       updateResidencyOptions(container);
     }
     scheduleSave();
+    updateSectionTicks(container);
   });
 
   // Click handler (feeding cards, spec chips, influence +/-)
@@ -911,6 +932,7 @@ function renderForm(container) {
     const fb = container.querySelector('.dt-feedback-field');
     if (fb) fb.classList.remove('dt-feedback-hidden');
     scheduleSave();
+    updateSectionTicks(container);
   });
 
   document.getElementById('dt-btn-save')?.addEventListener('click', saveDraft);
@@ -936,8 +958,9 @@ function renderProjectSlots(saved) {
     currentChar.disciplines[d] > 0
   );
 
-  let h = '<div class="qf-section">';
-  h += `<h4 class="qf-section-title">${esc(section.title)}</h4>`;
+  let h = '<div class="qf-section collapsed" data-section-key="projects">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
   for (let n = 1; n <= slotCount; n++) {
@@ -983,7 +1006,8 @@ function renderProjectSlots(saved) {
     h += '</div>'; // project-slot
   }
 
-  h += '</div>';
+  h += '</div>'; // section-body
+  h += '</div>'; // section
   return h;
 }
 
@@ -1273,8 +1297,9 @@ function renderSorcerySection(saved) {
   // Sort by tradition then level
   rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level);
 
-  let h = '<div class="qf-section">';
-  h += `<h4 class="qf-section-title">${esc(section.title)}</h4>`;
+  let h = '<div class="qf-section collapsed" data-section-key="blood_sorcery">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
   for (let n = 1; n <= slotCount; n++) {
@@ -1324,7 +1349,8 @@ function renderSorcerySection(saved) {
     h += '</div>';
   }
 
-  h += '</div>';
+  h += '</div>'; // section-body
+  h += '</div>'; // section
   return h;
 }
 
@@ -1339,8 +1365,9 @@ function renderRegencySection(saved) {
   const regentName = displayName(currentChar);
 
   let h = '';
-  h += '<div class="qf-section">';
-  h += `<h4 class="qf-section-title">Regency: The Hand that Feeds</h4>`;
+  h += '<div class="qf-section collapsed" data-section-key="regency">';
+  h += `<h4 class="qf-section-title">Regency: The Hand that Feeds<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
   h += `<p class="qf-section-intro">${esc(terrName)} — Ambience: ${esc(ambience)} — Feeding cap: ${cap}</p>`;
   h += `<p class="qf-section-intro">Assign feeding residents for your territory. Slots beyond the feeding cap are highlighted as over-capacity.</p>`;
 
@@ -1399,7 +1426,8 @@ function renderRegencySection(saved) {
     }
   }
 
-  h += '</div>';
+  h += '</div>'; // section-body
+  h += '</div>'; // section
   return h;
 }
 
@@ -1486,8 +1514,9 @@ function renderMeritToggles(saved) {
 
   // ── Spheres of Influence (Allies / Status) ──
   if (hasSpheres) {
-    h += '<div class="qf-section">';
-    h += '<h4 class="qf-section-title">Spheres of Influence</h4>';
+    h += '<div class="qf-section collapsed" data-section-key="spheres">';
+    h += '<h4 class="qf-section-title">Spheres of Influence<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
     h += '<p class="qf-section-intro">Your character has the following Allies and Status merits. Select which you wish to activate this Downtime (maximum 5 sphere actions).</p>';
 
     let sphereIdx = 0;
@@ -1515,13 +1544,14 @@ function renderMeritToggles(saved) {
       }
       h += renderMeritToggle(m, saved, formHtml);
     }
-    h += '</div>';
+    h += '</div></div>';
   }
 
   // ── Contacts ──
   if (hasContacts) {
-    h += '<div class="qf-section">';
-    h += '<h4 class="qf-section-title">Contacts: Requests for Information</h4>';
+    h += '<div class="qf-section collapsed" data-section-key="contacts">';
+    h += '<h4 class="qf-section-title">Contacts: Requests for Information<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
     h += '<p class="qf-section-intro">Your character has the following Contacts. Select which you wish to use this Downtime (maximum 5 information requests).</p>';
 
     let contactIdx = 0;
@@ -1541,13 +1571,14 @@ function renderMeritToggles(saved) {
       }
       h += renderMeritToggle(m, saved, formHtml);
     }
-    h += '</div>';
+    h += '</div></div>';
   }
 
   // ── Retainers ──
   if (hasRetainers) {
-    h += '<div class="qf-section">';
-    h += '<h4 class="qf-section-title">Retainers: Task Delegation</h4>';
+    h += '<div class="qf-section collapsed" data-section-key="retainers">';
+    h += '<h4 class="qf-section-title">Retainers: Task Delegation<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
     h += '<p class="qf-section-intro">Your character has the following Retainer merits. Select which you wish to task this Downtime.</p>';
 
     let retainerIdx = 0;
@@ -1565,10 +1596,80 @@ function renderMeritToggles(saved) {
       }
       h += renderMeritToggle(m, saved, formHtml);
     }
-    h += '</div>';
+    h += '</div></div>';
   }
 
   return h;
+}
+
+// ── Section completion ticks ──
+
+function updateSectionTicks(container) {
+  container.querySelectorAll('.qf-section[data-section-key]').forEach(section => {
+    const tick = section.querySelector('.qf-section-tick');
+    if (!tick) return;
+    const body = section.querySelector('.qf-section-body');
+    if (!body) return;
+
+    const key = section.dataset.sectionKey;
+
+    // Status section is always complete (informational only)
+    if (key === 'status') { tick.classList.add('visible'); return; }
+
+    // Gates section: complete when all gates have a selection
+    if (key === 'gates') {
+      const radios = body.querySelectorAll('[data-gate]');
+      const gateNames = new Set();
+      radios.forEach(r => gateNames.add(r.dataset.gate));
+      let allAnswered = true;
+      for (const g of gateNames) {
+        if (!body.querySelector(`[data-gate="${g}"]:checked`)) { allAnswered = false; break; }
+      }
+      tick.classList.toggle('visible', allAnswered);
+      return;
+    }
+
+    // For all other sections: check inputs, textareas, selects inside the body
+    const inputs = body.querySelectorAll('input:not([type="hidden"]):not([type="radio"]), textarea, select');
+    const radios = body.querySelectorAll('input[type="radio"]');
+    const hiddenInputs = body.querySelectorAll('input[type="hidden"]');
+
+    let hasRequired = false;
+    let allRequiredFilled = true;
+    let anyFilled = false;
+
+    inputs.forEach(el => {
+      const field = el.closest('.qf-field');
+      const isRequired = field?.querySelector('.qf-req');
+      const val = el.value.trim();
+      if (val) anyFilled = true;
+      if (isRequired) {
+        hasRequired = true;
+        if (!val) allRequiredFilled = false;
+      }
+    });
+
+    // Check hidden inputs (e.g. star rating)
+    hiddenInputs.forEach(el => {
+      if (el.value.trim()) anyFilled = true;
+    });
+
+    // Check radio groups
+    const radioNames = new Set();
+    radios.forEach(r => radioNames.add(r.name));
+    for (const name of radioNames) {
+      const checked = body.querySelector(`input[name="${name}"]:checked`);
+      if (checked && checked.value) anyFilled = true;
+    }
+
+    // Check selects with a non-empty first option (project action selectors etc.)
+    body.querySelectorAll('select').forEach(sel => {
+      if (sel.value) anyFilled = true;
+    });
+
+    const complete = hasRequired ? allRequiredFilled : anyFilled;
+    tick.classList.toggle('visible', complete);
+  });
 }
 
 // ── Utilities ──

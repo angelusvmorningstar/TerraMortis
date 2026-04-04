@@ -530,6 +530,44 @@ body {
   color: var(--gold2);
   font-weight: 600;
   margin-bottom: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.qf-section-title::before {
+  content: '▾';
+  display: inline-block;
+  font-size: 13px;
+  transition: transform .2s;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.qf-section.collapsed .qf-section-title::before {
+  transform: rotate(-90deg);
+}
+
+.qf-section-tick {
+  margin-left: auto;
+  font-size: 16px;
+  color: #4CAF50;
+  display: none;
+}
+
+.qf-section-tick.visible {
+  display: inline;
+}
+
+.qf-section-body {
+  transition: none;
+}
+
+.qf-section.collapsed .qf-section-body {
+  display: none;
 }
 
 .qf-section-intro {
