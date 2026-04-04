@@ -58,6 +58,36 @@ let feedCustomSkill = '';
 let feedCustomDisc = '';
 let feedRoteAction = false;
 
+// Project tab state
+let activeProjectTab = 1;
+
+const ACTION_ICONS = {
+  '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
+  'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
+  'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
+  'xp_spend': '\u2726', 'misc': '\u25CF',
+};
+const ACTION_SHORT = {
+  '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
+  'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
+  'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
+  'xp_spend': 'XP Spend', 'misc': 'Misc',
+};
+// Which fields each action type shows
+const ACTION_FIELDS = {
+  '': [],
+  'feed': ['summary'],
+  'xp_spend': ['title', 'xp', 'description'],
+  'ambience_increase': ['title', 'territory', 'pools', 'cast'],
+  'ambience_decrease': ['title', 'territory', 'pools', 'cast'],
+  'attack': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'investigate': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'hide_protect': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
+  'support': ['title', 'pools', 'outcome', 'cast', 'description'],
+  'misc': ['title', 'pools', 'outcome', 'description'],
+};
+
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveDraft(), 2000);
@@ -249,8 +279,26 @@ function collectResponses() {
     }
     const outcomeEl = document.getElementById(`dt-project_${n}_outcome`);
     const descEl = document.getElementById(`dt-project_${n}_description`);
+    const titleEl = document.getElementById(`dt-project_${n}_title`);
+    const terrEl = document.getElementById(`dt-project_${n}_territory`);
+    const xpEl = document.getElementById(`dt-project_${n}_xp`);
     responses[`project_${n}_outcome`] = outcomeEl ? outcomeEl.value : '';
     responses[`project_${n}_description`] = descEl ? descEl.value : '';
+    responses[`project_${n}_title`] = titleEl ? titleEl.value : '';
+    responses[`project_${n}_territory`] = terrEl ? terrEl.value : '';
+    responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
+
+    // Cast checkboxes
+    const castCbs = document.querySelectorAll(`[data-proj-cast-cb="${n}"]:checked`);
+    const castIds = [];
+    castCbs.forEach(cb => castIds.push(cb.value));
+    responses[`project_${n}_cast`] = JSON.stringify(castIds);
+
+    // Merit checkboxes
+    const meritCbs = document.querySelectorAll(`[data-proj-merit-cb="${n}"]:checked`);
+    const meritKeys = [];
+    meritCbs.forEach(cb => meritKeys.push(cb.value));
+    responses[`project_${n}_merits`] = JSON.stringify(meritKeys);
   }
 
   // Collect sorcery slots
@@ -737,9 +785,24 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // Project tab switching
+    const tab = e.target.closest('[data-proj-tab]');
+    if (tab) {
+      const n = parseInt(tab.dataset.projTab, 10);
+      activeProjectTab = n;
+      // Switch active tab
+      container.querySelectorAll('.dt-proj-tab').forEach(t =>
+        t.classList.toggle('dt-proj-tab-active', parseInt(t.dataset.projTab, 10) === n)
+      );
+      // Switch active pane
+      container.querySelectorAll('[data-proj-pane]').forEach(p =>
+        p.classList.toggle('dt-proj-pane-hidden', parseInt(p.dataset.projPane, 10) !== n)
+      );
+      return;
+    }
+    // Section collapse/expand
     const title = e.target.closest('.qf-section-title');
     if (!title) return;
-    // Don't toggle if clicking inside an interactive child (e.g. star rating)
     if (e.target.closest('[data-star-val]')) return;
     const section = title.closest('.qf-section');
     if (section) section.classList.toggle('collapsed');
@@ -770,18 +833,15 @@ function renderForm(container) {
       gateValues[`merit_${mk}`] = meritToggle.value;
       updateMeritSections(container);
     }
-    // Project action — show/hide details
+    // Project action change — re-render to show correct fields for action type
     const projectAction = e.target.closest('[data-project-action]');
     if (projectAction) {
-      const n = projectAction.dataset.projectAction;
-      const details = container.querySelector(`[data-project-details="${n}"]`);
-      if (details) {
-        if (projectAction.value) {
-          details.classList.remove('dt-gated-hidden');
-        } else {
-          details.classList.add('dt-gated-hidden');
-        }
-      }
+      activeProjectTab = parseInt(projectAction.dataset.projectAction, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
     }
     // Dice pool dropdown — update total
     const poolSelect = e.target.closest('[data-pool-prefix]');
@@ -982,84 +1042,27 @@ function renderForm(container) {
 // ── Rote feeding → Project 1 ──
 
 function applyRoteToProject1(container) {
-  const actionEl = document.getElementById('dt-project_1_action');
-  const outcomeEl = document.getElementById('dt-project_1_outcome');
-  const descEl = document.getElementById('dt-project_1_description');
-
   if (feedRoteAction && feedMethodId) {
-    // Set project 1 to "feed" and populate with feeding details
-    if (actionEl) {
-      actionEl.value = 'feed';
-      // Show details if hidden
-      const details = container?.querySelector('[data-project-details="1"]');
-      if (details) details.classList.remove('dt-gated-hidden');
-    }
-
-    // Build a summary of the feeding setup
-    const method = FEED_METHODS.find(m => m.id === feedMethodId);
-    const methodName = method ? method.name : feedMethodId;
-    let summary = `Rote feeding: ${methodName}`;
-    if (feedDiscName) summary += ` + ${feedDiscName}`;
-    if (feedSpecName) summary += ` (${feedSpecName})`;
-
-    if (outcomeEl) outcomeEl.value = 'Dedicated feeding action';
-    if (descEl) descEl.value = summary;
-
-    // Set pool selectors to match feeding pool
-    if (method && feedMethodId !== 'other') {
-      const c = currentChar;
-      // Best attribute
-      let bestA = '';
-      let bestAV = 0;
-      for (const a of method.attrs) {
-        const av = c.attributes?.[a];
-        const v = av ? (av.dots || 0) + (av.bonus || 0) : 0;
-        if (v > bestAV) { bestAV = v; bestA = a; }
-      }
-      // Best skill
-      let bestS = '';
-      let bestSV = 0;
-      for (const s of method.skills) {
-        const sv = c.skills?.[s];
-        const v = sv ? (sv.dots || 0) + (sv.bonus || 0) : 0;
-        if (v > bestSV) { bestSV = v; bestS = s; }
-      }
-      const poolAttr = document.getElementById('dt-project_1_pool_attr');
-      const poolSkill = document.getElementById('dt-project_1_pool_skill');
-      const poolDisc = document.getElementById('dt-project_1_pool_disc');
-      if (poolAttr && bestA) poolAttr.value = bestA;
-      if (poolSkill && bestS) poolSkill.value = bestS;
-      if (poolDisc) poolDisc.value = feedDiscName || '';
-      // Update pool total display
-      updatePoolTotal('project_1_pool');
-    } else if (feedMethodId === 'other') {
-      const poolAttr = document.getElementById('dt-project_1_pool_attr');
-      const poolSkill = document.getElementById('dt-project_1_pool_skill');
-      const poolDisc = document.getElementById('dt-project_1_pool_disc');
-      if (poolAttr) poolAttr.value = feedCustomAttr || '';
-      if (poolSkill) poolSkill.value = feedCustomSkill || '';
-      if (poolDisc) poolDisc.value = feedCustomDisc || '';
-      updatePoolTotal('project_1_pool');
-    }
+    // Save rote into responses so renderProjectSlots picks it up
+    const responses = collectResponses();
+    responses['project_1_action'] = 'feed';
+    if (responseDoc) responseDoc.responses = responses;
+    else responseDoc = { responses };
+    activeProjectTab = 1;
+    renderForm(container);
   } else {
     // Rote unchecked — clear project 1 if it was set to "feed"
-    if (actionEl && actionEl.value === 'feed') {
-      actionEl.value = '';
-      if (outcomeEl) outcomeEl.value = '';
-      if (descEl) descEl.value = '';
-      const details = container?.querySelector('[data-project-details="1"]');
-      if (details) details.classList.add('dt-gated-hidden');
-      const poolAttr = document.getElementById('dt-project_1_pool_attr');
-      const poolSkill = document.getElementById('dt-project_1_pool_skill');
-      const poolDisc = document.getElementById('dt-project_1_pool_disc');
-      if (poolAttr) poolAttr.value = '';
-      if (poolSkill) poolSkill.value = '';
-      if (poolDisc) poolDisc.value = '';
+    const saved = responseDoc?.responses || {};
+    if (saved['project_1_action'] === 'feed') {
+      saved['project_1_action'] = '';
+      saved['project_1_outcome'] = '';
+      saved['project_1_description'] = '';
+      renderForm(container);
     }
   }
 }
 
-// ── Project slots ──
+// ── Project slots (tabbed UI) ──
 
 function renderProjectSlots(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
@@ -1078,19 +1081,43 @@ function renderProjectSlots(saved) {
     currentChar.disciplines[d] > 0
   );
 
+  // Character merits for the merit picker
+  const charMerits = (currentChar.merits || []).filter(m =>
+    m.category === 'general' || m.category === 'influence'
+  );
+
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
 
+  // ── Tab bar ──
+  h += '<div class="dt-proj-tabs">';
   for (let n = 1; n <= slotCount; n++) {
     const actionVal = saved[`project_${n}_action`] || '';
-    const hasAction = actionVal && actionVal !== '';
+    const icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
+    const label = ACTION_SHORT[actionVal] || 'No Action';
+    const active = n === activeProjectTab ? ' dt-proj-tab-active' : '';
+    const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
+    h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-proj-tab="${n}">`;
+    h += `<span class="dt-proj-tab-icon">${icon}</span>`;
+    h += `<span class="dt-proj-tab-num">Action ${n}</span>`;
+    h += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
+    h += '</button>';
+  }
+  h += '</div>';
 
-    h += `<div class="dt-project-slot" data-project-slot="${n}">`;
+  // ── Tab panes ──
+  for (let n = 1; n <= slotCount; n++) {
+    const actionVal = saved[`project_${n}_action`] || '';
+    const visible = n === activeProjectTab;
+    const fields = ACTION_FIELDS[actionVal] || [];
+
+    h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-proj-pane="${n}">`;
+
     // Action type selector — always visible
     h += '<div class="qf-field">';
-    h += `<label class="qf-label" for="dt-project_${n}_action">Project ${n}: Action Type</label>`;
+    h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
     h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
     for (const opt of PROJECT_ACTIONS) {
       const sel = actionVal === opt.value ? ' selected' : '';
@@ -1098,32 +1125,121 @@ function renderProjectSlots(saved) {
     }
     h += '</select></div>';
 
-    // Remaining fields — hidden if no action selected
-    const detailClass = hasAction ? 'dt-project-details' : 'dt-project-details dt-gated-hidden';
-    h += `<div class="${detailClass}" data-project-details="${n}">`;
+    // ── Feed summary ──
+    if (fields.includes('summary')) {
+      const method = FEED_METHODS.find(m => m.id === feedMethodId);
+      const methodName = method ? method.name : feedMethodId || 'Not selected';
+      let poolSummary = methodName;
+      if (feedDiscName) poolSummary += ` + ${feedDiscName}`;
+      if (feedSpecName) poolSummary += ` (${feedSpecName})`;
+      h += '<div class="dt-proj-feed-summary">';
+      h += '<p>This action dedicates a Project slot to feeding. Details are configured in the <strong>Feeding</strong> section above.</p>';
+      h += `<p class="dt-proj-feed-method">Method: <strong>${esc(poolSummary)}</strong></p>`;
+      h += '</div>';
+    }
 
-    // Primary dice pool
-    h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
+    // ── Title ──
+    if (fields.includes('title')) {
+      h += renderQuestion({
+        key: `project_${n}_title`, label: 'Project Title',
+        type: 'text', required: false,
+        desc: 'A short name for this project.',
+      }, saved[`project_${n}_title`] || '');
+    }
 
-    // Secondary dice pool
-    h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
+    // ── Territory picker ──
+    if (fields.includes('territory')) {
+      const savedTerr = saved[`project_${n}_territory`] || '';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-project_${n}_territory">Territory</label>`;
+      h += `<select id="dt-project_${n}_territory" class="qf-select">`;
+      h += '<option value="">— No Territory —</option>';
+      for (const t of TERRITORY_DATA) {
+        const sel = savedTerr === t.id ? ' selected' : '';
+        h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
+      }
+      h += '</select></div>';
+    }
 
-    // Desired outcome
-    h += renderQuestion({
-      key: `project_${n}_outcome`, label: `Desired Outcome`,
-      type: 'text', required: false,
-      desc: 'Each Project must aim to achieve ONE clear thing.',
-    }, saved[`project_${n}_outcome`] || '');
+    // ── Dice pools ──
+    if (fields.includes('pools')) {
+      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
+      h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
+    }
 
-    // Description
-    h += renderQuestion({
-      key: `project_${n}_description`, label: `Description`,
-      type: 'textarea', required: false,
-      desc: 'Project Name:\nCharacters involved:\nMerits & Bonuses:\nXP Spend:\nProject description:',
-    }, saved[`project_${n}_description`] || '');
+    // ── Desired outcome ──
+    if (fields.includes('outcome')) {
+      h += renderQuestion({
+        key: `project_${n}_outcome`, label: 'Desired Outcome',
+        type: 'text', required: false,
+        desc: 'Each Project must aim to achieve ONE clear thing.',
+      }, saved[`project_${n}_outcome`] || '');
+    }
 
-    h += '</div>'; // project-details
-    h += '</div>'; // project-slot
+    // ── Cast (other characters involved) ──
+    if (fields.includes('cast')) {
+      let castPicks = [];
+      try { castPicks = JSON.parse(saved[`project_${n}_cast`] || '[]'); } catch { /* ignore */ }
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label">Characters Involved</label>`;
+      h += '<p class="qf-desc">Select other PCs collaborating with or targeted by this action.</p>';
+      h += `<div class="dt-proj-cast" data-proj-cast="${n}">`;
+      for (const att of lastGameAttendees) {
+        const checked = castPicks.includes(att.id) ? ' checked' : '';
+        h += `<label class="dt-proj-cast-label">`;
+        h += `<input type="checkbox" value="${esc(att.id)}" data-proj-cast-cb="${n}"${checked}>`;
+        h += `<span>${esc(att.name)}</span>`;
+        h += '</label>';
+      }
+      if (!lastGameAttendees.length) {
+        h += '<p class="qf-desc">No attendee data available.</p>';
+      }
+      h += '</div></div>';
+    }
+
+    // ── Merits (applicable character merits) ──
+    if (fields.includes('merits')) {
+      let meritPicks = [];
+      try { meritPicks = JSON.parse(saved[`project_${n}_merits`] || '[]'); } catch { /* ignore */ }
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label">Applicable Merits</label>`;
+      h += '<p class="qf-desc">Select merits from your sheet that support this action.</p>';
+      h += `<div class="dt-proj-merits" data-proj-merits="${n}">`;
+      for (const m of charMerits) {
+        const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+        const dots = '\u25CF'.repeat(m.rating || 0);
+        const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+        const checked = meritPicks.includes(mKey) ? ' checked' : '';
+        h += `<label class="dt-proj-merit-label">`;
+        h += `<input type="checkbox" value="${esc(mKey)}" data-proj-merit-cb="${n}"${checked}>`;
+        h += `<span>${esc(mName)} ${dots}</span>`;
+        h += '</label>';
+      }
+      if (!charMerits.length) {
+        h += '<p class="qf-desc">No applicable merits on this character.</p>';
+      }
+      h += '</div></div>';
+    }
+
+    // ── XP note ──
+    if (fields.includes('xp')) {
+      h += renderQuestion({
+        key: `project_${n}_xp`, label: 'XP Expenditure',
+        type: 'textarea', required: false, rows: 2,
+        desc: 'Describe what you are spending XP on in this action.',
+      }, saved[`project_${n}_xp`] || '');
+    }
+
+    // ── Description ──
+    if (fields.includes('description')) {
+      h += renderQuestion({
+        key: `project_${n}_description`, label: 'Description',
+        type: 'textarea', required: false,
+        desc: 'Additional context, narrative, or details for this action.',
+      }, saved[`project_${n}_description`] || '');
+    }
+
+    h += '</div>'; // proj-pane
   }
 
   h += '</div>'; // section-body
@@ -1735,6 +1851,13 @@ function updateSectionTicks(container) {
 
     // Status section is always complete (informational only)
     if (key === 'status') { tick.classList.add('visible'); return; }
+
+    // Projects: tick when project 1 has an action selected
+    if (key === 'projects') {
+      const p1Action = document.getElementById('dt-project_1_action');
+      tick.classList.toggle('visible', !!(p1Action && p1Action.value));
+      return;
+    }
 
     // Gates section: complete when all gates have a selection
     if (key === 'gates') {
