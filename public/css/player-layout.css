@@ -72,40 +72,59 @@ body {
   min-height: 1.2em;
 }
 
-/* ── Top header bar ── */
+/* ── App shell ── */
 
-#player-header {
+#player-app {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--surf);
-  border-bottom: 1px solid var(--bdr);
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+
+#sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  height: 100vh;
   position: sticky;
   top: 0;
-  z-index: 100;
+  background: var(--surf);
+  border-right: 1px solid var(--bdr);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0;
 }
 
-.header-brand {
+.sidebar-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.sidebar-title {
   font-family: var(--fhd);
-  font-size: 16px;
+  font-size: 18px;
   color: var(--gold2);
   letter-spacing: 1px;
-  white-space: nowrap;
 }
 
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.sidebar-sub {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 4px;
 }
 
 .char-selector {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
   background: var(--surf2);
   color: var(--txt);
   border: 1px solid var(--bdr);
   border-radius: 4px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   font-family: var(--fb);
   font-size: 13px;
   cursor: pointer;
@@ -113,98 +132,43 @@ body {
 
 .char-selector:focus { outline: 1px solid var(--gold); }
 
-
-/* ── Header user area ── */
-
-.header-user {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-}
-
-.header-username {
-  font-family: var(--fh);
-  font-size: 12px;
-  color: var(--txt2);
-  white-space: nowrap;
-}
-
-.header-logout {
-  background: none;
-  border: none;
-  color: var(--txt3);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 2px 6px;
-}
-
-.header-logout:hover { color: var(--err); }
-
-.header-admin-link {
-  font-family: var(--fh);
-  font-size: 11px;
-  color: var(--gold);
-  text-decoration: none;
-  opacity: .7;
-  transition: opacity .2s;
-}
-
-.header-admin-link:hover { opacity: 1; }
-
-/* ── App shell (mobile default: stacked) ── */
-
-#player-body {
+.sidebar-nav {
   display: flex;
   flex-direction: column;
+  padding: 12px 0;
 }
 
-/* ── Tab bar — mobile: horizontal strip ── */
-
-#tab-bar {
-  display: flex;
-  flex-direction: row;
-  background: var(--surf);
-  border-bottom: 1px solid var(--bdr);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  flex-shrink: 0;
-}
-
-#tab-bar::-webkit-scrollbar { display: none; }
-
-.tab-btn {
-  flex: 1;
-  min-width: 0;
+.sidebar-btn {
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
   border-left: 3px solid transparent;
-  color: var(--txt3);
+  color: var(--txt2);
   font-family: var(--fh);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.5px;
-  padding: 10px 8px;
+  padding: 12px 20px;
   cursor: pointer;
-  white-space: nowrap;
-  text-align: center;
-  transition: color .15s, border-color .15s, background .15s;
+  text-align: left;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.tab-btn:hover { color: var(--txt2); background: var(--surf2); }
+.sidebar-btn:hover { background: var(--surf2); color: var(--txt); }
 
-.tab-btn.on {
+.sidebar-btn.on {
   color: var(--gold2);
-  border-bottom-color: var(--gold2);
+  border-left-color: var(--gold2);
+  background: var(--surf2);
 }
 
-/* ── Tab content ── */
+/* ── Content area ── */
+
+#content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* ── Tab panels ── */
 
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
@@ -213,7 +177,7 @@ body {
 .tab-panel:not(#tab-sheet) {
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 24px 32px;
 }
 
 /* Sheet tab: full width with side breathing room */
@@ -221,62 +185,55 @@ body {
   padding: 16px 50px;
 }
 
-/* ── Desktop: vertical sidebar layout (700px+) ── */
+/* ── Sidebar app nav (bottom, above user) ── */
 
-@media (min-width: 700px) {
-  #player-app {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  #player-header {
-    flex-shrink: 0;
-    position: static; /* height-based layout replaces sticky */
-  }
-
-  #player-body {
-    flex: 1;
-    flex-direction: row;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  #tab-bar {
-    flex-direction: column;
-    width: 160px;
-    flex-shrink: 0;
-    flex: none;
-    border-bottom: none;
-    border-right: 1px solid var(--bdr);
-    padding: 12px 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  .tab-btn {
-    flex: none;
-    width: 100%;
-    text-align: left;
-    padding: 12px 18px;
-    font-size: 13px;
-    border-bottom: none;
-    border-left: 3px solid transparent;
-  }
-
-  .tab-btn.on {
-    border-bottom-color: transparent;
-    border-left-color: var(--gold2);
-    background: var(--surf2);
-  }
-
-  #player-content {
-    flex: 1;
-    overflow-y: auto;
-    min-width: 0;
-  }
+.sidebar-app-nav {
+  margin-top: auto;
+  padding: 12px 20px;
+  border-top: 1px solid var(--bdr);
+  display: flex;
+  gap: 8px;
 }
+
+/* ── Sidebar user (bottom) ── */
+
+.sidebar-user {
+  padding: 16px 20px;
+  border-top: 1px solid var(--bdr);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sidebar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-username {
+  font-size: 13px;
+  color: var(--txt2);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-logout {
+  background: none;
+  border: none;
+  color: var(--txt3);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-logout:hover { color: var(--err); }
 
 .placeholder-msg {
   color: var(--txt3);

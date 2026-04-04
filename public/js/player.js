@@ -39,7 +39,7 @@ async function boot() {
     if (valid) {
       loginScreen.style.display = 'none';
       app.style.display = '';
-      renderHeaderUser();
+      renderSidebarUser();
       await loadCharacters();
       return;
     }
@@ -49,44 +49,28 @@ async function boot() {
   document.getElementById('login-btn').addEventListener('click', login);
 }
 
-// ── Header user ──
+// ── Sidebar user ──
 
-function renderHeaderUser() {
+function renderSidebarUser() {
   const user = getUser();
   if (!user) return;
 
-  const el = document.getElementById('header-user');
+  const el = document.getElementById('sidebar-user');
   const name = esc(user.global_name || user.username);
   const avatarUrl = user.avatar
     ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
     : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
 
-  const role = getUser()?.role;
-
-  // Cross-app nav buttons — alongside char selector
-  const selectorArea = document.querySelector('.header-controls');
-  if (selectorArea && !document.getElementById('nav-game')) {
-    const gameBtn = document.createElement('a');
-    gameBtn.id = 'nav-game';
-    gameBtn.href = '/';
-    gameBtn.className = 'app-nav-btn';
-    gameBtn.textContent = 'Game App';
-    selectorArea.insertBefore(gameBtn, selectorArea.firstChild);
-
-    if (role === 'st') {
-      const adminBtn = document.createElement('a');
-      adminBtn.id = 'nav-admin';
-      adminBtn.href = '/admin';
-      adminBtn.className = 'app-nav-btn';
-      adminBtn.textContent = 'ST Admin';
-      selectorArea.insertBefore(adminBtn, gameBtn.nextSibling);
-    }
+  // Show ST Admin link for dual-role users
+  if (getUser()?.role === 'st') {
+    const adminLink = document.getElementById('nav-admin');
+    if (adminLink) adminLink.style.display = '';
   }
 
   el.innerHTML =
-    `<img class="header-avatar" src="${avatarUrl}" alt="">` +
-    `<span class="header-username">${name}</span>` +
-    `<button class="header-logout" id="logout-btn">Log out</button>`;
+    `<img class="sidebar-avatar" src="${avatarUrl}" alt="">` +
+    `<span class="sidebar-username">${name}</span>` +
+    `<button class="sidebar-logout" id="logout-btn">Log out</button>`;
 
   document.getElementById('logout-btn').addEventListener('click', logout);
 }
@@ -217,11 +201,11 @@ function renderArchiveTab() {
 
 // ── Tab switching ──
 
-document.getElementById('tab-bar').addEventListener('click', e => {
-  const btn = e.target.closest('.tab-btn');
-  if (!btn) return;
+document.getElementById('sidebar').addEventListener('click', e => {
+  const btn = e.target.closest('.sidebar-btn');
+  if (!btn || !btn.dataset.tab) return;
 
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('on'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
 
   btn.classList.add('on');
