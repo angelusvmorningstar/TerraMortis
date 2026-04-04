@@ -16,13 +16,24 @@ export async function getActiveCycle() {
   return cycles.find(c => c.status === 'active') || null;
 }
 
-export async function createCycle(label) {
+export async function createCycle(gameNumber) {
   return apiPost('/api/downtime_cycles', {
-    label,
+    label: 'Downtime ' + gameNumber,
+    game_number: gameNumber,
     status: 'active',
     loaded_at: new Date().toISOString(),
     submission_count: 0,
   });
+}
+
+/** Derive the game number for a new cycle: closed cycle count + 1 for current, +1 for next. */
+async function nextGameNumber() {
+  const all = await getCycles();
+  const closedCount = all.filter(c => c.status === 'closed').length;
+  const active = all.find(c => c.status === 'active');
+  if (active?.game_number) return active.game_number + 1;
+  // Fallback: closed cycles = past games, active = one more → next is one more again
+  return closedCount + 2;
 }
 
 export async function updateCycle(id, updates) {
@@ -47,10 +58,12 @@ export async function updateSubmission(id, updates) {
  * Upsert parsed submissions into a cycle.
  * Creates the cycle if none active, then posts each submission.
  */
-export async function upsertCycle(parsedSubmissions, label) {
+export async function upsertCycle(parsedSubmissions) {
   let cycle = await getActiveCycle();
   if (!cycle) {
-    cycle = await createCycle(label || 'Cycle ' + new Date().toISOString().slice(0, 10));
+    const all = await getCycles();
+    const gameNum = all.filter(c => c.status === 'closed').length + 1;
+    cycle = await createCycle(gameNum);
   }
 
   const existing = await getSubmissionsForCycle(cycle._id);

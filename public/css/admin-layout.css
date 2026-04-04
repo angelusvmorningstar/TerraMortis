@@ -581,9 +581,27 @@ body {
   background: var(--surf);
   border: 1px solid var(--bdr);
   border-radius: 8px;
-  padding: 14px 16px;
   margin-bottom: 12px;
+  overflow: hidden;
 }
+.terr-card-open { border-color: var(--gold-a30); }
+
+.terr-card-hd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+.terr-card-hd:hover { background: var(--surf2); }
+.terr-hd-info { flex: 1; min-width: 0; }
+.terr-chev { font-size: 10px; color: var(--txt3); padding-top: 3px; flex-shrink: 0; }
 
 .terr-name {
   font-family: var(--fh);
@@ -614,6 +632,22 @@ body {
   color: var(--txt3);
   margin-top: 2px;
 }
+
+/* ── Territory expanded feeding rights ── */
+.terr-regent-name { color: var(--gold2); }
+.terr-expand { border-top: 1px solid var(--bdr); padding: 14px 16px 16px; background: var(--surf2); }
+.terr-feed-section { }
+.terr-feed-label { font-family: var(--fh); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--txt3); margin-bottom: 8px; }
+.terr-feed-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px; margin-bottom: 10px; }
+.terr-feed-empty { font-size: 12px; color: var(--txt3); font-style: italic; }
+.terr-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--surf); border: 1px solid var(--bdr2); border-radius: 20px; font-size: 12px; color: var(--txt2); }
+.terr-chip-rm { background: none; border: none; color: var(--txt3); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0 0 2px; }
+.terr-chip-rm:hover { color: var(--crim); }
+.terr-feed-add { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.terr-feed-sel { flex: 1; padding: 6px 8px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--fb); font-size: 13px; }
+.terr-feed-add-btn { padding: 6px 12px; background: var(--surf); border: 1px solid var(--bdr2); border-radius: 4px; color: var(--txt2); font-family: var(--fh); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.terr-feed-add-btn:hover { border-color: var(--gold-a30); color: var(--gold2); }
+.terr-feed-actions { display: flex; align-items: center; gap: 12px; }
 
 /* ── City edit controls ── */
 .city-edit-toggle { background: none; border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt3); font-family: var(--fh); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 12px; cursor: pointer; margin-top: 12px; }
@@ -2228,6 +2262,7 @@ body {
   box-sizing: border-box;
 }
 .gc-label-input:focus { outline: none; border-color: var(--gold2); }
+.gc-next-cycle-name { font-family: var(--fhd); font-size: 18px; color: var(--gold2); letter-spacing: .05em; }
 
 .gc-wizard-actions {
   display: flex;

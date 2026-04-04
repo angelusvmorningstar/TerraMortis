@@ -42,6 +42,11 @@ import {
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
+import { renderCharPools } from './game/char-pools.js';
+import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
+import { loadDtLookup } from './game/dt-lookup.js';
+import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
+import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 import { printSheet } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -100,6 +105,26 @@ function showEditTab(t) {
   if (tabEl) tabEl.classList.add('active');
 }
 
+function setSheetView(view) {
+  const gcpEl  = document.getElementById('gcp-panel');
+  const shEl   = document.getElementById('sh-content');
+  const dtEl   = document.getElementById('dt-lookup');
+  const printBtn = document.getElementById('btn-print');
+  const isSheet = view === 'sheet';
+
+  if (gcpEl)  gcpEl.style.display  = isSheet ? '' : 'none';
+  if (shEl)   shEl.style.display   = isSheet ? '' : 'none';
+  if (dtEl)   dtEl.style.display   = isSheet ? 'none' : '';
+  if (printBtn) printBtn.style.display = isSheet ? '' : 'none';
+
+  document.getElementById('svt-sheet')?.classList.toggle('on', isSheet);
+  document.getElementById('svt-dt')?.classList.toggle('on', !isSheet);
+
+  if (!isSheet && editorState.editIdx >= 0) {
+    loadDtLookup(dtEl, editorState.chars[editorState.editIdx]);
+  }
+}
+
 function openChar(idx) {
   editorState.editIdx = idx;
   const c = editorState.chars[idx];
@@ -113,6 +138,18 @@ function openChar(idx) {
   renderIdentityTab(c);
   renderAttrsTab(c);
   editorRenderSheet(c);
+
+  // Render pools panel — sets rollChar so Roll tab banner shows this character
+  const poolsEl = document.getElementById('gcp-panel');
+  if (poolsEl) {
+    suiteState.rollChar = c;
+    renderCharPools(poolsEl, c, (p) => {
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
+      goTab('roll');
+    });
+  }
+
+  setSheetView('sheet');
   goTab('editor');
 }
 
@@ -127,6 +164,8 @@ const TAB_SUBTITLES = {
   roll: 'Roll',
   sheets: 'Sheets',
   territory: 'Territory',
+  tracker: 'Live Tracker',
+  rules: 'Rules Reference',
 };
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
@@ -152,6 +191,8 @@ function goTab(t) {
 
   // Tab-specific init
   if (t === 'territory') mountTerr();
+  if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
+  if (t === 'rules') initRules(document.getElementById('t-rules'));
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
     const role = getRole();
@@ -531,6 +572,24 @@ Object.assign(window, {
   // Suite territory
   mountTerr,
   _mountTerr: mountTerr,
+
+  // Game — live tracker
+  trackerReset,
+  trackerAdj,
+  trackerAddCondition,
+  trackerRemoveCond,
+  trackerToggle,
+
+  // Game — sheet/DT toggle
+  setSheetView,
+
+  // Game — contested roll
+  openContestedRoll,
+  closeContestedRoll,
+  crSetType,
+  crSetChar,
+  crAdjPool,
+  crRoll,
 });
 
 // ══════════════════════════════════════════════
@@ -574,13 +633,19 @@ function applyRoleRestrictions() {
   const role = getRole();
   const isST = role === 'st';
 
-  // Territory tab — ST only
-  const terrNav = document.getElementById('n-territory');
-  if (terrNav && !isST) terrNav.style.display = 'none';
+  // Territory, Tracker, and Rules tabs — ST only
+  if (!isST) {
+    ['n-territory', 'n-tracker', 'n-rules'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
 
-  // Feeding test in Roll tab — ST only
-  const feedSec = document.getElementById('feed-section');
+  // Feeding test and Contested Roll — ST only
+  const feedSec   = document.getElementById('feed-section');
   if (feedSec) feedSec.style.display = isST ? '' : 'none';
+  const btnContested = document.getElementById('btn-contested');
+  if (btnContested) btnContested.style.display = isST ? '' : 'none';
 
   // Header nav — admin link ST only, player link for everyone
   const navAdmin = document.getElementById('nav-admin');
@@ -619,8 +684,10 @@ function renderUserHeader() {
   userEl.innerHTML = `<img src="${avatarUrl}" style="width:24px;height:24px;border-radius:50%;"><span>${name}</span><button onclick="logout()" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;font-family:var(--fh);">Log out</button>`;
 }
 
-// Expose logout to onclick
+// Expose functions used in inline onclick handlers
 window.logout = logout;
+window.openRulesOverlay  = openRulesOverlay;
+window.closeRulesOverlay = closeRulesOverlay;
 
 boot();
 const logo = document.getElementById('topbar-logo');

@@ -4,7 +4,7 @@
  * Right: Territories with editable regents/lieutenants.
  */
 
-import { apiGet, apiPut } from '../data/api.js';
+import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, sortName, clanIcon, covIcon } from '../data/helpers.js';
@@ -23,6 +23,9 @@ const CLANS = ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue'];
 const COVENANTS = ['Carthian Movement', 'Circle of the Crone', 'Invictus', 'Lancea et Sanctum', 'Ordo Dracul'];
 
 let chars = [];
+let terrDocs = [];           // territory documents from /api/territories
+let _terrExpanded = new Set(); // territory ids currently expanded
+let _feedingEdits = {};      // terrId -> charId[] (working copy while editing)
 let prestigeView = 0; // 0-3 for the four views
 
 export async function initCityView() {
@@ -37,6 +40,10 @@ export async function initCityView() {
     container.innerHTML = '<p class="placeholder">Failed to load character data.</p>';
     return;
   }
+
+  try {
+    terrDocs = await apiGet('/api/territories');
+  } catch { terrDocs = []; }
 
   renderCity(container);
 }
@@ -229,8 +236,37 @@ function renderPrestige() {
 }
 
 // ══════════════════════════════════════
-//  TERRITORIES (editable regents/lieutenants)
+//  TERRITORIES (expandable — regents/lieutenants + feeding rights)
 // ══════════════════════════════════════
+
+function getFeedingRights(terrId) {
+  if (_feedingEdits[terrId] !== undefined) return _feedingEdits[terrId];
+  const doc = terrDocs.find(d => d.id === terrId);
+  return doc?.feeding_rights || [];
+}
+
+function renderFeedingChips(terrId) {
+  const active = chars.filter(c => !c.retired);
+  const rights = getFeedingRights(terrId);
+  if (!rights.length) return '<span class="terr-feed-empty">None assigned</span>';
+  return rights.map((cid, i) => {
+    const c = active.find(x => String(x._id) === String(cid));
+    const name = c ? esc(displayName(c)) : esc(String(cid));
+    return `<span class="terr-chip">${name}<button class="terr-chip-rm" data-terr-feed-rm="${esc(terrId)}" data-feed-idx="${i}">&times;</button></span>`;
+  }).join('');
+}
+
+function renderFeedingDropdown(terrId) {
+  const active = chars.filter(c => !c.retired);
+  const rights = getFeedingRights(terrId);
+  const opts = active
+    .filter(c => !rights.includes(String(c._id)))
+    .map(c => `<option value="${esc(String(c._id))}">${esc(displayName(c))}</option>`)
+    .join('');
+  return `<select id="terr-feed-sel-${esc(terrId)}" class="terr-feed-sel">
+    <option value="">\u2014 Add character \u2014</option>${opts}
+  </select>`;
+}
 
 function renderTerritories() {
   const active = chars.filter(c => !c.retired);
@@ -243,13 +279,37 @@ function renderTerritories() {
     const ltName = regent?.regent_lieutenant;
     const lt = ltName ? active.find(c => c.name === ltName) : null;
     const ltDisplay = lt ? esc(displayName(lt)) : ltName ? esc(ltName) : null;
+    const open = _terrExpanded.has(t.id);
 
-    h += `<div class="terr-card">
-      <div class="terr-name">${esc(t.name)}</div>
-      <div class="terr-ambience">${esc(t.ambience)} (${modSign}${t.ambienceMod})</div>
-      <div class="terr-regent">Regent: ${regent ? esc(displayName(regent)) : '<span class="terr-vacant">Vacant</span>'}</div>
-      ${ltDisplay ? `<div class="terr-lt">Lieutenant: ${ltDisplay}</div>` : ''}
-    </div>`;
+    h += `<div class="terr-card${open ? ' terr-card-open' : ''}" id="terr-card-${esc(t.id)}">`;
+    h += `<button class="terr-card-hd" data-terr-toggle="${esc(t.id)}">`;
+    h += `<div class="terr-hd-info">`;
+    h += `<div class="terr-name">${esc(t.name)}</div>`;
+    h += `<div class="terr-ambience">${esc(t.ambience)} (${modSign}${t.ambienceMod})</div>`;
+    h += `<div class="terr-regent">Regent: ${regent ? `<span class="terr-regent-name">${esc(displayName(regent))}</span>` : '<span class="terr-vacant">Vacant</span>'}</div>`;
+    if (ltDisplay) h += `<div class="terr-lt">Lieutenant: ${ltDisplay}</div>`;
+    h += `</div>`;
+    h += `<span class="terr-chev">${open ? '\u25B2' : '\u25BC'}</span>`;
+    h += `</button>`;
+
+    if (open) {
+      h += `<div class="terr-expand">`;
+      h += `<div class="terr-feed-section">`;
+      h += `<div class="terr-feed-label">Feeding Rights</div>`;
+      h += `<div class="terr-feed-list" id="terr-feed-list-${esc(t.id)}">${renderFeedingChips(t.id)}</div>`;
+      h += `<div class="terr-feed-add">`;
+      h += renderFeedingDropdown(t.id);
+      h += `<button class="terr-feed-add-btn" data-terr-feed-add="${esc(t.id)}">Add</button>`;
+      h += `</div>`;
+      h += `<div class="terr-feed-actions">`;
+      h += `<button class="city-save-btn" data-terr-feed-save="${esc(t.id)}">Save Feeding Rights</button>`;
+      h += `<span class="city-save-status" id="terr-feed-status-${esc(t.id)}"></span>`;
+      h += `</div>`;
+      h += `</div>`;
+      h += `</div>`;
+    }
+
+    h += `</div>`;
   }
 
   // Edit section
@@ -317,6 +377,100 @@ function wireEvents(container) {
       renderCity(container);
     });
   });
+
+  // Territory card expand/collapse + feeding rights (delegated on container — guard against duplicate wiring)
+  if (container._terrDelegated) return;
+  container._terrDelegated = true;
+  container.addEventListener('click', e => {
+    // Expand/collapse card
+    const toggle = e.target.closest('[data-terr-toggle]');
+    if (toggle) {
+      const terrId = toggle.dataset.terrToggle;
+      if (_terrExpanded.has(terrId)) {
+        _terrExpanded.delete(terrId);
+      } else {
+        _terrExpanded.add(terrId);
+        // Initialise edit state from stored doc if not already editing
+        if (_feedingEdits[terrId] === undefined) {
+          const doc = terrDocs.find(d => d.id === terrId);
+          _feedingEdits[terrId] = [...(doc?.feeding_rights || [])];
+        }
+      }
+      patchTerritories(container);
+      return;
+    }
+
+    // Remove a feeding rights chip
+    const rmBtn = e.target.closest('[data-terr-feed-rm]');
+    if (rmBtn) {
+      const terrId = rmBtn.dataset.terrFeedRm;
+      const idx = parseInt(rmBtn.dataset.feedIdx);
+      _feedingEdits[terrId] = (_feedingEdits[terrId] || []).filter((_, i) => i !== idx);
+      patchFeedingList(terrId);
+      patchFeedingDropdown(terrId);
+      return;
+    }
+
+    // Add a character to feeding rights
+    const addBtn = e.target.closest('[data-terr-feed-add]');
+    if (addBtn) {
+      const terrId = addBtn.dataset.terrFeedAdd;
+      const sel = document.getElementById('terr-feed-sel-' + terrId);
+      if (sel?.value) {
+        if (!_feedingEdits[terrId]) _feedingEdits[terrId] = [];
+        _feedingEdits[terrId] = [..._feedingEdits[terrId], sel.value];
+        sel.value = '';
+        patchFeedingList(terrId);
+        patchFeedingDropdown(terrId);
+      }
+      return;
+    }
+
+    // Save feeding rights
+    const saveBtn = e.target.closest('[data-terr-feed-save]');
+    if (saveBtn) {
+      saveFeedingRights(saveBtn.dataset.terrFeedSave);
+      return;
+    }
+  });
+}
+
+function patchTerritories(container) {
+  const right = container.querySelector('.city-right');
+  if (!right) { renderCity(container); return; }
+  right.innerHTML = renderTerritories();
+}
+
+function patchFeedingList(terrId) {
+  const el = document.getElementById('terr-feed-list-' + terrId);
+  if (el) el.innerHTML = renderFeedingChips(terrId);
+}
+
+function patchFeedingDropdown(terrId) {
+  const el = document.getElementById('terr-feed-sel-' + terrId);
+  if (!el) return;
+  const active = chars.filter(c => !c.retired);
+  const rights = _feedingEdits[terrId] || [];
+  el.innerHTML = `<option value="">\u2014 Add character \u2014</option>` +
+    active
+      .filter(c => !rights.includes(String(c._id)))
+      .map(c => `<option value="${esc(String(c._id))}">${esc(displayName(c))}</option>`)
+      .join('');
+}
+
+async function saveFeedingRights(terrId) {
+  const status = document.getElementById('terr-feed-status-' + terrId);
+  const rights = _feedingEdits[terrId] || [];
+  try {
+    await apiPost('/api/territories', { id: terrId, feeding_rights: rights });
+    // Update local cache
+    const idx = terrDocs.findIndex(d => d.id === terrId);
+    if (idx >= 0) terrDocs[idx] = { ...terrDocs[idx], feeding_rights: rights };
+    else terrDocs.push({ id: terrId, feeding_rights: rights });
+    if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+  } catch (err) {
+    if (status) status.textContent = 'Failed: ' + err.message;
+  }
 }
 
 async function saveCourt() {

@@ -67,10 +67,16 @@
     <div id="t-editor" class="tab">
       <div class="sheet-topbar">
         <button onclick="goTab('chars')">&larr; Back</button>
-        <button class="sheet-edit-btn" onclick="editFromSheet()">Edit</button>
-        <button class="sheet-edit-btn" onclick="printSheet()">Print</button>
+        <div class="svt-toggle">
+          <button class="svt-btn on" id="svt-sheet" onclick="setSheetView('sheet')">Sheet</button>
+          <button class="svt-btn" id="svt-dt" onclick="setSheetView('dt')">Downtime</button>
+        </div>
+        <button class="sheet-edit-btn" onclick="openRulesOverlay()">Rules</button>
+        <button class="sheet-edit-btn" id="btn-print" onclick="printSheet()">Print</button>
       </div>
+      <div id="gcp-panel"></div>
       <div id="sh-content"></div>
+      <div id="dt-lookup" style="display:none"></div>
     </div>
 
     <!-- ═══ EDITOR EDIT TAB ═══ -->
@@ -141,6 +147,7 @@
         <button class="mchip wp-chip" id="wp-c" onclick="togMod('wp')">WP (+3)</button>
       </div>
       <button id="roll-btn" onclick="doRoll()">Roll the Dice</button>
+      <button id="btn-contested" onclick="openContestedRoll()" style="display:none">Contested Roll</button>
       <div id="res-area">
         <div id="res-hdr"></div>
         <div id="dice-area"><div class="empty-d">No rolls yet</div></div>
@@ -202,21 +209,35 @@
       <div id="terr-root"></div>
     </div>
 
+    <!-- ═══ TRACKER TAB ═══ -->
+    <div id="t-tracker" class="tab"></div>
+
+    <!-- ═══ RULES TAB ═══ -->
+    <div id="t-rules" class="tab"></div>
+
   </div><!-- /tab-wrap -->
 
   <!-- ═══ BOTTOM NAV ═══ -->
   <nav id="bnav">
-    <button class="nbtn" id="n-roll" onclick="goTab('roll')">
+    <button class="nbtn on" id="n-roll" onclick="goTab('roll')">
       <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>
       Roll
     </button>
-    <button class="nbtn on" id="n-chars" onclick="goTab('chars')">
+    <button class="nbtn" id="n-chars" onclick="goTab('chars')">
       <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.19 13.89 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-      Character
+      Characters
     </button>
     <button class="nbtn" id="n-territory" onclick="goTab('territory')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
       Territory
+    </button>
+    <button class="nbtn" id="n-tracker" onclick="goTab('tracker')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      Tracker
+    </button>
+    <button class="nbtn" id="n-rules" onclick="goTab('rules')">
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Rules
     </button>
   </nav>
 </div>
@@ -230,6 +251,11 @@
     </div>
     <div class="panel-body" id="panel-body"></div>
   </div>
+</div>
+
+<!-- Contested Roll Overlay -->
+<div id="cr-overlay" style="display:none">
+  <div id="cr-box" class="cr-box"></div>
 </div>
 
 <div id="toast"></div>
