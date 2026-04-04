@@ -32,7 +32,7 @@ export async function initDowntimeView() {
   document.getElementById('dt-drop-zone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
   document.getElementById('dt-drop-zone').addEventListener('dragleave', e => { e.currentTarget.classList.remove('drag-over'); });
   document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
-  document.getElementById('dt-new-cycle').addEventListener('click', handleNewCycle);
+  document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-cycle-sel').addEventListener('change', e => {
     selectedCycleId = e.target.value;
@@ -1056,24 +1056,308 @@ async function processFile(file) {
   }
 }
 
-async function handleNewCycle() {
-  const label = prompt('Cycle label (e.g. "March 2026"):');
-  if (!label) return;
+// ── Cycle Reset Wizard (GC-5) ────────────────────────────────────────────────
 
-  // Batch-publish all submissions marked ready before the new cycle goes live
-  const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
-  if (readySubs.length) {
-    const pubAt = new Date().toISOString();
-    await Promise.all(readySubs.map(sub =>
-      updateSubmission(sub._id, {
-        'st_review.outcome_visibility': 'published',
-        'st_review.published_at': pubAt,
-      }).catch(err => console.error('Publish failed for', sub.character_name, err.message))
-    ));
+function openResetWizard() {
+  const cycle = allCycles.find(c => c._id === selectedCycleId);
+  if (!cycle || cycle.status !== 'active') {
+    // No active cycle to close — just prompt for a new one
+    promptNewCycleOnly();
+    return;
   }
 
+  const overlay = document.createElement('div');
+  overlay.className = 'gc-wizard-overlay';
+  overlay.innerHTML = buildWizardChecklistHtml(cycle);
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#gc-cancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#gc-begin').addEventListener('click', () => {
+    const labelInput = overlay.querySelector('#gc-label-input');
+    const label = labelInput?.value.trim();
+    if (!label) { labelInput?.focus(); return; }
+    switchToPhaseView(overlay, cycle, label);
+  });
+}
+
+async function promptNewCycleOnly() {
+  const label = prompt('Cycle label (e.g. "March 2026"):');
+  if (!label) return;
   await createCycle(label);
   await loadAllCycles();
+}
+
+function buildWizardChecklistHtml(cycle) {
+  const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
+  const pendingSubs = submissions.filter(s => {
+    const vis = s.st_review?.outcome_visibility;
+    return !vis || vis === 'pending' || vis === 'hidden';
+  });
+  const approvedSubs = submissions.filter(s =>
+    s.approval_status === 'approved' || s.approval_status === 'modified'
+  );
+  const missingExp = approvedSubs.filter(s =>
+    !s.st_review?.vitae_spent && !s.st_review?.willpower_spent && !s.st_review?.influence_spent
+  );
+  const noFeed = submissions.filter(s => !s.feeding_roll);
+  const hasRegency = !!cycle.regency_character_id;
+
+  let items = '';
+  if (readySubs.length) items += `<li class="gc-chk-ok">&#10003; ${readySubs.length} submission${readySubs.length !== 1 ? 's' : ''} ready to publish</li>`;
+  if (hasRegency) items += `<li class="gc-chk-ok">&#10003; Regent: ${esc(cycle.regency_character_name || 'set')}</li>`;
+  if (pendingSubs.length) items += `<li class="gc-chk-warn">&#9651; ${pendingSubs.length} submission${pendingSubs.length !== 1 ? 's' : ''} not yet reviewed</li>`;
+  if (missingExp.length) items += `<li class="gc-chk-warn">&#9651; ${missingExp.length} approved submission${missingExp.length !== 1 ? 's' : ''} missing expenditure data</li>`;
+  if (noFeed.length) items += `<li class="gc-chk-warn">&#9651; ${noFeed.length} submission${noFeed.length !== 1 ? 's' : ''} with no feeding roll</li>`;
+  if (!hasRegency) items += `<li class="gc-chk-warn">&#9651; No regent locked in for this cycle</li>`;
+  if (!items) items = '<li class="gc-chk-ok">&#10003; All checks passed</li>';
+
+  const hasWarnings = pendingSubs.length || missingExp.length || noFeed.length || !hasRegency;
+
+  return `<div class="gc-wizard-box">
+    <div class="gc-wizard-title">Cycle Reset Wizard</div>
+    <div class="gc-wizard-sub">Closing: <strong>${esc(cycle.label || 'Unnamed')}</strong></div>
+    <ul class="gc-checklist">${items}</ul>
+    ${hasWarnings ? '<p class="gc-chk-note">Warnings are advisory. You may still proceed.</p>' : ''}
+    <div class="gc-label-row">
+      <label class="gc-label-lbl">New cycle label</label>
+      <input id="gc-label-input" class="gc-label-input" type="text" placeholder="e.g. May 2026">
+    </div>
+    <div class="gc-wizard-actions">
+      <button id="gc-cancel" class="dt-btn">Cancel</button>
+      <button id="gc-begin" class="dt-btn dt-btn-gold">Begin Reset</button>
+    </div>
+  </div>`;
+}
+
+const RESET_PHASES = [
+  { id: 'snapshot',  label: 'Capture cycle snapshot' },
+  { id: 'income',    label: 'Apply influence income' },
+  { id: 'mutations', label: 'Confirm XP mutations' },
+  { id: 'publish',   label: 'Publish outcomes to players' },
+  { id: 'tracks',    label: 'Reset character tracks' },
+  { id: 'new-cycle', label: 'Close cycle and create next' },
+];
+
+function buildPhaseListHtml() {
+  return `<ul class="gc-phase-list">${
+    RESET_PHASES.map(p =>
+      `<li class="gc-phase-item" id="gc-phase-${p.id}">
+        <span class="gc-phase-icon" id="gc-phase-icon-${p.id}">&#9675;</span>
+        <span class="gc-phase-label">${p.label}</span>
+        <span class="gc-phase-detail" id="gc-phase-detail-${p.id}"></span>
+      </li>`
+    ).join('')
+  }</ul>`;
+}
+
+function setPhaseState(overlay, id, state, detail) {
+  const icon = overlay.querySelector(`#gc-phase-icon-${id}`);
+  const detailEl = overlay.querySelector(`#gc-phase-detail-${id}`);
+  const item = overlay.querySelector(`#gc-phase-${id}`);
+  if (!icon) return;
+  const icons = { pending: '&#9675;', running: '&#9654;', done: '&#10003;', failed: '&#10007;', paused: '&#9646;&#9646;' };
+  icon.innerHTML = icons[state] || '';
+  icon.dataset.state = state;
+  if (detailEl) detailEl.textContent = detail || '';
+  if (item) item.dataset.state = state;
+}
+
+function switchToPhaseView(overlay, cycle, newLabel) {
+  overlay.querySelector('.gc-wizard-box').innerHTML = `
+    <div class="gc-wizard-title">Resetting Cycle&hellip;</div>
+    <div class="gc-wizard-sub">Do not close this window.</div>
+    ${buildPhaseListHtml()}
+    <div id="gc-wizard-footer" class="gc-wizard-footer"></div>
+  `;
+  runWizardPhases(overlay, cycle, newLabel);
+}
+
+async function runWizardPhases(overlay, cycle, newLabel) {
+  const footer = overlay.querySelector('#gc-wizard-footer');
+  const cycleId = cycle._id;
+  const rollback = { income_prev: null, published_ids: [], tracks_prev: [] };
+
+  function fail(phaseId, msg) {
+    setPhaseState(overlay, phaseId, 'failed', msg);
+    let past = false;
+    for (const p of RESET_PHASES) {
+      if (p.id === phaseId) { past = true; continue; }
+      if (past) setPhaseState(overlay, p.id, 'failed', 'skipped');
+    }
+    showWizardFooter(footer, 'failed', rollback, overlay);
+  }
+
+  // Phase 1: Snapshot
+  setPhaseState(overlay, 'snapshot', 'running');
+  try {
+    await takeSnapshot(cycleId);
+    setPhaseState(overlay, 'snapshot', 'done');
+  } catch (err) { fail('snapshot', err.message); return; }
+
+  // Phase 2: Influence income
+  setPhaseState(overlay, 'income', 'running');
+  rollback.income_prev = characters.filter(c => !c.retired).map(c => ({
+    _id: c._id, name: c.name, balance: c.influence_balance || 0,
+  }));
+  const incomeErrors = await applyInfluenceIncome();
+  if (incomeErrors.length) { fail('income', `Failed: ${incomeErrors.map(e => e.name).join(', ')}`); return; }
+  setPhaseState(overlay, 'income', 'done');
+
+  // Phase 3: XP mutations (manual gate)
+  setPhaseState(overlay, 'mutations', 'paused', 'Awaiting confirmation');
+  await new Promise(resolve => {
+    const btn = document.createElement('button');
+    btn.className = 'dt-btn dt-btn-gold';
+    btn.textContent = 'Mutations applied \u2014 Continue';
+    btn.addEventListener('click', () => { btn.remove(); resolve(); }, { once: true });
+    footer.appendChild(btn);
+  });
+  setPhaseState(overlay, 'mutations', 'done');
+
+  // Phase 4: Publish ready submissions
+  setPhaseState(overlay, 'publish', 'running');
+  const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
+  rollback.published_ids = readySubs.map(s => s._id);
+  const pubAt = new Date().toISOString();
+  const pubErrors = [];
+  for (const sub of readySubs) {
+    try {
+      await updateSubmission(sub._id, {
+        'st_review.outcome_visibility': 'published',
+        'st_review.published_at': pubAt,
+      });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.outcome_visibility = 'published';
+      sub.st_review.published_at = pubAt;
+    } catch (err) { pubErrors.push(sub.character_name); }
+  }
+  if (pubErrors.length) { fail('publish', `Failed: ${pubErrors.join(', ')}`); return; }
+  setPhaseState(overlay, 'publish', 'done', `${readySubs.length} published`);
+
+  // Phase 5: Track reset
+  setPhaseState(overlay, 'tracks', 'running');
+  const trackErrors = [];
+  const approvedSubs = submissions.filter(s =>
+    (s.approval_status === 'approved' || s.approval_status === 'modified') && s._character_id
+  );
+
+  for (const sub of approvedSubs) {
+    const char = characters.find(c => String(c._id) === String(sub._character_id));
+    if (!char) continue;
+    const vitaeSpent    = sub.st_review?.vitae_spent    || 0;
+    const wpSpent       = sub.st_review?.willpower_spent || 0;
+    const influenceSpent = sub.st_review?.influence_spent || 0;
+    if (!vitaeSpent && !wpSpent && !influenceSpent) continue;
+
+    const resolve   = (char.attributes?.mental?.resolve?.dots   || 0) + (char.attributes?.mental?.resolve?.bonus   || 0);
+    const composure = (char.attributes?.social?.composure?.dots || 0) + (char.attributes?.social?.composure?.bonus || 0);
+    const wpMax = resolve + composure;
+
+    rollback.tracks_prev.push({
+      _id: char._id, name: char.name,
+      vitae_track:      char.vitae_track      ?? null,
+      willpower_track:  char.willpower_track  ?? null,
+      influence_balance: char.influence_balance ?? null,
+    });
+
+    const updates = { name: char.name };
+    if (vitaeSpent)     updates.vitae_track     = -vitaeSpent;
+    if (wpSpent)        updates.willpower_track  = wpMax - wpSpent;
+    if (influenceSpent) updates.influence_balance = Math.max(0, (char.influence_balance || 0) - influenceSpent);
+
+    try {
+      await apiPut(`/api/characters/${char._id}`, updates);
+      if (vitaeSpent)     char.vitae_track     = updates.vitae_track;
+      if (wpSpent)        char.willpower_track  = updates.willpower_track;
+      if (influenceSpent) char.influence_balance = updates.influence_balance;
+    } catch (err) { trackErrors.push(displayName(char)); }
+  }
+  if (trackErrors.length) { fail('tracks', `Failed: ${trackErrors.join(', ')}`); return; }
+  setPhaseState(overlay, 'tracks', 'done');
+
+  // Phase 6: Close old cycle + create new
+  setPhaseState(overlay, 'new-cycle', 'running');
+  try {
+    await closeCycle(cycleId);
+    await createCycle(newLabel);
+    setPhaseState(overlay, 'new-cycle', 'done');
+  } catch (err) { fail('new-cycle', err.message); return; }
+
+  showWizardFooter(footer, 'done', rollback, overlay);
+}
+
+function showWizardFooter(footer, state, rollback, overlay) {
+  footer.innerHTML = '';
+  if (state === 'done') {
+    const p = document.createElement('p');
+    p.className = 'gc-result-ok';
+    p.textContent = 'Reset complete. New cycle is now active.';
+    const btn = document.createElement('button');
+    btn.className = 'dt-btn dt-btn-gold';
+    btn.textContent = 'Close';
+    btn.addEventListener('click', () => { overlay.remove(); loadAllCycles(); }, { once: true });
+    footer.append(p, btn);
+  } else {
+    const p = document.createElement('p');
+    p.className = 'gc-result-err';
+    p.textContent = 'Reset failed. Completed phases can be rolled back.';
+    const rollBtn = document.createElement('button');
+    rollBtn.className = 'dt-btn';
+    rollBtn.textContent = 'Rollback & Close';
+    rollBtn.addEventListener('click', async () => {
+      rollBtn.disabled = true;
+      rollBtn.textContent = 'Rolling back\u2026';
+      await performRollback(rollback);
+      overlay.remove();
+      loadAllCycles();
+    }, { once: true });
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'dt-btn';
+    closeBtn.textContent = 'Close (no rollback)';
+    closeBtn.addEventListener('click', () => { overlay.remove(); loadAllCycles(); }, { once: true });
+    footer.append(p, rollBtn, closeBtn);
+  }
+}
+
+async function performRollback(rollback) {
+  // Restore income: revert influence_balance to pre-wizard values
+  for (const prev of (rollback.income_prev || [])) {
+    const char = characters.find(c => String(c._id) === String(prev._id));
+    if (!char) continue;
+    try {
+      await apiPut(`/api/characters/${prev._id}`, { name: prev.name, influence_balance: prev.balance });
+      char.influence_balance = prev.balance;
+    } catch (err) { console.error('Rollback income:', prev.name, err.message); }
+  }
+
+  // Restore track resets
+  for (const prev of (rollback.tracks_prev || [])) {
+    const char = characters.find(c => String(c._id) === String(prev._id));
+    if (!char) continue;
+    const updates = { name: prev.name };
+    if (prev.vitae_track      !== null) updates.vitae_track      = prev.vitae_track;
+    if (prev.willpower_track  !== null) updates.willpower_track  = prev.willpower_track;
+    if (prev.influence_balance !== null) updates.influence_balance = prev.influence_balance;
+    try {
+      await apiPut(`/api/characters/${prev._id}`, updates);
+      if (prev.vitae_track !== null) char.vitae_track = prev.vitae_track;
+      if (prev.willpower_track !== null) char.willpower_track = prev.willpower_track;
+      if (prev.influence_balance !== null) char.influence_balance = prev.influence_balance;
+    } catch (err) { console.error('Rollback tracks:', prev.name, err.message); }
+  }
+
+  // Restore published subs to 'ready'
+  for (const subId of (rollback.published_ids || [])) {
+    const sub = submissions.find(s => s._id === subId);
+    if (!sub) continue;
+    try {
+      await updateSubmission(subId, { 'st_review.outcome_visibility': 'ready' });
+      if (sub.st_review) sub.st_review.outcome_visibility = 'ready';
+    } catch (err) { console.error('Rollback publish:', subId, err.message); }
+  }
+
+  // Snapshot: best-effort clear (cycle may already be closed)
+  try { await updateCycle(selectedCycleId, { snapshot: null }); } catch (err) { /* best effort */ }
 }
 
 async function handleCloseCycle() {
