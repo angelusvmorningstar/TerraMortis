@@ -1126,6 +1126,8 @@ body {
 .dt-pub-when { font-size: 11px; color: var(--txt-dim); }
 .dt-publish-ready { border-color: #3a8a3a !important; color: #3a8a3a !important; }
 .dt-pub-badge { font-size: 11px; color: #3a8a3a; background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.dt-ready-badge { font-size: 11px; color: #7a5a00; background: rgba(180,130,0,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.dt-publish-hint { font-size: 11px; color: var(--txt-dim); }
 
 /* ── Investigation Tracker (1.5) ── */
 .dt-inv-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }

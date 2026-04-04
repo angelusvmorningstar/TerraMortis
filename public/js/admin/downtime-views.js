@@ -223,6 +223,7 @@ function renderMatchSummary() {
   const approved = submissions.filter(s => s.approval_status === 'approved').length;
   const modified = submissions.filter(s => s.approval_status === 'modified').length;
   const rejected = submissions.filter(s => s.approval_status === 'rejected').length;
+  const ready = submissions.filter(s => s.st_review?.outcome_visibility === 'ready').length;
   const published = submissions.filter(s => s.st_review?.outcome_visibility === 'published').length;
   const pending = submissions.length - approved - modified - rejected;
 
@@ -230,6 +231,7 @@ function renderMatchSummary() {
   h += `<span class="dt-match-ok">${matched.length} matched</span>`;
   h += `<span class="domain-count">${rolled.length}/${submissions.length} fed</span>`;
   h += `<span class="domain-count">${approved + modified}/${submissions.length} resolved</span>`;
+  if (ready) h += `<span class="dt-ready-badge">${ready} ready to publish</span>`;
   if (published) h += `<span class="dt-pub-badge">${published} published</span>`;
   if (pending) h += `<span class="dt-status-badge dt-status-pending">${pending} pending</span>`;
   if (unmatched.length) {
@@ -272,9 +274,11 @@ function renderSubmissions() {
     const narr = s.st_review?.narrative || {};
     const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
     const narrativeComplete = NARR_KEYS.every(k => narr[k]?.status === 'ready');
+    const isReady = s.st_review?.outcome_visibility === 'ready';
     const isPublished = s.st_review?.outcome_visibility === 'published';
-    const narrativeBadge = narrativeComplete && !isPublished ? '<span class="dt-narr-badge">&#x2710; Narrative ready</span>' : '';
-    const publishedBadge = isPublished ? '<span class="dt-pub-badge">&#x2713; Published</span>' : '';
+    const narrativeBadge = narrativeComplete && !isReady && !isPublished ? '<span class="dt-narr-badge">&#x2710; Narrative ready</span>' : '';
+    const publishedBadge = isPublished ? '<span class="dt-pub-badge">&#x2713; Published</span>'
+      : isReady ? '<span class="dt-ready-badge">&#x23F3; Ready</span>' : '';
 
     let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''} dt-sub-${status}" data-id="${s._id}">
       <div class="dt-sub-top dt-sub-clickable">
@@ -815,6 +819,19 @@ async function processFile(file) {
 async function handleNewCycle() {
   const label = prompt('Cycle label (e.g. "March 2026"):');
   if (!label) return;
+
+  // Batch-publish all submissions marked ready before the new cycle goes live
+  const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
+  if (readySubs.length) {
+    const pubAt = new Date().toISOString();
+    await Promise.all(readySubs.map(sub =>
+      updateSubmission(sub._id, {
+        'st_review.outcome_visibility': 'published',
+        'st_review.published_at': pubAt,
+      }).catch(err => console.error('Publish failed for', sub.character_name, err.message))
+    ));
+  }
+
   await createCycle(label);
   await loadAllCycles();
 }
@@ -980,25 +997,36 @@ function renderMechanicalSummaryPanel(s) {
 // ── Publish to Players (Story 1.9) ───────────────────────────────────────────
 
 function renderPublishPanel(s) {
-  const isPublished = s.st_review?.outcome_visibility === 'published';
-  const publishedAt = s.st_review?.published_at;
-  const canPublish = ['approved', 'modified'].includes(s.approval_status || '') && (s.st_review?.mechanical_summary || '').trim().length > 0;
+  const visibility = s.st_review?.outcome_visibility;
+  const isReady = visibility === 'ready';
+  const isPublished = visibility === 'published';
+  const canReady = ['approved', 'modified'].includes(s.approval_status || '') && (s.st_review?.mechanical_summary || '').trim().length > 0;
 
   let h = '<div class="dt-publish-panel">';
 
   if (isPublished) {
-    const when = publishedAt ? new Date(publishedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const when = s.st_review?.published_at
+      ? new Date(s.st_review.published_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : '';
     h += `<div class="dt-pub-status"><span class="dt-pub-badge">&#x2713; Published to player</span>${when ? ` <span class="dt-pub-when">${esc(when)}</span>` : ''}</div>`;
+  } else if (isReady) {
+    const when = s.st_review?.ready_at
+      ? new Date(s.st_review.ready_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : '';
+    h += `<div class="dt-pub-status">
+      <span class="dt-ready-badge">&#x23F3; Ready to publish</span>${when ? ` <span class="dt-pub-when">${esc(when)}</span>` : ''}
+      <span class="dt-publish-hint">Will go live when next cycle starts</span>
+    </div>`;
   } else {
     const narr = s.st_review?.narrative || {};
     const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
     const blocksReady = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
     h += `<div class="dt-publish-row">`;
-    h += `<button class="dt-btn dt-publish-btn${canPublish ? ' dt-publish-ready' : ''}" data-sub-id="${esc(s._id)}"
-      ${!canPublish ? 'disabled title="Requires approved status + resolution summary"' : ''}>
-      Publish to Player
+    h += `<button class="dt-btn dt-publish-btn${canReady ? ' dt-publish-ready' : ''}" data-sub-id="${esc(s._id)}"
+      ${!canReady ? 'disabled title="Requires approved status + resolution summary"' : ''}>
+      Mark Ready to Publish
     </button>`;
-    h += `<span class="dt-publish-status">${blocksReady}/4 narrative blocks ready &middot; ${canPublish ? 'Ready to publish' : 'Needs approval + summary'}</span>`;
+    h += `<span class="dt-publish-status">${blocksReady}/4 narrative blocks ready &middot; ${canReady ? 'Ready to mark' : 'Needs approval + summary'}</span>`;
     h += '</div>';
   }
 
@@ -1011,7 +1039,7 @@ async function handlePublish(sub) {
   const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
   const emptyBlocks = NARR_BLOCKS.filter(b => !(narr[b.key]?.text || '').trim());
 
-  let confirmMsg = `Publish downtime results for ${sub.character_name} to their player?`;
+  let confirmMsg = `Mark downtime results for ${sub.character_name} as ready to publish?\n\nResults will go live for the player when the next cycle starts.`;
   if (emptyBlocks.length) {
     confirmMsg += `\n\nThe following narrative blocks are empty and will be omitted:\n${emptyBlocks.map(b => '  \u2022 ' + b.label).join('\n')}`;
   }
@@ -1029,17 +1057,17 @@ async function handlePublish(sub) {
   try {
     await updateSubmission(sub._id, {
       'st_review.outcome_text': outcomeText.trim(),
-      'st_review.outcome_visibility': 'published',
-      'st_review.published_at': new Date().toISOString(),
+      'st_review.outcome_visibility': 'ready',
+      'st_review.ready_at': new Date().toISOString(),
     });
     if (!sub.st_review) sub.st_review = {};
     sub.st_review.outcome_text = outcomeText.trim();
-    sub.st_review.outcome_visibility = 'published';
-    sub.st_review.published_at = new Date().toISOString();
+    sub.st_review.outcome_visibility = 'ready';
+    sub.st_review.ready_at = new Date().toISOString();
     renderMatchSummary();
     renderSubmissions();
   } catch (err) {
-    alert('Publish failed: ' + err.message);
+    alert('Mark ready failed: ' + err.message);
   }
 }
 
