@@ -176,12 +176,19 @@
 .reading-pane .qf-results-body { font-size: 14px; line-height: 1.6; }
 .reading-pane .qf-results-pending {
   margin-bottom: 20px;
-  padding: 12px 16px;
-  background: var(--surf2);
-  border: 1px solid var(--bdr);
-  border-radius: 8px;
+  padding: 14px 18px;
+  background: rgba(139,0,0,.06);
+  border: 1px solid rgba(139,0,0,.15);
+  border-left: 3px solid #8B0000;
+  border-radius: 6px;
 }
-.reading-pane .qf-results-pending-msg { margin: 0; font-size: 13px; color: var(--txt-dim); }
+.reading-pane .qf-results-pending-msg {
+  margin: 0;
+  font-size: 14px;
+  color: #3A2A1A;
+  font-weight: 500;
+  line-height: 1.5;
+}
 
 /* ── Required marker ── */
 

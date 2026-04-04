@@ -714,7 +714,7 @@ function renderForm(container) {
   if (published) {
     h += renderDowntimeResults(published, responseDoc);
   } else if (pending) {
-    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">&#x23F3; Your submission has been received. Results are being prepared.</p></div>';
+    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime submission has been received and is awaiting ST review. Results will appear here once published.</p></div>';
   }
 
   // Banner: prior cycle results published, visible in Story tab
