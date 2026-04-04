@@ -924,6 +924,34 @@ function renderForm(container) {
   container.addEventListener('input', (e) => {
     scheduleSave();
     updateSectionTicks(container);
+
+    // Live update contact/retainer row status badges
+    const contactPanel = e.target.closest('[data-contact-panel]');
+    if (contactPanel) {
+      const n = contactPanel.dataset.contactPanel;
+      const row = container.querySelector(`[data-contact-row="${n}"]`);
+      if (row) {
+        const info = document.getElementById(`dt-contact_${n}_info`);
+        const req = document.getElementById(`dt-contact_${n}_request`);
+        const hasContent = (info && info.value.trim()) || (req && req.value.trim());
+        row.classList.toggle('dt-contact-used', !!hasContent);
+        const badge = row.querySelector('.dt-contact-status');
+        if (badge) badge.textContent = hasContent ? 'Used' : 'Unused';
+      }
+    }
+    const retainerPanel = e.target.closest('[data-retainer-panel]');
+    if (retainerPanel) {
+      const n = retainerPanel.dataset.retainerPanel;
+      const row = container.querySelector(`[data-retainer-row="${n}"]`);
+      if (row) {
+        const typeEl = document.getElementById(`dt-retainer_${n}_type`);
+        const taskEl = document.getElementById(`dt-retainer_${n}_task`);
+        const hasContent = (typeEl && typeEl.value.trim()) || (taskEl && taskEl.value.trim());
+        row.classList.toggle('dt-contact-used', !!hasContent);
+        const badge = row.querySelector('.dt-contact-status');
+        if (badge) badge.textContent = hasContent ? 'Tasked' : 'Idle';
+      }
+    }
   });
   container.addEventListener('change', (e) => {
     // Rote feeding checkbox
