@@ -560,7 +560,7 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
-      goTab('chars');
+      goTab('roll');
       return;
     }
   }
@@ -576,12 +576,12 @@ function applyRoleRestrictions() {
   const role = getRole();
   const isST = role === 'st';
 
-  // Tracker and Rules tabs hidden for players
+  // Territory, Tracker, and Rules tabs — ST only
   if (!isST) {
-    const trackerNav = document.getElementById('n-tracker');
-    if (trackerNav) trackerNav.style.display = 'none';
-    const rulesNav = document.getElementById('n-rules');
-    if (rulesNav) rulesNav.style.display = 'none';
+    ['n-territory', 'n-tracker', 'n-rules'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
   }
 
   // Feeding test in Roll tab — ST only
