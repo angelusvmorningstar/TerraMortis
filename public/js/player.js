@@ -171,6 +171,9 @@ function selectCharacter(activeChars, idx) {
   renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
 
   // Regency tab — only visible for regents
+  // DEV OVERRIDE: show for Discord ID 469356244398899201 (remove when done)
+  const _devShowAll = getUser()?.id === '469356244398899201';
+  if (_devShowAll && !activeChar.regent_territory) activeChar.regent_territory = 'The Academy';
   const regBtn = document.getElementById('tab-btn-regency');
   if (activeChar.regent_territory) {
     if (regBtn) regBtn.style.display = '';
