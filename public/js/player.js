@@ -9,6 +9,7 @@ import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderFeedingTab } from './player/feeding-tab.js';
 import { renderStoryTab } from './player/story-tab.js';
+import { renderXpLogTab } from './player/xp-log-tab.js';
 import { startWizard } from './player/wizard.js';
 import state from './data/state.js';
 
@@ -167,6 +168,7 @@ function selectCharacter(activeChars, idx) {
   renderDowntimeTab(document.getElementById('tab-downtime'), activeChar);
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
   renderStoryTab(document.getElementById('story-content'), activeChar);
+  renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
 
   // Regency tab — only visible for regents
   const regBtn = document.getElementById('tab-btn-regency');

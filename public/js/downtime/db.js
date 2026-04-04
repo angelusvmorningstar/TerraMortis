@@ -16,13 +16,24 @@ export async function getActiveCycle() {
   return cycles.find(c => c.status === 'active') || null;
 }
 
-export async function createCycle(label) {
+export async function createCycle(gameNumber) {
   return apiPost('/api/downtime_cycles', {
-    label,
+    label: 'Downtime ' + gameNumber,
+    game_number: gameNumber,
     status: 'active',
     loaded_at: new Date().toISOString(),
     submission_count: 0,
   });
+}
+
+/** Derive the game number for a new cycle: closed cycle count + 1 for current, +1 for next. */
+async function nextGameNumber() {
+  const all = await getCycles();
+  const closedCount = all.filter(c => c.status === 'closed').length;
+  const active = all.find(c => c.status === 'active');
+  if (active?.game_number) return active.game_number + 1;
+  // Fallback: closed cycles = past games, active = one more → next is one more again
+  return closedCount + 2;
 }
 
 export async function updateCycle(id, updates) {
@@ -47,19 +58,25 @@ export async function updateSubmission(id, updates) {
  * Upsert parsed submissions into a cycle.
  * Creates the cycle if none active, then posts each submission.
  */
-export async function upsertCycle(parsedSubmissions, label) {
+export async function upsertCycle(parsedSubmissions) {
   let cycle = await getActiveCycle();
   if (!cycle) {
-    cycle = await createCycle(label || 'Cycle ' + new Date().toISOString().slice(0, 10));
+    const all = await getCycles();
+    const gameNum = all.filter(c => c.status === 'closed').length + 1;
+    cycle = await createCycle(gameNum);
   }
 
   const existing = await getSubmissionsForCycle(cycle._id);
-  const existingMap = new Map(existing.map(s => [s.character_name, s]));
+  // Index by character_name AND character_id so portal submissions (which lack character_name)
+  // are still found when a CSV row matches the same character.
+  const byName = new Map(existing.filter(s => s.character_name).map(s => [s.character_name, s]));
+  const byId   = new Map(existing.filter(s => s.character_id).map(s => [String(s.character_id), s]));
 
   let created = 0, updated = 0, unchanged = 0;
 
   for (const parsed of parsedSubmissions) {
     const charName = parsed.submission.character_name;
+    const charId   = parsed._character_id ? String(parsed._character_id) : null;
     const doc = {
       cycle_id: cycle._id,
       character_id: parsed._character_id || null,
@@ -71,7 +88,8 @@ export async function upsertCycle(parsedSubmissions, label) {
       updated_at: new Date().toISOString(),
     };
 
-    const prev = existingMap.get(charName);
+    // Match by name first (CSV-sourced), then by character_id (portal-sourced)
+    const prev = byName.get(charName) || (charId ? byId.get(charId) : null);
     if (prev) {
       await apiPut('/api/downtime_submissions/' + prev._id, doc);
       updated++;

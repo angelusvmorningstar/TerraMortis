@@ -6,10 +6,11 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP } from '../player/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, sortName } from '../data/helpers.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
 
@@ -31,7 +32,7 @@ export async function initDowntimeView() {
   document.getElementById('dt-drop-zone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
   document.getElementById('dt-drop-zone').addEventListener('dragleave', e => { e.currentTarget.classList.remove('drag-over'); });
   document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
-  document.getElementById('dt-new-cycle').addEventListener('click', handleNewCycle);
+  document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-cycle-sel').addEventListener('change', e => {
     selectedCycleId = e.target.value;
@@ -57,9 +58,10 @@ function buildShell() {
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
       <span id="dt-cycle-status" class="dt-cycle-status"></span>
     </div>
-    <div id="dt-regency-bar"></div>
+    <div id="dt-snapshot"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
+    <div id="dt-feeding-scene"></div>
     <div id="dt-matrix"></div>
     <div id="dt-conflicts"></div>
     <div id="dt-investigations"></div>
@@ -72,7 +74,11 @@ function buildShell() {
 async function loadCharacters() {
   try {
     characters = await apiGet('/api/characters');
-    charMap = new Map(characters.map(c => [(c.name || '').toLowerCase().trim(), c]));
+    charMap = new Map();
+    for (const c of characters) {
+      if (c.name) charMap.set(c.name.toLowerCase().trim(), c);
+      if (c.moniker) charMap.set(c.moniker.toLowerCase().trim(), c);
+    }
   } catch {
     characters = [];
     charMap = new Map();
@@ -81,7 +87,21 @@ async function loadCharacters() {
 
 export function findCharacter(submissionName) {
   if (!submissionName) return null;
-  return charMap.get(submissionName.toLowerCase().trim()) || null;
+  const key = submissionName.toLowerCase().trim();
+
+  // Exact match on name or moniker
+  const exact = charMap.get(key);
+  if (exact) return exact;
+
+  // Fallback: check if any character name/moniker appears as a word within the submission name
+  for (const c of characters) {
+    const cName = (c.name || '').toLowerCase().trim();
+    const cMoniker = (c.moniker || '').toLowerCase().trim();
+    if (cName && key.includes(cName)) return c;
+    if (cMoniker && key.includes(cMoniker)) return c;
+  }
+
+  return null;
 }
 
 const FEED_METHODS = [
@@ -126,55 +146,140 @@ function buildFeedingPool(char, methodId, ambienceMod) {
 
 // ── Cycle loading ───────────────────────────────────────────────────────────
 
-function renderRegencyBar(cycle, isActive) {
-  const el = document.getElementById('dt-regency-bar');
+// ── End-of-Cycle Snapshot (GC-4) ────────────────────────────────────────────
+
+/**
+ * Capture prestige, eminence, and ascendancy for all active characters
+ * and save the snapshot to the cycle document.
+ * Called by GC-5 reset wizard.
+ */
+export async function takeSnapshot(cycleId) {
+  const activeChars = characters.filter(c => !c.retired);
+
+  // Per-character: prestige = clan status + covenant status, plus influence budget
+  const charData = activeChars.map(c => ({
+    character_id: String(c._id),
+    name: displayName(c),
+    clan: c.clan || '',
+    covenant: c.covenant || '',
+    prestige: (c.status?.clan || 0) + (c.status?.covenant || 0),
+    influence: calcTotalInfluence(c),
+  }));
+
+  // Clan eminence: sum of all active chars' city status per clan
+  const eminenceMap = {};
+  for (const c of activeChars) {
+    const clan = c.clan || 'Unknown';
+    eminenceMap[clan] = (eminenceMap[clan] || 0) + (c.status?.city || 0);
+  }
+  const eminence = Object.entries(eminenceMap)
+    .map(([clan, total]) => ({ clan, total }))
+    .sort((a, b) => b.total - a.total);
+
+  // Covenant ascendancy: sum of all active chars' city status per covenant
+  const ascendancyMap = {};
+  for (const c of activeChars) {
+    const cov = c.covenant || 'Unaligned';
+    ascendancyMap[cov] = (ascendancyMap[cov] || 0) + (c.status?.city || 0);
+  }
+  const ascendancy = Object.entries(ascendancyMap)
+    .map(([covenant, total]) => ({ covenant, total }))
+    .sort((a, b) => b.total - a.total);
+
+  const snapshot = {
+    taken_at: new Date().toISOString(),
+    characters: charData,
+    eminence,
+    ascendancy,
+  };
+
+  await updateCycle(cycleId, { snapshot });
+  const idx = allCycles.findIndex(c => c._id === cycleId);
+  if (idx >= 0) allCycles[idx].snapshot = snapshot;
+  return snapshot;
+}
+
+/**
+ * Add monthly influence income to each active character's influence_balance.
+ * Called by GC-5 reset wizard after takeSnapshot.
+ * Returns array of { name, error } for any failures.
+ */
+export async function applyInfluenceIncome() {
+  const activeChars = characters.filter(c => !c.retired);
+  const errors = [];
+
+  for (const c of activeChars) {
+    const income = calcTotalInfluence(c);
+    const newBalance = (c.influence_balance || 0) + income;
+    try {
+      await apiPut(`/api/characters/${c._id}`, {
+        name: c.name,
+        influence_balance: newBalance,
+      });
+      c.influence_balance = newBalance;
+    } catch (err) {
+      errors.push({ name: displayName(c), error: err.message });
+    }
+  }
+
+  return errors;
+}
+
+/** Render the historical snapshot for a closed cycle. No-ops for active cycles or cycles without data. */
+function renderSnapshotPanel(cycle) {
+  const el = document.getElementById('dt-snapshot');
   if (!el) return;
 
-  const currentId = cycle.regency_character_id ? String(cycle.regency_character_id) : '';
-  const currentName = cycle.regency_character_name || '';
+  const snap = cycle.snapshot;
+  if (!snap || cycle.status === 'active') { el.innerHTML = ''; return; }
 
-  if (!isActive) {
-    // Closed cycle — read-only display
-    el.innerHTML = currentName
-      ? `<div class="dt-regency-bar"><span class="dt-regency-label">Regent</span><span class="dt-regency-confirmed">\u2713 ${esc(currentName)}</span></div>`
-      : `<div class="dt-regency-bar"><span class="dt-regency-label">Regent</span><span class="dt-regency-none">Not recorded</span></div>`;
-    return;
-  }
+  const takenAt = new Date(snap.taken_at).toLocaleString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+  const isOpen = el.dataset.open !== 'false';
 
-  // Active cycle — editable dropdown
-  const activeChars = characters.filter(c => !c.retired);
-  let opts = '<option value="">— None —</option>';
-  for (const c of activeChars) {
-    const id = String(c._id);
-    const name = esc(displayName(c));
-    opts += `<option value="${id}"${id === currentId ? ' selected' : ''}>${name}</option>`;
-  }
+  let h = '<div class="dt-snapshot-panel">';
+  h += `<div class="dt-snapshot-toggle" id="dt-snapshot-toggle">${isOpen ? '\u25BC' : '\u25BA'} Cycle Snapshot <span class="domain-count">${esc(takenAt)}</span></div>`;
 
-  el.innerHTML = `<div class="dt-regency-bar">` +
-    `<span class="dt-regency-label">Regent</span>` +
-    `<select id="dt-regent-sel" class="dt-regent-sel">${opts}</select>` +
-    `<button class="dt-btn dt-btn-sm" id="dt-regent-save">Save</button>` +
-    (currentName ? `<span class="dt-regency-confirmed">\u2713 ${esc(currentName)}</span>` : '') +
-    `</div>`;
+  if (isOpen) {
+    const sorted = [...snap.characters].sort((a, b) => b.prestige - a.prestige || b.influence - a.influence);
 
-  document.getElementById('dt-regent-save').addEventListener('click', async () => {
-    const sel = document.getElementById('dt-regent-sel');
-    const chosenId = sel.value;
-    const chosenChar = characters.find(c => String(c._id) === chosenId) || null;
-    const chosenName = chosenChar ? displayName(chosenChar) : '';
-    await updateCycle(cycle._id, {
-      regency_character_id: chosenId || null,
-      regency_character_name: chosenName || null,
-    });
-    // Update local cache and re-render bar
-    const idx = allCycles.findIndex(c => c._id === cycle._id);
-    if (idx >= 0) {
-      allCycles[idx].regency_character_id = chosenId || null;
-      allCycles[idx].regency_character_name = chosenName || null;
+    h += '<div class="dt-snapshot-body">';
+
+    // Prestige table
+    h += '<table class="dt-snapshot-table">';
+    h += '<thead><tr><th>Character</th><th>Clan</th><th>Covenant</th><th>Prestige</th><th>Influence</th></tr></thead><tbody>';
+    for (const c of sorted) {
+      h += `<tr><td>${esc(c.name)}</td><td>${esc(c.clan)}</td><td>${esc(c.covenant)}</td>`;
+      h += `<td class="dt-snap-val">${c.prestige}</td><td class="dt-snap-val">${c.influence}</td></tr>`;
     }
-    renderRegencyBar({ ...cycle, regency_character_id: chosenId, regency_character_name: chosenName }, true);
+    h += '</tbody></table>';
+
+    // Eminence + Ascendancy side by side
+    h += '<div class="dt-snapshot-factions">';
+    h += '<div class="dt-snapshot-faction-col"><div class="dt-snapshot-head">Clan Eminence</div>';
+    for (const e of snap.eminence) {
+      h += `<div class="dt-snap-faction-row"><span>${esc(e.clan)}</span><span class="dt-snap-val">${e.total}</span></div>`;
+    }
+    h += '</div>';
+    h += '<div class="dt-snapshot-faction-col"><div class="dt-snapshot-head">Covenant Ascendancy</div>';
+    for (const a of snap.ascendancy) {
+      h += `<div class="dt-snap-faction-row"><span>${esc(a.covenant)}</span><span class="dt-snap-val">${a.total}</span></div>`;
+    }
+    h += '</div></div>'; // factions
+
+    h += '</div>'; // body
+  }
+
+  h += '</div>'; // panel
+  el.innerHTML = h;
+
+  document.getElementById('dt-snapshot-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderSnapshotPanel(cycle);
   });
 }
+
 
 async function loadAllCycles() {
   allCycles = await getCycles();
@@ -238,8 +343,8 @@ async function loadCycleById(cycleId) {
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
 
-  // ── Regency bar (GC-1) ──
-  renderRegencyBar(cycle, isActive);
+  // ── Snapshot panel (GC-4) ──
+  renderSnapshotPanel(cycle);
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
@@ -256,6 +361,7 @@ async function loadCycleById(cycleId) {
   expandedId = null;
   submissions = await getSubmissionsForCycle(cycleId);
   renderMatchSummary();
+  renderFeedingScene();
   renderFeedingMatrix();
   renderConflicts();
   await loadInvestigations(cycleId);
@@ -360,6 +466,7 @@ function renderSubmissions() {
       h += renderMechanicalSummaryPanel(s);
       h += renderStNotes(s, raw);
       h += renderApproval(s);
+      h += renderExpenditurePanel(s);
       h += renderPublishPanel(s);
     }
 
@@ -420,6 +527,24 @@ function renderSubmissions() {
         if (!sub.st_review) sub.st_review = {};
         sub.st_review.mechanical_summary = ta.value;
       } catch (err) { console.error('Mech summary save error:', err.message); }
+    });
+  });
+
+  // Expenditure inputs autosave on blur (GC-3)
+  el.querySelectorAll('.dt-exp-input').forEach(input => {
+    input.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const subId = input.dataset.subId;
+      const field = input.dataset.expField;
+      const val = parseInt(input.value, 10);
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      try {
+        await updateSubmission(subId, { [field]: isNaN(val) ? 0 : val });
+        if (!sub.st_review) sub.st_review = {};
+        const key = field.replace('st_review.', '');
+        sub.st_review[key] = isNaN(val) ? 0 : val;
+      } catch (err) { console.error('Expenditure save error:', err.message); }
     });
   });
 
@@ -785,6 +910,31 @@ async function handleSaveNotes(subId) {
 
 // ── Approval ────────────────────────────────────────────────────────────────
 
+// ── Expenditure Tracking (GC-3) ─────────────────────────────────────────────
+
+function renderExpenditurePanel(s) {
+  const vitae    = s.st_review?.vitae_spent    ?? '';
+  const wp       = s.st_review?.willpower_spent ?? '';
+  const influence = s.st_review?.influence_spent ?? '';
+
+  let h = '<div class="dt-exp-panel">';
+  h += '<div class="dt-feed-header">Expenditure</div>';
+  h += '<div class="dt-exp-fields">';
+  for (const [label, field, val] of [
+    ['Vitae', 'vitae_spent', vitae],
+    ['Willpower', 'willpower_spent', wp],
+    ['Influence', 'influence_spent', influence],
+  ]) {
+    h += `<label class="dt-exp-field">`;
+    h += `<span class="dt-exp-lbl">${label}</span>`;
+    h += `<input type="number" class="dt-exp-input" data-sub-id="${s._id}" data-exp-field="st_review.${field}" min="0" max="99" value="${esc(String(val))}">`;
+    h += `</label>`;
+  }
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
+
 const APPROVAL_STATUSES = ['pending', 'approved', 'modified', 'rejected'];
 
 function renderApproval(s) {
@@ -862,7 +1012,7 @@ async function processFile(file) {
   }
 
   try {
-    const result = await upsertCycle(parsed, file.name.replace('.csv', ''));
+    const result = await upsertCycle(parsed);
     warnEl.innerHTML = `<div class="dt-success">Loaded ${result.created} new, ${result.updated} updated submissions.</div>`;
     await loadAllCycles();
   } catch (err) {
@@ -871,24 +1021,308 @@ async function processFile(file) {
   }
 }
 
-async function handleNewCycle() {
-  const label = prompt('Cycle label (e.g. "March 2026"):');
-  if (!label) return;
+// ── Cycle Reset Wizard (GC-5) ────────────────────────────────────────────────
 
-  // Batch-publish all submissions marked ready before the new cycle goes live
-  const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
-  if (readySubs.length) {
-    const pubAt = new Date().toISOString();
-    await Promise.all(readySubs.map(sub =>
-      updateSubmission(sub._id, {
-        'st_review.outcome_visibility': 'published',
-        'st_review.published_at': pubAt,
-      }).catch(err => console.error('Publish failed for', sub.character_name, err.message))
-    ));
+async function openResetWizard() {
+  const cycle = allCycles.find(c => c._id === selectedCycleId);
+
+  // Compute next game number
+  let nextNum;
+  if (cycle?.game_number) {
+    nextNum = cycle.game_number + 1;
+  } else {
+    const closedCount = allCycles.filter(c => c.status === 'closed').length;
+    // If there's an active cycle it counts as one game, next is one more
+    nextNum = closedCount + (allCycles.some(c => c.status === 'active') ? 2 : 1);
   }
 
-  await createCycle(label);
-  await loadAllCycles();
+  if (!cycle || cycle.status !== 'active') {
+    // No active cycle to close — create the next one directly
+    if (!confirm(`Create Downtime ${nextNum}?`)) return;
+    await createCycle(nextNum);
+    await loadAllCycles();
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'gc-wizard-overlay';
+  overlay.innerHTML = buildWizardChecklistHtml(cycle, nextNum);
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#gc-cancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#gc-begin').addEventListener('click', () => {
+    switchToPhaseView(overlay, cycle, nextNum);
+  });
+}
+
+function buildWizardChecklistHtml(cycle, nextNum) {
+  const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
+  const pendingSubs = submissions.filter(s => {
+    const vis = s.st_review?.outcome_visibility;
+    return !vis || vis === 'pending' || vis === 'hidden';
+  });
+  const approvedSubs = submissions.filter(s =>
+    s.approval_status === 'approved' || s.approval_status === 'modified'
+  );
+  const missingExp = approvedSubs.filter(s =>
+    !s.st_review?.vitae_spent && !s.st_review?.willpower_spent && !s.st_review?.influence_spent
+  );
+  const noFeed = submissions.filter(s => !s.feeding_roll);
+
+  let items = '';
+  if (readySubs.length) items += `<li class="gc-chk-ok">&#10003; ${readySubs.length} submission${readySubs.length !== 1 ? 's' : ''} ready to publish</li>`;
+  if (pendingSubs.length) items += `<li class="gc-chk-warn">&#9651; ${pendingSubs.length} submission${pendingSubs.length !== 1 ? 's' : ''} not yet reviewed</li>`;
+  if (missingExp.length) items += `<li class="gc-chk-warn">&#9651; ${missingExp.length} approved submission${missingExp.length !== 1 ? 's' : ''} missing expenditure data</li>`;
+  if (noFeed.length) items += `<li class="gc-chk-warn">&#9651; ${noFeed.length} submission${noFeed.length !== 1 ? 's' : ''} with no feeding roll</li>`;
+  if (!items) items = '<li class="gc-chk-ok">&#10003; All checks passed</li>';
+
+  const hasWarnings = pendingSubs.length || missingExp.length || noFeed.length;
+
+  return `<div class="gc-wizard-box">
+    <div class="gc-wizard-title">Cycle Reset Wizard</div>
+    <div class="gc-wizard-sub">Closing: <strong>${esc(cycle.label || 'Unnamed')}</strong></div>
+    <ul class="gc-checklist">${items}</ul>
+    ${hasWarnings ? '<p class="gc-chk-note">Warnings are advisory. You may still proceed.</p>' : ''}
+    <div class="gc-label-row">
+      <span class="gc-label-lbl">New cycle</span>
+      <span class="gc-next-cycle-name">Downtime ${nextNum}</span>
+    </div>
+    <div class="gc-wizard-actions">
+      <button id="gc-cancel" class="dt-btn">Cancel</button>
+      <button id="gc-begin" class="dt-btn dt-btn-gold">Begin Reset</button>
+    </div>
+  </div>`;
+}
+
+const RESET_PHASES = [
+  { id: 'snapshot',  label: 'Capture cycle snapshot' },
+  { id: 'income',    label: 'Apply influence income' },
+  { id: 'mutations', label: 'Confirm XP mutations' },
+  { id: 'publish',   label: 'Publish outcomes to players' },
+  { id: 'tracks',    label: 'Reset character tracks' },
+  { id: 'new-cycle', label: 'Close cycle and create next' },
+];
+
+function buildPhaseListHtml() {
+  return `<ul class="gc-phase-list">${
+    RESET_PHASES.map(p =>
+      `<li class="gc-phase-item" id="gc-phase-${p.id}">
+        <span class="gc-phase-icon" id="gc-phase-icon-${p.id}">&#9675;</span>
+        <span class="gc-phase-label">${p.label}</span>
+        <span class="gc-phase-detail" id="gc-phase-detail-${p.id}"></span>
+      </li>`
+    ).join('')
+  }</ul>`;
+}
+
+function setPhaseState(overlay, id, state, detail) {
+  const icon = overlay.querySelector(`#gc-phase-icon-${id}`);
+  const detailEl = overlay.querySelector(`#gc-phase-detail-${id}`);
+  const item = overlay.querySelector(`#gc-phase-${id}`);
+  if (!icon) return;
+  const icons = { pending: '&#9675;', running: '&#9654;', done: '&#10003;', failed: '&#10007;', paused: '&#9646;&#9646;' };
+  icon.innerHTML = icons[state] || '';
+  icon.dataset.state = state;
+  if (detailEl) detailEl.textContent = detail || '';
+  if (item) item.dataset.state = state;
+}
+
+function switchToPhaseView(overlay, cycle, nextNum) {
+  overlay.querySelector('.gc-wizard-box').innerHTML = `
+    <div class="gc-wizard-title">Resetting Cycle&hellip;</div>
+    <div class="gc-wizard-sub">Do not close this window.</div>
+    ${buildPhaseListHtml()}
+    <div id="gc-wizard-footer" class="gc-wizard-footer"></div>
+  `;
+  runWizardPhases(overlay, cycle, nextNum);
+}
+
+async function runWizardPhases(overlay, cycle, nextNum) {
+  const footer = overlay.querySelector('#gc-wizard-footer');
+  const cycleId = cycle._id;
+  const rollback = { income_prev: null, published_ids: [], tracks_prev: [] };
+
+  function fail(phaseId, msg) {
+    setPhaseState(overlay, phaseId, 'failed', msg);
+    let past = false;
+    for (const p of RESET_PHASES) {
+      if (p.id === phaseId) { past = true; continue; }
+      if (past) setPhaseState(overlay, p.id, 'failed', 'skipped');
+    }
+    showWizardFooter(footer, 'failed', rollback, overlay);
+  }
+
+  // Phase 1: Snapshot
+  setPhaseState(overlay, 'snapshot', 'running');
+  try {
+    await takeSnapshot(cycleId);
+    setPhaseState(overlay, 'snapshot', 'done');
+  } catch (err) { fail('snapshot', err.message); return; }
+
+  // Phase 2: Influence income
+  setPhaseState(overlay, 'income', 'running');
+  rollback.income_prev = characters.filter(c => !c.retired).map(c => ({
+    _id: c._id, name: c.name, balance: c.influence_balance || 0,
+  }));
+  const incomeErrors = await applyInfluenceIncome();
+  if (incomeErrors.length) { fail('income', `Failed: ${incomeErrors.map(e => e.name).join(', ')}`); return; }
+  setPhaseState(overlay, 'income', 'done');
+
+  // Phase 3: XP mutations (manual gate)
+  setPhaseState(overlay, 'mutations', 'paused', 'Awaiting confirmation');
+  await new Promise(resolve => {
+    const btn = document.createElement('button');
+    btn.className = 'dt-btn dt-btn-gold';
+    btn.textContent = 'Mutations applied \u2014 Continue';
+    btn.addEventListener('click', () => { btn.remove(); resolve(); }, { once: true });
+    footer.appendChild(btn);
+  });
+  setPhaseState(overlay, 'mutations', 'done');
+
+  // Phase 4: Publish ready submissions
+  setPhaseState(overlay, 'publish', 'running');
+  const readySubs = submissions.filter(s => s.st_review?.outcome_visibility === 'ready');
+  rollback.published_ids = readySubs.map(s => s._id);
+  const pubAt = new Date().toISOString();
+  const pubErrors = [];
+  for (const sub of readySubs) {
+    try {
+      await updateSubmission(sub._id, {
+        'st_review.outcome_visibility': 'published',
+        'st_review.published_at': pubAt,
+      });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.outcome_visibility = 'published';
+      sub.st_review.published_at = pubAt;
+    } catch (err) { pubErrors.push(sub.character_name); }
+  }
+  if (pubErrors.length) { fail('publish', `Failed: ${pubErrors.join(', ')}`); return; }
+  setPhaseState(overlay, 'publish', 'done', `${readySubs.length} published`);
+
+  // Phase 5: Track reset
+  setPhaseState(overlay, 'tracks', 'running');
+  const trackErrors = [];
+  const approvedSubs = submissions.filter(s =>
+    (s.approval_status === 'approved' || s.approval_status === 'modified') && s._character_id
+  );
+
+  for (const sub of approvedSubs) {
+    const char = characters.find(c => String(c._id) === String(sub._character_id));
+    if (!char) continue;
+    const vitaeSpent    = sub.st_review?.vitae_spent    || 0;
+    const wpSpent       = sub.st_review?.willpower_spent || 0;
+    const influenceSpent = sub.st_review?.influence_spent || 0;
+    if (!vitaeSpent && !wpSpent && !influenceSpent) continue;
+
+    const resolve   = (char.attributes?.mental?.resolve?.dots   || 0) + (char.attributes?.mental?.resolve?.bonus   || 0);
+    const composure = (char.attributes?.social?.composure?.dots || 0) + (char.attributes?.social?.composure?.bonus || 0);
+    const wpMax = resolve + composure;
+
+    rollback.tracks_prev.push({
+      _id: char._id, name: char.name,
+      vitae_track:      char.vitae_track      ?? null,
+      willpower_track:  char.willpower_track  ?? null,
+      influence_balance: char.influence_balance ?? null,
+    });
+
+    const updates = { name: char.name };
+    if (vitaeSpent)     updates.vitae_track     = -vitaeSpent;
+    if (wpSpent)        updates.willpower_track  = wpMax - wpSpent;
+    if (influenceSpent) updates.influence_balance = Math.max(0, (char.influence_balance || 0) - influenceSpent);
+
+    try {
+      await apiPut(`/api/characters/${char._id}`, updates);
+      if (vitaeSpent)     char.vitae_track     = updates.vitae_track;
+      if (wpSpent)        char.willpower_track  = updates.willpower_track;
+      if (influenceSpent) char.influence_balance = updates.influence_balance;
+    } catch (err) { trackErrors.push(displayName(char)); }
+  }
+  if (trackErrors.length) { fail('tracks', `Failed: ${trackErrors.join(', ')}`); return; }
+  setPhaseState(overlay, 'tracks', 'done');
+
+  // Phase 6: Close old cycle + create new
+  setPhaseState(overlay, 'new-cycle', 'running');
+  try {
+    await closeCycle(cycleId);
+    await createCycle(nextNum);
+    setPhaseState(overlay, 'new-cycle', 'done');
+  } catch (err) { fail('new-cycle', err.message); return; }
+
+  showWizardFooter(footer, 'done', rollback, overlay);
+}
+
+function showWizardFooter(footer, state, rollback, overlay) {
+  footer.innerHTML = '';
+  if (state === 'done') {
+    const p = document.createElement('p');
+    p.className = 'gc-result-ok';
+    p.textContent = 'Reset complete. New cycle is now active.';
+    const btn = document.createElement('button');
+    btn.className = 'dt-btn dt-btn-gold';
+    btn.textContent = 'Close';
+    btn.addEventListener('click', () => { overlay.remove(); loadAllCycles(); }, { once: true });
+    footer.append(p, btn);
+  } else {
+    const p = document.createElement('p');
+    p.className = 'gc-result-err';
+    p.textContent = 'Reset failed. Completed phases can be rolled back.';
+    const rollBtn = document.createElement('button');
+    rollBtn.className = 'dt-btn';
+    rollBtn.textContent = 'Rollback & Close';
+    rollBtn.addEventListener('click', async () => {
+      rollBtn.disabled = true;
+      rollBtn.textContent = 'Rolling back\u2026';
+      await performRollback(rollback);
+      overlay.remove();
+      loadAllCycles();
+    }, { once: true });
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'dt-btn';
+    closeBtn.textContent = 'Close (no rollback)';
+    closeBtn.addEventListener('click', () => { overlay.remove(); loadAllCycles(); }, { once: true });
+    footer.append(p, rollBtn, closeBtn);
+  }
+}
+
+async function performRollback(rollback) {
+  // Restore income: revert influence_balance to pre-wizard values
+  for (const prev of (rollback.income_prev || [])) {
+    const char = characters.find(c => String(c._id) === String(prev._id));
+    if (!char) continue;
+    try {
+      await apiPut(`/api/characters/${prev._id}`, { name: prev.name, influence_balance: prev.balance });
+      char.influence_balance = prev.balance;
+    } catch (err) { console.error('Rollback income:', prev.name, err.message); }
+  }
+
+  // Restore track resets
+  for (const prev of (rollback.tracks_prev || [])) {
+    const char = characters.find(c => String(c._id) === String(prev._id));
+    if (!char) continue;
+    const updates = { name: prev.name };
+    if (prev.vitae_track      !== null) updates.vitae_track      = prev.vitae_track;
+    if (prev.willpower_track  !== null) updates.willpower_track  = prev.willpower_track;
+    if (prev.influence_balance !== null) updates.influence_balance = prev.influence_balance;
+    try {
+      await apiPut(`/api/characters/${prev._id}`, updates);
+      if (prev.vitae_track !== null) char.vitae_track = prev.vitae_track;
+      if (prev.willpower_track !== null) char.willpower_track = prev.willpower_track;
+      if (prev.influence_balance !== null) char.influence_balance = prev.influence_balance;
+    } catch (err) { console.error('Rollback tracks:', prev.name, err.message); }
+  }
+
+  // Restore published subs to 'ready'
+  for (const subId of (rollback.published_ids || [])) {
+    const sub = submissions.find(s => s._id === subId);
+    if (!sub) continue;
+    try {
+      await updateSubmission(subId, { 'st_review.outcome_visibility': 'ready' });
+      if (sub.st_review) sub.st_review.outcome_visibility = 'ready';
+    } catch (err) { console.error('Rollback publish:', subId, err.message); }
+  }
+
+  // Snapshot: best-effort clear (cycle may already be closed)
+  try { await updateCycle(selectedCycleId, { snapshot: null }); } catch (err) { /* best effort */ }
 }
 
 async function handleCloseCycle() {
@@ -1409,6 +1843,139 @@ function renderNpcForm(npc) {
   h += `<textarea class="dt-narr-textarea" id="dt-npc-notes-${id}" placeholder="Notes (ST only)" style="min-height:36px;margin-top:6px">${v('notes')}</textarea>`;
   h += '</div>';
   return h;
+}
+
+// ── Feeding Scene Summary (GC-2) ────────────────────────────────────────────
+
+/** Derive the primary feeding territory (resident > poacher) from a submission's territory grid. */
+function getPrimaryTerritory(sub) {
+  if (!sub?.responses?.feeding_territories) return null;
+  let grid;
+  try { grid = JSON.parse(sub.responses.feeding_territories); } catch { return null; }
+  // Prefer resident, fall back to poacher
+  for (const status of ['resident', 'poacher']) {
+    for (const [key, val] of Object.entries(grid)) {
+      if (val === status) {
+        return FEEDING_TERRITORIES.find(t =>
+          t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === key
+        ) || null;
+      }
+    }
+  }
+  return null;
+}
+
+/** Look up ambience string for a territory display name. */
+function getTerritoryAmbienceByName(terrName) {
+  if (!terrName) return null;
+  // TERRITORY_DATA names may differ slightly from FEEDING_TERRITORIES labels
+  const td = TERRITORY_DATA.find(t =>
+    terrName.toLowerCase().includes(t.name.toLowerCase().replace(/^the\s+/i, '')) ||
+    t.name.toLowerCase().includes(terrName.toLowerCase().replace(/^the\s+/i, ''))
+  );
+  return td?.ambience || null;
+}
+
+/** Build best generic pool (highest total across all methods) for a character with no submission. */
+function bestGenericPool(char) {
+  let best = null;
+  for (const m of FEED_METHODS) {
+    const p = buildFeedingPool(char, m.id, 0);
+    if (p && (!best || p.total > best.total)) {
+      best = { ...p, methodName: m.name };
+    }
+  }
+  return best;
+}
+
+function renderFeedingScene() {
+  const el = document.getElementById('dt-feeding-scene');
+  if (!el) return;
+
+  const activeChars = characters.filter(c => !c.retired);
+  if (!activeChars.length) { el.innerHTML = ''; return; }
+
+  // Build a map from character _id → submission for quick lookup
+  const subByCharId = new Map();
+  for (const s of submissions) {
+    const char = findCharacter(s.character_name);
+    if (char) subByCharId.set(String(char._id), s);
+  }
+
+  const isOpen = el.dataset.open !== 'false';
+  const sorted = [...activeChars].sort((a, b) => sortName(a).localeCompare(sortName(b)));
+
+  let h = '<div class="dt-scene-panel">';
+  h += `<div class="dt-scene-toggle" id="dt-scene-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Scene Summary <span class="domain-count">${sorted.length} characters</span></div>`;
+
+  if (isOpen) {
+    h += '<table class="dt-scene-table">';
+    h += '<thead><tr>';
+    h += '<th>Character</th><th>Method</th><th>Territory</th><th>Ambience</th><th>Pool</th><th>Rote</th>';
+    h += '</tr></thead><tbody>';
+
+    for (const char of sorted) {
+      const charId = String(char._id);
+      const sub = subByCharId.get(charId) || null;
+      const hasSub = !!sub;
+
+      // Method
+      const methodId = sub?.responses?.['_feed_method'] || null;
+      const methodObj = FEED_METHODS_DATA.find(m => m.id === methodId);
+      const methodName = methodObj?.name || (hasSub ? 'Other / Custom' : null);
+
+      // Territory + ambience
+      const territory = getPrimaryTerritory(sub);
+      const ambience = getTerritoryAmbienceByName(territory);
+
+      // Pool
+      let poolTotal = '—';
+      let poolNote = '';
+      if (hasSub && methodId && methodObj) {
+        const pool = buildFeedingPool(char, methodId, 0);
+        poolTotal = pool ? pool.total : '?';
+      } else if (!hasSub) {
+        const best = bestGenericPool(char);
+        if (best) { poolTotal = best.total; poolNote = best.methodName; }
+      }
+
+      // Rote flag (ST-set, stored on st_review)
+      const rote = sub?.st_review?.feeding_rote || false;
+      const rowClass = hasSub ? '' : ' dt-scene-nosub';
+
+      h += `<tr class="dt-scene-row${rowClass}" data-char-id="${esc(charId)}">`;
+      h += `<td class="dt-scene-name">${esc(displayName(char))}${!hasSub ? ' <span class="dt-scene-nosub-badge">No submission</span>' : ''}</td>`;
+      h += `<td>${methodName ? esc(methodName) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
+      h += `<td>${territory ? esc(territory) : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
+      h += `<td>${ambience ? `<span class="dt-scene-amb">${esc(ambience)}</span>` : '<span class="dt-scene-dim">\u2014</span>'}</td>`;
+      h += `<td class="dt-scene-pool">${poolTotal}${poolNote ? ` <span class="dt-scene-dim">(${esc(poolNote)})</span>` : ''}</td>`;
+      h += `<td><label class="dt-scene-rote-lbl"><input type="checkbox" class="dt-scene-rote" data-sub-id="${esc(sub?._id || '')}" ${rote ? 'checked' : ''} ${!hasSub ? 'disabled' : ''}></label></td>`;
+      h += '</tr>';
+    }
+
+    h += '</tbody></table>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-scene-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderFeedingScene();
+  });
+
+  el.querySelectorAll('.dt-scene-rote').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const subId = cb.dataset.subId;
+      if (!subId) return;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const val = cb.checked;
+      await updateSubmission(subId, { 'st_review.feeding_rote': val });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.feeding_rote = val;
+    });
+  });
 }
 
 // ── Feeding Matrix (Story 1.4) ───────────────────────────────────────────────

@@ -10,7 +10,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, parseOutcomeSections } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
@@ -30,6 +30,7 @@ let currentChar = null;
 let currentCycle = null;
 let gateValues = {};
 let saveTimer = null;
+let priorPublishedLabel = null; // label of most recent published cycle other than current
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [] };
@@ -310,14 +311,19 @@ function collectResponses() {
 }
 
 async function saveDraft() {
-  const responses = collectResponses();
   const statusEl = document.getElementById('dt-save-status');
+  if (!currentCycle) {
+    if (statusEl) statusEl.textContent = 'No active cycle — contact your ST';
+    return;
+  }
+  const responses = collectResponses();
 
   try {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
-        cycle_id: currentCycle?._id || null,
+        character_name: currentChar.name,
+        cycle_id: currentCycle._id,
         status: 'draft',
         responses,
       });
@@ -349,6 +355,7 @@ async function submitForm() {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
         character_id: currentChar._id,
+        character_name: currentChar.name,
         cycle_id: currentCycle?._id || null,
         status: 'submitted',
         responses,
@@ -391,26 +398,15 @@ async function saveResidency(responses) {
  * outcome_text is a markdown-style string with ## section headers.
  */
 function renderDowntimeResults(outcomeText, sub) {
-  const sections = [];
-  let current = null;
-
-  for (const line of outcomeText.split('\n')) {
-    if (line.startsWith('## ')) {
-      if (current) sections.push(current);
-      current = { heading: line.slice(3).trim(), lines: [] };
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  if (current) sections.push(current);
+  const sections = parseOutcomeSections(outcomeText);
 
   let h = '<div class="qf-results">';
   h += '<h3 class="qf-results-title">Downtime Results</h3>';
 
-  if (sections.length === 0) {
-    h += `<div class="qf-results-body"><p>${esc(outcomeText)}</p></div>`;
-  } else {
-    for (const sec of sections) {
+  for (const sec of sections) {
+    if (!sec.heading) {
+      h += `<div class="qf-results-body"><p>${esc(sec.lines.join('\n').trim())}</p></div>`;
+    } else {
       const isMech = sec.heading === 'Mechanical Outcomes';
       h += `<div class="qf-results-section${isMech ? ' qf-results-mech' : ''}">`;
       h += `<h4 class="qf-results-section-head">${esc(sec.heading)}</h4>`;
@@ -418,7 +414,6 @@ function renderDowntimeResults(outcomeText, sub) {
       if (isMech) {
         h += `<pre class="qf-results-pre">${esc(body)}</pre>`;
       } else {
-        // Convert blank lines to paragraph breaks
         const paras = body.split(/\n{2,}/).filter(Boolean);
         h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
       }
@@ -447,6 +442,7 @@ export async function renderDowntimeTab(targetEl, char) {
   } catch { /* no cycles */ }
 
   // Load existing submission for this character + cycle
+  priorPublishedLabel = null;
   if (currentCycle) {
     try {
       const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
@@ -456,23 +452,35 @@ export async function renderDowntimeTab(targetEl, char) {
     } catch { /* no submission */ }
   }
 
-  // Auto-detect attendance from most recent game session
+  // Check for published outcomes from previous cycles (for "results available" banner)
+  if (currentCycle?.status === 'active' && !responseDoc?.published_outcome) {
+    try {
+      const allSubs = await apiGet('/api/downtime_submissions');
+      const charId = String(currentChar._id);
+      const currentCycleId = String(currentCycle._id);
+      const priorPublished = allSubs
+        .filter(s => String(s.character_id) === charId && s.published_outcome && String(s.cycle_id) !== currentCycleId)
+        .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+      if (priorPublished.length) {
+        // Try to find cycle label
+        try {
+          const cycles = await apiGet('/api/downtime_cycles');
+          const priorCycle = cycles.find(c => String(c._id) === String(priorPublished[0].cycle_id));
+          priorPublishedLabel = priorCycle?.label || 'previous cycle';
+        } catch { priorPublishedLabel = 'previous cycle'; }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Auto-detect attendance from the game session matching this downtime cycle
   lastGameAttendees = [];
   try {
-    const sessions = await apiGet('/api/game_sessions');
-    if (sessions.length) {
-      const latest = sessions[0]; // sorted newest first by API
-      const entry = (latest.attendance || []).find(a =>
-        a.character_id === currentChar._id || a.character_id?.toString() === currentChar._id?.toString()
-      );
-      gateValues.attended = entry?.attended ? 'yes' : 'no';
-      // Build attendee list (excluding current character)
-      lastGameAttendees = (latest.attendance || [])
-        .filter(a => a.attended && a.character_id !== currentChar._id && a.character_id?.toString() !== currentChar._id?.toString())
-        .map(a => ({ id: a.character_id, name: a.character_display || a.character_name || '' }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    }
-  } catch { /* game_sessions is ST-only — fall back */ }
+    let attUrl = '/api/attendance?character_id=' + encodeURIComponent(String(currentChar._id));
+    if (currentCycle?.game_number) attUrl += '&game_number=' + currentCycle.game_number;
+    const att = await apiGet(attUrl);
+    gateValues.attended = att.attended ? 'yes' : 'no';
+    lastGameAttendees = att.attendees || [];
+  } catch { /* fall back — leave gateValues.attended unset */ }
 
   // If attendee list empty (player can't access game_sessions), use character names
   if (!lastGameAttendees.length) {
@@ -557,6 +565,11 @@ function renderForm(container) {
     h += renderDowntimeResults(published, responseDoc);
   } else if (pending) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">&#x23F3; Your submission has been received. Results are being prepared.</p></div>';
+  }
+
+  // Banner: prior cycle results published, visible in Story tab
+  if (!published && priorPublishedLabel) {
+    h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
   }
 
   // Header
