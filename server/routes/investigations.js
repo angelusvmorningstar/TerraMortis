@@ -68,12 +68,14 @@ router.put('/:id', async (req, res) => {
   const existing = await col().findOne({ _id: oid });
   if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Investigation not found' });
 
-  const { add_successes, note_text, status, custom_threshold } = req.body;
+  const { add_successes, note_text, status, custom_threshold,
+          target_description, threshold_type, investigating_character_id,
+          cycle_id, successes_accumulated } = req.body;
   const updates = { updated_at: new Date().toISOString() };
 
+  // Operational fields (incremental progress tracking)
   if (add_successes != null) {
     updates.successes_accumulated = (existing.successes_accumulated || 0) + (+add_successes || 0);
-    // Auto-resolve when threshold reached
     if (updates.successes_accumulated >= existing.threshold && existing.status === 'active') {
       updates.status = 'resolved';
     }
@@ -83,6 +85,13 @@ router.put('/:id', async (req, res) => {
   }
   if (status) updates.status = status;
   if (custom_threshold != null) updates.threshold = +custom_threshold;
+
+  // Direct field updates (used by data-portability import)
+  if (target_description !== undefined) updates.target_description = target_description;
+  if (threshold_type !== undefined) updates.threshold_type = threshold_type;
+  if (investigating_character_id !== undefined) updates.investigating_character_id = investigating_character_id;
+  if (cycle_id !== undefined) updates.cycle_id = cycle_id ? (parseId(String(cycle_id)) || cycle_id) : null;
+  if (successes_accumulated != null && add_successes == null) updates.successes_accumulated = +successes_accumulated;
 
   const { $push, ...setFields } = updates;
   const op = { $set: setFields };

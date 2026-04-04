@@ -2355,3 +2355,28 @@ body {
   color: var(--txt2);
   flex: 1;
 }
+.dp-card-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.dp-result-box {
+  margin-top: 20px;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+.dp-result-summary { display: flex; gap: 16px; margin-bottom: 10px; }
+.dp-stat { font-size: 13px; color: var(--txt2); }
+.dp-stat-ok { color: #6abf6a; }
+.dp-stat-err { color: var(--crim2, #B22222); }
+.dp-result-ok { font-size: 13px; color: #6abf6a; margin: 0; }
+.dp-result-err { font-size: 13px; color: var(--crim2, #B22222); margin: 0; }
+.dp-result-loading { font-size: 13px; color: var(--txt2); margin: 0; }
+.dp-error-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dp-error-list li { font-size: 12px; color: var(--txt2); }
+.dp-error-list strong { color: var(--txt); }
