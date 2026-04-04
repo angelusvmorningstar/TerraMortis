@@ -398,6 +398,39 @@ function collectResponses() {
     responses[`retainer_${n}`] = combined;
   }
 
+  // Acquisition fields (custom render)
+  const acqDescEl = document.getElementById('dt-acq_description');
+  responses['acq_description'] = acqDescEl ? acqDescEl.value : '';
+  const acqAvailEl = document.getElementById('dt-acq_availability');
+  responses['acq_availability'] = acqAvailEl ? acqAvailEl.value : '';
+  // Acquisition merits
+  const acqMeritCbs = document.querySelectorAll('[data-acq-merit-cb]:checked');
+  const acqMeritKeys = [];
+  acqMeritCbs.forEach(cb => acqMeritKeys.push(cb.value));
+  responses['acq_merits'] = JSON.stringify(acqMeritKeys);
+  // Backwards compat: combined into old key
+  const resourcesRating = (currentChar.merits || []).find(m => m.name === 'Resources')?.rating || 0;
+  responses['resources_acquisitions'] = [
+    resourcesRating ? `Resources ${resourcesRating}` : '',
+    acqMeritKeys.length ? `Merits: ${acqMeritKeys.join(', ')}` : '',
+    responses['acq_description'],
+    responses['acq_availability'] ? `Availability: ${responses['acq_availability']}/5` : '',
+  ].filter(Boolean).join('\n');
+
+  // Skill acquisition fields
+  const skDescEl = document.getElementById('dt-skill_acq_description');
+  responses['skill_acq_description'] = skDescEl ? skDescEl.value : '';
+  const skAttrEl = document.getElementById('dt-skill_acq_pool_attr');
+  const skSkillEl = document.getElementById('dt-skill_acq_pool_skill');
+  responses['skill_acq_pool_attr'] = skAttrEl ? skAttrEl.value : '';
+  responses['skill_acq_pool_skill'] = skSkillEl ? skSkillEl.value : '';
+  const skAcqMeritCbs = document.querySelectorAll('[data-skill-acq-merit-cb]:checked');
+  const skAcqMeritKeys = [];
+  skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
+  responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
+  // Backwards compat
+  responses['skill_acquisitions'] = responses['skill_acq_description'];
+
   return responses;
 }
 
@@ -773,11 +806,13 @@ function renderForm(container) {
     h += renderSorcerySection(saved);
   }
 
-  for (const key of ['acquisitions', 'vamping', 'admin']) {
+  // ── Acquisitions (custom render) ──
+  h += renderAcquisitionsSection(saved);
+
+  for (const key of ['vamping', 'admin']) {
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
-    // Acquisitions is always shown now (no gate); other gated sections hide if gate not met
-    const isGated = section.gate && section.key !== 'acquisitions' && gateValues[section.gate] !== 'yes';
+    const isGated = section.gate && gateValues[section.gate] !== 'yes';
     const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
 
     h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}" data-section-key="${section.key}">`;
@@ -835,6 +870,26 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // Availability dot selector
+    const acqDot = e.target.closest('[data-acq-dot]');
+    if (acqDot) {
+      const val = parseInt(acqDot.dataset.acqDot, 10);
+      const input = document.getElementById('dt-acq_availability');
+      if (input) input.value = val;
+      const row = acqDot.closest('[data-acq-avail]');
+      if (row) {
+        row.querySelectorAll('[data-acq-dot]').forEach(d => {
+          d.classList.toggle('dt-acq-dot-filled', parseInt(d.dataset.acqDot, 10) <= val);
+        });
+        const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
+        let lbl = row.querySelector('.dt-acq-avail-label');
+        if (!lbl) { lbl = document.createElement('span'); lbl.className = 'dt-acq-avail-label'; row.appendChild(lbl); }
+        lbl.textContent = labels[val] || '';
+      }
+      scheduleSave();
+      updateSectionTicks(container);
+      return;
+    }
     // Contact row toggle
     const contactToggle = e.target.closest('[data-contact-toggle]');
     if (contactToggle && !e.target.closest('[data-contact-clear]')) {
@@ -1869,6 +1924,154 @@ function renderSorcerySection(saved) {
 
   h += '</div>'; // section-body
   h += '</div>'; // section
+  return h;
+}
+
+// ── Acquisitions (custom render) ──
+
+function renderAcquisitionsSection(saved) {
+  const c = currentChar;
+  // Find Resources merit rating
+  const resourcesMerit = (c.merits || []).find(m => m.name === 'Resources');
+  const resourcesRating = resourcesMerit ? (resourcesMerit.rating || 0) : 0;
+
+  // All character merits for the picker
+  const charMerits = (c.merits || []).filter(m =>
+    m.category === 'general' || m.category === 'influence'
+  );
+
+  let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
+  h += '<h4 class="qf-section-title">Acquisition: Resources and Skills<span class="qf-section-tick">✔</span></h4>';
+  h += '<div class="qf-section-body">';
+
+  // ── Resources acquisition ──
+  h += '<div class="dt-acq-card">';
+  h += '<div class="dt-acq-card-title">Resources Acquisition</div>';
+
+  // Resources level (auto from sheet)
+  h += '<div class="dt-acq-resources-row">';
+  h += `<span class="dt-acq-label">Resources Level:</span>`;
+  h += `<span class="dt-acq-dots">${resourcesRating ? '\u25CF'.repeat(resourcesRating) : 'None'}</span>`;
+  h += '</div>';
+
+  // Relevant merits (checkbox picker)
+  let meritPicks = [];
+  try { meritPicks = JSON.parse(saved['acq_merits'] || '[]'); } catch { /* ignore */ }
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<p class="qf-desc">Select merits that support this acquisition.</p>';
+  h += '<div class="dt-proj-merits" data-acq-merits>';
+  for (const m of charMerits) {
+    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+    const dots = '\u25CF'.repeat(m.rating || 0);
+    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+    const checked = meritPicks.includes(mKey) ? ' checked' : '';
+    h += `<label class="dt-proj-merit-label">`;
+    h += `<input type="checkbox" value="${esc(mKey)}" data-acq-merit-cb${checked}>`;
+    h += `<span>${esc(mName)} ${dots}</span>`;
+    h += '</label>';
+  }
+  if (!charMerits.length) {
+    h += '<p class="qf-desc">No applicable merits.</p>';
+  }
+  h += '</div></div>';
+
+  // Description
+  h += renderQuestion({
+    key: 'acq_description', label: 'Acquisition Description',
+    type: 'textarea', required: false,
+    desc: 'What are you attempting to acquire? Include context and purpose.',
+  }, saved['acq_description'] || '');
+
+  // Availability (dot selector 1-5)
+  const savedAvail = parseInt(saved['acq_availability'], 10) || 0;
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
+  h += '<div class="dt-acq-avail-row" data-acq-avail>';
+  for (let d = 1; d <= 5; d++) {
+    const filled = d <= savedAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}">\u25CF</span>`;
+  }
+  if (savedAvail) {
+    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
+    h += `<span class="dt-acq-avail-label">${labels[savedAvail] || ''}</span>`;
+  }
+  h += `<input type="hidden" id="dt-acq_availability" value="${savedAvail || ''}">`;
+  h += '</div></div>';
+
+  h += '</div>'; // acq-card
+
+  // ── Skill-based acquisition ──
+  const skAttrs = ALL_ATTRS.filter(a => {
+    const v = c.attributes?.[a]; return v && (v.dots + (v.bonus || 0)) > 0;
+  });
+  const skSkills = ALL_SKILLS.filter(s => {
+    const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0;
+  });
+
+  h += '<div class="dt-acq-card" style="margin-top:16px;">';
+  h += '<div class="dt-acq-card-title">Skill-Based Acquisition</div>';
+  h += '<p class="qf-desc">Limited to ONE skill-based acquisition per Downtime.</p>';
+
+  h += renderQuestion({
+    key: 'skill_acq_description', label: 'Description',
+    type: 'textarea', required: false,
+    desc: 'What are you attempting to obtain, and how?',
+  }, saved['skill_acq_description'] || '');
+
+  // Dice pool: Attribute + Skill + relevant Merit
+  h += '<div class="qf-field">';
+  h += '<div class="dt-pool-label">Acquisition Pool</div>';
+  h += '<div class="dt-dice-pool-row">';
+
+  const skSavedAttr = saved['skill_acq_pool_attr'] || '';
+  const skSavedSkill = saved['skill_acq_pool_skill'] || '';
+
+  h += '<select class="qf-select" id="dt-skill_acq_pool_attr">';
+  h += '<option value="">Attribute</option>';
+  for (const a of skAttrs) {
+    const v = c.attributes[a]; const dots = (v.dots || 0) + (v.bonus || 0);
+    h += `<option value="${esc(a)}"${skSavedAttr === a ? ' selected' : ''}>${esc(a)} (${dots})</option>`;
+  }
+  h += '</select>';
+
+  h += '<select class="qf-select" id="dt-skill_acq_pool_skill">';
+  h += '<option value="">Skill</option>';
+  for (const s of skSkills) {
+    const v = c.skills[s]; const dots = (v.dots || 0) + (v.bonus || 0);
+    h += `<option value="${esc(s)}"${skSavedSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
+  }
+  h += '</select>';
+
+  // Pool total
+  let skTotal = 0;
+  if (skSavedAttr) { const a = c.attributes?.[skSavedAttr]; if (a) skTotal += (a.dots || 0) + (a.bonus || 0); }
+  if (skSavedSkill) { const s = c.skills?.[skSavedSkill]; if (s) skTotal += (s.dots || 0) + (s.bonus || 0); }
+  h += `<span class="dt-pool-total">${skTotal || '\u2014'}</span>`;
+  h += '</div></div>';
+
+  // Relevant merits for this acquisition
+  let skMeritPicks = [];
+  try { skMeritPicks = JSON.parse(saved['skill_acq_merits'] || '[]'); } catch { /* ignore */ }
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Relevant Merits</label>';
+  h += '<div class="dt-proj-merits" data-skill-acq-merits>';
+  for (const m of charMerits) {
+    const mName = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+    const dots = '\u25CF'.repeat(m.rating || 0);
+    const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+    const checked = skMeritPicks.includes(mKey) ? ' checked' : '';
+    h += `<label class="dt-proj-merit-label">`;
+    h += `<input type="checkbox" value="${esc(mKey)}" data-skill-acq-merit-cb${checked}>`;
+    h += `<span>${esc(mName)} ${dots}</span>`;
+    h += '</label>';
+  }
+  h += '</div></div>';
+
+  h += '</div>';
+
+  h += '</div></div>'; // section-body, section
   return h;
 }
 

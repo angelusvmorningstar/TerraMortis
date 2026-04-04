@@ -1063,6 +1063,60 @@ body {
 
 .dt-proj-pane-hidden { display: none; }
 
+/* ── Acquisitions ── */
+.dt-acq-card {
+  padding: 16px 18px;
+  background: var(--surf1, #1A1714);
+  border: 1px solid rgba(201,169,98,.15);
+  border-radius: 6px;
+}
+.dt-acq-card-title {
+  font-family: var(--fh);
+  font-size: 15px;
+  color: var(--gold2, #E0C47A);
+  margin-bottom: 12px;
+}
+.dt-acq-resources-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+.dt-acq-label { font-weight: 600; color: var(--text1, #E8E0D0); }
+.dt-acq-dots { color: var(--gold2, #E0C47A); letter-spacing: 3px; font-size: 16px; }
+.dt-acq-avail-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+.dt-acq-dot {
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--surf3, #333);
+  transition: color .15s;
+  line-height: 1;
+}
+.dt-acq-dot:hover { color: var(--gold1, #C9A84C); }
+.dt-acq-dot-filled { color: var(--gold2, #E0C47A); }
+.dt-acq-avail-label {
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--text2, #aaa);
+  font-style: italic;
+}
+
+/* Reading pane overrides for acquisitions */
+.reading-pane .dt-acq-card { background: #FFF8EE; border-color: rgba(139,0,0,.12); }
+.reading-pane .dt-acq-card-title { color: #5A1A1A; }
+.reading-pane .dt-acq-label { color: #2A1F14; }
+.reading-pane .dt-acq-dots { color: #5A1A1A; }
+.reading-pane .dt-acq-dot { color: #D0C8B8; }
+.reading-pane .dt-acq-dot:hover { color: #8B6A3A; }
+.reading-pane .dt-acq-dot-filled { color: #5A1A1A; }
+.reading-pane .dt-acq-avail-label { color: #7A6A50; }
+
 /* ── Contacts table ── */
 .dt-contacts-table {
   display: flex;

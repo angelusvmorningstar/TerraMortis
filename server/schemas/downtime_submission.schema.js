@@ -224,9 +224,16 @@ export const downtimeSubmissionSchema = {
         sorcery_3_targets: { type: 'string' },
         sorcery_3_notes:   { type: 'string' },
 
-        // ── Acquisitions (gated: has_acquisitions) ──
-        resources_acquisitions: { type: 'string' },
-        skill_acquisitions:     { type: 'string' },
+        // ── Acquisitions ──
+        resources_acquisitions: { type: 'string' },  // Backwards compat: combined text
+        acq_description:     { type: 'string' },     // Acquisition description
+        acq_availability:    { type: 'string' },     // "1"-"5" dot rating
+        acq_merits:          { type: 'string' },     // JSON array of merit keys
+        skill_acquisitions:  { type: 'string' },     // Backwards compat: combined text
+        skill_acq_description: { type: 'string' },   // Skill acquisition description
+        skill_acq_pool_attr:   { type: 'string' },   // Pool attribute name
+        skill_acq_pool_skill:  { type: 'string' },   // Pool skill name
+        skill_acq_merits:      { type: 'string' },   // JSON array of merit keys
 
         // ── Vamping ──
         vamping: { type: 'string' },
