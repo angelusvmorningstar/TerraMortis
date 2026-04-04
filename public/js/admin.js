@@ -17,6 +17,7 @@ import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
 import { initSessionTracker } from './admin/session-tracker.js';
 import { initDataPortabilityView } from './admin/data-portability.js';
+import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
   editFromSheet, shEdit, shEditStatus,
@@ -152,7 +153,7 @@ function switchDomain(domain) {
   if (btn) btn.classList.add('on');
 
   if (domain === 'players') initPlayersView(chars);
-  if (domain === 'engine') { initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
+  if (domain === 'engine') { initNextSession(); initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);

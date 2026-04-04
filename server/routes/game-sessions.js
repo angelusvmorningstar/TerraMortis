@@ -11,6 +11,16 @@ router.get('/', async (req, res) => {
   res.json(docs);
 });
 
+// GET /api/game_sessions/next — nearest upcoming session (used by public website banner)
+router.get('/next', async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const session = await col().findOne(
+    { session_date: { $gte: today } },
+    { sort: { session_date: 1 } }
+  );
+  res.json(session || null);
+});
+
 // GET /api/game_sessions/:id — single session
 router.get('/:id', async (req, res) => {
   const doc = await col().findOne({ _id: new ObjectId(req.params.id) });
