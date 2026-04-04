@@ -1152,6 +1152,23 @@ body {
 }
 .dt-feed-custom-row .qf-select { flex: 1; min-width: 120px; }
 
+/* ── Rote feeding checkbox ── */
+.dt-feed-rote { margin-bottom: 8px; }
+.dt-feed-rote-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold2, #E0C47A);
+}
+.dt-feed-rote-label input[type="checkbox"] {
+  accent-color: var(--gold2, #E0C47A);
+  width: 16px;
+  height: 16px;
+}
+
 /* ── Inline merit forms ── */
 .dt-merit-inline {
   margin-top: 8px;

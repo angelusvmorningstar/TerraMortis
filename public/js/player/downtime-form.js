@@ -56,6 +56,7 @@ let feedSpecName = '';
 let feedCustomAttr = '';
 let feedCustomSkill = '';
 let feedCustomDisc = '';
+let feedRoteAction = false;
 
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
@@ -177,6 +178,7 @@ function collectResponses() {
         responses['_feed_custom_attr'] = feedCustomAttr;
         responses['_feed_custom_skill'] = feedCustomSkill;
         responses['_feed_custom_disc'] = feedCustomDisc;
+        responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
         const descEl = document.getElementById('dt-feeding_description');
         responses['feeding_description'] = descEl ? descEl.value : '';
         continue;
@@ -724,6 +726,11 @@ function renderForm(container) {
   // Update section completion ticks on initial render
   updateSectionTicks(container);
 
+  // Apply rote feeding to project 1 if active (after re-render)
+  if (feedRoteAction && feedMethodId) {
+    applyRoteToProject1(container);
+  }
+
   // Wire events — skip if already wired (prevent listener stacking on re-render)
   if (container._dtWired) return;
   container._dtWired = true;
@@ -743,6 +750,14 @@ function renderForm(container) {
     updateSectionTicks(container);
   });
   container.addEventListener('change', (e) => {
+    // Rote feeding checkbox
+    if (e.target.id === 'dt-feed-rote') {
+      feedRoteAction = e.target.checked;
+      applyRoteToProject1(container);
+      scheduleSave();
+      updateSectionTicks(container);
+      return;
+    }
     const gateInput = e.target.closest('[data-gate]');
     if (gateInput) {
       gateValues[gateInput.dataset.gate] = gateInput.value;
@@ -962,6 +977,86 @@ function renderForm(container) {
 
   document.getElementById('dt-btn-save')?.addEventListener('click', saveDraft);
   document.getElementById('dt-btn-submit')?.addEventListener('click', submitForm);
+}
+
+// ── Rote feeding → Project 1 ──
+
+function applyRoteToProject1(container) {
+  const actionEl = document.getElementById('dt-project_1_action');
+  const outcomeEl = document.getElementById('dt-project_1_outcome');
+  const descEl = document.getElementById('dt-project_1_description');
+
+  if (feedRoteAction && feedMethodId) {
+    // Set project 1 to "feed" and populate with feeding details
+    if (actionEl) {
+      actionEl.value = 'feed';
+      // Show details if hidden
+      const details = container?.querySelector('[data-project-details="1"]');
+      if (details) details.classList.remove('dt-gated-hidden');
+    }
+
+    // Build a summary of the feeding setup
+    const method = FEED_METHODS.find(m => m.id === feedMethodId);
+    const methodName = method ? method.name : feedMethodId;
+    let summary = `Rote feeding: ${methodName}`;
+    if (feedDiscName) summary += ` + ${feedDiscName}`;
+    if (feedSpecName) summary += ` (${feedSpecName})`;
+
+    if (outcomeEl) outcomeEl.value = 'Dedicated feeding action';
+    if (descEl) descEl.value = summary;
+
+    // Set pool selectors to match feeding pool
+    if (method && feedMethodId !== 'other') {
+      const c = currentChar;
+      // Best attribute
+      let bestA = '';
+      let bestAV = 0;
+      for (const a of method.attrs) {
+        const av = c.attributes?.[a];
+        const v = av ? (av.dots || 0) + (av.bonus || 0) : 0;
+        if (v > bestAV) { bestAV = v; bestA = a; }
+      }
+      // Best skill
+      let bestS = '';
+      let bestSV = 0;
+      for (const s of method.skills) {
+        const sv = c.skills?.[s];
+        const v = sv ? (sv.dots || 0) + (sv.bonus || 0) : 0;
+        if (v > bestSV) { bestSV = v; bestS = s; }
+      }
+      const poolAttr = document.getElementById('dt-project_1_pool_attr');
+      const poolSkill = document.getElementById('dt-project_1_pool_skill');
+      const poolDisc = document.getElementById('dt-project_1_pool_disc');
+      if (poolAttr && bestA) poolAttr.value = bestA;
+      if (poolSkill && bestS) poolSkill.value = bestS;
+      if (poolDisc) poolDisc.value = feedDiscName || '';
+      // Update pool total display
+      updatePoolTotal('project_1_pool');
+    } else if (feedMethodId === 'other') {
+      const poolAttr = document.getElementById('dt-project_1_pool_attr');
+      const poolSkill = document.getElementById('dt-project_1_pool_skill');
+      const poolDisc = document.getElementById('dt-project_1_pool_disc');
+      if (poolAttr) poolAttr.value = feedCustomAttr || '';
+      if (poolSkill) poolSkill.value = feedCustomSkill || '';
+      if (poolDisc) poolDisc.value = feedCustomDisc || '';
+      updatePoolTotal('project_1_pool');
+    }
+  } else {
+    // Rote unchecked — clear project 1 if it was set to "feed"
+    if (actionEl && actionEl.value === 'feed') {
+      actionEl.value = '';
+      if (outcomeEl) outcomeEl.value = '';
+      if (descEl) descEl.value = '';
+      const details = container?.querySelector('[data-project-details="1"]');
+      if (details) details.classList.add('dt-gated-hidden');
+      const poolAttr = document.getElementById('dt-project_1_pool_attr');
+      const poolSkill = document.getElementById('dt-project_1_pool_skill');
+      const poolDisc = document.getElementById('dt-project_1_pool_disc');
+      if (poolAttr) poolAttr.value = '';
+      if (poolSkill) poolSkill.value = '';
+      if (poolDisc) poolDisc.value = '';
+    }
+  }
 }
 
 // ── Project slots ──
@@ -1927,8 +2022,20 @@ function renderQuestion(q, value) {
         h += '</div></div>';
       }
 
-      // Description textarea (always shown when method selected)
+      // ROTE checkbox + description (shown when method selected)
       if (feedMethodId) {
+        // Restore rote state from saved responses
+        const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
+        if (savedRote && !feedRoteAction) feedRoteAction = true;
+
+        h += '<div class="dt-feed-rote" style="margin-top:12px;">';
+        h += `<label class="dt-feed-rote-label">`;
+        h += `<input type="checkbox" id="dt-feed-rote" ${feedRoteAction ? 'checked' : ''}>`;
+        h += `<span>Spend a Project action for Rote feeding</span>`;
+        h += '</label>';
+        h += '<p class="qf-desc" style="margin:4px 0 0 24px;">Dedicates Project 1 to feeding. The pool and method above will be copied automatically.</p>';
+        h += '</div>';
+
         h += '<div class="qf-field" style="margin-top:10px;">';
         h += '<label class="qf-label" for="dt-feeding_description">Describe how your character hunts</label>';
         h += `<textarea id="dt-feeding_description" class="qf-textarea" rows="4">${esc(savedDesc)}</textarea>`;
