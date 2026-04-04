@@ -10,7 +10,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, parseOutcomeSections } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
@@ -30,6 +30,7 @@ let currentChar = null;
 let currentCycle = null;
 let gateValues = {};
 let saveTimer = null;
+let priorPublishedLabel = null; // label of most recent published cycle other than current
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [] };
@@ -335,6 +336,16 @@ async function saveDraft() {
 async function submitForm() {
   const responses = collectResponses();
 
+  // AC2: Validate XP spend against available budget before submitting
+  const xpRows = JSON.parse(responses.xp_spend || '[]');
+  const xpSpent = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
+  const xpBudget = xpLeft(currentChar);
+  if (xpSpent > xpBudget) {
+    const statusEl = document.getElementById('dt-save-status');
+    if (statusEl) statusEl.textContent = `XP over budget: spending ${xpSpent} XP but only ${xpBudget} available. Remove items before submitting.`;
+    return;
+  }
+
   try {
     if (!responseDoc) {
       responseDoc = await apiPost('/api/downtime_submissions', {
@@ -374,6 +385,40 @@ async function saveResidency(responses) {
   } catch { /* non-critical — submission still saved */ }
 }
 
+// ── Story 1.10: Player-facing results view ────────────────────────────────────
+
+/**
+ * Render published downtime results for the player.
+ * outcome_text is a markdown-style string with ## section headers.
+ */
+function renderDowntimeResults(outcomeText, sub) {
+  const sections = parseOutcomeSections(outcomeText);
+
+  let h = '<div class="qf-results">';
+  h += '<h3 class="qf-results-title">Downtime Results</h3>';
+
+  for (const sec of sections) {
+    if (!sec.heading) {
+      h += `<div class="qf-results-body"><p>${esc(sec.lines.join('\n').trim())}</p></div>`;
+    } else {
+      const isMech = sec.heading === 'Mechanical Outcomes';
+      h += `<div class="qf-results-section${isMech ? ' qf-results-mech' : ''}">`;
+      h += `<h4 class="qf-results-section-head">${esc(sec.heading)}</h4>`;
+      const body = sec.lines.join('\n').trim();
+      if (isMech) {
+        h += `<pre class="qf-results-pre">${esc(body)}</pre>`;
+      } else {
+        const paras = body.split(/\n{2,}/).filter(Boolean);
+        h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+      }
+      h += '</div>';
+    }
+  }
+
+  h += '</div>';
+  return h;
+}
+
 export async function renderDowntimeTab(targetEl, char) {
   currentChar = char;
   responseDoc = null;
@@ -391,6 +436,7 @@ export async function renderDowntimeTab(targetEl, char) {
   } catch { /* no cycles */ }
 
   // Load existing submission for this character + cycle
+  priorPublishedLabel = null;
   if (currentCycle) {
     try {
       const subs = await apiGet(`/api/downtime_submissions?cycle_id=${currentCycle._id}`);
@@ -398,6 +444,26 @@ export async function renderDowntimeTab(targetEl, char) {
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
     } catch { /* no submission */ }
+  }
+
+  // Check for published outcomes from previous cycles (for "results available" banner)
+  if (currentCycle?.status === 'active' && !responseDoc?.published_outcome) {
+    try {
+      const allSubs = await apiGet('/api/downtime_submissions');
+      const charId = String(currentChar._id);
+      const currentCycleId = String(currentCycle._id);
+      const priorPublished = allSubs
+        .filter(s => String(s.character_id) === charId && s.published_outcome && String(s.cycle_id) !== currentCycleId)
+        .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+      if (priorPublished.length) {
+        // Try to find cycle label
+        try {
+          const cycles = await apiGet('/api/downtime_cycles');
+          const priorCycle = cycles.find(c => String(c._id) === String(priorPublished[0].cycle_id));
+          priorPublishedLabel = priorCycle?.label || 'previous cycle';
+        } catch { priorPublishedLabel = 'previous cycle'; }
+      }
+    } catch { /* ignore */ }
   }
 
   // Auto-detect attendance from most recent game session
@@ -494,11 +560,31 @@ function renderForm(container) {
 
   let h = '';
 
+  // Results panel (Story 1.10) — show published outcome if available
+  const published = responseDoc?.published_outcome;
+  const pending = responseDoc && !published && status === 'submitted';
+  if (published) {
+    h += renderDowntimeResults(published, responseDoc);
+  } else if (pending) {
+    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">&#x23F3; Your submission has been received. Results are being prepared.</p></div>';
+  }
+
+  // Banner: prior cycle results published, visible in Story tab
+  if (!published && priorPublishedLabel) {
+    h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
+  }
+
   // Header
   h += '<div class="qf-header">';
   h += `<h3 class="qf-title">Downtime Submission</h3>`;
   if (currentCycle) {
     h += `<p class="qf-section-intro">${esc(currentCycle.label || currentCycle.title || 'Current Cycle')}</p>`;
+    if (currentCycle.deadline_at) {
+      const dl = new Date(currentCycle.deadline_at);
+      const past = dl < new Date();
+      const dlStr = dl.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      h += `<p class="qf-deadline${past ? ' qf-deadline-closed' : ''}">${past ? 'Submissions closed' : 'Open until ' + dlStr}</p>`;
+    }
   }
   h += '<div class="qf-meta">';
   if (isSubmitted) {

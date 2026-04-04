@@ -81,3 +81,25 @@ export function hasAoE(c, specName) {
     m.name === 'Area of Expertise' && m.qualifier && m.qualifier.toLowerCase() === specName.toLowerCase()
   );
 }
+
+/**
+ * Parse a published downtime outcome string (## Section headings format)
+ * into an array of { heading, body } objects for rendering.
+ * If no ## headings found, returns a single entry with heading=null.
+ */
+export function parseOutcomeSections(text) {
+  if (!text) return [];
+  const sections = [];
+  let current = null;
+  for (const line of text.split('\n')) {
+    if (line.startsWith('## ')) {
+      if (current) sections.push(current);
+      current = { heading: line.slice(3).trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) sections.push(current);
+  if (!sections.length) return [{ heading: null, lines: text.split('\n') }];
+  return sections;
+}

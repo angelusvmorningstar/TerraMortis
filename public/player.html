@@ -33,28 +33,45 @@
 <!-- Player app -->
 <div id="player-app" style="display:none">
 
-  <!-- Top nav bar -->
-  <header id="player-header">
-    <div class="header-brand">Terra Mortis</div>
-    <div class="header-controls">
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Terra Mortis</div>
+      <div class="sidebar-sub">Player Portal</div>
       <select id="char-selector" class="char-selector" style="display:none"></select>
-      <div class="header-user" id="header-user"></div>
     </div>
-  </header>
+    <div class="sidebar-nav">
+      <button class="sidebar-btn on" data-tab="sheet">Sheet</button>
+      <button class="sidebar-btn" data-tab="regency" id="tab-btn-regency" style="display:none">Regency</button>
+      <button class="sidebar-btn" data-tab="downtime">Downtime</button>
+      <button class="sidebar-btn" data-tab="feeding">Feeding</button>
+      <button class="sidebar-btn" data-tab="xplog">XP Log</button>
+      <button class="sidebar-btn" data-tab="story">Story</button>
+      <button class="sidebar-btn" data-tab="archive" id="tab-btn-archive" style="display:none">Archive</button>
+    </div>
+    <div class="sidebar-app-nav">
+      <a href="/" class="app-nav-btn">Game App</a>
+      <a href="/admin" id="nav-admin" class="app-nav-btn" style="display:none">ST Admin</a>
+    </div>
+    <div class="sidebar-user" id="sidebar-user"></div>
+  </nav>
 
-  <!-- Body: sidebar nav + content -->
-  <div id="player-body">
+  <!-- Content area -->
+  <div id="content">
 
-    <nav id="tab-bar">
-      <button class="tab-btn on" data-tab="sheet">Sheet</button>
-      <button class="tab-btn" data-tab="regency" id="tab-btn-regency" style="display:none">Regency</button>
-      <button class="tab-btn" data-tab="downtime">Downtime</button>
-      <button class="tab-btn" data-tab="feeding">Feeding</button>
-      <button class="tab-btn" data-tab="xplog">XP Log</button>
-      <button class="tab-btn" data-tab="story">Story</button>
-    </nav>
+    <!-- Character creator wizard (shown instead of tabs when no approved chars) -->
+    <div id="wizard-container" style="display:none"></div>
 
-    <main id="player-content">
+    <!-- Pending approval state (shown when char submitted but not yet approved) -->
+    <div id="pending-container" style="display:none">
+      <div class="pending-msg">
+        <div class="pending-title">Character Pending Approval</div>
+        <p class="pending-body">Your character has been submitted and is awaiting ST sign-off. You'll be able to access the portal once approved.</p>
+      </div>
+    </div>
+
+    <!-- Tab panels -->
+    <div id="player-body">
       <section id="tab-sheet" class="tab-panel active">
         <div id="sh-content" class="cd-sheet"></div>
       </section>
@@ -69,9 +86,12 @@
       <section id="tab-xplog" class="tab-panel">
       </section>
       <section id="tab-story" class="tab-panel">
-        <p class="placeholder-msg">Your character's story will appear here.</p>
+        <div id="story-content"></div>
       </section>
-    </main>
+      <section id="tab-archive" class="tab-panel">
+        <div id="archive-content"></div>
+      </section>
+    </div>
 
   </div>
 
