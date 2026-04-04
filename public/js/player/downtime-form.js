@@ -62,6 +62,8 @@ let feedRoteAction = false;
 
 // Project tab state
 let activeProjectTab = 1;
+// Sphere tab state
+let activeSphereTab = 1;
 
 const ACTION_ICONS = {
   '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
@@ -88,6 +90,23 @@ const ACTION_FIELDS = {
   'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
   'support': ['title', 'pools', 'outcome', 'cast', 'description'],
   'misc': ['title', 'pools', 'outcome', 'description'],
+};
+
+// Which fields each sphere action type shows (no dice pools)
+const SPHERE_ACTION_FIELDS = {
+  '': [],
+  'ambience_increase': ['territory', 'outcome', 'description'],
+  'ambience_decrease': ['territory', 'outcome', 'description'],
+  'attack': ['cast', 'outcome', 'description'],
+  'block': ['cast', 'outcome', 'description'],
+  'hide_protect': ['outcome', 'description'],
+  'investigate': ['territory', 'outcome', 'description'],
+  'patrol_scout': ['territory', 'outcome', 'description'],
+  'rumour': ['outcome', 'description'],
+  'support': ['cast', 'outcome', 'description'],
+  'grow': ['outcome', 'description'],
+  'misc': ['outcome', 'description'],
+  'acquisition': ['outcome', 'description'],
 };
 
 function scheduleSave() {
@@ -324,17 +343,21 @@ function collectResponses() {
     responses[`_merit_${key}`] = gateValues[`merit_${key}`] || 'no';
   }
 
-  // Sphere action fields
-  let sphereIdx = 0;
-  for (const m of detectedMerits.spheres) {
-    const key = meritKey(m);
-    if (gateValues[`merit_${key}`] !== 'yes') continue;
-    sphereIdx++;
-    for (const suffix of ['action', 'outcome', 'description']) {
-      const el = document.getElementById(`dt-sphere_${sphereIdx}_${suffix}`);
-      if (el) responses[`sphere_${sphereIdx}_${suffix}`] = el.value;
+  // Sphere action fields (tabbed — up to 5 slots)
+  const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
+  for (let n = 1; n <= maxSpheres; n++) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory']) {
+      const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
+      if (el) responses[`sphere_${n}_${suffix}`] = el.value;
     }
-    responses[`sphere_${sphereIdx}_merit`] = meritLabel(m);
+    // Merit label for this slot
+    const m = detectedMerits.spheres[n - 1];
+    if (m) responses[`sphere_${n}_merit`] = meritLabel(m);
+    // Cast hidden inputs
+    const castHidden = document.querySelectorAll(`input[type="hidden"][data-sphere-cast-cb="${n}"]`);
+    const castIds = [];
+    castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
+    responses[`sphere_${n}_cast`] = JSON.stringify(castIds);
   }
 
   // Contact fields
@@ -799,7 +822,20 @@ function renderForm(container) {
     // Cast picker modal
     const castBtn = e.target.closest('[data-cast-open]');
     if (castBtn) {
-      openCastModal(parseInt(castBtn.dataset.castOpen, 10), container);
+      openCastModal(castBtn.dataset.castOpen, container);
+      return;
+    }
+    // Sphere tab switching
+    const sphereTab = e.target.closest('[data-sphere-tab]');
+    if (sphereTab) {
+      const n = parseInt(sphereTab.dataset.sphereTab, 10);
+      activeSphereTab = n;
+      container.querySelectorAll('[data-sphere-tab]').forEach(t =>
+        t.classList.toggle('dt-proj-tab-active', parseInt(t.dataset.sphereTab, 10) === n)
+      );
+      container.querySelectorAll('[data-sphere-pane]').forEach(p =>
+        p.classList.toggle('dt-proj-pane-hidden', parseInt(p.dataset.spherePane, 10) !== n)
+      );
       return;
     }
     // Project tab switching
@@ -807,11 +843,9 @@ function renderForm(container) {
     if (tab) {
       const n = parseInt(tab.dataset.projTab, 10);
       activeProjectTab = n;
-      // Switch active tab
       container.querySelectorAll('.dt-proj-tab').forEach(t =>
         t.classList.toggle('dt-proj-tab-active', parseInt(t.dataset.projTab, 10) === n)
       );
-      // Switch active pane
       container.querySelectorAll('[data-proj-pane]').forEach(p =>
         p.classList.toggle('dt-proj-pane-hidden', parseInt(p.dataset.projPane, 10) !== n)
       );
@@ -852,6 +886,16 @@ function renderForm(container) {
     const projectAction = e.target.closest('[data-project-action]');
     if (projectAction) {
       activeProjectTab = parseInt(projectAction.dataset.projectAction, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Sphere action change — re-render for action-specific fields
+    const sphereAction = e.target.closest('[data-sphere-action]');
+    if (sphereAction) {
+      activeSphereTab = parseInt(sphereAction.dataset.sphereAction, 10);
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1056,17 +1100,24 @@ function renderForm(container) {
 
 // ── Cast picker modal ──
 
-function openCastModal(slotNum, container) {
+function openCastModal(slotId, container) {
+  // slotId is either a number (project slot) or "sphere_N" string
+  const castKey = typeof slotId === 'number' || /^\d+$/.test(slotId)
+    ? `project_${slotId}_cast`
+    : `${slotId}_cast`;
   const saved = responseDoc?.responses || {};
   let castPicks = [];
-  try { castPicks = JSON.parse(saved[`project_${slotNum}_cast`] || '[]'); } catch { /* ignore */ }
+  try { castPicks = JSON.parse(saved[castKey] || '[]'); } catch { /* ignore */ }
   const attendeeIds = new Set(lastGameAttendees.map(a => String(a.id)));
 
   // Build modal HTML
   let h = '<div class="dt-cast-overlay" id="dt-cast-overlay">';
   h += '<div class="dt-cast-modal">';
   h += '<div class="dt-cast-modal-header">';
-  h += `<h4>Select Characters — Action ${slotNum}</h4>`;
+  const modalTitle = typeof slotId === 'number' || /^\d+$/.test(slotId)
+    ? `Select Characters — Action ${slotId}`
+    : `Select Characters — Sphere ${slotId.replace('sphere_', '')}`;
+  h += `<h4>${modalTitle}</h4>`;
   h += '<button type="button" class="dt-cast-modal-close" id="dt-cast-close">\u00D7</button>';
   h += '</div>';
 
@@ -1130,7 +1181,7 @@ function openCastModal(slotNum, container) {
     const selected = [];
     document.querySelectorAll('.dt-cast-check:checked').forEach(cb => selected.push(cb.value));
     const responses = collectResponses();
-    responses[`project_${slotNum}_cast`] = JSON.stringify(selected);
+    responses[castKey] = JSON.stringify(selected);
     if (responseDoc) responseDoc.responses = responses;
     else responseDoc = { responses };
     closeModal();
@@ -1852,38 +1903,115 @@ function renderMeritToggles(saved) {
 
   if (!hasSpheres && !hasContacts && !hasRetainers) return '';
 
-  // ── Spheres of Influence (Allies / Status) ──
+  // ── Spheres of Influence (tabbed, max 5) ──
   if (hasSpheres) {
+    const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
     h += '<div class="qf-section collapsed" data-section-key="spheres">';
     h += '<h4 class="qf-section-title">Spheres of Influence<span class="qf-section-tick">✔</span></h4>';
     h += '<div class="qf-section-body">';
-    h += '<p class="qf-section-intro">Your character has the following Allies and Status merits. Select which you wish to activate this Downtime (maximum 5 sphere actions).</p>';
+    h += '<p class="qf-section-intro">Your character has the following Allies and Status merits. Use the tabs to configure up to 5 sphere actions this Downtime.</p>';
 
-    let sphereIdx = 0;
-    for (const m of detectedMerits.spheres) {
-      const key = meritKey(m);
-      const active = gateValues[`merit_${key}`] === 'yes';
-
-      let formHtml = '';
-      if (active) {
-        sphereIdx++;
-        if (sphereIdx <= 5) {
-          formHtml += renderQuestion({
-            key: `sphere_${sphereIdx}_action`, label: 'Action Type',
-            type: 'select', required: false, desc: null, options: SPHERE_ACTIONS,
-          }, saved[`sphere_${sphereIdx}_action`] || '');
-          formHtml += renderQuestion({
-            key: `sphere_${sphereIdx}_outcome`, label: 'Desired Outcome',
-            type: 'text', required: false, desc: null,
-          }, saved[`sphere_${sphereIdx}_outcome`] || '');
-          formHtml += renderQuestion({
-            key: `sphere_${sphereIdx}_description`, label: 'Description',
-            type: 'textarea', required: false, desc: null,
-          }, saved[`sphere_${sphereIdx}_description`] || '');
-        }
-      }
-      h += renderMeritToggle(m, saved, formHtml);
+    // ── Tab bar ──
+    h += '<div class="dt-proj-tabs">';
+    for (let n = 1; n <= maxSpheres; n++) {
+      const m = detectedMerits.spheres[n - 1];
+      const actionVal = saved[`sphere_${n}_action`] || '';
+      const icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
+      const label = actionVal ? (ACTION_SHORT[actionVal] || actionVal) : 'No Action';
+      const active = n === activeSphereTab ? ' dt-proj-tab-active' : '';
+      const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
+      h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-sphere-tab="${n}">`;
+      h += `<span class="dt-proj-tab-icon">${icon}</span>`;
+      h += `<span class="dt-proj-tab-num">${esc(meritLabel(m))}</span>`;
+      h += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
+      h += '</button>';
     }
+    h += '</div>';
+
+    // ── Tab panes ──
+    for (let n = 1; n <= maxSpheres; n++) {
+      const m = detectedMerits.spheres[n - 1];
+      const actionVal = saved[`sphere_${n}_action`] || '';
+      const visible = n === activeSphereTab;
+      const fields = SPHERE_ACTION_FIELDS[actionVal] || [];
+
+      h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-sphere-pane="${n}">`;
+
+      // Merit info header
+      h += `<div class="dt-sphere-merit-info">${esc(meritLabel(m))}</div>`;
+
+      // Store which merit this slot references
+      h += `<input type="hidden" id="dt-sphere_${n}_merit_key" value="${esc(meritKey(m))}">`;
+
+      // Action type selector
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-sphere_${n}_action">Action Type</label>`;
+      h += `<select id="dt-sphere_${n}_action" class="qf-select" data-sphere-action="${n}">`;
+      for (const opt of SPHERE_ACTIONS) {
+        const sel = actionVal === opt.value ? ' selected' : '';
+        h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
+      }
+      h += '</select></div>';
+
+      // ── Territory picker ──
+      if (fields.includes('territory')) {
+        const savedTerr = saved[`sphere_${n}_territory`] || '';
+        h += '<div class="qf-field">';
+        h += `<label class="qf-label" for="dt-sphere_${n}_territory">Territory</label>`;
+        h += `<select id="dt-sphere_${n}_territory" class="qf-select">`;
+        h += '<option value="">— No Territory —</option>';
+        for (const t of TERRITORY_DATA) {
+          const sel = savedTerr === t.id ? ' selected' : '';
+          h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
+        }
+        h += '</select></div>';
+      }
+
+      // ── Cast picker ──
+      if (fields.includes('cast')) {
+        let castPicks = [];
+        try { castPicks = JSON.parse(saved[`sphere_${n}_cast`] || '[]'); } catch { /* ignore */ }
+        const castNames = castPicks.map(id => {
+          const c = allCharacters.find(ch => ch.id === id || String(ch.id) === String(id));
+          return c ? c.name : '';
+        }).filter(Boolean);
+        h += '<div class="qf-field">';
+        h += `<label class="qf-label">Target Character(s)</label>`;
+        h += `<div class="dt-cast-summary" data-cast-slot="sphere_${n}">`;
+        if (castNames.length) {
+          h += '<span class="dt-cast-pills">';
+          castNames.forEach(name => { h += `<span class="dt-cast-pill">${esc(name)}</span>`; });
+          h += '</span>';
+        } else {
+          h += '<span class="dt-cast-none">None selected</span>';
+        }
+        h += `<button type="button" class="dt-cast-btn" data-cast-open="sphere_${n}">Select\u2026</button>`;
+        h += '</div>';
+        castPicks.forEach(id => {
+          h += `<input type="hidden" data-sphere-cast-cb="${n}" value="${esc(String(id))}">`;
+        });
+        h += '</div>';
+      }
+
+      // ── Desired outcome ──
+      if (fields.includes('outcome')) {
+        h += renderQuestion({
+          key: `sphere_${n}_outcome`, label: 'Desired Outcome',
+          type: 'text', required: false, desc: null,
+        }, saved[`sphere_${n}_outcome`] || '');
+      }
+
+      // ── Description ──
+      if (fields.includes('description')) {
+        h += renderQuestion({
+          key: `sphere_${n}_description`, label: 'Description',
+          type: 'textarea', required: false, desc: null,
+        }, saved[`sphere_${n}_description`] || '');
+      }
+
+      h += '</div>'; // pane
+    }
+
     h += '</div></div>';
   }
 
@@ -1960,6 +2088,18 @@ function updateSectionTicks(container) {
     if (key === 'projects') {
       const p1Action = document.getElementById('dt-project_1_action');
       tick.classList.toggle('visible', !!(p1Action && p1Action.value));
+      return;
+    }
+
+    // Spheres: tick when any sphere slot has an action selected
+    if (key === 'spheres') {
+      const maxS = Math.min(detectedMerits.spheres.length, 5);
+      let anyAction = false;
+      for (let n = 1; n <= maxS; n++) {
+        const el = document.getElementById(`dt-sphere_${n}_action`);
+        if (el && el.value) { anyAction = true; break; }
+      }
+      tick.classList.toggle('visible', anyAction);
       return;
     }
 
