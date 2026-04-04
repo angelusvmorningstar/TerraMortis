@@ -2327,3 +2327,31 @@ body {
   color: var(--crim2, #B22222);
   margin: 0;
 }
+
+/* ── Data Portability (DP-1) ── */
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  padding: 8px 0;
+}
+.dp-card {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dp-card-name {
+  font-family: var(--fh);
+  font-size: 14px;
+  color: var(--gold2);
+  font-weight: 600;
+}
+.dp-card-desc {
+  font-size: 12px;
+  color: var(--txt2);
+  flex: 1;
+}
