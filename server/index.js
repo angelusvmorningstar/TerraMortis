@@ -9,6 +9,8 @@ import territoriesRouter from './routes/territories.js';
 import trackerRouter from './routes/tracker.js';
 import sessionsRouter from './routes/sessions.js';
 import { cyclesRouter, submissionsRouter } from './routes/downtime.js';
+import investigationsRouter from './routes/investigations.js';
+import npcsRouter from './routes/npcs.js';
 import gameSessionsRouter from './routes/game-sessions.js';
 import playersRouter from './routes/players.js';
 import questionnaireRouter from './routes/questionnaire.js';
@@ -59,6 +61,8 @@ app.use('/api/territories', requireAuth, requireRole('st'), territoriesRouter);
 app.use('/api/tracker_state', requireAuth, requireRole('st'), trackerRouter);
 app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
 app.use('/api/game_sessions', requireAuth, requireRole('st'), gameSessionsRouter);
+app.use('/api/downtime_investigations', requireAuth, investigationsRouter);
+app.use('/api/npcs', requireAuth, npcsRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable

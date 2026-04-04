@@ -123,8 +123,11 @@ submissionsRouter.put('/:id', async (req, res) => {
       }
     }
 
-    // Players cannot modify st_review fields
+    // Players cannot modify st_review fields (including dot-notation paths)
     delete req.body.st_review;
+    for (const key of Object.keys(req.body)) {
+      if (key.startsWith('st_review.')) delete req.body[key];
+    }
   }
 
   const { _id, ...updates } = req.body;

@@ -3,7 +3,7 @@
  * CSV upload, cycle management, submission overview, character bridge, feeding rolls.
  */
 
-import { apiGet } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP } from '../player/downtime-data.js';
@@ -60,6 +60,8 @@ function buildShell() {
     <div id="dt-match-summary"></div>
     <div id="dt-matrix"></div>
     <div id="dt-conflicts"></div>
+    <div id="dt-investigations"></div>
+    <div id="dt-npcs"></div>
     <div id="dt-submissions" class="dt-submissions"></div>`;
 }
 
@@ -192,6 +194,10 @@ async function loadCycleById(cycleId) {
   renderMatchSummary();
   renderFeedingMatrix();
   renderConflicts();
+  await loadInvestigations(cycleId);
+  renderInvestigations();
+  await loadNpcs(cycleId);
+  renderNpcs();
   renderSubmissions();
 }
 
@@ -208,12 +214,14 @@ function renderMatchSummary() {
   const approved = submissions.filter(s => s.approval_status === 'approved').length;
   const modified = submissions.filter(s => s.approval_status === 'modified').length;
   const rejected = submissions.filter(s => s.approval_status === 'rejected').length;
+  const published = submissions.filter(s => s.st_review?.outcome_visibility === 'published').length;
   const pending = submissions.length - approved - modified - rejected;
 
   let h = '<div class="dt-match-bar">';
   h += `<span class="dt-match-ok">${matched.length} matched</span>`;
   h += `<span class="domain-count">${rolled.length}/${submissions.length} fed</span>`;
   h += `<span class="domain-count">${approved + modified}/${submissions.length} resolved</span>`;
+  if (published) h += `<span class="dt-pub-badge">${published} published</span>`;
   if (pending) h += `<span class="dt-status-badge dt-status-pending">${pending} pending</span>`;
   if (unmatched.length) {
     h += `<span class="dt-match-warn">${unmatched.length} unmatched</span>`;
@@ -252,6 +260,12 @@ function renderSubmissions() {
       : '<span class="dt-roll-badge unrolled">No roll</span>';
     const status = s.approval_status || 'pending';
     const statusBadge = `<span class="dt-status-badge dt-status-${status}">${status}</span>`;
+    const narr = s.st_review?.narrative || {};
+    const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+    const narrativeComplete = NARR_KEYS.every(k => narr[k]?.status === 'ready');
+    const isPublished = s.st_review?.outcome_visibility === 'published';
+    const narrativeBadge = narrativeComplete && !isPublished ? '<span class="dt-narr-badge">&#x2710; Narrative ready</span>' : '';
+    const publishedBadge = isPublished ? '<span class="dt-pub-badge">&#x2713; Published</span>' : '';
 
     let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''} dt-sub-${status}" data-id="${s._id}">
       <div class="dt-sub-top dt-sub-clickable">
@@ -261,6 +275,7 @@ function renderSubmissions() {
         <span class="${attendedClass}">${attended}</span>
         ${statusBadge}
         ${rollBadge}
+        ${narrativeBadge}${publishedBadge}
       </div>
       <div class="dt-sub-stats">
         ${clan ? `<span class="dt-sub-tag">${clan}</span>` : ''}
@@ -273,8 +288,11 @@ function renderSubmissions() {
       h += renderFeedingDetail(s, raw, char);
       h += renderProjectsPanel(s, raw, char);
       h += renderMeritActionsPanel(s, raw, char);
+      h += renderNarrativePanel(s);
+      h += renderMechanicalSummaryPanel(s);
       h += renderStNotes(s, raw);
       h += renderApproval(s);
+      h += renderPublishPanel(s);
     }
 
     h += '</div>';
@@ -282,6 +300,84 @@ function renderSubmissions() {
   }).join('') + '</div>';
 
   // Card click delegation
+  // Narrative textarea autosave on blur
+  el.querySelectorAll('.dt-narr-textarea').forEach(ta => {
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const subId = ta.dataset.subId;
+      const blockKey = ta.dataset.blockKey;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const text = ta.value;
+      const statusKey = `st_review.narrative.${blockKey}.text`;
+      try {
+        await updateSubmission(subId, { [statusKey]: text });
+        if (!sub.st_review) sub.st_review = {};
+        if (!sub.st_review.narrative) sub.st_review.narrative = {};
+        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
+        sub.st_review.narrative[blockKey].text = text;
+      } catch (err) { console.error('Narrative save error:', err.message); }
+    });
+  });
+
+  // Narrative block status toggle (draft/ready)
+  el.querySelectorAll('.dt-narr-status-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const blockKey = btn.dataset.blockKey;
+      const newStatus = btn.dataset.status;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      try {
+        await updateSubmission(subId, { [`st_review.narrative.${blockKey}.status`]: newStatus });
+        if (!sub.st_review) sub.st_review = {};
+        if (!sub.st_review.narrative) sub.st_review.narrative = {};
+        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
+        sub.st_review.narrative[blockKey].status = newStatus;
+        renderSubmissions();
+      } catch (err) { console.error('Narrative status error:', err.message); }
+    });
+  });
+
+  // Mechanical summary textarea autosave on blur
+  el.querySelectorAll('.dt-mech-textarea').forEach(ta => {
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const subId = ta.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      try {
+        await updateSubmission(subId, { 'st_review.mechanical_summary': ta.value });
+        if (!sub.st_review) sub.st_review = {};
+        sub.st_review.mechanical_summary = ta.value;
+      } catch (err) { console.error('Mech summary save error:', err.message); }
+    });
+  });
+
+  // Mechanical summary auto-draft button
+  el.querySelectorAll('.dt-mech-autodraft').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const draft = buildMechanicalDraft(sub);
+      const ta = btn.closest('.dt-mech-detail')?.querySelector('.dt-mech-textarea');
+      if (ta) { ta.value = draft; ta.dispatchEvent(new Event('blur')); }
+    });
+  });
+
+  // Publish button
+  el.querySelectorAll('.dt-publish-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (sub) handlePublish(sub);
+    });
+  });
+
   // Restore pool builder select values (innerHTML can't set selected across render)
   el.querySelectorAll('.dt-pool-sel').forEach(sel => {
     const subId = sel.dataset.subId;
@@ -727,6 +823,500 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// ── Narrative Output Authoring (Story 1.7) ───────────────────────────────────
+
+const NARR_BLOCKS = [
+  {
+    key: 'letter_from_home',
+    label: 'Letter from Home',
+    hint: 'A reply from an NPC to the character. Never from the character. Character moments only, no plot hooks.',
+  },
+  {
+    key: 'touchstone_vignette',
+    label: 'Touchstone Vignette',
+    hint: 'Second person, present tense. In-person contact only. Living mortal as primary. First referent cannot be a pronoun.',
+  },
+  {
+    key: 'territory_report',
+    label: 'Territory Report',
+    hint: 'What the character observed in their operating territory this cycle.',
+  },
+  {
+    key: 'intelligence_dossier',
+    label: 'Intelligence Dossier',
+    hint: 'General intel by sphere, Cacophony Savvy, mystical visions, rumours. Check thresholds — do not reveal beyond what was earned.',
+  },
+];
+
+const STYLE_RULES = [
+  'No success counts, discipline names, or mechanical terms in player-facing prose.',
+  'No editorialising about what results mean.',
+  'No stacked declaratives — fold short sentences together.',
+  'No negative framing openers — start with what the character found, not what they didn\'t.',
+  'Never dictate what a player has chosen, felt, or done.',
+];
+
+function renderNarrativePanel(s) {
+  const narr = s.st_review?.narrative || {};
+  const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
+  const allReady = NARR_KEYS.every(k => narr[k]?.status === 'ready');
+
+  let h = '<div class="dt-narr-detail">';
+  h += `<div class="dt-feed-header">Narrative Output ${allReady ? '<span class="dt-narr-badge" style="margin-left:8px">&#x2713; All ready</span>' : ''}</div>`;
+
+  // Style guide (collapsed by default)
+  h += `<details class="dt-style-guide"><summary>Writing Rules</summary><ul class="dt-style-list">`;
+  for (const rule of STYLE_RULES) h += `<li>${esc(rule)}</li>`;
+  h += '</ul></details>';
+
+  for (const block of NARR_BLOCKS) {
+    const saved = narr[block.key] || {};
+    const text = saved.text || '';
+    const status = saved.status || 'draft';
+    const isReady = status === 'ready';
+
+    h += `<div class="dt-narr-block">`;
+    h += `<div class="dt-narr-block-header">`;
+    h += `<span class="dt-narr-label">${esc(block.label)}</span>`;
+    h += `<span class="dt-narr-hint">${esc(block.hint)}</span>`;
+    h += `<div class="dt-narr-status-row">`;
+    h += `<button class="dt-narr-status-btn${!isReady ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-block-key="${block.key}" data-status="draft">Draft</button>`;
+    h += `<button class="dt-narr-status-btn${isReady ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-block-key="${block.key}" data-status="ready">Ready</button>`;
+    h += '</div></div>';
+    h += `<textarea class="dt-narr-textarea" data-sub-id="${esc(s._id)}" data-block-key="${block.key}"
+      placeholder="${esc(block.label)}...">${esc(text)}</textarea>`;
+    h += '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+// ── Mechanical Summary (Story 1.8) ───────────────────────────────────────────
+
+function buildMechanicalDraft(sub) {
+  const raw = sub._raw || {};
+  const projects = raw.projects || [];
+  const resolved = sub.projects_resolved || [];
+  const meritActions = [
+    ...(raw.sphere_actions || []),
+    ...((raw.contact_actions?.requests || []).map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r }))),
+    ...((raw.retainer_actions?.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r }))),
+  ];
+  const meritResolved = sub.merit_actions_resolved || [];
+
+  let md = '';
+
+  if (projects.length) {
+    md += '## Projects\n';
+    projects.forEach((proj, i) => {
+      const res = resolved[i];
+      md += `\n### ${i + 1}. ${proj.action_type || 'Action'}\n`;
+      if (proj.desired_outcome) md += `**Desired:** ${proj.desired_outcome}\n`;
+      if (res?.pool) md += `**Pool:** ${res.pool.expression || String(res.pool.total)}\n`;
+      if (res?.roll) {
+        const r = res.roll;
+        md += `**Result:** ${r.successes} ${r.successes === 1 ? 'success' : 'successes'}${r.exceptional ? ' (exceptional)' : ''}\n`;
+      } else {
+        md += '**Result:** Pending\n';
+      }
+      if (res?.st_note) md += `**Note:** ${res.st_note}\n`;
+    });
+  }
+
+  if (meritActions.length) {
+    md += '\n## Merit Actions\n';
+    meritActions.forEach((action, i) => {
+      const res = meritResolved[i];
+      md += `\n### ${action.merit_type} — ${action.action_type}\n`;
+      if (action.description) md += `**Action:** ${action.description}\n`;
+      if (res?.no_roll) {
+        md += '**Result:** No roll required\n';
+      } else if (res?.roll) {
+        const r = res.roll;
+        md += `**Pool:** ${res.pool?.expression || String(res.pool?.total)}\n`;
+        md += `**Result:** ${r.successes} ${r.successes === 1 ? 'success' : 'successes'}${r.exceptional ? ' (exceptional)' : ''}\n`;
+      } else {
+        md += '**Result:** Pending\n';
+      }
+      if (res?.st_note) md += `**Note:** ${res.st_note}\n`;
+    });
+  }
+
+  const fed = sub.feeding_roll;
+  if (fed) {
+    md += `\n## Feeding\n**Result:** ${fed.successes} ${fed.successes === 1 ? 'success' : 'successes'} — ${fed.successes * 2} Vitae safe\n`;
+  }
+
+  return md.trim() || '(No resolved actions yet — resolve projects and merit actions first.)';
+}
+
+function renderMechanicalSummaryPanel(s) {
+  const summary = s.st_review?.mechanical_summary || '';
+  const hasResolved = (s.projects_resolved?.some(r => r?.roll)) || (s.merit_actions_resolved?.some(r => r?.roll || r?.no_roll));
+
+  let h = '<div class="dt-mech-detail">';
+  h += '<div class="dt-feed-header">Resolution Summary</div>';
+  h += '<div class="dt-mech-actions">';
+  h += `<button class="dt-btn dt-mech-autodraft" data-sub-id="${esc(s._id)}"${!hasResolved ? ' disabled title="Resolve projects/merits first"' : ''}>Auto-draft</button>`;
+  h += '<span class="dt-mech-hint">Assembles from resolved rolls. Edit freely before publishing.</span>';
+  h += '</div>';
+  h += `<textarea class="dt-mech-textarea" data-sub-id="${esc(s._id)}" placeholder="Mechanical resolution summary...">${esc(summary)}</textarea>`;
+  h += '</div>';
+  return h;
+}
+
+// ── Publish to Players (Story 1.9) ───────────────────────────────────────────
+
+function renderPublishPanel(s) {
+  const isPublished = s.st_review?.outcome_visibility === 'published';
+  const publishedAt = s.st_review?.published_at;
+  const canPublish = ['approved', 'modified'].includes(s.approval_status || '') && (s.st_review?.mechanical_summary || '').trim().length > 0;
+
+  let h = '<div class="dt-publish-panel">';
+
+  if (isPublished) {
+    const when = publishedAt ? new Date(publishedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    h += `<div class="dt-pub-status"><span class="dt-pub-badge">&#x2713; Published to player</span>${when ? ` <span class="dt-pub-when">${esc(when)}</span>` : ''}</div>`;
+  } else {
+    const narr = s.st_review?.narrative || {};
+    const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
+    const blocksReady = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
+    h += `<div class="dt-publish-row">`;
+    h += `<button class="dt-btn dt-publish-btn${canPublish ? ' dt-publish-ready' : ''}" data-sub-id="${esc(s._id)}"
+      ${!canPublish ? 'disabled title="Requires approved status + resolution summary"' : ''}>
+      Publish to Player
+    </button>`;
+    h += `<span class="dt-publish-status">${blocksReady}/4 narrative blocks ready &middot; ${canPublish ? 'Ready to publish' : 'Needs approval + summary'}</span>`;
+    h += '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+async function handlePublish(sub) {
+  const narr = sub.st_review?.narrative || {};
+  const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
+  const emptyBlocks = NARR_BLOCKS.filter(b => !(narr[b.key]?.text || '').trim());
+
+  let confirmMsg = `Publish downtime results for ${sub.character_name} to their player?`;
+  if (emptyBlocks.length) {
+    confirmMsg += `\n\nThe following narrative blocks are empty and will be omitted:\n${emptyBlocks.map(b => '  \u2022 ' + b.label).join('\n')}`;
+  }
+  if (!confirm(confirmMsg)) return;
+
+  // Assemble outcome_text from all blocks + mechanical summary
+  let outcomeText = '';
+  for (const block of NARR_BLOCKS) {
+    const text = (narr[block.key]?.text || '').trim();
+    if (text) outcomeText += `## ${block.label}\n\n${text}\n\n`;
+  }
+  const mechSummary = (sub.st_review?.mechanical_summary || '').trim();
+  if (mechSummary) outcomeText += `## Mechanical Outcomes\n\n${mechSummary}\n`;
+
+  try {
+    await updateSubmission(sub._id, {
+      'st_review.outcome_text': outcomeText.trim(),
+      'st_review.outcome_visibility': 'published',
+      'st_review.published_at': new Date().toISOString(),
+    });
+    if (!sub.st_review) sub.st_review = {};
+    sub.st_review.outcome_text = outcomeText.trim();
+    sub.st_review.outcome_visibility = 'published';
+    sub.st_review.published_at = new Date().toISOString();
+    renderMatchSummary();
+    renderSubmissions();
+  } catch (err) {
+    alert('Publish failed: ' + err.message);
+  }
+}
+
+// ── Investigation Tracker (Story 1.5) ────────────────────────────────────────
+
+const THRESHOLD_TYPES = [
+  { id: 'public_identity', label: 'Public Identity', default: 5 },
+  { id: 'hidden_identity', label: 'Hidden Identity', default: 10 },
+  { id: 'private_activity', label: 'Private Activity', default: 10 },
+  { id: 'haven', label: 'Haven (+ Security)', default: 10 },
+  { id: 'touchstone', label: 'Touchstone', default: 15 },
+  { id: 'bloodline', label: 'Bloodline', default: 15 },
+];
+
+let investigations = [];
+let invPanelOpen = true;
+
+async function loadInvestigations(cycleId) {
+  if (!cycleId) { investigations = []; return; }
+  try {
+    investigations = await apiGet(`/api/downtime_investigations?cycle_id=${cycleId}`);
+  } catch { investigations = []; }
+}
+
+function renderInvestigations() {
+  const el = document.getElementById('dt-investigations');
+  if (!el) return;
+
+  let h = '<div class="dt-inv-panel">';
+  h += `<div class="dt-matrix-toggle" id="dt-inv-toggle">${invPanelOpen ? '\u25BC' : '\u25BA'} Investigations <span class="domain-count">${investigations.length}</span></div>`;
+
+  if (invPanelOpen) {
+    h += '<div class="dt-inv-body">';
+
+    // New investigation form
+    h += `<details class="dt-inv-new-wrap"><summary class="dt-btn" style="display:inline-block;cursor:pointer;margin-bottom:8px">+ New Investigation</summary>`;
+    h += '<div class="dt-inv-form">';
+    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)" style="width:100%;margin-bottom:6px">`;
+    h += '<div class="dt-inv-row">';
+    h += `<select class="dt-pool-sel" id="dt-inv-type">`;
+    for (const t of THRESHOLD_TYPES) h += `<option value="${esc(t.id)}">${esc(t.label)} (${t.default})</option>`;
+    h += '</select>';
+    h += `<input class="dt-pool-mod" type="number" id="dt-inv-custom" placeholder="Override threshold" title="Override threshold">`;
+    h += `<input class="dt-inv-input" id="dt-inv-investigator" placeholder="Investigating character" style="flex:1">`;
+    h += `<button class="dt-btn" id="dt-inv-create">Create</button>`;
+    h += '</div></div></details>';
+
+    if (investigations.length === 0) {
+      h += '<p class="placeholder" style="font-size:12px;padding:8px 0;">No active investigations.</p>';
+    } else {
+      for (const inv of investigations) {
+        const pct = Math.min(100, Math.round((inv.successes_accumulated / inv.threshold) * 100));
+        const isResolved = inv.status === 'resolved';
+        h += `<div class="dt-inv-item${isResolved ? ' dt-inv-resolved' : ''}">`;
+        h += `<div class="dt-inv-header">`;
+        h += `<span class="dt-inv-target">${esc(inv.target_description)}</span>`;
+        const tLabel = THRESHOLD_TYPES.find(t => t.id === inv.threshold_type)?.label || inv.threshold_type;
+        h += ` <span class="dt-inv-type-badge">${esc(tLabel)}</span>`;
+        if (isResolved) h += ' <span class="dt-proj-done-badge">\u2713 Resolved</span>';
+        h += '</div>';
+        if (inv.investigating_character_id) h += `<div class="dt-inv-investigator">Investigator: ${esc(inv.investigating_character_id)}</div>`;
+
+        // Progress bar
+        h += `<div class="dt-inv-progress-wrap">`;
+        h += `<div class="dt-inv-progress-bar" style="width:${pct}%"></div>`;
+        h += `<span class="dt-inv-progress-label">${inv.successes_accumulated} / ${inv.threshold} successes</span>`;
+        h += '</div>';
+
+        if (!isResolved) {
+          h += `<div class="dt-inv-add-row">`;
+          h += `<input class="dt-pool-mod" type="number" min="1" value="1" id="dt-inv-add-${esc(inv._id)}" title="Successes to add">`;
+          h += `<input class="dt-inv-input" id="dt-inv-note-${esc(inv._id)}" placeholder="Note (source, roll)" style="flex:1">`;
+          h += `<button class="dt-btn dt-inv-add-btn" data-inv-id="${esc(inv._id)}">Add successes</button>`;
+          h += `<button class="dt-btn dt-inv-resolve-btn" data-inv-id="${esc(inv._id)}" style="opacity:.6">Mark resolved</button>`;
+          h += '</div>';
+        }
+
+        if (inv.notes?.length) {
+          h += '<div class="dt-inv-notes">';
+          for (const n of inv.notes.slice(-3)) {
+            const when = n.added_at ? new Date(n.added_at).toLocaleDateString('en-GB') : '';
+            h += `<div class="dt-inv-note-entry">${when ? `<span class="dt-inv-note-when">${when}</span> ` : ''}${esc(n.text)}${n.successes_added ? ` (+${n.successes_added})` : ''}</div>`;
+          }
+          h += '</div>';
+        }
+
+        h += '</div>';
+      }
+    }
+
+    h += '</div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-inv-toggle')?.addEventListener('click', () => {
+    invPanelOpen = !invPanelOpen;
+    renderInvestigations();
+  });
+
+  document.getElementById('dt-inv-create')?.addEventListener('click', async () => {
+    const target = document.getElementById('dt-inv-target')?.value.trim();
+    const thresholdType = document.getElementById('dt-inv-type')?.value;
+    const customThreshold = document.getElementById('dt-inv-custom')?.value;
+    const investigator = document.getElementById('dt-inv-investigator')?.value.trim();
+    if (!target) return;
+    try {
+      await apiPost('/api/downtime_investigations', {
+        target_description: target,
+        threshold_type: thresholdType,
+        custom_threshold: customThreshold ? +customThreshold : undefined,
+        investigating_character_id: investigator || null,
+        cycle_id: selectedCycleId,
+      });
+      await loadInvestigations(selectedCycleId);
+      renderInvestigations();
+    } catch (err) { console.error('Create investigation error:', err.message); }
+  });
+
+  el.querySelectorAll('.dt-inv-add-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const invId = btn.dataset.invId;
+      const successes = +document.getElementById(`dt-inv-add-${invId}`)?.value || 1;
+      const note = document.getElementById(`dt-inv-note-${invId}`)?.value.trim() || '';
+      try {
+        const updated = await apiPut(`/api/downtime_investigations/${invId}`, { add_successes: successes, note_text: note || undefined });
+        const idx = investigations.findIndex(i => i._id === invId);
+        if (idx >= 0) investigations[idx] = updated;
+        renderInvestigations();
+      } catch (err) { console.error('Add successes error:', err.message); }
+    });
+  });
+
+  el.querySelectorAll('.dt-inv-resolve-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const invId = btn.dataset.invId;
+      try {
+        const updated = await apiPut(`/api/downtime_investigations/${invId}`, { status: 'resolved' });
+        const idx = investigations.findIndex(i => i._id === invId);
+        if (idx >= 0) investigations[idx] = updated;
+        renderInvestigations();
+      } catch (err) { console.error('Resolve investigation error:', err.message); }
+    });
+  });
+}
+
+// ── NPC Register (Story 1.6) ─────────────────────────────────────────────────
+
+let npcs = [];
+let npcPanelOpen = false;
+let editingNpcId = null;
+
+async function loadNpcs(cycleId) {
+  try {
+    const url = cycleId ? `/api/npcs?cycle_id=${cycleId}` : '/api/npcs';
+    npcs = await apiGet(url);
+  } catch { npcs = []; }
+}
+
+function renderNpcs() {
+  const el = document.getElementById('dt-npcs');
+  if (!el) return;
+
+  const active = npcs.filter(n => n.status !== 'archived');
+
+  let h = '<div class="dt-npc-panel">';
+  h += `<div class="dt-matrix-toggle" id="dt-npc-toggle">${npcPanelOpen ? '\u25BC' : '\u25BA'} NPC Register <span class="domain-count">${active.length}</span></div>`;
+
+  if (npcPanelOpen) {
+    h += '<div class="dt-npc-body">';
+
+    if (editingNpcId === 'new') {
+      h += renderNpcForm(null);
+    } else {
+      h += `<button class="dt-btn" id="dt-npc-add">+ Add NPC</button>`;
+    }
+
+    if (active.length === 0 && editingNpcId !== 'new') {
+      h += '<p class="placeholder" style="font-size:12px;padding:8px 0;">No NPCs recorded yet.</p>';
+    } else {
+      for (const npc of active) {
+        if (editingNpcId === npc._id) {
+          h += renderNpcForm(npc);
+        } else {
+          h += renderNpcCard(npc);
+        }
+      }
+    }
+
+    h += '</div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-npc-toggle')?.addEventListener('click', () => {
+    npcPanelOpen = !npcPanelOpen;
+    renderNpcs();
+  });
+
+  document.getElementById('dt-npc-add')?.addEventListener('click', () => {
+    editingNpcId = 'new';
+    renderNpcs();
+  });
+
+  el.querySelectorAll('.dt-npc-edit').forEach(btn => {
+    btn.addEventListener('click', () => { editingNpcId = btn.dataset.npcId; renderNpcs(); });
+  });
+
+  el.querySelectorAll('.dt-npc-archive').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Archive this NPC?')) return;
+      try {
+        await apiDelete(`/api/npcs/${btn.dataset.npcId}`);
+        npcs = npcs.filter(n => n._id !== btn.dataset.npcId);
+        renderNpcs();
+      } catch (err) { console.error('Archive NPC error:', err.message); }
+    });
+  });
+
+  el.querySelectorAll('.dt-npc-save').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const formId = btn.dataset.formId;
+      const name = el.querySelector(`#dt-npc-name-${esc(formId)}`)?.value.trim();
+      if (!name) return;
+      const body = {
+        name,
+        description: el.querySelector(`#dt-npc-desc-${esc(formId)}`)?.value.trim() || '',
+        status: el.querySelector(`#dt-npc-status-${esc(formId)}`)?.value || 'active',
+        notes: el.querySelector(`#dt-npc-notes-${esc(formId)}`)?.value.trim() || '',
+        linked_cycle_id: selectedCycleId || null,
+      };
+      try {
+        if (formId === 'new') {
+          const created = await apiPost('/api/npcs', body);
+          npcs.push(created);
+        } else {
+          const updated = await apiPut(`/api/npcs/${formId}`, body);
+          const idx = npcs.findIndex(n => n._id === formId);
+          if (idx >= 0) npcs[idx] = { ...npcs[idx], ...updated };
+        }
+        editingNpcId = null;
+        renderNpcs();
+      } catch (err) { console.error('Save NPC error:', err.message); }
+    });
+  });
+
+  el.querySelectorAll('.dt-npc-cancel').forEach(btn => {
+    btn.addEventListener('click', () => { editingNpcId = null; renderNpcs(); });
+  });
+}
+
+function renderNpcCard(npc) {
+  const statusColour = npc.status === 'dead' ? 'dt-npc-dead' : npc.status === 'unknown' ? 'dt-npc-unknown' : '';
+  let h = `<div class="dt-npc-card">`;
+  h += `<div class="dt-npc-card-header">`;
+  h += `<span class="dt-npc-name ${statusColour}">${esc(npc.name)}</span>`;
+  h += `<span class="dt-npc-status-badge">${esc(npc.status)}</span>`;
+  h += `<button class="dt-btn dt-npc-edit" data-npc-id="${esc(npc._id)}">Edit</button>`;
+  h += `<button class="dt-btn dt-npc-archive" data-npc-id="${esc(npc._id)}" style="opacity:.5">Archive</button>`;
+  h += '</div>';
+  if (npc.description) h += `<div class="dt-npc-desc">${esc(npc.description)}</div>`;
+  if (npc.notes) h += `<div class="dt-npc-notes">${esc(npc.notes)}</div>`;
+  h += '</div>';
+  return h;
+}
+
+function renderNpcForm(npc) {
+  const id = npc?._id || 'new';
+  const v = (f) => esc(npc?.[f] || '');
+  let h = `<div class="dt-npc-form">`;
+  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}" style="width:100%;margin-bottom:6px">`;
+  h += `<textarea class="dt-narr-textarea" id="dt-npc-desc-${id}" placeholder="Description" style="min-height:48px;margin-bottom:6px">${v('description')}</textarea>`;
+  h += '<div class="dt-npc-form-row">';
+  h += `<select class="dt-pool-sel" id="dt-npc-status-${id}">`;
+  for (const s of ['active', 'dead', 'unknown']) {
+    h += `<option value="${s}"${npc?.status === s ? ' selected' : ''}>${s}</option>`;
+  }
+  h += '</select>';
+  h += `<button class="dt-btn dt-npc-save" data-form-id="${id}">Save</button>`;
+  h += `<button class="dt-btn dt-npc-cancel" style="opacity:.6">Cancel</button>`;
+  h += '</div>';
+  h += `<textarea class="dt-narr-textarea" id="dt-npc-notes-${id}" placeholder="Notes (ST only)" style="min-height:36px;margin-top:6px">${v('notes')}</textarea>`;
+  h += '</div>';
+  return h;
 }
 
 // ── Feeding Matrix (Story 1.4) ───────────────────────────────────────────────

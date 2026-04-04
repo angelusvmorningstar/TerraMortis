@@ -1096,6 +1096,74 @@ body {
 .dt-succ-fail { background: rgba(139,0,0,.12); color: var(--crim); }
 .dt-proj-note { width: 100%; margin-top: 6px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
 
+/* ── Narrative Output (1.7) ── */
+.dt-narr-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
+.dt-style-guide { margin-bottom: 8px; font-size: 12px; color: var(--txt-dim); }
+.dt-style-guide summary { cursor: pointer; color: var(--gold2); font-family: var(--fh); font-size: 12px; }
+.dt-style-list { margin: 6px 0 0 16px; padding: 0; }
+.dt-style-list li { margin-bottom: 3px; }
+.dt-narr-block { margin-bottom: 10px; }
+.dt-narr-block-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.dt-narr-label { font-family: var(--fh); font-size: 13px; font-weight: 600; color: var(--gold2); }
+.dt-narr-hint { font-size: 11px; color: var(--txt-dim); flex: 1; }
+.dt-narr-status-row { display: flex; gap: 4px; }
+.dt-narr-status-btn { font-size: 11px; padding: 1px 8px; border: 1px solid var(--bdr); border-radius: 10px; background: transparent; color: var(--txt-dim); cursor: pointer; }
+.dt-narr-status-btn.active { border-color: var(--gold2); color: var(--gold2); background: rgba(224,196,122,.1); }
+.dt-narr-textarea { width: 100%; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: var(--fb, 'Lora', serif); resize: vertical; min-height: 100px; box-sizing: border-box; line-height: 1.5; }
+.dt-narr-badge { font-size: 11px; color: #3a8a3a; background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; }
+
+/* ── Mechanical Summary (1.8) ── */
+.dt-mech-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
+.dt-mech-actions { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.dt-mech-hint { font-size: 11px; color: var(--txt-dim); }
+.dt-mech-textarea { width: 100%; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; resize: vertical; min-height: 120px; box-sizing: border-box; }
+
+/* ── Publish Panel (1.9) ── */
+.dt-publish-panel { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
+.dt-publish-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dt-publish-status { font-size: 12px; color: var(--txt-dim); }
+.dt-pub-status { display: flex; align-items: center; gap: 8px; }
+.dt-pub-when { font-size: 11px; color: var(--txt-dim); }
+.dt-publish-ready { border-color: #3a8a3a !important; color: #3a8a3a !important; }
+.dt-pub-badge { font-size: 11px; color: #3a8a3a; background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+
+/* ── Investigation Tracker (1.5) ── */
+.dt-inv-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }
+.dt-inv-body { padding: 10px 12px; }
+.dt-inv-new-wrap { margin-bottom: 10px; }
+.dt-inv-new-wrap summary { font-size: 12px; }
+.dt-inv-form { padding: 8px 0; }
+.dt-inv-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.dt-inv-input { background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+.dt-inv-item { border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+.dt-inv-resolved { opacity: .65; border-left: 3px solid #3a8a3a; }
+.dt-inv-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.dt-inv-target { font-family: var(--fh); font-size: 13px; }
+.dt-inv-type-badge { font-size: 11px; color: var(--txt-dim); background: var(--surf2); padding: 1px 6px; border-radius: 8px; }
+.dt-inv-investigator { font-size: 11px; color: var(--txt-dim); margin-bottom: 4px; }
+.dt-inv-progress-wrap { position: relative; background: var(--surf2); border-radius: 4px; height: 18px; margin: 4px 0; overflow: hidden; }
+.dt-inv-progress-bar { height: 100%; background: var(--gold2); opacity: .5; transition: width .3s; }
+.dt-inv-progress-label { position: absolute; left: 8px; top: 1px; font-size: 11px; line-height: 16px; color: var(--txt); }
+.dt-inv-add-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.dt-inv-notes { margin-top: 6px; }
+.dt-inv-note-entry { font-size: 11px; color: var(--txt-dim); padding: 2px 0; border-bottom: 1px solid var(--bdr); }
+.dt-inv-note-entry:last-child { border-bottom: none; }
+.dt-inv-note-when { color: var(--gold2); }
+
+/* ── NPC Register (1.6) ── */
+.dt-npc-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }
+.dt-npc-body { padding: 10px 12px; }
+.dt-npc-card { border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--surf2); }
+.dt-npc-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.dt-npc-name { font-family: var(--fh); font-size: 13px; font-weight: 600; flex: 1; }
+.dt-npc-dead { color: var(--crim); text-decoration: line-through; }
+.dt-npc-unknown { color: var(--txt-dim); }
+.dt-npc-status-badge { font-size: 11px; color: var(--txt-dim); background: var(--surf); padding: 1px 6px; border-radius: 8px; }
+.dt-npc-desc { font-size: 12px; margin-bottom: 4px; }
+.dt-npc-notes { font-size: 11px; color: var(--txt-dim); font-style: italic; }
+.dt-npc-form { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+.dt-npc-form-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+
 .dt-approval-detail {
   margin-top: 10px;
   padding-top: 10px;

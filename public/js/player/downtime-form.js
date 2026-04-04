@@ -374,6 +374,52 @@ async function saveResidency(responses) {
   } catch { /* non-critical — submission still saved */ }
 }
 
+// ── Story 1.10: Player-facing results view ────────────────────────────────────
+
+/**
+ * Render published downtime results for the player.
+ * outcome_text is a markdown-style string with ## section headers.
+ */
+function renderDowntimeResults(outcomeText, sub) {
+  const sections = [];
+  let current = null;
+
+  for (const line of outcomeText.split('\n')) {
+    if (line.startsWith('## ')) {
+      if (current) sections.push(current);
+      current = { heading: line.slice(3).trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) sections.push(current);
+
+  let h = '<div class="qf-results">';
+  h += '<h3 class="qf-results-title">Downtime Results</h3>';
+
+  if (sections.length === 0) {
+    h += `<div class="qf-results-body"><p>${esc(outcomeText)}</p></div>`;
+  } else {
+    for (const sec of sections) {
+      const isMech = sec.heading === 'Mechanical Outcomes';
+      h += `<div class="qf-results-section${isMech ? ' qf-results-mech' : ''}">`;
+      h += `<h4 class="qf-results-section-head">${esc(sec.heading)}</h4>`;
+      const body = sec.lines.join('\n').trim();
+      if (isMech) {
+        h += `<pre class="qf-results-pre">${esc(body)}</pre>`;
+      } else {
+        // Convert blank lines to paragraph breaks
+        const paras = body.split(/\n{2,}/).filter(Boolean);
+        h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+      }
+      h += '</div>';
+    }
+  }
+
+  h += '</div>';
+  return h;
+}
+
 export async function renderDowntimeTab(targetEl, char) {
   currentChar = char;
   responseDoc = null;
@@ -493,6 +539,15 @@ function renderForm(container) {
   const isSubmitted = status === 'submitted';
 
   let h = '';
+
+  // Results panel (Story 1.10) — show published outcome if available
+  const published = responseDoc?.published_outcome;
+  const pending = responseDoc && !published && status === 'submitted';
+  if (published) {
+    h += renderDowntimeResults(published, responseDoc);
+  } else if (pending) {
+    h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">&#x23F3; Your submission has been received. Results are being prepared.</p></div>';
+  }
 
   // Header
   h += '<div class="qf-header">';
