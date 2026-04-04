@@ -67,10 +67,15 @@
     <div id="t-editor" class="tab">
       <div class="sheet-topbar">
         <button onclick="goTab('chars')">&larr; Back</button>
-        <button class="sheet-edit-btn" onclick="printSheet()">Print</button>
+        <div class="svt-toggle">
+          <button class="svt-btn on" id="svt-sheet" onclick="setSheetView('sheet')">Sheet</button>
+          <button class="svt-btn" id="svt-dt" onclick="setSheetView('dt')">Downtime</button>
+        </div>
+        <button class="sheet-edit-btn" id="btn-print" onclick="printSheet()">Print</button>
       </div>
       <div id="gcp-panel"></div>
       <div id="sh-content"></div>
+      <div id="dt-lookup" style="display:none"></div>
     </div>
 
     <!-- ═══ EDITOR EDIT TAB ═══ -->

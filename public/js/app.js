@@ -44,6 +44,7 @@ import {
 import { xpLeft } from './editor/xp.js';
 import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
+import { loadDtLookup } from './game/dt-lookup.js';
 import { printSheet } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -102,6 +103,26 @@ function showEditTab(t) {
   if (tabEl) tabEl.classList.add('active');
 }
 
+function setSheetView(view) {
+  const gcpEl  = document.getElementById('gcp-panel');
+  const shEl   = document.getElementById('sh-content');
+  const dtEl   = document.getElementById('dt-lookup');
+  const printBtn = document.getElementById('btn-print');
+  const isSheet = view === 'sheet';
+
+  if (gcpEl)  gcpEl.style.display  = isSheet ? '' : 'none';
+  if (shEl)   shEl.style.display   = isSheet ? '' : 'none';
+  if (dtEl)   dtEl.style.display   = isSheet ? 'none' : '';
+  if (printBtn) printBtn.style.display = isSheet ? '' : 'none';
+
+  document.getElementById('svt-sheet')?.classList.toggle('on', isSheet);
+  document.getElementById('svt-dt')?.classList.toggle('on', !isSheet);
+
+  if (!isSheet && editorState.editIdx >= 0) {
+    loadDtLookup(dtEl, editorState.chars[editorState.editIdx]);
+  }
+}
+
 function openChar(idx) {
   editorState.editIdx = idx;
   const c = editorState.chars[idx];
@@ -126,6 +147,7 @@ function openChar(idx) {
     });
   }
 
+  setSheetView('sheet');
   goTab('editor');
 }
 
@@ -546,6 +568,9 @@ Object.assign(window, {
   // Suite territory
   mountTerr,
   _mountTerr: mountTerr,
+
+  // Game — sheet/DT toggle
+  setSheetView,
 
   // Game — contested roll
   openContestedRoll,
