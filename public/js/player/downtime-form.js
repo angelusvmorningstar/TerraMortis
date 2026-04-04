@@ -423,6 +423,8 @@ function collectResponses() {
   responses['skill_acq_pool_skill'] = skSkillEl ? skSkillEl.value : '';
   const skSpecEl = document.getElementById('dt-skill_acq_pool_spec');
   responses['skill_acq_pool_spec'] = skSpecEl ? skSpecEl.value : '';
+  const skAvailEl = document.getElementById('dt-skill_acq_availability');
+  responses['skill_acq_availability'] = skAvailEl ? skAvailEl.value : '';
   const skAcqMeritCbs = document.querySelectorAll('[data-skill-acq-merit-cb]:checked');
   const skAcqMeritKeys = [];
   skAcqMeritCbs.forEach(cb => skAcqMeritKeys.push(cb.value));
@@ -862,16 +864,18 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Availability dot selector
-    const acqDot = e.target.closest('[data-acq-dot]');
+    // Availability dot selectors (resources + skill acquisition)
+    const acqDot = e.target.closest('[data-acq-dot]') || e.target.closest('[data-skill-acq-dot]');
     if (acqDot) {
-      const val = parseInt(acqDot.dataset.acqDot, 10);
-      const input = document.getElementById('dt-acq_availability');
+      const isSkill = !!acqDot.dataset.skillAcqDot;
+      const val = parseInt(isSkill ? acqDot.dataset.skillAcqDot : acqDot.dataset.acqDot, 10);
+      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
       if (input) input.value = val;
-      const row = acqDot.closest('[data-acq-avail]');
+      const row = acqDot.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
       if (row) {
-        row.querySelectorAll('[data-acq-dot]').forEach(d => {
-          d.classList.toggle('dt-acq-dot-filled', parseInt(d.dataset.acqDot, 10) <= val);
+        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
+        row.querySelectorAll(`[${dotAttr}]`).forEach(d => {
+          d.classList.toggle('dt-acq-dot-filled', parseInt(d.getAttribute(dotAttr), 10) <= val);
         });
         const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
         let lbl = row.querySelector('.dt-acq-avail-label');
@@ -2098,6 +2102,23 @@ function renderAcquisitionsSection(saved) {
     h += `<span>${esc(mName)} ${dots}</span>`;
     h += '</label>';
   }
+  h += '</div></div>';
+
+  // Availability (dot selector 1-5)
+  const skSavedAvail = parseInt(saved['skill_acq_availability'], 10) || 0;
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Availability</label>';
+  h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
+  h += '<div class="dt-acq-avail-row" data-skill-acq-avail>';
+  for (let d = 1; d <= 5; d++) {
+    const filled = d <= skSavedAvail ? ' dt-acq-dot-filled' : '';
+    h += `<span class="dt-acq-dot${filled}" data-skill-acq-dot="${d}">\u25CF</span>`;
+  }
+  if (skSavedAvail) {
+    const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
+    h += `<span class="dt-acq-avail-label">${labels[skSavedAvail] || ''}</span>`;
+  }
+  h += `<input type="hidden" id="dt-skill_acq_availability" value="${skSavedAvail || ''}">`;
   h += '</div></div>';
 
   h += '</div>';
