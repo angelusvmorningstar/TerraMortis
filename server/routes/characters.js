@@ -57,6 +57,33 @@ router.get('/:id', async (req, res) => {
   res.json(char);
 });
 
+// POST /api/characters/wizard — player creates their own character
+router.post('/wizard', requireRole('player'), async (req, res) => {
+  const players = getCollection('players');
+  const player = await players.findOne({ _id: req.user.player_id });
+  const existingIds = player?.character_ids || [];
+
+  // First character is auto-approved; subsequent characters await ST sign-off
+  const isFirst = existingIds.length === 0;
+
+  const doc = { ...req.body };
+  delete doc._id;
+  doc.pending_approval = !isFirst;
+  doc.retired = false;
+  doc.created_at = new Date().toISOString();
+
+  const result = await col().insertOne(doc);
+  const created = await col().findOne({ _id: result.insertedId });
+
+  // Link to player record
+  await players.updateOne(
+    { _id: req.user.player_id },
+    { $push: { character_ids: result.insertedId } }
+  );
+
+  res.status(201).json(created);
+});
+
 // POST /api/characters — ST only
 router.post('/', requireRole('st'), validateCharacter, async (req, res) => {
   const doc = req.body;

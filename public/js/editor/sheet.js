@@ -1116,10 +1116,10 @@ export function shRenderMeritRow(m,idPrefix,i,dotHtml) {
 
 /* ── renderSheet orchestrator ── */
 
-export function renderSheet(c) {
+export function renderSheet(c, target = null) {
   const {editMode,chars,editIdx}=state;
   state.openExpId=null;
-  const el=document.getElementById('sh-content');
+  const el = target || document.getElementById('sh-content');
   if(!c){el.innerHTML='';return;}
   applyDerivedMerits(c); ensureMeritSync(c);
   const bl=c.bloodline&&c.bloodline!=='\u00AC'?c.bloodline:'',st=c.status||{},wp=c.willpower||{};

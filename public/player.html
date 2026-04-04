@@ -42,6 +42,17 @@
     </div>
   </header>
 
+  <!-- Character creator wizard (shown instead of tabs when no approved chars) -->
+  <div id="wizard-container" style="display:none"></div>
+
+  <!-- Pending approval state (shown when char submitted but not yet approved) -->
+  <div id="pending-container" style="display:none">
+    <div class="pending-msg">
+      <div class="pending-title">Character Pending Approval</div>
+      <p class="pending-body">Your character has been submitted and is awaiting ST sign-off. You'll be able to access the portal once approved.</p>
+    </div>
+  </div>
+
   <!-- Body: sidebar nav + content -->
   <div id="player-body">
 
@@ -52,6 +63,7 @@
       <button class="tab-btn" data-tab="feeding">Feeding</button>
       <button class="tab-btn" data-tab="xplog">XP Log</button>
       <button class="tab-btn" data-tab="story">Story</button>
+      <button class="tab-btn" data-tab="archive" id="tab-btn-archive" style="display:none">Archive</button>
     </nav>
 
     <main id="player-content">
@@ -69,7 +81,10 @@
       <section id="tab-xplog" class="tab-panel">
       </section>
       <section id="tab-story" class="tab-panel">
-        <p class="placeholder-msg">Your character's story will appear here.</p>
+        <div id="story-content"></div>
+      </section>
+      <section id="tab-archive" class="tab-panel">
+        <div id="archive-content"></div>
       </section>
     </main>
 

@@ -8,10 +8,13 @@ import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderFeedingTab } from './player/feeding-tab.js';
+import { renderStoryTab } from './player/story-tab.js';
+import { startWizard } from './player/wizard.js';
 import state from './data/state.js';
 
 let chars = [];
 let activeChar = null;
+let retiredChars = [];
 
 // Expose sheet helpers to onclick handlers in rendered HTML
 window.toggleExp = toggleExp;
@@ -99,36 +102,87 @@ async function loadCharacters() {
     return;
   }
 
+  // Check for wizard / pending states before rendering normal UI
   if (!chars.length) {
-    document.getElementById('sh-content').innerHTML =
-      `<p class="placeholder-msg">No characters found. Contact an ST to get started.</p>`;
+    showWizard();
     return;
   }
+
+  const approvedChars = chars.filter(c => !c.pending_approval && !c.retired);
+  if (!approvedChars.length) {
+    const pendingChars = chars.filter(c => c.pending_approval);
+    if (pendingChars.length) {
+      showPending();
+    } else {
+      showWizard();
+    }
+    return;
+  }
+
+  // Split active and retired characters (from approved pool)
+  retiredChars = chars.filter(c => c.retired && !c.pending_approval);
+  const activeChars = approvedChars;
 
   // Populate shared state so renderSheet can access chars
   state.chars = chars;
   state.editMode = false;
 
-  // Character selector (shown if multiple characters)
+  // Character selector (shown if multiple active characters)
   const selector = document.getElementById('char-selector');
-  if (chars.length > 1) {
+  if (activeChars.length > 1) {
     selector.style.display = '';
-    selector.innerHTML = chars.map((c, i) =>
+    selector.innerHTML = activeChars.map((c, i) =>
       `<option value="${i}">${esc(displayName(c))}</option>`
     ).join('');
-    selector.addEventListener('change', () => selectCharacter(Number(selector.value)));
+    selector.addEventListener('change', () => selectCharacter(activeChars, Number(selector.value)));
   }
 
-  selectCharacter(0);
+  // Show Archive tab if any retired characters exist
+  if (retiredChars.length) {
+    const archiveBtn = document.getElementById('tab-btn-archive');
+    if (archiveBtn) archiveBtn.style.display = '';
+    renderArchiveTab();
+  }
+
+  if (!activeChars.length) {
+    document.getElementById('sh-content').innerHTML =
+      `<p class="placeholder-msg">All your characters are retired. See the Archive tab.</p>`;
+    return;
+  }
+
+  selectCharacter(activeChars, 0);
 }
 
-function selectCharacter(idx) {
-  activeChar = chars[idx];
-  state.editIdx = idx;
+function showWizard() {
+  document.getElementById('player-body').style.display = 'none';
+  document.getElementById('pending-container').style.display = 'none';
+  const wizEl = document.getElementById('wizard-container');
+  wizEl.style.display = '';
+  startWizard(wizEl, async (createdChar) => {
+    // Wizard complete — reload characters and boot normal portal
+    wizEl.style.display = 'none';
+    document.getElementById('player-body').style.display = '';
+    chars = [];
+    activeChar = null;
+    retiredChars = [];
+    await loadCharacters();
+  });
+}
+
+function showPending() {
+  document.getElementById('player-body').style.display = 'none';
+  document.getElementById('wizard-container').style.display = 'none';
+  document.getElementById('pending-container').style.display = '';
+}
+
+function selectCharacter(activeChars, idx) {
+  activeChar = activeChars[idx];
+  state.editIdx = chars.indexOf(activeChar);
   renderSheet(activeChar);
   initOrdeals(activeChar, chars);
   renderDowntimeTab(document.getElementById('tab-downtime'), activeChar);
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
+  renderStoryTab(document.getElementById('story-content'), activeChar);
 
   // Regency tab — only visible for regents
   const regBtn = document.getElementById('tab-btn-regency');
@@ -137,6 +191,27 @@ function selectCharacter(idx) {
     renderRegencyTab(document.getElementById('regency-content'), activeChar);
   } else {
     if (regBtn) regBtn.style.display = 'none';
+  }
+}
+
+function renderArchiveTab() {
+  const el = document.getElementById('archive-content');
+  if (!el || !retiredChars.length) return;
+
+  let h = '<div class="archive-list">';
+  for (const c of retiredChars) {
+    h += `<div class="archive-char">`;
+    h += `<h3 class="archive-char-name">${esc(displayName(c))} <span class="archive-badge">Retired</span></h3>`;
+    h += `<div id="archive-sh-${esc(String(c._id))}" class="cd-sheet"></div>`;
+    h += `</div>`;
+  }
+  h += '</div>';
+  el.innerHTML = h;
+
+  // Render each retired character's sheet into its container
+  for (const c of retiredChars) {
+    const target = document.getElementById(`archive-sh-${String(c._id)}`);
+    if (target) renderSheet(c, target);
   }
 }
 
