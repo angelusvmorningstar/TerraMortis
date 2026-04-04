@@ -1059,6 +1059,36 @@ body {
   accent-color: var(--gold2, #E0C47A);
 }
 
+/* ── Reading pane overrides for project tabs ── */
+.reading-pane .dt-proj-tab {
+  background: #E8DCC8;
+  color: #7A6A50;
+  border-color: rgba(139,0,0,.12);
+}
+.reading-pane .dt-proj-tab:hover { background: #FFF8EE; }
+.reading-pane .dt-proj-tab-active {
+  background: #FFF8EE;
+  color: #5A1A1A;
+  border-color: rgba(139,0,0,.2);
+  border-bottom-color: #FFF8EE;
+}
+.reading-pane .dt-proj-tab-empty .dt-proj-tab-icon { color: #8B0000; }
+.reading-pane .dt-proj-pane {
+  background: #FFF8EE;
+  border-color: rgba(139,0,0,.12);
+}
+.reading-pane .dt-proj-feed-summary {
+  background: rgba(139,0,0,.04);
+  border-color: rgba(139,0,0,.12);
+}
+.reading-pane .dt-proj-feed-summary p { color: #3A2A1A; }
+.reading-pane .dt-proj-feed-method { color: #5A1A1A; }
+.reading-pane .dt-proj-cast-label,
+.reading-pane .dt-proj-merit-label { color: #2A1F14; }
+.reading-pane .dt-proj-cast-label input,
+.reading-pane .dt-proj-merit-label input { accent-color: #8B0000; }
+.reading-pane .dt-pool-total { color: #5A1A1A; }
+
 /* ── Dice pool row ── */
 .dt-dice-pool-row {
   display: flex;
@@ -1252,6 +1282,12 @@ body {
   border-radius: 6px;
 }
 .dt-feed-card-wrap > * + * { margin-top: 12px; }
+
+/* Reading pane override — light theme */
+.reading-pane .dt-feed-card-wrap {
+  background: #FFF8EE;
+  border-color: rgba(139,0,0,.12);
+}
 
 /* ── Rote feeding checkbox ── */
 .dt-feed-rote { margin-bottom: 0; }
