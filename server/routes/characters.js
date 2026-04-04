@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
 // GET /api/characters/names — lightweight list of all active character names (any authenticated user)
 router.get('/names', async (req, res) => {
   const chars = await col()
-    .find({ retired: { $ne: true } }, { projection: { name: 1, moniker: 1, honorific: 1 } })
+    .find({ retired: { $ne: true } }, { projection: { name: 1, moniker: 1, honorific: 1, player: 1 } })
     .toArray();
   const sortName = c => (c.moniker || c.name).toLowerCase();
   chars.sort((a, b) => sortName(a).localeCompare(sortName(b)));
