@@ -43,6 +43,7 @@ import {
 } from './editor/attrs-tab.js';
 import { xpLeft } from './editor/xp.js';
 import { renderCharPools } from './game/char-pools.js';
+import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { printSheet } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -545,6 +546,14 @@ Object.assign(window, {
   // Suite territory
   mountTerr,
   _mountTerr: mountTerr,
+
+  // Game — contested roll
+  openContestedRoll,
+  closeContestedRoll,
+  crSetType,
+  crSetChar,
+  crAdjPool,
+  crRoll,
 });
 
 // ══════════════════════════════════════════════
@@ -596,9 +605,11 @@ function applyRoleRestrictions() {
     });
   }
 
-  // Feeding test in Roll tab — ST only
-  const feedSec = document.getElementById('feed-section');
+  // Feeding test and Contested Roll — ST only
+  const feedSec   = document.getElementById('feed-section');
   if (feedSec) feedSec.style.display = isST ? '' : 'none';
+  const btnContested = document.getElementById('btn-contested');
+  if (btnContested) btnContested.style.display = isST ? '' : 'none';
 
   // Header nav — admin link ST only, player link for everyone
   const navAdmin = document.getElementById('nav-admin');

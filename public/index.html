@@ -141,6 +141,7 @@
         <button class="mchip wp-chip" id="wp-c" onclick="togMod('wp')">WP (+3)</button>
       </div>
       <button id="roll-btn" onclick="doRoll()">Roll the Dice</button>
+      <button id="btn-contested" onclick="openContestedRoll()" style="display:none">Contested Roll</button>
       <div id="res-area">
         <div id="res-hdr"></div>
         <div id="dice-area"><div class="empty-d">No rolls yet</div></div>
@@ -254,6 +255,11 @@
     </div>
     <div class="panel-body" id="panel-body"></div>
   </div>
+</div>
+
+<!-- Contested Roll Overlay -->
+<div id="cr-overlay" style="display:none">
+  <div id="cr-box" class="cr-box"></div>
 </div>
 
 <div id="toast"></div>
