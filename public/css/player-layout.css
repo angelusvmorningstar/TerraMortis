@@ -530,6 +530,44 @@ body {
   color: var(--gold2);
   font-weight: 600;
   margin-bottom: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.qf-section-title::before {
+  content: '▾';
+  display: inline-block;
+  font-size: 13px;
+  transition: transform .2s;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.qf-section.collapsed .qf-section-title::before {
+  transform: rotate(-90deg);
+}
+
+.qf-section-tick {
+  margin-left: auto;
+  font-size: 16px;
+  color: #4CAF50;
+  display: none;
+}
+
+.qf-section-tick.visible {
+  display: inline;
+}
+
+.qf-section-body {
+  transition: none;
+}
+
+.qf-section.collapsed .qf-section-body {
+  display: none;
 }
 
 .qf-section-intro {
@@ -701,6 +739,61 @@ body {
 /* ── Downtime gated sections ── */
 
 .dt-gated-hidden { display: none; }
+
+/* ── Star rating widget ── */
+
+.dt-star-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  user-select: none;
+}
+
+.dt-star {
+  display: inline-flex;
+  font-size: 0;
+  cursor: pointer;
+}
+
+.dt-star-half {
+  display: inline-block;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--surf3, #333);
+  transition: color .15s;
+  overflow: hidden;
+}
+
+.dt-star-left {
+  width: 1em;
+  clip-path: inset(0 50% 0 0);
+  margin-right: -1em;
+  position: relative;
+  z-index: 1;
+}
+
+.dt-star-right {
+  width: 1em;
+}
+
+.dt-star-half.dt-star-filled {
+  color: var(--gold2, #E0C47A);
+}
+
+.dt-star-half.dt-star-hover {
+  color: var(--gold1, #C9A84C);
+}
+
+.dt-star-label {
+  margin-left: 10px;
+  font-size: 14px;
+  color: var(--text2, #aaa);
+  min-width: 35px;
+}
+
+/* ── Feedback hidden until rated ── */
+
+.dt-feedback-hidden { display: none; }
 
 /* ── Residency grid ── */
 .dt-residency-grid {
