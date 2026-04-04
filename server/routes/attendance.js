@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 
 const router = Router();
@@ -23,14 +24,29 @@ router.get('/', async (req, res) => {
   if (!latest) return res.json({ attended: false, attendees: [] });
   const attendance = latest.attendance || [];
 
+  // Resolve character name for fallback matching — attendance may store old character IDs
+  // from before a migration, but character_name is stable.
+  let charName = null;
+  if (charId) {
+    try {
+      const oid = new ObjectId(charId);
+      const char = await getCollection('characters').findOne({ _id: oid }, { projection: { name: 1 } });
+      charName = char?.name || null;
+    } catch { /* invalid id format — skip name lookup */ }
+  }
+
+  function matchesChar(a) {
+    return String(a.character_id) === charId || (charName && a.character_name === charName);
+  }
+
   let attended = false;
   if (charId) {
-    const entry = attendance.find(a => String(a.character_id) === charId);
+    const entry = attendance.find(matchesChar);
     attended = entry?.attended === true;
   }
 
   const attendees = attendance
-    .filter(a => a.attended && String(a.character_id) !== charId)
+    .filter(a => a.attended && !matchesChar(a))
     .map(a => ({ id: String(a.character_id), name: a.character_display || a.character_name || '' }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
