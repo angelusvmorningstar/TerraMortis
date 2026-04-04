@@ -148,11 +148,10 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 2. Feeding declaration — method, territory, description
-  // (Influence spend is its own tab. Regency is its own tab.)
+  // 2. Feeding — method selection, pool, rote, description
   {
     key: 'feeding',
-    title: 'The City: Territory and Feeding',
+    title: 'Feeding: The Hunt',
     gate: null,
     intro: null,
     questions: [
@@ -163,6 +162,16 @@ export const DOWNTIME_SECTIONS = [
         required: true,
         desc: null,
       },
+    ],
+  },
+
+  // 2b. Territory — residence/poaching grid + influence spend
+  {
+    key: 'territory',
+    title: 'The City: Territory and Influence',
+    gate: null,
+    intro: null,
+    questions: [
       {
         key: 'feeding_territories',
         label: 'Which Territory does your character feed or poach in?',

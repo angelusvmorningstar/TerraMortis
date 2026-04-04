@@ -1911,6 +1911,7 @@ function renderQuestion(q, value) {
       const c = currentChar;
       const savedDesc = responseDoc?.responses?.['feeding_description'] || '';
 
+      h += '<div class="dt-feed-card-wrap">';
       h += '<div class="dt-feed-methods">';
       for (const m of FEED_METHODS) {
         const sel = feedMethodId === m.id ? ' dt-feed-sel' : '';
@@ -2028,7 +2029,7 @@ function renderQuestion(q, value) {
         const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
         if (savedRote && !feedRoteAction) feedRoteAction = true;
 
-        h += '<div class="dt-feed-rote" style="margin-top:12px;">';
+        h += '<div class="dt-feed-rote">';
         h += `<label class="dt-feed-rote-label">`;
         h += `<input type="checkbox" id="dt-feed-rote" ${feedRoteAction ? 'checked' : ''}>`;
         h += `<span>Spend a Project action for Rote feeding</span>`;
@@ -2036,12 +2037,13 @@ function renderQuestion(q, value) {
         h += '<p class="qf-desc" style="margin:4px 0 0 24px;">Dedicates Project 1 to feeding. The pool and method above will be copied automatically.</p>';
         h += '</div>';
 
-        h += '<div class="qf-field" style="margin-top:10px;">';
+        h += '<div class="qf-field">';
         h += '<label class="qf-label" for="dt-feeding_description">Describe how your character hunts</label>';
         h += `<textarea id="dt-feeding_description" class="qf-textarea" rows="4">${esc(savedDesc)}</textarea>`;
         h += '</div>';
       }
 
+      h += '</div>'; // dt-feed-card-wrap
       break;
     }
 

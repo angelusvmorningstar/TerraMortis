@@ -1152,8 +1152,17 @@ body {
 }
 .dt-feed-custom-row .qf-select { flex: 1; min-width: 120px; }
 
+/* ── Feeding card wrapper ── */
+.dt-feed-card-wrap {
+  padding: 16px 18px;
+  background: var(--surf1, #1A1714);
+  border: 1px solid rgba(201,169,98,.15);
+  border-radius: 6px;
+}
+.dt-feed-card-wrap > * + * { margin-top: 12px; }
+
 /* ── Rote feeding checkbox ── */
-.dt-feed-rote { margin-bottom: 8px; }
+.dt-feed-rote { margin-bottom: 0; }
 .dt-feed-rote-label {
   display: flex;
   align-items: center;
