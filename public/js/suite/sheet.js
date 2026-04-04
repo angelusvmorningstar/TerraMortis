@@ -287,7 +287,7 @@ export function renderSheet() {
         <div class="disc-drawer" id="disc-drawer-${id}">${drawerHtml}</div>`;
     }
 
-    const discEntries = Object.entries(c.disciplines).filter(([, r]) => r > 0);
+    const discEntries = Object.entries(c.disciplines).filter(([, r]) => r > 0).sort(([a], [b]) => a.localeCompare(b));
     const coreDiscs = discEntries.filter(([d]) => CORE_DISCS.includes(d));
     const ritualDiscs = discEntries.filter(([d]) => RITUAL_DISCS.includes(d));
     const themeDiscs = discEntries.filter(([d]) => SORCERY_THEMES.includes(d));
@@ -354,7 +354,7 @@ export function renderSheet() {
   }
 
   // ── Influence Merits ──
-  const inflMerits = influenceMerits(c);
+  const inflMerits = influenceMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (inflMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Influence Merits</div><div class="merit-list">`;
     inflMerits.forEach((m, i) => {
@@ -364,7 +364,7 @@ export function renderSheet() {
   }
 
   // ── Domain Merits ──
-  const domMerits = domainMerits(c);
+  const domMerits = domainMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (domMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">`;
     domMerits.forEach(m => {
@@ -374,7 +374,7 @@ export function renderSheet() {
   }
 
   // ── Standing Merits ──
-  const stndMerits = standingMerits(c);
+  const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (stndMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="stand-list">`;
     stndMerits.forEach(m => {
@@ -387,8 +387,8 @@ export function renderSheet() {
   }
 
   // ── Other Merits + Manoeuvres ──
-  const otherMerits = generalMerits(c);
-  const manMerits = manoeuvres(c);
+  const otherMerits = generalMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const manMerits = manoeuvres(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   function renderMeritRow(m, idPrefix, i) {
     const base = meritBase(m);
