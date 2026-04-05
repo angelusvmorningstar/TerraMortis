@@ -10,7 +10,7 @@
 
 **Prerequisites:** Staff Fighting ●●●
 
-**Effect:** Effect: Your character knows how to use a pole with a hook or noose on the end of it to restrain animal and human targets. Using a suitable weapon, such as a catch pole or shepherd's crook, your character can grapple at a penalty of -3 and immediately apply the Hold manoeuvre on success. During subsequent turns, her opponent's grapple rolls are penalised by the weapon's damage rating. Source: HL pg 51
+**Effect:** Effect: Your character knows how to use a pole with a hook or noose on the end of it to restrain animal and human targets. Using a suitable weapon, such as a catch pole or shepherd's crook, your character can grapple at a penalty of -3 and immediately apply the Hold manoeuvre on success. During subsequent turns, her opponent's grapple rolls are penalised by the weapon's damage rating
 
 ---
 
@@ -96,7 +96,7 @@ in that particular weapon or style has allowed them to benefit more from their a
 
 **Prerequisites:** Brawl ●● Style Tags: Striking, Grappling
 
-**Effect:** Effect: You gain a new grapple manoeuvre, Headbutt, which allows inflicting the Stunned Tilt without making a called shot to the head. You must declare you are using Headbutt before rolling. Nothing held in the hands or part of the body other than the head applies. Source: HL pg 50
+**Effect:** Effect: You gain a new grapple manoeuvre, Headbutt, which allows inflicting the Stunned Tilt without making a called shot to the head. You must declare you are using Headbutt before rolling. Nothing held in the hands or part of the body other than the head applies
 
 ---
 

@@ -410,7 +410,8 @@ def parse_errata():
         # Prereq change
         pm = PREREQ_RE.search(line)
         if pm:
-            current_patch['prereq'] = pm.group(1).strip().rstrip('.')
+            val = re.sub(r'\.\s*Source:.*$', '', pm.group(1), flags=re.IGNORECASE).strip().rstrip('.')
+            current_patch['prereq'] = val
             i += 1
             continue
 
@@ -425,13 +426,18 @@ def parse_errata():
         if collecting_rewrite:
             # Stop collecting on source line or new merit name
             if line.startswith('Source:') or ERRATA_NAME_RE.match(line):
-                current_patch['effect'] = collapse_lines(rewrite_lines)
+                collapsed = collapse_lines(rewrite_lines)
+                collapsed = re.sub(r'\.\s*Source:.*$', '', collapsed, flags=re.IGNORECASE).strip().rstrip('.')
+                current_patch['effect'] = collapsed
                 collecting_rewrite = False
                 rewrite_lines = []
                 if ERRATA_NAME_RE.match(line):
                     continue  # re-process this line
             else:
-                rewrite_lines.append(line)
+                # Strip inline source citation if it's at the end of this line
+                clean = re.sub(r'\.\s*Source:.*$', '', line, flags=re.IGNORECASE).strip()
+                if clean:
+                    rewrite_lines.append(clean)
                 i += 1
                 continue
 
@@ -440,9 +446,11 @@ def parse_errata():
             i += 1
             continue
 
-        # Anything else with substance = note
+        # Anything else with substance = note (strip trailing source citation)
         if len(line) > 10 and not line.startswith('('):
-            current_patch['notes'].append(line)
+            note = re.sub(r'\.\s*Source:.*$', '', line, flags=re.IGNORECASE).strip().rstrip('.')
+            if note:
+                current_patch['notes'].append(note)
 
         i += 1
 

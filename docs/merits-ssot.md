@@ -66,7 +66,7 @@ the otherworldly when she sees it. By perusing evidence, she can determine wheth
 
 When taking an extended action, halve the time required between rolls.
 
-> *Errata: This only applies to mundane rolls and does not apply to Social Manoeuvring, which is not an extended action. Source: CoD 2e pg 46*
+> *Errata: This only applies to mundane rolls and does not apply to Social Manoeuvring, which is not an extended action*
 
 ---
 
@@ -100,7 +100,7 @@ time you buy this Merit. Your character can speak, read, and write in that langu
 
 choose a Mental Skill. The Library covers that purview. On any extended roll involving the Skill in question, add the dots in this Merit. This Merit can be purchased multiple times, to reflect different Skills. Additionally, its benefits can be shared by various characters, with permission. Meditative Mind (●, ●●, or ●●●●) Merit, the character does not suffer environmental penalties to meditation (see p. 75), even from wound penalties. With the two-dot version, when the character has successfully meditated, she gains a +3 bonus on any Resolve + Composure rolls during the same day, as she's steeled herself against the things in the world that would shake her foundation. At the four-dot level, she only needs a single success to gain the benefits of meditation for the day, instead of the normal four.
 
-> *Errata: Use of Merit can be loaned for mundane extended actions. Source: VTR 2e pg 120*
+> *Errata: Use of Merit can be loaned for mundane extended actions*
 
 ---
 
@@ -126,7 +126,7 @@ extended action, you may make two additional rolls, above what your Attribute + 
 
 of fields. When choosing this Merit, choose or create a Profession for your character (see the sidebar). Mark the two Asset Skills on your character sheet. The advantages of Professional Training relate directly to those Asset Skills. ● Networking: At the first level of Professional Training, your character builds connections within her chosen field. Take two dots of Contacts relating to that field. ●● Continuing Education: With the repeated efforts in her field of choice, your character tends toward greater successes. When making a roll with her Asset Skills, she benefits from the 9-again quality. ●●● Breadth of Knowledge: Due to her advancement in her field, she's picked up a number of particular bits of information and skill unique to her work. Choose a third Asset Skill, and take two Specialities in your character's Asset Skills. ●●●● On the Job Training: With the resources at her disposal, your character has access to extensive educational tools and mentorship. Take a Skill dot in an Asset Skill. Whenever you purchase a new Asset Skill dot, take a Beat. ●●●●● The Routine: With such extensive experience in her field, her Asset Skills have been honed to a fine edge, and she's almost guaranteed at least a marginal success. Before rolling, spend a Willpower point to apply the rote action quality to an Asset Skill. This allows you to reroll all the failed dice on the first roll.
 
-> *Errata: ●●●●● The Routine: The Willpower spent to use the Routine also adds +3 to the roll. The Rote mechanic has been changed; Roll twice and keep the best result.  See Dice Rolls / Dice Variations.  Source: CoD 2e pg 48*
+> *Errata: ●●●●● The Routine: The Willpower spent to use the Routine also adds +3 to the roll. The Rote mechanic has been changed; Roll twice and keep the best result.  See Dice Rolls / Dice Variations*
 
 ---
 
@@ -178,7 +178,7 @@ one point of the object's Durability per dot with this Merit.
 
 need be. She automatically escapes from any mundane bonds without a roll. When grappled, subtract her Dexterity from any rolls to overpower her, as long as she's not taking any aggressive actions.
 
-> *Errata: Benefit of Double Jointed applies when already grappled and defending an overpower, or when attacking if she declares her intention to Break Free on a win. Source: CoD 2e pg 49*
+> *Errata: Benefit of Double Jointed applies when already grappled and defending an overpower, or when attacking if she declares her intention to Break Free on a win*
 
 ---
 
@@ -198,7 +198,7 @@ and anyone pursuing him suffers a -1 per dot to any foot chase rolls.
 
 gains +1 Health. Available only at character creation. Drawback: Buying clothing is a nightmare. Fitting in small spaces is difficult at best.
 
-> *Errata: Available only at character creation and must be costumed. Source: CoD 2e pg 49*
+> *Errata: Available only at character creation and must be costumed*
 
 ---
 
@@ -220,7 +220,7 @@ For example: A character with Iron Stamina ●● is able to ignore up to a -2 m
 
 weapon or style enough that pulling the weapon is his first reflex. Drawing or holstering that weapon is considered a reflexive action, and can be done any time his Defence applies.
 
-> *Errata: Any bonuses to initiative only apply if the character attempts to use the weapon. Source: CoD 2e pg 49*
+> *Errata: Any bonuses to initiative only apply if the character attempts to use the weapon*
 
 ---
 
@@ -252,10 +252,10 @@ action reflexively in a given turn. As well, her Larceny actions go unnoticed un
 
 Each instance of this Merit represents one type of ally. This could be an organization, a society, a clique, or an individual. Examples include the police, a secret society, criminal organizations, unions, local politicians, or the academic community. Each purchase has its own rating. Your character might have Allies (Masons) ●●, Allies (Carter Crime Family) ●●●, and Allies (Catholic Church) ●. Each dot represents a layer of influence in the group. One dot would constitute small favours and passing influence. Three could offer considerable influence, such as the police overlooking a misdemeanor charge. Five dots stretches the limits of the organization's influence, as its leaders put their own influence on the line for the character. This could include things such as massive insider trading or fouling up a felony investigation. No matter the request, it has to be something that organization could accomplish. The Storyteller assigns a rating between one and five to any favour asked. A character can ask for favours that add up to her Allies rating without penalty in one chapter. If she extends her influence beyond that, her player must roll Manipulation + Persuasion + Allies, with a penalty equal to the favour's rating. If the roll is successful, the group does as requested. Failed or successful, the character loses a dot of Allies. This dot may return at the end of the chapter (see Sanctity of Merits, on p. 43.) On a dramatic failure, the organization resents her and seeks retribution. On an exceptional success, she doesn't lose the dot. One additional favour a character can ask of her Allies is to block another character's Allies, Contacts, Mentor, Retainer, or Status (if she knows the character possesses the relevant Merit). The rating is equal to the Merit dots blocked. As before, no roll is necessary unless the target's Merit exceeds the character's Allies. If the block succeeds, the character cannot use the Merit during the same chapter. Alternate Identity (●, ●●, or ●●●) holds up to. At one dot, the identity is superficial and unofficial. For example, your character uses an alias with a simple costume and adopts an accent. She hasn't established the necessary paperwork to even approach a bureaucratic background check, let alone pass one. At two dots, she's supported her identity with paperwork and identification. It's not liable to stand up to extensive research, but it'll turn away private investigators and internet hobbyists. At three dots, the identity can pass a thorough inspection. The identity has been deeply entrenched in relevant databases, with subtle flourishes and details to make it seem real, even to trained professionals. Additionally, the Merit reflects time the character has spent honing her persona. At one or two dots, she gains +1 to all Subterfuge rolls to defend the identity. At three dots, she gains +2. This Merit can be purchased multiple times, each time representing an additional identity.
 
-> *Errata: Each instance represents one area of influence: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Military, Media, Occult, Police, Politics, Street, Transportation, Underworld, or University. Each purchase has its own rating. Allies cannot be purchased outside these spheres of influence.*
-> *Errata: Only one character can have the fifth dot in any Ally, and another at four. To purchase an Ally that is already taken, you must first find a way to remove the other character's hold on that ally.*
-> *Errata: Only levels 1- 3  is available at character creation.*
-> *Errata: Generates 2 Influence at 5 dots, and 1 at 3 dots. Source: CoD 2e pg 49*
+> *Errata: Each instance represents one area of influence: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Military, Media, Occult, Police, Politics, Street, Transportation, Underworld, or University. Each purchase has its own rating. Allies cannot be purchased outside these spheres of influence*
+> *Errata: Only one character can have the fifth dot in any Ally, and another at four. To purchase an Ally that is already taken, you must first find a way to remove the other character's hold on that ally*
+> *Errata: Only levels 1- 3  is available at character creation*
+> *Errata: Generates 2 Influence at 5 dots, and 1 at 3 dots*
 
 ---
 
@@ -295,10 +295,10 @@ add her dots in this Merit as additional Doors. In other Social actions to uncov
 
 which the character can garner information. For example, a character with Contacts ●●● might have Bloggers, Drug Dealers, and Financial Speculators for connections. Contacts do not provide services, only information. This may be face-to-face, via email, by telephone, or even by séance in some strange instances. Garnering information via Contacts requires a Manipulation + Social Skill roll, depending on the method the character uses, and the relationship between the characters. The Storyteller should give a bonus or penalty, dependent on how relevant the information is to that particular Contact, whether accessing the information is dangerous, and if the character has maintained good relations or done favours for the Contact. These modifiers should range from -3 to +3 in most cases. If successful, the Contact provides the information. One use of a Contact is to dig dirt on another character. A Contact can find another character's Social Merits, and any relevant Conditions (Embarrassing Secret is a prime example.) A character can have more than five Contacts, but the Merit's rating is limited to five, for the purposes of Allies blocking.
 
-> *Errata: Effect: Each dot represents an area of influence for gathering information: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Military, Media, Occult, Police, Politics, Street, Transportation, Underworld, or University. Contacts provide information only, not services. Contacts cannot be purchased outside these spheres of influence.*
+> *Errata: Effect: Each dot represents an area of influence for gathering information: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Military, Media, Occult, Police, Politics, Street, Transportation, Underworld, or University. Contacts provide information only, not services. Contacts cannot be purchased outside these spheres of influence*
 > *Errata: Garnering information requires an appropriate Social Skill roll, not just Manipulation. 
 
-Generates 2 Influence at 5 dots, and 1 at 3 dots. Source: CoD 2e pg 50*
+Generates 2 Influence at 5 dots, and 1 at 3 dots*
 
 ---
 
@@ -320,7 +320,7 @@ stroke of luck. This can mean favours and attention, it can also mean negative a
 
 but she can get them at the best possible prices. When hiring a service (see p. 100), reduce the Availability score of the service by one dot.
 
-> *Errata: Now reduces all availability costs by one on anything, not just Services. Source: CoD 2e pg 51*
+> *Errata: Now reduces all availability costs by one on anything, not just Services*
 
 ---
 
@@ -352,7 +352,7 @@ confidence or move them to action. Make a Presence + Expression roll. A small gr
 
 you may substitute your character's Resolve for the usual Willpower bonus. If the roll is contested, roll with 8-again.
 
-> *Errata: Iron Will does not apply to resisting or contesting supernatural influence.*
+> *Errata: Iron Will does not apply to resisting or contesting supernatural influence*
 
 ---
 
@@ -362,8 +362,8 @@ you may substitute your character's Resolve for the usual Willpower bonus. If th
 
 behalf, often in the background, and sometimes without your character's knowledge. While Mentors can be highly competent, they almost always want something in return for their services. The dot rating determines the Mentor's capabilities, and to what extent he'll aid your character. When establishing a Mentor, determine what the Mentor wants from your character. This should be personally important to him, and it should reflect on the dot rating chosen. A one-dot Mentor might be incapable of dealing with modern society, and want to live vicariously through your character. This might mean coming to him and telling stories of her exploits. A five-dot Mentor would want something astronomical, such as an oath to procure an ancient, cursed artifact that may or may not exist, in order to prevent a prophesized death. Choose three Skills the Mentor possesses. You can substitute Resources for one of these Skills. Once per session, the character may ask her Mentor for a favour. The favour must involve one of those Skills, or be within the scope of his Resources. The Mentor commits to the favour (often asking for a commensurate favour in return), and if a roll is required, the Mentor is automatically considered to have successes equal to his dot rating. Alternately, you may ask the Storyteller to have the Mentor act on your character's behalf, without her character knowing or initiating the request. Mystery Cult Initiation (● to ●●●●●) Cults are far more common than people would like to admit. "Mystery cult" is the catch-all term for a phenomenon ranging from secret societies couched in fraternity houses, to scholarly cabals studying the magic of classical symbolism, to mystical suicide cults to the God-Machine. Mystery Cult Initiation reflects membership in one of these esoteric groups. The dot rating dictates standing. One dot is an initiate, two a respected member, three a priest or organizer, four a decision-making leader, and five is a high priest or founder. If you wish your character to begin play in a cult, work with your Storyteller to develop the details. Designing a Mystery Cult requires three things, at bare minimum. First is a Purpose. This is the defining reason 52 the face in the mirror-Characters Sample Cults Sample Cult: The Chosen of Mammon Mammon believes in the almighty dollar, and its inherent power. Followers of Mammon are expected to obtain material wealth and power at any cost. Fortunately, their networks help initiates quickly claim promotions and transfers into more prominent areas of influence. Cultists: Hedge fund manager, mailboy on a mission, outsourcer, personal assistant to the stars, talent scout, third generation CEO Initiation Benefits ● All initiates learn to cut through red tape to fulfil their later duties. They gain a Politics Speciality in Bureaucracy. ●● Full members must learn to speak, read, and write in Aramaic. They gain the Language Merit (Aramaic) free of charge. ●●● As a cultist delves into the mysteries of Mammon, she gains access to greater cult resources. Spend two dots between Contacts, Allies, Resources, or Retainers reflecting this relationship. ●●●● The self-centred and power-obsessed priests of Mammon gain the Thief of Fate (●●●) Merit. For this reason, priests are prohibited from touching other cultists. ●●●●● The high priestess of Mammon benefits from the tithes of her already wealthy followers. She gains three dots of Resources. Additionally, she may make a Resources ●●●●● purchase once per month without limitation, by drawing from the cult's coffers. Sample Cult: Sisters of the Machine Gun, Brothers of the Bomb The Brothers and Sisters band together with their rudimentary understanding of something they call "the God-Machine" in order to prevent its ascendancy to whatever mysterious power it strives for. They've repurposed artifacts and reverse-engineered their power into more technological weapons to fight back the darkness. The Brothers and Sisters tend toward universities and other places of learning, where a bit of esoteric knowledge can bleed through the mundane and open eyes to the truths of the universe. Cultists: God-Machine survivor, librarian-turned-networker, militant defender (Sister Machine Gun), second-generation mentor, tech expert (Brother Bomb) Initiation Benefits ● New recruits, while not yet trusted, receive training to better spot the influence of the God-Machine. They gain an Occult Speciality in The God-Machine. ●● Small cells of the Brothers and Sisters network through a handful of active initiates. For this reason, all initiates gain Contacts ● (Brothers and Sisters) free of charge. ●●● Respected initiates that have proven they're likely to survive more than a few years are taught the secrets of repurposing holy artifacts into weapons. By destroying such an artifact, they can give one weapon the ability to hurt spirits and ghosts. ●●●● At higher ranks within the organization, members are assigned wards and students. Take three dots in Retainers, allocated as the player sees fit (that is, one three-dot Retainer, three one-dot Retainers, etc.). ●●●●● The highest-ranking Brothers and Sisters were mostly first contact survivors. They've seen more of the God-Machine's influence than most anyone still standing. They gain a modified version of the Encyclopedic Knowledge Merit relating directly to the God-Machine. the cult exists. Usually it's tied in with the cult's history and recent background. Second is a Relic. This is an item that grounds members' faith. For example, a piece of the God- Machine, an ancient text bound in human flesh, or the mummified flesh of a saint. The last is a Doctrine. Every cult is defined by its rules and traditions. In addition to standing, a Mystery Cult Initiation Merit offers benefits at each level of influence. Develop these as well. The following are guidelines; use them to craft your cults: ● A Skill Speciality or one-dot Merit, pertaining to the lessons taught to initiates. 53 Social Merits ●● A one-dot Merit. ●●● A Skill dot, or a two-dot Merit (often a supernatural Merit). ●●●● A three-dot Merit, often supernatural in origin. ●●●●● A three-dot Merit, or a major advantage not reflected in game traits.
 
-> *Errata: Rather than levels of favours, the use of a Mentor requires the sacrifice of downtime action, potentially more depending on Storyteller discretion.*
-> *Errata: Generates 2 Influence at 5 dots, and 1 at 3 dots. Source: CoD 2e pg 51*
+> *Errata: Rather than levels of favours, the use of a Mentor requires the sacrifice of downtime action, potentially more depending on Storyteller discretion*
+> *Errata: Generates 2 Influence at 5 dots, and 1 at 3 dots*
 
 ---
 
@@ -373,7 +373,7 @@ behalf, often in the background, and sometimes without your character's knowledg
 
 Cults are far more common than the people of the World of Darkness would like to admit. Mystery cult is the catch-all term for a phenomenon ranging from secret societies couched in fraternity houses and scholarly cabals studying the magic of classical symbolism to mystical suicide cults to the God- Machine. Mystery Cult Initiation reflects membership in one of these esoteric groups. The dot rating dictates standing. One dot is an initiate, two a respected member, three a priest or organizer, four a decision-making leader, five a high priest or founder. If you wish your character to begin play in a cult, work with your Storyteller to develop the details. Designing a Mystery Cult requires three things, at bare minimum. First is a Purpose. This is the defining reason the cult exists. Usually, it's tied in with the cult's history and recent background. Second is a Relic. This is an item that grounds its members' faith. For example, a piece of the God-Machine, an ancient text bound in human flesh, or the mummified flesh of a saint. The last is a Doctrine. Every cult is defined by its rules and traditions. In addition to standing, a Mystery Cult Initiation Merit offers benefits at each level of influence. Develop these as well. The following are guidelines; use them to craft your own cults: ● A Skill Speciality or one-dot Merit pertaining to the lessons taught to initiates. ●● A one-dot Merit. ●●● A Skill dot or a two-dot Merit (often a supernatural Merit). ●●●● A three-dot Merit, often supernatural in origin. ●●●●● A three-dot Merit or a major advantage not reflected in game traits. Parkour (Style, ● to ●●●●●)
 
-> *Errata: Benefits can only be mundane. Can have Status in multiple Mystery Cults, but can only receive membership dot benefits from one instance of each level of this Merit. Source: CoD 2e pg 52*
+> *Errata: Benefits can only be mundane. Can have Status in multiple Mystery Cults, but can only receive membership dot benefits from one instance of each level of this Merit*
 
 ---
 
@@ -393,7 +393,7 @@ Cults are far more common than the people of the World of Darkness would like to
 
 is tied up in the mortgage and child support payments, she might have little money to throw around. Characters are assumed to have basic necessities without Resources. The dot rating determines the relative amount of disposable funding the character has available, depending on your particular chronicle's setting. The same amount of money means completely different things in a game set in Silicon Valley compared to one set in the Detroit slums. One dot is a little spending money here and there. Two is a comfortable, middle class wage. Three is a nicer, upper middle class life. Four is moderately wealthy. Five is filthy rich. Every item has an Availability rating. Once per chapter, your character can procure an item at her Resources level or lower, without issue. An item one Availability above her Resources reduces her effective Resources by one dot for a full month, since she has to rapidly liquidate funds. She can procure items two Availability below her Resources without limit (within reason). For example, a character with Resources ●●●● can procure as many Availability ●● disposable cellphones as she needs.
 
-> *Errata: Generates 1 Influence at Resources 3; 2 Influence at Resources 5. Source: CoD 2e pg 53*
+> *Errata: Generates 1 Influence at Resources 3; 2 Influence at Resources 5*
 
 ---
 
@@ -403,7 +403,7 @@ is tied up in the mortgage and child support payments, she might have little mon
 
 companion is, and how he was acquired. It may be as simple as a paycheck. He might owe your character his life. However it happened, your character has a hold on him. A Retainer is more reliable than a Mentor, and more loyal than an Ally. On the other hand, a Retainer is a lone person, less capable and influential than the broader Merits. The Merit's dot rating determines the relative competency of the Retainer. A one-dot Retainer is barely able to do anything of use, such as a pet that knows one useful trick, or a homeless old man that does minor errands for food. A three-dot Retainer is a professional in their field, someone 54 the face in the mirror-Characters capable in his line of work. A five-dot is one of the best in her class. If a Retainer needs to make a roll, and it's within her field, double the dot rating and use it as a dice pool. For anything else, use the dot rating as a dice pool. This Merit can be purchased multiple times to represent multiple Retainers.
 
-> *Errata: For Retainers that will come into direct contact with PCs (e.g. combat), the Storytellers will develop a relevant sheet. Generates 1 Influence at Retainer 3; 2 Influence at Retainer 5. Source: CoD 2e pg 53*
+> *Errata: For Retainers that will come into direct contact with PCs (e.g. combat), the Storytellers will develop a relevant sheet. Generates 1 Influence at Retainer 3; 2 Influence at Retainer 5*
 
 ---
 
@@ -413,7 +413,7 @@ companion is, and how he was acquired. It may be as simple as a paycheck. He mig
 
 attack her there, she's prepared and has the upper hand. The dot rating reflects the security of the place. The actual location, the luxury, and the size are represented by equipment. A one-dot Safe Place might be equipped with basic security systems or a booby trap at the windows and door. A five-dot could have a security crew, infrared scanners at every entrance, or trained dogs. Each place can be an apartment, a mansion, or a hidey-hole. Unlike most Merits, multiple characters can contribute dots to a single Safe Place, combining their dots into something greater. A Safe Place gives an Initiative bonus equal to the Merit dots. This only applies to a character with dots invested in the Safe Place. Any efforts to breach the Safe Place suffer a penalty equal to the Merit dots invested. If the character desires, the Safe Place can include traps that cause intruders lethal damage equal to a maximum of the Merit rating (player's choice as to how much damage a given trap inflicts). This requires that the character has at least one dot in Crafts. The traps may be avoided with a Dexterity + Larceny roll, penalized by the Safe Place dots.
 
-> *Errata: Safe Place also adds rounds of preparation equal to Merit rating when Safe Place is under threat where appropriate. Source: CoD 2e pg 53*
+> *Errata: Safe Place also adds rounds of preparation equal to Merit rating when Safe Place is under threat where appropriate*
 
 ---
 
@@ -433,7 +433,7 @@ Once per scene, when making a coordinated action that was planned in advance, sp
 
 animators, cheap thugs, or whatever else makes sense. For every dot in this Merit, choose one type of assistant, and one Skill. At any reasonable time, his staff can take actions using that Skill. These actions automatically garner a single success. While not useful in contested actions, this guarantees success on minor, mundane activities. Note that your character may have employees without requiring the Staff Merit; Staff simply adds a mechanical advantage for those groups.
 
-> *Errata: Generates 1 Influence at Staff 3; 2 Influence at Staff 5. Source: CoD 2e pg 54*
+> *Errata: Generates 1 Influence at Staff 3; 2 Influence at Staff 5*
 
 ---
 
@@ -511,7 +511,7 @@ to detect blood, to track by blood, or to pick out the details of blood, he only
 
 Kindred culture to flourish despite the Masquerade. Each level of Cacophony Savvy builds on the previous. This Merit assumes the character can read and deliver Cacophony messages. Drawback: The Cacophony is not a spectator sport. You can't just consume; you must create. If your character does not regularly contribute news and gossip to the Cacophony, she falls out of touch. To become an active part of the Cacophony again, she must add something of value. Gettin' Up (●): Your character can read the signs when she sees them. With an Intelligence + Streetwise roll, she can identify the intended message. She can identify further details, including the messenger's clan, covenant, favored herd, and city of origin by taking a -1 die penalty for every detail she wishes to discern. Additional details come at Storyteller discretion. If the area surveyed is part of someone's Feeding Grounds Merit, you can add their dot rating to your roll, and discern things the owner didn't mean to communicate. For example, particularly pale junkies in the neighbourhood might suggest that the owner feeds from addicts. Backpacker (●●): Your character is privy to all the personal ads, magazine codes, tracts, and tagging locations to find the latest Kindred news. Any time new Kindred come to town, your character knows their favored feeding grounds and their common aliases within a week. Using Gettin' Up, she can discern more personal information about them from the grapevine. Wearing a Hat (●●●): Your character embodies honour among thieves. She's a highly respected part of the Cacophony, and as a result, nothing happens without her knowledge. She's a hub of local culture, and the first line of defence against vampire hunters by extension. Once per chapter, roll Wits + Politics. For each success, you can ask the Storyteller one of the following questions about the current state of affairs: ● Who is on the way up? ● Who is on the way out? ● Where in the city is the Masquerade thinnest? ● What mortal is closest to uncovering Kindred? ● Where's the best feeding in town? When acting on the answer, consider all rolls exceptional successes on three successes instead of five.
 
-> *Errata: Only level 1 is available at character creation. Source: VTR 2e pg 110*
+> *Errata: Only level 1 is available at character creation*
 
 ---
 
@@ -533,7 +533,7 @@ with Carthian Movement members, as if she had a single dot of Covenant Status. W
 
 cage and lets it punish all those around her. When wielding claws borne of Unnatural Aspect while in frenzy, this Merit takes effect. The weapon modifier for the claws becomes +0 aggravated. These claws ignore all armour not generated by Resilience. Drawback: You may only use Claws of the Unholy while in frenzy or riding the wave. Once purchased, this modification is not optional; the character manifests Claws of the Unholy any time she's frenzied.
 
-> *Errata: Now does +2 Aggravated Damage (Inflicts 2 Agg on the first success, every subsequent success is 1 Bashing). Only ignores mundane armour. Source: VTR 2e pg 110*
+> *Errata: Now does +2 Aggravated Damage (Inflicts 2 Agg on the first success, every subsequent success is 1 Bashing). Only ignores mundane armour*
 
 ---
 
@@ -543,7 +543,7 @@ cage and lets it punish all those around her. When wielding claws borne of Unnat
 
 and apply the 8-again quality to all blood sympathy rolls. As well, treat all relations as one step closer for the purposes of sympathy distances. Drawback: When you feel sympathy, you feel it hard. Any time you succeed on a blood sympathy roll, your character loses the ability to spend Willpower for bonus dice for the remainder of the scene, due to the distraction.
 
-> *Errata: Removed drawback "cannot spend Willpower for bonus dice in scenes where blood sympathy has been felt". Source: VTR 2e pg 111*
+> *Errata: Removed drawback "cannot spend Willpower for bonus dice in scenes where blood sympathy has been felt"*
 
 ---
 
@@ -555,7 +555,7 @@ and apply the 8-again quality to all blood sympathy rolls. As well, treat all re
 
 challenging the establishment. A Prince or other authority figure attempting to enact political punishments, including but not limited to: censure, exile, removal of positions, destruction of property, or stripping Clan, Covenant, or City Status, finds his own City Status reduced by one dot as the city withdraws support. The Court Jester gains a Beat. Note that this does not prevent clandestine punishments, or indirect reprisals.
 
-> *Errata: There can only be one Jester per domain. To become the Jester if one is already present, you must convince them to give up the title, kill them, or put them into torpor. Source: SotC pg 178*
+> *Errata: There can only be one Jester per domain. To become the Jester if one is already present, you must convince them to give up the title, kill them, or put them into torpor*
 
 ---
 
@@ -657,7 +657,7 @@ affinity for his home and its defences against the sun's intrusion. A low rating
 
 of Vitae equal to twice the Merit's dot rating. This requires no roll, only a quick interlude. Taking more than that amount requires normal hunting rolls. Drawback: Addicts need their fix. Sometimes, they demand attention. If neglected, they'll withdraw. Your character must have at least minor interactions with her Herd before they'll give blood freely.
 
-> *Errata: Herd provides one-for-one Vitae at start of game. Source: VTR 2e pg 112*
+> *Errata: Herd provides one-for-one Vitae at start of game*
 
 ---
 
@@ -695,11 +695,11 @@ Every Gangrel has a different method for the designation. Some anoint with blood
 
 can reflect official standing, or merely informal respect. No matter the source, your character enjoys certain privileges within that structure. Each instance of this Merit reflects standing in a different group or organization. Your character may have Status (The Luck Gang) ●●●, Status (Drag Racing Circuit) ●●, and Status (Police) ●. Each affords its own unique benefits. As you increase dot ratings, your character rises in prominence in the relevant group. Status only allows advantages within the confines of the group reflected in the Merit. Status (Organized Crime) won't help if your character wants an official concealed carry firearms permit, for example. Status provides a number of advantages: First, your character can apply her Status to any Social roll with those over which she has authority or sway. Second, she has access to group facilities, resources, and funding. Depending on the group, this could be limited by red tape and requisitioning processes. It's also dependent on the resources the particular group has available. Third, she has pull. If she knows a character's Mentor, Resources, Retainer, Contacts, or Allies, she can block their usage. Once per chapter, she can stop a single Merit from being used, if it's of a lower dot rating than her Status, and if it makes sense for her organization to obstruct that type of person's behaviour. In our Organized Crime example, if your character knows that the chief of police has Contacts (Criminal Informant), you may opt to block usage by threatening the informant into silence. Drawback: Status requires upkeep, and often regular duties. If these duties are not upheld, the Status may be lost. The dots will not be accessible until the character re-establishes her standing. In our Organized Crime example, your character may be expected to pay protection money, offer tribute to a higher authority, or undertake felonious activities.
 
-> *Errata: Effect: Your character has standing within a mortal group or organisation: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Military, Media, Occult, Police, Politics, Street, Transportation, Underworld, or University. Each instance reflects standing in a different area. Higher dot ratings represent greater prominence.*
-> *Errata: Only levels 1- 3  is available at character creation.*
-> *Errata: Only one character can have the fifth dot in any Status, and another the fourth. To purchase Status that is already taken, you must first find a way to remove the other character's hold.*
-> *Errata: Specialised/personalised Status can be taken with Storyteller approval outside these areas.*
-> *Errata: Generates 2 Influence at 5 dots, and 1 at 3 dots. Source: CoD 2e pg 52*
+> *Errata: Effect: Your character has standing within a mortal group or organisation: Bureaucracy, Church, Finance, Health, High Society, Industry, Legal, Military, Media, Occult, Police, Politics, Street, Transportation, Underworld, or University. Each instance reflects standing in a different area. Higher dot ratings represent greater prominence*
+> *Errata: Only levels 1- 3  is available at character creation*
+> *Errata: Only one character can have the fifth dot in any Status, and another the fourth. To purchase Status that is already taken, you must first find a way to remove the other character's hold*
+> *Errata: Specialised/personalised Status can be taken with Storyteller approval outside these areas*
+> *Errata: Generates 2 Influence at 5 dots, and 1 at 3 dots*
 
 ---
 
@@ -719,7 +719,7 @@ animals. The character may perceive through any of the senses of any individual 
 
 Look to the Touchstone chart for which Humanity dot each new Touchstone is applied to. For more on Touchstones, see p. 87. Drawback: Losing attachment with Touchstones will speed the loss of Humanity. As well, if your character's last Touchstone dies or is destroyed, your character will feel the call of torpor.
 
-> *Errata: This Merit cannot be purchased with XP. Touchstones assigned by Storytellers with discussion. Source: VTR 2e pg 115*
+> *Errata: This Merit cannot be purchased with XP. Touchstones assigned by Storytellers with discussion*
 
 ---
 
@@ -783,7 +783,7 @@ numerous connections. Membership in the Movement can mean leveraging those conne
 
 one participant needs this Merit, however. Once the Cease Fire takes effect, all Disciplines and Devotions in the domain cease to work normally. Any attempt at activating a Discipline fails unless the vampire first spends a point of Willpower, which does not add to the dice pool. This Willpower point can be spent the turn prior in the case of powers that require Willpower for activation normally. If the power requires an activation roll, any dice that come up as 1s cause 1 level of aggravated damage to the user. If the power does not require a roll, it causes the user aggravated damage equal to the level of the power used. Cease Fire lasts until the Carthian who possesses this Merit either uses a Discipline successfully, leaves the domain, or meets Final Death. Additionally, the user can set a condition for dissolution when laying down the law.
 
-> *Errata: Talk to Storytellers about how a Cease Fire can be declared. Source: SotC pg 180*
+> *Errata: Talk to Storytellers about how a Cease Fire can be declared*
 
 ---
 
@@ -806,7 +806,7 @@ specific variety of blood sorcery, or a single defined ritual. This requires the
 one Experience from the cost of any Devotion, to a minimum of one Experience. Additionally, she gains the 9-again quality on all Devotion activation rolls. If she teaches a Devotion to another vampire, she gains a Beat, and her student enjoys her cost break on the power.
 
 > *Errata: Prerequisites: Carthian Status 1*
-> *Errata: Carthians with this merit are immersed in the Cacophony, and do not suffer the drawback of Cacophony Savvy.*
+> *Errata: Carthians with this merit are immersed in the Cacophony, and do not suffer the drawback of Cacophony Savvy*
 
 ---
 
@@ -824,7 +824,7 @@ a judiciary, the Carthian sacrifices a dot of Willpower and Blood Potency. These
 
 **Prerequisites:** Carthian Status ●●●● This Carthian Law forces an enforced law upon on all others to whom it applies. On the surface, this Circle of the Crone: Grave Flowers 181 breeds an air of fairness. On the other hand, a Carthian domain willing to offer up a bombastic martyr can cause immense harm to the rule of a tyrant, or can impose a firm example upon would-be opponents. When the Movement conquered Honolulu, the incoming President had an advisor physically attack him, executed him as a sacrifice, and declared any harm against the Movement punishable through this Law.
 
-**Effect:** Prerequisite: Carthian Status ●●●● Effect: Must be publicly announced on the same night a law is established. Invest 1 Willpower dot, which returns after the duration lapses, to make a punishment precedent for one Story. Violators must be consciously breaking the law and aware of it. Conscious violators suffer 1 aggravated damage and gain a specific Bane (chosen when establishing precedent) lasting one lunar month. This takes the form of a mark burnt into the offender's flesh which cannot be healed for a lunar month. The Carthian chooses the brand's location, and it must be the same for all offenders. Only actions (not statuses) can be punished. One brand per character at a time. Source: SotC pg 180
+**Effect:** Prerequisite: Carthian Status ●●●● Effect: Must be publicly announced on the same night a law is established. Invest 1 Willpower dot, which returns after the duration lapses, to make a punishment precedent for one Story. Violators must be consciously breaking the law and aware of it. Conscious violators suffer 1 aggravated damage and gain a specific Bane (chosen when establishing precedent) lasting one lunar month. This takes the form of a mark burnt into the offender's flesh which cannot be healed for a lunar month. The Carthian chooses the brand's location, and it must be the same for all offenders. Only actions (not statuses) can be punished. One brand per character at a time
 
 punishment as precedent, which remains gone so long as the precedent remains in effect. For a year and a day, the Law punishes any further actions that match the violation. Only actions count, not statuses. For example, "being a Nosferatu" won't be punished, but "using Nightmare to kill" will be. The violator must be consciously breaking the law, and must be aware of the law at the time. Violators suffer one aggravated damage, and a specific Bane (see Vampire: The Requiem, p. 108) chosen at the time the Carthian established the legal precedent. This takes the form of a mark burned into the offender's flesh, which cannot be healed for a lunar month. The Carthian chooses the location of the brand, and it must be the same for all offenders. A character may be subject to only one such brand at a time.
 
@@ -858,7 +858,7 @@ requires a point of Willpower, an instant action, and a Presence + Intimidation 
 
 Carthian can call on the will of her people to strike weakness into the Movement's opposition. With her words and the mandate, she strips a Kindred enemy's blood down to nothingness. To enact this law, your character must make a clear and direct admonishment against one of the Movement's enemies. Cross a dot of Willpower off the Carthian's sheet. She must also garner the support of others of the Movement for a vote - from both Storyteller characters and players' characters. If the vote favours the admonishment, add the total dots of Carthian Status in support (including the user's five). For every five dots, reduce the victim's Blood Potency by one dot. If this reduces him to zero dots, he effectively becomes a revenant (see p. 94 for rules on revenants). Drawback: The Willpower dot (belonging to the vampire who invoked the mandate) and Blood Potency (belonging to the victim) only come back if the victim flees the city or meets Final Death. If the Carthian meets Final Death, the victim immediately regains his lost Blood Potency. A single vampire may only be victim to one instance of this Merit at a time.
 
-> *Errata: Status requirement increased from 5 to 15 dots of Status per Blood Potency stripped. Source: VTR 2e pg 116*
+> *Errata: Status requirement increased from 5 to 15 dots of Status per Blood Potency stripped*
 
 ---
 
@@ -963,7 +963,7 @@ tainted for Kindred she has not specifically allowed. When next a poacher sleeps
 
 **Prerequisites:** Circle of the Crone Status ●
 
-**Effect:** Prerequisite: Circle of the Crone Status ● Effect: You've contributed to attuning a blood altar. In the presence of the altar, contributors can apply teamwork to Crúac rituals, even if they don't know Crúac, at the cost of increased Risk. Participants double the time required per roll, using the lowest Crúac rating in the group. Even those with no Crúac dots may assist, further doubling time per roll. If a character has not purchased this Merit, they may spend a Willpower to temporarily attune per ritual cast. Source: VTR 2e pg 109
+**Effect:** Prerequisite: Circle of the Crone Status ● Effect: You've contributed to attuning a blood altar. In the presence of the altar, contributors can apply teamwork to Crúac rituals, even if they don't know Crúac, at the cost of increased Risk. Participants double the time required per roll, using the lowest Crúac rating in the group. Even those with no Crúac dots may assist, further doubling time per roll. If a character has not purchased this Merit, they may spend a Willpower to temporarily attune per ritual cast
 
 it. In the presence of the altar, Acolytes may use the teamwork rules (see p. 173) when using Crúac rituals. However, double the time necessary to make the roll, and determine the time per roll by the lowest Crúac dots of the collective group. This allows vampires uninitiated in the secrets of Crúac to participate in rituals. Characters do not need dots in Crúac to act as supporting performers with the Altar Merit, but double the time between rolls if any participants have no Crúac dots whatsoever. Drawback: Unlike most Merits, three or more characters must purchase this Merit to gain its benefits. Each character contributes a single Merit dot to the total cost. Additional characters may purchase dots in the Altar, but to use the teamwork advantages, they must contribute.
 
@@ -977,7 +977,7 @@ it. In the presence of the altar, Acolytes may use the teamwork rules (see p. 17
 
 with Circle of the Crone members, as if she had a single dot of Covenant Status. With a teacher, she may purchase the first dot of Crúac and additional rituals. She can also purchase Circle of the Crone Merits. ● Once per story, she can draw on a dot of Allies: Circle of the Crone, Contacts: Circle of the Crone, Mentor, or Herd. This should come at the cost of a small favour. ● If she ever formally joins the Circle of the Crone, she sheds this Merit and adopts two dots of Covenant Status, becoming greater than an average newcomer to the faith does.
 
-> *Errata: Ability to purchase Crúac (first dot), rituals, and Circle Merits removed to maintain parity with other covenant associate Merits. Source: SotC pg 181*
+> *Errata: Ability to purchase Crúac (first dot), rituals, and Circle Merits removed to maintain parity with other covenant associate Merits*
 
 ---
 
@@ -991,7 +991,7 @@ with Circle of the Crone members, as if she had a single dot of Covenant Status.
 
 **Prerequisites:** Athletics ●●, Brawl ●●, Weaponry ●● The Circle of the Crone is no stranger to persecution. Some of the Circle's predecessors developed this Fighting Style in ancient times, so its Gorgons could defend the group from the newly ascendant Lancea et Sanctum's purge of all pagan traditions.
 
-**Effect:** Prerequisites: Circle Status ●, Safe Place (equal level), Crúac ● Effect: Your character cultivates and maintains a ghouled plant garden. She can use Mandragora to conduct Crúac rituals remotely into the Safe Place in which the garden is located. When standing in the garden, add dots in Mandragora Garden to Crúac rolls. She may sustain a number of Crúac rituals equal to Merit dots indefinitely and they do not count towards Sorcery Tolerance. Additionally, a number of Crúac rituals equal to Merit dots performed within the garden have their base cost reduced by the Merit's rating. Mandragora transplanted elsewhere wither and die if not cared for by a character with this Merit. Whilst feeding the garden one Vitae per month equal to dots in Mandragora Garden, the garden produces twice that quantity in sap, nectar, or other fluids, which serve as animal blood, on which Kindred may feed. This can be brought to game and should be costumed. Anyone attacking or otherwise harming the garden provokes Frenzy as if they attacked the vampire directly. Mandragora take on qualities of the vampire's blood: they bear fruit symbolic of clan, and reflect Crúac style if applicable. A garden can be shared, but blood produced and rituals maintained do not increase. Drawback: Costs dots in Vitae monthly to maintain, split amongst contributors' starting Vitae pool. Source: SotC pg 181
+**Effect:** Prerequisites: Circle Status ●, Safe Place (equal level), Crúac ● Effect: Your character cultivates and maintains a ghouled plant garden. She can use Mandragora to conduct Crúac rituals remotely into the Safe Place in which the garden is located. When standing in the garden, add dots in Mandragora Garden to Crúac rolls. She may sustain a number of Crúac rituals equal to Merit dots indefinitely and they do not count towards Sorcery Tolerance. Additionally, a number of Crúac rituals equal to Merit dots performed within the garden have their base cost reduced by the Merit's rating. Mandragora transplanted elsewhere wither and die if not cared for by a character with this Merit. Whilst feeding the garden one Vitae per month equal to dots in Mandragora Garden, the garden produces twice that quantity in sap, nectar, or other fluids, which serve as animal blood, on which Kindred may feed. This can be brought to game and should be costumed. Anyone attacking or otherwise harming the garden provokes Frenzy as if they attacked the vampire directly. Mandragora take on qualities of the vampire's blood: they bear fruit symbolic of clan, and reflect Crúac style if applicable. A garden can be shared, but blood produced and rituals maintained do not increase. Drawback: Costs dots in Vitae monthly to maintain, split amongst contributors' starting Vitae pool
 
 equal or greater Safe Place. An Acolyte can use Mandragora she's created herself as if they were her own hands and eyes for the purposes of Crúac rituals. This allows her to use her rituals at a distance. If she's standing amidst her garden, she may add her Mandragora Garden dots to any Crúac ritual rolls. Additionally, the Acolyte may cast rituals on her garden that would normally last a scene. The magic of the garden 182 Secrets of the Covenants sustains these rituals indefinitely. She may have a number of such rituals active equal to her dots in this Merit. Mandragora transplanted elsewhere wither and die if not cared for by a character with this Merit. While she must feed her garden one Vitae per month equal to her dots in Mandragora Garden, the garden will produce twice that quantity in sap, nectar, or other fluids, which serve as animal blood, on which Kindred may feed. Lastly, because of the intimate association a vampire must keep with such a garden, it becomes an extension of her body. Anyone attacking or otherwise harming the garden provokes her to frenzy as if they attacked her directly. Note: A vampire's Mandragora take on qualities of her blood. They will bear fruit symbolic of her clan, for example. Some Daeva plants produce pomegranate-like fruits, for example, and Gangrel sometimes create Indian figs. If the character has a Crúac style, this will show up in her plants. Temple Guardian (● to ●●●, Style) used together in the same turn, but not with other Fighting Styles. For example, Athena's Armour can be used when your character protects someone with Enyo's Defence. Athena's Armour (●): Your character stands her ground for her temple, and remains unshaken. During any turn where your character is not attacking, ignore the first level of damage from any attack that hits her. Enyo's Defence (●●): Your character defends her sisters at all costs. So long as your character has access to her Defence, she can reflexively move up to her Speed in yards to intercept an attack against another character. The attack roll is made against your character's Defence (multiple attacker penalties apply normally), and she suffers any resulting damage. Eris's Glory (●●●): Your character's relentless defence of her sisters inspires them to greatness. Any turn where your character takes lethal or aggravated damage from a successful attack, choose an ally to gain the Inspired Condition. Additionally, any wound penalties your character suffers add to her allies' Crúac rolls. Since Crúac takes time, this barely helps in a fight. But your character's blood and suffering bolsters her allies off the battlefield.
 
@@ -999,7 +999,7 @@ equal or greater Safe Place. An Acolyte can use Mandragora she's created herself
 
 ## Secret Society Junkie (●)
 
-**Prerequisites:** Circle of the Crone Status ●● or Invictus ●●. Source: VTR 2e pg 114
+**Prerequisites:** Circle of the Crone Status ●● or Invictus ●●
 
 **Effect:** The Ordo Dracul exist within one of the most secret of secret societies. But many of its members participate in other
 
@@ -1011,7 +1011,7 @@ such organizations in mortal (or other) spheres. Members of such secret societie
 
 **Prerequisites:** Circle of the Crone Status ●
 
-**Effect:** Prerequisite: Circle of the Crone Status ● Effect: Strong mentorship defines the Circle. When purchasing Mentor, take additional dots in a chosen Crúac Style equal to Mentor. If dots in Mentor exceed dots in Crúac, Crúac Style dots will be added as Crúac is gained. If you already have a Crúac Style, XP will be refunded. Source: VTR 2e pg 113
+**Effect:** Prerequisite: Circle of the Crone Status ● Effect: Strong mentorship defines the Circle. When purchasing Mentor, take additional dots in a chosen Crúac Style equal to Mentor. If dots in Mentor exceed dots in Crúac, Crúac Style dots will be added as Crúac is gained. If you already have a Crúac Style, XP will be refunded
 
 its tumultuous early years. When a member of the Circle with this Merit purchases the Mentor Merit, that Mentor is protected by the True Friend Merit (see p. 124). The vampire does not have to purchase True Friend to take this advantage. Drawback: Strong bonds go both ways. The mentor is likely to have stronger requirements than most teachers, and will require a substantial amount of the vampire's time. More importantly, she'll demand loyalty, if not monogamy.
 
@@ -1023,7 +1023,7 @@ its tumultuous early years. When a member of the Circle with this Merit purchase
 
 Multiple Touchstones Touchstone Merit Associated Humanity 0 dots 6 ● 5 ●● 4 ●●● 3 ●●●● 2 ●●●●● 1 myths carried stigmas against menses, due to the unhealthy fears of men in power. With this Merit, your character still produces menstrual blood. Once per night, she can produce a viscous, dark blood. If she uses this blood in casting a Crúac ritual, she benefits from the 8-again quality. If she touches it to a person before affecting them with a Discipline, they suffer her Blood Potency as a penalty to their Resistance. Drawback: The character must identify as female. If she draws forth her Undead Menses multiple times in an evening, each beyond the first causes her a level of aggravated damage. As well, any attempts to identify her by her menstrual blood gain a +5 die bonus.
 
-> *Errata: This Merit can be purchased by any Crone, embodying the feminine power of creation. Bleeding from relevant orifice. Source: VTR 2e pg 115*
+> *Errata: This Merit can be purchased by any Crone, embodying the feminine power of creation. Bleeding from relevant orifice*
 
 ---
 
@@ -1077,7 +1077,7 @@ Manipulation + Academics roll. Every success allows one Invictus character to tr
 
 and they often precede her. Each level of this Merit builds on the earlier abilities. Drawback: You must make your association known to take advantage of this Merit. Within certain crowds, throwing around a lineage could be more trouble than it's worth. The dynasty must have at least three members. New Kid (●): You're recognised within the dynasty, but not in an influential position. Once per chapter, you may add the Clan Status of the dynasty's most senior member to a Social dice pool instead of your own. Exemplar (●●): You're afforded sway and respect within the dynasty. Against any who would respect or fear your dynasty, you may ignore the first Door in any Social engagement. Patriarch/Matriarch (●●●): You're acknowledged as a head of your dynasty. Once per chapter, you may make a demand of a dynasty member. They gain the Tasked Condition. If they fulfil the demand, gain a Beat. The task must be something that would take a full night's work, or put the recipient in danger.
 
-> *Errata: This Merit is now free and given in game by Storyteller on request. New Kid now applies to any Kindred Status. Exemplar has been removed. Source: VTR 2e pg 112*
+> *Errata: This Merit is now free and given in game by Storyteller on request. New Kid now applies to any Kindred Status. Exemplar has been removed*
 
 ---
 
@@ -1089,7 +1089,7 @@ and they often precede her. Each level of this Merit builds on the earlier abili
 
 of hunting in that territory. Add the dot rating to any hunting rolls, and to starting Vitae rolls (see p. 95). In addition, add the dot rating to any predatory aura conflicts on her territory. Drawback: Territory doesn't maintain itself. Trespassers must not go uncontested, or your hold on the area falters. Friends in High Places ● the First Estate do not just leverage their personal connections - they leverage each other's. An Invictus member can always do a little horse trading. Each month, your character can automatically open a number of Doors equal to her status dots. The person being persuaded must be acting on behalf of an organization. You could persuade the fire chief not to investigate a series of arsons at your rival's havens, but couldn't convince him to give you a personal loan. Drawback: The influence the character drew upon must come from a specific Invictus member…and your character now owes him a favour.
 
-> *Errata: Allows the use of Disciplines up to Merit rating without risking Dramatic Failure on Start of Game Hunting Rolls. Source: VTR 2e pg 112*
+> *Errata: Allows the use of Disciplines up to Merit rating without risking Dramatic Failure on Start of Game Hunting Rolls*
 
 ---
 
@@ -1121,7 +1121,7 @@ gotten back plenty. Divide dots equal to your Invictus status in the Herd, Mento
 
 investigative aid worldwide. Once per story, she can use a dot in this Merit as a dot in Allies, Contacts, or Library. The utilized Merit cannot be local, and is limited by its Internet-based access.
 
-> *Errata: Now once per chapter, not once per story, and all dots may be used. Source: SotC pg 187*
+> *Errata: Now once per chapter, not once per story, and all dots may be used*
 
 ---
 
@@ -1157,7 +1157,7 @@ Invictus members, as if she had a single dot of Covenant Status. ● Once per st
 
 ## Prestigious Sire (●)
 
-**Prerequisites:** Invictus Status ●, In-game sire with a Kindred Status 4 or higher. Source: SotC pg 188
+**Prerequisites:** Invictus Status ●, In-game sire with a Kindred Status 4 or higher
 
 **Effect:** When your character speaks, she speaks with the weight of her sire's words. When taking Social action with
 
@@ -1183,7 +1183,7 @@ machinate a social engineering effort that reveals extensive, damaging informati
 
 members receive training to channel the minds of torpid dynasty members. With this Merit, the character can choose to act as a medium for a torpid elder's consciousness. While possessed, the Speaker is aware of what occurs around him, but the torpid Kindred has control of his body, and can speak through him. The torpid Kindred retains no access to her Disciplines while possessing a Speaker. At any time, the Speaker can spend a point of Willpower to eject the torpid mind. The torpid Kindred can relinquish her control at will.
 
-> *Errata: Discuss with Storytellers before purchasing. Source: VTR 2e pg 114*
+> *Errata: Discuss with Storytellers before purchasing*
 
 ---
 
@@ -1195,7 +1195,7 @@ members receive training to channel the minds of torpid dynasty members. With th
 
 a piece of technology two Availability levels higher than her Tech-Savvy Merit dots with an hour's preparation. This item will function identically to a normal example, but you may split her Tech-Savvy dots among the item's dice pool bonus, Structure, and Durability. As well, the item offers the 9-again quality on relevant rolls.
 
-> *Errata: Merit now usable once per Chapter and cannot grant 9-again to combat equipment. Source: SotC pg 189*
+> *Errata: Merit now usable once per Chapter and cannot grant 9-again to combat equipment*
 
 ---
 
@@ -1235,7 +1235,7 @@ This rare Oath is considered anathema to many Invictus, particularly those with 
 
 criteria for accomplishment or failure. At the time of the swearing, both parties agree upon one of the liege's Disciplines. The vassal gains access to that Discipline. The liege's Blood Potency increases by one. This Oath stands as a rare exception to bloodline Disciplines: a vassal may temporarily access a liege's bloodline gift. If the vassal accomplishes the task, the Oath ends and the liege suffers aggravated damage equal to the Discipline dots granted. If the vassal fails the task or a month passes, he suffers the damage instead. While not uncommon, some domains consider a liege's interference in the task to be bad form. The liege does not lose access to the Disicpline. Drawback: A character may be part of only one Oath of Action at a time, as vassal or liege.
 
-> *Errata: The timeframe is now one Story, not one month. Source: VTR 2e pg 117*
+> *Errata: The timeframe is now one Story, not one month*
 
 ---
 
@@ -1301,7 +1301,7 @@ This simple Oath features as a foundation for many Invictus interactions. As the
 
 Death as part of the Oath. Alternatively, they can assault another vampire who has violated this Oath in the past. This seals the Oath. Once she's completed the Oath, she gains her first dot of Invictus Status. She also gains a dot each of Allies and Contacts pertaining to her new role, and a dot of Resources. Choose two Skills pertaining to her new role; she gains the 9-again quality on those Skills. The new Invictus in this case is the vassal, and must purchase the Merit. The liege is the new coterie. If she betrays the Invictus, or the role in her new coterie, she loses this Merit, and all the associated advantages. Additionally, her former allies are likely to use her as the target of another neonate's initiation. Oathbreaker (New Persistent Condition) Your character has broken an Oath, and the First Estate does not take kindly to oathbreakers. The covenant at large will manoeuvre to limit your character's influence and advancement. Mark two dots of Invictus Status, one Resources, one Allies, one Contacts, one Herd, and one Mentor if your character has those Merits. He cannot access the marked Merits so long as this Condition persists. Additionally, any failures in Social Actions among the Invictus are considered dramatic failures automatically. Resolution: Risk Final Death for a member of the First Estate, and have either that member or the Invictus at large recognise the sacrifice. Beat: When an Invictus character enacts retribution on your character, be it directly through punishment, or by meaningfully snubbing him in a social situation.
 
-> *Errata: Oath now also provides Friends in High Places (●), as Invictus Status is not purchased. Source: SotC pg 189*
+> *Errata: Oath now also provides Friends in High Places (●), as Invictus Status is not purchased*
 
 ---
 
@@ -1348,7 +1348,7 @@ With this Oath, two Kindred enter into a trust agreement. While mutually benefic
 when taking the Oath of the True Knight. If she attempts to ingest Kindred Vitae, the blood turns to ash in her mouth. If another coerces, tricks, or forces her to take his blood, he suffers a level of aggravated damage. She can enter further Oaths once sworn, but not at the time of accepting the Oath. Use of Dominate, Majesty, and other Disciplines that might mar her judgment, suffer her Invictus Status as a penalty. When attacked by another Kindred, or a ghouled retainer, her Invictus Status applies as armour. This has no effect against mundane humans. Lancea et Sanctum Religion is two things to the Lancea et Sanctum; faith and organization. The Spear needs numbers, so it needs camaraderie. However, it brings those numbers with the raw force of its dark miracles. Merits Members of the Lancea et Sanctum have access to the following Merits. Unless otherwise noted, they have an additional prerequisite of Status (Lancea et Sanctum) ● or higher. Crusade (● to ●●●, Style) each subsequent level: Shield Against Sorcery (●): This technique filters a lost Theban Sorcery ritual into a practice a non-practitioner (even a Sorcerous Eunuch, see below) can use with a series of military motions. It renders the character's immediate area something of a "null zone" for sorcery. Your character must be armed to enact Shield Against Sorcery. Any magic targeting your character or any character within her Willpower dots in yards suffers her Merit dots as a dice pool penalty. This requires your character have full access to her Defence. If multiple crusaders use this ability, only the highest Merit dots apply. Silence (●●): The voice is often the seat of sorcery. For this reason, crusaders train to strike for the enemy's vocal chords first. If your character targets the enemy's throat, she suffers no penalties due to the targeted attack. If successful, the attack silences the enemy, which may prevent him from casting spells or using some Disciplines so long as the damage remains. Lancea et Sanctum 193 A Hammer Against Witches (●●●): With a well-timed strike, your character may interrupt a sorcerer casting a spell, using her knowledge of the dark arts to find a particularly weak opening. The victim must be casting a spell or ritual of some sort, or a Discipline using an extended action. Spend a Willpower point before making the attack. This Willpower point does not add to the dice pool. Make the attack roll at -2. If successful, the spell or effect is aborted as if it dramatically failed. Additionally, add the victim's relevant Discipline or sorcery level as an additional weapon modifier to the damage caused. Use the level of the ability he uses; not his highest potential level.
 
 > *Errata: Clarification:*
-> *Errata: Drawback: Cannot be woken from torpor by being fed blood whilst under this Oath, and Vitae from any source cannot be consumed. Source: SotC pg 191*
+> *Errata: Drawback: Cannot be woken from torpor by being fed blood whilst under this Oath, and Vitae from any source cannot be consumed*
 
 ---
 
@@ -1386,7 +1386,7 @@ members of the covenant establish and maintain libraries. Since most of this kno
 
 ## Sanctuary (● to ●●●●●)
 
-**Prerequisites:** Lancea et Sanctum Status ●●, City Status ●●●, Safe Place equal or greater. Source: SotC pg 193
+**Prerequisites:** Lancea et Sanctum Status ●●, City Status ●●●, Safe Place equal or greater
 
 **Effect:** For each dot of Refugees, your character shelters one criminal convicted guilty of a heinous crime, usually a violation
 
@@ -1406,7 +1406,7 @@ to sorcery. Any dice pool for a magical effect targeting your character suffers 
 
 ## Stigmata (● to ●●●●●)
 
-**Prerequisites:** Lancea et Sanctum Status ●, Humanity 3 + Merit rating, or mortal. Source: SotC pg 193
+**Prerequisites:** Lancea et Sanctum Status ●, Humanity 3 + Merit rating, or mortal
 
 **Effect:** Each week, the vampire loses one Vitae per dot in this Merit. This loss is accompanied by a single level of lethal
 
