@@ -50,6 +50,9 @@ Epics 1–4 are complete and listed as reference only. Active work begins at Epi
 - FR-GC-05: The downtime submission schema records per-character expenditures (Vitae spent, Willpower spent, Influence spent) as part of the ST approval workflow; track reset uses these recorded values to calculate the adjusted starting state for each track at the next cycle
 - FR-GC-06: End-of-cycle snapshot records eminence, ascendancy, and prestige for all characters at the moment of reset
 - FR-GC-07: Monthly influence income is calculated per character based on active influence merits and territory holdings, and applied during cycle reset
+- FR-GC-08: ST can confirm each character's feeding pool and toggle the rote flag from within the downtime submission review; the dice engine rolls on ST command with the full result array displayed; confirmed pool, rote flag, and dice result are persisted to the submission record for downstream use by the player feeding tab
+- FR-GC-09: ST can press "New Game Cycle" to advance cycle status to `"game"`, gating the player feeding tab to open; the feeding tab reads the ST-confirmed pool and rote flag from the submission; if no confirmation exists, a pool is calculated from the player's declared method with no modifiers
+- FR-GC-10: ST can export a per-character downtime packet as structured markdown containing identity, motivations (from questionnaire), connections, each action with pre-calculated pool and recorded dice result, ST notes, and feeding outcome — structured for Claude-assisted narrative drafting; "Export All" generates a single file covering all characters in the current cycle
 
 **Epic 6: Live Game App**
 
@@ -145,11 +148,14 @@ N/A — No UX design document exists. UI patterns are defined inline in Architec
 | FR-5-06 | Epic 5 | 5.4 / 5.5 |
 | FR-GC-01 | Game Cycle | GC-1 (extends FR-3-04) |
 | FR-GC-02 | Game Cycle | GC-2 |
-| FR-GC-03 | Game Cycle | GC-3 |
+| FR-GC-03 | Game Cycle | GC-3 (summary view) + GC-6 (rote flag source) |
 | FR-GC-04 | Game Cycle | GC-5 |
 | FR-GC-05 | Game Cycle | GC-4 |
 | FR-GC-06 | Game Cycle | GC-5 |
 | FR-GC-07 | Game Cycle | GC-5 |
+| FR-GC-08 | Game Cycle | GC-6 |
+| FR-GC-09 | Game Cycle | GC-7 |
+| FR-GC-10 | Game Cycle | DT-1 |
 | FR-6-01 | Epic 6 | 6.1 |
 | FR-6-02 | Epic 6 | 6.2 |
 | FR-6-03 | Epic 6 | 6.3 |
@@ -192,8 +198,8 @@ Players can authenticate, view their characters, submit downtimes, track ordeals
 **FRs covered:** FR-5-01, FR-5-02, FR-5-03, FR-5-04, FR-5-05, FR-5-06
 
 ### Epic GC: Game Cycle Management
-The ST can manage the full post-game cycle from one place — lock in Regency, confirm feeding scenes, track expenditures, and execute a single reset action that atomically publishes outcomes, applies sheet mutations, resets all tracks, and opens the new cycle.
-**FRs covered:** FR-GC-01, FR-GC-02, FR-GC-03, FR-GC-04, FR-GC-05, FR-GC-06, FR-GC-07
+The ST can manage the full post-game cycle from one place — lock in Regency, process downtime submissions with integrated dice rolling, confirm feeding pools, export character packets for Claude-assisted narrative drafting, and execute a single reset action that atomically publishes outcomes, applies sheet mutations, resets all tracks, and opens the new cycle.
+**FRs covered:** FR-GC-01, FR-GC-02, FR-GC-03, FR-GC-04, FR-GC-05, FR-GC-06, FR-GC-07, FR-GC-08, FR-GC-09, FR-GC-10
 
 ### Epic DP: Data Portability
 The ST can export any collection as CSV and re-import it cleanly. Import errors are reported row-by-row without aborting the batch. Round-trip fidelity guaranteed.
@@ -441,8 +447,9 @@ So that I can make accurate submissions without manually consulting rulebooks or
 
 The ST can manage the full post-game cycle from one place — lock in Regency, confirm feeding scenes, track expenditures, and execute a single reset action that atomically publishes outcomes, applies sheet mutations, resets all tracks, and opens the new cycle.
 
-**FRs covered:** FR-GC-01, FR-GC-02, FR-GC-03, FR-GC-04, FR-GC-05, FR-GC-06, FR-GC-07
+**FRs covered:** FR-GC-01, FR-GC-02, FR-GC-03, FR-GC-04, FR-GC-05, FR-GC-06, FR-GC-07, FR-GC-08, FR-GC-09, FR-GC-10
 **NFRs:** NFR1, NFR12
+**Story dependencies:** GC-6 must precede GC-3 (rote flag source); GC-6 must precede GC-7 (confirmed pool); GC-7 must precede GC-5 (cycle status model)
 
 ### Story GC-1: Regency Lock-In
 
@@ -466,6 +473,8 @@ So that Regency benefits and history are tracked and queryable.
 **Then** the new selection overwrites the previous one and the cycle record is updated
 
 ### Story GC-2: Feeding Scene Summary View
+
+*Depends on GC-6 for rote flag data.*
 
 As an ST,
 I want a feeding scene summary that pre-populates each character's approved method, ambience modifier, and rote flag,
@@ -554,6 +563,99 @@ So that I can close a game cycle in one deliberate action rather than manually c
 **Then** all Vitae tracks reset to 0 minus approved Vitae expenditure for each character
 **And** all Willpower and Influence tracks reset to their respective maxima minus approved expenditures
 **And** the previous cycle is marked closed with a `closed_at` timestamp
+
+### Story GC-6: ST Downtime Processing — Dice Integration and Rote Toggle
+
+As an ST,
+I want to confirm each character's feeding pool and toggle rote from within the downtime submission review, with the dice engine running the roll and recording the result,
+So that when the game cycle opens, the player's feeding tab is pre-populated with accurate data from ST processing — and I have a durable record of every roll.
+
+**Acceptance Criteria:**
+
+**Given** the ST expands a character's feeding section in the downtime review
+**When** it renders
+**Then** the app displays a pre-calculated feeding pool derived from the character's declared method, territory, and disciplines — shown as `Attr + Skill + Disc = N dice`
+**And** the pool fields are editable if the ST needs to adjust
+
+**Given** a character has a project action with type `feed`
+**When** the ST reviews their submission
+**Then** a Rote toggle is shown alongside the feeding pool, defaulting to off
+
+**Given** the ST clicks Roll on the feeding pool
+**When** the dice engine runs
+**Then** the full dice array is displayed (e.g. `[8, 3, 10, 7, 2, 6] → chained [5] → 4 successes`)
+**And** the result is saved to `submission.feeding_roll = { breakdown, total, rote, dice, successes }`
+
+**Given** the ST toggles Rote on before rolling
+**When** the dice engine runs
+**Then** the roll uses rote rules (all failures re-rolled once)
+**And** `submission.feeding_roll.rote = true` is persisted
+
+**Given** the ST saves the confirmed pool without rolling (deferring the roll to the player)
+**When** the feeding tab loads for that player
+**Then** the confirmed pool and rote flag are displayed
+**And** the player rolls using the confirmed pool
+
+### Story GC-7: New Game Cycle Gate — Feeding Tab Availability
+
+*Depends on GC-6 for confirmed pool data.*
+
+As an ST,
+I want a "New Game Cycle" button that advances the cycle to game phase and makes the feeding tab live for all players,
+So that players can complete their feeding roll at the correct point in the cycle — after downtime is processed but before game starts.
+
+**Acceptance Criteria:**
+
+**Given** the ST presses "New Game Cycle" in the admin downtime view
+**When** the action executes
+**Then** `cycle.status` is set to `"game"` in the `downtime_cycles` collection
+**And** a confirmation shows how many characters have confirmed feeding pools vs how many do not
+
+**Given** `cycle.status === "game"`
+**When** a player opens the Feeding tab
+**Then** the tab renders their confirmed pool and rote flag from `submission.feeding_roll`
+**And** if no confirmed pool exists for their character, a generic pool is calculated from their declared method with no ambience modifiers applied
+
+**Given** `cycle.status` is `"open"` or `"closed"`
+**When** a player opens the Feeding tab
+**Then** a message is displayed: "Feeding rolls are not yet open for this cycle"
+
+**Given** a player has locked their feeding roll
+**When** they return to the Feeding tab
+**Then** their locked result is displayed and no re-roll is possible
+**And** an ST-only override button is present to clear the lock if needed
+
+### Story DT-1: Downtime Export Packet
+
+*Depends on GC-6 for dice results and confirmed pool data.*
+
+As an ST,
+I want to export a per-character downtime packet as structured markdown,
+So that I can load it into a Claude project and run the narrative drafting workflow without manually reconstructing pools, results, or character context from spreadsheets.
+
+**Acceptance Criteria:**
+
+**Given** the ST selects a character in the downtime review and clicks Export
+**When** the export runs
+**Then** a markdown file is generated containing:
+- Identity header (name, clan, covenant, mask, dirge, blood potency, date of embrace)
+- Motivations block (from questionnaire: `court_motivation`, `ambitions_sydney`, `conflict_approach`, `aspired_role_tag` + elaboration text)
+- Connections block (`allies_characters`, `coterie_characters`, `enemies_characters` + their accompanying notes)
+- Each submitted action: type, territory, pre-calculated pool (`Attr + Skill + Disc = N dice`), player's description, ST note, and recorded dice array with success count
+- Feeding: method, territory, confirmed pool, rote flag, dice result if rolled
+- Merit actions: each with directed action and recorded result if rolled
+
+**Given** the ST has not yet rolled for an action
+**When** the export is generated
+**Then** that action shows the pool and `Result: pending`
+
+**Given** the character has no questionnaire response
+**When** the export is generated
+**Then** motivations and connections blocks are omitted cleanly — no blank sections, no placeholder text
+
+**Given** the ST clicks "Export All" for the current cycle
+**When** the export runs
+**Then** a single markdown file is generated with each character as a top-level `##` section, ordered alphabetically
 
 ---
 
