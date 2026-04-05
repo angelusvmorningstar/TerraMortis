@@ -37,7 +37,7 @@ const NAME_OVERRIDES = {
   'mammon':                 'mammon',
   'cazz':                   'cazz',
   'ludica':                 'ludica',
-  'lothaire dubois':        null,                // no character — skip
+  'lothaire dubois':        'lothaire',
 };
 
 // ── History doc list (same as fix-history-worddocs.js) ───────────────────────
@@ -64,14 +64,19 @@ async function convertDocx(filePath) {
   return html;
 }
 
+function deaccent(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 async function resolveChar(db, searchTerm) {
-  // Case-insensitive partial match against name and moniker
-  return db.collection('characters').findOne({
-    $or: [
-      { name:    { $regex: searchTerm, $options: 'i' } },
-      { moniker: { $regex: searchTerm, $options: 'i' } },
-    ],
-  });
+  // Load all and match in JS so we can deaccent both sides
+  const all = await db.collection('characters').find({}).toArray();
+  const needle = deaccent(searchTerm).toLowerCase();
+  return all.find(c => {
+    const name    = deaccent(c.name    || '').toLowerCase();
+    const moniker = deaccent(c.moniker || '').toLowerCase();
+    return name.includes(needle) || moniker.includes(needle);
+  }) || null;
 }
 
 async function upsertDoc(col, doc) {
