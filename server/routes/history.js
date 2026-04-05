@@ -53,6 +53,8 @@ router.get('/', async (req, res) => {
   if (!ordealSub) return res.json(null);
 
   res.json({
+    _id:           ordealSub._id,
+    _source:       'ordeal_submission',
     character_id:  ordealSub.character_id,
     history_text:  ordealSub.responses?.[0]?.answer || '',
     source:        ordealSub.source,
