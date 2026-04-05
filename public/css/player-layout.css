@@ -184,10 +184,8 @@ body {
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
-/* Non-sheet tabs keep comfortable reading width */
-.tab-panel:not(#tab-sheet):not(#tab-story) {
-  max-width: 720px;
-  margin: 0 auto;
+/* Tab panels fill the content area */
+.tab-panel:not(#tab-sheet) {
   padding: 24px 32px;
 }
 
