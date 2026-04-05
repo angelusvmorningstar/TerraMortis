@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
+import mammoth from 'mammoth';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 
@@ -52,5 +53,57 @@ router.get('/all', requireRole('st'), async (req, res) => {
   const docs = await col().find({}, { projection: { content_html: 0 } }).toArray();
   res.json(docs);
 });
+
+// POST /api/archive_documents/upload — ST only; multipart .docx → mammoth → store
+// Expects Content-Type: application/octet-stream with query params:
+//   character_id, type, cycle (optional), title (optional)
+router.post('/upload', requireRole('st'),
+  (req, res, next) => {
+    // Collect raw body chunks
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => { req.rawBody = Buffer.concat(chunks); next(); });
+    req.on('error', next);
+  },
+  async (req, res) => {
+    const { character_id, type, cycle, title } = req.query;
+
+    if (!character_id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id required' });
+    if (!type) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'type required' });
+
+    const charOid = parseId(character_id);
+    if (!charOid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character_id' });
+
+    if (!req.rawBody?.length) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'No file data received' });
+
+    let html;
+    try {
+      const result = await mammoth.convertToHtml({ buffer: req.rawBody });
+      html = result.value
+        .replace(/<img[^>]*>/gi, '')
+        .replace(/<p><\/p>/g, '')
+        .trim();
+    } catch (err) {
+      return res.status(422).json({ error: 'CONVERSION_ERROR', message: `Mammoth conversion failed: ${err.message}` });
+    }
+
+    const cycleNum = cycle ? parseInt(cycle, 10) : null;
+    const docTitle = title || (type === 'downtime_response' ? `Downtime ${cycleNum ?? ''} Response`.trim() : type);
+
+    const doc = {
+      character_id:      charOid,
+      type,
+      cycle:             cycleNum,
+      title:             docTitle,
+      content_html:      html,
+      visible_to_player: true,
+      created_at:        new Date().toISOString(),
+    };
+
+    const result = await col().insertOne(doc);
+    const created = await col().findOne({ _id: result.insertedId }, { projection: { content_html: 0 } });
+    res.status(201).json(created);
+  }
+);
 
 export default router;

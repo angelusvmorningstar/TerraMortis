@@ -2893,3 +2893,40 @@ body {
 .or-rubric-save-btn {
   align-self: flex-end;
 }
+
+/* ── AR-3: Admin Archive ─────────────────────────────────────────────────────── */
+
+.ar-admin-shell { display: flex; flex-direction: column; gap: 20px; padding: 16px; }
+
+.ar-admin-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ar-admin-title { font-family: var(--fh); font-size: 15px; color: var(--gold2); }
+
+.ar-admin-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.ar-admin-table th {
+  text-align: left; padding: 6px 10px; font-family: var(--fh); font-size: 11px;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--txt-dim);
+  border-bottom: 1px solid var(--bdr);
+}
+.ar-admin-table td { padding: 7px 10px; border-bottom: 1px solid var(--bdr); color: var(--txt); }
+.ar-admin-table tr:last-child td { border-bottom: none; }
+
+.ar-upload-form {
+  background: var(--surf1); border: 1px solid var(--bdr); border-radius: 6px; padding: 16px;
+}
+.ar-upload-title {
+  font-family: var(--fh); font-size: 12px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--txt-dim); margin-bottom: 12px;
+}
+.ar-upload-fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.ar-upload-label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--txt-dim); }
+.ar-optional { font-size: 11px; opacity: .6; }
+.ar-upload-select, .ar-upload-input {
+  background: var(--surf2); border: 1px solid var(--bdr); color: var(--txt);
+  padding: 4px 8px; border-radius: 4px; font-family: var(--fh); font-size: 12px;
+}
+.ar-upload-actions { display: flex; align-items: center; gap: 12px; }
+.ar-upload-status { font-size: 12px; color: var(--txt-dim); }
