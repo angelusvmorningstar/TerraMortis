@@ -37,7 +37,7 @@ const NAME_OVERRIDES = {
   'mammon':                 'mammon',
   'cazz':                   'cazz',
   'ludica':                 'ludica',
-  'lothaire dubois':        'lothaire',
+  'lothaire dubois':        null,        // never played — skip permanently
 };
 
 // ── History doc list (same as fix-history-worddocs.js) ───────────────────────
