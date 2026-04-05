@@ -9,7 +9,7 @@ export async function connectDb() {
     serverSelectionTimeoutMS: 5000,
   });
   await client.connect();
-  db = client.db('tm_suite');
+  db = client.db(process.env.MONGODB_DB || 'tm_suite');
   console.log('MongoDB connected successfully');
 }
 
