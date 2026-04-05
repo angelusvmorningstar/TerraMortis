@@ -9,7 +9,7 @@ import { esc, parseOutcomeSections, displayName, clanIcon, covIcon } from '../da
 export async function renderStoryTab(el, char) {
   el.innerHTML = '<p class="placeholder-msg">Loading...</p>';
 
-  let subs = [], cycles = [], questResponse = null;
+  let subs = [], cycles = [], questResponse = null, historyDoc = null, ordealSubs = [];
   try {
     [subs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions'),
@@ -21,8 +21,12 @@ export async function renderStoryTab(el, char) {
   }
 
   try {
-    questResponse = await apiGet(`/api/questionnaire?character_id=${char._id}`);
-  } catch { /* no questionnaire yet */ }
+    [questResponse, historyDoc, ordealSubs] = await Promise.all([
+      apiGet(`/api/questionnaire?character_id=${char._id}`).catch(() => null),
+      apiGet(`/api/history?character_id=${char._id}`).catch(() => null),
+      apiGet('/api/ordeal_submissions/mine').catch(() => []),
+    ]);
+  } catch { /* non-fatal */ }
 
   // Doc card toggle — use onclick to prevent duplicate listeners on re-render
   el.onclick = e => {
@@ -46,9 +50,18 @@ export async function renderStoryTab(el, char) {
   h += '</div>';
 
   // ── Right: Documents ─────────────────────────────────────────────
+  // Resolve history text — prefer portal submission, fall back to historical import
+  const historySub = (ordealSubs || []).find(s =>
+    s.ordeal_type === 'character_history' &&
+    s.character_id?.toString() === char._id.toString()
+  );
+  const historyText = historyDoc?.history_text || historySub?.responses?.[0]?.answer || null;
+  const historySource = historyDoc ? 'portal' : (historySub ? historySub.source : null);
+
   h += '<div class="story-right">';
   h += '<h3 class="story-pane-title">Documents</h3>';
   h += renderDossier(char, questResponse);
+  h += renderHistoryCard(char, historyText, historySource);
   h += '</div>';
 
   h += '</div>';
@@ -232,6 +245,40 @@ function renderDossier(char, quest) {
 
   h += '</div>'; // doc-card-body
   h += '</div>'; // doc-card
+  return h;
+}
+
+// ── History card ─────────────────────────────────────────────────
+
+function renderHistoryCard(char, historyText, source) {
+  let h = '<div class="doc-card">';
+  h += '<button class="doc-card-toggle" aria-expanded="false">';
+  h += '<div class="doc-card-header-inner">';
+  h += '<span class="doc-card-eyebrow">Character History</span>';
+  h += `<span class="doc-card-title">${esc(displayName(char))}</span>`;
+  h += '</div>';
+  h += '<span class="doc-card-chevron">▾</span>';
+  h += '</button>';
+
+  h += '<div class="doc-card-body reading-pane" hidden>';
+
+  if (!historyText) {
+    h += '<p class="placeholder-msg">No history submitted yet.</p>';
+  } else {
+    // Word doc imports are stored as HTML; portal submissions are plain text
+    const isHtml = source === 'word_doc' || /<[a-z][\s\S]*>/i.test(historyText);
+    if (isHtml) {
+      h += `<div class="doc-history-body">${historyText}</div>`;
+    } else {
+      const paras = historyText.split(/\n{2,}/).filter(Boolean);
+      h += '<div class="doc-history-body">';
+      h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+      h += '</div>';
+    }
+  }
+
+  h += '</div>';
+  h += '</div>';
   return h;
 }
 

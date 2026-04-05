@@ -2465,6 +2465,17 @@ body {
   line-height: 1.65;
 }
 
+/* History card body */
+.doc-history-body p {
+  margin: 0 0 0.9em;
+}
+.doc-history-body p:last-child { margin-bottom: 0; }
+.doc-history-body h1, .doc-history-body h2, .doc-history-body h3 {
+  font-family: var(--fh);
+  color: #2C1A0E;
+  margin: 1em 0 0.4em;
+}
+
 /* Identity strip */
 .dos-identity {
   display: flex;

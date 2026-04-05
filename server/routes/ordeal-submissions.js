@@ -85,6 +85,8 @@ router.get('/mine', async (req, res) => {
   // responses[] (player's own Q&A) is included when complete so feedback can show question context.
   const stripped = docs.map(d => {
     const complete = d.marking?.status === 'complete';
+    // Always include responses for character_history (player's own text, not rubric-sensitive)
+    const includeResponses = complete || d.ordeal_type === 'character_history';
     return {
       _id:          d._id,
       ordeal_type:  d.ordeal_type,
@@ -92,7 +94,7 @@ router.get('/mine', async (req, res) => {
       submitted_at: d.submitted_at,
       source:       d.source,
       character_id: d.character_id,
-      responses: complete ? (d.responses || []) : [],
+      responses: includeResponses ? (d.responses || []) : [],
       marking: d.marking ? {
         status:           d.marking.status,
         overall_feedback: complete ? d.marking.overall_feedback : null,
