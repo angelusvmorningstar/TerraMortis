@@ -27,17 +27,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check secret presence
-        run: |
-          if [ -z "$MONGODB_URI" ]; then
-            echo "ERROR: MONGODB_URI secret is empty or not set"
-            exit 1
-          else
-            echo "MONGODB_URI is set (length: ${#MONGODB_URI})"
-          fi
-        env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-
       - name: Run tests
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
@@ -45,4 +34,7 @@ jobs:
           DISCORD_CLIENT_ID: placeholder
           DISCORD_CLIENT_SECRET: placeholder
           SESSION_SECRET: placeholder-ci-secret
-        run: npm test
+        run: |
+          # Strip ssl= param — not accepted by MongoDB driver v7
+          CLEAN_URI=$(echo "$MONGODB_URI" | sed 's/[&?]ssl=[^&]*//')
+          MONGODB_URI="$CLEAN_URI" npm test
