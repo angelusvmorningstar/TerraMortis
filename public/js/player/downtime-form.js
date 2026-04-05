@@ -695,14 +695,99 @@ export async function renderDowntimeTab(targetEl, char) {
     }
   }
 
-  // If cycle is not active, show state-appropriate message instead of form
+  // Set up two-pane layout
+  targetEl.innerHTML = `
+    <div class="dt-split">
+      <div class="dt-split-left" id="dt-left-pane"></div>
+      <div class="dt-split-right" id="dt-right-pane"></div>
+    </div>`;
+
+  const leftEl  = document.getElementById('dt-left-pane');
+  const rightEl = document.getElementById('dt-right-pane');
+
+  // Left: form or gate message
   if (!currentCycle || currentCycle.status !== 'active') {
-    targetEl.innerHTML = renderCycleGatePage();
+    leftEl.innerHTML = renderCycleGatePage();
+  } else {
+    leftEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
+    renderForm(document.getElementById('dt-container'));
+  }
+
+  // Right: history panel (fire-and-forget, loads independently)
+  renderHistoryPanel(rightEl, char);
+}
+
+async function renderHistoryPanel(el, char) {
+  el.innerHTML = '<p class="placeholder-msg dt-hist-loading">Loading history\u2026</p>';
+
+  let allSubs = [], cycles = [];
+  try {
+    [allSubs, cycles] = await Promise.all([
+      apiGet('/api/downtime_submissions'),
+      apiGet('/api/downtime_cycles'),
+    ]);
+  } catch {
+    el.innerHTML = '<p class="placeholder-msg">Could not load history.</p>';
     return;
   }
 
-  targetEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
-  renderForm(document.getElementById('dt-container'));
+  const cycleMap = {};
+  for (const c of cycles) cycleMap[String(c._id)] = c;
+
+  const charId = String(char._id);
+  const charSubs = allSubs
+    .filter(s => String(s.character_id) === charId)
+    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+
+  let h = '<div class="dt-hist-panel">';
+  h += '<div class="dt-hist-title">Submission History</div>';
+
+  if (!charSubs.length) {
+    h += '<p class="placeholder-msg dt-hist-empty">No previous submissions.</p>';
+  } else {
+    for (const sub of charSubs) {
+      const cycle   = cycleMap[String(sub.cycle_id)];
+      const label   = cycle?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
+      const status  = sub.approval_status || 'pending';
+      const statusCss = status === 'approved' ? 'approved' : status === 'modified' ? 'modified' : status === 'rejected' ? 'rejected' : 'pending';
+      const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+      const hasOutcome  = !!sub.published_outcome;
+
+      h += `<div class="dt-hist-entry">`;
+      h += `<div class="dt-hist-entry-head">`;
+      h += `<span class="dt-hist-cycle">${esc(label)}</span>`;
+      h += `<span class="dt-status-badge dt-status-${statusCss}">${esc(statusLabel)}</span>`;
+      if (hasOutcome) h += `<span class="dt-hist-has-outcome">\u2665 Outcome</span>`;
+      h += `</div>`;
+
+      if (hasOutcome) {
+        const sections = parseOutcomeSections(sub.published_outcome);
+        h += '<div class="dt-hist-outcome">';
+        for (const sec of sections) {
+          if (sec.heading) {
+            const isMech = sec.heading === 'Mechanical Outcomes';
+            h += `<div class="dt-hist-section${isMech ? ' dt-hist-mech' : ''}">`;
+            h += `<div class="dt-hist-section-head">${esc(sec.heading)}</div>`;
+            const body = sec.lines.join('\n').trim();
+            if (isMech) {
+              h += `<pre class="dt-hist-pre">${esc(body)}</pre>`;
+            } else {
+              h += sec.lines.filter(Boolean).map(l => `<p>${esc(l)}</p>`).join('');
+            }
+            h += '</div>';
+          } else {
+            h += sec.lines.filter(Boolean).map(l => `<p>${esc(l)}</p>`).join('');
+          }
+        }
+        h += '</div>';
+      }
+
+      h += '</div>';
+    }
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 function renderCycleGatePage() {

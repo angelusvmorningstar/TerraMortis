@@ -182,7 +182,8 @@ body {
 /* ── Tab panels ── */
 
 .tab-panel { display: none; }
-.tab-panel.active { display: block; }
+.tab-panel.active { display: flex; flex-direction: column; }
+#tab-downtime.active { display: flex; flex-direction: column; overflow: hidden; }
 
 /* Tab panels fill the content area */
 .tab-panel:not(#tab-sheet) {
@@ -2727,6 +2728,105 @@ body {
 }
 
 .arc-retired { padding: 0 0 16px; }
+
+/* ── Downtime two-pane ── */
+
+.dt-split {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.dt-split-left {
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid var(--bdr);
+  overflow-y: auto;
+}
+
+.dt-split-right {
+  width: 380px;
+  min-width: 280px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.dt-hist-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.dt-hist-title {
+  font-family: var(--fh);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt-dim);
+  margin-bottom: 12px;
+}
+
+.dt-hist-entry {
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.dt-hist-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--bdr);
+}
+
+.dt-hist-cycle {
+  flex: 1;
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--txt);
+}
+
+.dt-hist-has-outcome {
+  font-size: 11px;
+  color: var(--gold2);
+}
+
+.dt-hist-outcome {
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dt-hist-outcome p {
+  margin: 0 0 0.5em;
+}
+
+.dt-hist-outcome p:last-child { margin-bottom: 0; }
+
+.dt-hist-section { margin-bottom: 8px; }
+.dt-hist-section-head {
+  font-family: var(--fh);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin-bottom: 4px;
+}
+
+.dt-hist-mech .dt-hist-section-head { color: var(--txt-dim); }
+
+.dt-hist-pre {
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: var(--txt-dim);
+  margin: 0;
+}
+
+.dt-hist-loading, .dt-hist-empty { padding: 16px; }
 
 /* ── City tab ── */
 
