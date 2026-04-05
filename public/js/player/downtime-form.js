@@ -498,6 +498,29 @@ async function submitForm() {
   const responses = collectResponses();
   const btn = document.getElementById('dt-btn-submit');
 
+  // Validate required fields
+  const missing = [];
+  for (const section of DOWNTIME_SECTIONS) {
+    if (section.gate && gateValues[section.gate] !== 'yes') continue;
+    for (const q of (section.questions || [])) {
+      if (!q.required) continue;
+      const val = responses[q.key];
+      if (!val || (typeof val === 'string' && !val.trim())) {
+        missing.push(q.label || q.key);
+      }
+    }
+  }
+  // Feeding method is required
+  if (!responses['_feed_method']) missing.push('Feeding Method');
+  // Feeding territory is required
+  const territories = (() => { try { return JSON.parse(responses['feeding_territories'] || '{}'); } catch { return {}; } })();
+  if (!Object.values(territories).some(v => v && v !== 'none')) missing.push('Feeding Territory');
+
+  if (missing.length) {
+    showToast(`Please complete required fields before submitting: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ` (+${missing.length - 3} more)` : ''}.`, 'error');
+    return;
+  }
+
   // AC2: Validate XP spend against available budget before submitting
   const xpRows = JSON.parse(responses.xp_spend || '[]');
   const xpSpent = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
@@ -926,6 +949,7 @@ function renderForm(container) {
     if (section.key === 'projects') continue;
     if (section.key === 'acquisitions') continue;
     if (section.key === 'blood_sorcery') continue;
+    if (section.key === 'equipment') continue;
     if (section.key === 'vamping') continue;
     if (section.key === 'admin') continue;
 

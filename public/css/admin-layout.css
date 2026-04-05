@@ -1008,6 +1008,52 @@ body {
 .dt-match-icon { color: #6a6; font-size: 12px; }
 .dt-unmatch-icon { color: var(--crim2, #B22222); font-size: 12px; }
 
+/* ── Player Responses panel ── */
+.dt-resp-panel {
+  margin: 8px 0 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.15);
+}
+.dt-panel { margin: 8px 0 12px; }
+.dt-panel-title {
+  font-family: var(--fh);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin-bottom: 8px;
+}
+.dt-resp-section { margin-bottom: 10px; }
+.dt-resp-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt2);
+  border-bottom: 1px solid var(--bdr);
+  padding-bottom: 3px;
+  margin-bottom: 5px;
+}
+.dt-resp-row {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  align-items: baseline;
+}
+.dt-resp-label {
+  flex: 0 0 140px;
+  color: var(--txt3);
+  font-size: 12px;
+}
+.dt-resp-val {
+  flex: 1;
+  color: var(--txt1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .dt-match-bar {
   display: flex;
   gap: 16px;

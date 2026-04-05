@@ -33,17 +33,17 @@ export const characterSchema = {
     retired:      { type: 'boolean' },
 
     clan: {
-      type: 'string',
-      enum: ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue']
+      type: ['string', 'null'],
+      enum: ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue', '', null]
     },
     bloodline:   { type: ['string', 'null'] },
     clan_attribute: { type: ['string', 'null'] },
 
     covenant: {
-      type: 'string',
+      type: ['string', 'null'],
       enum: [
         'Carthian Movement', 'Circle of the Crone', 'Invictus',
-        'Lancea et Sanctum', 'Ordo Dracul', 'Unaligned'
+        'Lancea et Sanctum', 'Ordo Dracul', 'Unaligned', '', null
       ]
     },
 

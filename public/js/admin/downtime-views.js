@@ -6,7 +6,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../player/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
 import { displayName, sortName } from '../data/helpers.js';
@@ -513,6 +513,7 @@ function renderSubmissions() {
       </div>`;
 
     if (isExpanded) {
+      h += renderPlayerResponses(s);
       h += renderFeedingDetail(s, raw, char);
       h += renderProjectsPanel(s, raw, char);
       h += renderMeritActionsPanel(s, raw, char);
@@ -942,6 +943,142 @@ function renderFeedingDetail(s, raw, char) {
 }
 
 // ── Feeding rolls — handled inline via showRollModal in event delegation ────
+
+// ── Player Responses (new form format) ──────────────────────────────────────
+
+function renderPlayerResponses(s) {
+  const r = s.responses;
+  if (!r || !Object.keys(r).length) return '';
+
+  const SKIP_PREFIXES = ['_gate_', '_feed_blood', 'sorcery_slot_count', 'equipment_slot_count'];
+  const FEED_METHOD_LABELS = { seduction: 'Seduction', stalking: 'Stalking', force: 'By Force', familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other' };
+
+  function row(label, val) {
+    if (!val || (typeof val === 'string' && !val.trim())) return '';
+    return `<div class="dt-resp-row"><span class="dt-resp-label">${esc(label)}</span><span class="dt-resp-val">${esc(val)}</span></div>`;
+  }
+
+  let h = '<div class="dt-panel dt-resp-panel">';
+  h += '<div class="dt-panel-title">Player Submission</div>';
+
+  // ── Feeding ──
+  const feedMethod = r['_feed_method'];
+  const feedDesc = r['feeding_description'];
+  const feedDisc = r['_feed_disc'];
+  const feedSpec = r['_feed_spec'];
+  const feedRote = r['_feed_rote'] === 'yes';
+  if (feedMethod) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Feeding</div>';
+    h += row('Method', FEED_METHOD_LABELS[feedMethod] || feedMethod);
+    if (feedDisc) h += row('Discipline', feedDisc);
+    if (feedSpec) h += row('Specialisation', feedSpec);
+    if (feedRote) h += row('Rote action', 'Yes — Project 1 dedicated to feeding');
+    try {
+      const terrs = JSON.parse(r['feeding_territories'] || '{}');
+      const active = Object.entries(terrs).filter(([, v]) => v && v !== 'none').map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
+      if (active) h += row('Territory', active);
+    } catch { /* ignore */ }
+    if (feedDesc) h += row('Description', feedDesc);
+    h += '</div>';
+  }
+
+  // ── Court ──
+  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
+  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations' };
+  const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
+  if (courtVals.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
+    for (const k of courtVals) {
+      let val = r[k];
+      if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).join(', '); } catch { /* ignore */ } }
+      h += row(courtLabels[k] || k, val);
+    }
+    h += '</div>';
+  }
+
+  // ── Projects ──
+  const projRows = [];
+  for (let n = 1; n <= 4; n++) {
+    const action = r[`project_${n}_action`];
+    if (!action) continue;
+    const actionLabel = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    let desc = r[`project_${n}_description`] || r[`project_${n}_xp_trait`] || '';
+    projRows.push(`${n}. ${actionLabel}${desc ? ': ' + desc : ''}`);
+  }
+  if (projRows.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Projects</div>';
+    for (const p of projRows) h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(p)}</span></div>`;
+    h += '</div>';
+  }
+
+  // ── Sorcery ──
+  const sorcCount = parseInt(r['sorcery_slot_count'] || '1', 10);
+  const sorcRows = [];
+  for (let n = 1; n <= sorcCount; n++) {
+    const rite = r[`sorcery_${n}_rite`];
+    if (!rite) continue;
+    const targets = r[`sorcery_${n}_targets`] || '';
+    const notes = r[`sorcery_${n}_notes`] || '';
+    const mand = r[`sorcery_${n}_mandragora`] === 'yes';
+    let line = rite;
+    if (mand) line += ' [Mandragora Garden]';
+    if (targets) line += ` — targets: ${targets}`;
+    if (notes) line += ` — ${notes}`;
+    sorcRows.push(line);
+  }
+  if (sorcRows.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Blood Sorcery</div>';
+    for (const sr of sorcRows) h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(sr)}</span></div>`;
+    h += '</div>';
+  }
+
+  // ── Equipment ──
+  const equipCount = parseInt(r['equipment_slot_count'] || '1', 10);
+  const equipRows = [];
+  for (let n = 1; n <= equipCount; n++) {
+    const name = r[`equipment_${n}_name`];
+    if (!name) continue;
+    const qty = r[`equipment_${n}_qty`] || '';
+    const notes = r[`equipment_${n}_notes`] || '';
+    equipRows.push([qty ? `${qty}× ${name}` : name, notes].filter(Boolean).join(' — '));
+  }
+  if (equipRows.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Equipment</div>';
+    for (const eq of equipRows) h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(eq)}</span></div>`;
+    h += '</div>';
+  }
+
+  // ── Misc sections (vamping, lore, admin) ──
+  const miscFields = [
+    ['vamping', 'Vamping'],
+    ['lore_request', 'Lore Request'],
+    ['xp_spend', 'XP Spend'],
+    ['resources_acquisitions', 'Resources Acquisitions'],
+    ['skill_acquisitions', 'Skill Acquisitions'],
+    ['regency_action', 'Regency Action'],
+    ['form_feedback', 'Form Feedback'],
+  ];
+  let miscH = '';
+  for (const [key, label] of miscFields) {
+    if (!r[key] || !r[key].trim?.()) continue;
+    if (key === 'xp_spend') {
+      try {
+        const rows = JSON.parse(r[key]).filter(rw => rw.category && rw.item);
+        if (rows.length) miscH += row(label, rows.map(rw => `${rw.item} (${rw.cost} XP)`).join(', '));
+      } catch { /* ignore */ }
+    } else {
+      miscH += row(label, r[key]);
+    }
+  }
+  if (miscH) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Other</div>';
+    h += miscH;
+    h += '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
 
 // ── ST Notes ────────────────────────────────────────────────────────────────
 
