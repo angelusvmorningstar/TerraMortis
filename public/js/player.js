@@ -122,7 +122,10 @@ async function loadCharacters() {
     selector.innerHTML = activeChars.map((c, i) =>
       `<option value="${i}">${esc(displayName(c))}</option>`
     ).join('');
-    selector.addEventListener('change', () => selectCharacter(activeChars, Number(selector.value)));
+    selector.addEventListener('change', () => {
+      localStorage.setItem('tm_active_char', String(activeChars[Number(selector.value)]._id));
+      selectCharacter(activeChars, Number(selector.value));
+    });
   }
 
   // Show Archive tab if any retired characters exist
@@ -141,7 +144,12 @@ async function loadCharacters() {
     return;
   }
 
-  selectCharacter(activeChars, 0);
+  // Restore last active character from admin/previous session
+  const savedCharId = localStorage.getItem('tm_active_char');
+  const savedIdx = savedCharId ? activeChars.findIndex(c => String(c._id) === savedCharId) : -1;
+  const startIdx = savedIdx >= 0 ? savedIdx : 0;
+  if (selector && activeChars.length > 1) selector.value = String(startIdx);
+  selectCharacter(activeChars, startIdx);
 }
 
 function showWizard() {

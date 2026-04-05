@@ -285,6 +285,7 @@ function openCharDetail(c) {
   editorState.editIdx = chars.indexOf(c);
   editorState.editMode = false;
   editorState.dirty.clear();
+  localStorage.setItem('tm_active_char', String(c._id));
 
   const panel = document.getElementById('char-detail');
 
