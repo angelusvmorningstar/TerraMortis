@@ -19,7 +19,7 @@ export async function renderCityTab(el) {
   }
 
   const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
-  const courtHolders = chars.filter(c => c.court_title && !c.regent_territory)
+  const courtHolders = chars.filter(c => c.court_title)
     .sort((a, b) => {
       const ai = TITLE_ORDER.indexOf(a.court_title);
       const bi = TITLE_ORDER.indexOf(b.court_title);
@@ -96,7 +96,7 @@ export async function renderCityTab(el) {
     h += '<div class="city-char-list">';
     for (const c of sorted) {
       h += '<div class="city-char-row">';
-      h += `<span class="city-char-name">${esc(displayName(c))}</span>`;
+      h += `<span class="city-char-name">${esc(displayName(c))}${c.player ? ` <span class="city-char-player">(${esc(c.player)})</span>` : ''}</span>`;
       h += '<span class="city-char-meta">';
       if (c.clan) h += `${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span>`;
       if (c.court_title) h += `<span class="city-char-position">${esc(c.court_title)}</span>`;

@@ -2930,6 +2930,7 @@ body {
 .city-char-name { font-size: 13px; color: var(--txt); }
 .city-char-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt-dim); }
 .city-char-position { font-family: var(--fh); font-size: 11px; color: var(--gold2); letter-spacing: .04em; }
+.city-char-player { font-size: 11px; color: var(--txt3); font-style: italic; }
 .city-placeholder { font-size: 12px; margin: 0; }
 
 /* ── Responsive ── */
