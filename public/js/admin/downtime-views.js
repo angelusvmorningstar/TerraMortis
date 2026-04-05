@@ -42,6 +42,7 @@ export async function initDowntimeView() {
   document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
+  document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
   document.getElementById('dt-cycle-sel').addEventListener('change', e => {
     selectedCycleId = e.target.value;
     loadCycleById(selectedCycleId);
@@ -62,6 +63,7 @@ function buildShell() {
       <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
       <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
       <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
+      <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export All</button>
     </div>
     <div id="dt-cycle-bar" class="dt-cycle-bar">
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
@@ -316,6 +318,7 @@ async function loadAllCycles() {
     document.getElementById('dt-match-summary').innerHTML = '';
     document.getElementById('dt-close-cycle').style.display = 'none';
     document.getElementById('dt-open-game').style.display = 'none';
+    document.getElementById('dt-export-all').style.display = 'none';
   }
 }
 
@@ -376,6 +379,7 @@ async function loadCycleById(cycleId) {
 
   expandedId = null;
   submissions = await getSubmissionsForCycle(cycleId);
+  document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
   renderMatchSummary();
   renderFeedingScene();
   renderFeedingMatrix();
@@ -484,6 +488,7 @@ function renderSubmissions() {
       h += renderApproval(s);
       h += renderExpenditurePanel(s);
       h += renderPublishPanel(s);
+      h += renderExportRow(s);
     }
 
     h += '</div>';
@@ -822,6 +827,11 @@ function renderSubmissions() {
         }
       );
     });
+  });
+
+  // Export button delegation
+  el.querySelectorAll('.dt-export-btn').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); handleExportSingle(btn.dataset.subId); });
   });
 }
 
@@ -1464,6 +1474,208 @@ function renderNarrativePanel(s) {
 
   h += '</div>';
   return h;
+}
+
+// ── DT-1: Downtime Export Packet ─────────────────────────────────────────────
+
+function renderExportRow(s) {
+  return `<div class="dt-export-row">
+    <button class="dt-btn dt-export-btn" data-sub-id="${s._id}">Export Packet</button>
+    <span class="dt-export-hint">Download this character's downtime data as Markdown for Claude</span>
+  </div>`;
+}
+
+function downloadMd(filename, content) {
+  const blob = new Blob([content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resolveConflict(v) {
+  return { Monstrous: 'Intimidation', Seductive: 'Manipulation', Competitive: 'Superiority' }[v] || v;
+}
+
+function resolveRole(v) {
+  return {
+    ruler: 'Ruler', primogen: 'Primogen', administrator: 'Administrator',
+    regent: 'Regent', socialite: 'Socialite', enforcer: 'Enforcer', none_yet: 'None yet',
+  }[v] || v;
+}
+
+async function buildExportMd(sub, char, questResp) {
+  const raw = sub._raw || {};
+  const r = questResp?.responses || {};
+  const projects = raw.projects || [];
+  const projResolved = sub.projects_resolved || [];
+  const meritActions = [
+    ...(raw.sphere_actions || []),
+    ...((raw.contact_actions?.requests || []).map(req => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: req }))),
+    ...((raw.retainer_actions?.actions || []).map(req => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: req }))),
+  ];
+  const meritResolved = sub.merit_actions_resolved || [];
+  const feed = raw.feeding || {};
+
+  const name = char ? displayName(char) : (sub.character_name || 'Unknown');
+  let md = `# ${name}\n`;
+
+  // Identity
+  if (char) {
+    const clanParts = [char.clan, char.bloodline].filter(Boolean).join(' / ');
+    const lineParts = [clanParts, char.covenant].filter(Boolean);
+    if (lineParts.length) md += `*${lineParts.join(' \u00B7 ')}*`;
+    if (char.blood_potency) md += ` \u00B7 Blood Potency ${char.blood_potency}`;
+    md += '\n';
+    const identity = [];
+    if (char.mask)  identity.push(`**Mask:** ${char.mask}`);
+    if (char.dirge) identity.push(`**Dirge:** ${char.dirge}`);
+    if (identity.length) md += identity.join(' \u00B7 ') + '\n';
+    if (char.date_of_embrace) {
+      const d = new Date(char.date_of_embrace + 'T00:00:00');
+      md += `**Embraced:** ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}\n`;
+    }
+    if (char.humanity !== undefined) md += `**Humanity:** ${char.humanity}\n`;
+  }
+  md += '\n';
+
+  // Motivations (from questionnaire)
+  const motivations = [
+    r.court_motivation  && `**Why Court?** ${r.court_motivation}`,
+    r.ambitions_sydney  && `**Goals in Sydney:** ${r.ambitions_sydney}`,
+    r.conflict_approach && `**Conflict Approach:** ${resolveConflict(r.conflict_approach)}`,
+    r.aspired_role_tag  && `**Aspired Role:** ${resolveRole(r.aspired_role_tag)}`,
+  ].filter(Boolean);
+  if (motivations.length) md += `## Motivations\n${motivations.join('\n')}\n\n`;
+
+  // Connections (from questionnaire)
+  const connBlocks = [];
+  if (r.allies_characters?.length) {
+    const list = Array.isArray(r.allies_characters) ? r.allies_characters.join(', ') : r.allies_characters;
+    let b = `**Allied PCs:** ${list}`;
+    if (r.allies) b += `\n> ${r.allies}`;
+    connBlocks.push(b);
+  }
+  if (r.coterie_characters?.length) {
+    const list = Array.isArray(r.coterie_characters) ? r.coterie_characters.join(', ') : r.coterie_characters;
+    let b = `**Coterie:** ${list}`;
+    if (r.coterie) b += `\n> ${r.coterie}`;
+    connBlocks.push(b);
+  }
+  if (r.enemies_characters?.length) {
+    const list = Array.isArray(r.enemies_characters) ? r.enemies_characters.join(', ') : r.enemies_characters;
+    let b = `**Rivals/Enemies:** ${list}`;
+    if (r.enemies) b += `\n> ${r.enemies}`;
+    connBlocks.push(b);
+  }
+  if (connBlocks.length) md += `## Connections\n${connBlocks.join('\n\n')}\n\n`;
+
+  // Actions
+  if (projects.length) {
+    md += '## Actions\n';
+    projects.forEach((proj, i) => {
+      const res = projResolved[i];
+      md += `\n### ${i + 1}. ${proj.action_type || 'Action'}\n`;
+      if (proj.territory) md += `**Territory:** ${proj.territory}\n`;
+      if (proj.desired_outcome) md += `**Intent:** ${proj.desired_outcome}\n`;
+      if (proj.description && proj.description !== proj.desired_outcome) md += `**Description:** ${proj.description}\n`;
+      if (res?.pool) md += `**Pool:** ${res.pool.expression || String(res.pool.total)}\n`;
+      if (res?.roll) {
+        const roll = res.roll;
+        md += `**Result:** ${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''}\n`;
+        if (roll.dice_string) md += `**Dice:** ${roll.dice_string}\n`;
+      } else {
+        md += `**Result:** pending\n`;
+      }
+      if (res?.st_note) md += `**ST Note:** ${res.st_note}\n`;
+    });
+    md += '\n';
+  }
+
+  // Feeding
+  {
+    md += '## Feeding\n';
+    const method = feed.method || sub.responses?.['_feed_method'] || 'Not declared';
+    md += `**Method:** ${method}\n`;
+    const activeTerrs = Object.entries(feed.territories || {}).filter(([, v]) => v && v !== 'Not feeding here');
+    if (activeTerrs.length) md += `**Territories:** ${activeTerrs.map(([t, v]) => `${t} (${v})`).join(', ')}\n`;
+    const feedRoll = sub.feeding_roll;
+    if (feedRoll?.params?.size) {
+      const isRote = sub.st_review?.feeding_rote || feedRoll.params.rote || false;
+      md += `**Pool:** ${feedRoll.params.size} dice${isRote ? ' \u2014 Rote quality' : ''}\n`;
+    }
+    if (feedRoll) {
+      md += `**Result:** ${feedRoll.successes} ${feedRoll.successes === 1 ? 'success' : 'successes'}${feedRoll.exceptional ? ' (exceptional)' : ''} \u2014 ${feedRoll.successes * 2} Vitae safe\n`;
+      if (feedRoll.dice_string) md += `**Dice:** ${feedRoll.dice_string}\n`;
+    } else {
+      md += `**Result:** pending\n`;
+    }
+    md += '\n';
+  }
+
+  // Merit Actions
+  if (meritActions.length) {
+    md += '## Merit Actions\n';
+    meritActions.forEach((action, i) => {
+      const res = meritResolved[i];
+      md += `\n### ${action.merit_type} \u2014 ${action.action_type}\n`;
+      if (action.description) md += `**Action:** ${action.description}\n`;
+      if (res?.no_roll) {
+        md += `**Result:** No roll required\n`;
+        if (res.st_note) md += `**ST Note:** ${res.st_note}\n`;
+      } else if (res?.roll) {
+        const roll = res.roll;
+        if (res.pool) md += `**Pool:** ${res.pool.expression || String(res.pool.total)}\n`;
+        md += `**Result:** ${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''}\n`;
+        if (roll.dice_string) md += `**Dice:** ${roll.dice_string}\n`;
+        if (res.st_note) md += `**ST Note:** ${res.st_note}\n`;
+      } else {
+        md += `**Result:** pending\n`;
+      }
+    });
+    md += '\n';
+  }
+
+  // ST Notes (private — included in export for ST use in Claude)
+  if (sub.st_notes) md += `## ST Notes\n${sub.st_notes}\n\n`;
+
+  return md.trim();
+}
+
+async function handleExportSingle(subId) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const char = findCharacter(sub.character_name);
+  let questResp = null;
+  if (char) {
+    try { questResp = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
+  }
+  const md = await buildExportMd(sub, char, questResp);
+  const safeName = (sub.character_name || 'unknown').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  downloadMd(`downtime_${safeName}.md`, md);
+}
+
+async function handleExportAll() {
+  if (!submissions.length) return;
+  const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
+  // Load all questionnaire responses in parallel
+  const questMap = {};
+  await Promise.all(sorted.map(async sub => {
+    const char = findCharacter(sub.character_name);
+    if (char) {
+      try { questMap[sub._id] = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
+    }
+  }));
+  const parts = [];
+  for (const sub of sorted) {
+    const char = findCharacter(sub.character_name);
+    parts.push(await buildExportMd(sub, char, questMap[sub._id] || null));
+  }
+  const cycleLabel = allCycles.find(c => c._id === selectedCycleId)?.label || 'downtime';
+  const safeLabel = cycleLabel.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  downloadMd(`export_${safeLabel}_all.md`, parts.join('\n\n---\n\n'));
 }
 
 // ── Mechanical Summary (Story 1.8) ───────────────────────────────────────────

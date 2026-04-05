@@ -1136,6 +1136,9 @@ body {
 .dt-status-modified { background: rgba(224, 196, 122, 0.15); color: var(--gold2); }
 .dt-status-rejected { background: rgba(178, 34, 34, 0.15); color: var(--crim2, #B22222); }
 .dt-btn-game { border-color: var(--gold2); color: var(--gold2); }
+.dt-btn-export { border-color: var(--txt3); color: var(--txt3); }
+.dt-export-row { display: flex; align-items: center; gap: 1rem; padding: .75rem 1rem; border-top: 1px solid var(--surf3); }
+.dt-export-hint { font-size: .8rem; color: var(--txt3); }
 
 .dt-sub-approved { border-left: 3px solid #6a6; }
 .dt-sub-modified { border-left: 3px solid var(--gold2); }
