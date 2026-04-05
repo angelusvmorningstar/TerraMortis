@@ -31,6 +31,20 @@ router.get('/', async (req, res) => {
   res.json(chars);
 });
 
+// GET /api/characters/public — public who's who list (any authenticated user)
+// Returns only display fields for active, non-retired characters.
+router.get('/public', async (req, res) => {
+  const chars = await col()
+    .find(
+      { retired: { $ne: true }, pending_approval: { $ne: true } },
+      { projection: { name: 1, honorific: 1, moniker: 1, clan: 1, covenant: 1, court_position: 1 } }
+    )
+    .toArray();
+  const sortKey = c => `${c.covenant || 'zzz'}|${(c.moniker || c.name || '').toLowerCase()}`;
+  chars.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  res.json(chars);
+});
+
 // GET /api/characters/names — lightweight list of all active character names (any authenticated user)
 router.get('/names', async (req, res) => {
   const chars = await col()

@@ -2730,6 +2730,87 @@ body {
 
 .arc-retired { padding: 0 0 16px; }
 
+/* ── City tab ── */
+
+.city-map-wrap {
+  width: 100%;
+  overflow: hidden;
+  background: #000;
+}
+.city-map {
+  width: 100%;
+  display: block;
+  touch-action: pinch-zoom;
+}
+
+.city-whos-who {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.city-section-title {
+  font-family: var(--fh);
+  font-size: 14px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  margin: 0 0 4px;
+}
+
+.city-cov-group {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.city-cov-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-family: var(--fh);
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--gold2);
+  border-bottom: 1px solid var(--bdr);
+  background: var(--surf2);
+}
+
+.city-char-list { padding: 4px 0; }
+
+.city-char-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--bdr);
+}
+.city-char-row:last-child { border-bottom: none; }
+
+.city-char-name {
+  font-size: 14px;
+  color: var(--txt);
+}
+
+.city-char-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--txt-dim);
+}
+
+.city-char-position {
+  font-family: var(--fh);
+  font-size: 11px;
+  color: var(--gold2);
+  letter-spacing: .04em;
+}
+
 /* ── Responsive ── */
 
 @media (min-width: 600px) {
