@@ -43,8 +43,22 @@ router.get('/', async (req, res) => {
   }
 
   const doc = await col().findOne({ character_id: oid });
-  if (!doc) return res.json(null);
-  res.json(doc);
+  if (doc) return res.json(doc);
+
+  // Fallback: historical import in ordeal_submissions
+  const ordealSub = await getCollection('ordeal_submissions').findOne({
+    character_id: oid,
+    ordeal_type: 'character_history',
+  });
+  if (!ordealSub) return res.json(null);
+
+  res.json({
+    character_id:  ordealSub.character_id,
+    history_text:  ordealSub.responses?.[0]?.answer || '',
+    source:        ordealSub.source,
+    submitted_at:  ordealSub.submitted_at,
+    status:        ordealSub.marking?.status === 'complete' ? 'approved' : 'submitted',
+  });
 });
 
 // POST /api/history — create

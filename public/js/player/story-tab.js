@@ -9,7 +9,7 @@ import { esc, parseOutcomeSections, displayName, clanIcon, covIcon } from '../da
 export async function renderStoryTab(el, char) {
   el.innerHTML = '<p class="placeholder-msg">Loading...</p>';
 
-  let subs = [], cycles = [], questResponse = null, historyDoc = null, ordealSubs = [];
+  let subs = [], cycles = [], questResponse = null, historyDoc = null;
   try {
     [subs, cycles] = await Promise.all([
       apiGet('/api/downtime_submissions'),
@@ -21,10 +21,9 @@ export async function renderStoryTab(el, char) {
   }
 
   try {
-    [questResponse, historyDoc, ordealSubs] = await Promise.all([
+    [questResponse, historyDoc] = await Promise.all([
       apiGet(`/api/questionnaire?character_id=${char._id}`).catch(() => null),
       apiGet(`/api/history?character_id=${char._id}`).catch(() => null),
-      apiGet('/api/ordeal_submissions/mine').catch(() => []),
     ]);
   } catch { /* non-fatal */ }
 
@@ -50,18 +49,10 @@ export async function renderStoryTab(el, char) {
   h += '</div>';
 
   // ── Right: Documents ─────────────────────────────────────────────
-  // Resolve history text — prefer portal submission, fall back to historical import
-  const historySub = (ordealSubs || []).find(s =>
-    s.ordeal_type === 'character_history' &&
-    s.character_id?.toString() === char._id.toString()
-  );
-  const historyText = historyDoc?.history_text || historySub?.responses?.[0]?.answer || null;
-  const historySource = historyDoc ? 'portal' : (historySub ? historySub.source : null);
-
   h += '<div class="story-right">';
   h += '<h3 class="story-pane-title">Documents</h3>';
   h += renderDossier(char, questResponse);
-  h += renderHistoryCard(char, historyText, historySource);
+  h += renderHistoryCard(char, historyDoc?.history_text || null, historyDoc?.source || null);
   h += '</div>';
 
   h += '</div>';
