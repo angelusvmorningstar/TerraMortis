@@ -2979,10 +2979,28 @@ body {
 
 /* ── Tickets admin domain ── */
 .tk-admin { padding: 0; }
-.tk-admin-split { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
-.tk-admin-form-panel { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 18px 16px; }
-.tk-admin-form-panel h4 { margin: 0 0 14px; font-size: 13px; color: var(--gold2); font-family: 'Cinzel', serif; text-transform: uppercase; letter-spacing: 0.05em; }
+.tk-admin-split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .tk-admin-queue-panel { min-width: 0; }
+/* Shared ticket form styles (mirrors player-layout.css tk-* rules for admin page) */
+.tk-submit-form { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 16px; }
+.tk-submit-form h4 { font-family: 'Cinzel', serif; font-size: 14px; color: var(--gold2); margin: 0 0 12px; }
+.tk-form-row { margin-bottom: 10px; }
+.tk-form-label { display: block; font-size: 12px; color: var(--txt3); margin-bottom: 4px; }
+.tk-select, .tk-input { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 7px 10px; font-size: 13px; box-sizing: border-box; }
+.tk-textarea { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 7px 10px; font-size: 13px; box-sizing: border-box; resize: vertical; }
+.tk-btn-submit { background: none; border: 1px solid var(--gold2); color: var(--gold2); font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 18px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
+.tk-btn-submit:hover { background: rgba(224,196,122,0.12); }
+.tk-error { color: var(--crim); font-size: 12px; margin-top: 6px; }
+.tk-empty { color: var(--txt3); font-style: italic; font-size: 13px; padding: 20px 0; }
+.tk-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; letter-spacing: 0.03em; white-space: nowrap; }
+.tk-badge-open { background: rgba(224,196,122,0.2); color: var(--gold2); }
+.tk-badge-in_progress { background: rgba(80,140,200,0.2); color: #7ab4e0; }
+.tk-badge-resolved { background: rgba(80,180,100,0.2); color: #72c47a; }
+.tk-badge-closed { background: rgba(120,120,120,0.15); color: var(--txt3); }
+.tk-badge-bug { background: rgba(180,60,60,0.2); color: #c47272; }
+.tk-badge-feature { background: rgba(130,80,180,0.2); color: #b080d8; }
+.tk-badge-question { background: rgba(60,170,160,0.2); color: #60c8be; }
+.tk-badge-other { background: rgba(120,120,120,0.15); color: var(--txt3); }
 .tk-filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .tk-filter-btn { background: none; border: 1px solid var(--bdr); color: var(--txt3); font-size: 12px; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
 .tk-filter-btn:hover { border-color: var(--gold2); color: var(--gold2); }

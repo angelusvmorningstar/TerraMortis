@@ -44,7 +44,7 @@ export async function initTicketsView(containerEl) {
 
   containerEl.innerHTML = `
     <div class="tk-admin-split">
-      <div class="tk-admin-form-panel">
+      <div class="tk-submit-form">
         <h4>Submit a Ticket</h4>
         <div class="tk-form-row">
           <label class="tk-form-label" for="tk-adm-type">Type</label>
