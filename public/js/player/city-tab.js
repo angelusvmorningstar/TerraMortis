@@ -19,11 +19,11 @@ export async function renderCityTab(el) {
   }
 
   const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
-  const courtHolders = chars.filter(c => c.court_title)
+  const courtHolders = chars.filter(c => TITLE_ORDER.includes(c.court_title))
     .sort((a, b) => {
       const ai = TITLE_ORDER.indexOf(a.court_title);
       const bi = TITLE_ORDER.indexOf(b.court_title);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || sortName(a).localeCompare(sortName(b));
+      return ai - bi || sortName(a).localeCompare(sortName(b));
     });
   const regents = chars.filter(c => c.regent_territory)
     .sort((a, b) => (c => c.regent_territory || '')(a).localeCompare((c => c.regent_territory || '')(b)));
