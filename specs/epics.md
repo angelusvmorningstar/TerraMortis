@@ -193,8 +193,8 @@ Character editing, MCI/PT grants, city domain views, attendance and finance, dat
 ### Epic 4: Downtime System — DONE
 CSV import, cycle management, submission processing, feeding rolls, project/merit resolution, narrative authoring, mechanical summaries, investigation tracker, NPC register, publish-to-players workflow, ambience update.
 
-### Epic 5: Player Access Layer — DONE (Story 5.8 partial)
-Players can authenticate, view their characters, submit downtimes, track ordeals, and receive published outcomes — all without going through the ST. Story 5.8 (smart dropdowns, XP budget validation, cross-submission conflict detection) is partially implemented — core form is complete.
+### Epic 5: Player Access Layer — DONE
+Players can authenticate, view their characters, submit downtimes, track ordeals, and receive published outcomes — all without going through the ST. Cross-submission influence conflict detection intentionally omitted — players should not know other characters are targeting the same sphere.
 **FRs covered:** FR-5-01, FR-5-02, FR-5-03, FR-5-04, FR-5-05, FR-5-06
 
 ### Epic GC: Game Cycle Management — DONE
@@ -222,7 +222,7 @@ Public landing page and authenticated player resource portal. Depends on Epics 2
 
 ---
 
-## Epic 5: Player Access Layer — DONE (Story 5.8 partial)
+## Epic 5: Player Access Layer — DONE
 
 Players can authenticate, view their characters, submit downtimes, track ordeals, and receive published outcomes — all without going through the ST.
 
