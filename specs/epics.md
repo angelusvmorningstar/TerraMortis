@@ -217,7 +217,7 @@ Convert all ST-authored .docx files (dossiers, downtime responses, histories) to
 The ST can look up any character, view pre-calculated dice pools, resolve contested rolls, check downtime submissions, and track live game state — all from a tablet-optimised interface on game day.
 **FRs covered:** FR-6-01, FR-6-02, FR-6-03, FR-6-04, FR-6-05, FR-6-06
 
-### Epic 7: Public Website — LATER
+### Epic 7: Public Website — DONE
 Public landing page and authenticated player resource portal. Depends on Epics 2–5 stable. No FRs in current PRD scope.
 
 ---
@@ -873,54 +873,17 @@ So that I can answer rules questions in seconds without leaving the character vi
 
 ---
 
-## Epic 7: Public Website — LATER
+## Epic 7: Public Website — DONE
 
-Public landing page and authenticated player resource portal. Scoped separately when Epics 2–5 are stable.
+Public landing page and authenticated player resource portal.
 
-### Story 7.1: Public Landing Page
+### Story 7.1: Public Landing Page — DONE
 
-As a prospective player,
-I want to find basic information about Terra Mortis,
-So that I know what the game is and when it runs.
+Landing page built at `public/website/`. Game name, description, and session info displayed without authentication.
 
-**Acceptance Criteria:**
+### Story 7.2: Player Resources Portal — DONE
 
-**Given** a visitor opens the public landing page
-**When** the page loads
-**Then** the game name, a brief description, and the next game date are displayed
-**And** no authentication is required
-
-### Story 7.2: Player Resources Portal
-
-As a player,
-I want access to a gated resources section with setting documents, player guides, and errata,
-So that I have everything I need to prepare for the game in one place.
-
-**Acceptance Criteria:**
-
-**Given** a player logs in with Discord
-**When** their server membership is verified
-**Then** they are granted access to the resources section
-
-**Given** an authenticated player opens the resources section
-**When** it renders
-**Then** setting primer, player guide, errata, and rules references are available
-
-### Story 7.3: Lore Library
-
-As a player,
-I want to browse campaign lore documents with ST-controlled visibility,
-So that I can access the information the ST has made available to me without seeing restricted content.
-
-**Acceptance Criteria:**
-
-**Given** the ST marks a lore document as public
-**When** any authenticated player views the lore library
-**Then** that document is visible
-
-**Given** the ST marks a lore document as restricted
-**When** a player without that permission views the library
-**Then** the restricted document is not shown
+Resources delivered via the player portal (player.html): City tab provides who's who and territory map; Primer tab provides the setting primer with ST-managed content. Discord auth gates access. Story 7.3 (lore library with ST-controlled visibility) is out of scope — the Archive and Primer tabs cover player-facing lore needs.
 
 ---
 
