@@ -246,15 +246,10 @@ function renderRight() {
   // Actions
   if (!isComplete) {
     const pendingCount = Object.keys(pending).length;
-    const allAnswered  = responses.every((_, i) => {
-      const p = pending[i];
-      const s = savedAnswers.find(a => a.question_index === i);
-      return (p?.result || s?.result);
-    });
 
     h += '<div class="or-actions">';
     h += `<button class="dt-btn or-save-btn" data-sub-id="${esc(sub._id)}"${!pendingCount ? ' disabled' : ''}>Save Progress</button>`;
-    h += `<button class="dt-btn or-complete-btn" data-sub-id="${esc(sub._id)}"${!allAnswered ? ' disabled title="Mark all questions first"' : ''}>Mark Complete</button>`;
+    h += `<button class="dt-btn or-complete-btn" data-sub-id="${esc(sub._id)}">Mark Complete</button>`;
     h += '</div>';
   }
 

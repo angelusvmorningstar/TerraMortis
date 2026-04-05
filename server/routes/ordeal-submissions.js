@@ -52,6 +52,9 @@ async function cascadeComplete(submission) {
       for (const charId of (player?.character_ids || [])) {
         await upsertOrdeal(charId);
       }
+    } else if (submission.character_id) {
+      // Imported submissions (Google Forms) have no player_id — fall back to character directly
+      await upsertOrdeal(submission.character_id);
     }
   }
 }
