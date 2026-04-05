@@ -67,6 +67,8 @@ import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
 import { getPool } from './shared/pools.js';
+import { getAttrVal, skDots } from './data/accessors.js';
+import { SKILLS_MENTAL } from './data/constants.js';
 import { toast as _toast } from './suite/tracker.js';
 import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';
 
@@ -312,6 +314,25 @@ function clearImport() {
 //  PICKER PANEL (suite)
 // ══════════════════════════════════════════════
 
+const COMMON_ACTIONS = [
+  { name: 'Argument',      attr: 'Intelligence', skill: 'Expression',    resist: 'Resolve' },
+  { name: 'Carousing',     attr: 'Presence',     skill: 'Socialise',     resist: null },
+  { name: 'Carousing',     attr: 'Presence',     skill: 'Streetwise',    resist: null },
+  { name: 'Fast-Talk',     attr: 'Manipulation', skill: 'Subterfuge',    resist: 'Composure' },
+  { name: 'Interrogation', attr: 'Manipulation', skill: 'Empathy',       resist: 'Resolve' },
+  { name: 'Interrogation', attr: 'Manipulation', skill: 'Intimidation',  resist: 'Resolve' },
+  { name: 'Intimidation',  attr: 'Strength',     skill: 'Intimidation',  resist: 'Composure' },
+  { name: 'Intimidation',  attr: 'Manipulation', skill: 'Intimidation',  resist: 'Composure' },
+  { name: 'Investigate',   attr: 'Intelligence', skill: 'Investigation', resist: null },
+  { name: 'Jumping',       attr: 'Strength',     skill: 'Athletics',     resist: null },
+  { name: 'Repair',        attr: 'Intelligence', skill: 'Crafts',        resist: null },
+  { name: 'Research',      attr: 'Intelligence', skill: 'Academics',     resist: null },
+  { name: 'Research',      attr: 'Intelligence', skill: 'Occult',        resist: null },
+  { name: 'Shadowing',     attr: 'Wits',         skill: 'Stealth',       resist: null, note: 'vs Wits + Composure' },
+  { name: 'Shadowing',     attr: 'Wits',         skill: 'Drive',         resist: null, note: 'vs Wits + Composure' },
+  { name: 'Sneaking',      attr: 'Dexterity',    skill: 'Stealth',       resist: null, note: 'vs Wits + Composure' },
+];
+
 function openPanel(mode) {
   suiteState.panelMode = mode;
   const body = document.getElementById('panel-body');
@@ -372,6 +393,29 @@ function openPanel(mode) {
           });
           body.appendChild(el);
         });
+      });
+    }
+  } else if (mode === 'common') {
+    title.textContent = 'Common Actions';
+    if (!suiteState.rollChar) {
+      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
+    } else {
+      const c = suiteState.rollChar;
+      COMMON_ACTIONS.forEach(a => {
+        const attrV  = getAttrVal(c, a.attr);
+        const skillV = skDots(c, a.skill);
+        const unskilled = skillV === 0 ? (SKILLS_MENTAL.includes(a.skill) ? -3 : -1) : 0;
+        const total  = attrV + skillV + unskilled;
+        const pi = { attr: a.attr, attrV, skill: a.skill, skillV, unskilled: unskilled || null, discName: null, discV: 0, resistance: a.resist, total };
+        const el = document.createElement('div');
+        el.className = 'panel-item';
+        let sub = a.attr + ' + ' + a.skill;
+        if (unskilled) sub += ' ' + unskilled + ' (unskilled)';
+        if (a.resist) sub += ' \u00B7 vs ' + a.resist;
+        if (a.note)   sub += ' \u00B7 ' + a.note;
+        el.innerHTML = '<div><div class="pi-main">' + a.name + '</div><div class="pi-sub">' + sub + '</div></div><div class="pi-pool">' + total + '</div>';
+        el.addEventListener('click', () => { loadPool(total, a.name, pi); });
+        body.appendChild(el);
       });
     }
   }
