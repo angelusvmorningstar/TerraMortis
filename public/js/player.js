@@ -1,7 +1,7 @@
 /* Player portal entry point — auth gate, tab routing, character loading, read-only sheet */
 
 import { apiGet } from './data/api.js';
-import { esc, displayName } from './data/helpers.js';
+import { esc, displayName, sortName } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
@@ -107,9 +107,9 @@ async function loadCharacters() {
     return;
   }
 
-  // Split active and retired characters (from approved pool)
-  retiredChars = chars.filter(c => c.retired && !c.pending_approval);
-  const activeChars = approvedChars;
+  // Split active and retired characters (from approved pool), both sorted
+  retiredChars = chars.filter(c => c.retired && !c.pending_approval).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+  const activeChars = approvedChars.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
   // Populate shared state so renderSheet can access chars
   state.chars = chars;
