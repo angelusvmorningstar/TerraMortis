@@ -1,6 +1,6 @@
 /* Tickets admin view — ST queue management */
 
-import { apiGet, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc } from '../data/helpers.js';
 
 const TYPE_LABELS = {
@@ -33,6 +33,8 @@ function buildBadge(cls, label) {
   return `<span class="tk-badge ${esc(cls)}">${esc(label)}</span>`;
 }
 
+const TYPE_OPTIONS = ['bug', 'feature', 'question', 'other'];
+
 export async function initTicketsView(containerEl) {
   if (!containerEl) return;
 
@@ -40,7 +42,66 @@ export async function initTicketsView(containerEl) {
   let activeFilter = 'all';
   let expandedId   = null;
 
-  containerEl.innerHTML = `<div class="tk-admin"><div id="tk-adm-inner"></div></div>`;
+  containerEl.innerHTML = `
+    <div class="tk-admin-split">
+      <div class="tk-admin-form-panel">
+        <h4>Submit a Ticket</h4>
+        <div class="tk-form-row">
+          <label class="tk-form-label" for="tk-adm-type">Type</label>
+          <select class="tk-select" id="tk-adm-type">
+            <option value="bug">Bug Report</option>
+            <option value="feature">Feature Request</option>
+            <option value="question">Question</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="tk-form-row">
+          <label class="tk-form-label" for="tk-adm-title">Title</label>
+          <input class="tk-input" id="tk-adm-title" type="text" placeholder="Short summary" maxlength="200">
+        </div>
+        <div class="tk-form-row">
+          <label class="tk-form-label" for="tk-adm-body">Details</label>
+          <textarea class="tk-textarea" id="tk-adm-body" rows="5" placeholder="Describe the issue or request..."></textarea>
+        </div>
+        <div id="tk-adm-error" class="tk-error" style="display:none"></div>
+        <button class="tk-btn-submit" id="tk-adm-submit">Submit</button>
+      </div>
+      <div class="tk-admin-queue-panel">
+        <div id="tk-adm-inner"></div>
+      </div>
+    </div>`;
+
+  const typeEl   = containerEl.querySelector('#tk-adm-type');
+  const titleEl  = containerEl.querySelector('#tk-adm-title');
+  const bodyEl   = containerEl.querySelector('#tk-adm-body');
+  const errorEl  = containerEl.querySelector('#tk-adm-error');
+  const submitEl = containerEl.querySelector('#tk-adm-submit');
+
+  submitEl.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    const title = titleEl.value.trim();
+    const body  = bodyEl.value.trim();
+    const type  = typeEl.value;
+    if (!title) {
+      errorEl.textContent = 'Title is required.';
+      errorEl.style.display = '';
+      return;
+    }
+    submitEl.disabled = true;
+    try {
+      await apiPost('/api/tickets', { title, body, type });
+      titleEl.value = '';
+      bodyEl.value  = '';
+      typeEl.value  = 'bug';
+      await load();
+    } catch (err) {
+      errorEl.textContent = err.message || 'Failed to submit ticket.';
+      errorEl.style.display = '';
+    } finally {
+      submitEl.disabled = false;
+    }
+  });
+
   const inner = containerEl.querySelector('#tk-adm-inner');
 
   async function load() {

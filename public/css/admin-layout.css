@@ -2979,6 +2979,10 @@ body {
 
 /* ── Tickets admin domain ── */
 .tk-admin { padding: 0; }
+.tk-admin-split { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+.tk-admin-form-panel { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 18px 16px; }
+.tk-admin-form-panel h4 { margin: 0 0 14px; font-size: 13px; color: var(--gold2); font-family: 'Cinzel', serif; text-transform: uppercase; letter-spacing: 0.05em; }
+.tk-admin-queue-panel { min-width: 0; }
 .tk-filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .tk-filter-btn { background: none; border: 1px solid var(--bdr); color: var(--txt3); font-size: 12px; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
 .tk-filter-btn:hover { border-color: var(--gold2); color: var(--gold2); }
