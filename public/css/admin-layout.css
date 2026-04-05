@@ -2976,3 +2976,26 @@ body {
 }
 .ar-upload-actions { display: flex; align-items: center; gap: 12px; }
 .ar-upload-status { font-size: 12px; color: var(--txt-dim); }
+
+/* ── Tickets admin domain ── */
+.tk-admin { padding: 0; }
+.tk-filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.tk-filter-btn { background: none; border: 1px solid var(--bdr); color: var(--txt3); font-size: 12px; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+.tk-filter-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.tk-filter-btn-on { border-color: var(--gold2); color: var(--gold2); background: rgba(224,196,122,0.1); }
+.tk-admin-list { display: flex; flex-direction: column; gap: 6px; }
+.tk-admin-row { background: var(--surf); border: 1px solid var(--bdr); border-radius: 5px; overflow: hidden; }
+.tk-admin-row:hover { border-color: var(--gold2); }
+.tk-admin-row-expanded { border-color: var(--gold2); }
+.tk-admin-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; flex-wrap: wrap; }
+.tk-admin-title { font-size: 13px; font-weight: 600; color: var(--txt1); flex: 1; min-width: 0; }
+.tk-admin-sub { font-size: 11px; color: var(--txt3); }
+.tk-admin-detail { padding: 0 12px 12px; border-top: 1px solid var(--bdr); }
+.tk-admin-body { font-size: 13px; color: var(--txt2); white-space: pre-wrap; padding: 10px 0 8px; }
+.tk-admin-controls { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; margin-top: 8px; }
+.tk-admin-note { flex: 1; min-width: 200px; }
+.tk-admin-note label { display: block; font-size: 11px; color: var(--txt3); margin-bottom: 4px; }
+.tk-admin-note textarea { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 6px 8px; font-size: 12px; box-sizing: border-box; resize: vertical; }
+.tk-status-sel { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 5px 8px; font-size: 12px; }
+.tk-priority-btn { background: none; border: 1px solid var(--bdr); color: var(--txt3); font-size: 12px; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+.tk-priority-high { border-color: var(--crim, #8B0000); color: #c05050; }

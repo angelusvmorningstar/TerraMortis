@@ -21,6 +21,7 @@ import { initSessionTracker } from './admin/session-tracker.js';
 import { initDataPortabilityView } from './admin/data-portability.js';
 import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
+import { initTicketsView } from './admin/tickets-views.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
@@ -164,6 +165,7 @@ function switchDomain(domain) {
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
+  if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
