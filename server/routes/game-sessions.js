@@ -77,4 +77,11 @@ router.put('/:id', async (req, res) => {
   res.json(result);
 });
 
+// DELETE /api/game_sessions/:id — remove a session (ST only)
+router.delete('/:id', async (req, res) => {
+  const result = await col().deleteOne({ _id: new ObjectId(req.params.id) });
+  if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND' });
+  res.json({ ok: true });
+});
+
 export default router;
