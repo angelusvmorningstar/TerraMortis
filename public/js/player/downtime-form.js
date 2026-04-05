@@ -575,13 +575,13 @@ export async function renderDowntimeTab(targetEl, char) {
   currentCycle = null;
   gateValues = {};
 
-  // Load current cycle
+  // Load current cycle — only 'active' cycles accept new submissions
   try {
     const cycles = await apiGet('/api/downtime_cycles');
-    currentCycle = cycles
-      .filter(c => c.status === 'open' || c.status === 'active')
-      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
-      || cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
+    const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    currentCycle = sorted.find(c => c.status === 'active')
+      || sorted.find(c => c.status === 'game' || c.status === 'closed')
+      || sorted[0]
       || null;
   } catch { /* no cycles */ }
 
@@ -695,8 +695,45 @@ export async function renderDowntimeTab(targetEl, char) {
     }
   }
 
+  // If cycle is not active, show state-appropriate message instead of form
+  if (!currentCycle || currentCycle.status !== 'active') {
+    targetEl.innerHTML = renderCycleGatePage();
+    return;
+  }
+
   targetEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
   renderForm(document.getElementById('dt-container'));
+}
+
+function renderCycleGatePage() {
+  if (!currentCycle) {
+    return `<div class="reading-pane qf-gate-page">
+      <p class="placeholder-msg">No active downtime cycle right now. Your ST will open submissions before the next game.</p>
+    </div>`;
+  }
+  const label = esc(currentCycle.label || 'This cycle');
+  const isGame = currentCycle.status === 'game';
+  const isClosed = currentCycle.status === 'closed';
+
+  let h = `<div class="reading-pane qf-gate-page">`;
+  h += `<h3 class="qf-title">${label}</h3>`;
+
+  if (isGame) {
+    h += `<p class="qf-gate-msg">Submissions for this cycle are locked \u2014 the game is on. Check the <strong>Feeding</strong> tab for your feeding roll.</p>`;
+  } else if (isClosed) {
+    h += `<p class="qf-gate-msg">Your ST is processing downtime results. Published outcomes will appear in the <strong>Story</strong> tab once ready.</p>`;
+  } else {
+    h += `<p class="qf-gate-msg">Downtime submissions are currently closed.</p>`;
+  }
+
+  // If the player already has a submission for this cycle, show its status
+  if (responseDoc) {
+    const statusLabel = responseDoc.status === 'submitted' ? 'Submitted' : 'Draft saved';
+    h += `<p class="qf-gate-sub-status"><span class="qf-badge qf-badge-submitted">${statusLabel}</span> Your ${label} submission is on file.</p>`;
+  }
+
+  h += `</div>`;
+  return h;
 }
 
 function renderForm(container) {

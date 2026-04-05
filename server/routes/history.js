@@ -14,6 +14,21 @@ function parseId(id) {
   }
 }
 
+async function cascadeOrdealXp(charId, ordealName) {
+  const chars = getCollection('characters');
+  const now = new Date().toISOString();
+  const upd = await chars.updateOne(
+    { _id: charId, 'ordeals.name': ordealName },
+    { $set: { 'ordeals.$.complete': true, 'ordeals.$.approved_at': now } }
+  );
+  if (upd.matchedCount === 0) {
+    await chars.updateOne(
+      { _id: charId },
+      { $push: { ordeals: { name: ordealName, complete: true, approved_at: now } } }
+    );
+  }
+}
+
 // GET /api/history?character_id=...
 router.get('/', async (req, res) => {
   const charId = req.query.character_id;
@@ -100,6 +115,10 @@ router.put('/:id', async (req, res) => {
     { $set: updates },
     { returnDocument: 'after' }
   );
+
+  if (updates.status === 'approved' && existing.status !== 'approved') {
+    await cascadeOrdealXp(existing.character_id, 'history');
+  }
 
   res.json(result);
 });

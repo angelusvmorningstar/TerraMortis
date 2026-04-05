@@ -190,6 +190,11 @@
   line-height: 1.5;
 }
 
+/* ── Cycle gate page ── */
+.qf-gate-page { padding: 32px 24px; }
+.qf-gate-msg { font-size: 15px; color: var(--txt2, #C4A47A); line-height: 1.6; margin: 0 0 16px; }
+.qf-gate-sub-status { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--txt3, #8A7E6E); }
+
 /* ── Required marker ── */
 
 .reading-pane .qf-req {
