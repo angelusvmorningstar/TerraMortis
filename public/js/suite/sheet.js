@@ -20,7 +20,7 @@ import {
 
 import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
-  influenceTotal, calcSize, calcSpeed, calcDefence, calcWillpowerMax, calcVitaeMax, xpLeft
+  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft
 } from '../data/accessors.js';
 
 // ── Sheet character selection ──
@@ -176,21 +176,25 @@ export function renderSheet() {
   </div>`;
 
   // ── TRACKERS ──
-  const maxV = calcVitaeMax(c);
+  const maxH  = calcHealth(c);
+  const maxV  = calcVitaeMax(c);
   const maxWP = calcWillpowerMax(c);
-  const infl = influenceMerits(c);
   const maxInf = influenceTotal(c);
 
   // Load or seed persisted state
   const tKey = 'tm_tracker_' + c.name;
   let tState;
   try { tState = JSON.parse(localStorage.getItem(tKey) || 'null'); } catch (e) { tState = null; }
-  if (!tState) tState = { vitae: maxV, wp: maxWP, inf: maxInf };
-  tState.vitae = Math.max(0, Math.min(tState.vitae, maxV));
-  tState.wp = Math.max(0, Math.min(tState.wp, maxWP));
-  tState.inf = Math.max(0, Math.min(tState.inf, maxInf));
+  if (!tState) tState = { health: maxH, vitae: maxV, wp: maxWP, inf: maxInf };
+  if (tState.health == null) tState.health = maxH;
+  tState.health = Math.max(0, Math.min(tState.health, maxH));
+  tState.vitae  = Math.max(0, Math.min(tState.vitae, maxV));
+  tState.wp     = Math.max(0, Math.min(tState.wp, maxWP));
+  tState.inf    = Math.max(0, Math.min(tState.inf, maxInf));
   // Always write back so toggleBox can read it
   localStorage.setItem(tKey, JSON.stringify(tState));
+
+  const TRACKER_LABELS = { health: 'Health', vitae: 'Vitae', wp: 'Willpower', inf: 'Influence' };
 
   function mkBoxRow(type, current, max, filledCls) {
     const disp = Math.min(max, 15);
@@ -199,13 +203,14 @@ export function renderSheet() {
       return `<div class="tbox${filled ? ' ' + filledCls : ''}" data-tracker="${type}" data-idx="${i}" data-max="${disp}" data-filled="${filledCls}"></div>`;
     }).join('');
     return `<div class="sh-tracker-row">
-      <div class="sh-tracker-lbl">${type === 'vitae' ? 'Vitae' : type === 'wp' ? 'Willpower' : 'Influence'}</div>
+      <div class="sh-tracker-lbl">${TRACKER_LABELS[type] || type}</div>
       <div class="sh-tracker-boxes" id="tb-${type}">${boxes}</div>
       <div class="sh-tracker-num" id="tn-${type}">${current}/${max}</div>
     </div>`;
   }
 
   html += `<div class="sh-tracker-block" id="tracker-block">
+    ${mkBoxRow('health', tState.health, maxH, 'health-filled')}
     ${mkBoxRow('vitae', tState.vitae, maxV, 'vitae-filled')}
     ${mkBoxRow('wp', tState.wp, maxWP, 'wp-filled')}
     ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled') : ''}
@@ -488,7 +493,8 @@ document.addEventListener('click', function(e){
     }).join('');
   }
   // num shows true max (might exceed 15 display boxes for influence)
-  const trueMax = type==='vitae'? calcVitaeMax(state.sheetChar)
+  const trueMax = type==='health'? calcHealth(state.sheetChar)
+                : type==='vitae'? calcVitaeMax(state.sheetChar)
                 : type==='wp'? calcWillpowerMax(state.sheetChar)
                 : influenceTotal(state.sheetChar);
   if(numEl) numEl.textContent = tState[type]+'/'+trueMax;
