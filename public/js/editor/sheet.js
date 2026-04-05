@@ -171,7 +171,8 @@ export function shRenderAttributes(c,editMode) {
   const catOrder=['Mental','Physical','Social'], BONUS_SOURCE={Strength:'Vigour',Stamina:'Resilience'};
   // Normalise clan_attribute from attr_creation.free if missing
   if(!c.clan_attribute&&c.attr_creation){const ca=Object.entries(c.attr_creation).find(([,cr])=>(cr.free||0)===2);if(ca)c.clan_attribute=ca[0];}
-  let h='<div class="sh-sec"><div class="sh-sec-title">Attributes</div>';
+  const _attrAlert=editMode?(catOrder.some(cat=>{const budget=PRI_BUDGETS[(c.attribute_priorities||{})[cat]||'Tertiary']||3,usedCP=(ATTR_CATS[cat]||[]).reduce((s,a)=>s+(((c.attr_creation||{})[a]||{}).cp||0),0);return budget-usedCP<0;})?'red':null):null;
+  let h='<div class="sh-sec"><div class="sh-sec-title">Attributes'+_alertBadge(_attrAlert)+'</div>';
   if(editMode){
     const caOpts=(CLAN_ATTR_OPTIONS[c.clan]||[]).map(a=>'<option'+(c.clan_attribute===a?' selected':'')+'>'+a+'</option>').join('');
     h+='<div class="sh-clan-attr-row">Favoured Attribute <select onchange="shSetClanAttr(this.value)">'+caOpts+'</select></div>';
@@ -205,7 +206,8 @@ export function shRenderAttributes(c,editMode) {
 
 export function shRenderSkills(c,editMode) {
   const SKILL_COLS=[SKILLS_MENTAL,SKILLS_PHYSICAL,SKILLS_SOCIAL],skillCatOrder=['Mental','Physical','Social'];
-  let h='<div class="sh-sec"><div class="sh-sec-title">Skills</div>';
+  const _skillAlert=editMode?(skillCatOrder.some(cat=>{const budget=SKILL_PRI_BUDGETS[(c.skill_priorities||{})[cat]||'Tertiary']||4,usedCP=(SKILL_CATS[cat]||[]).reduce((s,sk)=>s+(((c.skill_creation||{})[sk]||{}).cp||0),0);return budget-usedCP<0;})?'red':null):null;
+  let h='<div class="sh-sec"><div class="sh-sec-title">Skills'+_alertBadge(_skillAlert)+'</div>';
   if(editMode){
     const sPri=c.skill_priorities||{};
     if(!sPri.Mental&&!sPri.Physical&&!sPri.Social){sPri.Mental='Primary';sPri.Physical='Secondary';sPri.Social='Tertiary';}
@@ -1133,7 +1135,7 @@ export function renderSheet(c, target = null) {
   // Header
   h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(displayName(c)))+'</div>';
   if(editMode){h+='<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.honorific||'')+'" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.moniker||'')+'" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';}
-  h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge'+(xpLeft(c)<0?' xp-over':'')+'">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
+  h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge'+(xpLeft(c)<0?' xp-over':xpLeft(c)>0?' xp-under':'')+'">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
   if(editMode){const eT=xpEarned(c),sT=xpSpent(c);
     const _pt5=xpPT5(c);
     h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+xpStarting()+'</td><td>Attributes</td><td>'+xpSpentAttrs(c)+'</td></tr><tr><td>Humanity Drop</td><td>'+xpHumanityDrop(c)+'</td><td>Skills + Specs</td><td>'+xpSpentSkills(c)+'</td></tr><tr><td>Ordeals</td><td>'+xpOrdeals(c)+'</td><td>Merits</td><td>'+xpSpentMerits(c)+'</td></tr><tr><td>Game</td><td>'+xpGame(c)+'</td><td>Powers</td><td>'+xpSpentPowers(c)+'</td></tr>'+(_pt5?'<tr><td>PT \u25cf\u25cf\u25cf\u25cf\u25cf</td><td>'+_pt5+'</td>':'<tr><td></td><td></td>')+'<td>Special</td><td>'+xpSpentSpecial(c)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
