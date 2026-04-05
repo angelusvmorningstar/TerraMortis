@@ -18,6 +18,7 @@ import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
 import { initSessionTracker } from './admin/session-tracker.js';
 import { initDataPortabilityView } from './admin/data-portability.js';
+import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
@@ -159,6 +160,7 @@ function switchDomain(domain) {
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);
   if (domain === 'data') initDataPortabilityView(chars);
+  if (domain === 'ordeals') initOrdealsAdminView(chars);
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {

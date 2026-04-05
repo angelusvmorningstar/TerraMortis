@@ -16,6 +16,8 @@ import playersRouter from './routes/players.js';
 import questionnaireRouter from './routes/questionnaire.js';
 import historyRouter from './routes/history.js';
 import ordealResponsesRouter from './routes/ordeal-responses.js';
+import ordealSubmissionsRouter from './routes/ordeal-submissions.js';
+import ordealRubricsRouter from './routes/ordeal-rubrics.js';
 import residencyRouter from './routes/territory-residency.js';
 import attendanceRouter from './routes/attendance.js';
 
@@ -55,6 +57,8 @@ app.use('/api/players', requireAuth, playersRouter);
 app.use('/api/questionnaire', requireAuth, questionnaireRouter);
 app.use('/api/history', requireAuth, historyRouter);
 app.use('/api/ordeal-responses', requireAuth, ordealResponsesRouter);
+app.use('/api/ordeal_submissions', requireAuth, ordealSubmissionsRouter);
+app.use('/api/ordeal_rubrics', requireAuth, ordealRubricsRouter);
 app.use('/api/territory-residency', requireAuth, residencyRouter);
 app.use('/api/attendance', requireAuth, attendanceRouter);
 
