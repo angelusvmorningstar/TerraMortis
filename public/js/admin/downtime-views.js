@@ -358,6 +358,22 @@ async function loadCycleById(cycleId) {
     </button>`;
   }
 
+  // ── GC-1: Regency Lock-In ──
+  if (isActive || isGame) {
+    const activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+    const currentRegId = cycle.regency_character_id ? String(cycle.regency_character_id) : '';
+    const opts = activeChars.map(c =>
+      `<option value="${esc(String(c._id))}"${String(c._id) === currentRegId ? ' selected' : ''}>${esc(displayName(c))}</option>`
+    ).join('');
+    statusHtml += `<label class="dt-regency-edit"><span>Regent</span>
+      <select id="dt-regency-sel" class="dt-regency-sel">
+        <option value="">-- None --</option>${opts}
+      </select>
+    </label>`;
+  } else if (isClosed && cycle.regency_character_name) {
+    statusHtml += `<span class="dt-regency-badge">\u265D Regent: ${esc(cycle.regency_character_name)}</span>`;
+  }
+
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
   document.getElementById('dt-open-game').style.display = isClosed ? '' : 'none';
@@ -376,6 +392,24 @@ async function loadCycleById(cycleId) {
 
   // Wire ambience apply button
   document.getElementById('dt-apply-ambience')?.addEventListener('click', () => handleApplyAmbience(cycleId, cycle));
+
+  // Wire regency selector (GC-1)
+  document.getElementById('dt-regency-sel')?.addEventListener('change', async e => {
+    const charId = e.target.value;
+    const char = charId ? characters.find(c => String(c._id) === charId) : null;
+    await updateCycle(cycleId, {
+      regency_character_id:   charId || null,
+      regency_character_name: char ? displayName(char) : null,
+    });
+    const idx = allCycles.findIndex(c => c._id === cycleId);
+    if (idx >= 0) {
+      allCycles[idx].regency_character_id   = charId || null;
+      allCycles[idx].regency_character_name = char ? displayName(char) : null;
+    }
+    // Show confirmation flash on the select
+    const sel = document.getElementById('dt-regency-sel');
+    if (sel) { sel.style.outline = '2px solid var(--gold2)'; setTimeout(() => { sel.style.outline = ''; }, 1500); }
+  });
 
   expandedId = null;
   submissions = await getSubmissionsForCycle(cycleId);

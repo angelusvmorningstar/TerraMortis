@@ -443,7 +443,7 @@ So that I can make accurate submissions without manually consulting rulebooks or
 
 ---
 
-## Epic GC: Game Cycle Management
+## Epic GC: Game Cycle Management — DONE
 
 The ST can manage the full post-game cycle from one place — lock in Regency, confirm feeding scenes, track expenditures, and execute a single reset action that atomically publishes outcomes, applies sheet mutations, resets all tracks, and opens the new cycle.
 
