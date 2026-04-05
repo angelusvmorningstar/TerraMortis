@@ -154,6 +154,19 @@ body {
 
 .sidebar-btn:hover { background: var(--surf2); color: var(--txt); }
 
+/* Cycle open indicator — small gold dot after label */
+.sidebar-btn.cycle-open::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold2);
+  margin-left: 8px;
+  vertical-align: middle;
+  opacity: 0.85;
+}
+
 .sidebar-btn.on {
   color: var(--gold2);
   border-left-color: var(--gold2);

@@ -11,6 +11,7 @@ import { renderFeedingTab } from './player/feeding-tab.js';
 import { renderStoryTab } from './player/story-tab.js';
 import { renderXpLogTab } from './player/xp-log-tab.js';
 import { startWizard } from './player/wizard.js';
+import { getActiveCycle, getGamePhaseCycle } from './downtime/db.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -131,6 +132,9 @@ async function loadCharacters() {
     renderArchiveTab();
   }
 
+  // Sidebar cycle indicators (fire-and-forget)
+  updateCycleIndicators();
+
   if (!activeChars.length) {
     document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">All your characters are retired. See the Archive tab.</p>`;
@@ -180,6 +184,19 @@ function selectCharacter(activeChars, idx) {
   } else {
     if (regBtn) regBtn.style.display = 'none';
   }
+}
+
+async function updateCycleIndicators() {
+  try {
+    const [active, game] = await Promise.all([
+      getActiveCycle().catch(() => null),
+      getGamePhaseCycle().catch(() => null),
+    ]);
+    const dtBtn = document.getElementById('tab-btn-downtime');
+    const fdBtn = document.getElementById('tab-btn-feeding');
+    if (dtBtn) dtBtn.classList.toggle('cycle-open', !!active);
+    if (fdBtn) fdBtn.classList.toggle('cycle-open', !!game);
+  } catch { /* offline — no indicators */ }
 }
 
 function renderArchiveTab() {
