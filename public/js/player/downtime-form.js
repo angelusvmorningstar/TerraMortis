@@ -93,6 +93,18 @@ const ACTION_FIELDS = {
 };
 
 // Which fields each sphere action type shows (no dice pools)
+// Default primary pool suggestions per action type.
+// Applied only when both attr and skill are unset (first selection).
+const ACTION_POOL_DEFAULTS = {
+  'investigate':        { attr: 'Intelligence', skill: 'Investigation' },
+  'attack':             { attr: 'Strength',     skill: 'Brawl' },
+  'patrol_scout':       { attr: 'Wits',         skill: 'Stealth' },
+  'hide_protect':       { attr: 'Dexterity',    skill: 'Stealth' },
+  'ambience_increase':  { attr: 'Presence',     skill: 'Socialise' },
+  'ambience_decrease':  { attr: 'Manipulation', skill: 'Subterfuge' },
+  'support':            { attr: 'Presence',     skill: 'Empathy' },
+};
+
 const SPHERE_ACTION_FIELDS = {
   '': [],
   'ambience_increase': ['territory', 'outcome', 'description'],
@@ -1652,7 +1664,8 @@ function renderProjectSlots(saved) {
 
     // ── Dice pools ──
     if (fields.includes('pools')) {
-      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
+      const poolDefaults = ACTION_POOL_DEFAULTS[actionVal] || null;
+      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved, poolDefaults);
       h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
     }
 
@@ -1743,11 +1756,17 @@ function renderProjectSlots(saved) {
   return h;
 }
 
-function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
+function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved, defaults) {
   const prefix = `project_${slotNum}_${poolKey}`;
-  const savedAttr = saved[`${prefix}_attr`] || '';
-  const savedSkill = saved[`${prefix}_skill`] || '';
+  let savedAttr  = saved[`${prefix}_attr`]  || '';
+  let savedSkill = saved[`${prefix}_skill`] || '';
   const savedDisc = saved[`${prefix}_disc`] || '';
+
+  // Apply defaults when both attr and skill are unset and the character has the default skill
+  if (!savedAttr && !savedSkill && defaults && skills.includes(defaults.skill)) {
+    savedAttr  = defaults.attr;
+    savedSkill = defaults.skill;
+  }
 
   // Calculate total from saved selections
   let total = 0;
