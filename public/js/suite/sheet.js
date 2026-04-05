@@ -209,11 +209,19 @@ export function renderSheet() {
     </div>`;
   }
 
+  const activeInfMerits = influenceMerits(c).filter(m => !m.prereq_failed && (m.rating || 0) > 0);
+  const infBreakdown = activeInfMerits.length
+    ? `<div class="sh-inf-breakdown">${activeInfMerits.map(m => {
+        const total = (m.rating || 0) + (m.bonus || 0);
+        return `<span class="sh-inf-merit">${m.name} <span class="sh-inf-dots">${'\u25CF'.repeat(Math.min(total, 10))}</span></span>`;
+      }).join('')}</div>`
+    : '';
+
   html += `<div class="sh-tracker-block" id="tracker-block">
     ${mkBoxRow('health', tState.health, maxH, 'health-filled')}
     ${mkBoxRow('vitae', tState.vitae, maxV, 'vitae-filled')}
     ${mkBoxRow('wp', tState.wp, maxWP, 'wp-filled')}
-    ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled') : ''}
+    ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled') + infBreakdown : ''}
   </div>`;
 
   // ── BODY ──

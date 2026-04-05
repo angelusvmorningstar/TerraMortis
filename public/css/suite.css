@@ -147,6 +147,9 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .tbox.wp-filled{background:var(--gold);border-color:var(--gold);}
 .tbox.inf-filled{background:var(--info3-a8);border-color:var(--info-a9);}
 .sh-tracker-num{font-family:var(--fh);font-size:11px;color:var(--txt3);min-width:32px;margin-left:10px;}
+.sh-inf-breakdown{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0 2px 86px;}
+.sh-inf-merit{font-size:11px;color:var(--txt2);white-space:nowrap;}
+.sh-inf-dots{color:var(--info2-a9);letter-spacing:1px;}
 
 /* Suite-specific attribute/skill class names (without sh- prefix) */
 .attr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
