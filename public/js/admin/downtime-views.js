@@ -763,6 +763,20 @@ function renderSubmissions() {
     });
   });
 
+  // Rote toggle delegation (submission review feeding row)
+  el.querySelectorAll('.dt-feed-rote-chk').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const subId = cb.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const val = cb.checked;
+      await updateSubmission(subId, { 'st_review.feeding_rote': val });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.feeding_rote = val;
+    });
+  });
+
   // Roll button delegation
   el.querySelectorAll('.dt-feed-roll-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -771,15 +785,34 @@ function renderSubmissions() {
       const sub = submissions.find(s => s._id === id);
       const char = sub ? findCharacter(sub.character_name) : null;
 
-      let poolSize;
+      let poolSize = 1, expression = '';
       if (char && sub._feed_method) {
         const pool = buildFeedingPool(char, sub._feed_method, 0);
         poolSize = pool ? pool.total : 1;
+        if (pool) {
+          const bd = pool.breakdown;
+          expression = `${bd.attrVal} ${bd.attr} + ${bd.skillVal} ${bd.skill}`;
+          if (bd.fg) expression += ` + ${bd.fg} FG`;
+          expression += ` = ${pool.total}`;
+        }
       } else {
         const input = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-input');
         poolSize = input ? parseInt(input.value) || 1 : 1;
+        expression = `${poolSize} dice`;
       }
-      handleFeedingRoll(id, poolSize);
+
+      const isRote = sub?.st_review?.feeding_rote || false;
+      const existingRoll = sub?.feeding_roll || rollPool(poolSize, 10, 8, 5, isRote);
+      showRollModal(
+        { size: poolSize, expression: `Feeding: ${expression}`, existingRoll },
+        async result => {
+          await updateSubmission(id, { feeding_roll: result });
+          const s = submissions.find(s => s._id === id);
+          if (s) s.feeding_roll = result;
+          renderMatchSummary();
+          renderSubmissions();
+        }
+      );
     });
   });
 }
@@ -824,6 +857,15 @@ function renderFeedingDetail(s, raw, char) {
         h += ` = <b>${pool.total}</b></span></div>`;
       }
     }
+
+    // Rote toggle — shown when a project action was dedicated to feeding
+    const hasFeedAction = [1,2,3,4].some(n => s.responses?.[`project_${n}_action`] === 'feed');
+    const isRote = s.st_review?.feeding_rote || false;
+    h += `<div class="dt-feed-row"><span class="dt-feed-lbl">Rote</span>`;
+    h += `<label class="dt-rote-label"><input type="checkbox" class="dt-feed-rote-chk" data-sub-id="${s._id}"${isRote ? ' checked' : ''}>`;
+    h += ` Rote quality`;
+    if (hasFeedAction) h += ` <span class="dt-rote-hint">(feed action detected)</span>`;
+    h += `</label></div>`;
   } else {
     // Manual pool for unmatched characters
     h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
@@ -847,22 +889,7 @@ function renderFeedingDetail(s, raw, char) {
   return h;
 }
 
-// ── Feeding rolls ───────────────────────────────────────────────────────────
-
-async function handleFeedingRoll(subId, poolSize) {
-  const result = rollPool(poolSize);
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
-
-  try {
-    await updateSubmission(subId, { feeding_roll: result });
-    sub.feeding_roll = result;
-    renderMatchSummary();
-    renderSubmissions();
-  } catch (err) {
-    console.error('Failed to save feeding roll:', err.message);
-  }
-}
+// ── Feeding rolls — handled inline via showRollModal in event delegation ────
 
 // ── ST Notes ────────────────────────────────────────────────────────────────
 

@@ -1116,6 +1116,10 @@ body {
 
 .dt-pool-breakdown b { color: var(--gold2); }
 
+.dt-rote-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--txt2); cursor: pointer; }
+.dt-rote-label input[type="checkbox"] { accent-color: var(--gold2); width: 14px; height: 14px; }
+.dt-rote-hint { font-size: 11px; color: var(--gold2); font-family: var(--fh); text-transform: uppercase; letter-spacing: .04em; }
+
 /* ── Approval status ── */
 .dt-status-badge {
   font-family: var(--fh);

@@ -37,6 +37,7 @@ let selectedDisc = '';
 let selectedSpec = '';
 let poolTotal = 0;
 let poolBreakdown = '';
+let stRote = false; // rote flag confirmed by ST in downtime processing
 let rollResult = null;
 let feedingRecord = null; // persisted feeding_rolls record from DB
 let responseSubId = null; // submission _id for persisting player roll
@@ -56,6 +57,7 @@ export async function renderFeedingTab(el, char) {
   feedingRecord = null;
   declaredMethod = null;
   selectedMethodId = '';
+  stRote = false;
   responseSubId = null;
   publishedFeedingText = null;
   currentSub = null;
@@ -100,18 +102,24 @@ export async function renderFeedingTab(el, char) {
     } catch { /* ignore */ }
   }
 
-  // Determine method from submitted downtime declaration
+  // Load declared method for display (used in both paths below)
   if (mySub?.responses?.['_feed_method']) {
     const methodId = mySub.responses['_feed_method'];
     declaredMethod = FEED_METHODS.find(m => m.id === methodId) || null;
     declaredDisc = mySub.responses['_feed_disc'] || '';
     declaredSpec = mySub.responses['_feed_spec'] || '';
-    if (declaredMethod) {
-      buildPool(declaredMethod, declaredDisc, declaredSpec);
-      feedingState = 'ready';
-    } else {
-      feedingState = 'no_submission';
-    }
+  }
+
+  // Prefer ST-confirmed pool from downtime processing (feeding_roll.params)
+  if (mySub?.feeding_roll?.params?.size) {
+    poolTotal = mySub.feeding_roll.params.size;
+    stRote = mySub.feeding_roll.params.rote || false;
+    const roteLabel = stRote ? ' \u2014 Rote quality' : '';
+    poolBreakdown = `ST confirmed: ${poolTotal} dice${roteLabel}`;
+    feedingState = declaredMethod ? 'ready' : 'no_submission';
+  } else if (declaredMethod) {
+    buildPool(declaredMethod, declaredDisc, declaredSpec);
+    feedingState = 'ready';
   } else {
     feedingState = 'no_submission';
   }
@@ -228,7 +236,9 @@ function render() {
   // ── READY (from downtime declaration) ──
   if (feedingState === 'ready' && declaredMethod) {
     h += '<div class="feeding-ready">';
-    h += `<p class="feeding-method-label">Method: <strong>${esc(declaredMethod.name)}</strong></p>`;
+    h += `<p class="feeding-method-label">Method: <strong>${esc(declaredMethod.name)}</strong>`;
+    if (stRote) h += ' <span class="feeding-rote-badge">Rote</span>';
+    h += '</p>';
     h += `<p class="feeding-method-desc">${esc(declaredMethod.desc)}</p>`;
     h += `<div class="feeding-pool-display">`;
     h += `<span class="feeding-pool-breakdown">${esc(poolBreakdown)}</span>`;
@@ -379,10 +389,16 @@ function wireEvents() {
   });
 }
 
+function rollDiceRote(n) {
+  // Roll twice, take the best result (WoD rote quality)
+  const r1 = rollDice(n), r2 = rollDice(n);
+  return cntSuc(r1) >= cntSuc(r2) ? r1 : r2;
+}
+
 async function doFeedingRoll() {
   if (poolTotal <= 0) return;
 
-  const cols = rollDice(poolTotal);
+  const cols = stRote ? rollDiceRote(poolTotal) : rollDice(poolTotal);
   const successes = cntSuc(cols);
   const methodName = declaredMethod?.name || FEED_METHODS.find(m => m.id === selectedMethodId)?.name || 'Unknown';
 

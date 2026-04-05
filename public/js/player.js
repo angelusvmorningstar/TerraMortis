@@ -2,7 +2,7 @@
 
 import { apiGet } from './data/api.js';
 import { esc, displayName } from './data/helpers.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
@@ -80,7 +80,7 @@ function renderSidebarUser() {
 
 async function loadCharacters() {
   try {
-    chars = await apiGet('/api/characters?mine=1');
+    chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');
     // Sanitise: strip zero-dot disciplines (treated as absent)
     chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if (v === 0) delete c.disciplines[k]; } });
   } catch (err) {
