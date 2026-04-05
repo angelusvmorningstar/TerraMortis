@@ -9,6 +9,7 @@ import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderFeedingTab } from './player/feeding-tab.js';
 import { renderStoryTab } from './player/story-tab.js';
+import { initArchiveTab } from './player/archive-tab.js';
 import { renderXpLogTab } from './player/xp-log-tab.js';
 import { startWizard } from './player/wizard.js';
 import { getActiveCycle, getGamePhaseCycle } from './downtime/db.js';
@@ -128,12 +129,9 @@ async function loadCharacters() {
     });
   }
 
-  // Show Archive tab if any retired characters exist
-  if (retiredChars.length) {
-    const archiveBtn = document.getElementById('tab-btn-archive');
-    if (archiveBtn) archiveBtn.style.display = '';
-    renderArchiveTab();
-  }
+  // Archive tab always visible
+  const archiveBtn = document.getElementById('tab-btn-archive');
+  if (archiveBtn) archiveBtn.style.display = '';
 
   // Sidebar cycle indicators (fire-and-forget)
   updateCycleIndicators();
@@ -183,6 +181,7 @@ function selectCharacter(activeChars, idx) {
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
   renderStoryTab(document.getElementById('story-content'), activeChar);
   renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
+  initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars);
 
   // Regency tab — only visible for regents
   const regBtn = document.getElementById('tab-btn-regency');
@@ -205,43 +204,6 @@ async function updateCycleIndicators() {
     if (dtBtn) dtBtn.classList.toggle('cycle-open', !!active);
     if (fdBtn) fdBtn.classList.toggle('cycle-open', !!game);
   } catch { /* offline — no indicators */ }
-}
-
-function renderArchiveTab() {
-  const el = document.getElementById('archive-content');
-  if (!el || !retiredChars.length) return;
-
-  let h = '<div class="archive-grid">';
-  for (const c of retiredChars) {
-    const meta = [c.clan, c.covenant].filter(Boolean).join(' \u00B7 ');
-    const bp   = c.blood_potency ? `BP ${c.blood_potency}` : '';
-    h += `<div class="archive-card" data-char-id="${esc(String(c._id))}">`;
-    h += `<div class="archive-card-name">${esc(displayName(c))}</div>`;
-    if (meta) h += `<div class="archive-card-meta">${esc(meta)}</div>`;
-    if (bp)   h += `<div class="archive-card-bp">${esc(bp)}</div>`;
-    h += `<span class="archive-badge">Retired</span>`;
-    h += `</div>`;
-  }
-  h += '</div>';
-  el.innerHTML = h;
-
-  el.querySelectorAll('.archive-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const c = retiredChars.find(r => String(r._id) === card.dataset.charId);
-      if (c) openArchiveSheet(el, c);
-    });
-  });
-}
-
-function openArchiveSheet(el, c) {
-  let h = '<div class="archive-detail">';
-  h += '<button class="qf-back-btn" id="archive-back">&larr; Back to Archive</button>';
-  h += `<div id="archive-sheet-target"></div>`;
-  h += '</div>';
-  el.innerHTML = h;
-
-  document.getElementById('archive-back').addEventListener('click', () => renderArchiveTab());
-  renderSheet(c, document.getElementById('archive-sheet-target'));
 }
 
 // ── Tab switching ──
