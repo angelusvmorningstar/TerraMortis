@@ -81,26 +81,31 @@ router.get('/mine', async (req, res) => {
     ],
   }).toArray();
 
-  // Strip rubric/marking details — players only see status + overall feedback if complete
-  const stripped = docs.map(d => ({
-    _id:          d._id,
-    ordeal_type:  d.ordeal_type,
-    covenant:     d.covenant,
-    submitted_at: d.submitted_at,
-    source:       d.source,
-    character_id: d.character_id,
-    marking: d.marking ? {
-      status:           d.marking.status,
-      overall_feedback: d.marking.status === 'complete' ? d.marking.overall_feedback : null,
-      answers: d.marking.status === 'complete'
-        ? (d.marking.answers || []).map(a => ({
-            question_index: a.question_index,
-            result:         a.result,
-            feedback:       a.feedback,
-          }))
-        : [],
-    } : null,
-  }));
+  // Strip rubric/marking details — players only see status + feedback if complete.
+  // responses[] (player's own Q&A) is included when complete so feedback can show question context.
+  const stripped = docs.map(d => {
+    const complete = d.marking?.status === 'complete';
+    return {
+      _id:          d._id,
+      ordeal_type:  d.ordeal_type,
+      covenant:     d.covenant,
+      submitted_at: d.submitted_at,
+      source:       d.source,
+      character_id: d.character_id,
+      responses: complete ? (d.responses || []) : [],
+      marking: d.marking ? {
+        status:           d.marking.status,
+        overall_feedback: complete ? d.marking.overall_feedback : null,
+        answers: complete
+          ? (d.marking.answers || []).map(a => ({
+              question_index: a.question_index,
+              result:         a.result,
+              feedback:       a.feedback,
+            }))
+          : [],
+      } : null,
+    };
+  });
 
   res.json(stripped);
 });
