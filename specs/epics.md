@@ -924,7 +924,7 @@ So that I can access the information the ST has made available to me without see
 
 ---
 
-## Epic OR: Ordeal System
+## Epic OR: Ordeal System — DONE
 
 The ST can import all historical ordeal submissions from Google Forms, mark player responses against rubrics with per-answer feedback, and award XP on approval. Players can see their ordeal status and ST feedback in the portal.
 

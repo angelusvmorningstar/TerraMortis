@@ -20,6 +20,7 @@ import ordealSubmissionsRouter from './routes/ordeal-submissions.js';
 import ordealRubricsRouter from './routes/ordeal-rubrics.js';
 import residencyRouter from './routes/territory-residency.js';
 import attendanceRouter from './routes/attendance.js';
+import archiveDocumentsRouter from './routes/archive-documents.js';
 
 const app = express();
 
@@ -61,6 +62,7 @@ app.use('/api/ordeal_submissions', requireAuth, ordealSubmissionsRouter);
 app.use('/api/ordeal_rubrics', requireAuth, ordealRubricsRouter);
 app.use('/api/territory-residency', requireAuth, residencyRouter);
 app.use('/api/attendance', requireAuth, attendanceRouter);
+app.use('/api/archive_documents', requireAuth, archiveDocumentsRouter);
 
 // Public game session endpoint — used by website banner (no auth)
 app.get('/api/game_sessions/next', getNextSession);
