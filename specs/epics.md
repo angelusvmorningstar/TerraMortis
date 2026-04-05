@@ -193,23 +193,23 @@ Character editing, MCI/PT grants, city domain views, attendance and finance, dat
 ### Epic 4: Downtime System — DONE
 CSV import, cycle management, submission processing, feeding rolls, project/merit resolution, narrative authoring, mechanical summaries, investigation tracker, NPC register, publish-to-players workflow, ambience update.
 
-### Epic 5: Player Access Layer
-Players can authenticate, view their characters, submit downtimes, track ordeals, and receive published outcomes — all without going through the ST.
+### Epic 5: Player Access Layer — DONE (Story 5.8 partial)
+Players can authenticate, view their characters, submit downtimes, track ordeals, and receive published outcomes — all without going through the ST. Story 5.8 (smart dropdowns, XP budget validation, cross-submission conflict detection) is partially implemented — core form is complete.
 **FRs covered:** FR-5-01, FR-5-02, FR-5-03, FR-5-04, FR-5-05, FR-5-06
 
-### Epic GC: Game Cycle Management
+### Epic GC: Game Cycle Management — DONE
 The ST can manage the full post-game cycle from one place — lock in Regency, process downtime submissions with integrated dice rolling, confirm feeding pools, export character packets for Claude-assisted narrative drafting, and execute a single reset action that atomically publishes outcomes, applies sheet mutations, resets all tracks, and opens the new cycle.
 **FRs covered:** FR-GC-01, FR-GC-02, FR-GC-03, FR-GC-04, FR-GC-05, FR-GC-06, FR-GC-07, FR-GC-08, FR-GC-09, FR-GC-10
 
-### Epic DP: Data Portability
+### Epic DP: Data Portability — DONE
 The ST can export any collection as CSV and re-import it cleanly. Import errors are reported row-by-row without aborting the batch. Round-trip fidelity guaranteed.
 **FRs covered:** FR-DP-01, FR-DP-02, FR-DP-03, FR-DP-04, FR-DP-05
 
-### Epic OR: Ordeal System
+### Epic OR: Ordeal System — DONE
 Import historical Google Forms ordeal data, mark player responses against rubrics with Yes/Close/No per-answer feedback, award XP on completion, surface status to players.
 **FRs covered:** FR-OR-01, FR-OR-02, FR-OR-03, FR-OR-04, FR-OR-05
 
-### Epic AR: Archive and Documents
+### Epic AR: Archive and Documents — DONE
 Convert all ST-authored .docx files (dossiers, downtime responses, histories) to HTML and store in MongoDB. Players read their archive in-portal. ST uploads future cycle documents from admin. City map, who's who, and primer page round out the player portal.
 **FRs covered:** FR-AR-01, FR-AR-02, FR-AR-03, FR-AR-04, FR-AR-05
 
@@ -222,7 +222,7 @@ Public landing page and authenticated player resource portal. Depends on Epics 2
 
 ---
 
-## Epic 5: Player Access Layer
+## Epic 5: Player Access Layer — DONE (Story 5.8 partial)
 
 Players can authenticate, view their characters, submit downtimes, track ordeals, and receive published outcomes — all without going through the ST.
 
@@ -659,7 +659,7 @@ So that I can load it into a Claude project and run the narrative drafting workf
 
 ---
 
-## Epic DP: Data Portability
+## Epic DP: Data Portability — DONE
 
 The ST can export any collection as CSV and re-import it cleanly. Import errors are reported row-by-row without aborting the batch. Round-trip fidelity guaranteed.
 
