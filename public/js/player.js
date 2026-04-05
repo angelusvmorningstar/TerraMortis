@@ -186,21 +186,37 @@ function renderArchiveTab() {
   const el = document.getElementById('archive-content');
   if (!el || !retiredChars.length) return;
 
-  let h = '<div class="archive-list">';
+  let h = '<div class="archive-grid">';
   for (const c of retiredChars) {
-    h += `<div class="archive-char">`;
-    h += `<h3 class="archive-char-name">${esc(displayName(c))} <span class="archive-badge">Retired</span></h3>`;
-    h += `<div id="archive-sh-${esc(String(c._id))}" class="cd-sheet"></div>`;
+    const meta = [c.clan, c.covenant].filter(Boolean).join(' \u00B7 ');
+    const bp   = c.blood_potency ? `BP ${c.blood_potency}` : '';
+    h += `<div class="archive-card" data-char-id="${esc(String(c._id))}">`;
+    h += `<div class="archive-card-name">${esc(displayName(c))}</div>`;
+    if (meta) h += `<div class="archive-card-meta">${esc(meta)}</div>`;
+    if (bp)   h += `<div class="archive-card-bp">${esc(bp)}</div>`;
+    h += `<span class="archive-badge">Retired</span>`;
     h += `</div>`;
   }
   h += '</div>';
   el.innerHTML = h;
 
-  // Render each retired character's sheet into its container
-  for (const c of retiredChars) {
-    const target = document.getElementById(`archive-sh-${String(c._id)}`);
-    if (target) renderSheet(c, target);
-  }
+  el.querySelectorAll('.archive-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const c = retiredChars.find(r => String(r._id) === card.dataset.charId);
+      if (c) openArchiveSheet(el, c);
+    });
+  });
+}
+
+function openArchiveSheet(el, c) {
+  let h = '<div class="archive-detail">';
+  h += '<button class="qf-back-btn" id="archive-back">&larr; Back to Archive</button>';
+  h += `<div id="archive-sheet-target"></div>`;
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('archive-back').addEventListener('click', () => renderArchiveTab());
+  renderSheet(c, document.getElementById('archive-sheet-target'));
 }
 
 // ── Tab switching ──

@@ -2560,10 +2560,65 @@ body {
 
 /* ── Archive tab ── */
 
-.archive-list { display: flex; flex-direction: column; gap: 40px; }
-.archive-char { }
-.archive-char-name { font-family: var(--fh); font-size: 18px; color: var(--txt2); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
-.archive-badge { font-family: var(--fb); font-size: 11px; font-weight: 600; color: var(--txt3); background: var(--surf3); border: 1px solid var(--bdr); border-radius: 4px; padding: 2px 7px; text-transform: uppercase; letter-spacing: .06em; }
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.archive-card {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color .15s, background .15s;
+}
+.archive-card:hover {
+  border-color: var(--gold2);
+  background: var(--surf2);
+}
+
+.archive-card-name {
+  font-family: var(--fh);
+  font-size: 14px;
+  color: var(--txt);
+  font-weight: 600;
+}
+
+.archive-card-meta {
+  font-size: 12px;
+  color: var(--txt3);
+}
+
+.archive-card-bp {
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.archive-badge {
+  font-family: var(--fb);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--txt3);
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.archive-detail {
+  display: flex;
+  flex-direction: column;
+}
 
 /* ── Responsive ── */
 
