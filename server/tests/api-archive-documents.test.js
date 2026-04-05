@@ -41,7 +41,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await getCollection('archive_documents').deleteMany({ _id: { $in: insertedIds } });
+  try {
+    await getCollection('archive_documents').deleteMany({ _id: { $in: insertedIds } });
+  } catch (err) {
+    console.error('[afterAll] cleanup failed (DB may not have connected):', err.message);
+  }
   await teardownDb();
 });
 

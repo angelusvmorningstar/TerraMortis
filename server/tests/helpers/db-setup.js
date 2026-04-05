@@ -5,7 +5,12 @@
 import { connectDb, closeDb, getCollection } from '../../db.js';
 
 export async function setupDb() {
-  await connectDb(); // No-op if already connected (idempotent)
+  try {
+    await connectDb(); // No-op if already connected (idempotent)
+  } catch (err) {
+    console.error('[setupDb] connectDb() failed:', err.message);
+    throw err;
+  }
 }
 
 export async function teardownDb() {
