@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
@@ -41,6 +41,7 @@ export async function initDowntimeView() {
   document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
   document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
+  document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
   document.getElementById('dt-cycle-sel').addEventListener('change', e => {
     selectedCycleId = e.target.value;
     loadCycleById(selectedCycleId);
@@ -60,6 +61,7 @@ function buildShell() {
       </div>
       <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
       <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
+      <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
     </div>
     <div id="dt-cycle-bar" class="dt-cycle-bar">
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
@@ -313,6 +315,7 @@ async function loadAllCycles() {
     document.getElementById('dt-submissions').innerHTML = '<p class="placeholder">No cycles. Upload a CSV or create a new cycle.</p>';
     document.getElementById('dt-match-summary').innerHTML = '';
     document.getElementById('dt-close-cycle').style.display = 'none';
+    document.getElementById('dt-open-game').style.display = 'none';
   }
 }
 
@@ -328,11 +331,15 @@ async function loadCycleById(cycleId) {
   }
 
   const isActive = cycle.status === 'active';
+  const isGame   = cycle.status === 'game';
+  const isClosed = cycle.status === 'closed';
   const deadlineStr = cycle.deadline_at
     ? new Date(cycle.deadline_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
   const deadlinePast = cycle.deadline_at && new Date(cycle.deadline_at) < new Date();
-  let statusHtml = `<span class="dt-status-badge dt-status-${isActive ? 'pending' : 'approved'}">${isActive ? 'active' : 'closed'}</span>` +
+  const statusLabel = isActive ? 'active' : isGame ? 'game' : 'closed';
+  const statusCss   = isActive ? 'pending' : isGame ? 'game' : 'approved';
+  let statusHtml = `<span class="dt-status-badge dt-status-${statusCss}">${statusLabel}</span>` +
     `<span class="domain-count">${cycle.submission_count || 0} submissions</span>`;
   if (deadlineStr) {
     statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
@@ -341,7 +348,7 @@ async function loadCycleById(cycleId) {
     const dtVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
     statusHtml += `<label class="dt-deadline-edit"><span>Set deadline</span><input type="datetime-local" class="dt-deadline-input" id="dt-deadline-input" value="${esc(dtVal)}"></label>`;
   }
-  if (!isActive) {
+  if (isClosed || isGame) {
     const alreadyApplied = cycle.ambience_applied;
     statusHtml += `<button class="dt-btn" id="dt-apply-ambience" style="${alreadyApplied ? 'opacity:.5' : ''}" title="${alreadyApplied ? 'Ambience already applied for this cycle' : 'Apply ambience changes from this cycle\'s resolved projects'}">
       ${alreadyApplied ? '\u2713 Ambience applied' : 'Apply Ambience Changes'}
@@ -350,6 +357,7 @@ async function loadCycleById(cycleId) {
 
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
+  document.getElementById('dt-open-game').style.display = isClosed ? '' : 'none';
 
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
@@ -1370,6 +1378,17 @@ async function handleCloseCycle() {
   if (!confirm(`Close cycle "${cycle.label || 'Unnamed'}"? This cannot be undone.`)) return;
   await closeCycle(selectedCycleId);
   await loadAllCycles();
+}
+
+async function handleOpenGamePhase() {
+  if (!selectedCycleId) return;
+  const cycle = allCycles.find(c => c._id === selectedCycleId);
+  if (!cycle || cycle.status !== 'closed') return;
+  if (!confirm(`Open game phase for "${cycle.label || 'Unnamed'}"? Players will be able to run their feeding rolls.`)) return;
+  await openGamePhase(selectedCycleId);
+  const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+  if (idx >= 0) allCycles[idx].status = 'game';
+  await loadCycleById(selectedCycleId);
 }
 
 function esc(s) {

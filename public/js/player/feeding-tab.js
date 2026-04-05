@@ -9,6 +9,7 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
+import { getGamePhaseCycle } from '../downtime/db.js';
 import { esc, displayName } from '../data/helpers.js';
 import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
@@ -62,10 +63,18 @@ export async function renderFeedingTab(el, char) {
   publishedFeedingText = null;
   currentSub = null;
 
+  // Gate: only available once ST has opened the game phase
+  let gameCycle = null;
+  try { gameCycle = await getGamePhaseCycle(); } catch { /* offline */ }
+  if (!gameCycle) {
+    el.innerHTML = '<p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p>';
+    return;
+  }
+
   // Load submission first — it is the authoritative source for roll state
   let mySub = null;
   try {
-    const subs = await apiGet('/api/downtime_submissions');
+    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + gameCycle._id);
     mySub = subs.find(s =>
       (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
     ) || null;

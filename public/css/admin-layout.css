@@ -1132,8 +1132,10 @@ body {
 }
 .dt-status-pending { background: rgba(138, 126, 110, 0.15); color: var(--txt3); }
 .dt-status-approved { background: rgba(106, 170, 106, 0.15); color: #6a6; }
+.dt-status-game { background: rgba(224, 196, 122, 0.2); color: var(--gold2); font-weight: 600; }
 .dt-status-modified { background: rgba(224, 196, 122, 0.15); color: var(--gold2); }
 .dt-status-rejected { background: rgba(178, 34, 34, 0.15); color: var(--crim2, #B22222); }
+.dt-btn-game { border-color: var(--gold2); color: var(--gold2); }
 
 .dt-sub-approved { border-left: 3px solid #6a6; }
 .dt-sub-modified { border-left: 3px solid var(--gold2); }
