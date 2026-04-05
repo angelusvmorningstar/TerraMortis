@@ -5,7 +5,7 @@
  */
 
 import { esc, displayName } from '../data/helpers.js';
-import { ALL_ATTRS, ALL_SKILLS } from '../data/constants.js';
+import { ALL_ATTRS, ALL_SKILLS, SKILLS_MENTAL } from '../data/constants.js';
 import { DISC } from '../suite/disc-data.js';
 
 // ── Dice math (decoupled from suite/data.js) ──
@@ -120,13 +120,14 @@ function loadPower(powerName) {
 
   const attrV = getAttrVal(info.a);
   const skillV = getSkillVal(info.s);
+  const unskilled = (info.s && skillV === 0) ? (SKILLS_MENTAL.includes(info.s) ? -3 : -1) : 0;
   const discV = info.d ? getDiscVal(info.d) : 0;
 
   selAttr = info.a;
   selSkill = info.s;
   selDisc = info.d || '';
   selSpec = '';
-  poolSize = attrV + skillV + discV;
+  poolSize = attrV + skillV + discV + unskilled;
   mod = 0;
 }
 

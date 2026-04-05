@@ -2,6 +2,12 @@
 
 import { DISC, SORCERY_THEMES, RITUAL_DISCS } from '../suite/data.js';
 import { getAttrVal, skDots } from '../data/accessors.js';
+import { SKILLS_MENTAL } from '../data/constants.js';
+
+/** Unskilled penalty: -3 for Mental skills, -1 for Physical/Social. */
+function unskilledPenalty(skillName) {
+  return SKILLS_MENTAL.includes(skillName) ? -3 : -1;
+}
 
 /**
  * Check if a raw pool string targets a Sorcery theme.
@@ -51,11 +57,12 @@ export function getPool(char, raw) {
   if (!info.a || !info.s) return { noRoll: true, info };
   const attrV = getAttrVal(char, info.a);
   const skillV = skDots(char, info.s);
+  const unskilled = (info.s && skillV === 0) ? unskilledPenalty(info.s) : 0;
   const discV = info.d ? (char.disciplines ? char.disciplines[info.d] || 0 : 0) : 0;
   return {
-    total: attrV + skillV + discV,
+    total: attrV + skillV + discV + unskilled,
     attr: info.a, attrV,
-    skill: info.s, skillV,
+    skill: info.s, skillV, unskilled,
     discName: info.d, discV,
     resistance: info.r || null,
     cost: info.c || null,

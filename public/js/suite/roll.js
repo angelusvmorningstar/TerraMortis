@@ -94,6 +94,7 @@ export function updPool() {
   const segs = [];
   if (pi.attr) segs.push('<span class="effpool-seg">' + pi.attr + ' <b>' + pi.attrV + '</b></span>');
   if (pi.skill) segs.push('<span class="effpool-seg">' + pi.skill + ' <b>' + pi.skillV + '</b></span>');
+  if (pi.unskilled) segs.push('<span class="effpool-seg" style="color:#E8A0A0;">unskilled <b>' + pi.unskilled + '</b></span>');
   if (pi.discName && pi.discV) segs.push('<span class="effpool-seg">' + pi.discName + ' <b>' + pi.discV + '</b></span>');
   if (state.WP) segs.push('<span class="effpool-seg" style="color:#7EC8A0;">WP <b>+3</b></span>');
   if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) {
@@ -221,6 +222,7 @@ export function doRoll() {
   if (pi && pi.attr) {
     if (pi.attr) verdParts.push(pi.attr + ' ' + pi.attrV);
     if (pi.skill) verdParts.push(pi.skill + ' ' + pi.skillV);
+    if (pi.unskilled) verdParts.push('unskilled ' + pi.unskilled);
     if (pi.discName && pi.discV) verdParts.push(pi.discName + ' ' + pi.discV);
   }
   const poolStr = verdParts.length ? verdParts.join(' + ') : eff + 'd10';
