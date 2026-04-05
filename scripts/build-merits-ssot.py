@@ -49,6 +49,12 @@ ERRATA_PATH = DOCS / 'Merits Errata.docx'
 
 AE_TO_BE = [
     # Word-boundary replacements (case-preserving handled below)
+    (r'\bEncyclopedic\b',   'Encyclopaedic'),
+    (r'\bencyclopedic\b',   'encyclopaedic'),
+    (r'\bWeaponize\b',      'Weaponise'),
+    (r'\bweaponize\b',      'weaponise'),
+    (r'\bWeaponized\b',     'Weaponised'),
+    (r'\bweaponized\b',     'weaponised'),
     (r'\barmor\b',          'armour'),
     (r'\bArmor\b',          'Armour'),
     (r'\barmored\b',        'armoured'),
@@ -357,6 +363,11 @@ def parse_errata():
                 'rating': None, 'prereq': None, 'effect': None,
                 'removed': False, 'notes': []
             })
+            # Capture rating from the errata heading (e.g. "Altar (●)" = 1 dot)
+            # Explicit "cost reduced to X" sentences overwrite this later if present
+            errata_rating = dots_to_rating(m.group(2))
+            if errata_rating and current_patch['rating'] is None:
+                current_patch['rating'] = errata_rating
             i += 1
             continue
 
@@ -637,15 +648,20 @@ def merge_sources(sources):
     return merged
 
 
+def _ae_variant(s):
+    """Convert a BE key to its AE equivalent for cross-spelling lookup (ae → e)."""
+    return re.sub(r'ae', 'e', s)
+
+
 def apply_errata(merged, patches):
     """Apply errata patches to merged entries."""
     applied = 0
     removed = 0
     for name_lower, patch in patches.items():
-        # Try exact match first, then fuzzy
-        entry = merged.get(name_lower)
+        # Try exact match, then AE variant, then fuzzy substring
+        entry = (merged.get(name_lower)
+                 or merged.get(_ae_variant(name_lower)))
         if entry is None:
-            # Try stripping "the " prefix
             for key in merged:
                 if key.rstrip('s') == name_lower.rstrip('s') or name_lower in key or key in name_lower:
                     entry = merged[key]
@@ -658,7 +674,17 @@ def apply_errata(merged, patches):
             removed += 1
 
         if patch['rating']:
-            entry['rating'] = patch['rating']
+            # Don't use a single-dot errata heading value to narrow a source range rating.
+            # Range ratings (e.g. "1-5") come from the source book; single-dot errata
+            # headings address one level of a multi-level merit, not the whole merit.
+            def _norm_r(r):
+                return (r or '').replace('\u2013', '-').replace('\u2014', '-').strip()
+            source_r = _norm_r(entry.get('rating', ''))
+            errata_r = _norm_r(patch['rating'])
+            source_is_range = '-' in source_r
+            errata_is_single = '-' not in errata_r
+            if not (source_is_range and errata_is_single):
+                entry['rating'] = patch['rating']
 
         if patch['prereq']:
             entry['prereq'] = patch['prereq']
@@ -702,7 +728,7 @@ def render_entry(entry):
     """Render a single merit entry as markdown. No line wrapping."""
     lines = []
 
-    name = entry['name']
+    name = apply_spelling(entry['name'])
     rating = rating_to_dots(entry.get('rating', ''))
     style_tag = ' *(Style)*' if entry.get('style') else ''
     removed = entry.get('removed', False)

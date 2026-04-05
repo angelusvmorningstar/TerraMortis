@@ -76,7 +76,7 @@ When taking an extended action, halve the time required between rolls.
 
 ---
 
-## Interdisciplinary Specialty (●)
+## Interdisciplinary Speciality (●)
 
 **Prerequisites:** Skill at ●●● or higher with a Speciality
 
@@ -150,6 +150,16 @@ finding things, but she has a better chance of finding important things. Any tim
 
 ---
 
+## Unseen Sense (●●)
+
+**Prerequisites:** Human character (not Kindred)
+
+**Effect:** Your character has a "sixth sense" for a type of supernatural creature, chosen when you buy the Merit. For example, you may
+
+choose Unseen Sense: Vampires, or Unseen Sense: Fairies. The sense manifests differently for everyone. A character's hair stands on end, she becomes physically ill, or perhaps she has a cold chill. Regardless, she knows that something isn't right when she is in the immediate proximity of the appropriate supernatural being. Once per chapter, the player can accept the Spooked Condition (p. 305) in exchange for which the character can pinpoint where the feeling is coming from. If the target is using a power that specifically cloaks its supernatural nature, however, this does not work (though the Condition remains until resolved as usual).
+
+---
+
 # Physical Merits
 
 ## Ambidextrous (●●)
@@ -179,6 +189,16 @@ one point of the object's Durability per dot with this Merit.
 need be. She automatically escapes from any mundane bonds without a roll. When grappled, subtract her Dexterity from any rolls to overpower her, as long as she's not taking any aggressive actions.
 
 > *Errata: Benefit of Double Jointed applies when already grappled and defending an overpower, or when attacking if she declares her intention to Break Free on a win*
+
+---
+
+## Fast Reflexes (● to ●●●)
+
+**Prerequisites:** Wits ●●● or Dexterity ●●●
+
+**Effect:** +1 Initiative per dot Your character's reflexes impress and astound; she's always
+
+fast to react.
 
 ---
 
@@ -360,7 +380,7 @@ you may substitute your character's Resolve for the usual Willpower bonus. If th
 
 **Effect:** This Merit gives your character a teacher that provides advice and guidance. He acts on your character's
 
-behalf, often in the background, and sometimes without your character's knowledge. While Mentors can be highly competent, they almost always want something in return for their services. The dot rating determines the Mentor's capabilities, and to what extent he'll aid your character. When establishing a Mentor, determine what the Mentor wants from your character. This should be personally important to him, and it should reflect on the dot rating chosen. A one-dot Mentor might be incapable of dealing with modern society, and want to live vicariously through your character. This might mean coming to him and telling stories of her exploits. A five-dot Mentor would want something astronomical, such as an oath to procure an ancient, cursed artifact that may or may not exist, in order to prevent a prophesized death. Choose three Skills the Mentor possesses. You can substitute Resources for one of these Skills. Once per session, the character may ask her Mentor for a favour. The favour must involve one of those Skills, or be within the scope of his Resources. The Mentor commits to the favour (often asking for a commensurate favour in return), and if a roll is required, the Mentor is automatically considered to have successes equal to his dot rating. Alternately, you may ask the Storyteller to have the Mentor act on your character's behalf, without her character knowing or initiating the request. Mystery Cult Initiation (● to ●●●●●) Cults are far more common than people would like to admit. "Mystery cult" is the catch-all term for a phenomenon ranging from secret societies couched in fraternity houses, to scholarly cabals studying the magic of classical symbolism, to mystical suicide cults to the God-Machine. Mystery Cult Initiation reflects membership in one of these esoteric groups. The dot rating dictates standing. One dot is an initiate, two a respected member, three a priest or organizer, four a decision-making leader, and five is a high priest or founder. If you wish your character to begin play in a cult, work with your Storyteller to develop the details. Designing a Mystery Cult requires three things, at bare minimum. First is a Purpose. This is the defining reason 52 the face in the mirror-Characters Sample Cults Sample Cult: The Chosen of Mammon Mammon believes in the almighty dollar, and its inherent power. Followers of Mammon are expected to obtain material wealth and power at any cost. Fortunately, their networks help initiates quickly claim promotions and transfers into more prominent areas of influence. Cultists: Hedge fund manager, mailboy on a mission, outsourcer, personal assistant to the stars, talent scout, third generation CEO Initiation Benefits ● All initiates learn to cut through red tape to fulfil their later duties. They gain a Politics Speciality in Bureaucracy. ●● Full members must learn to speak, read, and write in Aramaic. They gain the Language Merit (Aramaic) free of charge. ●●● As a cultist delves into the mysteries of Mammon, she gains access to greater cult resources. Spend two dots between Contacts, Allies, Resources, or Retainers reflecting this relationship. ●●●● The self-centred and power-obsessed priests of Mammon gain the Thief of Fate (●●●) Merit. For this reason, priests are prohibited from touching other cultists. ●●●●● The high priestess of Mammon benefits from the tithes of her already wealthy followers. She gains three dots of Resources. Additionally, she may make a Resources ●●●●● purchase once per month without limitation, by drawing from the cult's coffers. Sample Cult: Sisters of the Machine Gun, Brothers of the Bomb The Brothers and Sisters band together with their rudimentary understanding of something they call "the God-Machine" in order to prevent its ascendancy to whatever mysterious power it strives for. They've repurposed artifacts and reverse-engineered their power into more technological weapons to fight back the darkness. The Brothers and Sisters tend toward universities and other places of learning, where a bit of esoteric knowledge can bleed through the mundane and open eyes to the truths of the universe. Cultists: God-Machine survivor, librarian-turned-networker, militant defender (Sister Machine Gun), second-generation mentor, tech expert (Brother Bomb) Initiation Benefits ● New recruits, while not yet trusted, receive training to better spot the influence of the God-Machine. They gain an Occult Speciality in The God-Machine. ●● Small cells of the Brothers and Sisters network through a handful of active initiates. For this reason, all initiates gain Contacts ● (Brothers and Sisters) free of charge. ●●● Respected initiates that have proven they're likely to survive more than a few years are taught the secrets of repurposing holy artifacts into weapons. By destroying such an artifact, they can give one weapon the ability to hurt spirits and ghosts. ●●●● At higher ranks within the organization, members are assigned wards and students. Take three dots in Retainers, allocated as the player sees fit (that is, one three-dot Retainer, three one-dot Retainers, etc.). ●●●●● The highest-ranking Brothers and Sisters were mostly first contact survivors. They've seen more of the God-Machine's influence than most anyone still standing. They gain a modified version of the Encyclopedic Knowledge Merit relating directly to the God-Machine. the cult exists. Usually it's tied in with the cult's history and recent background. Second is a Relic. This is an item that grounds members' faith. For example, a piece of the God- Machine, an ancient text bound in human flesh, or the mummified flesh of a saint. The last is a Doctrine. Every cult is defined by its rules and traditions. In addition to standing, a Mystery Cult Initiation Merit offers benefits at each level of influence. Develop these as well. The following are guidelines; use them to craft your cults: ● A Skill Speciality or one-dot Merit, pertaining to the lessons taught to initiates. 53 Social Merits ●● A one-dot Merit. ●●● A Skill dot, or a two-dot Merit (often a supernatural Merit). ●●●● A three-dot Merit, often supernatural in origin. ●●●●● A three-dot Merit, or a major advantage not reflected in game traits.
+behalf, often in the background, and sometimes without your character's knowledge. While Mentors can be highly competent, they almost always want something in return for their services. The dot rating determines the Mentor's capabilities, and to what extent he'll aid your character. When establishing a Mentor, determine what the Mentor wants from your character. This should be personally important to him, and it should reflect on the dot rating chosen. A one-dot Mentor might be incapable of dealing with modern society, and want to live vicariously through your character. This might mean coming to him and telling stories of her exploits. A five-dot Mentor would want something astronomical, such as an oath to procure an ancient, cursed artifact that may or may not exist, in order to prevent a prophesized death. Choose three Skills the Mentor possesses. You can substitute Resources for one of these Skills. Once per session, the character may ask her Mentor for a favour. The favour must involve one of those Skills, or be within the scope of his Resources. The Mentor commits to the favour (often asking for a commensurate favour in return), and if a roll is required, the Mentor is automatically considered to have successes equal to his dot rating. Alternately, you may ask the Storyteller to have the Mentor act on your character's behalf, without her character knowing or initiating the request. Mystery Cult Initiation (● to ●●●●●) Cults are far more common than people would like to admit. "Mystery cult" is the catch-all term for a phenomenon ranging from secret societies couched in fraternity houses, to scholarly cabals studying the magic of classical symbolism, to mystical suicide cults to the God-Machine. Mystery Cult Initiation reflects membership in one of these esoteric groups. The dot rating dictates standing. One dot is an initiate, two a respected member, three a priest or organizer, four a decision-making leader, and five is a high priest or founder. If you wish your character to begin play in a cult, work with your Storyteller to develop the details. Designing a Mystery Cult requires three things, at bare minimum. First is a Purpose. This is the defining reason 52 the face in the mirror-Characters Sample Cults Sample Cult: The Chosen of Mammon Mammon believes in the almighty dollar, and its inherent power. Followers of Mammon are expected to obtain material wealth and power at any cost. Fortunately, their networks help initiates quickly claim promotions and transfers into more prominent areas of influence. Cultists: Hedge fund manager, mailboy on a mission, outsourcer, personal assistant to the stars, talent scout, third generation CEO Initiation Benefits ● All initiates learn to cut through red tape to fulfil their later duties. They gain a Politics Speciality in Bureaucracy. ●● Full members must learn to speak, read, and write in Aramaic. They gain the Language Merit (Aramaic) free of charge. ●●● As a cultist delves into the mysteries of Mammon, she gains access to greater cult resources. Spend two dots between Contacts, Allies, Resources, or Retainers reflecting this relationship. ●●●● The self-centred and power-obsessed priests of Mammon gain the Thief of Fate (●●●) Merit. For this reason, priests are prohibited from touching other cultists. ●●●●● The high priestess of Mammon benefits from the tithes of her already wealthy followers. She gains three dots of Resources. Additionally, she may make a Resources ●●●●● purchase once per month without limitation, by drawing from the cult's coffers. Sample Cult: Sisters of the Machine Gun, Brothers of the Bomb The Brothers and Sisters band together with their rudimentary understanding of something they call "the God-Machine" in order to prevent its ascendancy to whatever mysterious power it strives for. They've repurposed artifacts and reverse-engineered their power into more technological weapons to fight back the darkness. The Brothers and Sisters tend toward universities and other places of learning, where a bit of esoteric knowledge can bleed through the mundane and open eyes to the truths of the universe. Cultists: God-Machine survivor, librarian-turned-networker, militant defender (Sister Machine Gun), second-generation mentor, tech expert (Brother Bomb) Initiation Benefits ● New recruits, while not yet trusted, receive training to better spot the influence of the God-Machine. They gain an Occult Speciality in The God-Machine. ●● Small cells of the Brothers and Sisters network through a handful of active initiates. For this reason, all initiates gain Contacts ● (Brothers and Sisters) free of charge. ●●● Respected initiates that have proven they're likely to survive more than a few years are taught the secrets of repurposing holy artifacts into weapons. By destroying such an artifact, they can give one weapon the ability to hurt spirits and ghosts. ●●●● At higher ranks within the organization, members are assigned wards and students. Take three dots in Retainers, allocated as the player sees fit (that is, one three-dot Retainer, three one-dot Retainers, etc.). ●●●●● The highest-ranking Brothers and Sisters were mostly first contact survivors. They've seen more of the God-Machine's influence than most anyone still standing. They gain a modified version of the Encyclopaedic Knowledge Merit relating directly to the God-Machine. the cult exists. Usually it's tied in with the cult's history and recent background. Second is a Relic. This is an item that grounds members' faith. For example, a piece of the God- Machine, an ancient text bound in human flesh, or the mummified flesh of a saint. The last is a Doctrine. Every cult is defined by its rules and traditions. In addition to standing, a Mystery Cult Initiation Merit offers benefits at each level of influence. Develop these as well. The following are guidelines; use them to craft your cults: ● A Skill Speciality or one-dot Merit, pertaining to the lessons taught to initiates. 53 Social Merits ●● A one-dot Merit. ●●● A Skill dot, or a two-dot Merit (often a supernatural Merit). ●●●● A three-dot Merit, often supernatural in origin. ●●●●● A three-dot Merit, or a major advantage not reflected in game traits.
 
 > *Errata: Rather than levels of favours, the use of a Mentor requires the sacrifice of downtime action, potentially more depending on Storyteller discretion*
 > *Errata: Generates 2 Influence at 5 dots, and 1 at 3 dots*
@@ -587,11 +607,11 @@ However, sometimes it gives her fleeting glimpses of insight and intuition. Duri
 
 ---
 
-## Encyclopedic Knowledge (●●)
+## Encyclopaedic Knowledge (●)
 
 **Effect:** Choose a Skill. Due to an immersion in academia, pop culture, or a hobby obsession, your character has collected
 
-limitless factoids about the topic, even if she has no dots in the Skill. You can make an Intelligence + Wits roll at any time your character is dealing with her area of interest. On a successful roll, the Storyteller must give a relevant fact or detail about the issue at hand. Your character knows this fact, but you must explain within the scope of your character's background why she knows it. For example, for Encyclopedic Knowledge: Medicine: "Do you remember that time on that show, when the doctor said it doesn't manifest before puberty?"
+limitless factoids about the topic, even if she has no dots in the Skill. You can make an Intelligence + Wits roll at any time your character is dealing with her area of interest. On a successful roll, the Storyteller must give a relevant fact or detail about the issue at hand. Your character knows this fact, but you must explain within the scope of your character's background why she knows it. For example, for Encyclopaedic Knowledge: Medicine: "Do you remember that time on that show, when the doctor said it doesn't manifest before puberty?"
 
 ---
 
@@ -602,22 +622,6 @@ limitless factoids about the topic, even if she has no dots in the Skill. You ca
 **Effect:** Your character's seductive Beast oozes with ease and confidence. Her smoky looks tantalize the imagination. Every
 
 movement of her hands makes promises. Any rolls to invoke the seductive Beast gain the 8-again quality. Drawback: Your character does not get the 10-again quality on any rolls to invoke or resist the monstrous or competitive Beasts.
-
----
-
-## Etiquette (● to ●●●●●)
-
-**Prerequisites:** Composure ●●●, Socialise ●● Your character knows her way around society, customs, and traditions. More importantly, she can use this talent to make or break reputations. This Merit applies to any social interactions where etiquette, style, poise, and reputation carry weight, and uses the Social Manoeuvring rules on p. 173. Bless His Heart (●): Your character's words are always wellconsidered. No matter how vile, the things she says come off as defensible and respectful. When a character engages yours in a Social interaction, you may opt to use your character's Socialise score instead of the lower of her Resolve and Composure to determine her starting Doors. Losing Your Religion (●●): When your character lets loose and insults someone, she leaves mouths agape. When tearing down a target verbally, use 8-again, and take a +2 die bonus to the roll. Afterwards, move the interaction one step down on the impressions chart. In High Cotton (●●●): Your character cultivates standing and respect, and carries it like a knight wears armour. You may apply one relevant Status or Fame Merit to rolls to contest Social interactions. Other Merits may apply with Storyteller permission. Half-Cocked (●●●●): Your character is always prepared. On the other hand, others are not. In a new Social interaction, if the impression is good, excellent, or perfect, ignore the subject's Resolve and Composure on the first roll. Grace Under Fire (●●●●●): While your character may not always win, she never looks bad. If a character opens all her Doors, and you opt to offer an alternative, his player chooses three Conditions. You choose which one your character receives.
-
----
-
-## Fast Reflexes (● to ●●●)
-
-**Prerequisites:** Wits ●●● or Dexterity ●●●
-
-**Effect:** +1 Initiative per dot Your character's reflexes impress and astound; she's always
-
-fast to react.
 
 ---
 
@@ -679,6 +683,19 @@ causes the Addicted Condition in mortals as well as the Swooning Condition (for 
 
 ---
 
+## Oath of the True Knight (●●●●)
+
+**Prerequisites:** Occult ●●, Resolve ●●●, Weaponry ●●, character must have either Theban Sorcery ●● or Sorcerous Eunuch ● Your character has learned the fearsome fighting style of Lancea et Sanctum crusaders. It's designed to debilitate Kindred opponents, and to shut down other dark sorceries quickly.
+
+**Effect:** This Style requires the character use a hand-to-hand weapon. Your character gains access to the following effects at
+
+when taking the Oath of the True Knight. If she attempts to ingest Kindred Vitae, the blood turns to ash in her mouth. If another coerces, tricks, or forces her to take his blood, he suffers a level of aggravated damage. She can enter further Oaths once sworn, but not at the time of accepting the Oath. Use of Dominate, Majesty, and other Disciplines that might mar her judgment, suffer her Invictus Status as a penalty. When attacked by another Kindred, or a ghouled retainer, her Invictus Status applies as armour. This has no effect against mundane humans. Lancea et Sanctum Religion is two things to the Lancea et Sanctum; faith and organization. The Spear needs numbers, so it needs camaraderie. However, it brings those numbers with the raw force of its dark miracles. Merits Members of the Lancea et Sanctum have access to the following Merits. Unless otherwise noted, they have an additional prerequisite of Status (Lancea et Sanctum) ● or higher. Crusade (● to ●●●, Style) each subsequent level: Shield Against Sorcery (●): This technique filters a lost Theban Sorcery ritual into a practice a non-practitioner (even a Sorcerous Eunuch, see below) can use with a series of military motions. It renders the character's immediate area something of a "null zone" for sorcery. Your character must be armed to enact Shield Against Sorcery. Any magic targeting your character or any character within her Willpower dots in yards suffers her Merit dots as a dice pool penalty. This requires your character have full access to her Defence. If multiple crusaders use this ability, only the highest Merit dots apply. Silence (●●): The voice is often the seat of sorcery. For this reason, crusaders train to strike for the enemy's vocal chords first. If your character targets the enemy's throat, she suffers no penalties due to the targeted attack. If successful, the attack silences the enemy, which may prevent him from casting spells or using some Disciplines so long as the damage remains. Lancea et Sanctum 193 A Hammer Against Witches (●●●): With a well-timed strike, your character may interrupt a sorcerer casting a spell, using her knowledge of the dark arts to find a particularly weak opening. The victim must be casting a spell or ritual of some sort, or a Discipline using an extended action. Spend a Willpower point before making the attack. This Willpower point does not add to the dice pool. Make the attack roll at -2. If successful, the spell or effect is aborted as if it dramatically failed. Additionally, add the victim's relevant Discipline or sorcery level as an additional weapon modifier to the damage caused. Use the level of the ability he uses; not his highest potential level.
+
+> *Errata: Clarification:*
+> *Errata: Drawback: Cannot be woken from torpor by being fed blood whilst under this Oath, and Vitae from any source cannot be consumed*
+
+---
+
 ## Pack Alpha (●)
 
 **Prerequisites:** Must be Gangrel
@@ -720,16 +737,6 @@ animals. The character may perceive through any of the senses of any individual 
 Look to the Touchstone chart for which Humanity dot each new Touchstone is applied to. For more on Touchstones, see p. 87. Drawback: Losing attachment with Touchstones will speed the loss of Humanity. As well, if your character's last Touchstone dies or is destroyed, your character will feel the call of torpor.
 
 > *Errata: This Merit cannot be purchased with XP. Touchstones assigned by Storytellers with discussion*
-
----
-
-## Unseen Sense (●●)
-
-**Prerequisites:** Human character (not Kindred)
-
-**Effect:** Your character has a "sixth sense" for a type of supernatural creature, chosen when you buy the Merit. For example, you may
-
-choose Unseen Sense: Vampires, or Unseen Sense: Fairies. The sense manifests differently for everyone. A character's hair stands on end, she becomes physically ill, or perhaps she has a cold chill. Regardless, she knows that something isn't right when she is in the immediate proximity of the appropriate supernatural being. Once per chapter, the player can accept the Spooked Condition (p. 305) in exchange for which the character can pinpoint where the feeling is coming from. If the target is using a power that specifically cloaks its supernatural nature, however, this does not work (though the Condition remains until resolved as usual).
 
 ---
 
@@ -793,7 +800,7 @@ one participant needs this Merit, however. Once the Cease Fire takes effect, all
 
 **Effect:** When adopting the Coda Against Sorcery, the character signifies whether the Coda applies to all sorceries, a
 
-specific variety of blood sorcery, or a single defined ritual. This requires the character to have seen the power in effect, or at least be versed in the basic way it works. Note that this does apply to non-Kindred magics if the character wishes. Changing the definitions requires the character abandon his current Coda under the Sanctity of Merits rule (see Vampire: The Requiem, p. 109) and purchasing a new instance of the Merit. Characters using a defined sorcery against the character suffer his Merit dots as a penalty on any roll to activate or wield said sorcery against him. If Defence applies against the sorcery, add his Merit dots to his Defence against attacks made with weaponized sorceries.
+specific variety of blood sorcery, or a single defined ritual. This requires the character to have seen the power in effect, or at least be versed in the basic way it works. Note that this does apply to non-Kindred magics if the character wishes. Changing the definitions requires the character abandon his current Coda under the Sanctity of Merits rule (see Vampire: The Requiem, p. 109) and purchasing a new instance of the Merit. Characters using a defined sorcery against the character suffer his Merit dots as a penalty on any roll to activate or wield said sorcery against him. If Defence applies against the sorcery, add his Merit dots to his Defence against attacks made with weaponised sorceries.
 
 ---
 
@@ -935,13 +942,13 @@ to any dice pool to contest a Discipline or other supernatural power which would
 
 ---
 
-## Weaponize Dissent (●●)
+## Weaponise Dissent (●●)
 
 **Prerequisites:** Carthian Status ●● Sometimes, regimes have to change. This truism is both a great motivator for Carthian revolutionaries, and a bitter truth for all successful Carthian regimes. To the Movement, revolution is almost a ritual, a celebration; it takes the place of religious and political observances in some other covenants. This Carthian Law marks the beginning of revolution; it empowers the lower class to rise up against their superiors. It turns the distrust of authority into a harmful force, making every strike against the status quo strike harder and faster. On the other hand, it also sets up rising stars for rapid removal from their new seats of power. It also protects from invaders from other domains, which while risky, can make a Carthian with this Law invaluable to defend a city from outside attacks.
 
 **Effect:** Once a Carthian activates this Carthian Law, it remains active for a year and a day. It cannot be deactivated.
 
-From that point forward, it takes effect in any scene the Carthian is present for. Unlike many Kindred abilities, her presence can mean her torpid body, or a pile of her ashes. Death does not end Weaponize Dissent. In any scene, the character is present for, any character's City Status acts as a weapon bonus to any attack against him. This is to say, on successful attacks, add that much damage to the effect, of the same type. So a corrupt Primogen with City Status ●●●● suffers four additional levels of damage any time he's attacked in the Carthian's presence. The Law affects all characters with City Status. It cannot under any circumstance ignore a given character. And in the case of invaders from another city, count any City Status they possess in their home city. Weaponize Dissent is not cumulative; a character is only affected by a single instance in a given scene. Circle of the Crone: Grave Flowers The Circle favours creation. They create wildly, and with abandon. Their sorceries are often less practical, but wilder than other groups'. They're also highly personal; any given coven of witches might have their own signature rituals. Merits Members of the Circle of the Crone have access to the following Merits. Unless otherwise noted, they have an additional prerequisite of Status (Circle of the Crone) ● or higher.
+From that point forward, it takes effect in any scene the Carthian is present for. Unlike many Kindred abilities, her presence can mean her torpid body, or a pile of her ashes. Death does not end Weaponise Dissent. In any scene, the character is present for, any character's City Status acts as a weapon bonus to any attack against him. This is to say, on successful attacks, add that much damage to the effect, of the same type. So a corrupt Primogen with City Status ●●●● suffers four additional levels of damage any time he's attacked in the Carthian's presence. The Law affects all characters with City Status. It cannot under any circumstance ignore a given character. And in the case of invaders from another city, count any City Status they possess in their home city. Weaponise Dissent is not cumulative; a character is only affected by a single instance in a given scene. Circle of the Crone: Grave Flowers The Circle favours creation. They create wildly, and with abandon. Their sorceries are often less practical, but wilder than other groups'. They're also highly personal; any given coven of witches might have their own signature rituals. Merits Members of the Circle of the Crone have access to the following Merits. Unless otherwise noted, they have an additional prerequisite of Status (Circle of the Crone) ● or higher.
 
 ---
 
@@ -959,7 +966,7 @@ tainted for Kindred she has not specifically allowed. When next a poacher sleeps
 
 # Circle of the Crone Merits
 
-## Altar (●●●)
+## Altar (●)
 
 **Prerequisites:** Circle of the Crone Status ●
 
@@ -978,12 +985,6 @@ it. In the presence of the altar, Acolytes may use the teamwork rules (see p. 17
 with Circle of the Crone members, as if she had a single dot of Covenant Status. With a teacher, she may purchase the first dot of Crúac and additional rituals. She can also purchase Circle of the Crone Merits. ● Once per story, she can draw on a dot of Allies: Circle of the Crone, Contacts: Circle of the Crone, Mentor, or Herd. This should come at the cost of a small favour. ● If she ever formally joins the Circle of the Crone, she sheds this Merit and adopts two dots of Covenant Status, becoming greater than an average newcomer to the faith does.
 
 > *Errata: Ability to purchase Crúac (first dot), rituals, and Circle Merits removed to maintain parity with other covenant associate Merits*
-
----
-
-## Fast-Talking (● to ●●●●●)
-
-**Prerequisites:** Manipulation ●●●, Subterfuge ●● Your character talks circles around listeners. She speaks a mile a minute and often leaves her targets reeling, but nodding in agreement. Always Be Closing (●): With the right leading phrases, your character can direct a mark to say what she wants, when she wants. This trips the mark into vulnerable positions. When a mark contests or resists your character's Social interactions, apply a -1 die penalty to his Resolve or Composure. Jargon (●●): Your character confuses her mark using complex terminology. You may apply one relevant Speciality to any Social roll you make, even if the Speciality isn't tied to the Skill in use. Devil's Advocacy (●●●): Your character often poses arguments she doesn't agree with in order to challenge a mark's position and keep him from advancing discussion. You can reroll one failed Subterfuge roll per scene. Salting (●●●●): Your character can position herself so a mark pursues a non-issue or something unimportant to her. When your character opens a Door using conversation (Persuasion, Subterfuge, Empathy, etc.) you may spend a Willpower point to immediately open another Door. Patron's Privilege (●●●●●): Your character can take advantage of her mark's greed or zeal. When the mark does particularly well, it's because your character was there to set him up and to subsequently tear him down. If a target regains Willpower from his Vice or Dirge while your character is present, you may immediately roll Manipulation + Subterfuge to open a Door, regardless of the interval or impression level.
 
 ---
 
@@ -1336,19 +1337,6 @@ killing or otherwise risking Detachment in the name of the Masquerade and the In
 **Effect:** Two characters must enter into this Oath willingly. Both characters must purchase this Oath. As part of the Oath,
 
 With this Oath, two Kindred enter into a trust agreement. While mutually beneficial, either party can end the agreement in a remarkable, crippling fashion. If a power differential exists between the characters, the risks are higher for the more powerful Invictus, so this Oath is often used as a way to show trust to a slighted inferior. Some Invictus have other names for this Oath, such as The Oath of Mutual Vulnerability. both characters offer up a single Social Merit they possess, of any dot rating. The other character receives that Merit; the original character retains use of it. Mark these Merits with halfdots on your character sheet, so they're known to not apply to the Sanctity of Merits rule. Additionally, either character can access the other character's Willpower pool at any time as if it were an extension of her own. At any time, a character may end this agreement. The other character is immediately paralyzed, losing access to their Defence and actions for a turn. By spending Willpower, the initiating character may extend this for a turn per point. Note that since the agreement ended, she cannot use the partner's Willpower points for this purpose. A character can only be part of one instance of this Oath at a time.
-
----
-
-## Oath of the True Knight (●●●●)
-
-**Prerequisites:** Occult ●●, Resolve ●●●, Weaponry ●●, character must have either Theban Sorcery ●● or Sorcerous Eunuch ● Your character has learned the fearsome fighting style of Lancea et Sanctum crusaders. It's designed to debilitate Kindred opponents, and to shut down other dark sorceries quickly.
-
-**Effect:** This Style requires the character use a hand-to-hand weapon. Your character gains access to the following effects at
-
-when taking the Oath of the True Knight. If she attempts to ingest Kindred Vitae, the blood turns to ash in her mouth. If another coerces, tricks, or forces her to take his blood, he suffers a level of aggravated damage. She can enter further Oaths once sworn, but not at the time of accepting the Oath. Use of Dominate, Majesty, and other Disciplines that might mar her judgment, suffer her Invictus Status as a penalty. When attacked by another Kindred, or a ghouled retainer, her Invictus Status applies as armour. This has no effect against mundane humans. Lancea et Sanctum Religion is two things to the Lancea et Sanctum; faith and organization. The Spear needs numbers, so it needs camaraderie. However, it brings those numbers with the raw force of its dark miracles. Merits Members of the Lancea et Sanctum have access to the following Merits. Unless otherwise noted, they have an additional prerequisite of Status (Lancea et Sanctum) ● or higher. Crusade (● to ●●●, Style) each subsequent level: Shield Against Sorcery (●): This technique filters a lost Theban Sorcery ritual into a practice a non-practitioner (even a Sorcerous Eunuch, see below) can use with a series of military motions. It renders the character's immediate area something of a "null zone" for sorcery. Your character must be armed to enact Shield Against Sorcery. Any magic targeting your character or any character within her Willpower dots in yards suffers her Merit dots as a dice pool penalty. This requires your character have full access to her Defence. If multiple crusaders use this ability, only the highest Merit dots apply. Silence (●●): The voice is often the seat of sorcery. For this reason, crusaders train to strike for the enemy's vocal chords first. If your character targets the enemy's throat, she suffers no penalties due to the targeted attack. If successful, the attack silences the enemy, which may prevent him from casting spells or using some Disciplines so long as the damage remains. Lancea et Sanctum 193 A Hammer Against Witches (●●●): With a well-timed strike, your character may interrupt a sorcerer casting a spell, using her knowledge of the dark arts to find a particularly weak opening. The victim must be casting a spell or ritual of some sort, or a Discipline using an extended action. Spend a Willpower point before making the attack. This Willpower point does not add to the dice pool. Make the attack roll at -2. If successful, the spell or effect is aborted as if it dramatically failed. Additionally, add the victim's relevant Discipline or sorcery level as an additional weapon modifier to the damage caused. Use the level of the ability he uses; not his highest potential level.
-
-> *Errata: Clarification:*
-> *Errata: Drawback: Cannot be woken from torpor by being fed blood whilst under this Oath, and Vitae from any source cannot be consumed*
 
 ---
 

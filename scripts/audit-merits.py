@@ -128,10 +128,21 @@ def parse_errata_removed():
     current_name = None
     for line in ERRATA_PATH.read_text(encoding='utf-8').splitlines():
         s = line.strip()
+        # Section headers (# or ##) — reset context so stale current_name can't bleed
+        if re.match(r'^#{1,2} ', s):
+            current_name = None
+            continue
+        # ### headings = merit entry
         if s.startswith('### '):
             title = s[4:].strip()
             m = re.match(r'^(.+?)\s*\(', title)
             current_name = norm_key(m.group(1)) if m else norm_key(title)
+        # Italic merit name lines: *Merit Name (●)*  (used for unlisted merits)
+        elif re.match(r'^\*[^*].+\(', s) and s.endswith('*'):
+            inner = s.strip('*').strip()
+            m = re.match(r'^(.+?)\s*\(', inner)
+            if m:
+                current_name = norm_key(m.group(1))
         elif current_name and 'removed from play' in s.lower():
             removed.add(current_name)
     return removed
