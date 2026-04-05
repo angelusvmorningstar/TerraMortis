@@ -102,17 +102,43 @@ function renderXPBreakdown(char) {
   const remaining  = xpLeft(char);
   const over       = remaining < 0;
 
+  // Completed ordeal names for detail rows
+  const completedOrdeals = Array.isArray(char.ordeals)
+    ? char.ordeals.filter(o => o.complete).map(o => o.name)
+    : [];
+
+  // Per-discipline XP for detail rows (disc_creation keyed by disc name)
+  const discLines = Object.entries(char.disc_creation || {})
+    .filter(([, v]) => (v?.xp || 0) > 0)
+    .map(([name, v]) => ({ name, xp: v.xp }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Special sub-breakdown
+  const bpXP = (char.bp_creation || {}).xp !== undefined
+    ? ((char.bp_creation || {}).xp || 0)
+    : Math.max(0, (char.blood_potency || 1) - 1 - Math.floor(((char.bp_creation || {}).cp || 0) / 5)) * 5;
+  const humXP = char.humanity_xp || 0;
+  const wpXP  = ((char.xp_log || {}).spent || {}).willpower || 0;
+  const manualXP = ((char.xp_log || {}).spent || {}).special || 0;
+
+  const sub = (label, val) =>
+    val > 0 ? `<tr class="xpl-sub"><td>\u00a0\u00a0\u00b7 ${esc(label)}</td><td class="xpl-n">${val}</td></tr>` : '';
+
   let h = '<div class="xpl-panel">';
   h += '<div class="xpl-cols">';
 
+  // ── Earned column ────────────────────────────────────────────────
   h += '<div class="xpl-col">';
   h += '<div class="xpl-col-head">Earned</div>';
   h += '<table class="xpl-table">';
   h += `<tr><td>Starting</td><td class="xpl-n">${earnedParts.starting}</td></tr>`;
   if (earnedParts.humanityDrop > 0)
     h += `<tr><td>Humanity drops (${Math.round(earnedParts.humanityDrop / 2)}&times;2)</td><td class="xpl-n">${earnedParts.humanityDrop}</td></tr>`;
-  if (earnedParts.ordeals > 0)
-    h += `<tr><td>Ordeals (${Math.round(earnedParts.ordeals / 3)}&times;3)</td><td class="xpl-n">${earnedParts.ordeals}</td></tr>`;
+  if (earnedParts.ordeals > 0) {
+    h += `<tr><td>Ordeals</td><td class="xpl-n">${earnedParts.ordeals}</td></tr>`;
+    for (const name of completedOrdeals)
+      h += sub(name, 3);
+  }
   if (earnedParts.game > 0)
     h += `<tr><td>Game attendance</td><td class="xpl-n">${earnedParts.game}</td></tr>`;
   if (earnedParts.pt5 > 0)
@@ -120,15 +146,26 @@ function renderXPBreakdown(char) {
   h += `<tr class="xpl-total"><td>Total</td><td class="xpl-n">${totalEarned}</td></tr>`;
   h += '</table></div>';
 
+  // ── Spent column ─────────────────────────────────────────────────
   h += '<div class="xpl-col">';
   h += '<div class="xpl-col-head">Spent</div>';
   h += '<table class="xpl-table">';
   const anySpent = Object.values(spentParts).some(v => v > 0);
   if (spentParts.attrs > 0)   h += `<tr><td>Attributes</td><td class="xpl-n">${spentParts.attrs}</td></tr>`;
   if (spentParts.skills > 0)  h += `<tr><td>Skills</td><td class="xpl-n">${spentParts.skills}</td></tr>`;
-  if (spentParts.powers > 0)  h += `<tr><td>Disciplines &amp; powers</td><td class="xpl-n">${spentParts.powers}</td></tr>`;
+  if (spentParts.powers > 0) {
+    h += `<tr><td>Disciplines &amp; powers</td><td class="xpl-n">${spentParts.powers}</td></tr>`;
+    for (const d of discLines)
+      h += sub(d.name, d.xp);
+  }
   if (spentParts.merits > 0)  h += `<tr><td>Merits &amp; styles</td><td class="xpl-n">${spentParts.merits}</td></tr>`;
-  if (spentParts.special > 0) h += `<tr><td>Special</td><td class="xpl-n">${spentParts.special}</td></tr>`;
+  if (spentParts.special > 0) {
+    h += `<tr><td>Special</td><td class="xpl-n">${spentParts.special}</td></tr>`;
+    h += sub('Blood Potency', bpXP);
+    h += sub('Humanity', humXP);
+    h += sub('Willpower', wpXP);
+    h += sub('Other', manualXP);
+  }
   if (!anySpent) h += '<tr><td colspan="2" class="xpl-none">None yet</td></tr>';
   h += `<tr class="xpl-total"><td>Total</td><td class="xpl-n">${totalSpent}</td></tr>`;
   h += '</table></div>';
@@ -149,24 +186,34 @@ function renderXPBreakdown(char) {
 function renderOrdealsList(el, char) {
   const cOrdeals = normaliseCharOrdeals(char);
 
-  let h = renderXPBreakdown(char);
-  h += '<div class="ordeals-container" id="ordeals-list">';
+  // Two-pane: left = ordeals, right = XP breakdown
+  let h = `<div class="tab-split">`;
 
+  // Left: ordeal cards
+  h += `<div class="tab-split-left" id="ordeals-left-pane">`;
+  h += '<div class="ordeals-container" id="ordeals-list">';
   h += '<div class="ordeals-section">';
   h += '<h3 class="ordeals-heading">Ordeals</h3>';
   for (const def of CHAR_ORDEALS) {
     h += ordealCard(def, getOrdealStatus(def, cOrdeals));
   }
   h += '</div>';
-
   h += '<div class="ordeals-section">';
   h += '<h3 class="ordeals-heading">Player Ordeals</h3>';
   for (const def of PLAYER_ORDEALS) {
     h += ordealCard(def, getOrdealStatus(def, cOrdeals));
   }
   h += '</div>';
-
   h += '</div>';
+  h += '</div>'; // left pane
+
+  // Right: XP breakdown
+  h += `<div class="tab-split-right" id="ordeals-right-pane">`;
+  h += renderXPBreakdown(char);
+  h += '</div>'; // right pane
+
+  h += '</div>'; // tab-split
+
   el.innerHTML = h;
 
   el.querySelectorAll('.ordeal-card[data-form]').forEach(card => {

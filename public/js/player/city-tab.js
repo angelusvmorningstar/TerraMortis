@@ -18,7 +18,7 @@ export async function renderCityTab(el) {
     return;
   }
 
-  const courtHolders = chars.filter(c => c.court_position)
+  const courtHolders = chars.filter(c => c.court_title)
     .sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const regents = chars.filter(c => c.regent_territory)
     .sort((a, b) => (c => c.regent_territory || '')(a).localeCompare((c => c.regent_territory || '')(b)));
@@ -45,7 +45,7 @@ export async function renderCityTab(el) {
     for (const c of courtHolders) {
       h += '<div class="city-office-row">';
       h += `<span class="city-office-name">${esc(displayName(c))}</span>`;
-      h += `<span class="city-office-position">${esc(c.court_position)}</span>`;
+      h += `<span class="city-office-position">${esc(c.court_title)}</span>`;
       h += '</div>';
     }
     h += '</div>';
@@ -94,7 +94,7 @@ export async function renderCityTab(el) {
       h += `<span class="city-char-name">${esc(displayName(c))}</span>`;
       h += '<span class="city-char-meta">';
       if (c.clan) h += `${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span>`;
-      if (c.court_position) h += `<span class="city-char-position">${esc(c.court_position)}</span>`;
+      if (c.court_title) h += `<span class="city-char-position">${esc(c.court_title)}</span>`;
       h += '</span>';
       h += '</div>';
     }

@@ -313,6 +313,13 @@ body {
   color: var(--gold2);
 }
 
+.xpl-table tr.xpl-sub td {
+  color: var(--txt3);
+  font-size: 12px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
 .xpl-none {
   color: var(--txt3);
   font-style: italic;
@@ -344,7 +351,7 @@ body {
 .xpl-ok .xpl-bal-val { color: var(--green2, #6aaa6a); }
 .xpl-over .xpl-bal-val { color: var(--crim2, #B22222); }
 
-.xpl-log { padding: 20px; max-width: 760px; }
+.xpl-log { padding: 20px; }
 .xpl-log-cols { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
 .xpl-log-col { flex: 1; min-width: 240px; }
 .xpl-over-warn { margin: 6px 0 0; font-size: 12px; color: var(--crim2, #B22222); }
@@ -2163,7 +2170,7 @@ body {
 
 /* ── Feeding tab ── */
 
-.feeding-wrap { max-width: 560px; margin: 0 auto; }
+.feeding-wrap { width: 100%; }
 .feeding-title { font-family: var(--fh); font-size: 18px; color: var(--gold2); margin-bottom: 16px; }
 
 .feeding-state-msg { background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; padding: 24px; }
@@ -2731,25 +2738,28 @@ body {
 
 /* ── Downtime two-pane ── */
 
-.dt-split {
+/* Generic 50/50 split used by Downtime, Feeding, Ordeals */
+.tab-split {
   display: flex;
   height: 100%;
   min-height: 0;
 }
-
-.dt-split-left {
+.tab-split-left {
   flex: 1;
   min-width: 0;
   border-right: 1px solid var(--bdr);
   overflow-y: auto;
 }
-
-.dt-split-right {
-  width: 380px;
-  min-width: 280px;
-  flex-shrink: 0;
+.tab-split-right {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
 }
+
+/* Downtime keeps using dt-split class names — map to tab-split */
+.dt-split { display: flex; height: 100%; min-height: 0; }
+.dt-split-left { flex: 1; min-width: 0; border-right: 1px solid var(--bdr); overflow-y: auto; }
+.dt-split-right { flex: 1; min-width: 0; overflow-y: auto; }
 
 .dt-hist-panel {
   display: flex;
@@ -2838,9 +2848,8 @@ body {
 }
 
 .city-left {
-  width: 340px;
-  min-width: 240px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   border-right: 1px solid var(--bdr);
   display: flex;
   flex-direction: column;
@@ -2853,6 +2862,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow-y: auto;
 }
 
 .city-panel {

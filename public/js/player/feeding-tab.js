@@ -67,7 +67,13 @@ export async function renderFeedingTab(el, char) {
   let gameCycle = null;
   try { gameCycle = await getGamePhaseCycle(); } catch { /* offline */ }
   if (!gameCycle) {
-    el.innerHTML = '<p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p>';
+    // Still show the split layout with last feeding result on right
+    el.innerHTML = `<div class="tab-split">
+      <div class="tab-split-left" id="feeding-left-pane"><p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p></div>
+      <div class="tab-split-right" id="feeding-right-pane"></div>
+    </div>`;
+    container = document.getElementById('feeding-left-pane');
+    renderFeedingHistoryPane(document.getElementById('feeding-right-pane'), char);
     return;
   }
 
@@ -133,7 +139,71 @@ export async function renderFeedingTab(el, char) {
     feedingState = 'no_submission';
   }
 
+  // Set up split layout
+  el.innerHTML = `<div class="tab-split">
+    <div class="tab-split-left" id="feeding-left-pane"></div>
+    <div class="tab-split-right" id="feeding-right-pane"></div>
+  </div>`;
+  container = document.getElementById('feeding-left-pane');
+  renderFeedingHistoryPane(document.getElementById('feeding-right-pane'), char);
+
   render();
+}
+
+async function renderFeedingHistoryPane(el, char) {
+  el.innerHTML = '<p class="placeholder-msg dt-hist-loading">Loading\u2026</p>';
+
+  let allSubs = [], cycles = [];
+  try {
+    [allSubs, cycles] = await Promise.all([
+      apiGet('/api/downtime_submissions'),
+      apiGet('/api/downtime_cycles'),
+    ]);
+  } catch {
+    el.innerHTML = '<p class="placeholder-msg">Could not load history.</p>';
+    return;
+  }
+
+  const cycleMap = {};
+  for (const c of cycles) cycleMap[String(c._id)] = c;
+
+  const charId = String(char._id);
+  // Only show closed/game cycles with published outcomes
+  const charSubs = allSubs
+    .filter(s => String(s.character_id) === charId && s.published_outcome)
+    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+
+  let h = '<div class="dt-hist-panel">';
+  h += '<div class="dt-hist-title">Feeding Results</div>';
+
+  if (!charSubs.length) {
+    h += '<p class="placeholder-msg dt-hist-empty">No published feeding results yet.</p>';
+  } else {
+    for (const sub of charSubs) {
+      const cycle = cycleMap[String(sub.cycle_id)];
+      const label = cycle?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
+
+      // Extract just the Feeding section from the published outcome
+      const feedMatch = sub.published_outcome.match(/##\s*Feeding\s*\n([\s\S]*?)(?=\n##\s|$)/);
+      const feedingText = feedMatch ? feedMatch[1].trim() : null;
+
+      h += `<div class="dt-hist-entry">`;
+      h += `<div class="dt-hist-entry-head"><span class="dt-hist-cycle">${esc(label)}</span></div>`;
+      if (feedingText) {
+        h += `<div class="dt-hist-outcome">`;
+        feedingText.split('\n').filter(Boolean).forEach(line => {
+          h += `<p>${esc(line)}</p>`;
+        });
+        h += `</div>`;
+      } else {
+        h += `<div class="dt-hist-outcome"><p class="placeholder-msg">No feeding section recorded.</p></div>`;
+      }
+      h += `</div>`;
+    }
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 function renderFeedingSummary() {
