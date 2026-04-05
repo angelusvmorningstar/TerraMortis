@@ -2002,6 +2002,94 @@ body {
   font-weight: 700;
   color: #5A1A1A;
 }
+.dt-sorcery-slot-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.dt-sorcery-slot-num { font-weight: 600; color: var(--gold2); }
+.dt-sorcery-remove {
+  background: none;
+  border: 1px solid var(--crim);
+  color: var(--crim);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.dt-mand-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--txt2);
+  cursor: pointer;
+}
+.dt-mand-cb { accent-color: var(--gold2); }
+.dt-add-rite-btn {
+  margin-top: 10px;
+  background: none;
+  border: 1px solid var(--gold2);
+  color: var(--gold2);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dt-add-rite-btn:hover { background: rgba(224,196,122,0.1); }
+
+/* ── Equipment rows ── */
+.dt-equipment-row { margin-bottom: 8px; }
+.dt-equipment-row-fields {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.dt-equip-name { flex: 2; min-width: 140px; }
+.dt-equip-qty { flex: 0 0 60px; }
+.dt-equip-notes { flex: 3; min-width: 160px; }
+
+/* ── Vitae Budget panel ── */
+.dt-vitae-budget {
+  margin: 14px 0 6px;
+  border: 1px solid rgba(224,196,122,0.25);
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.25);
+  font-size: 13px;
+}
+.dt-vitae-budget-title {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--gold2);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.dt-vitae-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: var(--txt2);
+}
+.dt-vitae-cost { color: var(--txt3); }
+.dt-vitae-total {
+  border-top: 1px solid rgba(224,196,122,0.2);
+  margin-top: 4px;
+  padding-top: 4px;
+  color: var(--txt1);
+  font-weight: 600;
+}
+.dt-vitae-note {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--txt3);
+  margin-top: 2px;
+}
+.dt-vitae-over { color: var(--crim); font-weight: 700; }
 
 /* ── Shoutout picks ── */
 .dt-shoutout-picks {

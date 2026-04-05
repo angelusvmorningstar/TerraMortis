@@ -253,7 +253,16 @@ export const DOWNTIME_SECTIONS = [
     sorcerySlots: 3,
   },
 
-  // 10. Vamping — always shown
+  // 10. Equipment — always shown
+  {
+    key: 'equipment',
+    title: 'Equipment: Items and Gear',
+    gate: null,
+    intro: 'List any items, weapons, or equipment you want your character to have access to this Downtime. Sourcing is subject to ST approval and availability.',
+    questions: [], // rendered dynamically
+  },
+
+  // 11. Vamping — always shown
   {
     key: 'vamping',
     title: 'Vamping: Fever for the Flavour',
@@ -270,7 +279,7 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 11. Admin — always shown
+  // 12. Admin — always shown
   {
     key: 'admin',
     title: 'Admin: Crunching Numbers and Asking Questions',

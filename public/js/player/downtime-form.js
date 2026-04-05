@@ -14,6 +14,7 @@ import { esc, displayName, parseOutcomeSections } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
+import { calcVitaeMax } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
@@ -324,6 +325,8 @@ function collectResponses() {
     responses[`project_${n}_title`] = titleEl ? titleEl.value : '';
     responses[`project_${n}_territory`] = terrEl ? terrEl.value : '';
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
+    const xpTraitEl = document.getElementById(`dt-project_${n}_xp_trait`);
+    responses[`project_${n}_xp_trait`] = xpTraitEl ? xpTraitEl.value : '';
     // Secondary feed method (rote feed action)
     const feedMethod2El = document.getElementById(`dt-project_${n}_feed_method2`);
     if (feedMethod2El) responses[`project_${n}_feed_method2`] = feedMethod2El.value;
@@ -341,9 +344,10 @@ function collectResponses() {
     responses[`project_${n}_merits`] = JSON.stringify(meritKeys);
   }
 
-  // Collect sorcery slots
-  const sorcerySection = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
-  const sorcerySlotCount = sorcerySection?.sorcerySlots || 3;
+  // Collect sorcery slots (dynamic count)
+  const sorceryCountEl = document.getElementById('dt-sorcery-slot-count');
+  const sorcerySlotCount = sorceryCountEl ? parseInt(sorceryCountEl.value, 10) || 1 : 1;
+  responses['sorcery_slot_count'] = String(sorcerySlotCount);
   for (let n = 1; n <= sorcerySlotCount; n++) {
     const riteEl = document.getElementById(`dt-sorcery_${n}_rite`);
     responses[`sorcery_${n}_rite`] = riteEl ? riteEl.value : '';
@@ -351,6 +355,8 @@ function collectResponses() {
     responses[`sorcery_${n}_targets`] = targetsEl ? targetsEl.value : '';
     const notesEl = document.getElementById(`dt-sorcery_${n}_notes`);
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
+    const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
+    responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : 'no';
   }
 
   // Residency is now managed in the Regency tab (regency-tab.js)
@@ -443,6 +449,19 @@ function collectResponses() {
   responses['skill_acq_merits'] = JSON.stringify(skAcqMeritKeys);
   // Backwards compat
   responses['skill_acquisitions'] = responses['skill_acq_description'];
+
+  // Collect equipment slots
+  const equipCountEl = document.getElementById('dt-equipment-slot-count');
+  const equipSlotCount = equipCountEl ? parseInt(equipCountEl.value, 10) || 1 : 1;
+  responses['equipment_slot_count'] = String(equipSlotCount);
+  for (let n = 1; n <= equipSlotCount; n++) {
+    const nameEl = document.getElementById(`dt-equipment_${n}_name`);
+    const qtyEl = document.getElementById(`dt-equipment_${n}_qty`);
+    const notesEl = document.getElementById(`dt-equipment_${n}_notes`);
+    responses[`equipment_${n}_name`] = nameEl ? nameEl.value : '';
+    responses[`equipment_${n}_qty`] = qtyEl ? qtyEl.value : '';
+    responses[`equipment_${n}_notes`] = notesEl ? notesEl.value : '';
+  }
 
   return responses;
 }
@@ -942,6 +961,9 @@ function renderForm(container) {
   // ── Acquisitions (custom render) ──
   h += renderAcquisitionsSection(saved);
 
+  // ── Equipment (dynamic rows) ──
+  h += renderEquipmentSection(saved);
+
   for (const key of ['vamping', 'admin']) {
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
@@ -1305,6 +1327,76 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Add Rite button
+    if (e.target.closest('#dt-add-rite')) {
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-sorcery-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      responses['sorcery_slot_count'] = String(current + 1);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Remove Rite button
+    const removeRiteBtn = e.target.closest('[data-remove-rite]');
+    if (removeRiteBtn) {
+      const removeN = parseInt(removeRiteBtn.dataset.removeRite, 10);
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-sorcery-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      // Shift slots down
+      for (let n = removeN; n < current; n++) {
+        responses[`sorcery_${n}_rite`] = responses[`sorcery_${n + 1}_rite`] || '';
+        responses[`sorcery_${n}_targets`] = responses[`sorcery_${n + 1}_targets`] || '';
+        responses[`sorcery_${n}_notes`] = responses[`sorcery_${n + 1}_notes`] || '';
+        responses[`sorcery_${n}_mandragora`] = responses[`sorcery_${n + 1}_mandragora`] || 'no';
+      }
+      // Clear last slot
+      delete responses[`sorcery_${current}_rite`];
+      delete responses[`sorcery_${current}_targets`];
+      delete responses[`sorcery_${current}_notes`];
+      delete responses[`sorcery_${current}_mandragora`];
+      responses['sorcery_slot_count'] = String(Math.max(1, current - 1));
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Add Equipment button
+    if (e.target.closest('#dt-add-equipment')) {
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-equipment-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      responses['equipment_slot_count'] = String(current + 1);
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Remove Equipment button
+    const removeEquipBtn = e.target.closest('[data-remove-equipment]');
+    if (removeEquipBtn) {
+      const removeN = parseInt(removeEquipBtn.dataset.removeEquipment, 10);
+      const responses = collectResponses();
+      const countEl = document.getElementById('dt-equipment-slot-count');
+      const current = countEl ? parseInt(countEl.value, 10) || 1 : 1;
+      // Shift slots down
+      for (let n = removeN; n < current; n++) {
+        responses[`equipment_${n}_name`] = responses[`equipment_${n + 1}_name`] || '';
+        responses[`equipment_${n}_qty`] = responses[`equipment_${n + 1}_qty`] || '1';
+        responses[`equipment_${n}_notes`] = responses[`equipment_${n + 1}_notes`] || '';
+      }
+      // Clear last slot
+      delete responses[`equipment_${current}_name`];
+      delete responses[`equipment_${current}_qty`];
+      delete responses[`equipment_${current}_notes`];
+      responses['equipment_slot_count'] = String(Math.max(1, current - 1));
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     const btn = e.target.closest('[data-inf-terr]');
     if (!btn) return;
     const tk = btn.dataset.infTerr;
@@ -1638,6 +1730,11 @@ function renderProjectSlots(saved) {
       h += '<p>Each XP Spend action allows purchasing <strong>1 dot</strong> of an Attribute, Skill, Discipline, Devotion, or Rite in the <strong>Admin</strong> section below.</p>';
       h += '<p class="qf-desc" style="margin:6px 0 0;">Merits at 1\u20133 dots can be purchased freely without dedicating an action.</p>';
       h += '</div>';
+      h += renderQuestion({
+        key: `project_${n}_xp_trait`, label: 'What are you growing and how?',
+        type: 'textarea', required: false,
+        desc: 'Describe the trait you intend to grow and the in-character activity that justifies it. e.g. "Raising Subterfuge \u2014 Creban spends evenings practicing deception with mortals at the casino."',
+      }, saved[`project_${n}_xp_trait`] || '');
     }
 
     if (fields.includes('title')) {
@@ -2059,25 +2156,42 @@ function getRowCost(row) {
 
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');
-  const slotCount = section?.sorcerySlots || 3;
+  const hasMandragora = (currentChar.merits || []).some(m => m.name === 'Mandragora Garden');
   const rites = (currentChar.powers || []).filter(p => p.category === 'rite');
-  // Sort by tradition then level
   rites.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.level - b.level);
+  const cruacRites = rites.filter(r => r.tradition === 'Cruac');
+
+  const savedCount = parseInt(saved['sorcery_slot_count'] || '1', 10);
+  const slotCount = Math.max(1, savedCount);
 
   let h = '<div class="qf-section collapsed" data-section-key="blood_sorcery">';
-  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">\u2714</span></h4>`;
   h += '<div class="qf-section-body">';
   if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+
+  // Hidden field tracking slot count
+  h += `<input type="hidden" id="dt-sorcery-slot-count" value="${slotCount}">`;
+
+  if (!rites.length) {
+    h += '<p class="qf-desc" style="color:var(--txt3);font-style:italic">No rites on your character sheet. Add rites in the character editor first.</p>';
+    h += '</div></div>';
+    return h;
+  }
 
   for (let n = 1; n <= slotCount; n++) {
     const selectedRite = saved[`sorcery_${n}_rite`] || '';
     const rite = rites.find(r => r.name === selectedRite);
+    const isCruac = rite?.tradition === 'Cruac';
+    const mandSaved = saved[`sorcery_${n}_mandragora`] === 'yes';
 
-    h += `<div class="dt-sorcery-slot">`;
+    h += `<div class="dt-sorcery-slot" id="dt-sorcery-slot-${n}">`;
+    h += `<div class="dt-sorcery-slot-hd"><span class="dt-sorcery-slot-num">Rite ${n}</span>`;
+    if (n > 1) h += `<button type="button" class="dt-sorcery-remove" data-remove-rite="${n}" title="Remove this rite">\u00D7 Remove</button>`;
+    h += '</div>';
+
     h += '<div class="qf-field">';
-    h += `<label class="qf-label" for="dt-sorcery_${n}_rite">Rite ${n}</label>`;
     h += `<select id="dt-sorcery_${n}_rite" class="qf-select" data-sorcery-slot="${n}">`;
-    h += '<option value="">— No Rite —</option>';
+    h += '<option value="">\u2014 No Rite \u2014</option>';
     let lastTradition = '';
     for (const r of rites) {
       if (r.tradition !== lastTradition) {
@@ -2089,16 +2203,27 @@ function renderSorcerySection(saved) {
       h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.level})</option>`;
     }
     if (lastTradition) h += '</optgroup>';
-    h += '</select></div>';
+    h += '</select>';
 
-    // Rite details — shown when a rite is selected
+    // Mandragora Garden checkbox — Cruac rites only, when character has the merit
+    if (hasMandragora && cruacRites.length) {
+      const mandChecked = isCruac && mandSaved ? ' checked' : '';
+      const mandDisabled = !isCruac ? ' disabled' : '';
+      const mandMerit = (currentChar.merits || []).find(m => m.name === 'Mandragora Garden');
+      const mandDots = mandMerit ? (mandMerit.rating || 0) : 0;
+      h += `<label class="dt-mand-label" title="If ticked, this rite is cast in your Mandragora Garden, granting +${mandDots} bonus dice to the casting roll and sustaining the rite each game in perpetuity. Costs 1 Vitae per garden dot.">`;
+      h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
+      h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
+      h += '</label>';
+    }
+
+    h += '</div>';
+
     if (rite) {
       h += '<div class="dt-sorcery-details">';
-      h += '<div class="dt-sorcery-info">';
       h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Tradition/Level:</span> ${esc(rite.tradition)} ${rite.level}</div>`;
-      h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Stats:</span> ${esc(rite.stats || '')}</div>`;
-      h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Effect:</span> ${esc(rite.effect || '')}</div>`;
-      h += '</div>';
+      if (rite.stats) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Stats:</span> ${esc(rite.stats)}</div>`;
+      if (rite.effect) h += `<div class="dt-sorcery-stat"><span class="dt-sorcery-label">Effect:</span> ${esc(rite.effect)}</div>`;
 
       h += renderQuestion({
         key: `sorcery_${n}_targets`, label: 'Target/s',
@@ -2116,8 +2241,8 @@ function renderSorcerySection(saved) {
     h += '</div>';
   }
 
-  h += '</div>'; // section-body
-  h += '</div>'; // section
+  h += `<button type="button" class="dt-add-rite-btn" id="dt-add-rite">\u002B Add Rite</button>`;
+  h += '</div></div>';
   return h;
 }
 
@@ -2309,6 +2434,45 @@ function renderAcquisitionsSection(saved) {
   h += '</div>';
 
   h += '</div></div>'; // section-body, section
+  return h;
+}
+
+// ── Equipment ──
+
+function renderEquipmentSection(saved) {
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'equipment');
+  if (!section) return '';
+
+  const savedCount = parseInt(saved['equipment_slot_count'] || '1', 10);
+  const slotCount = Math.max(1, savedCount);
+
+  let h = '<div class="qf-section collapsed" data-section-key="equipment">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">\u2714</span></h4>`;
+  h += '<div class="qf-section-body">';
+  if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+
+  h += `<input type="hidden" id="dt-equipment-slot-count" value="${slotCount}">`;
+
+  h += '<div id="dt-equipment-rows">';
+  for (let n = 1; n <= slotCount; n++) {
+    h += renderEquipmentRow(n, saved);
+  }
+  h += '</div>';
+
+  h += `<button type="button" class="dt-add-rite-btn" id="dt-add-equipment">\u002B Add Item</button>`;
+  h += '</div></div>';
+  return h;
+}
+
+function renderEquipmentRow(n, saved) {
+  let h = `<div class="dt-equipment-row" id="dt-equipment-row-${n}">`;
+  h += `<div class="dt-equipment-row-fields">`;
+  h += `<input type="text" id="dt-equipment_${n}_name" class="qf-input dt-equip-name" placeholder="Item name" value="${esc(saved[`equipment_${n}_name`] || '')}">`;
+  h += `<input type="number" id="dt-equipment_${n}_qty" class="qf-input dt-equip-qty" placeholder="Qty" min="1" value="${esc(saved[`equipment_${n}_qty`] || '1')}">`;
+  h += `<input type="text" id="dt-equipment_${n}_notes" class="qf-input dt-equip-notes" placeholder="Source / notes" value="${esc(saved[`equipment_${n}_notes`] || '')}">`;
+  if (n > 1) h += `<button type="button" class="dt-sorcery-remove" data-remove-equipment="${n}" title="Remove">\u00D7</button>`;
+  h += '</div>';
+  h += '</div>';
   return h;
 }
 
@@ -3054,6 +3218,38 @@ function renderQuestion(q, value) {
         h += '<div class="qf-field">';
         h += '<label class="qf-label" for="dt-feeding_description">Describe how your character hunts</label>';
         h += `<textarea id="dt-feeding_description" class="qf-textarea" rows="4">${esc(savedDesc)}</textarea>`;
+        h += '</div>';
+      }
+
+      // ── Vitae Budget ──
+      {
+        const allResp = responseDoc?.responses || {};
+        const vitaeMax = calcVitaeMax(c);
+        const ghoulCount = (c.merits || []).filter(m => m.ghoul).length;
+        const rites = (c.powers || []).filter(p => p.category === 'rite');
+        const sorcCount = parseInt(allResp['sorcery_slot_count'] || '1', 10);
+        let riteVitaeCost = 0;
+        for (let sn = 1; sn <= sorcCount; sn++) {
+          const riteName = allResp[`sorcery_${sn}_rite`];
+          if (riteName) {
+            const rite = rites.find(r => r.name === riteName);
+            if (rite && rite.tradition === 'Cruac') riteVitaeCost += rite.level || 0;
+          }
+        }
+        const mandMerit = (c.merits || []).find(m => m.name === 'Mandragora Garden');
+        const mandDots = mandMerit ? (mandMerit.rating || 0) : 0;
+        const totalCost = ghoulCount + riteVitaeCost + mandDots;
+        const startVitae = vitaeMax - totalCost;
+        const mandFruit = mandDots * 2;
+
+        h += '<div class="dt-vitae-budget">';
+        h += '<div class="dt-vitae-budget-title">Vitae Budget</div>';
+        h += `<div class="dt-vitae-row"><span>Vitae Max (BP ${c.blood_potency || 1})</span><span>${vitaeMax}</span></div>`;
+        if (ghoulCount > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Ghoul Retainers (\u00D7${ghoulCount})</span><span>\u2212${ghoulCount}</span></div>`;
+        if (riteVitaeCost > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Cruac Rites</span><span>\u2212${riteVitaeCost}</span></div>`;
+        if (mandDots > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Mandragora Garden (${'●'.repeat(mandDots)})</span><span>\u2212${mandDots}</span></div>`;
+        h += `<div class="dt-vitae-row dt-vitae-total"><span>Starting Vitae (before feeding)</span><span class="${startVitae < 0 ? 'dt-vitae-over' : ''}">${startVitae}</span></div>`;
+        if (mandFruit > 0) h += `<div class="dt-vitae-row dt-vitae-note"><span>Mandragora Fruit (equipment, not on Vitae track)</span><span>+${mandFruit}</span></div>`;
         h += '</div>';
       }
 
