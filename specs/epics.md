@@ -1098,7 +1098,7 @@ So that I know what I've completed, what's pending review, and what I need to re
 
 ---
 
-## Epic AR: Archive and Documents
+## Epic AR: Archive and Documents — DONE
 
 ST-authored documents (dossiers, downtime responses, character histories) are stored in MongoDB as HTML and surfaced to players in their Archive tab. The player portal also includes a city map, a who's who page, and a web-readable primer.
 
