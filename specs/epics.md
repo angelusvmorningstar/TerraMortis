@@ -18,7 +18,7 @@ inputDocuments:
 
 This document provides the complete epic and story breakdown for TM Suite, decomposing the requirements from the PRD, Architecture documents, and Epic Restructure Proposal v3 into implementable stories.
 
-Epics 1–4 are complete and listed as reference only. Active work begins at Epic 5.
+Epics 1–4 and Epic 6 are complete and listed as reference only. Active work continues in Epics 5, GC, OR, AR, and DP.
 
 ## Requirements Inventory
 
@@ -213,7 +213,7 @@ Import historical Google Forms ordeal data, mark player responses against rubric
 Convert all ST-authored .docx files (dossiers, downtime responses, histories) to HTML and store in MongoDB. Players read their archive in-portal. ST uploads future cycle documents from admin. City map, who's who, and primer page round out the player portal.
 **FRs covered:** FR-AR-01, FR-AR-02, FR-AR-03, FR-AR-04, FR-AR-05
 
-### Epic 6: Live Game App
+### Epic 6: Live Game App — DONE
 The ST can look up any character, view pre-calculated dice pools, resolve contested rolls, check downtime submissions, and track live game state — all from a tablet-optimised interface on game day.
 **FRs covered:** FR-6-01, FR-6-02, FR-6-03, FR-6-04, FR-6-05, FR-6-06
 
@@ -735,7 +735,7 @@ So that I can use CSV as a reliable backup and restore mechanism without fear of
 
 ---
 
-## Epic 6: Live Game App
+## Epic 6: Live Game App — DONE
 
 The ST can look up any character, view pre-calculated dice pools, resolve contested rolls, check downtime submissions, and track live game state — all from a tablet-optimised interface on game day.
 
