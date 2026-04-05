@@ -5,6 +5,7 @@ let client;
 let db;
 
 export async function connectDb() {
+  if (db) return; // Already connected — idempotent for test suites sharing a process
   // Strip legacy ssl= param — not accepted by MongoDB driver v7
   const uri = config.MONGODB_URI.replace(/[&?]ssl=[^&]*/g, '');
   client = new MongoClient(uri, {
