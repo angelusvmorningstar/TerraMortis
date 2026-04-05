@@ -11,6 +11,7 @@ import { renderFeedingTab } from './player/feeding-tab.js';
 import { renderStoryTab } from './player/story-tab.js';
 import { initArchiveTab } from './player/archive-tab.js';
 import { renderCityTab } from './player/city-tab.js';
+import { renderPrimerTab } from './player/primer-tab.js';
 import { renderXpLogTab } from './player/xp-log-tab.js';
 import { startWizard } from './player/wizard.js';
 import { getActiveCycle, getGamePhaseCycle } from './downtime/db.js';
@@ -134,8 +135,9 @@ async function loadCharacters() {
   const archiveBtn = document.getElementById('tab-btn-archive');
   if (archiveBtn) archiveBtn.style.display = '';
 
-  // City tab — render once, independent of active character
+  // City and Primer tabs — render once, independent of active character
   renderCityTab(document.getElementById('tab-city'));
+  renderPrimerTab(document.getElementById('tab-primer'));
 
   // Sidebar cycle indicators (fire-and-forget)
   updateCycleIndicators();
