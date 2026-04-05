@@ -398,9 +398,8 @@ export function shRenderDisciplines(c,editMode) {
             +(partner&&!partnerHasSW?'<span style="font-size:10px;color:var(--txt3);font-style:italic;margin-left:4px">partner must also take this oath</span>':'')
             +(partnerHasSW?'<span style="font-size:10px;color:var(--gold2);margin-left:4px">\u2713 mutually linked</span>':'')
             +'</div>'
-            +'<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>'
-            +'<input class="gen-qual-input" style="width:180px" type="text" value="'+esc(sharedMerit)+'" placeholder="e.g. Striking Looks\u2026" onchange="shEditPact('+realPi+',\'shared_merit\',this.value)">'
-            +'</div>'
+            +(()=>{const _sm=(c.merits||[]).filter(m=>{const _db=(MERITS_DB||{})[(m.name||'').toLowerCase()];return _db&&_db.type==='Social';});const _smOpts=_sm.map(m=>{const _lbl=m.name+(m.qualifier?' ('+m.qualifier+')':m.area?' ('+m.area+')':'');return '<option value="'+esc(_lbl)+'"'+(sharedMerit===_lbl?' selected':'')+'>'+esc(_lbl)+'</option>';}).join('');return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>'+(_sm.length?'<select class="gen-qual-input" style="width:180px" onchange="shEditPact('+realPi+',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>'+_smOpts+'</select>':'<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>')+'</div>';})()
+
             +'</div>';
         }
         h+='</div>';
