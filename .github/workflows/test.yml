@@ -27,6 +27,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check secret presence
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "ERROR: MONGODB_URI secret is empty or not set"
+            exit 1
+          else
+            echo "MONGODB_URI is set (length: ${#MONGODB_URI})"
+          fi
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
       - name: Run tests
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
