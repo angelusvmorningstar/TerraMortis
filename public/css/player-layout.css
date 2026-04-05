@@ -2732,84 +2732,97 @@ body {
 
 /* ── City tab ── */
 
-.city-map-wrap {
-  width: 100%;
-  overflow: hidden;
-  background: #000;
-}
-.city-map {
-  width: 100%;
-  display: block;
-  touch-action: pinch-zoom;
+.city-split {
+  display: flex;
+  gap: 0;
+  align-items: flex-start;
+  min-height: 100%;
 }
 
-.city-whos-who {
+.city-left {
+  width: 340px;
+  min-width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--bdr);
+  display: flex;
+  flex-direction: column;
+}
+
+.city-right {
+  flex: 1;
+  min-width: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.city-section-title {
+.city-panel {
+  border-bottom: 1px solid var(--bdr);
+  padding: 12px 14px;
+}
+
+.city-panel-title {
   font-family: var(--fh);
-  font-size: 14px;
-  letter-spacing: .06em;
+  font-size: 11px;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--gold2);
-  margin: 0 0 4px;
+  color: var(--txt-dim);
+  margin-bottom: 8px;
 }
 
+/* Court */
+.city-office-list { display: flex; flex-direction: column; gap: 4px; }
+.city-office-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; padding: 3px 0;
+  border-bottom: 1px solid var(--bdr);
+}
+.city-office-row:last-child { border-bottom: none; }
+.city-office-name { color: var(--txt); }
+.city-office-position { font-family: var(--fh); font-size: 11px; color: var(--gold2); letter-spacing: .04em; }
+
+/* Map */
+.city-map-wrap { overflow: hidden; background: #000; }
+.city-map { width: 100%; display: block; touch-action: pinch-zoom; }
+
+/* Regents */
+.city-regent-list { display: flex; flex-direction: column; gap: 2px; }
+.city-regent-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; padding: 4px 0;
+  border-bottom: 1px solid var(--bdr);
+}
+.city-regent-row:last-child { border-bottom: none; }
+.city-regent-territory { color: var(--txt-dim); font-size: 12px; }
+.city-regent-name { color: var(--txt); text-align: right; }
+
+/* Who's Who */
 .city-cov-group {
   background: var(--surf1);
   border: 1px solid var(--bdr);
   border-radius: 6px;
   overflow: hidden;
 }
-
 .city-cov-heading {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-family: var(--fh);
-  font-size: 12px;
-  letter-spacing: .05em;
-  text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px;
+  font-family: var(--fh); font-size: 11px;
+  letter-spacing: .06em; text-transform: uppercase;
   color: var(--gold2);
   border-bottom: 1px solid var(--bdr);
   background: var(--surf2);
 }
-
-.city-char-list { padding: 4px 0; }
-
+.city-char-list { padding: 2px 0; }
 .city-char-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 14px;
-  border-bottom: 1px solid var(--bdr);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; border-bottom: 1px solid var(--bdr);
 }
 .city-char-row:last-child { border-bottom: none; }
-
-.city-char-name {
-  font-size: 14px;
-  color: var(--txt);
-}
-
-.city-char-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--txt-dim);
-}
-
-.city-char-position {
-  font-family: var(--fh);
-  font-size: 11px;
-  color: var(--gold2);
-  letter-spacing: .04em;
-}
+.city-char-name { font-size: 13px; color: var(--txt); }
+.city-char-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt-dim); }
+.city-char-position { font-family: var(--fh); font-size: 11px; color: var(--gold2); letter-spacing: .04em; }
+.city-placeholder { font-size: 12px; margin: 0; }
 
 /* ── Responsive ── */
 
