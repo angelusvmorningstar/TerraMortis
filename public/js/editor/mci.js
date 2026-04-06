@@ -260,7 +260,8 @@ export function applyDerivedMerits(c) {
   // ── Sync ratings from merit_creation (free + cp + xp) ──
   ensureMeritSync(c);
   (c.merits || []).forEach((m, i) => {
-    if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
+    // MCI and PT have their own render logic; MG's total includes partner contributions
+    if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
     const mc = (c.merit_creation || [])[i] || {};
     const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.free_pt || 0) + (mc.free_mdb || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;
