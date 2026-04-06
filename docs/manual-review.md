@@ -23,10 +23,10 @@ Items are grouped by type. Tick off as resolved.
 - [ ] **Edit Regency** — Cannot edit Regency section
 - [ ] **Ritual DT Section** — Mandragora Garden rituals need an "already paid" checkbox for sustained rituals
 - [x] **Vitae Budget** — Colour scheme makes it unreadable
-- [ ] **Mandragora Garden** — (1) Incorrect bonus dice displaying in Ritual section; (2) Incorrect blood fruit count in Vitae Budget
-- [ ] **DT Feeding** — (1) Doesn't include Feeding Grounds; (2) Optional field doesn't allow situational bonuses or specs
+- [x] **Mandragora Garden** — (1) Incorrect bonus dice displaying in Ritual section; (2) Incorrect blood fruit count in Vitae Budget (root cause: applyDerivedMerits was overwriting stored rating from incomplete merit_creation data; MG now excluded from sync)
+- [x] **DT Feeding** — (1) Feeding Grounds now included in pool total; (2) custom "other" builder now shows spec chips when custom skill has specialisations
 - [x] **Rituals** — Cannot select or search for any rituals (dynamic rite selector built; sorcery section now shows character's rites)
-- [ ] **Oath of the Scapegoat** — Each dot should give 2 free Fighting Style dots (currently not working)
+- [x] **Oath of the Scapegoat** — Each dot should give 2 free Fighting Style dots (now tracked as free_ots per style; OTS pool counter shown; included in dot count and orthodox rank access)
 - [ ] **Hollow Dots** — Hollow dots not passed on correctly via shared merits
 - [ ] **Professional Training** — XP refund is at tier 3 not 4; refund not behaving correctly *(needs more info — the 2 free specs ARE correctly at tier 3 per rules; the tier 4 free dot is ephemeral and adds no XP cost; suspect this may be about the XP breakdown not showing a PT4 credit row, or about skill_creation data entry for the free dot)*
 - [x] **Professional Training** — Not picking up 3rd Asset Skill (mci.js was slicing to first 2; now all asset skills get 9-Again)

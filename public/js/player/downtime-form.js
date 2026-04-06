@@ -1309,9 +1309,11 @@ function renderForm(container) {
     // Feeding custom pool changes
     const feedCustom = e.target.closest('#dt-feed-custom-attr, #dt-feed-custom-skill, #dt-feed-custom-disc');
     if (feedCustom) {
+      const prevCustomSkill = feedCustomSkill;
       feedCustomAttr = document.getElementById('dt-feed-custom-attr')?.value || '';
       feedCustomSkill = document.getElementById('dt-feed-custom-skill')?.value || '';
       feedCustomDisc = document.getElementById('dt-feed-custom-disc')?.value || '';
+      if (feedCustomSkill !== prevCustomSkill) feedSpecName = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -3134,7 +3136,9 @@ function renderQuestion(q, value) {
           // Discipline selector
           const availDiscs = m.discs.filter(d => c.disciplines?.[d]);
           const discVal = (feedDiscName && c.disciplines?.[feedDiscName]) || 0;
-          const total = bestAV + bestSV + discVal + specBonus;
+          const fgMerit = (c.merits || []).find(mr => mr.name === 'Feeding Grounds');
+          const fgVal = fgMerit ? (fgMerit.rating || 0) : 0;
+          const total = bestAV + bestSV + discVal + specBonus + fgVal;
 
           h += '<div class="dt-feed-pool">';
           h += '<div class="dt-feed-breakdown">';
@@ -3143,6 +3147,7 @@ function renderQuestion(q, value) {
           if (bestSpecs.length) h += ` <span class="dt-feed-dim">[${esc(bestSpecs.join(', '))}]</span>`;
           if (discVal) h += ` + <span class="dt-feed-bv">${discVal}</span> ${esc(feedDiscName)}`;
           if (specBonus) h += ` + <span class="dt-feed-bv">${specBonus}</span> ${esc(feedSpecName)}`;
+          if (fgVal) h += ` + <span class="dt-feed-bv">${fgVal}</span> Feeding Grounds`;
           h += ` = <span class="dt-feed-total">${total} dice</span>`;
           h += '</div>';
 
@@ -3180,10 +3185,15 @@ function renderQuestion(q, value) {
         const skills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0; });
         const discs = Object.entries(c.disciplines || {}).filter(([, v]) => v > 0);
 
+        const hasAoECustom = (c.merits || []).some(mr => mr.name && mr.name.toLowerCase() === 'area of expertise');
+        const customSpecs = feedCustomSkill ? (c.skills?.[feedCustomSkill]?.specs || []) : [];
+        const customSpecBonus = feedSpecName ? (hasAoECustom ? 2 : 1) : 0;
+
         let customTotal = 0;
         if (feedCustomAttr) { const a = c.attributes?.[feedCustomAttr]; if (a) customTotal += (a.dots || 0) + (a.bonus || 0); }
         if (feedCustomSkill) { const s = c.skills?.[feedCustomSkill]; if (s) customTotal += (s.dots || 0) + (s.bonus || 0); }
         if (feedCustomDisc) customTotal += c.disciplines?.[feedCustomDisc] || 0;
+        customTotal += customSpecBonus;
 
         h += '<div class="dt-feed-custom">';
         h += '<p class="qf-desc">Custom feeding method — subject to ST approval.</p>';
@@ -3206,7 +3216,17 @@ function renderQuestion(q, value) {
         }
         h += '</select>';
         if (customTotal) h += `<span class="dt-feed-total">= ${customTotal} dice</span>`;
-        h += '</div></div>';
+        h += '</div>';
+        if (customSpecs.length) {
+          h += '<div class="dt-feed-spec-row">';
+          h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
+          for (const sp of customSpecs) {
+            const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
+            h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoECustom ? 2 : 1}</span></button>`;
+          }
+          h += '</div>';
+        }
+        h += '</div>';
       }
 
       // Blood type selection (always shown)
