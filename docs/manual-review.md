@@ -35,7 +35,7 @@ Items are grouped by type. Tick off as resolved.
 ### Features (3)
 
 - [x] **Edit Tickets** — Player view now expands tickets on click; open tickets show editable title/body + Save button. Admin view shows editable title/body fields in the expanded detail (save on blur). Server PUT handler now accepts `title` for both players and STs
-- [ ] **Feeding Pool Alteration** — No way for STs to edit or approve DT pools in ST DT section
+- [x] **Feeding Pool Alteration** — "Mod" numeric input added to feeding pool row in ST DT review; persisted to `st_review.feeding_modifier`; applied to `buildFeedingPool()` at roll time; shown in pool expression
 - [x] **Attribute Bumps** — `shAdjAttrBonus` added to `edit.js`; bonus +/− stepper now shown on every attribute row in the inline sheet edit mode (calls `_renderSheet` so it updates immediately without switching to Attrs tab)
 
 ---

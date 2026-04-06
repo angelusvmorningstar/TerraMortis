@@ -825,6 +825,21 @@ function renderSubmissions() {
     });
   });
 
+  // Pool modifier — persist on change and update display
+  el.querySelectorAll('.dt-pool-mod').forEach(inp => {
+    inp.addEventListener('change', async e => {
+      e.stopPropagation();
+      const subId = inp.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const val = parseInt(inp.value) || 0;
+      await updateSubmission(subId, { 'st_review.feeding_modifier': val });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.feeding_modifier = val;
+      renderSubmissions();
+    });
+  });
+
   // Roll button delegation
   el.querySelectorAll('.dt-feed-roll-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -835,12 +850,15 @@ function renderSubmissions() {
 
       let poolSize = 1, expression = '';
       if (char && sub._feed_method) {
-        const pool = buildFeedingPool(char, sub._feed_method, 0);
+        const modInput = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-mod');
+        const stMod = modInput ? (parseInt(modInput.value) || 0) : (sub.st_review?.feeding_modifier || 0);
+        const pool = buildFeedingPool(char, sub._feed_method, stMod);
         poolSize = pool ? pool.total : 1;
         if (pool) {
           const bd = pool.breakdown;
           expression = `${bd.attrVal} ${bd.attr} + ${bd.skillVal} ${bd.skill}`;
           if (bd.fg) expression += ` + ${bd.fg} FG`;
+          if (stMod) expression += ` ${stMod >= 0 ? '+' : '-'} ${Math.abs(stMod)} ST`;
           expression += ` = ${pool.total}`;
         }
       } else {
@@ -900,14 +918,18 @@ function renderFeedingDetail(s, raw, char) {
 
     // Show pool breakdown if method selected
     if (selectedMethod) {
-      const pool = buildFeedingPool(char, selectedMethod, 0);
+      const stMod = s.st_review?.feeding_modifier || 0;
+      const pool = buildFeedingPool(char, selectedMethod, stMod);
       if (pool) {
         const bd = pool.breakdown;
         h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
         h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
         if (bd.fg) h += ` + ${bd.fg} FG`;
         if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
-        h += ` = <b>${pool.total}</b></span></div>`;
+        if (stMod) h += ` ${stMod >= 0 ? '+' : '\u2212'} ${Math.abs(stMod)} ST`;
+        h += ` = <b>${pool.total}</b></span>`;
+        h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl" style="display:inline">Mod</label> <input type="number" class="dt-pool-mod" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1" style="width:52px"></span>`;
+        h += '</div>';
       }
     }
 
