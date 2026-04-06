@@ -15,9 +15,9 @@ Items are grouped by type. Tick off as resolved.
 - [ ] **Cannot Edit Notes/Tags on Sheet** — Tags imported from CSV cannot be deleted or edited
 - [ ] **Cannot Delete Merits** — Cannot delete some merits from Ballsack's sheet
 - [x] **Viral Mythology** — Should be 2 dots, not 3 (errata change not applied)
-- [ ] **MCI not appearing in Spheres of Influence** — MCI should be a useable narrow Mortal Influence in DT
-- [ ] **MCI not appearing in Applicable Merits** — MCI missing from Project section Applicable Merits
-- [ ] **Characters Involved section missing** — Missing from Personal Projects Misc action
+- [x] **MCI not appearing in Spheres of Influence** — detectMerits now expands benefit_grants from MCI (standing merit) so Allies/Contacts/Status grants appear as sphere entries
+- [x] **MCI not appearing in Applicable Merits** — charMerits filter now includes category === 'standing' in Projects and Acquisitions pickers
+- [x] **Characters Involved section missing** — Added 'cast' to misc action fields list
 - [x] **PT Free Skill** — Additional Skill dot from PT is hollow and not counted in pools (pools.js now includes _pt_dot4_bonus_skills and _mci_dot3_skills in skill dice)
 - [x] **Shout Out PC names** — Names appear as ObjectIDs (e.g. `69cf7da860b712b5eb99625d`) in ST DT review section
 - [ ] **Edit Regency** — Cannot edit Regency section

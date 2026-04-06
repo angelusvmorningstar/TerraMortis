@@ -90,7 +90,7 @@ const ACTION_FIELDS = {
   'hide_protect': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
   'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
   'support': ['title', 'pools', 'outcome', 'cast', 'description'],
-  'misc': ['title', 'pools', 'outcome', 'description'],
+  'misc': ['title', 'pools', 'outcome', 'cast', 'description'],
 };
 
 // Which fields each sphere action type shows (no dice pools)
@@ -153,15 +153,24 @@ function deduplicateMerits(list) {
 
 /** Scan character merits and disciplines to populate detectedMerits and auto-gates. */
 function detectMerits() {
-  // Only top-level merits (not benefit_grants children nested inside standing merits)
   const merits = (currentChar.merits || []).filter(m => m.category);
   const discs = currentChar.disciplines || {};
 
-  detectedMerits.spheres = deduplicateMerits(merits.filter(m =>
+  // Expand benefit_grants from standing merits (MCI) into the influence pool
+  const expandedInfluence = [...merits];
+  for (const m of merits) {
+    if (m.category === 'standing' && Array.isArray(m.benefit_grants)) {
+      for (const g of m.benefit_grants) {
+        if (g.category === 'influence') expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
+      }
+    }
+  }
+
+  detectedMerits.spheres = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && (m.name === 'Allies' || m.name === 'Status')
   ));
   // Contacts: expand spheres array into individual entries for toggle rendering
-  const rawContacts = deduplicateMerits(merits.filter(m =>
+  const rawContacts = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && m.name === 'Contacts'
   ));
   detectedMerits.contacts = [];
@@ -1656,7 +1665,7 @@ function renderProjectSlots(saved) {
 
   // Character merits for the merit picker
   const charMerits = (currentChar.merits || []).filter(m =>
-    m.category === 'general' || m.category === 'influence'
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
 
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
@@ -2282,7 +2291,7 @@ function renderAcquisitionsSection(saved) {
 
   // All character merits for the picker
   const charMerits = (c.merits || []).filter(m =>
-    m.category === 'general' || m.category === 'influence'
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
 
   let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
