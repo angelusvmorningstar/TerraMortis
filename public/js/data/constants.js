@@ -12,6 +12,37 @@ export const SKILLS_SOCIAL = ['Animal Ken','Empathy','Expression','Intimidation'
 export const ALL_SKILLS = [...SKILLS_MENTAL,...SKILLS_PHYSICAL,...SKILLS_SOCIAL];
 export const SKILL_CATS = {Mental:SKILLS_MENTAL, Physical:SKILLS_PHYSICAL, Social:SKILLS_SOCIAL};
 export const MASKS_DIRGES = ['Authoritarian','Child','Competitor','Conformist','Conspirator','Courtesan','Cult Leader','Deviant','Follower','Guru','Idealist','Jester','Junkie','Martyr','Masochist','Monster','Nomad','Nurturer','Penitent','Perfectionist','Questioner','Rebel','Scholar','Social Chameleon','Spy','Survivor','Visionary'];
+
+/** WP recovery conditions for each Mask/Dirge archetype. Same text applies whether the archetype is used as Mask or Dirge. */
+export const ARCHETYPES_DB = {
+  'Authoritarian':    { wp1: 'Shut down an inferior trying to rise to your level of power.',           wpAll: 'Commit a widespread hit against a rival\'s mortal connections.' },
+  'Child':            { wp1: 'Find someone to take responsibility for your mistake.',                   wpAll: 'Commit a terrible crime to see how authority might react.' },
+  'Competitor':       { wp1: 'Challenge someone clearly your superior.',                                wpAll: 'Risk Final Death to prove that you can handle something.' },
+  'Conformist':       { wp1: 'Choose an obviously disadvantageous path, because it fits with protocol.', wpAll: 'Stand by the losing side with shield at the ready, because it\'s your side.' },
+  'Conspirator':      null, // not yet used by any character — fill in from rulebook
+  'Courtesan':        { wp1: 'Put yourself out for another\'s pleasure.',                               wpAll: 'Be the last one dancing when the party\'s on fire.' },
+  'Cult Leader':      { wp1: 'Convince someone to deny logic because of your word.',                    wpAll: 'Risk exile or death to defend your cult\'s belief system.' },
+  'Deviant':          { wp1: 'Commit a crime against your recognised society.',                         wpAll: 'Commit a high crime in plain view of an authority.' },
+  'Follower':         { wp1: 'Follow a directive blindly, for the sake of following.',                  wpAll: 'Follow a dangerous directive without hesitation.' },
+  'Guru':             { wp1: 'Give advice that someone uses to succeed.',                               wpAll: 'Give protected, dangerous information without asking for payment.' },
+  'Idealist':         { wp1: 'Deny a compromise that would water down your ideal.',                     wpAll: 'Refuse safety for fear of abandoning your ideal\'s purity.' },
+  'Jester':           { wp1: 'Point out an absurdity in the current state of affairs, to lighten the tone.', wpAll: 'Favour wit and cunning over direct self-defence in a situation of serious danger.' },
+  'Junkie':           { wp1: 'Ignore a problem or responsibility in favour of immediate gratification.', wpAll: 'Abandon an important relationship over your pursuit of pleasure.' },
+  'Martyr':           { wp1: 'Take another\'s burden upon yourself without expecting recompense.',      wpAll: 'Put yourself at risk to save someone else or an ideology.' },
+  'Masochist':        { wp1: 'Find and experience a new source of hurt.',                               wpAll: 'Willingly explore pain, beyond the point of safety and reason.' },
+  'Monster':          { wp1: 'Cause pain for the sole intention of causing pain.',                      wpAll: 'Commit a capital crime without additional motive.' },
+  'Nomad':            null, // not yet used by any character — fill in from rulebook
+  'Nurturer':         { wp1: 'Put yourself out to help another succeed.',                               wpAll: 'Take full responsibility for another\'s dangerous mistake.' },
+  'Penitent':         { wp1: 'Punish yourself for a mistake.',                                          wpAll: 'Risk death to correct an egregious error in judgement.' },
+  'Perfectionist':    { wp1: 'Revisit an already successful action to hammer out a flaw.',              wpAll: 'Stick with a failed and dangerous plan, in order to fix what went wrong.' },
+  'Questioner':       { wp1: 'Challenge an accepted truth.',                                            wpAll: 'Put a long-believed truth to the test, at your own peril.' },
+  'Rebel':            { wp1: 'Openly flout a tradition.',                                               wpAll: 'Openly flout a Kindred Tradition, or a covenant taboo.' },
+  'Scholar':          { wp1: 'Uncover a lost piece of information.',                                    wpAll: 'Uncover forbidden knowledge.' },
+  'Social Chameleon': { wp1: 'Ingratiate yourself to a new social clique.',                             wpAll: 'Burn an important bridge to guarantee acceptance in a new group.' },
+  'Spy':              { wp1: 'Build a new identity or uncover a secret.',                               wpAll: 'Uncover a damning secret that could end someone.' },
+  'Survivor':         { wp1: 'Favour the safe path over the higher risk, higher reward path.',          wpAll: 'Abandon a social group or relationship in order to stay safe.' },
+  'Visionary':        { wp1: 'Help someone by sharing your vision with them.',                          wpAll: 'Put yourself at risk to show a group the power of your vision.' },
+};
 export const COURT_TITLES = ['','Head of State','Primogen','Socialite','Enforcer','Administrator','Regent'];
 export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1,'Regent':0};
 
