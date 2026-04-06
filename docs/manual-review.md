@@ -11,7 +11,7 @@ Items are grouped by type. Tick off as resolved.
 ### Bugs (21)
 
 - [ ] **Character CSV** — Columns go wrong from MK onwards
-- [ ] **Ordeals** — Ordeals marked and signed off are flagging as In Progress or Unmarked
+- [x] **Ordeals** — submissionsMap was filtering all ordeal types by character_id; now only character_history is filtered per-character; player-level ordeals (lore, rules, covenant) now show correct status
 - [ ] **Cannot Edit Notes/Tags on Sheet** — Tags imported from CSV cannot be deleted or edited
 - [ ] **Cannot Delete Merits** — Cannot delete some merits from Ballsack's sheet
 - [x] **Viral Mythology** — Should be 2 dots, not 3 (errata change not applied)

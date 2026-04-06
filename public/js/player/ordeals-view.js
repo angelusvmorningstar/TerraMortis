@@ -72,8 +72,9 @@ export async function initOrdeals(char, chars) {
 
   submissionsMap = {};
   for (const s of (subDocs || [])) {
-    // For character-level types, only store if it matches the current character
-    if (s.character_id && s.character_id.toString() !== char._id.toString()) continue;
+    // character_history is character-level: only store if it matches the current character
+    // Other ordeal types are player-level and should always be shown
+    if (s.ordeal_type === 'character_history' && s.character_id && s.character_id.toString() !== char._id.toString()) continue;
     submissionsMap[s.ordeal_type] = s;
   }
 
