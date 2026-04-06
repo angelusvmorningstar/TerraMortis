@@ -21,7 +21,7 @@ Items are grouped by type. Tick off as resolved.
 - [x] **PT Free Skill** — Additional Skill dot from PT is hollow and not counted in pools (pools.js now includes _pt_dot4_bonus_skills and _mci_dot3_skills in skill dice)
 - [x] **Shout Out PC names** — Names appear as ObjectIDs (e.g. `69cf7da860b712b5eb99625d`) in ST DT review section
 - [x] **Edit Regency** — regency_action textarea restored to DT form (was accidentally skipped; residency grid remains in separate Regency tab)
-- [ ] **Ritual DT Section** — Mandragora Garden rituals need an "already paid" checkbox for sustained rituals
+- [x] **Ritual DT Section** — Added "Vitae cost already paid" sub-checkbox under Mandragora Garden; shown in admin DT review as paid/outstanding
 - [x] **Vitae Budget** — Colour scheme makes it unreadable
 - [x] **Mandragora Garden** — (1) Incorrect bonus dice displaying in Ritual section; (2) Incorrect blood fruit count in Vitae Budget (root cause: applyDerivedMerits was overwriting stored rating from incomplete merit_creation data; MG now excluded from sync)
 - [x] **DT Feeding** — (1) Feeding Grounds now included in pool total; (2) custom "other" builder now shows spec chips when custom skill has specialisations

@@ -1020,8 +1020,9 @@ function renderPlayerResponses(s) {
     const targets = r[`sorcery_${n}_targets`] || '';
     const notes = r[`sorcery_${n}_notes`] || '';
     const mand = r[`sorcery_${n}_mandragora`] === 'yes';
+    const mandPaid = r[`sorcery_${n}_mand_paid`] === 'yes';
     let line = rite;
-    if (mand) line += ' [Mandragora Garden]';
+    if (mand) line += mandPaid ? ' [Mandragora Garden \u2014 Vitae paid]' : ' [Mandragora Garden \u2014 Vitae outstanding]';
     if (targets) line += ` — targets: ${targets}`;
     if (notes) line += ` — ${notes}`;
     sorcRows.push(line);

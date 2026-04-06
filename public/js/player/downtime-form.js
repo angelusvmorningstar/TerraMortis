@@ -366,6 +366,8 @@ function collectResponses() {
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
     responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : 'no';
+    const mandPaidEl = document.getElementById(`dt-sorcery_${n}_mand_paid`);
+    responses[`sorcery_${n}_mand_paid`] = mandPaidEl ? (mandPaidEl.checked ? 'yes' : 'no') : 'no';
   }
 
   // Residency is now managed in the Regency tab (regency-tab.js)
@@ -1359,6 +1361,15 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Mandragora Garden checkbox — re-render to show/hide "already paid" sub-checkbox
+    const mandCb = e.target.closest('.dt-mand-cb[id$="_mandragora"]');
+    if (mandCb) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // Add Rite button
     if (e.target.closest('#dt-add-rite')) {
       const responses = collectResponses();
@@ -1383,12 +1394,14 @@ function renderForm(container) {
         responses[`sorcery_${n}_targets`] = responses[`sorcery_${n + 1}_targets`] || '';
         responses[`sorcery_${n}_notes`] = responses[`sorcery_${n + 1}_notes`] || '';
         responses[`sorcery_${n}_mandragora`] = responses[`sorcery_${n + 1}_mandragora`] || 'no';
+        responses[`sorcery_${n}_mand_paid`] = responses[`sorcery_${n + 1}_mand_paid`] || 'no';
       }
       // Clear last slot
       delete responses[`sorcery_${current}_rite`];
       delete responses[`sorcery_${current}_targets`];
       delete responses[`sorcery_${current}_notes`];
       delete responses[`sorcery_${current}_mandragora`];
+      delete responses[`sorcery_${current}_mand_paid`];
       responses['sorcery_slot_count'] = String(Math.max(1, current - 1));
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2247,6 +2260,15 @@ function renderSorcerySection(saved) {
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
       h += '</label>';
+      // "Already paid" checkbox — shown when garden checkbox is ticked
+      if (isCruac && mandSaved) {
+        const paidSaved = saved[`sorcery_${n}_mand_paid`] === 'yes';
+        const paidChecked = paidSaved ? ' checked' : '';
+        h += `<label class="dt-mand-label dt-mand-paid-label" title="Tick if you have already set aside ${mandDots} Vitae to cover this rite's sustained cost for the month.">`;
+        h += `<input type="checkbox" id="dt-sorcery_${n}_mand_paid" class="dt-mand-cb"${paidChecked}>`;
+        h += ` Vitae cost already paid (${mandDots}V)`;
+        h += '</label>';
+      }
     }
 
     h += '</div>';
