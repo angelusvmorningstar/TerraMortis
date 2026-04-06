@@ -1,6 +1,6 @@
 /* Tickets tab — player-facing ticket submission and list view */
 
-import { apiGet, apiPost } from '../data/api.js';
+import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc } from '../data/helpers.js';
 
 const TYPE_LABELS = {
@@ -27,36 +27,8 @@ function formatDate(iso) {
   return `${dd} ${mon} ${yr}`;
 }
 
-function truncate(text, max = 120) {
-  if (!text) return '';
-  return text.length > max ? text.slice(0, max) + '\u2026' : text;
-}
-
 function buildBadge(cls, label) {
   return `<span class="tk-badge ${esc(cls)}">${esc(label)}</span>`;
-}
-
-function renderList(tickets) {
-  if (!tickets.length) {
-    return `<p class="tk-empty">No tickets yet. Use the form above to submit one.</p>`;
-  }
-
-  return `<div class="tk-list">` + tickets.map(t => {
-    const typeBadge   = buildBadge(`tk-badge-${t.type}`,   TYPE_LABELS[t.type]   || esc(t.type));
-    const statusBadge = buildBadge(`tk-badge-${t.status}`, STATUS_LABELS[t.status] || esc(t.status));
-    const date        = formatDate(t.created_at);
-    const bodyText    = truncate(t.body);
-    return `
-      <div class="tk-item">
-        <div class="tk-item-header">
-          <span class="tk-item-title">${esc(t.title)}</span>
-          ${typeBadge}
-          ${statusBadge}
-          <span class="tk-item-meta">${esc(date)}</span>
-        </div>
-        ${bodyText ? `<div class="tk-item-body">${esc(bodyText)}</div>` : ''}
-      </div>`;
-  }).join('') + `</div>`;
 }
 
 export async function renderTicketsTab(containerEl) {
@@ -97,10 +69,108 @@ export async function renderTicketsTab(containerEl) {
   const submitEl = containerEl.querySelector('#tk-submit');
   const listEl   = containerEl.querySelector('#tk-list-container');
 
+  let allTickets = [];
+  let expandedId = null;
+
+  function render() {
+    if (!allTickets.length) {
+      listEl.innerHTML = `<p class="tk-empty">No tickets yet. Use the form above to submit one.</p>`;
+      return;
+    }
+
+    listEl.innerHTML = `<div class="tk-list">` + allTickets.map(t => {
+      const isExpanded  = String(t._id) === expandedId;
+      const typeBadge   = buildBadge(`tk-badge-${t.type}`,   TYPE_LABELS[t.type]   || esc(t.type));
+      const statusBadge = buildBadge(`tk-badge-${t.status}`, STATUS_LABELS[t.status] || esc(t.status));
+      const date        = formatDate(t.created_at);
+      const canEdit     = t.status === 'open';
+
+      let detailHtml = '';
+      if (isExpanded) {
+        if (canEdit) {
+          detailHtml = `
+            <div class="tk-detail">
+              <div class="tk-form-row">
+                <label class="tk-form-label">Title</label>
+                <input class="tk-input tk-edit-title" data-id="${esc(String(t._id))}" value="${esc(t.title)}" maxlength="200">
+              </div>
+              <div class="tk-form-row">
+                <label class="tk-form-label">Details</label>
+                <textarea class="tk-textarea tk-edit-body" data-id="${esc(String(t._id))}" rows="4">${esc(t.body || '')}</textarea>
+              </div>
+              <div class="tk-edit-error" style="display:none"></div>
+              <button class="tk-btn-save" data-id="${esc(String(t._id))}">Save Changes</button>
+            </div>`;
+        } else {
+          detailHtml = `<div class="tk-detail"><div class="tk-item-body-full">${esc(t.body || '')}</div></div>`;
+        }
+      }
+
+      const rowClass = isExpanded ? ' tk-item-expanded' : '';
+      return `
+        <div class="tk-item${rowClass}">
+          <div class="tk-item-header tk-item-toggle" data-id="${esc(String(t._id))}">
+            <span class="tk-item-title">${esc(t.title)}</span>
+            ${typeBadge}
+            ${statusBadge}
+            <span class="tk-item-meta">${esc(date)}</span>
+            <span class="tk-item-chevron">${isExpanded ? '\u2303' : '\u2304'}</span>
+          </div>
+          ${detailHtml}
+        </div>`;
+    }).join('') + `</div>`;
+
+    bindListEvents();
+  }
+
+  function bindListEvents() {
+    listEl.querySelectorAll('.tk-item-toggle').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.id;
+        expandedId = expandedId === id ? null : id;
+        render();
+      });
+    });
+
+    listEl.querySelectorAll('.tk-btn-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id      = btn.dataset.id;
+        const row     = btn.closest('.tk-item');
+        const titleIn = row.querySelector('.tk-edit-title');
+        const bodyIn  = row.querySelector('.tk-edit-body');
+        const errEl   = row.querySelector('.tk-edit-error');
+
+        const newTitle = titleIn.value.trim();
+        const newBody  = bodyIn.value.trim();
+
+        if (!newTitle) {
+          errEl.textContent = 'Title cannot be empty.';
+          errEl.style.display = '';
+          return;
+        }
+        errEl.style.display = 'none';
+        btn.disabled = true;
+
+        try {
+          await apiPut(`/api/tickets/${id}`, { title: newTitle, body: newBody });
+          const t = allTickets.find(x => String(x._id) === id);
+          if (t) { t.title = newTitle; t.body = newBody; }
+          expandedId = null;
+          render();
+        } catch (err) {
+          errEl.textContent = err.message || 'Failed to save.';
+          errEl.style.display = '';
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
   async function loadTickets() {
     try {
-      const tickets = await apiGet('/api/tickets');
-      listEl.innerHTML = renderList(tickets);
+      allTickets = await apiGet('/api/tickets');
+      render();
     } catch (err) {
       listEl.innerHTML = `<p class="tk-empty">Failed to load tickets: ${esc(err.message)}</p>`;
     }

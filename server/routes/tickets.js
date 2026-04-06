@@ -69,6 +69,11 @@ router.put('/:id', async (req, res) => {
     }
 
     const $set = {};
+    if (req.body.title !== undefined) {
+      const t = String(req.body.title).trim();
+      if (!t) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'title cannot be empty' });
+      $set.title = t;
+    }
     if (req.body.body !== undefined) $set.body = String(req.body.body).trim();
 
     if (!Object.keys($set).length) {
@@ -77,8 +82,8 @@ router.put('/:id', async (req, res) => {
 
     await col().updateOne({ _id: oid }, { $set });
   } else {
-    // ST — can update status, priority, st_note, body
-    const { status, priority, st_note, body } = req.body || {};
+    // ST — can update status, priority, st_note, title, body
+    const { status, priority, st_note, title, body } = req.body || {};
     const $set = {};
 
     if (status !== undefined) {
@@ -97,6 +102,11 @@ router.put('/:id', async (req, res) => {
       $set.priority = priority;
     }
     if (st_note !== undefined) $set.st_note = String(st_note);
+    if (title !== undefined) {
+      const t = String(title).trim();
+      if (!t) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'title cannot be empty' });
+      $set.title = t;
+    }
     if (body !== undefined)    $set.body    = String(body).trim();
 
     if (!Object.keys($set).length) {

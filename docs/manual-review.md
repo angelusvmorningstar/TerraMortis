@@ -34,9 +34,9 @@ Items are grouped by type. Tick off as resolved.
 
 ### Features (3)
 
-- [ ] **Edit Tickets** — Submitted tickets cannot have title or content edited after submission
+- [x] **Edit Tickets** — Player view now expands tickets on click; open tickets show editable title/body + Save button. Admin view shows editable title/body fields in the expanded detail (save on blur). Server PUT handler now accepts `title` for both players and STs
 - [ ] **Feeding Pool Alteration** — No way for STs to edit or approve DT pools in ST DT section
-- [ ] **Attribute Bumps** — No way to add Mantle of Amorous Fire dots to Presence
+- [x] **Attribute Bumps** — `shAdjAttrBonus` added to `edit.js`; bonus +/− stepper now shown on every attribute row in the inline sheet edit mode (calls `_renderSheet` so it updates immediately without switching to Attrs tab)
 
 ---
 

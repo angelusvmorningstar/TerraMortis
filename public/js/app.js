@@ -32,7 +32,7 @@ import {
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
   shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
-  shEditMeritPt, shStepMeritRating, shEditXP,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
@@ -520,6 +520,7 @@ Object.assign(window, {
   shSetPriority,
   shSetClanAttr,
   shEditAttrPt,
+  shAdjAttrBonus,
   shSetSkillPriority,
   shEditSkillPt,
   shEditSpec,
