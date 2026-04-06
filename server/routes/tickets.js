@@ -5,7 +5,7 @@ import { getCollection } from '../db.js';
 const router = Router();
 const col = () => getCollection('tickets');
 
-const VALID_TYPES    = ['bug', 'feature', 'question', 'other'];
+const VALID_TYPES    = ['bug', 'feature', 'question', 'sheet', 'other'];
 const VALID_STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
 const VALID_PRIORITIES = ['normal', 'high'];
 
