@@ -952,9 +952,8 @@ function renderForm(container) {
   h += '</div>';
   h += '</div>';
 
-  // Static sections: Court, Feeding (Regency + Projects rendered specially)
+  // Static sections: Court, Feeding, Regency Action (residency grid is in the Regency tab), Projects
   for (const section of DOWNTIME_SECTIONS) {
-    if (section.key === 'regency') continue;
     if (section.key === 'projects') continue;
     if (section.key === 'acquisitions') continue;
     if (section.key === 'blood_sorcery') continue;
@@ -980,8 +979,6 @@ function renderForm(container) {
 
   // ── Projects section with dynamic slots ──
   h += renderProjectSlots(saved);
-
-  // Regency is now its own tab (regency-tab.js)
 
   // ── Dynamic merit sections ──
   h += renderMeritToggles(saved);
