@@ -200,7 +200,15 @@ function renderForm(container) {
   const btnApprove = document.getElementById('hf-btn-approve');
   if (btnApprove) btnApprove.addEventListener('click', async () => {
     try {
-      responseDoc = await apiPut(`/api/history/${responseDoc._id}`, { status: 'approved' });
+      if (responseDoc._source === 'ordeal_submission') {
+        // Historical import — approve via ordeal_submissions route
+        await apiPut(`/api/ordeal_submissions/${responseDoc._id}`, {
+          marking: { status: 'complete' },
+        });
+        responseDoc = { ...responseDoc, status: 'approved' };
+      } else {
+        responseDoc = await apiPut(`/api/history/${responseDoc._id}`, { status: 'approved' });
+      }
       editing = false;
       renderForm(container);
     } catch (err) {

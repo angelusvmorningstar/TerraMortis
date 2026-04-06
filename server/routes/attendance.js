@@ -46,9 +46,19 @@ router.get('/', async (req, res) => {
     attended = entry?.attended === true;
   }
 
-  const attendees = attendance
-    .filter(a => a.attended && !matchesChar(a))
-    .map(a => ({ id: String(a.character_id), name: a.display_name || a.character_display || a.name || a.character_name || '' }))
+  // Resolve current character _ids by name — attendance may store stale IDs from prior imports
+  const attendedEntries = attendance.filter(a => a.attended && !matchesChar(a));
+  const attendeeNames = attendedEntries.map(a => a.character_name || a.name || '').filter(Boolean);
+  const currentChars = attendeeNames.length
+    ? await getCollection('characters').find({ name: { $in: attendeeNames } }, { projection: { _id: 1, name: 1 } }).toArray()
+    : [];
+  const nameToId = new Map(currentChars.map(c => [c.name, String(c._id)]));
+
+  const attendees = attendedEntries
+    .map(a => {
+      const name = a.character_name || a.name || '';
+      return { id: nameToId.get(name) || String(a.character_id), name: a.display_name || a.character_display || name };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   res.json({ attended, attendees });

@@ -16,17 +16,32 @@ function parseId(id) {
 }
 
 // GET /api/characters — ST gets all, player gets only their characters
+// ?mine=1 forces the player-only path for any role (used by player portal)
 router.get('/', async (req, res) => {
-  if (req.user.role === 'st') {
+  if (req.user.role === 'st' && !req.query.mine) {
     const chars = await col().find().toArray();
     return res.json(chars);
   }
 
-  // Player: return only their linked characters
+  // Player (or ST with ?mine=1): return only their linked characters
   const ids = (req.user.character_ids || []).map(id =>
     id instanceof ObjectId ? id : new ObjectId(id)
   );
   const chars = await col().find({ _id: { $in: ids } }).toArray();
+  res.json(chars);
+});
+
+// GET /api/characters/public — public who's who list (any authenticated user)
+// Returns only display fields for active, non-retired characters.
+router.get('/public', async (req, res) => {
+  const chars = await col()
+    .find(
+      { retired: { $ne: true }, pending_approval: { $ne: true } },
+      { projection: { name: 1, honorific: 1, moniker: 1, clan: 1, covenant: 1, court_title: 1, regent_territory: 1, player: 1 } }
+    )
+    .toArray();
+  const sortKey = c => `${c.covenant || 'zzz'}|${(c.moniker || c.name || '').toLowerCase()}`;
+  chars.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
   res.json(chars);
 });
 
@@ -99,7 +114,21 @@ router.put('/:id', requireRole('st'), validateCharacter, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
-  const { _id, ...updates } = req.body;
+  const { _id, _gameXP, _grant_pools, _mci_free_specs, _mci_dot3_skills,
+          _pt_nine_again_skills, _pt_dot4_bonus_skills, _ohm_nine_again_skills,
+          willpower,
+          ...updates } = req.body;
+
+  // Migrate legacy fighting_styles.up → cp before persisting
+  if (Array.isArray(updates.fighting_styles)) {
+    updates.fighting_styles = updates.fighting_styles.map(fs => {
+      if (!fs || !fs.up) return fs;
+      const { up, ...rest } = fs;
+      rest.cp = (rest.cp || 0) + up;
+      return rest;
+    });
+  }
+
   const result = await col().findOneAndUpdate(
     { _id: oid },
     { $set: updates },

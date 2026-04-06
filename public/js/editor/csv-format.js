@@ -8,6 +8,7 @@ import {
   BP_TABLE
 } from '../data/accessors.js';
 import { xpLeft, xpEarned } from './xp.js';
+import { getWillpower } from '../data/helpers.js';
 import { applyDerivedMerits } from './mci.js';
 import {
   ALL_SKILLS, CLAN_BANES, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES
@@ -349,8 +350,8 @@ export function charToRow(c) {
   row.push(calcSpeed(c));
   row.push(calcDefence(c));
 
-  // Willpower triggers
-  const wp = c.willpower || {};
+  // Willpower triggers — derived from Mask/Dirge, not stored
+  const wp = getWillpower(c);
   row.push(v(wp.mask_1wp));
   row.push(v(wp.mask_all));
   row.push(v(wp.dirge_1wp));

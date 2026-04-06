@@ -5,8 +5,8 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../player/downtime-data.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
 import { displayName, sortName } from '../data/helpers.js';
@@ -41,6 +41,8 @@ export async function initDowntimeView() {
   document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
   document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
+  document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
+  document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
   document.getElementById('dt-cycle-sel').addEventListener('change', e => {
     selectedCycleId = e.target.value;
     loadCycleById(selectedCycleId);
@@ -60,6 +62,8 @@ function buildShell() {
       </div>
       <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
       <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
+      <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
+      <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export All</button>
     </div>
     <div id="dt-cycle-bar" class="dt-cycle-bar">
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
@@ -313,6 +317,8 @@ async function loadAllCycles() {
     document.getElementById('dt-submissions').innerHTML = '<p class="placeholder">No cycles. Upload a CSV or create a new cycle.</p>';
     document.getElementById('dt-match-summary').innerHTML = '';
     document.getElementById('dt-close-cycle').style.display = 'none';
+    document.getElementById('dt-open-game').style.display = 'none';
+    document.getElementById('dt-export-all').style.display = 'none';
   }
 }
 
@@ -328,11 +334,15 @@ async function loadCycleById(cycleId) {
   }
 
   const isActive = cycle.status === 'active';
+  const isGame   = cycle.status === 'game';
+  const isClosed = cycle.status === 'closed';
   const deadlineStr = cycle.deadline_at
     ? new Date(cycle.deadline_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
   const deadlinePast = cycle.deadline_at && new Date(cycle.deadline_at) < new Date();
-  let statusHtml = `<span class="dt-status-badge dt-status-${isActive ? 'pending' : 'approved'}">${isActive ? 'active' : 'closed'}</span>` +
+  const statusLabel = isActive ? 'active' : isGame ? 'game' : 'closed';
+  const statusCss   = isActive ? 'pending' : isGame ? 'game' : 'approved';
+  let statusHtml = `<span class="dt-status-badge dt-status-${statusCss}">${statusLabel}</span>` +
     `<span class="domain-count">${cycle.submission_count || 0} submissions</span>`;
   if (deadlineStr) {
     statusHtml += `<span class="dt-deadline${deadlinePast ? ' dt-deadline-past' : ''}">Deadline: ${esc(deadlineStr)}</span>`;
@@ -341,15 +351,32 @@ async function loadCycleById(cycleId) {
     const dtVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
     statusHtml += `<label class="dt-deadline-edit"><span>Set deadline</span><input type="datetime-local" class="dt-deadline-input" id="dt-deadline-input" value="${esc(dtVal)}"></label>`;
   }
-  if (!isActive) {
+  if (isClosed || isGame) {
     const alreadyApplied = cycle.ambience_applied;
     statusHtml += `<button class="dt-btn" id="dt-apply-ambience" style="${alreadyApplied ? 'opacity:.5' : ''}" title="${alreadyApplied ? 'Ambience already applied for this cycle' : 'Apply ambience changes from this cycle\'s resolved projects'}">
       ${alreadyApplied ? '\u2713 Ambience applied' : 'Apply Ambience Changes'}
     </button>`;
   }
 
+  // ── GC-1: Regency Lock-In ──
+  if (isActive || isGame) {
+    const activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+    const currentRegId = cycle.regency_character_id ? String(cycle.regency_character_id) : '';
+    const opts = activeChars.map(c =>
+      `<option value="${esc(String(c._id))}"${String(c._id) === currentRegId ? ' selected' : ''}>${esc(displayName(c))}</option>`
+    ).join('');
+    statusHtml += `<label class="dt-regency-edit"><span>Regent</span>
+      <select id="dt-regency-sel" class="dt-regency-sel">
+        <option value="">-- None --</option>${opts}
+      </select>
+    </label>`;
+  } else if (isClosed && cycle.regency_character_name) {
+    statusHtml += `<span class="dt-regency-badge">\u265D Regent: ${esc(cycle.regency_character_name)}</span>`;
+  }
+
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
+  document.getElementById('dt-open-game').style.display = isClosed ? '' : 'none';
 
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
@@ -366,8 +393,27 @@ async function loadCycleById(cycleId) {
   // Wire ambience apply button
   document.getElementById('dt-apply-ambience')?.addEventListener('click', () => handleApplyAmbience(cycleId, cycle));
 
+  // Wire regency selector (GC-1)
+  document.getElementById('dt-regency-sel')?.addEventListener('change', async e => {
+    const charId = e.target.value;
+    const char = charId ? characters.find(c => String(c._id) === charId) : null;
+    await updateCycle(cycleId, {
+      regency_character_id:   charId || null,
+      regency_character_name: char ? displayName(char) : null,
+    });
+    const idx = allCycles.findIndex(c => c._id === cycleId);
+    if (idx >= 0) {
+      allCycles[idx].regency_character_id   = charId || null;
+      allCycles[idx].regency_character_name = char ? displayName(char) : null;
+    }
+    // Show confirmation flash on the select
+    const sel = document.getElementById('dt-regency-sel');
+    if (sel) { sel.style.outline = '2px solid var(--gold2)'; setTimeout(() => { sel.style.outline = ''; }, 1500); }
+  });
+
   expandedId = null;
   submissions = await getSubmissionsForCycle(cycleId);
+  document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
   renderMatchSummary();
   renderFeedingScene();
   renderFeedingMatrix();
@@ -467,6 +513,7 @@ function renderSubmissions() {
       </div>`;
 
     if (isExpanded) {
+      h += renderPlayerResponses(s);
       h += renderFeedingDetail(s, raw, char);
       h += renderProjectsPanel(s, raw, char);
       h += renderMeritActionsPanel(s, raw, char);
@@ -476,6 +523,7 @@ function renderSubmissions() {
       h += renderApproval(s);
       h += renderExpenditurePanel(s);
       h += renderPublishPanel(s);
+      h += renderExportRow(s);
     }
 
     h += '</div>';
@@ -763,6 +811,35 @@ function renderSubmissions() {
     });
   });
 
+  // Rote toggle delegation (submission review feeding row)
+  el.querySelectorAll('.dt-feed-rote-chk').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const subId = cb.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const val = cb.checked;
+      await updateSubmission(subId, { 'st_review.feeding_rote': val });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.feeding_rote = val;
+    });
+  });
+
+  // Pool modifier — persist on change and update display
+  el.querySelectorAll('.dt-pool-mod').forEach(inp => {
+    inp.addEventListener('change', async e => {
+      e.stopPropagation();
+      const subId = inp.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const val = parseInt(inp.value) || 0;
+      await updateSubmission(subId, { 'st_review.feeding_modifier': val });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.feeding_modifier = val;
+      renderSubmissions();
+    });
+  });
+
   // Roll button delegation
   el.querySelectorAll('.dt-feed-roll-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -771,16 +848,43 @@ function renderSubmissions() {
       const sub = submissions.find(s => s._id === id);
       const char = sub ? findCharacter(sub.character_name) : null;
 
-      let poolSize;
+      let poolSize = 1, expression = '';
       if (char && sub._feed_method) {
-        const pool = buildFeedingPool(char, sub._feed_method, 0);
+        const modInput = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-mod');
+        const stMod = modInput ? (parseInt(modInput.value) || 0) : (sub.st_review?.feeding_modifier || 0);
+        const pool = buildFeedingPool(char, sub._feed_method, stMod);
         poolSize = pool ? pool.total : 1;
+        if (pool) {
+          const bd = pool.breakdown;
+          expression = `${bd.attrVal} ${bd.attr} + ${bd.skillVal} ${bd.skill}`;
+          if (bd.fg) expression += ` + ${bd.fg} FG`;
+          if (stMod) expression += ` ${stMod >= 0 ? '+' : '-'} ${Math.abs(stMod)} ST`;
+          expression += ` = ${pool.total}`;
+        }
       } else {
         const input = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-input');
         poolSize = input ? parseInt(input.value) || 1 : 1;
+        expression = `${poolSize} dice`;
       }
-      handleFeedingRoll(id, poolSize);
+
+      const isRote = sub?.st_review?.feeding_rote || false;
+      const existingRoll = sub?.feeding_roll || rollPool(poolSize, 10, 8, 5, isRote);
+      showRollModal(
+        { size: poolSize, expression: `Feeding: ${expression}`, existingRoll },
+        async result => {
+          await updateSubmission(id, { feeding_roll: result });
+          const s = submissions.find(s => s._id === id);
+          if (s) s.feeding_roll = result;
+          renderMatchSummary();
+          renderSubmissions();
+        }
+      );
     });
+  });
+
+  // Export button delegation
+  el.querySelectorAll('.dt-export-btn').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); handleExportSingle(btn.dataset.subId); });
   });
 }
 
@@ -814,16 +918,29 @@ function renderFeedingDetail(s, raw, char) {
 
     // Show pool breakdown if method selected
     if (selectedMethod) {
-      const pool = buildFeedingPool(char, selectedMethod, 0);
+      const stMod = s.st_review?.feeding_modifier || 0;
+      const pool = buildFeedingPool(char, selectedMethod, stMod);
       if (pool) {
         const bd = pool.breakdown;
         h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
         h += `<span class="dt-pool-breakdown">${bd.attrVal} ${esc(bd.attr)} + ${bd.skillVal} ${esc(bd.skill)}`;
         if (bd.fg) h += ` + ${bd.fg} FG`;
         if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
-        h += ` = <b>${pool.total}</b></span></div>`;
+        if (stMod) h += ` ${stMod >= 0 ? '+' : '\u2212'} ${Math.abs(stMod)} ST`;
+        h += ` = <b>${pool.total}</b></span>`;
+        h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl" style="display:inline">Mod</label> <input type="number" class="dt-pool-mod" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1" style="width:52px"></span>`;
+        h += '</div>';
       }
     }
+
+    // Rote toggle — shown when a project action was dedicated to feeding
+    const hasFeedAction = [1,2,3,4].some(n => s.responses?.[`project_${n}_action`] === 'feed');
+    const isRote = s.st_review?.feeding_rote || false;
+    h += `<div class="dt-feed-row"><span class="dt-feed-lbl">Rote</span>`;
+    h += `<label class="dt-rote-label"><input type="checkbox" class="dt-feed-rote-chk" data-sub-id="${s._id}"${isRote ? ' checked' : ''}>`;
+    h += ` Rote quality`;
+    if (hasFeedAction) h += ` <span class="dt-rote-hint">(feed action detected)</span>`;
+    h += `</label></div>`;
   } else {
     // Manual pool for unmatched characters
     h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Pool</span>';
@@ -847,21 +964,143 @@ function renderFeedingDetail(s, raw, char) {
   return h;
 }
 
-// ── Feeding rolls ───────────────────────────────────────────────────────────
+// ── Feeding rolls — handled inline via showRollModal in event delegation ────
 
-async function handleFeedingRoll(subId, poolSize) {
-  const result = rollPool(poolSize);
-  const sub = submissions.find(s => s._id === subId);
-  if (!sub) return;
+// ── Player Responses (new form format) ──────────────────────────────────────
 
-  try {
-    await updateSubmission(subId, { feeding_roll: result });
-    sub.feeding_roll = result;
-    renderMatchSummary();
-    renderSubmissions();
-  } catch (err) {
-    console.error('Failed to save feeding roll:', err.message);
+function renderPlayerResponses(s) {
+  const r = s.responses;
+  if (!r || !Object.keys(r).length) return '';
+
+  const SKIP_PREFIXES = ['_gate_', '_feed_blood', 'sorcery_slot_count', 'equipment_slot_count'];
+  const FEED_METHOD_LABELS = { seduction: 'Seduction', stalking: 'Stalking', force: 'By Force', familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other' };
+
+  function row(label, val) {
+    if (!val || (typeof val === 'string' && !val.trim())) return '';
+    return `<div class="dt-resp-row"><span class="dt-resp-label">${esc(label)}</span><span class="dt-resp-val">${esc(val)}</span></div>`;
   }
+
+  let h = '<div class="dt-panel dt-resp-panel">';
+  h += '<div class="dt-panel-title">Player Submission</div>';
+
+  // ── Feeding ──
+  const feedMethod = r['_feed_method'];
+  const feedDesc = r['feeding_description'];
+  const feedDisc = r['_feed_disc'];
+  const feedSpec = r['_feed_spec'];
+  const feedRote = r['_feed_rote'] === 'yes';
+  if (feedMethod) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Feeding</div>';
+    h += row('Method', FEED_METHOD_LABELS[feedMethod] || feedMethod);
+    if (feedDisc) h += row('Discipline', feedDisc);
+    if (feedSpec) h += row('Specialisation', feedSpec);
+    if (feedRote) h += row('Rote action', 'Yes — Project 1 dedicated to feeding');
+    try {
+      const terrs = JSON.parse(r['feeding_territories'] || '{}');
+      const active = Object.entries(terrs).filter(([, v]) => v && v !== 'none').map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
+      if (active) h += row('Territory', active);
+    } catch { /* ignore */ }
+    if (feedDesc) h += row('Description', feedDesc);
+    h += '</div>';
+  }
+
+  // ── Court ──
+  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
+  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations' };
+  const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
+  if (courtVals.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
+    for (const k of courtVals) {
+      let val = r[k];
+      if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).map(id => { const ch = characters.find(c => String(c._id) === String(id)); return ch ? (ch.moniker || ch.name) : id; }).join(', '); } catch { /* ignore */ } }
+      h += row(courtLabels[k] || k, val);
+    }
+    h += '</div>';
+  }
+
+  // ── Projects ──
+  const projRows = [];
+  for (let n = 1; n <= 4; n++) {
+    const action = r[`project_${n}_action`];
+    if (!action) continue;
+    const actionLabel = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    let desc = r[`project_${n}_description`] || r[`project_${n}_xp_trait`] || '';
+    projRows.push(`${n}. ${actionLabel}${desc ? ': ' + desc : ''}`);
+  }
+  if (projRows.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Projects</div>';
+    for (const p of projRows) h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(p)}</span></div>`;
+    h += '</div>';
+  }
+
+  // ── Sorcery ──
+  const sorcCount = parseInt(r['sorcery_slot_count'] || '1', 10);
+  const sorcRows = [];
+  for (let n = 1; n <= sorcCount; n++) {
+    const rite = r[`sorcery_${n}_rite`];
+    if (!rite) continue;
+    const targets = r[`sorcery_${n}_targets`] || '';
+    const notes = r[`sorcery_${n}_notes`] || '';
+    const mand = r[`sorcery_${n}_mandragora`] === 'yes';
+    const mandPaid = r[`sorcery_${n}_mand_paid`] === 'yes';
+    let line = rite;
+    if (mand) line += mandPaid ? ' [Mandragora Garden \u2014 Vitae paid]' : ' [Mandragora Garden \u2014 Vitae outstanding]';
+    if (targets) line += ` — targets: ${targets}`;
+    if (notes) line += ` — ${notes}`;
+    sorcRows.push(line);
+  }
+  if (sorcRows.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Blood Sorcery</div>';
+    for (const sr of sorcRows) h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(sr)}</span></div>`;
+    h += '</div>';
+  }
+
+  // ── Equipment ──
+  const equipCount = parseInt(r['equipment_slot_count'] || '1', 10);
+  const equipRows = [];
+  for (let n = 1; n <= equipCount; n++) {
+    const name = r[`equipment_${n}_name`];
+    if (!name) continue;
+    const qty = r[`equipment_${n}_qty`] || '';
+    const notes = r[`equipment_${n}_notes`] || '';
+    equipRows.push([qty ? `${qty}× ${name}` : name, notes].filter(Boolean).join(' — '));
+  }
+  if (equipRows.length) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Equipment</div>';
+    for (const eq of equipRows) h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(eq)}</span></div>`;
+    h += '</div>';
+  }
+
+  // ── Misc sections (vamping, lore, admin) ──
+  const miscFields = [
+    ['vamping', 'Vamping'],
+    ['lore_request', 'Lore Request'],
+    ['xp_spend', 'XP Spend'],
+    ['resources_acquisitions', 'Resources Acquisitions'],
+    ['skill_acquisitions', 'Skill Acquisitions'],
+    ['regency_action', 'Regency Action'],
+    ['form_feedback', 'Form Feedback'],
+  ];
+  let miscH = '';
+  for (const [key, label] of miscFields) {
+    if (!r[key] || !r[key].trim?.()) continue;
+    if (key === 'xp_spend') {
+      try {
+        const rows = JSON.parse(r[key]).filter(rw => rw.category && rw.item);
+        if (rows.length) miscH += row(label, rows.map(rw => `${rw.item} (${rw.cost} XP)`).join(', '));
+      } catch { /* ignore */ }
+    } else {
+      miscH += row(label, r[key]);
+    }
+  }
+  if (miscH) {
+    h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Other</div>';
+    h += miscH;
+    h += '</div>';
+  }
+
+  h += '</div>';
+  return h;
 }
 
 // ── ST Notes ────────────────────────────────────────────────────────────────
@@ -1345,6 +1584,17 @@ async function handleCloseCycle() {
   await loadAllCycles();
 }
 
+async function handleOpenGamePhase() {
+  if (!selectedCycleId) return;
+  const cycle = allCycles.find(c => c._id === selectedCycleId);
+  if (!cycle || cycle.status !== 'closed') return;
+  if (!confirm(`Open game phase for "${cycle.label || 'Unnamed'}"? Players will be able to run their feeding rolls.`)) return;
+  await openGamePhase(selectedCycleId);
+  const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+  if (idx >= 0) allCycles[idx].status = 'game';
+  await loadCycleById(selectedCycleId);
+}
+
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
@@ -1418,6 +1668,208 @@ function renderNarrativePanel(s) {
 
   h += '</div>';
   return h;
+}
+
+// ── DT-1: Downtime Export Packet ─────────────────────────────────────────────
+
+function renderExportRow(s) {
+  return `<div class="dt-export-row">
+    <button class="dt-btn dt-export-btn" data-sub-id="${s._id}">Export Packet</button>
+    <span class="dt-export-hint">Download this character's downtime data as Markdown for Claude</span>
+  </div>`;
+}
+
+function downloadMd(filename, content) {
+  const blob = new Blob([content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resolveConflict(v) {
+  return { Monstrous: 'Intimidation', Seductive: 'Manipulation', Competitive: 'Superiority' }[v] || v;
+}
+
+function resolveRole(v) {
+  return {
+    ruler: 'Ruler', primogen: 'Primogen', administrator: 'Administrator',
+    regent: 'Regent', socialite: 'Socialite', enforcer: 'Enforcer', none_yet: 'None yet',
+  }[v] || v;
+}
+
+async function buildExportMd(sub, char, questResp) {
+  const raw = sub._raw || {};
+  const r = questResp?.responses || {};
+  const projects = raw.projects || [];
+  const projResolved = sub.projects_resolved || [];
+  const meritActions = [
+    ...(raw.sphere_actions || []),
+    ...((raw.contact_actions?.requests || []).map(req => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: req }))),
+    ...((raw.retainer_actions?.actions || []).map(req => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: req }))),
+  ];
+  const meritResolved = sub.merit_actions_resolved || [];
+  const feed = raw.feeding || {};
+
+  const name = char ? displayName(char) : (sub.character_name || 'Unknown');
+  let md = `# ${name}\n`;
+
+  // Identity
+  if (char) {
+    const clanParts = [char.clan, char.bloodline].filter(Boolean).join(' / ');
+    const lineParts = [clanParts, char.covenant].filter(Boolean);
+    if (lineParts.length) md += `*${lineParts.join(' \u00B7 ')}*`;
+    if (char.blood_potency) md += ` \u00B7 Blood Potency ${char.blood_potency}`;
+    md += '\n';
+    const identity = [];
+    if (char.mask)  identity.push(`**Mask:** ${char.mask}`);
+    if (char.dirge) identity.push(`**Dirge:** ${char.dirge}`);
+    if (identity.length) md += identity.join(' \u00B7 ') + '\n';
+    if (char.date_of_embrace) {
+      const d = new Date(char.date_of_embrace + 'T00:00:00');
+      md += `**Embraced:** ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}\n`;
+    }
+    if (char.humanity !== undefined) md += `**Humanity:** ${char.humanity}\n`;
+  }
+  md += '\n';
+
+  // Motivations (from questionnaire)
+  const motivations = [
+    r.court_motivation  && `**Why Court?** ${r.court_motivation}`,
+    r.ambitions_sydney  && `**Goals in Sydney:** ${r.ambitions_sydney}`,
+    r.conflict_approach && `**Conflict Approach:** ${resolveConflict(r.conflict_approach)}`,
+    r.aspired_role_tag  && `**Aspired Role:** ${resolveRole(r.aspired_role_tag)}`,
+  ].filter(Boolean);
+  if (motivations.length) md += `## Motivations\n${motivations.join('\n')}\n\n`;
+
+  // Connections (from questionnaire)
+  const connBlocks = [];
+  if (r.allies_characters?.length) {
+    const list = Array.isArray(r.allies_characters) ? r.allies_characters.join(', ') : r.allies_characters;
+    let b = `**Allied PCs:** ${list}`;
+    if (r.allies) b += `\n> ${r.allies}`;
+    connBlocks.push(b);
+  }
+  if (r.coterie_characters?.length) {
+    const list = Array.isArray(r.coterie_characters) ? r.coterie_characters.join(', ') : r.coterie_characters;
+    let b = `**Coterie:** ${list}`;
+    if (r.coterie) b += `\n> ${r.coterie}`;
+    connBlocks.push(b);
+  }
+  if (r.enemies_characters?.length) {
+    const list = Array.isArray(r.enemies_characters) ? r.enemies_characters.join(', ') : r.enemies_characters;
+    let b = `**Rivals/Enemies:** ${list}`;
+    if (r.enemies) b += `\n> ${r.enemies}`;
+    connBlocks.push(b);
+  }
+  if (connBlocks.length) md += `## Connections\n${connBlocks.join('\n\n')}\n\n`;
+
+  // Actions
+  if (projects.length) {
+    md += '## Actions\n';
+    projects.forEach((proj, i) => {
+      const res = projResolved[i];
+      md += `\n### ${i + 1}. ${proj.action_type || 'Action'}\n`;
+      if (proj.territory) md += `**Territory:** ${proj.territory}\n`;
+      if (proj.desired_outcome) md += `**Intent:** ${proj.desired_outcome}\n`;
+      if (proj.description && proj.description !== proj.desired_outcome) md += `**Description:** ${proj.description}\n`;
+      if (res?.pool) md += `**Pool:** ${res.pool.expression || String(res.pool.total)}\n`;
+      if (res?.roll) {
+        const roll = res.roll;
+        md += `**Result:** ${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''}\n`;
+        if (roll.dice_string) md += `**Dice:** ${roll.dice_string}\n`;
+      } else {
+        md += `**Result:** pending\n`;
+      }
+      if (res?.st_note) md += `**ST Note:** ${res.st_note}\n`;
+    });
+    md += '\n';
+  }
+
+  // Feeding
+  {
+    md += '## Feeding\n';
+    const method = feed.method || sub.responses?.['_feed_method'] || 'Not declared';
+    md += `**Method:** ${method}\n`;
+    const activeTerrs = Object.entries(feed.territories || {}).filter(([, v]) => v && v !== 'Not feeding here');
+    if (activeTerrs.length) md += `**Territories:** ${activeTerrs.map(([t, v]) => `${t} (${v})`).join(', ')}\n`;
+    const feedRoll = sub.feeding_roll;
+    if (feedRoll?.params?.size) {
+      const isRote = sub.st_review?.feeding_rote || feedRoll.params.rote || false;
+      md += `**Pool:** ${feedRoll.params.size} dice${isRote ? ' \u2014 Rote quality' : ''}\n`;
+    }
+    if (feedRoll) {
+      md += `**Result:** ${feedRoll.successes} ${feedRoll.successes === 1 ? 'success' : 'successes'}${feedRoll.exceptional ? ' (exceptional)' : ''} \u2014 ${feedRoll.successes * 2} Vitae safe\n`;
+      if (feedRoll.dice_string) md += `**Dice:** ${feedRoll.dice_string}\n`;
+    } else {
+      md += `**Result:** pending\n`;
+    }
+    md += '\n';
+  }
+
+  // Merit Actions
+  if (meritActions.length) {
+    md += '## Merit Actions\n';
+    meritActions.forEach((action, i) => {
+      const res = meritResolved[i];
+      md += `\n### ${action.merit_type} \u2014 ${action.action_type}\n`;
+      if (action.description) md += `**Action:** ${action.description}\n`;
+      if (res?.no_roll) {
+        md += `**Result:** No roll required\n`;
+        if (res.st_note) md += `**ST Note:** ${res.st_note}\n`;
+      } else if (res?.roll) {
+        const roll = res.roll;
+        if (res.pool) md += `**Pool:** ${res.pool.expression || String(res.pool.total)}\n`;
+        md += `**Result:** ${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''}\n`;
+        if (roll.dice_string) md += `**Dice:** ${roll.dice_string}\n`;
+        if (res.st_note) md += `**ST Note:** ${res.st_note}\n`;
+      } else {
+        md += `**Result:** pending\n`;
+      }
+    });
+    md += '\n';
+  }
+
+  // ST Notes (private — included in export for ST use in Claude)
+  if (sub.st_notes) md += `## ST Notes\n${sub.st_notes}\n\n`;
+
+  return md.trim();
+}
+
+async function handleExportSingle(subId) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const char = findCharacter(sub.character_name);
+  let questResp = null;
+  if (char) {
+    try { questResp = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
+  }
+  const md = await buildExportMd(sub, char, questResp);
+  const safeName = (sub.character_name || 'unknown').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  downloadMd(`downtime_${safeName}.md`, md);
+}
+
+async function handleExportAll() {
+  if (!submissions.length) return;
+  const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
+  // Load all questionnaire responses in parallel
+  const questMap = {};
+  await Promise.all(sorted.map(async sub => {
+    const char = findCharacter(sub.character_name);
+    if (char) {
+      try { questMap[sub._id] = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
+    }
+  }));
+  const parts = [];
+  for (const sub of sorted) {
+    const char = findCharacter(sub.character_name);
+    parts.push(await buildExportMd(sub, char, questMap[sub._id] || null));
+  }
+  const cycleLabel = allCycles.find(c => c._id === selectedCycleId)?.label || 'downtime';
+  const safeLabel = cycleLabel.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  downloadMd(`export_${safeLabel}_all.md`, parts.join('\n\n---\n\n'));
 }
 
 // ── Mechanical Summary (Story 1.8) ───────────────────────────────────────────

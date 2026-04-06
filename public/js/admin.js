@@ -1,6 +1,7 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 
 import { apiGet, apiPut, apiPost } from './data/api.js';
+import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
@@ -18,6 +19,9 @@ import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
 import { initSessionTracker } from './admin/session-tracker.js';
 import { initDataPortabilityView } from './admin/data-portability.js';
+import { initOrdealsAdminView } from './admin/ordeals-admin.js';
+import { initPrimerAdmin } from './admin/primer-admin.js';
+import { initTicketsView } from './admin/tickets-views.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
@@ -40,7 +44,7 @@ import {
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
   shAddPact, shRemovePact, shEditPact,
-  shEditMeritPt, shStepMeritRating, shEditXP,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
@@ -159,6 +163,9 @@ function switchDomain(domain) {
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);
   if (domain === 'data') initDataPortabilityView(chars);
+  if (domain === 'ordeals') initOrdealsAdminView(chars);
+  if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
+  if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
@@ -283,6 +290,7 @@ function openCharDetail(c) {
   editorState.editIdx = chars.indexOf(c);
   editorState.editMode = false;
   editorState.dirty.clear();
+  localStorage.setItem('tm_active_char', String(c._id));
 
   const panel = document.getElementById('char-detail');
 
@@ -296,6 +304,7 @@ function openCharDetail(c) {
         <button class="dt-btn" id="cd-print">Print</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
         <a class="dt-btn cd-player-view" href="player.html" id="cd-player-view">Player View</a>
+        <button class="dt-btn" id="cd-archive">Archive</button>
         <button class="dt-btn" id="cd-link-player">Link Player</button>
         <button class="dt-btn retire-btn" id="cd-retire">${c.retired ? 'Unretire' : 'Retire'}</button>
         <button class="cd-close" id="cd-close">&times;</button>
@@ -319,6 +328,9 @@ function openCharDetail(c) {
   document.getElementById('cd-save-api').addEventListener('click', saveCharToApi);
   document.getElementById('cd-retire').addEventListener('click', toggleRetire);
   document.getElementById('cd-link-player').addEventListener('click', () => openPlayerLinkModal(c));
+  document.getElementById('cd-archive').addEventListener('click', () => {
+    initAdminArchive(document.getElementById('sh-content'), c);
+  });
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -635,7 +647,7 @@ Object.assign(window, {
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
   shAddPact, shRemovePact, shEditPact,
-  shEditMeritPt, shStepMeritRating, shEditXP,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

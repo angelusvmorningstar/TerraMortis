@@ -1,6 +1,7 @@
 /* Sheet-mode edit handlers — all read state.editIdx and write to state.chars[state.editIdx] */
 
 import state from '../data/state.js';
+import { getAttrVal, getAttrBonus, setAttrVal } from '../data/accessors.js';
 import {
   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS, RITUAL_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS
@@ -332,6 +333,16 @@ export function shEditAttrPt(attr, field, val) {
   c.xp_log.spent.attributes = attrXpTotal;
   c.xp_total = xpEarned(c);
   c.xp_spent = xpSpent(c);
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shAdjAttrBonus(attr, delta) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const base = getAttrVal(c, attr);
+  const bonus = Math.max(0, getAttrBonus(c, attr) + delta);
+  setAttrVal(c, attr, base, bonus);
   _markDirty();
   _renderSheet(c);
 }

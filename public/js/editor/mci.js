@@ -130,10 +130,10 @@ export function applyDerivedMerits(c) {
       }
     }
 
-    // Dot 2: nine_again on first 2 asset skills only
+    // Dot 2: nine_again on all asset skills (3rd skill added at dot 3 also qualifies)
     if (dots >= 2 && assets.length) {
       if (!c._pt_nine_again_skills) c._pt_nine_again_skills = new Set();
-      for (const sk of assets.slice(0, 2)) c._pt_nine_again_skills.add(sk);
+      for (const sk of assets) c._pt_nine_again_skills.add(sk);
     }
 
     // Dot 4: bonus dot on chosen asset skill
@@ -245,22 +245,23 @@ export function applyDerivedMerits(c) {
     }
   }
 
-  // ── Oath of the Scapegoat: floor on covenant status + extra picks per dot ──
+  // ── Oath of the Scapegoat: floor on covenant status + 2 free style dots per dot ──
   const otsOath = (c.merits || []).find(m => m.name === 'Oath of the Scapegoat');
   c._ots_covenant_bonus = 0;
-  c._ots_extra_picks = 0;
+  c._ots_free_dots = 0;
   if (otsOath) {
     const otsDots = otsOath.rating || 0;
     if (otsDots > 0) {
       c._ots_covenant_bonus = otsDots;
-      c._ots_extra_picks = otsDots * 2;
+      c._ots_free_dots = otsDots * 2;
     }
   }
 
   // ── Sync ratings from merit_creation (free + cp + xp) ──
   ensureMeritSync(c);
   (c.merits || []).forEach((m, i) => {
-    if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training') return;
+    // MCI and PT have their own render logic; MG's total includes partner contributions
+    if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
     const mc = (c.merit_creation || [])[i] || {};
     const total = (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.free_pt || 0) + (mc.free_mdb || 0) + (mc.cp || 0) + (mc.xp || 0);
     if (total > 0) m.rating = total;

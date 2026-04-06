@@ -381,6 +381,7 @@
 .sh-sec-alert.red{background:rgba(180,30,30,.9);color:#fff;border:1px solid rgba(255,80,80,.4);}
 .sh-sec-alert.yellow{background:rgba(160,120,10,.85);color:#fff;border:1px solid rgba(220,180,50,.4);font-size:7px;}
 .sh-xp-badge.xp-over{color:var(--err)!important;}
+.sh-xp-badge.xp-under{color:var(--gold2)!important;}
 
 /* ── Sheet attribute grid ── */
 .sh-attr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;overflow:hidden;min-width:0;}

@@ -5,11 +5,15 @@ let client;
 let db;
 
 export async function connectDb() {
-  client = new MongoClient(config.MONGODB_URI, {
+  if (db) return; // Already connected — idempotent for test suites sharing a process
+  // Strip legacy ssl= param — not accepted by MongoDB driver v7
+  const uri = config.MONGODB_URI.replace(/[&?]ssl=[^&]*/g, '');
+  client = new MongoClient(uri, {
     serverSelectionTimeoutMS: 5000,
+    tls: true,
   });
   await client.connect();
-  db = client.db('tm_suite');
+  db = client.db(process.env.MONGODB_DB || 'tm_suite');
   console.log('MongoDB connected successfully');
 }
 

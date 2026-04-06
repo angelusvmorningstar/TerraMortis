@@ -33,17 +33,17 @@ export const characterSchema = {
     retired:      { type: 'boolean' },
 
     clan: {
-      type: 'string',
-      enum: ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue']
+      type: ['string', 'null'],
+      enum: ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue', '', null]
     },
     bloodline:   { type: ['string', 'null'] },
     clan_attribute: { type: ['string', 'null'] },
 
     covenant: {
-      type: 'string',
+      type: ['string', 'null'],
       enum: [
         'Carthian Movement', 'Circle of the Crone', 'Invictus',
-        'Lancea et Sanctum', 'Ordo Dracul', 'Unaligned'
+        'Lancea et Sanctum', 'Ordo Dracul', 'Unaligned', '', null
       ]
     },
 
@@ -56,7 +56,7 @@ export const characterSchema = {
 
     // ── Core Stats ────────────────────────────────────────────
     blood_potency: { type: 'integer', minimum: 0, maximum: 10 },
-    bp_creation:   { type: 'object', properties: { cp: { type: 'integer', minimum: 0 } }, additionalProperties: false },
+    bp_creation:   { type: 'object', properties: { cp: { type: 'integer', minimum: 0 }, xp: { type: 'integer', minimum: 0 }, lost: { type: 'integer', minimum: 0 } }, additionalProperties: false },
     humanity:      { type: 'integer', minimum: 0, maximum: 10 },
     humanity_base: { type: 'integer', minimum: 0, maximum: 10 },
     xp_total:      { type: 'number',  minimum: 0 },

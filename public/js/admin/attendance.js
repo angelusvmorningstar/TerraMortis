@@ -4,7 +4,7 @@
  * Renders into #attendance-content in the admin app.
  */
 
-import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { displayName } from '../data/helpers.js';
 
 let chars = [];
@@ -51,6 +51,7 @@ function renderToolbar(el) {
       <button class="att-btn" id="att-new-btn">+ New Session</button>
     </div>
     <div class="att-toolbar-right">
+      <button class="att-btn att-delete-btn" id="att-delete-btn" style="display:none">Delete Session</button>
       <button class="att-btn att-save-btn" id="att-save-btn" style="display:none">Save Changes</button>
     </div>
   </div>
@@ -69,6 +70,7 @@ function renderToolbar(el) {
 
   document.getElementById('att-new-btn').addEventListener('click', createNewSession);
   document.getElementById('att-save-btn').addEventListener('click', saveSession);
+  document.getElementById('att-delete-btn').addEventListener('click', deleteSession);
 }
 
 function renderEmpty(el) {
@@ -80,6 +82,7 @@ function selectSession(session) {
   activeSession = session;
   dirty = false;
   document.getElementById('att-save-btn').style.display = 'none';
+  document.getElementById('att-delete-btn').style.display = sessions.length > 1 ? '' : 'none';
   renderGrid();
 }
 
@@ -197,6 +200,28 @@ function attUpdate(idx, field, value) {
   activeSession.attendance[idx][field] = value;
   markDirty();
   renderGrid();
+}
+
+async function deleteSession() {
+  if (!activeSession) return;
+  const label = activeSession.session_date + (activeSession.title ? ' — ' + activeSession.title : '');
+  if (!confirm(`Delete session "${label}"? This cannot be undone.`)) return;
+
+  try {
+    await apiDelete('/api/game_sessions/' + activeSession._id);
+    sessions = sessions.filter(s => s._id !== activeSession._id);
+    activeSession = null;
+    dirty = false;
+    const el = document.getElementById('attendance-content');
+    renderToolbar(el);
+    if (sessions.length) {
+      selectSession(sessions[0]);
+    } else {
+      renderEmpty(el);
+    }
+  } catch (err) {
+    alert('Failed to delete session: ' + err.message);
+  }
 }
 
 async function saveSession() {

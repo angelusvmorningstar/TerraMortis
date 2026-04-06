@@ -31,44 +31,65 @@ const PLAYER_ORDEALS = [
     desc: 'Demonstrate knowledge of your covenant. 3 XP to characters in that covenant.' },
 ];
 
-let playerDoc = null;
-let currentChar = null;
-let statusCache = {}; // { questionnaire, history, rules, lore, covenant }
+// Maps ordeal def key → ordeal_submissions ordeal_type
+const KEY_TO_SUBMISSION_TYPE = {
+  lore:      'lore_mastery',
+  setting:   'lore_mastery',
+  rules:     'rules_mastery',
+  covenant:  'covenant_questionnaire',
+  history:   'character_history',
+  // questionnaire has its own collection (questionnaire_responses), not ordeal_submissions
+};
+
+let playerDoc       = null;
+let currentChar     = null;
+let statusCache     = {}; // { questionnaire, history, rules, lore, covenant }
+let submissionsMap  = {}; // { [ordeal_type]: stripped submission doc }
 
 export async function initOrdeals(char, chars) {
   const el = document.getElementById('tab-xplog');
   if (!el) return;
   currentChar = char;
 
-  // Fetch everything in parallel
-  const [pDoc, qDoc, hDoc, rulesDoc, loreDoc, covDoc] = await Promise.all([
+  const [pDoc, qDoc, hDoc, rulesDoc, loreDoc, covDoc, subDocs] = await Promise.all([
     playerDoc ? Promise.resolve(playerDoc) : apiGet('/api/players/me').catch(() => ({ ordeals: {} })),
     apiGet(`/api/questionnaire?character_id=${char._id}`).catch(() => null),
     apiGet(`/api/history?character_id=${char._id}`).catch(() => null),
     apiGet('/api/ordeal-responses?type=rules').catch(() => null),
     apiGet('/api/ordeal-responses?type=lore').catch(() => null),
     apiGet('/api/ordeal-responses?type=covenant').catch(() => null),
+    apiGet('/api/ordeal_submissions/mine').catch(() => []),
   ]);
 
   playerDoc = pDoc;
   statusCache = {
     questionnaire: qDoc?.status || null,
-    history: hDoc?.status || null,
-    rules: rulesDoc?.status || null,
-    lore: loreDoc?.status || null,
-    covenant: covDoc?.status || null,
+    history:       hDoc?.status || null,
+    rules:         rulesDoc?.status || null,
+    lore:          loreDoc?.status || null,
+    covenant:      covDoc?.status || null,
   };
+
+  submissionsMap = {};
+  for (const s of (subDocs || [])) {
+    // character_history is character-level: only store if it matches the current character
+    // Other ordeal types are player-level and should always be shown
+    if (s.ordeal_type === 'character_history' && s.character_id && s.character_id.toString() !== char._id.toString()) continue;
+    submissionsMap[s.ordeal_type] = s;
+  }
 
   renderOrdealsList(el, char);
 }
 
+// ── XP breakdown ─────────────────────────────────────────────────────────────
+
 function renderXPBreakdown(char) {
   const earnedParts = {
-    starting:       xpStarting(),
-    humanityDrop:   xpHumanityDrop(char),
-    ordeals:        xpOrdeals(char),
-    game:           xpGame(char),
-    pt5:            xpPT5(char),
+    starting:     xpStarting(),
+    humanityDrop: xpHumanityDrop(char),
+    ordeals:      xpOrdeals(char),
+    game:         xpGame(char),
+    pt5:          xpPT5(char),
   };
   const totalEarned = xpEarned(char);
   const spentParts = {
@@ -79,21 +100,46 @@ function renderXPBreakdown(char) {
     special: xpSpentSpecial(char),
   };
   const totalSpent = xpSpent(char);
-  const remaining   = xpLeft(char);
-  const over = remaining < 0;
+  const remaining  = xpLeft(char);
+  const over       = remaining < 0;
+
+  // Completed ordeal names for detail rows
+  const completedOrdeals = Array.isArray(char.ordeals)
+    ? char.ordeals.filter(o => o.complete).map(o => o.name)
+    : [];
+
+  // Per-discipline XP for detail rows (disc_creation keyed by disc name)
+  const discLines = Object.entries(char.disc_creation || {})
+    .filter(([, v]) => (v?.xp || 0) > 0)
+    .map(([name, v]) => ({ name, xp: v.xp }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Special sub-breakdown
+  const bpXP = (char.bp_creation || {}).xp !== undefined
+    ? ((char.bp_creation || {}).xp || 0)
+    : Math.max(0, (char.blood_potency || 1) - 1 - Math.floor(((char.bp_creation || {}).cp || 0) / 5)) * 5;
+  const humXP = char.humanity_xp || 0;
+  const wpXP  = ((char.xp_log || {}).spent || {}).willpower || 0;
+  const manualXP = ((char.xp_log || {}).spent || {}).special || 0;
+
+  const sub = (label, val) =>
+    val > 0 ? `<tr class="xpl-sub"><td>\u00a0\u00a0\u00b7 ${esc(label)}</td><td class="xpl-n">${val}</td></tr>` : '';
 
   let h = '<div class="xpl-panel">';
   h += '<div class="xpl-cols">';
 
-  // Earned column
+  // ── Earned column ────────────────────────────────────────────────
   h += '<div class="xpl-col">';
   h += '<div class="xpl-col-head">Earned</div>';
   h += '<table class="xpl-table">';
   h += `<tr><td>Starting</td><td class="xpl-n">${earnedParts.starting}</td></tr>`;
   if (earnedParts.humanityDrop > 0)
     h += `<tr><td>Humanity drops (${Math.round(earnedParts.humanityDrop / 2)}&times;2)</td><td class="xpl-n">${earnedParts.humanityDrop}</td></tr>`;
-  if (earnedParts.ordeals > 0)
-    h += `<tr><td>Ordeals (${Math.round(earnedParts.ordeals / 3)}&times;3)</td><td class="xpl-n">${earnedParts.ordeals}</td></tr>`;
+  if (earnedParts.ordeals > 0) {
+    h += `<tr><td>Ordeals</td><td class="xpl-n">${earnedParts.ordeals}</td></tr>`;
+    for (const name of completedOrdeals)
+      h += sub(name, 3);
+  }
   if (earnedParts.game > 0)
     h += `<tr><td>Game attendance</td><td class="xpl-n">${earnedParts.game}</td></tr>`;
   if (earnedParts.pt5 > 0)
@@ -101,56 +147,74 @@ function renderXPBreakdown(char) {
   h += `<tr class="xpl-total"><td>Total</td><td class="xpl-n">${totalEarned}</td></tr>`;
   h += '</table></div>';
 
-  // Spent column
+  // ── Spent column ─────────────────────────────────────────────────
   h += '<div class="xpl-col">';
   h += '<div class="xpl-col-head">Spent</div>';
   h += '<table class="xpl-table">';
   const anySpent = Object.values(spentParts).some(v => v > 0);
   if (spentParts.attrs > 0)   h += `<tr><td>Attributes</td><td class="xpl-n">${spentParts.attrs}</td></tr>`;
   if (spentParts.skills > 0)  h += `<tr><td>Skills</td><td class="xpl-n">${spentParts.skills}</td></tr>`;
-  if (spentParts.powers > 0)  h += `<tr><td>Disciplines &amp; powers</td><td class="xpl-n">${spentParts.powers}</td></tr>`;
+  if (spentParts.powers > 0) {
+    h += `<tr><td>Disciplines &amp; powers</td><td class="xpl-n">${spentParts.powers}</td></tr>`;
+    for (const d of discLines)
+      h += sub(d.name, d.xp);
+  }
   if (spentParts.merits > 0)  h += `<tr><td>Merits &amp; styles</td><td class="xpl-n">${spentParts.merits}</td></tr>`;
-  if (spentParts.special > 0) h += `<tr><td>Special</td><td class="xpl-n">${spentParts.special}</td></tr>`;
+  if (spentParts.special > 0) {
+    h += `<tr><td>Special</td><td class="xpl-n">${spentParts.special}</td></tr>`;
+    h += sub('Blood Potency', bpXP);
+    h += sub('Humanity', humXP);
+    h += sub('Willpower', wpXP);
+    h += sub('Other', manualXP);
+  }
   if (!anySpent) h += '<tr><td colspan="2" class="xpl-none">None yet</td></tr>';
   h += `<tr class="xpl-total"><td>Total</td><td class="xpl-n">${totalSpent}</td></tr>`;
   h += '</table></div>';
 
-  h += '</div>'; // xpl-cols
+  h += '</div>';
 
   const sign = remaining > 0 ? '+' : '';
   h += `<div class="xpl-balance ${over ? 'xpl-over' : 'xpl-ok'}">`;
   h += `<span class="xpl-bal-lbl">Remaining</span>`;
   h += `<span class="xpl-bal-val">${sign}${remaining} XP</span>`;
   h += '</div>';
-  h += '</div>'; // xpl-panel
+  h += '</div>';
   return h;
 }
+
+// ── Ordeal list ───────────────────────────────────────────────────────────────
 
 function renderOrdealsList(el, char) {
   const cOrdeals = normaliseCharOrdeals(char);
 
-  let h = renderXPBreakdown(char);
-  h += '<div class="ordeals-container" id="ordeals-list">';
+  // Two-pane: left = ordeals, right = XP breakdown
+  let h = `<div class="tab-split">`;
 
-  // Character-level ordeals
+  // Left: ordeal cards
+  h += `<div class="tab-split-left" id="ordeals-left-pane">`;
+  h += '<div class="ordeals-container" id="ordeals-list">';
   h += '<div class="ordeals-section">';
-  h += `<h3 class="ordeals-heading">Ordeals</h3>`;
+  h += '<h3 class="ordeals-heading">Ordeals</h3>';
   for (const def of CHAR_ORDEALS) {
-    const status = getOrdealStatus(def, cOrdeals);
-    h += ordealCard(def, status);
+    h += ordealCard(def, getOrdealStatus(def, cOrdeals));
   }
   h += '</div>';
-
-  // Player-level ordeals
   h += '<div class="ordeals-section">';
   h += '<h3 class="ordeals-heading">Player Ordeals</h3>';
   for (const def of PLAYER_ORDEALS) {
-    const status = getOrdealStatus(def, cOrdeals);
-    h += ordealCard(def, status);
+    h += ordealCard(def, getOrdealStatus(def, cOrdeals));
   }
   h += '</div>';
-
   h += '</div>';
+  h += '</div>'; // left pane
+
+  // Right: XP breakdown
+  h += `<div class="tab-split-right" id="ordeals-right-pane">`;
+  h += renderXPBreakdown(char);
+  h += '</div>'; // right pane
+
+  h += '</div>'; // tab-split
+
   el.innerHTML = h;
 
   el.querySelectorAll('.ordeal-card[data-form]').forEach(card => {
@@ -158,14 +222,104 @@ function renderOrdealsList(el, char) {
   });
 }
 
-function getOrdealStatus(def, cOrdeals) {
-  // Check response collection status first
-  const responseStatus = statusCache[def.key] || statusCache[def.altKey];
-  if (responseStatus) return { status: responseStatus };
+// ── Status resolution ─────────────────────────────────────────────────────────
 
-  // Fall back to character sheet ordeal data
-  return cOrdeals[def.key] || (def.altKey ? cOrdeals[def.altKey] : null) || { status: 'not_started' };
+function getOrdealStatus(def, cOrdeals) {
+  const subType    = KEY_TO_SUBMISSION_TYPE[def.key] || KEY_TO_SUBMISSION_TYPE[def.altKey];
+  const sub        = subType ? submissionsMap[subType] : null;
+  const subStatus  = sub?.marking?.status; // 'unmarked' | 'in_progress' | 'complete'
+
+  const responseStatus = statusCache[def.key] || statusCache[def.altKey];
+
+  // Approved from any source wins
+  const charApproved = cOrdeals[def.key]?.complete || (def.altKey && cOrdeals[def.altKey]?.complete);
+  if (subStatus === 'complete' || responseStatus === 'approved' || charApproved) {
+    return { status: 'approved', submission: subStatus === 'complete' ? sub : null };
+  }
+
+  if (responseStatus === 'submitted') return { status: 'submitted' };
+
+  // Historical submission exists: in_progress marking = ST is reviewing; unmarked = submitted
+  if (subStatus === 'in_progress') return { status: 'in_review', submission: sub };
+  if (subStatus === 'unmarked')    return { status: 'submitted' };
+
+  if (responseStatus === 'draft') return { status: 'draft' };
+
+  return { status: 'not_started' };
 }
+
+// ── Card rendering ────────────────────────────────────────────────────────────
+
+function ordealCard(def, status) {
+  const s         = status.status || 'not_started';
+  const done      = s === 'approved';
+  const inReview  = s === 'in_review';
+  const submitted = s === 'submitted';
+  const draft     = s === 'draft';
+
+  const stateClass = done ? 'done' : inReview ? 'in_review' : submitted ? 'pending' : draft ? 'draft' : 'incomplete';
+  const stateLabel = done ? 'Approved' : inReview ? 'In Review' : submitted ? 'Submitted' : draft ? 'In Progress' : 'Not Started';
+  const icon       = done ? '&#10003;' : (submitted || inReview) ? '&#9679;' : draft ? '&#9998;' : '&#9675;';
+  const xp         = done ? '+3 XP' : '';
+
+  // Only offer form click if not yet approved
+  const formAttr  = def.hasForm && !done ? ` data-form="${def.formType}"` : '';
+  const clickHint = def.hasForm && !done ? '<span class="ordeal-action">Open &rarr;</span>' : '';
+
+  const feedbackHtml = renderFeedback(status.submission);
+
+  return `<div class="ordeal-card ${stateClass}"${formAttr}>
+    <div class="ordeal-row">
+      <div class="ordeal-icon">${icon}</div>
+      <div class="ordeal-info">
+        <div class="ordeal-label">${esc(def.label)}</div>
+        <div class="ordeal-desc">${esc(def.desc)}</div>
+      </div>
+      <div class="ordeal-status">
+        <span class="ordeal-state">${stateLabel}</span>
+        ${xp ? `<span class="ordeal-xp">${xp}</span>` : ''}
+        ${clickHint}
+      </div>
+    </div>${feedbackHtml}
+  </div>`;
+}
+
+function renderFeedback(sub) {
+  if (!sub?.marking || sub.marking.status !== 'complete') return '';
+
+  const { overall_feedback, answers } = sub.marking;
+  const responses           = sub.responses || [];
+  const hasOverall          = overall_feedback?.trim();
+  const answersWithFeedback = (answers || []).filter(a => a.feedback?.trim());
+
+  if (!hasOverall && !answersWithFeedback.length) return '';
+
+  const RESULT_LABEL = { yes: 'Yes', close: 'Close', no: 'No' };
+
+  let h = '<div class="ordeal-feedback">';
+
+  if (hasOverall) {
+    h += `<div class="ordeal-fb-overall">${esc(overall_feedback)}</div>`;
+  }
+
+  if (answersWithFeedback.length) {
+    h += '<div class="ordeal-fb-answers">';
+    for (const a of answersWithFeedback) {
+      const qText  = responses[a.question_index]?.question || `Question ${(a.question_index ?? 0) + 1}`;
+      const resLbl = a.result ? RESULT_LABEL[a.result] : null;
+      h += `<div class="ordeal-fb-item${a.result ? ` or-result-${a.result}` : ''}">`;
+      h += `<div class="ordeal-fb-q">${esc(qText)}${resLbl ? ` <span class="ordeal-fb-result">${esc(resLbl)}</span>` : ''}</div>`;
+      h += `<div class="ordeal-fb-text">${esc(a.feedback)}</div>`;
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+// ── Form navigation ───────────────────────────────────────────────────────────
 
 function openForm(el, formType) {
   let h = '<div class="ordeals-container">';
@@ -199,17 +353,11 @@ function openForm(el, formType) {
   }
 }
 
-// Covenant form needs special handling — branches by covenant
 async function renderCovenantForm(target) {
-  // Determine covenant from the character or from saved response
-  let savedCovenant = null;
-
-  // Try to load existing response
   let responseDoc = null;
-  try {
-    responseDoc = await apiGet('/api/ordeal-responses?type=covenant');
-  } catch { /* none */ }
+  try { responseDoc = await apiGet('/api/ordeal-responses?type=covenant'); } catch { /* none */ }
 
+  let savedCovenant = null;
   if (responseDoc?.responses?.covenant_choice) {
     savedCovenant = responseDoc.responses.covenant_choice;
   } else if (currentChar.covenant && COVENANT_SECTIONS[currentChar.covenant]) {
@@ -217,11 +365,8 @@ async function renderCovenantForm(target) {
   }
 
   if (savedCovenant && COVENANT_SECTIONS[savedCovenant]) {
-    // Render the covenant-specific sections
-    const sections = COVENANT_SECTIONS[savedCovenant];
-    renderOrdealForm(target, 'covenant', `Covenant Ordeal — ${savedCovenant}`, sections);
+    renderOrdealForm(target, 'covenant', `Covenant Ordeal \u2014 ${savedCovenant}`, COVENANT_SECTIONS[savedCovenant]);
   } else {
-    // Show covenant picker first
     target.innerHTML = `<div id="cov-picker" class="reading-pane"></div>`;
     const picker = document.getElementById('cov-picker');
     let h = '<div class="qf-header"><h3 class="qf-title">Covenant Questionnaire</h3></div>';
@@ -229,10 +374,7 @@ async function renderCovenantForm(target) {
     h += `<label class="qf-label">${esc(COVENANT_ROUTING.label)} <span class="qf-req">*</span></label>`;
     h += '<div class="qf-radio-group">';
     for (const opt of COVENANT_ROUTING.options) {
-      h += `<label class="qf-radio-label">`;
-      h += `<input type="radio" name="cov-pick" value="${esc(opt.value)}">`;
-      h += `<span>${esc(opt.label)}</span>`;
-      h += `</label>`;
+      h += `<label class="qf-radio-label"><input type="radio" name="cov-pick" value="${esc(opt.value)}"><span>${esc(opt.label)}</span></label>`;
     }
     h += '</div></div>';
     h += '<div class="qf-actions"><button class="qf-btn qf-btn-submit" id="cov-start">Start</button></div>';
@@ -242,50 +384,20 @@ async function renderCovenantForm(target) {
       const checked = document.querySelector('input[name="cov-pick"]:checked');
       if (!checked) return;
       const cov = checked.value;
-      if (COVENANT_SECTIONS[cov]) {
-        renderOrdealForm(target, 'covenant', `Covenant Ordeal — ${cov}`, COVENANT_SECTIONS[cov]);
-      }
+      if (COVENANT_SECTIONS[cov]) renderOrdealForm(target, 'covenant', `Covenant Ordeal \u2014 ${cov}`, COVENANT_SECTIONS[cov]);
     });
   }
 }
 
-function ordealCard(def, status) {
-  const s = status.status || 'not_started';
-  const done = s === 'approved' || status.complete === true;
-  const submitted = s === 'submitted';
-  const draft = s === 'draft';
-  const stateClass = done ? 'done' : submitted ? 'pending' : draft ? 'draft' : 'incomplete';
-  const stateLabel = done ? 'Approved' : submitted ? 'Submitted' : draft ? 'In Progress' : 'Not Started';
-  const icon = done ? '&#10003;' : submitted ? '&#9679;' : draft ? '&#9998;' : '&#9675;';
-  const xp = done ? '+3 XP' : '';
-  const formAttr = def.hasForm ? ` data-form="${def.formType}"` : '';
-  const clickHint = def.hasForm ? '<span class="ordeal-action">Open &rarr;</span>' : '';
-
-  return `<div class="ordeal-card ${stateClass}"${formAttr}>
-    <div class="ordeal-icon">${icon}</div>
-    <div class="ordeal-info">
-      <div class="ordeal-label">${esc(def.label)}</div>
-      <div class="ordeal-desc">${esc(def.desc)}</div>
-    </div>
-    <div class="ordeal-status">
-      <span class="ordeal-state">${stateLabel}</span>
-      ${xp ? `<span class="ordeal-xp">${xp}</span>` : ''}
-      ${clickHint}
-    </div>
-  </div>`;
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function normaliseCharOrdeals(char) {
   const ordeals = char.ordeals;
   if (!ordeals) return {};
   if (!Array.isArray(ordeals)) return ordeals;
-
   const out = {};
   for (const o of ordeals) {
-    out[o.name] = {
-      status: o.complete ? 'approved' : 'not_started',
-      complete: o.complete,
-    };
+    out[o.name] = { status: o.complete ? 'approved' : 'not_started', complete: o.complete };
   }
   return out;
 }

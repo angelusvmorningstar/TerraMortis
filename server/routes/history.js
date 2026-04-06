@@ -14,6 +14,21 @@ function parseId(id) {
   }
 }
 
+async function cascadeOrdealXp(charId, ordealName) {
+  const chars = getCollection('characters');
+  const now = new Date().toISOString();
+  const upd = await chars.updateOne(
+    { _id: charId, 'ordeals.name': ordealName },
+    { $set: { 'ordeals.$.complete': true, 'ordeals.$.approved_at': now } }
+  );
+  if (upd.matchedCount === 0) {
+    await chars.updateOne(
+      { _id: charId },
+      { $push: { ordeals: { name: ordealName, complete: true, approved_at: now } } }
+    );
+  }
+}
+
 // GET /api/history?character_id=...
 router.get('/', async (req, res) => {
   const charId = req.query.character_id;
@@ -28,8 +43,24 @@ router.get('/', async (req, res) => {
   }
 
   const doc = await col().findOne({ character_id: oid });
-  if (!doc) return res.json(null);
-  res.json(doc);
+  if (doc) return res.json(doc);
+
+  // Fallback: historical import in ordeal_submissions
+  const ordealSub = await getCollection('ordeal_submissions').findOne({
+    character_id: oid,
+    ordeal_type: 'character_history',
+  });
+  if (!ordealSub) return res.json(null);
+
+  res.json({
+    _id:           ordealSub._id,
+    _source:       'ordeal_submission',
+    character_id:  ordealSub.character_id,
+    history_text:  ordealSub.responses?.[0]?.answer || '',
+    source:        ordealSub.source,
+    submitted_at:  ordealSub.submitted_at,
+    status:        ordealSub.marking?.status === 'complete' ? 'approved' : 'submitted',
+  });
 });
 
 // POST /api/history — create
@@ -100,6 +131,10 @@ router.put('/:id', async (req, res) => {
     { $set: updates },
     { returnDocument: 'after' }
   );
+
+  if (updates.status === 'approved' && existing.status !== 'approved') {
+    await cascadeOrdealXp(existing.character_id, 'history');
+  }
 
   res.json(result);
 });

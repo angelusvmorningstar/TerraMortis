@@ -1,0 +1,273 @@
+[
+  {
+    "name": "Yusuf Kalusicj",
+    "honorific": null,
+    "moniker": "Mammon",
+    "player": "Peter K",
+    "concept": "Nightmate Shadow Broker",
+    "pronouns": "he/him",
+    "clan": "Nosferatu",
+    "bloodline": null,
+    "covenant": "Carthian Movement",
+    "mask": "Cult Leader",
+    "dirge": "Penitent",
+    "court_title": null,
+    "apparent_age": "indeterminate",
+    "features": "High Presence",
+    "aspirations": [],
+    "blood_potency": 2,
+    "humanity": 4,
+    "xp_total": 32,
+    "xp_spent": 54,
+    "status": {
+      "city": 2,
+      "clan": 2,
+      "covenant": 1
+    },
+    "covenant_standings": {
+      "Crone": 0,
+      "Invictus": 0,
+      "Lance": 0
+    },
+    "attributes": {
+      "Intelligence": { "dots": 2, "bonus": 0 },
+      "Wits":         { "dots": 2, "bonus": 0 },
+      "Resolve":      { "dots": 3, "bonus": 0 },
+      "Strength":     { "dots": 1, "bonus": 0 },
+      "Dexterity":    { "dots": 3, "bonus": 0 },
+      "Stamina":      { "dots": 2, "bonus": 0 },
+      "Presence":     { "dots": 4, "bonus": 0 },
+      "Manipulation": { "dots": 3, "bonus": 0 },
+      "Composure":    { "dots": 2, "bonus": 0 }
+    },
+    "skills": {
+      "Investigation": { "dots": 3, "bonus": 0, "specs": ["Forensic Accounting"], "nine_again": false },
+      "Occult":        { "dots": 2, "bonus": 0, "specs": [], "nine_again": false },
+      "Politics":      { "dots": 2, "bonus": 0, "specs": [], "nine_again": false },
+      "Athletics":     { "dots": 2, "bonus": 0, "specs": [], "nine_again": false },
+      "Stealth":       { "dots": 2, "bonus": 0, "specs": [], "nine_again": false },
+      "Empathy":       { "dots": 4, "bonus": 0, "specs": ["Motives"], "nine_again": false },
+      "Intimidation":  { "dots": 4, "bonus": 0, "specs": ["Veiled Threats"], "nine_again": false },
+      "Subterfuge":    { "dots": 3, "bonus": 0, "specs": [], "nine_again": false }
+    },
+    "disciplines": {
+      "Auspex":    1,
+      "Nightmare": 4,
+      "Obfuscate": 4
+    },
+    "powers": [
+      {
+        "category": "discipline",
+        "discipline": "Auspex",
+        "rank": 1,
+        "name": "Beast's Hackles",
+        "stats": "Cost: Free (1 V for Insight)  •  Pool: - - Composure & Closed Book  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 1,
+        "name": "Dread Presence",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 2,
+        "name": "Face of the Beast",
+        "stats": "Cost: 1 V  •  Pool: 12  v Composure + BP  •  Contested  •  Instant",
+        "pool_size": 12,
+        "effect": "Impose Frightened Condition. Cause fleeing."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 3,
+        "name": "Grand Delusion",
+        "stats": "Cost: 2 V  •  Pool: 11  v Composure + BP  •  Contested  •  1 night",
+        "pool_size": 11,
+        "effect": "Impose Delusional Condition."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Nightmare",
+        "rank": 4,
+        "name": "Waking Nightmare",
+        "stats": "Cost: 1 V  •  Pool: 12  v highest Composure + BP  •  Contested  •  Scene",
+        "pool_size": 12,
+        "effect": "Create and control hallucinations."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 1,
+        "name": "Face in the Crowd",
+        "stats": "Cost: -  •  Pool: -  •  Instant  •  Scene",
+        "pool_size": null,
+        "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 2,
+        "name": "Touch of Shadow",
+        "stats": "Cost: 1 V  •  Pool: 5  •  Instant  •  Scene",
+        "pool_size": 5,
+        "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 3,
+        "name": "Cloak of Night",
+        "stats": "Cost: 1 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2."
+      },
+      {
+        "category": "discipline",
+        "discipline": "Obfuscate",
+        "rank": 4,
+        "name": "The Familiar Stranger",
+        "stats": "Cost: 2 V  •  Pool: -  •  None",
+        "pool_size": null,
+        "effect": "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae."
+      }
+    ],
+    "merits": [
+      { "category": "influence", "name": "Allies", "rating": 2, "area": "Politics" },
+      { "category": "influence", "name": "Allies", "rating": 2, "area": "Underworld", "granted_by": "MCI 2" },
+      { "category": "general",   "name": "Fucking Thief", "rating": 1 },
+      { "category": "general",   "name": "Honey With Vinegar", "rating": 1 },
+      { "category": "general",   "name": "Indomitable", "rating": 2 },
+      { "category": "general",   "name": "Secret Society Junkie", "rating": 1 },
+      { "category": "domain",    "name": "Safe Place", "rating": 1 },
+      { "category": "domain",    "name": "Herd", "rating": 5, "granted_by": "SSJ" },
+      {
+        "category": "standing",
+        "name": "Mystery Cult Initiation",
+        "rating": 5,
+        "cult_name": "",
+        "benefits": ["", "", "", "", ""],
+        "active": true,
+        "benefit_grants": [
+          { "category": "influence", "name": "Contacts", "rating": 1 },
+          { "category": "influence", "name": "Allies",   "rating": 1, "qualifier": "Underworld" },
+          { "category": "general",   "name": "Air of Menace", "rating": 2 },
+          { "category": "influence", "name": "Allies",   "rating": 3, "qualifier": "Finance" },
+          { "category": "influence", "name": "Resources","rating": 3 }
+        ],
+        "dot1_choice": "merits",
+        "dot3_choice": "merits",
+        "dot5_choice": "merits"
+      },
+      { "category": "general",   "name": "Air of Menace", "rating": 3 },
+      { "category": "influence", "name": "Allies",    "rating": 3, "area": "Finance" },
+      { "category": "influence", "name": "Resources", "rating": 3 }
+    ],
+    "touchstones": [
+      { "humanity": 6, "name": "Portrait of my Wife" },
+      { "humanity": 5, "name": "Turkish Laundrette Woman" }
+    ],
+    "banes": [
+      {
+        "name": "Lonely Curse",
+        "effect": "With mortals, Humanity counts -2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+      },
+      {
+        "name": "Plague of Purity",
+        "effect": "Touch by Integrity 8+ mortal causes (10 - Humanity) bashing damage."
+      }
+    ],
+    "attr_creation": {
+      "Intelligence": { "cp": 1, "free": 1, "xp": 0 },
+      "Wits":         { "cp": 1, "free": 1, "xp": 0 },
+      "Resolve":      { "cp": 2, "free": 1, "xp": 0 },
+      "Strength":     { "cp": 0, "free": 1, "xp": 0 },
+      "Dexterity":    { "cp": 2, "free": 1, "xp": 0 },
+      "Stamina":      { "cp": 1, "free": 1, "xp": 0 },
+      "Presence":     { "cp": 3, "free": 1, "xp": 0 },
+      "Manipulation": { "cp": 2, "free": 1, "xp": 0 },
+      "Composure":    { "cp": 0, "free": 2, "xp": 0 }
+    },
+    "skill_creation": {
+      "Academics":    { "cp": 0, "free": 0, "xp": 0 },
+      "Computer":     { "cp": 0, "free": 0, "xp": 0 },
+      "Crafts":       { "cp": 0, "free": 0, "xp": 0 },
+      "Investigation":{ "cp": 3, "free": 0, "xp": 0 },
+      "Medicine":     { "cp": 0, "free": 0, "xp": 0 },
+      "Occult":       { "cp": 2, "free": 0, "xp": 0 },
+      "Politics":     { "cp": 2, "free": 0, "xp": 0 },
+      "Science":      { "cp": 0, "free": 0, "xp": 0 },
+      "Athletics":    { "cp": 2, "free": 0, "xp": 0 },
+      "Brawl":        { "cp": 0, "free": 0, "xp": 0 },
+      "Drive":        { "cp": 0, "free": 0, "xp": 0 },
+      "Firearms":     { "cp": 0, "free": 0, "xp": 0 },
+      "Larceny":      { "cp": 0, "free": 0, "xp": 0 },
+      "Stealth":      { "cp": 2, "free": 0, "xp": 0 },
+      "Survival":     { "cp": 0, "free": 0, "xp": 0 },
+      "Weaponry":     { "cp": 0, "free": 0, "xp": 0 },
+      "Animal Ken":   { "cp": 0, "free": 0, "xp": 0 },
+      "Empathy":      { "cp": 4, "free": 0, "xp": 0 },
+      "Expression":   { "cp": 0, "free": 0, "xp": 0 },
+      "Intimidation": { "cp": 4, "free": 0, "xp": 0 },
+      "Persuasion":   { "cp": 0, "free": 0, "xp": 0 },
+      "Socialise":    { "cp": 0, "free": 0, "xp": 0 },
+      "Streetwise":   { "cp": 0, "free": 0, "xp": 0 },
+      "Subterfuge":   { "cp": 3, "free": 0, "xp": 0 }
+    },
+    "disc_creation": {
+      "Auspex":    { "cp": 1, "free": 0, "xp": 0 },
+      "Nightmare": { "cp": 2, "free": 0, "xp": 6 },
+      "Obfuscate": { "cp": 0, "free": 0, "xp": 12 }
+    },
+    "merit_creation": [
+      { "cp": 3, "free": 0, "xp": 0 },
+      { "cp": 0, "free": 3, "xp": 0 },
+      { "cp": 1, "free": 0, "xp": 4 },
+      { "cp": 0, "free": 0, "xp": 2 },
+      { "cp": 0, "free": 0, "xp": 2 },
+      { "cp": 0, "free": 0, "xp": 1 },
+      { "cp": 0, "free": 0, "xp": 2 },
+      { "cp": 0, "free": 0, "xp": 0 },
+      { "cp": 2, "free": 0, "xp": 0 },
+      { "cp": 0, "free": 2, "xp": 1, "free_mci": 2 },
+      { "cp": 0, "free": 3, "xp": 0 },
+      { "cp": 0, "free": 3, "xp": 0, "free_mci": 3 }
+    ],
+    "xp_log": {
+      "earned": { "game": 1 },
+      "spent": {
+        "attributes": 0,
+        "skills": 0,
+        "merits": 14,
+        "powers": 18,
+        "special": 0
+      }
+    },
+    "humanity_base": 7,
+    "ordeals": [
+      { "name": "questionnaire", "complete": true },
+      { "name": "history",       "complete": true },
+      { "name": "rules",         "complete": true },
+      { "name": "lore",          "complete": true },
+      { "name": "covenant",      "complete": true }
+    ],
+    "clan_attribute": "Composure",
+    "attribute_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "skill_priorities": {
+      "Mental": "Secondary",
+      "Physical": "Tertiary",
+      "Social": "Primary"
+    },
+    "bp_creation": { "cp": 5 }
+  }
+]

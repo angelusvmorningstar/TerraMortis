@@ -20,6 +20,31 @@ function parseId(id) {
   }
 }
 
+/**
+ * Cascade a player-level ordeal completion to all of that player's characters.
+ * Upserts an entry in each character's ordeals array.
+ */
+async function cascadePlayerOrdealXp(playerId, ordealName) {
+  const players = getCollection('players');
+  const chars   = getCollection('characters');
+  const player = await players.findOne({ _id: playerId });
+  if (!player?.character_ids?.length) return;
+
+  const now = new Date().toISOString();
+  for (const charId of player.character_ids) {
+    const upd = await chars.updateOne(
+      { _id: charId, 'ordeals.name': ordealName },
+      { $set: { 'ordeals.$.complete': true, 'ordeals.$.approved_at': now } }
+    );
+    if (upd.matchedCount === 0) {
+      await chars.updateOne(
+        { _id: charId },
+        { $push: { ordeals: { name: ordealName, complete: true, approved_at: now } } }
+      );
+    }
+  }
+}
+
 // GET /api/ordeal-responses?type=rules — get current user's response for an ordeal type
 router.get('/', async (req, res) => {
   const type = req.query.type;
@@ -105,6 +130,11 @@ router.put('/:id', async (req, res) => {
     { $set: updates },
     { returnDocument: 'after' }
   );
+
+  // Cascade XP to all player characters when a player-level ordeal is newly approved
+  if (updates.status === 'approved' && existing.status !== 'approved') {
+    await cascadePlayerOrdealXp(existing.player_id, existing.ordeal_type);
+  }
 
   res.json(result);
 });

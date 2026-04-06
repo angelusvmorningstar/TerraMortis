@@ -9,6 +9,7 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
+import { getGamePhaseCycle } from '../downtime/db.js';
 import { esc, displayName } from '../data/helpers.js';
 import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
@@ -37,6 +38,7 @@ let selectedDisc = '';
 let selectedSpec = '';
 let poolTotal = 0;
 let poolBreakdown = '';
+let stRote = false; // rote flag confirmed by ST in downtime processing
 let rollResult = null;
 let feedingRecord = null; // persisted feeding_rolls record from DB
 let responseSubId = null; // submission _id for persisting player roll
@@ -56,14 +58,29 @@ export async function renderFeedingTab(el, char) {
   feedingRecord = null;
   declaredMethod = null;
   selectedMethodId = '';
+  stRote = false;
   responseSubId = null;
   publishedFeedingText = null;
   currentSub = null;
 
+  // Gate: only available once ST has opened the game phase
+  let gameCycle = null;
+  try { gameCycle = await getGamePhaseCycle(); } catch { /* offline */ }
+  if (!gameCycle) {
+    // Still show the split layout with last feeding result on right
+    el.innerHTML = `<div class="tab-split">
+      <div class="tab-split-left" id="feeding-left-pane"><p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p></div>
+      <div class="tab-split-right" id="feeding-right-pane"></div>
+    </div>`;
+    container = document.getElementById('feeding-left-pane');
+    renderFeedingHistoryPane(document.getElementById('feeding-right-pane'), char);
+    return;
+  }
+
   // Load submission first — it is the authoritative source for roll state
   let mySub = null;
   try {
-    const subs = await apiGet('/api/downtime_submissions');
+    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + gameCycle._id);
     mySub = subs.find(s =>
       (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
     ) || null;
@@ -100,23 +117,93 @@ export async function renderFeedingTab(el, char) {
     } catch { /* ignore */ }
   }
 
-  // Determine method from submitted downtime declaration
+  // Load declared method for display (used in both paths below)
   if (mySub?.responses?.['_feed_method']) {
     const methodId = mySub.responses['_feed_method'];
     declaredMethod = FEED_METHODS.find(m => m.id === methodId) || null;
     declaredDisc = mySub.responses['_feed_disc'] || '';
     declaredSpec = mySub.responses['_feed_spec'] || '';
-    if (declaredMethod) {
-      buildPool(declaredMethod, declaredDisc, declaredSpec);
-      feedingState = 'ready';
-    } else {
-      feedingState = 'no_submission';
-    }
+  }
+
+  // Prefer ST-confirmed pool from downtime processing (feeding_roll.params)
+  if (mySub?.feeding_roll?.params?.size) {
+    poolTotal = mySub.feeding_roll.params.size;
+    stRote = mySub.feeding_roll.params.rote || false;
+    const roteLabel = stRote ? ' \u2014 Rote quality' : '';
+    poolBreakdown = `ST confirmed: ${poolTotal} dice${roteLabel}`;
+    feedingState = declaredMethod ? 'ready' : 'no_submission';
+  } else if (declaredMethod) {
+    buildPool(declaredMethod, declaredDisc, declaredSpec);
+    feedingState = 'ready';
   } else {
     feedingState = 'no_submission';
   }
 
+  // Set up split layout
+  el.innerHTML = `<div class="tab-split">
+    <div class="tab-split-left" id="feeding-left-pane"></div>
+    <div class="tab-split-right" id="feeding-right-pane"></div>
+  </div>`;
+  container = document.getElementById('feeding-left-pane');
+  renderFeedingHistoryPane(document.getElementById('feeding-right-pane'), char);
+
   render();
+}
+
+async function renderFeedingHistoryPane(el, char) {
+  el.innerHTML = '<p class="placeholder-msg dt-hist-loading">Loading\u2026</p>';
+
+  let allSubs = [], cycles = [];
+  try {
+    [allSubs, cycles] = await Promise.all([
+      apiGet('/api/downtime_submissions'),
+      apiGet('/api/downtime_cycles'),
+    ]);
+  } catch {
+    el.innerHTML = '<p class="placeholder-msg">Could not load history.</p>';
+    return;
+  }
+
+  const cycleMap = {};
+  for (const c of cycles) cycleMap[String(c._id)] = c;
+
+  const charId = String(char._id);
+  // Only show closed/game cycles with published outcomes
+  const charSubs = allSubs
+    .filter(s => String(s.character_id) === charId && s.published_outcome)
+    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+
+  let h = '<div class="dt-hist-panel">';
+  h += '<div class="dt-hist-title">Feeding Results</div>';
+
+  if (!charSubs.length) {
+    h += '<p class="placeholder-msg dt-hist-empty">No published feeding results yet.</p>';
+  } else {
+    for (const sub of charSubs) {
+      const cycle = cycleMap[String(sub.cycle_id)];
+      const label = cycle?.label || `Cycle ${String(sub.cycle_id).slice(-4)}`;
+
+      // Extract just the Feeding section from the published outcome
+      const feedMatch = sub.published_outcome.match(/##\s*Feeding\s*\n([\s\S]*?)(?=\n##\s|$)/);
+      const feedingText = feedMatch ? feedMatch[1].trim() : null;
+
+      h += `<div class="dt-hist-entry">`;
+      h += `<div class="dt-hist-entry-head"><span class="dt-hist-cycle">${esc(label)}</span></div>`;
+      if (feedingText) {
+        h += `<div class="dt-hist-outcome">`;
+        feedingText.split('\n').filter(Boolean).forEach(line => {
+          h += `<p>${esc(line)}</p>`;
+        });
+        h += `</div>`;
+      } else {
+        h += `<div class="dt-hist-outcome"><p class="placeholder-msg">No feeding section recorded.</p></div>`;
+      }
+      h += `</div>`;
+    }
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 function renderFeedingSummary() {
@@ -228,7 +315,9 @@ function render() {
   // ── READY (from downtime declaration) ──
   if (feedingState === 'ready' && declaredMethod) {
     h += '<div class="feeding-ready">';
-    h += `<p class="feeding-method-label">Method: <strong>${esc(declaredMethod.name)}</strong></p>`;
+    h += `<p class="feeding-method-label">Method: <strong>${esc(declaredMethod.name)}</strong>`;
+    if (stRote) h += ' <span class="feeding-rote-badge">Rote</span>';
+    h += '</p>';
     h += `<p class="feeding-method-desc">${esc(declaredMethod.desc)}</p>`;
     h += `<div class="feeding-pool-display">`;
     h += `<span class="feeding-pool-breakdown">${esc(poolBreakdown)}</span>`;
@@ -379,10 +468,16 @@ function wireEvents() {
   });
 }
 
+function rollDiceRote(n) {
+  // Roll twice, take the best result (WoD rote quality)
+  const r1 = rollDice(n), r2 = rollDice(n);
+  return cntSuc(r1) >= cntSuc(r2) ? r1 : r2;
+}
+
 async function doFeedingRoll() {
   if (poolTotal <= 0) return;
 
-  const cols = rollDice(poolTotal);
+  const cols = stRote ? rollDiceRote(poolTotal) : rollDice(poolTotal);
   const successes = cntSuc(cols);
   const methodName = declaredMethod?.name || FEED_METHODS.find(m => m.id === selectedMethodId)?.name || 'Unknown';
 

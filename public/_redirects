@@ -1,0 +1,7 @@
+# ── Dev maintenance mode ────────────────────────────────────────────────────
+# Player-facing pages redirected to maintenance screen.
+# Remove these two lines (or delete this file) to restore normal access.
+/             /maintenance.html  302
+/player.html  /maintenance.html  302
+
+# Admin remains accessible for ST work during dev.

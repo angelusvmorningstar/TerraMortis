@@ -1,16 +1,21 @@
 /* Player portal entry point — auth gate, tab routing, character loading, read-only sheet */
 
 import { apiGet } from './data/api.js';
-import { esc, displayName } from './data/helpers.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
+import { esc, displayName, sortName } from './data/helpers.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderFeedingTab } from './player/feeding-tab.js';
 import { renderStoryTab } from './player/story-tab.js';
+import { initArchiveTab } from './player/archive-tab.js';
+import { renderCityTab } from './player/city-tab.js';
+import { renderPrimerTab } from './player/primer-tab.js';
+import { renderTicketsTab } from './player/tickets-tab.js';
 import { renderXpLogTab } from './player/xp-log-tab.js';
 import { startWizard } from './player/wizard.js';
+import { getActiveCycle, getGamePhaseCycle } from './downtime/db.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -80,7 +85,7 @@ function renderSidebarUser() {
 
 async function loadCharacters() {
   try {
-    chars = await apiGet('/api/characters');
+    chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');
     // Sanitise: strip zero-dot disciplines (treated as absent)
     chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if (v === 0) delete c.disciplines[k]; } });
   } catch (err) {
@@ -106,9 +111,9 @@ async function loadCharacters() {
     return;
   }
 
-  // Split active and retired characters (from approved pool)
-  retiredChars = chars.filter(c => c.retired && !c.pending_approval);
-  const activeChars = approvedChars;
+  // Split active and retired characters (from approved pool), both sorted
+  retiredChars = chars.filter(c => c.retired && !c.pending_approval).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+  const activeChars = approvedChars.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
   // Populate shared state so renderSheet can access chars
   state.chars = chars;
@@ -121,15 +126,23 @@ async function loadCharacters() {
     selector.innerHTML = activeChars.map((c, i) =>
       `<option value="${i}">${esc(displayName(c))}</option>`
     ).join('');
-    selector.addEventListener('change', () => selectCharacter(activeChars, Number(selector.value)));
+    selector.addEventListener('change', () => {
+      localStorage.setItem('tm_active_char', String(activeChars[Number(selector.value)]._id));
+      selectCharacter(activeChars, Number(selector.value));
+    });
   }
 
-  // Show Archive tab if any retired characters exist
-  if (retiredChars.length) {
-    const archiveBtn = document.getElementById('tab-btn-archive');
-    if (archiveBtn) archiveBtn.style.display = '';
-    renderArchiveTab();
-  }
+  // Archive tab always visible
+  const archiveBtn = document.getElementById('tab-btn-archive');
+  if (archiveBtn) archiveBtn.style.display = '';
+
+  // City, Primer, and Tickets tabs — render once, independent of active character
+  renderCityTab(document.getElementById('tab-city'));
+  renderPrimerTab(document.getElementById('tab-primer'));
+  renderTicketsTab(document.getElementById('tickets-content'));
+
+  // Sidebar cycle indicators (fire-and-forget)
+  updateCycleIndicators();
 
   if (!activeChars.length) {
     document.getElementById('sh-content').innerHTML =
@@ -137,7 +150,12 @@ async function loadCharacters() {
     return;
   }
 
-  selectCharacter(activeChars, 0);
+  // Restore last active character from admin/previous session
+  const savedCharId = localStorage.getItem('tm_active_char');
+  const savedIdx = savedCharId ? activeChars.findIndex(c => String(c._id) === savedCharId) : -1;
+  const startIdx = savedIdx >= 0 ? savedIdx : 0;
+  if (selector && activeChars.length > 1) selector.value = String(startIdx);
+  selectCharacter(activeChars, startIdx);
 }
 
 function showWizard() {
@@ -171,6 +189,7 @@ function selectCharacter(activeChars, idx) {
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
   renderStoryTab(document.getElementById('story-content'), activeChar);
   renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
+  initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars);
 
   // Regency tab — only visible for regents
   const regBtn = document.getElementById('tab-btn-regency');
@@ -182,25 +201,17 @@ function selectCharacter(activeChars, idx) {
   }
 }
 
-function renderArchiveTab() {
-  const el = document.getElementById('archive-content');
-  if (!el || !retiredChars.length) return;
-
-  let h = '<div class="archive-list">';
-  for (const c of retiredChars) {
-    h += `<div class="archive-char">`;
-    h += `<h3 class="archive-char-name">${esc(displayName(c))} <span class="archive-badge">Retired</span></h3>`;
-    h += `<div id="archive-sh-${esc(String(c._id))}" class="cd-sheet"></div>`;
-    h += `</div>`;
-  }
-  h += '</div>';
-  el.innerHTML = h;
-
-  // Render each retired character's sheet into its container
-  for (const c of retiredChars) {
-    const target = document.getElementById(`archive-sh-${String(c._id)}`);
-    if (target) renderSheet(c, target);
-  }
+async function updateCycleIndicators() {
+  try {
+    const [active, game] = await Promise.all([
+      getActiveCycle().catch(() => null),
+      getGamePhaseCycle().catch(() => null),
+    ]);
+    const dtBtn = document.getElementById('tab-btn-downtime');
+    const fdBtn = document.getElementById('tab-btn-feeding');
+    if (dtBtn) dtBtn.classList.toggle('cycle-open', !!active);
+    if (fdBtn) fdBtn.classList.toggle('cycle-open', !!game);
+  } catch { /* offline — no indicators */ }
 }
 
 // ── Tab switching ──

@@ -5,7 +5,7 @@
 import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG , STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
-import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName } from '../data/helpers.js';
+import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, getWillpower } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
@@ -171,7 +171,8 @@ export function shRenderAttributes(c,editMode) {
   const catOrder=['Mental','Physical','Social'], BONUS_SOURCE={Strength:'Vigour',Stamina:'Resilience'};
   // Normalise clan_attribute from attr_creation.free if missing
   if(!c.clan_attribute&&c.attr_creation){const ca=Object.entries(c.attr_creation).find(([,cr])=>(cr.free||0)===2);if(ca)c.clan_attribute=ca[0];}
-  let h='<div class="sh-sec"><div class="sh-sec-title">Attributes</div>';
+  const _attrAlert=editMode?(catOrder.some(cat=>{const budget=PRI_BUDGETS[(c.attribute_priorities||{})[cat]||'Tertiary']||3,usedCP=(ATTR_CATS[cat]||[]).reduce((s,a)=>s+(((c.attr_creation||{})[a]||{}).cp||0),0);return budget-usedCP<0;})?'red':null):null;
+  let h='<div class="sh-sec"><div class="sh-sec-title">Attributes'+_alertBadge(_attrAlert)+'</div>';
   if(editMode){
     const caOpts=(CLAN_ATTR_OPTIONS[c.clan]||[]).map(a=>'<option'+(c.clan_attribute===a?' selected':'')+'>'+a+'</option>').join('');
     h+='<div class="sh-clan-attr-row">Favoured Attribute <select onchange="shSetClanAttr(this.value)">'+caOpts+'</select></div>';
@@ -190,7 +191,7 @@ export function shRenderAttributes(c,editMode) {
       h+='<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">'+a+(isClan?'<span class="attr-clan-star">\u2605</span>':'')+'</div><div class="attr-dots-sh">'+shDotsWithBonus(base,bonus)+'</div></div>';
       const cr=(c.attr_creation||{})[a]||{cp:0,free:0,xp:0},aE=a.replace(/'/g,"\\'"),baseDots=1+(isClan?1:0),ab=baseDots+(cr.cp||0),xd=xpToDots(cr.xp||0,ab,4),tot=ab+xd;
       h+='<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">'+baseDots+'</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.cp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="'+(cr.xp||0)+'" onchange="shEditAttrPt(\''+aE+'\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">'+tot+'</span></div></div>';
-      if(bonus>0){const src=BONUS_SOURCE[a]||'';h+='<div class="attr-derived-row"><span class="bd-src">+'+bonus+'</span>'+(src?'<span class="bd-src-lbl">('+src+')</span>':'')+'<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">'+(tot+bonus)+'</span></div></div>';}
+      {const aE2=a.replace(/'/g,"\\'"),src=BONUS_SOURCE[a]||'';h+='<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\''+aE2+'\',-1)"'+(bonus===0?' disabled':'')+'>&#x25BC;</button><span class="bd-src">'+(bonus>0?'+'+bonus:'0')+'</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\''+aE2+'\',1)">&#x25B2;</button>'+(src?'<span class="bd-src-lbl">('+src+')</span>':'')+(bonus>0?'<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">'+(tot+bonus)+'</span></div>':'')+'</div>';}
       h+='</div></div>';
     });h+='</div>';});
   } else {
@@ -205,7 +206,8 @@ export function shRenderAttributes(c,editMode) {
 
 export function shRenderSkills(c,editMode) {
   const SKILL_COLS=[SKILLS_MENTAL,SKILLS_PHYSICAL,SKILLS_SOCIAL],skillCatOrder=['Mental','Physical','Social'];
-  let h='<div class="sh-sec"><div class="sh-sec-title">Skills</div>';
+  const _skillAlert=editMode?(skillCatOrder.some(cat=>{const budget=SKILL_PRI_BUDGETS[(c.skill_priorities||{})[cat]||'Tertiary']||4,usedCP=(SKILL_CATS[cat]||[]).reduce((s,sk)=>s+(((c.skill_creation||{})[sk]||{}).cp||0),0);return budget-usedCP<0;})?'red':null):null;
+  let h='<div class="sh-sec"><div class="sh-sec-title">Skills'+_alertBadge(_skillAlert)+'</div>';
   if(editMode){
     const sPri=c.skill_priorities||{};
     if(!sPri.Mental&&!sPri.Physical&&!sPri.Social){sPri.Mental='Primary';sPri.Physical='Secondary';sPri.Social='Tertiary';}
@@ -396,9 +398,8 @@ export function shRenderDisciplines(c,editMode) {
             +(partner&&!partnerHasSW?'<span style="font-size:10px;color:var(--txt3);font-style:italic;margin-left:4px">partner must also take this oath</span>':'')
             +(partnerHasSW?'<span style="font-size:10px;color:var(--gold2);margin-left:4px">\u2713 mutually linked</span>':'')
             +'</div>'
-            +'<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>'
-            +'<input class="gen-qual-input" style="width:180px" type="text" value="'+esc(sharedMerit)+'" placeholder="e.g. Striking Looks\u2026" onchange="shEditPact('+realPi+',\'shared_merit\',this.value)">'
-            +'</div>'
+            +(()=>{const _sm=(c.merits||[]).filter(m=>{const _db=(MERITS_DB||{})[(m.name||'').toLowerCase()];return _db&&_db.type==='Social';});const _smOpts=_sm.map(m=>{const _lbl=m.name+(m.qualifier?' ('+m.qualifier+')':m.area?' ('+m.area+')':'');return '<option value="'+esc(_lbl)+'"'+(sharedMerit===_lbl?' selected':'')+'>'+esc(_lbl)+'</option>';}).join('');return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>'+(_sm.length?'<select class="gen-qual-input" style="width:180px" onchange="shEditPact('+realPi+',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>'+_smOpts+'</select>':'<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>')+'</div>';})()
+
             +'</div>';
         }
         h+='</div>';
@@ -918,7 +919,7 @@ export function shRenderManoeuvres(c, editMode) {
 
   const mciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
     .reduce((s, m) => s + mciPoolTotal(m), 0);
-  const otsExtraPicks = c._ots_extra_picks || 0;
+  const otsExtraPicks = c._ots_free_dots || 0;
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div>';
 
@@ -926,11 +927,17 @@ export function shRenderManoeuvres(c, editMode) {
     const tc = _tagCounts(c);
     const fStyles = styles.filter(fs => fs.type !== 'merit');
     const fMerits = styles.filter(fs => fs.type === 'merit');
-    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
+    const otsFreeDots = c._ots_free_dots || 0;
+    const otsUsed = (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
 
-    const maxPicks = totalDots + otsExtraPicks;
-    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + (otsExtraPicks ? ' <span style="font-size:9px;color:#9E7AE0">(+' + otsExtraPicks + ' OTS)</span>' : '') + '</span></div>';
+    const maxPicks = totalDots;
+    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
+    if (otsFreeDots > 0) {
+      const otsCls = otsUsed > otsFreeDots ? ' sc-over' : otsUsed === otsFreeDots ? ' sc-full' : ' sc-val';
+      h += '<div class="grant-pool-row"><span style="color:#9E7AE0">Oath of the Scapegoat</span> free style dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
+    }
 
     // Style Points — tag totals for unorthodox access
     const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
@@ -950,7 +957,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '<div class="man-list">';
     fStyles.forEach(fs => {
       const si = styles.indexOf(fs);
-      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
       const tags = STYLE_TAGS[fs.name] || [];
       const fsUp = fs.up || 0;
 
@@ -963,6 +970,7 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
@@ -1123,7 +1131,7 @@ export function renderSheet(c, target = null) {
   const el = target || document.getElementById('sh-content');
   if(!c){el.innerHTML='';return;}
   applyDerivedMerits(c); ensureMeritSync(c);
-  const bl=c.bloodline&&c.bloodline!=='\u00AC'?c.bloodline:'',st=c.status||{},wp=c.willpower||{};
+  const bl=c.bloodline&&c.bloodline!=='\u00AC'?c.bloodline:'',st=c.status||{},wp=getWillpower(c);
   const clanImg=ICONS[CLAN_ICON_KEY[c.clan]||'']||'',covImg=ICONS[COV_ICON_KEY[c.covenant]||'']||'';
   const allB=c.banes||[],curseIdx=allB.findIndex(b=>b.name.toLowerCase().includes('curse')),curse=curseIdx>=0?allB[curseIdx]:null,regB=allB.filter((_,i)=>i!==curseIdx);
   let h='';
@@ -1133,7 +1141,7 @@ export function renderSheet(c, target = null) {
   // Header
   h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(displayName(c)))+'</div>';
   if(editMode){h+='<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.honorific||'')+'" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.moniker||'')+'" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';}
-  h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge'+(xpLeft(c)<0?' xp-over':'')+'">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
+  h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge'+(xpLeft(c)<0?' xp-over':xpLeft(c)>0?' xp-under':'')+'">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
   if(editMode){const eT=xpEarned(c),sT=xpSpent(c);
     const _pt5=xpPT5(c);
     h+='<div class="sh-xp-breakdown"><table><tr><th colspan="2">XP Earned</th><th colspan="2">XP Spent</th></tr><tr><td>Starting</td><td>'+xpStarting()+'</td><td>Attributes</td><td>'+xpSpentAttrs(c)+'</td></tr><tr><td>Humanity Drop</td><td>'+xpHumanityDrop(c)+'</td><td>Skills + Specs</td><td>'+xpSpentSkills(c)+'</td></tr><tr><td>Ordeals</td><td>'+xpOrdeals(c)+'</td><td>Merits</td><td>'+xpSpentMerits(c)+'</td></tr><tr><td>Game</td><td>'+xpGame(c)+'</td><td>Powers</td><td>'+xpSpentPowers(c)+'</td></tr>'+(_pt5?'<tr><td>PT \u25cf\u25cf\u25cf\u25cf\u25cf</td><td>'+_pt5+'</td>':'<tr><td></td><td></td>')+'<td>Special</td><td>'+xpSpentSpecial(c)+'</td></tr><tr class="xp-total-row"><td>Total Earned</td><td>'+eT+'</td><td>Total Spent</td><td>'+sT+'</td></tr><tr class="xp-total-row"><td colspan="3" style="text-align:right;padding-right:8px">Available</td><td>'+(eT-sT)+'</td></tr></table></div>';
@@ -1168,7 +1176,7 @@ export function renderSheet(c, target = null) {
     h+='<button class="sh-bane-add" onclick="shAddTouchstone()">+ Add Touchstone</button></div>';
   } else if(ts.length){const hum=c.humanity||0;h+=expRow('touchstones','Touchstones','',ts.map(t=>{const att=hum>=t.humanity;return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity '+t.humanity+' \u2014 <span style="color:'+(att?'rgba(140,200,140,.9)':'var(--txt3)')+';font-style:normal">'+(att?'Attached':'Detached')+'</span></span><span class="exp-ts-name">'+esc(t.name)+(t.desc?' <span class="exp-ts-desc">('+esc(t.desc)+')</span>':'')+'</span></div>';}).join(''));}
   // Date of Embrace + Apparent Age
-  if(editMode||c.date_of_embrace) h+='<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>'+(editMode?'<input class="sh-edit-input" value="'+esc(c.date_of_embrace||'')+'" onchange="shEdit(\'date_of_embrace\',this.value)" placeholder="Date of Embrace">':'<span class="exp-val">'+esc(c.date_of_embrace)+'</span>')+'</div>';
+  if(editMode||c.date_of_embrace){const _ded=c.date_of_embrace||'';const _dedDisp=_ded?new Date(_ded+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'';h+='<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>'+(editMode?'<input type="date" class="sh-edit-input" value="'+esc(_ded)+'" onchange="shEdit(\'date_of_embrace\',this.value)">':'<span class="exp-val">'+esc(_dedDisp)+'</span>')+'</div>';}
   if(editMode||c.apparent_age) h+='<div class="exp-row"><span class="exp-lbl labeled">App. Age</span>'+(editMode?'<input class="sh-edit-input" value="'+esc(c.apparent_age||'')+'" onchange="shEdit(\'apparent_age\',this.value)" placeholder="Apparent Age">':'<span class="exp-val">'+esc(c.apparent_age)+'</span>')+'</div>';
   h+='</div>'; // end left
   // Right panel

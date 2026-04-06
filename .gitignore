@@ -21,6 +21,7 @@ Terra Mortis Character Master*.xlsx
 
 # Temp backups
 data/chars_v2_backup.json
+data/backup/
 
 # Character data — source of truth is MongoDB, not git
 data/chars_v2.json

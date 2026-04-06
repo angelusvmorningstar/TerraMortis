@@ -44,6 +44,16 @@ export async function closeCycle(id) {
   return updateCycle(id, { status: 'closed', closed_at: new Date().toISOString() });
 }
 
+export async function openGamePhase(id) {
+  return updateCycle(id, { status: 'game', game_phase_at: new Date().toISOString() });
+}
+
+/** Get the cycle currently in game phase (status === 'game'). */
+export async function getGamePhaseCycle() {
+  const cycles = await getCycles();
+  return cycles.find(c => c.status === 'game') || null;
+}
+
 // ── Submissions ─────────────────────────────────────────────────────────────
 
 export async function getSubmissionsForCycle(cycleId) {

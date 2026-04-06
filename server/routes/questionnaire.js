@@ -14,6 +14,26 @@ function parseId(id) {
   }
 }
 
+/**
+ * Upsert an ordeal entry on a character's ordeals array and mark it complete.
+ * If the ordeal already exists it is updated in place; otherwise pushed.
+ */
+async function cascadeOrdealXp(charId, ordealName) {
+  const chars = getCollection('characters');
+  const now = new Date().toISOString();
+  // Try to update an existing entry first
+  const upd = await chars.updateOne(
+    { _id: charId, 'ordeals.name': ordealName },
+    { $set: { 'ordeals.$.complete': true, 'ordeals.$.approved_at': now } }
+  );
+  if (upd.matchedCount === 0) {
+    await chars.updateOne(
+      { _id: charId },
+      { $push: { ordeals: { name: ordealName, complete: true, approved_at: now } } }
+    );
+  }
+}
+
 // GET /api/questionnaire?character_id=... — get response for a character
 // Players can only fetch their own characters' responses
 router.get('/', async (req, res) => {
@@ -108,6 +128,11 @@ router.put('/:id', async (req, res) => {
     { $set: updates },
     { returnDocument: 'after' }
   );
+
+  // Cascade XP to character when newly approved
+  if (updates.status === 'approved' && existing.status !== 'approved') {
+    await cascadeOrdealXp(existing.character_id, 'questionnaire');
+  }
 
   res.json(result);
 });

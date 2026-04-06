@@ -57,7 +57,7 @@ const RULES = [
     title: 'Vitae & Blood',
     entries: [
       { term: 'Vitae Max',        text: 'Blood Potency 1: 10. Increases with BP (see BP table).' },
-      { term: 'Spend per Round',  text: 'BP 1\u20132: 1/round. BP 3\u20134: 2/round. BP 5+: 3/round.' },
+      { term: 'Spend per Round',  text: 'BP 1: 1/round. BP 2: 2/round. BP 3: 3/round. BP 4: 4/round. BP 5: 5/round. BP 6: 6/round. BP 7: 7/round. BP 8: 8/round. BP 9: 10/round. BP 10: 15/round.' },
       { term: 'Activating Powers',text: 'Most Disciplines cost 1 Vitae to activate (check power description).' },
       { term: 'Healing Bashing',  text: 'Passive, 1B per round. No Vitae cost.' },
       { term: 'Healing Lethal',   text: '1 Vitae per Lethal box healed. Requires rest.' },

@@ -39,7 +39,8 @@ export function flockHerdBonus(c) {
 }
 
 /**
- * CP + XP portion only -- this is what partners contribute to a shared pool (not Free).
+ * Full dots contributed by a partner to a shared pool (CP + free + XP).
+ * Free dots (e.g. MCI grants) represent real physical resources, so partners share them too.
  * @param {object} c - character object
  * @param {string} name - merit name
  * @returns {number}
@@ -48,8 +49,8 @@ export function domMeritShareable(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
-  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, xp: 0 };
-  return (mc.cp || 0) + (mc.xp || 0);
+  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, free_mci: 0, xp: 0 };
+  return (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.xp || 0);
 }
 
 /**
