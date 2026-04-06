@@ -1,0 +1,126 @@
+{
+  "feed_methods": [
+    {
+      "id": "seduction",
+      "name": "Seduction",
+      "desc": "Lure a vessel close",
+      "attrs": [
+        "Presence",
+        "Manipulation"
+      ],
+      "skills": [
+        "Empathy",
+        "Socialise",
+        "Persuasion"
+      ],
+      "discs": [
+        "Majesty",
+        "Dominate"
+      ]
+    },
+    {
+      "id": "stalking",
+      "name": "Stalking",
+      "desc": "Prey on a target unseen",
+      "attrs": [
+        "Dexterity",
+        "Wits"
+      ],
+      "skills": [
+        "Stealth",
+        "Athletics"
+      ],
+      "discs": [
+        "Protean",
+        "Obfuscate"
+      ]
+    },
+    {
+      "id": "force",
+      "name": "By Force",
+      "desc": "Overpower and drain",
+      "attrs": [
+        "Strength"
+      ],
+      "skills": [
+        "Brawl",
+        "Weaponry"
+      ],
+      "discs": [
+        "Vigour",
+        "Nightmare"
+      ]
+    },
+    {
+      "id": "familiar",
+      "name": "Familiar Face",
+      "desc": "Exploit an existing acquaintance",
+      "attrs": [
+        "Manipulation",
+        "Presence"
+      ],
+      "skills": [
+        "Persuasion",
+        "Subterfuge"
+      ],
+      "discs": [
+        "Dominate",
+        "Majesty"
+      ]
+    },
+    {
+      "id": "intimidation",
+      "name": "Intimidation",
+      "desc": "Compel through fear",
+      "attrs": [
+        "Strength",
+        "Manipulation"
+      ],
+      "skills": [
+        "Intimidation",
+        "Subterfuge"
+      ],
+      "discs": [
+        "Nightmare",
+        "Dominate"
+      ]
+    }
+  ],
+  "feed_territories": [
+    {
+      "id": "",
+      "name": "No territory",
+      "ambienceMod": 0
+    },
+    {
+      "id": "academy",
+      "name": "The Academy",
+      "ambience": "Curated",
+      "ambienceMod": 3
+    },
+    {
+      "id": "dockyards",
+      "name": "The Dockyards",
+      "ambience": "Settled",
+      "ambienceMod": 0
+    },
+    {
+      "id": "harbour",
+      "name": "The Harbour",
+      "ambience": "Untended",
+      "ambienceMod": -2
+    },
+    {
+      "id": "northshore",
+      "name": "The North Shore",
+      "ambience": "Tended",
+      "ambienceMod": 2
+    },
+    {
+      "id": "secondcity",
+      "name": "The Second City",
+      "ambience": "Tended",
+      "ambienceMod": 2
+    }
+  ]
+}
