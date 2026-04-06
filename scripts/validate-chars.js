@@ -46,29 +46,13 @@ for (const c of chars) {
     }
   }
 
-  // ── 2. Willpower keys ─────────────────────────────────────────────────
-  if (c.willpower) {
-    const wp = c.willpower;
-    const expected = ['mask_1wp','mask_all','dirge_1wp','dirge_all'];
-    const oldKeys = ['mask_all_wp','dirge_all_wp','mask_1_wp','dirge_1_wp'];
-    for (const k of oldKeys) {
-      if (k in wp) warn(n, 'willpower-keys', `Old willpower key "${k}" found — should be renamed to schema-standard key`);
-    }
-    for (const k of expected) {
-      if (!(k in wp)) warn(n, 'willpower-keys', `Missing willpower key "${k}"`);
-    }
-    // Stale text: check if mask/dirge text is blank (empty string) — may indicate it was never populated or went stale
-    if (wp.mask_1wp === '' || wp.mask_all === '' || wp.dirge_1wp === '' || wp.dirge_all === '') {
-      warn(n, 'willpower-stale', `One or more willpower text fields are empty — may be stale or unpopulated`);
-    }
-    // Extra keys that shouldn't be there
-    const allKeys = new Set([...expected, ...oldKeys]);
-    for (const k of Object.keys(wp)) {
-      if (!allKeys.has(k)) warn(n, 'willpower-keys', `Unexpected willpower key "${k}"`);
-    }
-  } else {
-    warn(n, 'willpower-missing', `No willpower object`);
+  // ── 2. Willpower — derived at render time, should not be stored ──────────
+  if ('willpower' in c) {
+    warn(n, 'willpower-stored', `willpower object is stored — it is now derived at render time from Mask/Dirge and should not be persisted`);
   }
+  // Incomplete identity: mask/dirge null means WP conditions cannot be derived
+  if (!c.mask) warn(n, 'identity-incomplete', `mask is null — WP conditions cannot be derived`);
+  if (!c.dirge) warn(n, 'identity-incomplete', `dirge is null — WP conditions cannot be derived`);
 
   // ── 3. Attributes ──────────────────────────────────────────────────────
   if (c.attributes) {
