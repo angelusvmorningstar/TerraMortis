@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
-// Seed character data into MongoDB characters collection.
-// Defaults to chars_v2.json (30 real characters). Pass --test for test data.
-// Idempotent — drops existing characters and re-inserts.
+// ⚠️  DESTRUCTIVE — drops the entire characters collection and re-inserts from JSON.
+// ANY edits made via the app since the last seed WILL BE LOST.
+// Only run this during maintenance windows when no one is using the app.
 //
-// Usage: cd server && node migrate.js          (real data)
-//        cd server && node migrate.js --test   (test data)
+// Usage: cd server && node migrate.js           (real data, prompts for confirmation)
+//        cd server && node migrate.js --test    (test data, prompts for confirmation)
+//        cd server && node migrate.js --confirm (skip prompt — CI/scripted use only)
 
 import { readFileSync } from 'node:fs';
+import { createInterface } from 'node:readline';
 import { MongoClient } from 'mongodb';
 import 'dotenv/config';
 
@@ -20,7 +22,26 @@ if (!MONGODB_URI) {
 const useTest = process.argv.includes('--test');
 const DATA_PATH = new URL(useTest ? '../data/chars_test.json' : '../data/chars_v2.json', import.meta.url);
 
+async function confirm() {
+  if (process.argv.includes('--confirm')) return;
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  await new Promise((resolve, reject) => {
+    rl.question(
+      '\n⚠️  WARNING: This will DELETE all characters in Atlas and re-seed from JSON.\n' +
+      '   Any app edits made since the last seed will be permanently lost.\n' +
+      '   Make sure no one is using the app right now.\n\n' +
+      '   Type YES to continue: ',
+      answer => {
+        rl.close();
+        if (answer.trim() === 'YES') resolve();
+        else { console.log('Aborted.'); process.exit(0); }
+      }
+    );
+  });
+}
+
 async function migrate() {
+  await confirm();
   const raw = readFileSync(DATA_PATH, 'utf-8');
   const chars = JSON.parse(raw);
 
