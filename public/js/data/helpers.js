@@ -1,6 +1,7 @@
 /* Display helper functions — pure, no DOM manipulation */
 
 import { ICONS } from './icons.js';
+import { ARCHETYPES_DB } from './constants.js';
 
 const CLAN_ICON_KEY = {
   Daeva: 'daeva',
@@ -80,6 +81,21 @@ export function hasAoE(c, specName) {
   return (c.merits || []).some(m =>
     m.name === 'Area of Expertise' && m.qualifier && m.qualifier.toLowerCase() === specName.toLowerCase()
   );
+}
+
+/**
+ * Derive willpower recovery conditions from a character's Mask and Dirge.
+ * Never reads c.willpower — always computed from ARCHETYPES_DB.
+ */
+export function getWillpower(c) {
+  const mask  = ARCHETYPES_DB[c.mask]  || {};
+  const dirge = ARCHETYPES_DB[c.dirge] || {};
+  return {
+    mask_1wp:  mask.wp1   || '',
+    mask_all:  mask.wpAll || '',
+    dirge_1wp: dirge.wp1  || '',
+    dirge_all: dirge.wpAll || '',
+  };
 }
 
 /**

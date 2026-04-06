@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════
 
 import state from './data.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, getWillpower } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   SORCERY_THEMES, RITUAL_DISCS, CORE_DISCS,
@@ -52,7 +52,7 @@ export function renderSheet() {
   const covKey = (c.covenant || '').toLowerCase().replace(/[^a-z]/g, '');
   const clanSvg = ICONS[clanKey] || '';
   const covSvg = ICONS[COV_ICON_MAP[covKey] || covKey] || '';
-  const wp = c.willpower || {};
+  const wp = getWillpower(c);
 
   // ── Separate curse from banes ──
   const allBanes = c.banes || [];

@@ -116,6 +116,7 @@ router.put('/:id', requireRole('st'), validateCharacter, async (req, res) => {
 
   const { _id, _gameXP, _grant_pools, _mci_free_specs, _mci_dot3_skills,
           _pt_nine_again_skills, _pt_dot4_bonus_skills, _ohm_nine_again_skills,
+          willpower,
           ...updates } = req.body;
 
   // Migrate legacy fighting_styles.up → cp before persisting

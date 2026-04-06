@@ -5,7 +5,7 @@
 import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG , STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
-import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName } from '../data/helpers.js';
+import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, getWillpower } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
@@ -1124,7 +1124,7 @@ export function renderSheet(c, target = null) {
   const el = target || document.getElementById('sh-content');
   if(!c){el.innerHTML='';return;}
   applyDerivedMerits(c); ensureMeritSync(c);
-  const bl=c.bloodline&&c.bloodline!=='\u00AC'?c.bloodline:'',st=c.status||{},wp=c.willpower||{};
+  const bl=c.bloodline&&c.bloodline!=='\u00AC'?c.bloodline:'',st=c.status||{},wp=getWillpower(c);
   const clanImg=ICONS[CLAN_ICON_KEY[c.clan]||'']||'',covImg=ICONS[COV_ICON_KEY[c.covenant]||'']||'';
   const allB=c.banes||[],curseIdx=allB.findIndex(b=>b.name.toLowerCase().includes('curse')),curse=curseIdx>=0?allB[curseIdx]:null,regB=allB.filter((_,i)=>i!==curseIdx);
   let h='';
