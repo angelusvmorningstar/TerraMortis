@@ -5,6 +5,41 @@ Items are grouped by type. Tick off as resolved.
 
 ---
 
+## Open Tickets (24)
+*Pulled from Atlas 2026-04-06. All status: open.*
+
+### Bugs (21)
+
+- [ ] **Character CSV** — Columns go wrong from MK onwards
+- [ ] **Ordeals** — Ordeals marked and signed off are flagging as In Progress or Unmarked
+- [ ] **Cannot Edit Notes/Tags on Sheet** — Tags imported from CSV cannot be deleted or edited
+- [ ] **Cannot Delete Merits** — Cannot delete some merits from Ballsack's sheet
+- [ ] **Viral Mythology** — Should be 2 dots, not 3 (errata change not applied)
+- [ ] **MCI not appearing in Spheres of Influence** — MCI should be a useable narrow Mortal Influence in DT
+- [ ] **MCI not appearing in Applicable Merits** — MCI missing from Project section Applicable Merits
+- [ ] **Characters Involved section missing** — Missing from Personal Projects Misc action
+- [ ] **PT Free Skill** — Additional Skill dot from PT is hollow and not counted in pools
+- [ ] **Shout Out PC names** — Names appear as ObjectIDs (e.g. `69cf7da860b712b5eb99625d`) in ST DT review section
+- [ ] **Edit Regency** — Cannot edit Regency section
+- [ ] **Ritual DT Section** — Mandragora Garden rituals need an "already paid" checkbox for sustained rituals
+- [ ] **Vitae Budget** — Colour scheme makes it unreadable
+- [ ] **Mandragora Garden** — (1) Incorrect bonus dice displaying in Ritual section; (2) Incorrect blood fruit count in Vitae Budget
+- [ ] **DT Feeding** — (1) Doesn't include Feeding Grounds; (2) Optional field doesn't allow situational bonuses or specs
+- [ ] **Rituals** — Cannot select or search for any rituals
+- [ ] **Oath of the Scapegoat** — Each dot should give 2 free Fighting Style dots (currently not working)
+- [ ] **Hollow Dots** — Hollow dots not passed on correctly via shared merits
+- [ ] **Professional Training** — XP refund is at tier 3 not 4; refund not behaving correctly
+- [ ] **Professional Training** — Not picking up 3rd Asset Skill
+- [ ] **The Taste of Things Lived** — Bloodline benefit should be 0 XP cost
+
+### Features (3)
+
+- [ ] **Edit Tickets** — Submitted tickets cannot have title or content edited after submission
+- [ ] **Feeding Pool Alteration** — No way for STs to edit or approve DT pools in ST DT section
+- [ ] **Attribute Bumps** — No way to add Mantle of Amorous Fire dots to Presence
+
+---
+
 ## MCI Grant Mismatches
 *Merits listed in `benefit_grants` that could not be automatically matched or allocated.*
 
