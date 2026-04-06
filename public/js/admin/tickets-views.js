@@ -159,7 +159,14 @@ export async function initTicketsView(containerEl) {
 
           detailHtml = `
             <div class="tk-admin-detail">
-              <div class="tk-admin-body">${esc(t.body || '')}</div>
+              <div class="tk-admin-edit-row">
+                <label>Title</label>
+                <input class="tk-input tk-admin-edit-title" data-id="${esc(String(t._id))}" value="${esc(t.title)}" maxlength="200">
+              </div>
+              <div class="tk-admin-edit-row">
+                <label>Body</label>
+                <textarea class="tk-textarea tk-admin-edit-body" data-id="${esc(String(t._id))}" rows="4">${esc(t.body || '')}</textarea>
+              </div>
               <div class="tk-admin-controls">
                 <div class="tk-admin-note">
                   <label>ST Note</label>
@@ -241,6 +248,32 @@ export async function initTicketsView(containerEl) {
         } catch (_) {
           // No visible feedback needed — note will persist in textarea
         }
+      });
+    });
+
+    // Title input — save on blur
+    inner.querySelectorAll('.tk-admin-edit-title').forEach(inp => {
+      inp.addEventListener('blur', async () => {
+        const id  = inp.dataset.id;
+        const val = inp.value.trim();
+        if (!val) { inp.value = allTickets.find(x => String(x._id) === id)?.title || ''; return; }
+        try {
+          await apiPut(`/api/tickets/${id}`, { title: val });
+          const t = allTickets.find(x => String(x._id) === id);
+          if (t) t.title = val;
+        } catch (_) {}
+      });
+    });
+
+    // Body textarea — save on blur
+    inner.querySelectorAll('.tk-admin-edit-body').forEach(ta => {
+      ta.addEventListener('blur', async () => {
+        const id = ta.dataset.id;
+        try {
+          await apiPut(`/api/tickets/${id}`, { body: ta.value });
+          const t = allTickets.find(x => String(x._id) === id);
+          if (t) t.body = ta.value;
+        } catch (_) {}
       });
     });
 

@@ -11,32 +11,32 @@ Items are grouped by type. Tick off as resolved.
 ### Bugs (21)
 
 - [ ] **Character CSV** — Columns go wrong from MK onwards
-- [ ] **Ordeals** — Ordeals marked and signed off are flagging as In Progress or Unmarked
+- [x] **Ordeals** — submissionsMap was filtering all ordeal types by character_id; now only character_history is filtered per-character; player-level ordeals (lore, rules, covenant) now show correct status
 - [ ] **Cannot Edit Notes/Tags on Sheet** — Tags imported from CSV cannot be deleted or edited
 - [ ] **Cannot Delete Merits** — Cannot delete some merits from Ballsack's sheet
-- [ ] **Viral Mythology** — Should be 2 dots, not 3 (errata change not applied)
-- [ ] **MCI not appearing in Spheres of Influence** — MCI should be a useable narrow Mortal Influence in DT
-- [ ] **MCI not appearing in Applicable Merits** — MCI missing from Project section Applicable Merits
-- [ ] **Characters Involved section missing** — Missing from Personal Projects Misc action
-- [ ] **PT Free Skill** — Additional Skill dot from PT is hollow and not counted in pools
-- [ ] **Shout Out PC names** — Names appear as ObjectIDs (e.g. `69cf7da860b712b5eb99625d`) in ST DT review section
-- [ ] **Edit Regency** — Cannot edit Regency section
-- [ ] **Ritual DT Section** — Mandragora Garden rituals need an "already paid" checkbox for sustained rituals
-- [ ] **Vitae Budget** — Colour scheme makes it unreadable
-- [ ] **Mandragora Garden** — (1) Incorrect bonus dice displaying in Ritual section; (2) Incorrect blood fruit count in Vitae Budget
-- [ ] **DT Feeding** — (1) Doesn't include Feeding Grounds; (2) Optional field doesn't allow situational bonuses or specs
-- [ ] **Rituals** — Cannot select or search for any rituals
-- [ ] **Oath of the Scapegoat** — Each dot should give 2 free Fighting Style dots (currently not working)
-- [ ] **Hollow Dots** — Hollow dots not passed on correctly via shared merits
-- [ ] **Professional Training** — XP refund is at tier 3 not 4; refund not behaving correctly
-- [ ] **Professional Training** — Not picking up 3rd Asset Skill
-- [ ] **The Taste of Things Lived** — Bloodline benefit should be 0 XP cost
+- [x] **Viral Mythology** — Should be 2 dots, not 3 (errata change not applied)
+- [x] **MCI not appearing in Spheres of Influence** — detectMerits now expands benefit_grants from MCI (standing merit) so Allies/Contacts/Status grants appear as sphere entries
+- [x] **MCI not appearing in Applicable Merits** — charMerits filter now includes category === 'standing' in Projects and Acquisitions pickers
+- [x] **Characters Involved section missing** — Added 'cast' to misc action fields list
+- [x] **PT Free Skill** — Additional Skill dot from PT is hollow and not counted in pools (pools.js now includes _pt_dot4_bonus_skills and _mci_dot3_skills in skill dice)
+- [x] **Shout Out PC names** — Names appear as ObjectIDs (e.g. `69cf7da860b712b5eb99625d`) in ST DT review section
+- [x] **Edit Regency** — regency_action textarea restored to DT form (was accidentally skipped; residency grid remains in separate Regency tab)
+- [x] **Ritual DT Section** — Added "Vitae cost already paid" sub-checkbox under Mandragora Garden; shown in admin DT review as paid/outstanding
+- [x] **Vitae Budget** — Colour scheme makes it unreadable
+- [x] **Mandragora Garden** — (1) Incorrect bonus dice displaying in Ritual section; (2) Incorrect blood fruit count in Vitae Budget (root cause: applyDerivedMerits was overwriting stored rating from incomplete merit_creation data; MG now excluded from sync)
+- [x] **DT Feeding** — (1) Feeding Grounds now included in pool total; (2) custom "other" builder now shows spec chips when custom skill has specialisations
+- [x] **Rituals** — Cannot select or search for any rituals (dynamic rite selector built; sorcery section now shows character's rites)
+- [x] **Oath of the Scapegoat** — Each dot should give 2 free Fighting Style dots (now tracked as free_ots per style; OTS pool counter shown; included in dot count and orthodox rank access)
+- [x] **Hollow Dots** — domMeritShareable now includes free + free_mci dots; partners see the full dot count (hollow dots represent real physical resources)
+- [ ] **Professional Training** — XP refund is at tier 3 not 4; refund not behaving correctly *(needs more info — the 2 free specs ARE correctly at tier 3 per rules; the tier 4 free dot is ephemeral and adds no XP cost; suspect this may be about the XP breakdown not showing a PT4 credit row, or about skill_creation data entry for the free dot)*
+- [x] **Professional Training** — Not picking up 3rd Asset Skill (mci.js was slicing to first 2; now all asset skills get 9-Again)
+- [x] **The Taste of Things Lived** — Bloodline benefit should be 0 XP cost
 
 ### Features (3)
 
-- [ ] **Edit Tickets** — Submitted tickets cannot have title or content edited after submission
-- [ ] **Feeding Pool Alteration** — No way for STs to edit or approve DT pools in ST DT section
-- [ ] **Attribute Bumps** — No way to add Mantle of Amorous Fire dots to Presence
+- [x] **Edit Tickets** — Player view now expands tickets on click; open tickets show editable title/body + Save button. Admin view shows editable title/body fields in the expanded detail (save on blur). Server PUT handler now accepts `title` for both players and STs
+- [x] **Feeding Pool Alteration** — "Mod" numeric input added to feeding pool row in ST DT review; persisted to `st_review.feeding_modifier`; applied to `buildFeedingPool()` at roll time; shown in pool expression
+- [x] **Attribute Bumps** — `shAdjAttrBonus` added to `edit.js`; bonus +/− stepper now shown on every attribute row in the inline sheet edit mode (calls `_renderSheet` so it updates immediately without switching to Attrs tab)
 
 ---
 
@@ -94,7 +94,7 @@ Need to either split into two separate Allies merit entries (different areas), o
 
 - [ ] **Willpower stale text** — `willpower.mask_1wp / mask_all / dirge_1wp / dirge_all` is stored per-character but derived from Mask/Dirge selection. Peter confirmed it did not update when Yusuf's Dirge changed. Decision needed: strip from storage and derive at render time (preferred, matches "derive don't store" principle), or enforce a re-sync on Mask/Dirge save.
 
-- [ ] **`"rite"` power category** — Cruac rites are stored with `category: "rite"` which is not in the schema's valid set (`discipline / devotion / pact`). Either add `"rite"` as a valid category in the schema and validator, or migrate rite entries to `category: "power"` or similar. 14 powers across multiple characters affected.
+- [x] **`"rite"` power category** — `character.schema.js` powers enum already includes `'rite'`; no migration needed.
 
 - [ ] **`merits` / `merit_creation` tech debt** — Peter flagged these as two parallel arrays that should eventually be a single unified object (merit + purchase receipt). Deferred; log here as a future refactor target.
 
@@ -102,9 +102,19 @@ Need to either split into two separate Allies merit entries (different areas), o
 
 ## Save Hygiene (Code Fixes)
 
-- [ ] **Ephemeral fields persisted to DB** — `_gameXP` and `_grant_pools` are runtime-computed values being written back to MongoDB on character save. Strip these server-side before persisting (in the PUT `/api/characters/:id` handler). 20 documents affected across most characters.
+- [x] **Ephemeral fields persisted to DB** — PUT handler already destructures and discards `_gameXP`, `_grant_pools`, `_mci_free_specs`, `_mci_dot3_skills`, `_pt_nine_again_skills`, `_pt_dot4_bonus_skills`, `_ohm_nine_again_skills` before `$set`.
 
-- [ ] **`fighting_styles[].up` legacy field** — The `up` field (old Excel import artifact) is being migrated in memory by `mci.js` on each load but never written back. Migration runs on every render, which is wasteful. Either write a one-time data migration to rename `up` → `cp` in all fighting style entries, or strip it on save. 19 entries across multiple characters.
+- [x] **`fighting_styles[].up` legacy field** — PUT handler already migrates `up` → `cp` before persisting; field stripped on every save.
+
+---
+
+## Rites — Data Entry Needed
+*These characters have Cruac/Theban disciplines but no rites on their sheet. Their sorcery DT section shows "No rites on your character sheet."*
+
+- [ ] **Alice Vunder** — Cruac 1, no rites
+- [ ] **Conrad Sondergaard** — Theban 4, no rites
+- [ ] **Edna Judge** — Theban 1, no rites
+- [ ] **Magda** — Theban 4, no rites
 
 ---
 

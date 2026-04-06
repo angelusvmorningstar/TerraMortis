@@ -90,7 +90,7 @@ const ACTION_FIELDS = {
   'hide_protect': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
   'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
   'support': ['title', 'pools', 'outcome', 'cast', 'description'],
-  'misc': ['title', 'pools', 'outcome', 'description'],
+  'misc': ['title', 'pools', 'outcome', 'cast', 'description'],
 };
 
 // Which fields each sphere action type shows (no dice pools)
@@ -153,15 +153,24 @@ function deduplicateMerits(list) {
 
 /** Scan character merits and disciplines to populate detectedMerits and auto-gates. */
 function detectMerits() {
-  // Only top-level merits (not benefit_grants children nested inside standing merits)
   const merits = (currentChar.merits || []).filter(m => m.category);
   const discs = currentChar.disciplines || {};
 
-  detectedMerits.spheres = deduplicateMerits(merits.filter(m =>
+  // Expand benefit_grants from standing merits (MCI) into the influence pool
+  const expandedInfluence = [...merits];
+  for (const m of merits) {
+    if (m.category === 'standing' && Array.isArray(m.benefit_grants)) {
+      for (const g of m.benefit_grants) {
+        if (g.category === 'influence') expandedInfluence.push({ ...g, _from_mci: m.cult_name || m.name });
+      }
+    }
+  }
+
+  detectedMerits.spheres = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && (m.name === 'Allies' || m.name === 'Status')
   ));
   // Contacts: expand spheres array into individual entries for toggle rendering
-  const rawContacts = deduplicateMerits(merits.filter(m =>
+  const rawContacts = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && m.name === 'Contacts'
   ));
   detectedMerits.contacts = [];
@@ -357,6 +366,8 @@ function collectResponses() {
     responses[`sorcery_${n}_notes`] = notesEl ? notesEl.value : '';
     const mandEl = document.getElementById(`dt-sorcery_${n}_mandragora`);
     responses[`sorcery_${n}_mandragora`] = mandEl ? (mandEl.checked ? 'yes' : 'no') : 'no';
+    const mandPaidEl = document.getElementById(`dt-sorcery_${n}_mand_paid`);
+    responses[`sorcery_${n}_mand_paid`] = mandPaidEl ? (mandPaidEl.checked ? 'yes' : 'no') : 'no';
   }
 
   // Residency is now managed in the Regency tab (regency-tab.js)
@@ -943,9 +954,8 @@ function renderForm(container) {
   h += '</div>';
   h += '</div>';
 
-  // Static sections: Court, Feeding (Regency + Projects rendered specially)
+  // Static sections: Court, Feeding, Regency Action (residency grid is in the Regency tab), Projects
   for (const section of DOWNTIME_SECTIONS) {
-    if (section.key === 'regency') continue;
     if (section.key === 'projects') continue;
     if (section.key === 'acquisitions') continue;
     if (section.key === 'blood_sorcery') continue;
@@ -971,8 +981,6 @@ function renderForm(container) {
 
   // ── Projects section with dynamic slots ──
   h += renderProjectSlots(saved);
-
-  // Regency is now its own tab (regency-tab.js)
 
   // ── Dynamic merit sections ──
   h += renderMeritToggles(saved);
@@ -1309,9 +1317,11 @@ function renderForm(container) {
     // Feeding custom pool changes
     const feedCustom = e.target.closest('#dt-feed-custom-attr, #dt-feed-custom-skill, #dt-feed-custom-disc');
     if (feedCustom) {
+      const prevCustomSkill = feedCustomSkill;
       feedCustomAttr = document.getElementById('dt-feed-custom-attr')?.value || '';
       feedCustomSkill = document.getElementById('dt-feed-custom-skill')?.value || '';
       feedCustomDisc = document.getElementById('dt-feed-custom-disc')?.value || '';
+      if (feedCustomSkill !== prevCustomSkill) feedSpecName = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1351,6 +1361,15 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
+    // Mandragora Garden checkbox — re-render to show/hide "already paid" sub-checkbox
+    const mandCb = e.target.closest('.dt-mand-cb[id$="_mandragora"]');
+    if (mandCb) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // Add Rite button
     if (e.target.closest('#dt-add-rite')) {
       const responses = collectResponses();
@@ -1375,12 +1394,14 @@ function renderForm(container) {
         responses[`sorcery_${n}_targets`] = responses[`sorcery_${n + 1}_targets`] || '';
         responses[`sorcery_${n}_notes`] = responses[`sorcery_${n + 1}_notes`] || '';
         responses[`sorcery_${n}_mandragora`] = responses[`sorcery_${n + 1}_mandragora`] || 'no';
+        responses[`sorcery_${n}_mand_paid`] = responses[`sorcery_${n + 1}_mand_paid`] || 'no';
       }
       // Clear last slot
       delete responses[`sorcery_${current}_rite`];
       delete responses[`sorcery_${current}_targets`];
       delete responses[`sorcery_${current}_notes`];
       delete responses[`sorcery_${current}_mandragora`];
+      delete responses[`sorcery_${current}_mand_paid`];
       responses['sorcery_slot_count'] = String(Math.max(1, current - 1));
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1654,7 +1675,7 @@ function renderProjectSlots(saved) {
 
   // Character merits for the merit picker
   const charMerits = (currentChar.merits || []).filter(m =>
-    m.category === 'general' || m.category === 'influence'
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
 
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
@@ -2239,6 +2260,15 @@ function renderSorcerySection(saved) {
       h += `<input type="checkbox" id="dt-sorcery_${n}_mandragora" class="dt-mand-cb"${mandChecked}${mandDisabled}>`;
       h += ` Mandragora Garden (sustained${isCruac && mandDots ? `, +${mandDots} dice` : ''})`;
       h += '</label>';
+      // "Already paid" checkbox — shown when garden checkbox is ticked
+      if (isCruac && mandSaved) {
+        const paidSaved = saved[`sorcery_${n}_mand_paid`] === 'yes';
+        const paidChecked = paidSaved ? ' checked' : '';
+        h += `<label class="dt-mand-label dt-mand-paid-label" title="Tick if you have already set aside ${mandDots} Vitae to cover this rite's sustained cost for the month.">`;
+        h += `<input type="checkbox" id="dt-sorcery_${n}_mand_paid" class="dt-mand-cb"${paidChecked}>`;
+        h += ` Vitae cost already paid (${mandDots}V)`;
+        h += '</label>';
+      }
     }
 
     h += '</div>';
@@ -2280,7 +2310,7 @@ function renderAcquisitionsSection(saved) {
 
   // All character merits for the picker
   const charMerits = (c.merits || []).filter(m =>
-    m.category === 'general' || m.category === 'influence'
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
   );
 
   let h = '<div class="qf-section collapsed" data-section-key="acquisitions">';
@@ -3134,7 +3164,9 @@ function renderQuestion(q, value) {
           // Discipline selector
           const availDiscs = m.discs.filter(d => c.disciplines?.[d]);
           const discVal = (feedDiscName && c.disciplines?.[feedDiscName]) || 0;
-          const total = bestAV + bestSV + discVal + specBonus;
+          const fgMerit = (c.merits || []).find(mr => mr.name === 'Feeding Grounds');
+          const fgVal = fgMerit ? (fgMerit.rating || 0) : 0;
+          const total = bestAV + bestSV + discVal + specBonus + fgVal;
 
           h += '<div class="dt-feed-pool">';
           h += '<div class="dt-feed-breakdown">';
@@ -3143,6 +3175,7 @@ function renderQuestion(q, value) {
           if (bestSpecs.length) h += ` <span class="dt-feed-dim">[${esc(bestSpecs.join(', '))}]</span>`;
           if (discVal) h += ` + <span class="dt-feed-bv">${discVal}</span> ${esc(feedDiscName)}`;
           if (specBonus) h += ` + <span class="dt-feed-bv">${specBonus}</span> ${esc(feedSpecName)}`;
+          if (fgVal) h += ` + <span class="dt-feed-bv">${fgVal}</span> Feeding Grounds`;
           h += ` = <span class="dt-feed-total">${total} dice</span>`;
           h += '</div>';
 
@@ -3180,10 +3213,15 @@ function renderQuestion(q, value) {
         const skills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0; });
         const discs = Object.entries(c.disciplines || {}).filter(([, v]) => v > 0);
 
+        const hasAoECustom = (c.merits || []).some(mr => mr.name && mr.name.toLowerCase() === 'area of expertise');
+        const customSpecs = feedCustomSkill ? (c.skills?.[feedCustomSkill]?.specs || []) : [];
+        const customSpecBonus = feedSpecName ? (hasAoECustom ? 2 : 1) : 0;
+
         let customTotal = 0;
         if (feedCustomAttr) { const a = c.attributes?.[feedCustomAttr]; if (a) customTotal += (a.dots || 0) + (a.bonus || 0); }
         if (feedCustomSkill) { const s = c.skills?.[feedCustomSkill]; if (s) customTotal += (s.dots || 0) + (s.bonus || 0); }
         if (feedCustomDisc) customTotal += c.disciplines?.[feedCustomDisc] || 0;
+        customTotal += customSpecBonus;
 
         h += '<div class="dt-feed-custom">';
         h += '<p class="qf-desc">Custom feeding method — subject to ST approval.</p>';
@@ -3206,7 +3244,17 @@ function renderQuestion(q, value) {
         }
         h += '</select>';
         if (customTotal) h += `<span class="dt-feed-total">= ${customTotal} dice</span>`;
-        h += '</div></div>';
+        h += '</div>';
+        if (customSpecs.length) {
+          h += '<div class="dt-feed-spec-row">';
+          h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
+          for (const sp of customSpecs) {
+            const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
+            h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoECustom ? 2 : 1}</span></button>`;
+          }
+          h += '</div>';
+        }
+        h += '</div>';
       }
 
       // Blood type selection (always shown)

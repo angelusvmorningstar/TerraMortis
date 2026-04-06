@@ -44,7 +44,7 @@ import {
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
   shAddPact, shRemovePact, shEditPact,
-  shEditMeritPt, shStepMeritRating, shEditXP,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   registerCallbacks as registerEditCallbacks
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
@@ -647,7 +647,7 @@ Object.assign(window, {
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   shAddRite, shRemoveRite, shToggleRiteFree,
   shAddPact, shRemovePact, shEditPact,
-  shEditMeritPt, shStepMeritRating, shEditXP,
+  shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   updField, updStatus,
   renderIdentityTab, renderAttrsTab,

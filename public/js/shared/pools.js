@@ -56,7 +56,10 @@ export function getPool(char, raw) {
   if (!info) return null;
   if (!info.a || !info.s) return { noRoll: true, info };
   const attrV = getAttrVal(char, info.a);
-  const skillV = skDots(char, info.s);
+  const baseDots = skDots(char, info.s);
+  const ptBonus = (char._pt_dot4_bonus_skills instanceof Set && char._pt_dot4_bonus_skills.has(info.s)) ? 1 : 0;
+  const mciBonus = (char._mci_dot3_skills instanceof Set && char._mci_dot3_skills.has(info.s)) ? 1 : 0;
+  const skillV = baseDots + ptBonus + mciBonus;
   const unskilled = (info.s && skillV === 0) ? unskilledPenalty(info.s) : 0;
   const discV = info.d ? (char.disciplines ? char.disciplines[info.d] || 0 : 0) : 0;
   return {
