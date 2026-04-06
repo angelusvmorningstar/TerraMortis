@@ -94,7 +94,7 @@ Need to either split into two separate Allies merit entries (different areas), o
 
 - [ ] **Willpower stale text** — `willpower.mask_1wp / mask_all / dirge_1wp / dirge_all` is stored per-character but derived from Mask/Dirge selection. Peter confirmed it did not update when Yusuf's Dirge changed. Decision needed: strip from storage and derive at render time (preferred, matches "derive don't store" principle), or enforce a re-sync on Mask/Dirge save.
 
-- [ ] **`"rite"` power category** — Cruac rites are stored with `category: "rite"` which is not in the schema's valid set (`discipline / devotion / pact`). Either add `"rite"` as a valid category in the schema and validator, or migrate rite entries to `category: "power"` or similar. 14 powers across multiple characters affected.
+- [x] **`"rite"` power category** — `character.schema.js` powers enum already includes `'rite'`; no migration needed.
 
 - [ ] **`merits` / `merit_creation` tech debt** — Peter flagged these as two parallel arrays that should eventually be a single unified object (merit + purchase receipt). Deferred; log here as a future refactor target.
 
@@ -102,9 +102,9 @@ Need to either split into two separate Allies merit entries (different areas), o
 
 ## Save Hygiene (Code Fixes)
 
-- [ ] **Ephemeral fields persisted to DB** — `_gameXP` and `_grant_pools` are runtime-computed values being written back to MongoDB on character save. Strip these server-side before persisting (in the PUT `/api/characters/:id` handler). 20 documents affected across most characters.
+- [x] **Ephemeral fields persisted to DB** — PUT handler already destructures and discards `_gameXP`, `_grant_pools`, `_mci_free_specs`, `_mci_dot3_skills`, `_pt_nine_again_skills`, `_pt_dot4_bonus_skills`, `_ohm_nine_again_skills` before `$set`.
 
-- [ ] **`fighting_styles[].up` legacy field** — The `up` field (old Excel import artifact) is being migrated in memory by `mci.js` on each load but never written back. Migration runs on every render, which is wasteful. Either write a one-time data migration to rename `up` → `cp` in all fighting style entries, or strip it on save. 19 entries across multiple characters.
+- [x] **`fighting_styles[].up` legacy field** — PUT handler already migrates `up` → `cp` before persisting; field stripped on every save.
 
 ---
 
