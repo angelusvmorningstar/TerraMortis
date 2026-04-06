@@ -19,7 +19,7 @@ export const ARCHETYPES_DB = {
   'Child':            { wp1: 'Find someone to take responsibility for your mistake.',                   wpAll: 'Commit a terrible crime to see how authority might react.' },
   'Competitor':       { wp1: 'Challenge someone clearly your superior.',                                wpAll: 'Risk Final Death to prove that you can handle something.' },
   'Conformist':       { wp1: 'Choose an obviously disadvantageous path, because it fits with protocol.', wpAll: 'Stand by the losing side with shield at the ready, because it\'s your side.' },
-  'Conspirator':      null, // not yet used by any character — fill in from rulebook
+  'Conspirator':      { wp1: 'Add a layer of meaningless complexity to a plan.',                        wpAll: 'Refuse to take an action in self-defence without excessive, dangerous plotting.' },
   'Courtesan':        { wp1: 'Put yourself out for another\'s pleasure.',                               wpAll: 'Be the last one dancing when the party\'s on fire.' },
   'Cult Leader':      { wp1: 'Convince someone to deny logic because of your word.',                    wpAll: 'Risk exile or death to defend your cult\'s belief system.' },
   'Deviant':          { wp1: 'Commit a crime against your recognised society.',                         wpAll: 'Commit a high crime in plain view of an authority.' },
@@ -31,7 +31,7 @@ export const ARCHETYPES_DB = {
   'Martyr':           { wp1: 'Take another\'s burden upon yourself without expecting recompense.',      wpAll: 'Put yourself at risk to save someone else or an ideology.' },
   'Masochist':        { wp1: 'Find and experience a new source of hurt.',                               wpAll: 'Willingly explore pain, beyond the point of safety and reason.' },
   'Monster':          { wp1: 'Cause pain for the sole intention of causing pain.',                      wpAll: 'Commit a capital crime without additional motive.' },
-  'Nomad':            null, // not yet used by any character — fill in from rulebook
+  'Nomad':            { wp1: 'Abandon a home.',                                                         wpAll: 'Abandon a society, organisation, or city.' },
   'Nurturer':         { wp1: 'Put yourself out to help another succeed.',                               wpAll: 'Take full responsibility for another\'s dangerous mistake.' },
   'Penitent':         { wp1: 'Punish yourself for a mistake.',                                          wpAll: 'Risk death to correct an egregious error in judgement.' },
   'Perfectionist':    { wp1: 'Revisit an already successful action to hammer out a flaw.',              wpAll: 'Stick with a failed and dangerous plan, in order to fix what went wrong.' },
