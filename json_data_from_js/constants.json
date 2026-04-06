@@ -1,0 +1,562 @@
+{
+  "CLANS": [
+    "Daeva",
+    "Gangrel",
+    "Mekhet",
+    "Nosferatu",
+    "Ventrue"
+  ],
+  "COVENANTS": [
+    "Carthian Movement",
+    "Circle of the Crone",
+    "Invictus",
+    "Lancea et Sanctum",
+    "Ordo Dracul"
+  ],
+  "ALL_ATTRS": [
+    "Intelligence",
+    "Wits",
+    "Resolve",
+    "Strength",
+    "Dexterity",
+    "Stamina",
+    "Presence",
+    "Manipulation",
+    "Composure"
+  ],
+  "ALL_SKILLS": [
+    "Academics",
+    "Computer",
+    "Crafts",
+    "Investigation",
+    "Medicine",
+    "Occult",
+    "Politics",
+    "Science",
+    "Athletics",
+    "Brawl",
+    "Drive",
+    "Firearms",
+    "Larceny",
+    "Stealth",
+    "Survival",
+    "Weaponry",
+    "Animal Ken",
+    "Empathy",
+    "Expression",
+    "Intimidation",
+    "Persuasion",
+    "Socialise",
+    "Streetwise",
+    "Subterfuge"
+  ],
+  "SKILL_CATS": {
+    "Mental": [
+      "Academics",
+      "Computer",
+      "Crafts",
+      "Investigation",
+      "Medicine",
+      "Occult",
+      "Politics",
+      "Science"
+    ],
+    "Physical": [
+      "Athletics",
+      "Brawl",
+      "Drive",
+      "Firearms",
+      "Larceny",
+      "Stealth",
+      "Survival",
+      "Weaponry"
+    ],
+    "Social": [
+      "Animal Ken",
+      "Empathy",
+      "Expression",
+      "Intimidation",
+      "Persuasion",
+      "Socialise",
+      "Streetwise",
+      "Subterfuge"
+    ]
+  },
+  "MASKS_DIRGES": [
+    "Authoritarian",
+    "Child",
+    "Competitor",
+    "Conformist",
+    "Conspirator",
+    "Courtesan",
+    "Cult Leader",
+    "Deviant",
+    "Follower",
+    "Guru",
+    "Idealist",
+    "Jester",
+    "Junkie",
+    "Martyr",
+    "Masochist",
+    "Monster",
+    "Nomad",
+    "Nurturer",
+    "Penitent",
+    "Perfectionist",
+    "Questioner",
+    "Rebel",
+    "Scholar",
+    "Social Chameleon",
+    "Spy",
+    "Survivor",
+    "Visionary"
+  ],
+  "COURT_TITLES": [
+    "",
+    "Head of State",
+    "Primogen",
+    "Socialite",
+    "Enforcer",
+    "Administrator",
+    "Regent"
+  ],
+  "TITLE_STATUS_BONUS": {
+    "Head of State": 3,
+    "Primogen": 2,
+    "Socialite": 1,
+    "Enforcer": 1,
+    "Administrator": 1,
+    "Regent": 0
+  },
+  "BLOODLINE_DISCS": {
+    "Ankou": [
+      "Auspex",
+      "Celerity",
+      "Obfuscate",
+      "Vigour"
+    ],
+    "Apollinaire": [
+      "Animalism",
+      "Dominate",
+      "Resilience",
+      "Obfuscate"
+    ],
+    "Bron": [
+      "Animalism",
+      "Auspex",
+      "Dominate",
+      "Resilience"
+    ],
+    "Gorgons": [
+      "Animalism",
+      "Dominate",
+      "Protean",
+      "Resilience"
+    ],
+    "Icelus": [
+      "Auspex",
+      "Dominate",
+      "Obfuscate",
+      "Resilience"
+    ],
+    "Jharana": [
+      "Auspex",
+      "Celerity",
+      "Obfuscate",
+      "Vigour"
+    ],
+    "Kerberos": [
+      "Animalism",
+      "Majesty",
+      "Protean",
+      "Resilience"
+    ],
+    "Khaibit": [
+      "Auspex",
+      "Celerity",
+      "Obfuscate",
+      "Vigour"
+    ],
+    "Lasombra": [
+      "Animalism",
+      "Dominate",
+      "Nightmare",
+      "Resilience"
+    ],
+    "Lidérc": [
+      "Celerity",
+      "Majesty",
+      "Obfuscate",
+      "Vigour"
+    ],
+    "Lygos": [
+      "Auspex",
+      "Nightmare",
+      "Obfuscate",
+      "Vigour"
+    ],
+    "Malkovians": [
+      "Auspex",
+      "Dominate",
+      "Obfuscate",
+      "Resilience"
+    ],
+    "Mnemosyne": [
+      "Auspex",
+      "Celerity",
+      "Obfuscate",
+      "Dominate"
+    ],
+    "Morbus": [
+      "Animalism",
+      "Auspex",
+      "Celerity",
+      "Obfuscate"
+    ],
+    "Norvegi": [
+      "Auspex",
+      "Obfuscate",
+      "Celerity",
+      "Vigour"
+    ],
+    "Nosoi": [
+      "Dominate",
+      "Obfuscate",
+      "Protean",
+      "Resilience"
+    ],
+    "Order of Sir Martin": [
+      "Nightmare",
+      "Obfuscate",
+      "Resilience",
+      "Vigour"
+    ],
+    "Rotgrafen": [
+      "Animalism",
+      "Dominate",
+      "Protean",
+      "Resilience"
+    ],
+    "Scions of the First City": [
+      "Animalism",
+      "Auspex",
+      "Obfuscate",
+      "Resilience"
+    ],
+    "Vardyvle": [
+      "Dominate",
+      "Obfuscate",
+      "Protean",
+      "Resilience"
+    ],
+    "Vilseduire": [
+      "Majesty",
+      "Nightmare",
+      "Obfuscate",
+      "Resilience"
+    ],
+    "Zelani": [
+      "Celerity",
+      "Majesty",
+      "Auspex",
+      "Vigour"
+    ]
+  },
+  "CLAN_DISCS": {
+    "Daeva": [
+      "Celerity",
+      "Majesty",
+      "Vigour"
+    ],
+    "Gangrel": [
+      "Animalism",
+      "Protean",
+      "Resilience"
+    ],
+    "Mekhet": [
+      "Auspex",
+      "Celerity",
+      "Obfuscate"
+    ],
+    "Nosferatu": [
+      "Nightmare",
+      "Obfuscate",
+      "Vigour"
+    ],
+    "Ventrue": [
+      "Animalism",
+      "Dominate",
+      "Resilience"
+    ]
+  },
+  "APPROVED_BLOODLINES": [
+    "Ankou",
+    "Apollinaire",
+    "Bron",
+    "Gorgons",
+    "Icelus",
+    "Jharana",
+    "Kerberos",
+    "Khaibit",
+    "Lasombra",
+    "Lidérc",
+    "Lygos",
+    "Malkovians",
+    "Mnemosyne",
+    "Morbus",
+    "Norvegi",
+    "Nosoi",
+    "Order of Sir Martin",
+    "Rotgrafen",
+    "Scions of the First City",
+    "Vardyvle",
+    "Vilseduire",
+    "Zelani"
+  ],
+  "BLOODLINE_CLANS": {
+    "Daeva": [
+      "Lidérc",
+      "Zelani"
+    ],
+    "Gangrel": [
+      "Kerberos",
+      "Scions of the First City"
+    ],
+    "Mekhet": [
+      "Ankou",
+      "Jharana",
+      "Khaibit",
+      "Lygos",
+      "Mnemosyne",
+      "Morbus",
+      "Norvegi"
+    ],
+    "Nosferatu": [
+      "Nosoi",
+      "Order of Sir Martin",
+      "Vilseduire"
+    ],
+    "Ventrue": [
+      "Apollinaire",
+      "Bron",
+      "Gorgons",
+      "Icelus",
+      "Lasombra",
+      "Malkovians",
+      "Rotgrafen",
+      "Vardyvle"
+    ]
+  },
+  "CLAN_ATTR_OPTIONS": {
+    "Daeva": [
+      "Dexterity",
+      "Manipulation"
+    ],
+    "Gangrel": [
+      "Composure",
+      "Stamina"
+    ],
+    "Mekhet": [
+      "Intelligence",
+      "Wits"
+    ],
+    "Nosferatu": [
+      "Composure",
+      "Strength"
+    ],
+    "Ventrue": [
+      "Presence",
+      "Resolve"
+    ]
+  },
+  "ATTR_CATS": {
+    "Mental": [
+      "Intelligence",
+      "Wits",
+      "Resolve"
+    ],
+    "Physical": [
+      "Strength",
+      "Dexterity",
+      "Stamina"
+    ],
+    "Social": [
+      "Presence",
+      "Manipulation",
+      "Composure"
+    ]
+  },
+  "PRI_BUDGETS": {
+    "Primary": 5,
+    "Secondary": 4,
+    "Tertiary": 3
+  },
+  "SKILL_PRI_BUDGETS": {
+    "Primary": 11,
+    "Secondary": 7,
+    "Tertiary": 4
+  },
+  "BANE_LIST": [
+    "Bells",
+    "Blood of the Unwilling",
+    "Crossroads",
+    "Face of Hunger",
+    "Grave Soil",
+    "Hated by Beasts",
+    "Holy Day",
+    "Invitation",
+    "Open Wounds",
+    "Plague of Purity",
+    "Rat King/Queen",
+    "Revulsion",
+    "Stigmata",
+    "Uninvited",
+    "Wasting"
+  ],
+  "CLAN_BANES": {
+    "Daeva": {
+      "name": "Wanton Curse",
+      "effect": "Hungry at 5 or fewer Vitae, Starving at 3 or fewer. Dramatic Failures on feeding cause Persistent Dependent Condition toward a mortal NPC."
+    },
+    "Gangrel": {
+      "name": "Feral Curse",
+      "effect": "Frenzy resistance dice pools capped by Humanity (doesn't affect Riding the Wave)."
+    },
+    "Mekhet": {
+      "name": "Tenebrous Curse",
+      "effect": "Gain an extra bane at Humanity 6 (doesn't count towards cap); Humanity counts -1 for all Humanity-based banes."
+    },
+    "Nosferatu": {
+      "name": "Lonely Curse",
+      "effect": "With mortals, Humanity counts -2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected."
+    },
+    "Ventrue": {
+      "name": "Aloof Curse",
+      "effect": "First Touchstone attaches to Humanity 7; losing it detaches on first Humanity loss. Breaking points always treated as one step lower."
+    }
+  },
+  "CORE_DISCS": [
+    "Animalism",
+    "Auspex",
+    "Celerity",
+    "Dominate",
+    "Majesty",
+    "Nightmare",
+    "Obfuscate",
+    "Protean",
+    "Resilience",
+    "Vigour"
+  ],
+  "RITUAL_DISCS": [
+    "Cruac",
+    "Theban"
+  ],
+  "INFLUENCE_SPHERES": [
+    "Bureaucracy",
+    "Church",
+    "Finance",
+    "Health",
+    "High Society",
+    "Industry",
+    "Legal",
+    "Media",
+    "Military",
+    "Occult",
+    "Police",
+    "Politics",
+    "Street",
+    "Transportation",
+    "Underworld",
+    "University"
+  ],
+  "INFLUENCE_MERIT_TYPES": [
+    "Allies",
+    "Contacts",
+    "Mentor",
+    "Resources",
+    "Retainer",
+    "Staff",
+    "Status"
+  ],
+  "DOMAIN_MERIT_TYPES": [
+    "Safe Place",
+    "Haven",
+    "Feeding Grounds",
+    "Herd",
+    "Mandragora Garden"
+  ],
+  "STYLE_TAGS": {
+    "Avoidance": [
+      "Movement (Agile)"
+    ],
+    "Berserker": [
+      "Attitude (Enraged)"
+    ],
+    "Bowmanship": [
+      "Archery"
+    ],
+    "Boxing": [
+      "Striking"
+    ],
+    "Chain Weapons": [
+      "Flexible"
+    ],
+    "Combat Archery": [
+      "Archery"
+    ],
+    "Grappling": [
+      "Grappling"
+    ],
+    "K-9": [
+      "Creature (Bite)",
+      "Tactical (Police)"
+    ],
+    "Kino Mutai": [
+      "Attitude (Enraged)",
+      "Tactical (Street)"
+    ],
+    "Martial Arts": [
+      "Striking"
+    ],
+    "Mounted Combat": [
+      "Archery",
+      "Heavy Melee",
+      "Light Melee",
+      "Tactical (Police)"
+    ],
+    "Powered Projectile": [
+      "Pistol"
+    ],
+    "Spear and Bayonet": [
+      "Pole Weapons"
+    ],
+    "Staff Fighting": [
+      "Pole Weapons"
+    ],
+    "Strength Performance": [
+      "Movement (Strong)"
+    ],
+    "Systema": [
+      "Movement (Agile)",
+      "Tactical (Military)"
+    ],
+    "Thrown Weapons": [
+      "Light Melee",
+      "Movement (Agile)"
+    ],
+    "Two Weapon Fighting": [
+      "Flexible",
+      "Light Melee"
+    ],
+    "Weapon and Shield": [
+      "Light Melee"
+    ]
+  },
+  "REGENT_TERRITORIES": [
+    "The Academy",
+    "The North Shore",
+    "The Dockyards",
+    "The Second City",
+    "The Harbour"
+  ]
+}
