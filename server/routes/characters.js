@@ -114,7 +114,20 @@ router.put('/:id', requireRole('st'), validateCharacter, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
-  const { _id, ...updates } = req.body;
+  const { _id, _gameXP, _grant_pools, _mci_free_specs, _mci_dot3_skills,
+          _pt_nine_again_skills, _pt_dot4_bonus_skills, _ohm_nine_again_skills,
+          ...updates } = req.body;
+
+  // Migrate legacy fighting_styles.up → cp before persisting
+  if (Array.isArray(updates.fighting_styles)) {
+    updates.fighting_styles = updates.fighting_styles.map(fs => {
+      if (!fs || !fs.up) return fs;
+      const { up, ...rest } = fs;
+      rest.cp = (rest.cp || 0) + up;
+      return rest;
+    });
+  }
+
   const result = await col().findOneAndUpdate(
     { _id: oid },
     { $set: updates },
