@@ -130,10 +130,10 @@ export function applyDerivedMerits(c) {
       }
     }
 
-    // Dot 2: nine_again on first 2 asset skills only
+    // Dot 2: nine_again on all asset skills (3rd skill added at dot 3 also qualifies)
     if (dots >= 2 && assets.length) {
       if (!c._pt_nine_again_skills) c._pt_nine_again_skills = new Set();
-      for (const sk of assets.slice(0, 2)) c._pt_nine_again_skills.add(sk);
+      for (const sk of assets) c._pt_nine_again_skills.add(sk);
     }
 
     // Dot 4: bonus dot on chosen asset skill

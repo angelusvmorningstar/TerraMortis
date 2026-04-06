@@ -14,23 +14,23 @@ Items are grouped by type. Tick off as resolved.
 - [ ] **Ordeals** — Ordeals marked and signed off are flagging as In Progress or Unmarked
 - [ ] **Cannot Edit Notes/Tags on Sheet** — Tags imported from CSV cannot be deleted or edited
 - [ ] **Cannot Delete Merits** — Cannot delete some merits from Ballsack's sheet
-- [ ] **Viral Mythology** — Should be 2 dots, not 3 (errata change not applied)
+- [x] **Viral Mythology** — Should be 2 dots, not 3 (errata change not applied)
 - [ ] **MCI not appearing in Spheres of Influence** — MCI should be a useable narrow Mortal Influence in DT
 - [ ] **MCI not appearing in Applicable Merits** — MCI missing from Project section Applicable Merits
 - [ ] **Characters Involved section missing** — Missing from Personal Projects Misc action
-- [ ] **PT Free Skill** — Additional Skill dot from PT is hollow and not counted in pools
-- [ ] **Shout Out PC names** — Names appear as ObjectIDs (e.g. `69cf7da860b712b5eb99625d`) in ST DT review section
+- [x] **PT Free Skill** — Additional Skill dot from PT is hollow and not counted in pools (pools.js now includes _pt_dot4_bonus_skills and _mci_dot3_skills in skill dice)
+- [x] **Shout Out PC names** — Names appear as ObjectIDs (e.g. `69cf7da860b712b5eb99625d`) in ST DT review section
 - [ ] **Edit Regency** — Cannot edit Regency section
 - [ ] **Ritual DT Section** — Mandragora Garden rituals need an "already paid" checkbox for sustained rituals
-- [ ] **Vitae Budget** — Colour scheme makes it unreadable
+- [x] **Vitae Budget** — Colour scheme makes it unreadable
 - [ ] **Mandragora Garden** — (1) Incorrect bonus dice displaying in Ritual section; (2) Incorrect blood fruit count in Vitae Budget
 - [ ] **DT Feeding** — (1) Doesn't include Feeding Grounds; (2) Optional field doesn't allow situational bonuses or specs
-- [ ] **Rituals** — Cannot select or search for any rituals
+- [x] **Rituals** — Cannot select or search for any rituals (dynamic rite selector built; sorcery section now shows character's rites)
 - [ ] **Oath of the Scapegoat** — Each dot should give 2 free Fighting Style dots (currently not working)
 - [ ] **Hollow Dots** — Hollow dots not passed on correctly via shared merits
-- [ ] **Professional Training** — XP refund is at tier 3 not 4; refund not behaving correctly
-- [ ] **Professional Training** — Not picking up 3rd Asset Skill
-- [ ] **The Taste of Things Lived** — Bloodline benefit should be 0 XP cost
+- [ ] **Professional Training** — XP refund is at tier 3 not 4; refund not behaving correctly *(needs more info — the 2 free specs ARE correctly at tier 3 per rules; the tier 4 free dot is ephemeral and adds no XP cost; suspect this may be about the XP breakdown not showing a PT4 credit row, or about skill_creation data entry for the free dot)*
+- [x] **Professional Training** — Not picking up 3rd Asset Skill (mci.js was slicing to first 2; now all asset skills get 9-Again)
+- [x] **The Taste of Things Lived** — Bloodline benefit should be 0 XP cost
 
 ### Features (3)
 
@@ -105,6 +105,16 @@ Need to either split into two separate Allies merit entries (different areas), o
 - [ ] **Ephemeral fields persisted to DB** — `_gameXP` and `_grant_pools` are runtime-computed values being written back to MongoDB on character save. Strip these server-side before persisting (in the PUT `/api/characters/:id` handler). 20 documents affected across most characters.
 
 - [ ] **`fighting_styles[].up` legacy field** — The `up` field (old Excel import artifact) is being migrated in memory by `mci.js` on each load but never written back. Migration runs on every render, which is wasteful. Either write a one-time data migration to rename `up` → `cp` in all fighting style entries, or strip it on save. 19 entries across multiple characters.
+
+---
+
+## Rites — Data Entry Needed
+*These characters have Cruac/Theban disciplines but no rites on their sheet. Their sorcery DT section shows "No rites on your character sheet."*
+
+- [ ] **Alice Vunder** — Cruac 1, no rites
+- [ ] **Conrad Sondergaard** — Theban 4, no rites
+- [ ] **Edna Judge** — Theban 1, no rites
+- [ ] **Magda** — Theban 4, no rites
 
 ---
 
