@@ -990,7 +990,7 @@ function renderPlayerResponses(s) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
     for (const k of courtVals) {
       let val = r[k];
-      if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).join(', '); } catch { /* ignore */ } }
+      if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).map(id => { const ch = characters.find(c => String(c._id) === String(id)); return ch ? (ch.moniker || ch.name) : id; }).join(', '); } catch { /* ignore */ } }
       h += row(courtLabels[k] || k, val);
     }
     h += '</div>';

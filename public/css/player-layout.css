@@ -2075,7 +2075,7 @@ body {
   padding: 2px 0;
   color: var(--txt2);
 }
-.dt-vitae-cost { color: var(--txt3); }
+.dt-vitae-cost { color: var(--txt2); }
 .dt-vitae-total {
   border-top: 1px solid rgba(224,196,122,0.2);
   margin-top: 4px;
