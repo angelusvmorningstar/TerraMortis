@@ -245,15 +245,15 @@ export function applyDerivedMerits(c) {
     }
   }
 
-  // ── Oath of the Scapegoat: floor on covenant status + extra picks per dot ──
+  // ── Oath of the Scapegoat: floor on covenant status + 2 free style dots per dot ──
   const otsOath = (c.merits || []).find(m => m.name === 'Oath of the Scapegoat');
   c._ots_covenant_bonus = 0;
-  c._ots_extra_picks = 0;
+  c._ots_free_dots = 0;
   if (otsOath) {
     const otsDots = otsOath.rating || 0;
     if (otsDots > 0) {
       c._ots_covenant_bonus = otsDots;
-      c._ots_extra_picks = otsDots * 2;
+      c._ots_free_dots = otsDots * 2;
     }
   }
 

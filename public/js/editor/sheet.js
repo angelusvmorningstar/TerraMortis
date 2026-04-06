@@ -919,7 +919,7 @@ export function shRenderManoeuvres(c, editMode) {
 
   const mciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
     .reduce((s, m) => s + mciPoolTotal(m), 0);
-  const otsExtraPicks = c._ots_extra_picks || 0;
+  const otsExtraPicks = c._ots_free_dots || 0;
 
   let h = '<div class="sh-sec"><div class="sh-sec-title">Manoeuvres</div>';
 
@@ -927,11 +927,17 @@ export function shRenderManoeuvres(c, editMode) {
     const tc = _tagCounts(c);
     const fStyles = styles.filter(fs => fs.type !== 'merit');
     const fMerits = styles.filter(fs => fs.type === 'merit');
-    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
+    const otsFreeDots = c._ots_free_dots || 0;
+    const otsUsed = (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
 
-    const maxPicks = totalDots + otsExtraPicks;
-    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + (otsExtraPicks ? ' <span style="font-size:9px;color:#9E7AE0">(+' + otsExtraPicks + ' OTS)</span>' : '') + '</span></div>';
+    const maxPicks = totalDots;
+    h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
+    if (otsFreeDots > 0) {
+      const otsCls = otsUsed > otsFreeDots ? ' sc-over' : otsUsed === otsFreeDots ? ' sc-full' : ' sc-val';
+      h += '<div class="grant-pool-row"><span style="color:#9E7AE0">Oath of the Scapegoat</span> free style dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
+    }
 
     // Style Points — tag totals for unorthodox access
     const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
@@ -951,7 +957,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '<div class="man-list">';
     fStyles.forEach(fs => {
       const si = styles.indexOf(fs);
-      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
       const tags = STYLE_TAGS[fs.name] || [];
       const fsUp = fs.up || 0;
 
@@ -964,6 +970,7 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
