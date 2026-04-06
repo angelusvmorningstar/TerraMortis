@@ -3108,6 +3108,7 @@ body {
 .tk-badge-bug { background: rgba(180,60,60,0.2); color: #c47272; }
 .tk-badge-feature { background: rgba(130,80,180,0.2); color: #b080d8; }
 .tk-badge-question { background: rgba(60,170,160,0.2); color: #60c8be; }
+.tk-badge-sheet { background: rgba(200,150,50,0.2); color: #d4a84b; }
 .tk-badge-other { background: rgba(120,120,120,0.15); color: var(--txt3); }
 
 /* ── Responsive ── */

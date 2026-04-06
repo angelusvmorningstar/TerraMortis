@@ -7,6 +7,7 @@ const TYPE_LABELS = {
   bug:      'Bug',
   feature:  'Feature',
   question: 'Question',
+  sheet:    'Sheet Issue',
   other:    'Other',
 };
 
@@ -52,6 +53,7 @@ export async function initTicketsView(containerEl) {
             <option value="bug">Bug Report</option>
             <option value="feature">Feature Request</option>
             <option value="question">Question</option>
+            <option value="sheet">Sheet Issue</option>
             <option value="other">Other</option>
           </select>
         </div>

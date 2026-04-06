@@ -3000,6 +3000,7 @@ body {
 .tk-badge-bug { background: rgba(180,60,60,0.2); color: #c47272; }
 .tk-badge-feature { background: rgba(130,80,180,0.2); color: #b080d8; }
 .tk-badge-question { background: rgba(60,170,160,0.2); color: #60c8be; }
+.tk-badge-sheet { background: rgba(200,150,50,0.2); color: #d4a84b; }
 .tk-badge-other { background: rgba(120,120,120,0.15); color: var(--txt3); }
 .tk-filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .tk-filter-btn { background: none; border: 1px solid var(--bdr); color: var(--txt3); font-size: 12px; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
