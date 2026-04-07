@@ -108,8 +108,8 @@ function renderXPBreakdown(char) {
     ? char.ordeals.filter(o => o.complete).map(o => o.name)
     : [];
 
-  // Per-discipline XP for detail rows (disc_creation keyed by disc name)
-  const discLines = Object.entries(char.disc_creation || {})
+  // Per-discipline XP for detail rows (inline on discipline objects)
+  const discLines = Object.entries(char.disciplines || {})
     .filter(([, v]) => (v?.xp || 0) > 0)
     .map(([name, v]) => ({ name, xp: v.xp }))
     .sort((a, b) => a.name.localeCompare(b.name));

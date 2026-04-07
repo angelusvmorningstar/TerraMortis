@@ -43,7 +43,6 @@ export function charsForSave() {
       for (let i = copy.merits.length - 1; i >= 0; i--) {
         if (copy.merits[i].derived) {
           copy.merits.splice(i, 1);
-          if (copy.merit_creation && copy.merit_creation[i] !== undefined) copy.merit_creation.splice(i, 1);
         }
       }
     }

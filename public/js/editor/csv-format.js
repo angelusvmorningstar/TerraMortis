@@ -278,15 +278,15 @@ export function charToRow(c) {
   // Disciplines (core 10 + ritual 2 + sorcery themes 5)
   const discs = c.disciplines || {};
   for (const d of CORE_DISCS) {
-    const dots = discs[d] || 0;
+    const dots = discs[d]?.dots || 0;
     row.push(dots > 0 ? fmtDots(dots) : '-');
   }
   for (const d of RITUAL_DISCS) {
-    const dots = discs[d] || 0;
+    const dots = discs[d]?.dots || 0;
     row.push(dots > 0 ? fmtDots(dots) : '-');
   }
   for (const d of SORCERY_THEMES) {
-    const dots = discs[d] || 0;
+    const dots = discs[d]?.dots || 0;
     row.push(dots > 0 ? fmtDots(dots) : '-');
   }
 

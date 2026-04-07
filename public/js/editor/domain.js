@@ -20,12 +20,11 @@ export function domMeritContrib(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
-  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, free_mci: 0, xp: 0 };
-  const purchased = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.xp || 0);
+  const purchased = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
   return purchased + (name === 'Herd' ? ssjHerdBonus(c) + flockHerdBonus(c) : 0);
 }
 
-/** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked in merit_creation). */
+/** SSJ bonus Herd dots: one per MCI dot, auto-applied (not tracked inline). */
 export function ssjHerdBonus(c) {
   if (!(c.merits || []).some(m => m.name === 'Secret Society Junkie')) return 0;
   return (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation')
@@ -49,8 +48,7 @@ export function domMeritShareable(c, name) {
   const m = (c.merits || []).find(m => m.category === 'domain' && m.name === name);
   if (!m) return 0;
   const realIdx = (c.merits || []).indexOf(m);
-  const mc = (c.merit_creation && c.merit_creation[realIdx]) || { cp: 0, free: 0, free_mci: 0, xp: 0 };
-  return (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.xp || 0);
+  return (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.xp || 0);
 }
 
 /**
@@ -150,8 +148,7 @@ export function vmAlliesPool(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence' || m.name !== 'Allies') return;
     if (m.granted_by === 'VM') return;  // only exclude VM bonus — MCI and other sources count
-    const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.cp || 0) + (mc.xp || 0) + (mc.free || 0) + (mc.free_mci || 0);
+    total += (m.cp || 0) + (m.xp || 0) + (m.free || 0) + (m.free_mci || 0);
   });
   return total;
 }
@@ -164,8 +161,7 @@ export function vmAlliesUsed(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence' || m.name !== 'Allies') return;
     if (m.granted_by === 'VM') return;
-    const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.free_vm || 0);
+    total += (m.free_vm || 0);
   });
   return total;
 }
@@ -178,8 +174,7 @@ export function vmHerdPool(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.name !== 'Herd') return;
     if (m.derived) return;
-    const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.cp || 0) + (mc.xp || 0);
+    total += (m.cp || 0) + (m.xp || 0);
   });
   return total;
 }
@@ -195,8 +190,7 @@ export function ohmUsed(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence') return;
     if (m.name !== 'Allies' && m.name !== 'Contacts' && m.name !== 'Resources') return;
-    const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.free_ohm || 0);
+    total += (m.free_ohm || 0);
   });
   return total;
 }
@@ -217,8 +211,7 @@ export function investedUsed(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (!['Herd', 'Mentor', 'Resources', 'Retainer'].includes(m.name)) return;
-    const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.free_inv || 0);
+    total += (m.free_inv || 0);
   });
   return total;
 }
@@ -234,8 +227,7 @@ export function lorekeeperPool(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (m.name !== 'Library') return;
-    const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.cp || 0) + (mc.xp || 0);
+    total += (m.cp || 0) + (m.xp || 0);
   });
   return total;
 }
@@ -245,8 +237,7 @@ export function lorekeeperUsed(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
     if (m.name !== 'Herd' && m.name !== 'Retainer') return;
-    const mc = (c.merit_creation || [])[i] || {};
-    total += (mc.free_lk || 0);
+    total += (m.free_lk || 0);
   });
   return total;
 }

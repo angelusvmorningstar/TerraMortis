@@ -302,8 +302,11 @@ export function shSetPriority(cat, val) {
 export function shEditAttrPt(attr, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!c.attr_creation) c.attr_creation = {};
-  if (!c.attr_creation[attr]) c.attr_creation[attr] = { cp: 0, free: 0, xp: 0 };
+  if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0, cp: 0, free: 0, xp: 0, rule_key: null };
+  const ao = c.attributes[attr];
+  if (ao.cp === undefined) ao.cp = 0;
+  if (ao.free === undefined) ao.free = 0;
+  if (ao.xp === undefined) ao.xp = 0;
   val = Math.max(0, val || 0);
   if (field === 'cp') {
     // Enforce category CP cap
@@ -311,24 +314,21 @@ export function shEditAttrPt(attr, field, val) {
     if (cat) {
       const pri = (c.attribute_priorities || {})[cat[0]] || 'Primary';
       const budget = PRI_BUDGETS[pri] || 5;
-      const otherCP = cat[1].filter(a => a !== attr).reduce((s, a) => s + (((c.attr_creation || {})[a] || {}).cp || 0), 0);
+      const otherCP = cat[1].filter(a => a !== attr).reduce((s, a) => s + ((c.attributes?.[a]?.cp) || 0), 0);
       val = Math.min(val, budget - otherCP);
       if (val < 0) val = 0;
     }
   }
-  c.attr_creation[attr][field] = val;
-  const cr = c.attr_creation[attr];
+  ao[field] = val;
   // Base is auto-calculated: 1 + 1 if clan favoured attribute
-  cr.free = 1 + (c.clan_attribute === attr ? 1 : 0);
-  const attrBase = (cr.cp || 0) + cr.free;
-  const newDots = attrBase + xpToDots(cr.xp || 0, attrBase, 4);
-  if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0 };
-  c.attributes[attr].dots = newDots;
+  ao.free = 1 + (c.clan_attribute === attr ? 1 : 0);
+  const attrBase = (ao.cp || 0) + ao.free;
+  ao.dots = attrBase + xpToDots(ao.xp || 0, attrBase, 4);
   // Recalculate xp_log.spent.attributes: flat sum of all attr XP costs
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
   let attrXpTotal = 0;
   const NINE_ATTRS = ['Intelligence', 'Wits', 'Resolve', 'Strength', 'Dexterity', 'Stamina', 'Presence', 'Manipulation', 'Composure'];
-  NINE_ATTRS.forEach(a => { attrXpTotal += ((c.attr_creation || {})[a] || {}).xp || 0; });
+  NINE_ATTRS.forEach(a => { attrXpTotal += (c.attributes?.[a]?.xp) || 0; });
   c.xp_log.spent.attributes = attrXpTotal;
   c.xp_total = xpEarned(c);
   c.xp_spent = xpSpent(c);
@@ -354,14 +354,15 @@ export function shSetClanAttr(val) {
   // Recalculate dots for old and new clan attr
   [oldCA, val].forEach(attr => {
     if (!attr) return;
-    if (!c.attr_creation) c.attr_creation = {};
-    if (!c.attr_creation[attr]) c.attr_creation[attr] = { cp: 0, free: 1, xp: 0 };
-    const cr = c.attr_creation[attr];
+    if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0, cp: 0, free: 1, xp: 0, rule_key: null };
+    const ao = c.attributes[attr];
+    if (ao.cp === undefined) ao.cp = 0;
+    if (ao.free === undefined) ao.free = 1;
+    if (ao.xp === undefined) ao.xp = 0;
     // Base is auto-calculated: 1 + 1 if clan favoured attribute
-    cr.free = 1 + (c.clan_attribute === attr ? 1 : 0);
-    const aBase = (cr.cp || 0) + cr.free;
-    if (!c.attributes[attr]) c.attributes[attr] = { dots: 0, bonus: 0 };
-    c.attributes[attr].dots = aBase + xpToDots(cr.xp || 0, aBase, 4);
+    ao.free = 1 + (c.clan_attribute === attr ? 1 : 0);
+    const aBase = (ao.cp || 0) + ao.free;
+    ao.dots = aBase + xpToDots(ao.xp || 0, aBase, 4);
   });
   _markDirty();
   _renderSheet(c);
@@ -374,37 +375,35 @@ export function shSetClanAttr(val) {
 export function shEditDiscPt(disc, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!c.disc_creation) c.disc_creation = {};
-  if (!c.disc_creation[disc]) c.disc_creation[disc] = { cp: 0, free: 0, xp: 0 };
+  if (!c.disciplines) c.disciplines = {};
+  if (!c.disciplines[disc]) c.disciplines[disc] = { dots: 0, cp: 0, free: 0, xp: 0, rule_key: null };
   val = Math.max(0, val || 0);
   if (field === 'cp') {
     // Enforce: 3 total CP, max 1 out-of-clan CP
     const inClanList = BLOODLINE_DISCS[c.bloodline] || CLAN_DISCS[c.clan] || [];
     const isInClan = inClanList.includes(disc);
-    const otherCP = Object.entries(c.disc_creation)
+    const otherCP = Object.entries(c.disciplines)
       .filter(([d]) => d !== disc)
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     val = Math.min(val, 3 - otherCP);
     if (!isInClan) {
-      const otherOutCP = Object.entries(c.disc_creation)
+      const otherOutCP = Object.entries(c.disciplines)
         .filter(([d]) => d !== disc && !inClanList.includes(d))
         .reduce((s, [, v]) => s + (v.cp || 0), 0);
       val = Math.min(val, 1 - otherOutCP);
     }
     if (val < 0) val = 0;
   }
-  c.disc_creation[disc][field] = val;
-  const cr = c.disc_creation[disc];
+  c.disciplines[disc][field] = val;
+  const cr = c.disciplines[disc];
   const inClanList2 = BLOODLINE_DISCS[c.bloodline] || CLAN_DISCS[c.clan] || [];
   const discBase = (cr.cp || 0) + (cr.free || 0);
   const discCostMult = RITUAL_DISCS.includes(disc) ? 4 : (inClanList2.includes(disc) ? 3 : 4);
-  const newDots = discBase + xpToDots(cr.xp || 0, discBase, discCostMult);
-  if (!c.disciplines) c.disciplines = {};
-  c.disciplines[disc] = newDots;
+  cr.dots = discBase + xpToDots(cr.xp || 0, discBase, discCostMult);
   // Recalculate XP spent on disciplines
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
   let discXpTotal = 0;
-  Object.entries(c.disc_creation || {}).forEach(([d, v]) => {
+  Object.entries(c.disciplines || {}).forEach(([d, v]) => {
     discXpTotal += v.xp || 0;
   });
   c.xp_log.spent.powers = discXpTotal;
@@ -468,31 +467,30 @@ export function shSetSkillPriority(cat, val) {
 export function shEditSkillPt(skill, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!c.skill_creation) c.skill_creation = {};
-  if (!c.skill_creation[skill]) c.skill_creation[skill] = { cp: 0, free: 0, xp: 0 };
+  if (!c.skills) c.skills = {};
+  if (!c.skills[skill]) c.skills[skill] = { dots: 0, bonus: 0, specs: [], nine_again: false, cp: 0, free: 0, xp: 0, rule_key: null };
+  const so = c.skills[skill];
+  if (so.cp === undefined) so.cp = 0;
+  if (so.free === undefined) so.free = 0;
+  if (so.xp === undefined) so.xp = 0;
   val = Math.max(0, val || 0);
   if (field === 'cp') {
     const cat = Object.entries(SKILL_CATS).find(([k, v]) => v.includes(skill));
     if (cat) {
       const pri = (c.skill_priorities || {})[cat[0]] || 'Primary';
       const budget = SKILL_PRI_BUDGETS[pri] || 11;
-      const otherCP = cat[1].filter(s => s !== skill).reduce((s, sk) => s + (((c.skill_creation || {})[sk] || {}).cp || 0), 0);
+      const otherCP = cat[1].filter(s => s !== skill).reduce((s, sk) => s + ((c.skills?.[sk]?.cp) || 0), 0);
       val = Math.min(val, budget - otherCP);
       if (val < 0) val = 0;
     }
   }
-  c.skill_creation[skill][field] = val;
-  const cr = c.skill_creation[skill];
-  const skBase = (cr.cp || 0) + (cr.free || 0);
-  const newDots = skBase + xpToDots(cr.xp || 0, skBase, 2);
-  if (!c.skills) c.skills = {};
-  if (!c.skills[skill]) c.skills[skill] = { dots: 0, bonus: 0, specs: [], nine_again: false };
-  else if (typeof c.skills[skill] !== 'object') c.skills[skill] = { dots: c.skills[skill], bonus: 0, specs: [], nine_again: false };
-  c.skills[skill].dots = newDots;
+  so[field] = val;
+  const skBase = (so.cp || 0) + (so.free || 0);
+  so.dots = skBase + xpToDots(so.xp || 0, skBase, 2);
   // Recalculate XP spent on skills
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
   let skXpTotal = 0;
-  ALL_SKILLS.forEach(s => { skXpTotal += ((c.skill_creation || {})[s] || {}).xp || 0; });
+  ALL_SKILLS.forEach(s => { skXpTotal += (c.skills?.[s]?.xp) || 0; });
   c.xp_log.spent.skills = skXpTotal;
   c.xp_total = xpEarned(c);
   c.xp_spent = xpSpent(c);
@@ -581,7 +579,7 @@ export function shAddRite(tradition, name, level) {
   name = (name || '').trim();
   if (!name) return;
   level = Math.max(1, Math.min(5, parseInt(level) || 1));
-  const discDots = tradition === 'Cruac' ? (c.disciplines || {}).Cruac || 0 : (c.disciplines || {}).Theban || 0;
+  const discDots = tradition === 'Cruac' ? (c.disciplines || {}).Cruac?.dots || 0 : (c.disciplines || {}).Theban?.dots || 0;
   const pool = discDots * 2;
   const usedFree = (c.powers || []).filter(p => p.category === 'rite' && p.tradition === tradition && p.free).length;
   const free = level <= discDots && usedFree < pool;
@@ -605,7 +603,7 @@ export function shToggleRiteFree(powerIdx) {
   const c = state.chars[state.editIdx];
   const p = (c.powers || [])[powerIdx];
   if (!p || p.category !== 'rite') return;
-  const discDots = p.tradition === 'Cruac' ? (c.disciplines || {}).Cruac || 0 : (c.disciplines || {}).Theban || 0;
+  const discDots = p.tradition === 'Cruac' ? (c.disciplines || {}).Cruac?.dots || 0 : (c.disciplines || {}).Theban?.dots || 0;
   if (!p.free) {
     const pool = discDots * 2;
     const usedFree = (c.powers || []).filter((q, qi) => qi !== powerIdx && q.category === 'rite' && q.tradition === p.tradition && q.free).length;
@@ -684,10 +682,9 @@ export function shStepMeritRating(realIdx, dir) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   ensureMeritSync(c);
-  const mc = c.merit_creation[realIdx];
   const m = c.merits[realIdx];
-  if (!mc || !m) return;
-  const current = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  if (!m) return;
+  const current = (m.cp || 0) + (m.free || 0) + (m.xp || 0);
   const legal = _meritLegalRatings(m.name); // [min..max] or [fixed], or null
   let next;
   if (!legal) {
@@ -705,16 +702,15 @@ export function shStepMeritRating(realIdx, dir) {
   if (next === current) return;
   // Adjust CP by the delta, keeping fr and xp fixed
   const delta = next - current;
-  let newCP = Math.max(0, (mc.cp || 0) + delta);
+  let newCP = Math.max(0, (m.cp || 0) + delta);
   // Cap by budget if increasing
   if (delta > 0) {
-    const otherCP = (c.merit_creation || []).reduce((s, mc2, i) => s + (i === realIdx ? 0 : (mc2 ? mc2.cp || 0 : 0)), 0)
+    const otherCP = (c.merits || []).reduce((s, m2, i) => s + (i === realIdx ? 0 : (m2.cp || 0)), 0)
       + (c.fighting_styles || []).reduce((s, fs) => s + (fs.cp || 0), 0);
     newCP = Math.min(newCP, Math.max(0, 10 - otherCP));
   }
-  mc.cp = newCP;
-  mc.rating = (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
-  if (m) m.rating = mc.rating;
+  m.cp = newCP;
+  m.rating = (m.cp || 0) + (m.free || 0) + (m.xp || 0);
   _markDirty();
   _renderSheet(c);
 }
@@ -723,47 +719,45 @@ export function shEditMeritPt(realIdx, field, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   ensureMeritSync(c);
-  const mc = c.merit_creation[realIdx];
-  if (!mc) return;
+  const m = c.merits[realIdx];
+  if (!m) return;
   val = Math.max(0, parseInt(val) || 0);
   // Cap CP edits by the 10-point merit creation budget
   if (field === 'cp') {
-    const otherCP = (c.merit_creation || []).reduce((s, mc2, i) => s + (i === realIdx ? 0 : (mc2 ? mc2.cp || 0 : 0)), 0)
+    const otherCP = (c.merits || []).reduce((s, m2, i) => s + (i === realIdx ? 0 : (m2.cp || 0)), 0)
       + (c.fighting_styles || []).reduce((s, fs) => s + (fs.cp || 0), 0);
     val = Math.min(val, Math.max(0, 10 - otherCP));
   }
   // Cap free edits by available named grant pool (if one exists for this merit)
-  if (field === 'free' && c.merits[realIdx]) {
-    const m = c.merits[realIdx];
+  if (field === 'free') {
     const poolTotal = getPoolTotal(c, m.name);
     if (poolTotal > 0) {
-      const poolUsed = getPoolUsed(c, m.name) - (mc.free || 0);
+      const poolUsed = getPoolUsed(c, m.name) - (m.free || 0);
       val = Math.min(val, Math.max(0, poolTotal - poolUsed));
     }
   }
   // Cap free_mci edits by remaining MCI pool
   if (field === 'free_mci') {
-    const mciTotal = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
-      .reduce((s, m) => s + mciPoolTotal(m), 0);
-    const otherFMCI = getMCIPoolUsed(c) - (mc.free_mci || 0);
+    const mciTotal = (c.merits || []).filter(m2 => m2.name === 'Mystery Cult Initiation' && m2.active !== false)
+      .reduce((s, m2) => s + mciPoolTotal(m2), 0);
+    const otherFMCI = getMCIPoolUsed(c) - (m.free_mci || 0);
     val = Math.min(val, Math.max(0, mciTotal - otherFMCI));
   }
   // Cap free_vm edits by remaining VM pool
   if (field === 'free_vm') {
     const vmTotal = vmAlliesPool(c);
-    const otherFVM = vmAlliesUsed(c) - (mc.free_vm || 0);
+    const otherFVM = vmAlliesUsed(c) - (m.free_vm || 0);
     val = Math.min(val, Math.max(0, vmTotal - otherFVM));
   }
   // Cap free_inv edits by remaining Invested pool
   if (field === 'free_inv') {
     const invTotal = investedPool(c);
-    const otherFINV = investedUsed(c) - (mc.free_inv || 0);
+    const otherFINV = investedUsed(c) - (m.free_inv || 0);
     val = Math.min(val, Math.max(0, invTotal - otherFINV));
   }
-  mc[field] = val;
+  m[field] = val;
   // Sync stored rating
-  const total = (mc.cp || 0) + (mc.free || 0) + (mc.free_mci || 0) + (mc.free_vm || 0) + (mc.free_lk || 0) + (mc.free_ohm || 0) + (mc.free_inv || 0) + (mc.xp || 0);
-  if (c.merits[realIdx]) c.merits[realIdx].rating = total;
+  m.rating = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
   _markDirty();
   _renderSheet(c);
 }

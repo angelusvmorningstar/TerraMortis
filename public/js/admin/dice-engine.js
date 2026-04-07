@@ -76,7 +76,7 @@ function getSkillVal(name) {
 }
 function getDiscVal(name) {
   if (!selectedChar || !name) return 0;
-  return selectedChar.disciplines?.[name] || 0;
+  return selectedChar.disciplines?.[name]?.dots || 0;
 }
 function getSpecBonus() {
   if (!selSpec || !selectedChar) return 0;
@@ -246,10 +246,10 @@ function render() {
     // Discipline
     h += '<select class="de-pb-sel" id="de-disc">';
     h += '<option value="">Discipline</option>';
-    const discs = Object.entries(selectedChar.disciplines || {}).filter(([, v]) => v > 0);
+    const discs = Object.entries(selectedChar.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
     for (const [d, v] of discs) {
       const sel = selDisc === d ? ' selected' : '';
-      h += `<option value="${esc(d)}"${sel}>${esc(d)} (${v})</option>`;
+      h += `<option value="${esc(d)}"${sel}>${esc(d)} (${v.dots})</option>`;
     }
     h += '</select>';
     h += '</div>';

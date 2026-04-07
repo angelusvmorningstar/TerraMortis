@@ -66,27 +66,20 @@ export function xpEarned(c) {
   return xpStarting() + xpHumanityDrop(c) + xpOrdeals(c) + xpGame(c) + xpPT5(c);
 }
 
-/** Sum XP from a creation object (e.g. attr_creation, skill_creation). */
-function sumCreationXP(obj) {
+/** Sum XP from inline creation fields on an object (attributes, skills, disciplines). */
+function sumInlineXP(obj) {
   if (!obj) return 0;
-  return Object.values(obj).reduce((t, v) => t + (v.xp || 0), 0);
+  return Object.values(obj).reduce((t, v) => t + (v?.xp || 0), 0);
 }
 
-/** Sum XP from a creation object, with fallback to xp_log.spent value. */
-function creationOrFallback(c, creationKey, spentKey) {
-  const fromCreation = sumCreationXP(c[creationKey]);
-  const fromLog = ((c.xp_log || {}).spent || {})[spentKey] || 0;
-  return Math.max(fromCreation, fromLog);
-}
-
-/** XP spent on attributes — sum of attr_creation.xp across all attributes. */
+/** XP spent on attributes — sum of .xp across all attribute objects. */
 export function xpSpentAttrs(c) {
-  return sumCreationXP(c.attr_creation);
+  return sumInlineXP(c.attributes);
 }
 
 /** XP spent on skills + specialisations beyond free allowance. */
 export function xpSpentSkills(c) {
-  const skillXP = sumCreationXP(c.skill_creation);
+  const skillXP = sumInlineXP(c.skills);
   // PT free specs (dot 3): 2 extra, but ONLY usable on asset skills — tracked separately
   const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
   const ptFree = (ptM && ptM.rating >= 3) ? 2 : 0;
@@ -110,7 +103,7 @@ export function xpSpentSkills(c) {
 
 /** XP spent on all merits (general, influence, domain, standing) + fighting styles + pact oaths. */
 export function xpSpentMerits(c) {
-  const meritXP = (c.merit_creation || []).reduce((t, mc) => t + (mc ? mc.xp || 0 : 0), 0);
+  const meritXP = (c.merits || []).reduce((t, m) => t + (m.xp || 0), 0);
   const styleXP = (c.fighting_styles || []).reduce((t, fs) => t + (fs.xp || 0), 0);
   const pactXP = (c.powers || []).filter(p => p.category === 'pact').reduce((t, p) => t + (p.xp || 0), 0);
   return meritXP + styleXP + pactXP;
@@ -118,7 +111,7 @@ export function xpSpentMerits(c) {
 
 /** XP spent on powers — disciplines + devotions. */
 export function xpSpentPowers(c) {
-  const discXP = sumCreationXP(c.disc_creation);
+  const discXP = sumInlineXP(c.disciplines);
   // Devotion XP: look up each devotion's cost from DEVOTIONS_DB
   const devXP = (c.powers || [])
     .filter(p => p.category === 'devotion')
@@ -175,31 +168,22 @@ export function xpLeft(c) {
 }
 
 /**
- * Effective rating of a merit (sum of CP + free + XP from merit_creation).
- * Falls back to stored rating if no creation record exists.
+ * Effective rating of a merit (sum of CP + free + grant pools + XP, inline on merit object).
+ * Falls back to stored rating if inline fields are absent.
  * @param {object} c - character object
  * @param {object} m - merit entry
  * @returns {number}
  */
 export function meritRating(c, m) {
-  const idx = (c.merits || []).indexOf(m);
-  if (idx < 0) return m.rating || 0;
-  const mc = (c.merit_creation || [])[idx];
-  if (!mc) return m.rating || 0;
-  return (mc.cp || 0) + (mc.free || 0) + (mc.xp || 0);
+  if (m.cp === undefined && m.free === undefined && m.xp === undefined) return m.rating || 0;
+  return (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
+    + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.xp || 0);
 }
 
 /**
- * Render the merit breakdown row: Fr + CP + XP = total | UP
- * Fr is editable but backed by grant pools (MCI/PT/VM/etc).
- * @param {number} realIdx - index into c.merits / c.merit_creation
- * @param {object} mc - merit_creation entry {cp, free, xp, up}
- * @returns {string} HTML
- */
-/**
- * Render the merit breakdown row: Fr + CP + XP = total | UP
- * @param {number} realIdx
- * @param {object} mc - merit_creation entry {cp, free, xp, up}
+ * Render the merit breakdown row: Fr + CP + XP = total
+ * @param {number} realIdx - index into c.merits
+ * @param {object} mc - merit object with inline creation fields {cp, free, xp, free_mci, ...}
  * @param {number|null} fixedAt - if the merit has a fixed rating (e.g. 3 for VM), pass it here;
  *   null for graduated merits. When fixedAt is set, the displayed total snaps to 0 until the
  *   threshold is met, then shows fixedAt.

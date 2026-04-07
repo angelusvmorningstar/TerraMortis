@@ -663,43 +663,40 @@ async function submitWizard() {
 function buildCharDoc() {
   const { name, concept, pronouns, apparent_age, clan, bloodline, covenant, mask, dirge, humanity } = wiz;
 
-  // Attributes: base 1 + CP extra
+  // Attributes: base 1 + CP extra (inline creation tracking)
   const attributes = {};
-  const attr_creation = {};
   for (const cat of Object.values(ATTR_CATS)) {
     for (const attr of cat) {
       const extra = wiz.attrDots[attr] || 0;
-      attributes[attr] = { dots: 1 + extra, bonus: 0 };
-      if (extra > 0) attr_creation[attr] = { cp: extra, xp: 0, free: 0 };
+      attributes[attr] = { dots: 1 + extra, bonus: 0, cp: extra, xp: 0, free: 0, rule_key: null };
     }
   }
 
-  // Skills: CP dots
+  // Skills: CP dots (inline creation tracking)
   const skills = {};
-  const skill_creation = {};
   for (const cat of Object.values(SKILL_CATS)) {
     for (const skill of cat) {
       const dots = wiz.skillDots[skill] || 0;
       if (dots > 0) {
-        skills[skill] = { dots, bonus: 0, specs: [], nine_again: false };
-        skill_creation[skill] = { cp: dots, xp: 0, free: 0 };
+        skills[skill] = { dots, bonus: 0, specs: [], nine_again: false, cp: dots, xp: 0, free: 0, rule_key: null };
       }
     }
   }
 
-  // Disciplines
+  // Disciplines (v3: objects with inline creation tracking)
   const disciplines = {};
-  const disc_creation = {};
   for (const [disc, dots] of Object.entries(wiz.disciplines)) {
     if (dots > 0) {
-      disciplines[disc] = dots;
-      disc_creation[disc] = { cp: dots, xp: 0, free: 0 };
+      disciplines[disc] = { dots, cp: dots, xp: 0, free: 0, rule_key: null };
     }
   }
 
-  // Merits
-  const merits = wiz.merits.map(m => ({ name: m.name, rating: m.rating, category: m.category }));
-  const merit_creation = wiz.merits.map(m => ({ cp: m.rating, xp: 0, free: 0 }));
+  // Merits (v3: inline creation tracking on each merit)
+  const merits = wiz.merits.map(m => ({
+    name: m.name, rating: m.rating, category: m.category,
+    cp: m.rating, xp: 0, free: 0, free_mci: 0, free_vm: 0, free_lk: 0,
+    free_ohm: 0, free_inv: 0, free_pt: 0, free_mdb: 0, rule_key: null
+  }));
 
   return {
     name: name.trim(),
@@ -723,15 +720,11 @@ function buildCharDoc() {
     banes: [],
     ordeals: {},
     attributes,
-    attr_creation,
     attribute_priorities: { ...wiz.attrPri },
     skills,
-    skill_creation,
     skill_priorities: { ...wiz.skillPri },
     disciplines,
-    disc_creation,
     merits,
-    merit_creation,
     powers: [],
     xp_total: 10,
     xp_spent: 0,

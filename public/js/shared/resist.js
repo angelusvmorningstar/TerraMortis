@@ -51,7 +51,7 @@ export function getResistTokenVal(c, tok) {
   if (tok.type === 'humanity') return c.humanity || 0;
   if (tok.type === 'attr') return getAttrVal(c, tok.key);
   if (tok.type === 'skill') return skDots(c, tok.key);
-  if (tok.type === 'disc') return c.disciplines?.[tok.key] || 0;
+  if (tok.type === 'disc') return c.disciplines?.[tok.key]?.dots || 0;
   return 0;
 }
 

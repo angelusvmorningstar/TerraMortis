@@ -52,8 +52,8 @@ export function printSheet() {
     return `<tr><td>${esc(m.name)}${esc(qual)}${esc(area)}${esc(tag)}</td><td>${dots(m.rating || 0)} (${m.rating || 0})</td></tr>`;
   }).join('');
 
-  const discsHtml = (c.disciplines || []).map(d => {
-    return `<tr><td>${esc(d.name)}</td><td>${dots(d.dots || 0)} (${d.dots || 0})</td></tr>`;
+  const discsHtml = Object.entries(c.disciplines || {}).filter(([, d]) => (d?.dots || 0) > 0).map(([name, d]) => {
+    return `<tr><td>${esc(name)}</td><td>${dots(d.dots || 0)} (${d.dots || 0})</td></tr>`;
   }).join('');
 
   const html = `<!DOCTYPE html>

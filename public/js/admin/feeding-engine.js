@@ -94,7 +94,7 @@ function buildPool() {
 
   const terr = FEED_TERRS.find(t => t.id === feedTerrId) || FEED_TERRS[0];
   const ambMod = terr.ambienceMod || 0;
-  const discVal = (feedDiscName && feedChar.disciplines?.[feedDiscName]) || 0;
+  const discVal = (feedDiscName && feedChar.disciplines?.[feedDiscName]?.dots) || 0;
   const unskilled = bestSkillVal === 0
     ? (m.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
@@ -154,13 +154,13 @@ function render() {
 
     // Discipline selector (relevant to method, that char knows)
     if (feedMethod) {
-      const availDiscs = feedMethod.discs.filter(d => feedChar.disciplines?.[d]);
+      const availDiscs = feedMethod.discs.filter(d => feedChar.disciplines?.[d]?.dots);
       h += '<div class="fe-disc-row">';
       h += '<span class="feed-disc-lbl">Discipline</span>';
       h += '<select class="de-pb-sel" id="fe-disc" style="flex:1;">';
       h += '<option value="">None</option>';
       for (const d of availDiscs) {
-        const dots = feedChar.disciplines[d];
+        const dots = feedChar.disciplines[d].dots;
         const sel = feedDiscName === d ? ' selected' : '';
         h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dots})</option>`;
       }

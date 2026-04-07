@@ -19,7 +19,7 @@ const LS_KEY = 'tm_chars_db';
 export function sanitiseChar(c) {
   if (c?.disciplines) {
     for (const [key, val] of Object.entries(c.disciplines)) {
-      if (val === 0) delete c.disciplines[key];
+      if ((typeof val === 'object' ? val.dots : val) === 0) delete c.disciplines[key];
     }
   }
   return c;

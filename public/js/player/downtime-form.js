@@ -944,8 +944,8 @@ function renderForm(container) {
   }
   if (gateValues.has_sorcery === 'yes') {
     const traditions = [];
-    if (currentChar.disciplines?.Cruac) traditions.push('Cruac');
-    if (currentChar.disciplines?.Theban) traditions.push('Theban');
+    if (currentChar.disciplines?.Cruac?.dots) traditions.push('Cruac');
+    if (currentChar.disciplines?.Theban?.dots) traditions.push('Theban');
     h += `<span class="dt-badge dt-badge-on">${traditions.join(' / ')}</span>`;
   }
   const bp = currentChar.blood_potency || 0;
@@ -1669,7 +1669,7 @@ function renderProjectSlots(saved) {
     return v && (v.dots + (v.bonus || 0)) > 0;
   });
   const discs = Object.keys(currentChar.disciplines || {}).filter(d =>
-    currentChar.disciplines[d] > 0
+    (currentChar.disciplines[d]?.dots || 0) > 0
   );
 
   // Character merits for the merit picker
@@ -1920,7 +1920,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved, de
     if (s) total += (s.dots || 0) + (s.bonus || 0);
   }
   if (savedDisc) {
-    total += currentChar.disciplines?.[savedDisc] || 0;
+    total += currentChar.disciplines?.[savedDisc]?.dots || 0;
   }
 
   let h = '<div class="qf-field">';
@@ -1954,7 +1954,7 @@ function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved, de
   h += `<select id="dt-${prefix}_disc" class="qf-select dt-pool-select" data-pool-prefix="${prefix}">`;
   h += '<option value="">Discipline</option>';
   for (const d of discs) {
-    const dots = currentChar.disciplines[d];
+    const dots = currentChar.disciplines[d]?.dots || 0;
     const sel = savedDisc === d ? ' selected' : '';
     h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dots})</option>`;
   }
@@ -2041,7 +2041,7 @@ function getItemsForCategory(category) {
         || (c.clan && CLAN_DISCS[c.clan]) || [];
       const all = [...new Set([...clanDiscs, ...CORE_DISCS, ...owned])].sort();
       return all.map(d => {
-        const dots = c.disciplines?.[d] || 0;
+        const dots = c.disciplines?.[d]?.dots || 0;
         const cost = isClanDisc(d) ? 3 : 4;
         const tag = isClanDisc(d) ? 'clan' : 'out';
         return { value: d, label: `${d} (${dots} → ${dots + 1}) [${tag}, ${cost} XP]` };
@@ -2103,8 +2103,8 @@ function getItemsForCategory(category) {
     }
     case 'rite': {
       // Rites they could learn at their current Cruac/Theban level
-      const cruacLevel = c.disciplines?.Cruac || 0;
-      const thebanLevel = c.disciplines?.Theban || 0;
+      const cruacLevel = c.disciplines?.Cruac?.dots || 0;
+      const thebanLevel = c.disciplines?.Theban?.dots || 0;
       const items = [];
       if (cruacLevel > 0) {
         for (let lvl = 1; lvl <= cruacLevel; lvl++) {
@@ -2652,7 +2652,7 @@ function updatePoolTotal(prefix) {
     if (s) total += (s.dots || 0) + (s.bonus || 0);
   }
   if (discEl?.value) {
-    total += currentChar.disciplines?.[discEl.value] || 0;
+    total += currentChar.disciplines?.[discEl.value]?.dots || 0;
   }
 
   totalEl.textContent = total || '—';
@@ -3168,8 +3168,8 @@ function renderQuestion(q, value) {
           const specBonus = feedSpecName ? (hasAoE ? 2 : 1) : 0;
 
           // Discipline selector
-          const availDiscs = m.discs.filter(d => c.disciplines?.[d]);
-          const discVal = (feedDiscName && c.disciplines?.[feedDiscName]) || 0;
+          const availDiscs = m.discs.filter(d => c.disciplines?.[d]?.dots);
+          const discVal = (feedDiscName && c.disciplines?.[feedDiscName]?.dots) || 0;
           const fgMerit = (c.merits || []).find(mr => mr.name === 'Feeding Grounds');
           const fgVal = fgMerit ? (fgMerit.rating || 0) : 0;
           const total = bestAV + bestSV + discVal + specBonus + fgVal;
@@ -3203,7 +3203,7 @@ function renderQuestion(q, value) {
             h += '<select class="qf-select dt-feed-disc-sel" id="dt-feed-disc">';
             h += '<option value="">None</option>';
             for (const d of availDiscs) {
-              const dv = c.disciplines[d];
+              const dv = c.disciplines[d]?.dots || 0;
               const sel = feedDiscName === d ? ' selected' : '';
               h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dv})</option>`;
             }
@@ -3217,7 +3217,7 @@ function renderQuestion(q, value) {
       if (feedMethodId === 'other') {
         const attrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots + (v.bonus || 0)) > 0; });
         const skills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0; });
-        const discs = Object.entries(c.disciplines || {}).filter(([, v]) => v > 0);
+        const discs = Object.entries(c.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
 
         const hasAoECustom = (c.merits || []).some(mr => mr.name && mr.name.toLowerCase() === 'area of expertise');
         const customSpecs = feedCustomSkill ? (c.skills?.[feedCustomSkill]?.specs || []) : [];
@@ -3226,7 +3226,7 @@ function renderQuestion(q, value) {
         let customTotal = 0;
         if (feedCustomAttr) { const a = c.attributes?.[feedCustomAttr]; if (a) customTotal += (a.dots || 0) + (a.bonus || 0); }
         if (feedCustomSkill) { const s = c.skills?.[feedCustomSkill]; if (s) customTotal += (s.dots || 0) + (s.bonus || 0); }
-        if (feedCustomDisc) customTotal += c.disciplines?.[feedCustomDisc] || 0;
+        if (feedCustomDisc) customTotal += c.disciplines?.[feedCustomDisc]?.dots || 0;
         customTotal += customSpecBonus;
 
         h += '<div class="dt-feed-custom">';

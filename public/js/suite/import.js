@@ -178,7 +178,7 @@ function parseExcelToChars(rows) {
 
     // Disciplines
     const disciplines = {};
-    DISC_NAMES.forEach(d => { const n = dotInt(row[h[d]]); if (n > 0) disciplines[d] = n; });
+    DISC_NAMES.forEach(d => { const n = dotInt(row[h[d]]); if (n > 0) disciplines[d] = { dots: n, cp: 0, xp: 0, free: 0, rule_key: null }; });
 
     // Powers (Blood 1-30)
     const powers = [];

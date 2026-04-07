@@ -156,17 +156,17 @@ function feedBuildPool() {
   const prevDisc = dsel.value;
   while (dsel.options.length > 1) dsel.remove(1);
   m.discs.forEach(d => {
-    if (c.disciplines && c.disciplines[d]) {
+    if (c.disciplines && c.disciplines[d]?.dots) {
       const o = document.createElement('option');
       o.value = d;
-      o.textContent = d + ' (' + c.disciplines[d] + ')';
+      o.textContent = d + ' (' + c.disciplines[d].dots + ')';
       dsel.appendChild(o);
     }
   });
   if (prevDisc) dsel.value = prevDisc;
 
   const discName = dsel.value;
-  const discVal = (discName && c.disciplines) ? (c.disciplines[discName] || 0) : 0;
+  const discVal = (discName && c.disciplines) ? (c.disciplines[discName]?.dots || 0) : 0;
 
   const total = Math.max(0, bestAttrVal + bestSkillVal + discVal + ambMod);
 

@@ -94,7 +94,7 @@ export function calcSpeed(c) {
   const str = getAttrVal(c, 'Strength');
   const dex = getAttrVal(c, 'Dexterity');
   const sz = calcSize(c);
-  const vigour = (c.disciplines || {}).Vigour || 0;
+  const vigour = c.disciplines?.Vigour?.dots || 0;
   const fleet = (c.merits || []).find(m => m.name === 'Fleet of Foot');
   return str + dex + sz + vigour + (fleet ? fleet.rating : 0);
 }
@@ -109,7 +109,7 @@ export function calcDefence(c) {
 }
 
 export function calcHealth(c) {
-  const resilience = (c.disciplines || {}).Resilience || 0;
+  const resilience = c.disciplines?.Resilience?.dots || 0;
   return getAttrVal(c, 'Stamina') + calcSize(c) + resilience;
 }
 

@@ -56,7 +56,7 @@ export function meetsPrereq(char, node) {
       return skDots(char, node.name) >= dots;
 
     case 'discipline':
-      return (char.disciplines?.[node.name] || 0) >= dots;
+      return (char.disciplines?.[node.name]?.dots || 0) >= dots;
 
     case 'merit': {
       const merits = char.merits || [];

@@ -2796,7 +2796,7 @@ async function handleApplyAmbience(cycleId, cycle) {
 function buildGenericPool(char, attrName, skillName, discName, modifier) {
   const attrVal = attrName ? getAttrVal(char, attrName) : 0;
   const skillVal = skillName ? skDots(char, skillName) : 0;
-  const discVal = (discName && char?.disciplines?.[discName]) || 0;
+  const discVal = (discName && char?.disciplines?.[discName]?.dots) || 0;
   const mod = modifier || 0;
   const unskilled = skillName && skillVal === 0
     ? (SKILLS_MENTAL.includes(skillName) ? -3 : -1)
@@ -2838,7 +2838,8 @@ function discOptions(char) {
   let h = '<option value="">— Discipline —</option>';
   if (!char?.disciplines) return h;
   for (const [d, v] of Object.entries(char.disciplines)) {
-    if (v > 0) h += `<option value="${esc(d)}">${esc(d)} (${v})</option>`;
+    const dv = v?.dots || 0;
+    if (dv > 0) h += `<option value="${esc(d)}">${esc(d)} (${dv})</option>`;
   }
   return h;
 }

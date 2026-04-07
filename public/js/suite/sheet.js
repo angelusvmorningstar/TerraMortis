@@ -300,7 +300,7 @@ export function renderSheet() {
         <div class="disc-drawer" id="disc-drawer-${id}">${drawerHtml}</div>`;
     }
 
-    const discEntries = Object.entries(c.disciplines).filter(([, r]) => r > 0).sort(([a], [b]) => a.localeCompare(b));
+    const discEntries = Object.entries(c.disciplines).filter(([, r]) => (r?.dots || 0) > 0).sort(([a], [b]) => a.localeCompare(b));
     const coreDiscs = discEntries.filter(([d]) => CORE_DISCS.includes(d));
     const ritualDiscs = discEntries.filter(([d]) => RITUAL_DISCS.includes(d));
     const themeDiscs = discEntries.filter(([d]) => SORCERY_THEMES.includes(d));
@@ -308,7 +308,7 @@ export function renderSheet() {
     // 1. Disciplines
     if (coreDiscs.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-list">`;
-      coreDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r, null); });
+      coreDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r?.dots || 0, null); });
       html += `</div></div>`;
     }
 
@@ -337,10 +337,10 @@ export function renderSheet() {
     // 3. Blood Sorcery (Cruac, Theban, then themes)
     if (ritualDiscs.length || themeDiscs.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">`;
-      ritualDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r, 'color:rgba(220,160,120,.9)'); });
+      ritualDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); });
       if (themeDiscs.length) {
         html += `<div class="disc-sub-head">Themes</div>`;
-        themeDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r, 'color:rgba(220,160,120,.75)'); });
+        themeDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.75)'); });
       }
       html += `</div></div>`;
     }

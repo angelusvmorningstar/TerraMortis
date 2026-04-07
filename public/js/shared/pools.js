@@ -39,7 +39,7 @@ export function extractKey(raw) {
 export function getPool(char, raw) {
   const theme = isSorceryTheme(raw);
   if (theme) {
-    const td = char.disciplines ? char.disciplines[theme] || 0 : 0;
+    const td = char.disciplines?.[theme]?.dots || 0;
     const intel = getAttrVal(char, 'Intelligence');
     const occ = skDots(char, 'Occult');
     return {
@@ -66,7 +66,7 @@ export function getPool(char, raw) {
     const mciBonus = (p.skill && char._mci_dot3_skills instanceof Set && char._mci_dot3_skills.has(p.skill)) ? 1 : 0;
     const skillV = baseDots + ptBonus + mciBonus;
     const unskilled = (p.skill && skillV === 0) ? unskilledPenalty(p.skill) : 0;
-    const discV = p.disc ? (char.disciplines?.[p.disc] || 0) : 0;
+    const discV = p.disc ? (char.disciplines?.[p.disc]?.dots || 0) : 0;
     return {
       total: attrV + skillV + discV + unskilled,
       attr: p.attr, attrV,

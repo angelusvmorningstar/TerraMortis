@@ -287,7 +287,7 @@ function buildPool(method, discName, specName) {
 
   const hasAoE = (c.merits || []).some(m => m.name?.toLowerCase() === 'area of expertise');
   const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE ? 2 : 1) : 0;
-  const discVal = (discName && c.disciplines?.[discName]) || 0;
+  const discVal = (discName && c.disciplines?.[discName]?.dots) || 0;
   const unskilled = bestSV === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
     : 0;
@@ -350,14 +350,14 @@ function render() {
         buildPool(m, selectedDisc, selectedSpec);
 
         // Discipline selector
-        const availDiscs = m.discs.filter(d => currentChar.disciplines?.[d]);
+        const availDiscs = m.discs.filter(d => currentChar.disciplines?.[d]?.dots);
         if (availDiscs.length) {
           h += '<div class="feeding-disc-row">';
           h += '<label>Discipline:</label>';
           h += '<select class="qf-select" id="feed-gen-disc">';
           h += '<option value="">None</option>';
           for (const d of availDiscs) {
-            const dv = currentChar.disciplines[d];
+            const dv = currentChar.disciplines[d].dots;
             const sel = selectedDisc === d ? ' selected' : '';
             h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dv})</option>`;
           }
