@@ -2061,34 +2061,58 @@ function getItemsForCategory(category) {
         return found.length ? Math.max(...found.map(m => m.rating || 0)) : 0;
       }
 
-      for (const [key, m] of Object.entries(MERITS_DB)) {
-        if (m.type === 'Invictus Oath' || m.type === 'Carthian Law') continue;
-        // Try structured prereq from rules cache; fallback to string parsing
-        const rule = getRuleByKey(key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
-        if (rule?.prereq) { if (!meetsPrereq(c, rule.prereq)) continue; }
-        else if (m.prereq && !meritQualifies(c, m.prereq)) continue;
-        const name = key.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-        const rating = parseMeritRating(m.rating);
-        const currentDots = currentMeritDots(key);
-        if (currentDots >= rating.max) continue;
+      // Try rules cache first, fallback to MERITS_DB
+      const meritRules = getRulesByCategory('merit');
+      if (meritRules.length) {
+        for (const rule of meritRules) {
+          if (rule.parent && (rule.parent === 'Invictus Oath' || rule.parent === 'Carthian Law')) continue;
+          if (!meetsPrereq(c, rule.prereq)) continue;
+          const name = rule.name;
+          const rr = rule.rating_range;
+          const min = rr ? rr[0] : 1;
+          const max = rr ? rr[1] : 1;
+          const currentDots = currentMeritDots(name);
+          if (currentDots >= max) continue;
 
-        if (rating.flat) {
-          // Flat merit: all dots at once
-          items.push({
-            value: `${name}|flat|${rating.max}|0`,
-            label: `${name} (${rating.max} dots, ${rating.max} XP) — all at once`,
-          });
-        } else {
-          // Graduated merit: one entry, dots selector will appear on selection
-          // value encodes: name|grad|currentDots|maxBuyable
-          // maxBuyable: up to 3 can be multi-dot, 4+ is one at a time
-          const maxTarget = currentDots < 3
-            ? Math.min(3, rating.max)
-            : Math.min(currentDots + 1, rating.max);
-          items.push({
-            value: `${name}|grad|${currentDots}|${maxTarget}`,
-            label: `${name} (currently ${currentDots} dot${currentDots !== 1 ? 's' : ''})`,
-          });
+          if (min === max) {
+            items.push({
+              value: `${name}|flat|${max}|0`,
+              label: `${name} (${max} dots, ${max} XP) — all at once`,
+            });
+          } else {
+            const maxTarget = currentDots < 3
+              ? Math.min(3, max)
+              : Math.min(currentDots + 1, max);
+            items.push({
+              value: `${name}|grad|${currentDots}|${maxTarget}`,
+              label: `${name} (currently ${currentDots} dot${currentDots !== 1 ? 's' : ''})`,
+            });
+          }
+        }
+      } else {
+        // Fallback to MERITS_DB
+        for (const [key, m] of Object.entries(MERITS_DB)) {
+          if (m.type === 'Invictus Oath' || m.type === 'Carthian Law') continue;
+          if (m.prereq && !meritQualifies(c, m.prereq)) continue;
+          const name = key.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+          const rating = parseMeritRating(m.rating);
+          const currentDots = currentMeritDots(key);
+          if (currentDots >= rating.max) continue;
+
+          if (rating.flat) {
+            items.push({
+              value: `${name}|flat|${rating.max}|0`,
+              label: `${name} (${rating.max} dots, ${rating.max} XP) — all at once`,
+            });
+          } else {
+            const maxTarget = currentDots < 3
+              ? Math.min(3, rating.max)
+              : Math.min(currentDots + 1, rating.max);
+            items.push({
+              value: `${name}|grad|${currentDots}|${maxTarget}`,
+              label: `${name} (currently ${currentDots} dot${currentDots !== 1 ? 's' : ''})`,
+            });
+          }
         }
       }
       items.sort((a, b) => a.label.localeCompare(b.label));
