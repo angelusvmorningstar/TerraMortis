@@ -73,10 +73,10 @@ function parseSingleToken(token) {
   // Negation: "No X Status" or "No X"
   if (/^No\s+/i.test(token)) {
     const rest = token.replace(/^No\s+/i, '').trim();
-    // "No Carthian Status" → not merit Status (Carthian)
+    // "No Carthian Status" → not status (Carthian)
     for (const cov of COVENANT_PREFIXES) {
       if (rest.toLowerCase().startsWith(cov.toLowerCase() + ' status')) {
-        return { type: 'not', name: 'Status', qualifier: cov };
+        return { type: 'not_status', qualifier: cov };
       }
     }
     // "No Invictus Status" already handled, generic fallback
@@ -113,7 +113,7 @@ function parseSingleToken(token) {
     const covRe = new RegExp(`^${cov}\\s+Status\\s*(\\d+)?$`, 'i');
     const covMatch = token.match(covRe);
     if (covMatch) {
-      const node = { type: 'merit', name: 'Status', qualifier: cov };
+      const node = { type: 'status', qualifier: cov };
       if (covMatch[1]) node.dots = parseInt(covMatch[1], 10);
       return node;
     }
@@ -122,7 +122,7 @@ function parseSingleToken(token) {
   // City Status with dots
   const cityMatch = token.match(/^City\s+Status\s*(\d+)?$/i);
   if (cityMatch) {
-    const node = { type: 'merit', name: 'Status', qualifier: 'City' };
+    const node = { type: 'status', qualifier: 'City' };
     if (cityMatch[1]) node.dots = parseInt(cityMatch[1], 10);
     return node;
   }
@@ -130,7 +130,7 @@ function parseSingleToken(token) {
   // Clan Status
   const clanStatMatch = token.match(/^Clan\s+Status\s*(\d+)?$/i);
   if (clanStatMatch) {
-    const node = { type: 'merit', name: 'Status', qualifier: 'Clan' };
+    const node = { type: 'status', qualifier: 'Clan' };
     if (clanStatMatch[1]) node.dots = parseInt(clanStatMatch[1], 10);
     return node;
   }
@@ -138,7 +138,7 @@ function parseSingleToken(token) {
   // "Sanctum Status 1" → Lance Status
   const sanctumMatch = token.match(/^Sanctum\s+Status\s*(\d+)?$/i);
   if (sanctumMatch) {
-    const node = { type: 'merit', name: 'Status', qualifier: 'Lance' };
+    const node = { type: 'status', qualifier: 'Lance' };
     if (sanctumMatch[1]) node.dots = parseInt(sanctumMatch[1], 10);
     return node;
   }

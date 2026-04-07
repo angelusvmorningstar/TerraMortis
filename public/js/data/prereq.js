@@ -8,8 +8,29 @@
  * Labels are derived at render time from the tree structure — not stored.
  */
 
-import { getAttrVal } from './accessors.js';
-import { skDots } from './accessors.js';
+import { getAttrVal, skDots } from './accessors.js';
+
+// Short covenant names → full names used in char.covenant
+const COV_FULL = {
+  carthian: 'Carthian Movement', crone: 'Circle of the Crone',
+  invictus: 'Invictus', lance: 'Lancea et Sanctum',
+  sanctified: 'Lancea et Sanctum'
+};
+
+/** Resolve a status qualifier against character data. */
+function _getStatus(char, qualifier) {
+  const q = qualifier.toLowerCase();
+  if (q === 'city') return char.status?.city || 0;
+  if (q === 'clan') return char.status?.clan || 0;
+  // Covenant status: own covenant uses status.covenant, others use covenant_standings
+  const fullName = COV_FULL[q] || qualifier;
+  if ((char.covenant || '').toLowerCase() === fullName.toLowerCase()) {
+    return char.status?.covenant || 0;
+  }
+  const standings = char.covenant_standings || {};
+  const k = Object.keys(standings).find(k => k.toLowerCase() === q);
+  return k ? standings[k] : 0;
+}
 
 /**
  * Check if a character meets a prerequisite tree.
@@ -45,6 +66,12 @@ export function meetsPrereq(char, node) {
         return (m.rating || 0) >= (dots || 1);
       });
     }
+
+    case 'status':
+      return _getStatus(char, node.qualifier) >= (dots || 1);
+
+    case 'not_status':
+      return _getStatus(char, node.qualifier) === 0;
 
     case 'clan':
       return char.clan === node.name;
@@ -127,6 +154,15 @@ export function prereqLabel(node, nested = false) {
       if (node.dots) s += ` ${node.dots}`;
       return s;
     }
+
+    case 'status': {
+      let s = `${node.qualifier} Status`;
+      if (node.dots) s += ` ${node.dots}`;
+      return s;
+    }
+
+    case 'not_status':
+      return `No ${node.qualifier} Status`;
 
     case 'clan':
       return node.name;
