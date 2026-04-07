@@ -16,6 +16,7 @@ import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, 
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { MAN_DB } from '../data/man-db-data.js';
+import { getRulesByCategory } from '../data/loader.js';
 setDevotionsDB(DEVOTIONS_DB);
 
 /** Render a prereq warning showing only the terms the character actually fails. */

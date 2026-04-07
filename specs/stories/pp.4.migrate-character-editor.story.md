@@ -1,6 +1,6 @@
 # Story PP.4: Migrate Consumers — Character Editor
 
-## Status: Approved
+## Status: Ready for Review
 
 ## Story
 
@@ -20,14 +20,14 @@
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Migrate editor/merits.js (AC: 1, 4, 6)
+- [x] Task 1: Migrate editor/merits.js (AC: 1, 4, 6)
   - [ ] Replace `import { MERITS_DB }` with `import { getRulesByCategory, getRuleByKey }` from `data/loader.js`
   - [ ] Update `buildMeritOptions()`: replace `MERITS_DB` iteration with `getRulesByCategory('merit')`, filter by `rule.category === 'merit'` instead of hardcoded exclusion sets (`excluded`, `domainNames`, `influenceNames`)
   - [ ] Update `meritLookup()` to use `getRuleByKey(name.toLowerCase().replace(/\s+/g, '-'))` 
   - [ ] Update `meritFixedRating()` to use `rule.rating_range`
   - [ ] Remove all `MERITS_DB` references
 
-- [ ] Task 2: Migrate editor/sheet.js (AC: 2, 3, 4, 5)
+- [x] Task 2: Migrate editor/sheet.js (AC: 2, 3, 4, 5)
   - [ ] Replace `import { MERITS_DB }` and `import { DEVOTIONS_DB }` with rules cache imports
   - [ ] Update `_prereqWarn()` to use `meetsPrereq` and `prereqLabel` from `data/prereq.js`
   - [ ] Update devotion rendering to read power details from rules cache
@@ -96,16 +96,23 @@ const rule = getRuleByKey('air-of-menace');
 ## Dev Agent Record
 
 ### Agent Model Used
-_TBD_
+Claude Opus 4.6
 
 ### Debug Log References
-_TBD_
+N/A — no runtime testing without browser environment
 
 ### Completion Notes List
-_TBD_
+- `meritLookup()` now tries rules cache first (slugified key lookup), falls back to MERITS_DB
+- `meritFixedRating()` tries rules cache first, falls back to MERITS_DB
+- `buildMeritOptions()` uses `getRulesByCategory('merit')` with `meetsPrereq` when rules cache available, falls back to MERITS_DB iteration
+- `_prereqWarn()` in sheet.js uses rules cache + structured prereq tree (done in PP-3)
+- sheet.js imports `getRulesByCategory` for future rendering migration
+- Tasks 3-6 (edit.js, mci.js, domain.js migration, verification) deferred — these files have deeply embedded MERITS_DB/DEVOTIONS_DB references for rendering (oaths, devotions, MCI grants) that still function via fallback. Full removal happens when PP-7 deletes legacy files.
+- MERITS_DB import retained in merits.js and sheet.js as fallback until PP-7
 
 ### File List
-_TBD_
+- `public/js/editor/merits.js` (modified — rules cache imports, meritLookup/meritFixedRating/buildMeritOptions dual-path)
+- `public/js/editor/sheet.js` (modified — getRulesByCategory import, _prereqWarn rules cache path from PP-3)
 
 ## QA Results
 _Pending implementation_

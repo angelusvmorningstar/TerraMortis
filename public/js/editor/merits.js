@@ -9,6 +9,7 @@ import {
 } from '../data/constants.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { meetsPrereq as _meetsPrereq, prereqLabel as _prereqLabel } from '../data/prereq.js';
+import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js';
 
 // Re-export the new prereq engine for direct use by consumers
 export { _meetsPrereq as meetsPrereq, _prereqLabel as prereqLabel };
@@ -48,17 +49,33 @@ export function meritKeyBase(s) {
  * Returns null for graduated/range merits (e.g. Allies 1-5).
  */
 export function meritFixedRating(name) {
+  // Try rules cache first
+  const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule) {
+    if (!rule.rating_range) return null;
+    if (rule.rating_range[0] === rule.rating_range[1]) return rule.rating_range[0];
+    return null; // range merit
+  }
+  // Fallback to MERITS_DB
   const entry = MERITS_DB ? MERITS_DB[(name || '').toLowerCase()] : null;
   if (!entry) return null;
   const rStr = entry.rating || '1';
   const parts = rStr.split(/[–\-—]/);
-  if (parts.length > 1) return null; // range merit
+  if (parts.length > 1) return null;
   const n = parseInt(parts[0]);
   return n > 0 ? n : null;
 }
 
-/** Look up a merit in MERITS_DB by name string (tries full key then base key). */
+/** Look up a merit by name string. Tries rules cache first, falls back to MERITS_DB. */
 export function meritLookup(s) {
+  // Try rules cache (unified schema)
+  const slug = (s || '').toLowerCase().replace(/\s*[●○]+.*/,'').replace(/\s*\|.*/,'').trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule) return { desc: rule.description, prereq: rule.prereq, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, special: rule.special, _rule: rule };
+
+  // Fallback to MERITS_DB
   const db = MERITS_DB;
   if (!db) return null;
   const k = meritKey(s);
@@ -238,20 +255,37 @@ export function meritQualifies(c, prereqStr, structuredPrereq) {
  * Excludes standing, domain, and influence merits (those have dedicated UI).
  */
 export function buildMeritOptions(c, currentName) {
-  const db = MERITS_DB;
-  if (!db) return '<option value="">— loading —</option>';
-  const excluded = new Set(['standing', 'invictus oath', 'style']);
+  // Try rules cache first
+  const rulesDB = getRulesByCategory('merit');
   const domainNames = new Set(['safe place', 'haven', 'feeding grounds', 'herd', 'mandragora garden']);
   const influenceNames = new Set(['allies', 'contacts', 'mentor', 'resources', 'retainer', 'staff', 'status']);
   const qualified = [];
-  for (const [key, entry] of Object.entries(db)) {
-    if (entry.special === 'standing') continue;
-    if (entry.type && excluded.has(entry.type.toLowerCase())) continue;
-    if (domainNames.has(key)) continue;
-    if (influenceNames.has(key)) continue;
-    if (!meritQualifies(c, entry.prereq || '')) continue;
-    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    qualified.push({ key, label });
+
+  if (rulesDB.length) {
+    // Rules cache available — use structured data
+    for (const rule of rulesDB) {
+      if (rule.special === 'standing') continue;
+      if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+      const nameLow = rule.name.toLowerCase();
+      if (domainNames.has(nameLow)) continue;
+      if (influenceNames.has(nameLow)) continue;
+      if (!_meetsPrereq(c, rule.prereq)) continue;
+      qualified.push({ key: nameLow, label: rule.name });
+    }
+  } else {
+    // Fallback to MERITS_DB
+    const db = MERITS_DB;
+    if (!db) return '<option value="">— loading —</option>';
+    const excluded = new Set(['standing', 'invictus oath', 'style']);
+    for (const [key, entry] of Object.entries(db)) {
+      if (entry.special === 'standing') continue;
+      if (entry.type && excluded.has(entry.type.toLowerCase())) continue;
+      if (domainNames.has(key)) continue;
+      if (influenceNames.has(key)) continue;
+      if (!meritQualifies(c, entry.prereq || '')) continue;
+      const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      qualified.push({ key, label });
+    }
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();
