@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
+import { validate } from '../middleware/validate.js';
+import { territorySchema } from '../schemas/territory.schema.js';
 
 const router = Router();
 const col = () => getCollection('territories');
@@ -20,7 +22,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/territories — create or upsert by territory id field
-router.post('/', async (req, res) => {
+router.post('/', validate(territorySchema), async (req, res) => {
   const { id, ...fields } = req.body;
   if (!id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'id required' });
 

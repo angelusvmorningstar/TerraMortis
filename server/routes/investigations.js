@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { investigationSchema } from '../schemas/investigation.schema.js';
 
 const router = Router();
 const col = () => getCollection('downtime_investigations');
@@ -28,7 +30,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/downtime_investigations
-router.post('/', async (req, res) => {
+router.post('/', validate(investigationSchema), async (req, res) => {
   const { target_description, threshold_type, custom_threshold, investigating_character_id, cycle_id, notes } = req.body;
   if (!target_description) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'target_description required' });
 

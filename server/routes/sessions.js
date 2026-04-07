@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
+import { validate } from '../middleware/validate.js';
+import { sessionLogSchema } from '../schemas/session_log.schema.js';
 
 const router = Router();
 const col = () => getCollection('session_logs');
@@ -16,7 +18,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/session_logs — create log entry
-router.post('/', async (req, res) => {
+router.post('/', validate(sessionLogSchema), async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.session_date) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'session_date' is required" });

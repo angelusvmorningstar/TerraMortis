@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getCollection } from '../db.js';
 import { ObjectId } from 'mongodb';
+import { validate } from '../middleware/validate.js';
+import { gameSessionSchema } from '../schemas/game_session.schema.js';
 
 function formatDeadline(isoStr) {
   const d = new Date(isoStr);
@@ -50,7 +52,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/game_sessions — create new session
-router.post('/', async (req, res) => {
+router.post('/', validate(gameSessionSchema), async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.session_date) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'session_date' is required" });

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { npcSchema } from '../schemas/investigation.schema.js';
 
 const router = Router();
 const col = () => getCollection('npcs');
@@ -28,7 +30,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/npcs
-router.post('/', async (req, res) => {
+router.post('/', validate(npcSchema), async (req, res) => {
   const { name, description, status, linked_character_ids, linked_cycle_id, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'name required' });
 

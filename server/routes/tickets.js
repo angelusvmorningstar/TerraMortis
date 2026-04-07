@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
+import { validate } from '../middleware/validate.js';
+import { ticketSchema } from '../schemas/ticket.schema.js';
 
 const router = Router();
 const col = () => getCollection('tickets');
@@ -21,7 +23,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/tickets — create a ticket
-router.post('/', async (req, res) => {
+router.post('/', validate(ticketSchema), async (req, res) => {
   const { title, body, type } = req.body || {};
 
   if (!title || !String(title).trim()) {

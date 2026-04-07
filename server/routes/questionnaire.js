@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { questionnaireResponseSchema } from '../schemas/questionnaire.schema.js';
 
 const router = Router();
 const col = () => getCollection('questionnaire_responses');
@@ -55,7 +57,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/questionnaire — create a new response (draft)
-router.post('/', async (req, res) => {
+router.post('/', validate(questionnaireResponseSchema), async (req, res) => {
   const { character_id, responses } = req.body;
   if (!character_id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'character_id required' });
 

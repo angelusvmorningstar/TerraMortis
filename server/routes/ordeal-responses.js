@@ -6,6 +6,8 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { ordealResponseSchema } from '../schemas/ordeal.schema.js';
 
 const router = Router();
 const col = () => getCollection('ordeal_responses');
@@ -65,7 +67,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/ordeal-responses — create a new response
-router.post('/', async (req, res) => {
+router.post('/', validate(ordealResponseSchema), async (req, res) => {
   const { type, responses } = req.body;
   if (!type || !VALID_TYPES.includes(type)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Valid type required' });

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { playerSchema } from '../schemas/player.schema.js';
 
 const router = Router();
 const col = () => getCollection('players');
@@ -41,7 +43,7 @@ router.get('/:id', requireRole('st'), async (req, res) => {
 // POST /api/players — create a player (ST only)
 // discord_id is optional — a record can be pre-created with just a username;
 // the numeric ID will be auto-filled when the player first logs in via OAuth.
-router.post('/', requireRole('st'), async (req, res) => {
+router.post('/', requireRole('st'), validate(playerSchema), async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.display_name) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'display_name' is required" });

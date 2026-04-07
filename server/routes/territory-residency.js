@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { getCollection } from '../db.js';
+import { validate } from '../middleware/validate.js';
+import { territoryResidencySchema } from '../schemas/territory.schema.js';
 
 const router = Router();
 const col = () => getCollection('territory_residency');
@@ -19,7 +21,7 @@ router.get('/', async (req, res) => {
 // PUT /api/territory-residency
 // Upsert the residency list for a territory. Body: { territory, residents: [charId, ...] }
 // Only the regent of the territory may update.
-router.put('/', async (req, res) => {
+router.put('/', validate(territoryResidencySchema), async (req, res) => {
   const { territory, residents } = req.body;
   if (!territory || !Array.isArray(residents)) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'territory and residents[] required' });
