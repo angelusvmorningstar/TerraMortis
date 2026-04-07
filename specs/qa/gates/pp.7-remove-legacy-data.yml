@@ -1,0 +1,58 @@
+schema: 1
+story: "PP.7"
+story_title: "Remove Legacy Data Files"
+gate: FAIL
+status_reason: "Story's core purpose — delete legacy data files so API cache is the sole source — is not achieved. 3 of 4 data/ files and 1 suite/ file still exist with 13 active imports across 8 consumer files. Only json_data_from_js/ deleted and 2 suite duplicates removed."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-07"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "REQ-001"
+    severity: high
+    finding: "AC1 not met: public/js/data/merits-db-data.js still exists with 5 active imports (merits.js, sheet.js, edit.js, downtime-form.js, wizard.js, sheet-helpers.js)."
+    suggested_action: "Cannot delete until all fallback paths are removed in these 6 files. This was the deferred work from PP-3/4/5/6 that was supposed to land HERE."
+
+  - id: "REQ-002"
+    severity: high
+    finding: "AC2 not met: public/js/data/devotions-db.js still exists with 3 active imports (sheet.js, edit.js, downtime-form.js, xp-log-tab.js)."
+    suggested_action: "Same as REQ-001 — fallback paths in 4 files must be removed first."
+
+  - id: "REQ-003"
+    severity: high
+    finding: "AC3 not met: public/js/data/man-db-data.js still exists with 2 active imports (editor/sheet.js, suite/sheet.js)."
+    suggested_action: "Same — 2 fallback paths must be removed."
+
+  - id: "REQ-004"
+    severity: high
+    finding: "AC5 not met: 13 import references to deleted-target files remain across 8 JS files. Task 1 (import audit) should have been a blocker — the story's own dev notes say 'This story MUST NOT proceed until PP-4, PP-5, and PP-6 are all Done.'"
+    suggested_action: "The deferred fallback removal from PP-3/4/5/6 was never completed. PP-7 was supposed to be the story where this happened, but it was also deferred here. This is the end of the chain — there is no PP-8+ to defer to."
+
+  - id: "REQ-005"
+    severity: medium
+    finding: "AC5 also not met for DISC: suite/disc-data.js still exists, re-exported by suite/data.js:4, imported by shared/pools.js:3. PP-5 story said this file would be deleted in PP-5 Task 6 (also deferred)."
+    suggested_action: "Remove DISC fallback from pools.js, delete disc-data.js, remove re-export from data.js."
+
+  - id: "REQ-006"
+    severity: medium
+    finding: "AC7 not met: NFR-15 not updated. specs/epics.md has no NFR-15 reference (grep returned no matches in epics.md). Task 4 not done."
+    suggested_action: "Either locate the correct doc containing NFR-15 and update, or mark N/A if the NFR numbering was from a draft that didn't survive."
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 4
+    medium: 2
+    low: 0
+  recommendations:
+    must_fix:
+      - "Complete fallback removal across all 8 consumer files — this is the core blocker"
+      - "Then delete the 4 remaining data files"
+    monitor: []
+
+nfr_validation:
+  _assessed: [maintainability]
+  maintainability:
+    status: FAIL
+    notes: "Story's purpose is to eliminate dual-source ambiguity. With 13 imports to 4 still-extant files, the ambiguity remains. The deferred cleanup debt from PP-3/4/5/6 has accumulated here and was not resolved."

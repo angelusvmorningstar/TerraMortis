@@ -5,11 +5,7 @@ import {
   xpEarned, xpSpent, xpLeft,
   xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5,
   xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial,
-  setDevotionsDB,
 } from '../editor/xp.js';
-import { DEVOTIONS_DB } from '../data/devotions-db.js';
-
-setDevotionsDB(DEVOTIONS_DB);
 
 export function renderXpLogTab(el, char) {
   const earned   = xpEarned(char);

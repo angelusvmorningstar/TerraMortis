@@ -128,4 +128,38 @@ N/A — no runtime testing without browser environment
 - `public/css/admin-layout.css` (modified — rules domain styles)
 
 ## QA Results
-_Pending implementation_
+
+### Review Date: 2026-04-07
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full story review — admin rules browser/editor, sidebar wiring, styling.
+
+#### AC Verification
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC1: Rules domain in admin sidebar | PASS | admin.html:51 sidebar button, admin.js:170 switchDomain wiring |
+| AC2: Searchable filterable table | PASS | Category pill filters + text search across name/description. Result count badge. |
+| AC3: Category filter tabs | PASS | 8 pill buttons (All + 7 categories) with per-category counts |
+| AC4: Text search name + description | PASS | Case-insensitive substring match on both fields |
+| AC5: Expandable inline edit form | PASS | Click row to expand, click again to collapse. expandedKey state. |
+| AC6: Editable fields | PASS | description (textarea), prereq (JSON textarea), rating_range (2 number inputs), special, exclusive, bloodline, xp_fixed (devotion only) |
+| AC7: Read-only fields | PASS | key, category, parent, rank, pool breakdown, resistance, cost, action, duration |
+| AC8: Save via PUT /api/rules/:key | PASS | apiPut call with collected updates, status toast on success/error |
+| AC9: Edits visible on next load | PASS | invalidateRulesCache() clears _rulesCache + localStorage on save. Local allRules array also updated. |
+| AC10: No code deploy required | PASS | PUT endpoint + admin UI = data changes without deploy |
+
+#### Strengths
+
+- Self-contained module (rules-view.js) with clean render/wire/save separation
+- Prereq editor validates JSON client-side before save, shows inline error
+- Rating range as two number inputs (min/max) is intuitive
+- xp_fixed conditionally shown only for devotions
+- CSS follows existing admin patterns (gold accents, surface tiers, pill buttons)
+- Count badge updates on load
+- Local cache updated immediately + localStorage invalidated for other users
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.8-admin-rules-editor.yml

@@ -1,7 +1,6 @@
 /* Suite data layer — constants and mutable state */
 
 // Large data sets are split into separate files
-export { DISC } from './disc-data.js';
 export { CHARS_DATA } from './chars-data.js';
 export { ICONS } from './icons-data.js';
 

@@ -10,7 +10,6 @@ import {
   CLAN_DISCS, BLOODLINE_CLANS,
   PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS,
 } from '../data/constants.js';
-import { MERITS_DB } from '../data/merits-db-data.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -223,7 +222,7 @@ function stepMerits() {
       const m = wiz.merits[i];
       const slug = m.key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const rule = getRuleByKey(slug);
-      const entry = rule ? { rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, desc: rule.description } : (MERITS_DB[m.key] || {});
+      const entry = rule ? { rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, desc: rule.description } : {};
       const maxR = meritMaxRating(entry);
       h += `<div class="wiz-merit-row">`;
       h += `<span class="wiz-merit-name">${esc(m.name)}</span>`;
@@ -259,9 +258,7 @@ function stepMerits() {
           .filter(r => !SKIP_TYPES.has(r.parent) && r.name.toLowerCase().includes(q))
           .slice(0, 12)
           .map(r => [r.name.toLowerCase(), { desc: r.description, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, prereq: r.prereq }])
-      : Object.entries(MERITS_DB)
-          .filter(([key, e]) => !SKIP_TYPES.has(e.type) && key.includes(q))
-          .slice(0, 12);
+      : [];
 
     if (results.length) {
       h += '<div class="wiz-merit-results">';
@@ -439,8 +436,9 @@ function meritCategory(key) {
   if (INFLUENCE_MERITS.has(key)) return 'influence';
   if (DOMAIN_MERITS.has(key)) return 'domain';
   if (STANDING_MERITS.has(key)) return 'standing';
-  const e = MERITS_DB[key];
-  if (e?.type === 'Style') return 'manoeuvre';
+  const slug = key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule?.parent === 'Style') return 'manoeuvre';
   return 'general';
 }
 
@@ -524,7 +522,7 @@ function attachEvents() {
       if (!key || wiz.merits.some(m => m.key === key)) return;
       const slug = key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const rule = getRuleByKey(slug);
-      const entry = rule ? { rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null } : MERITS_DB[key];
+      const entry = rule ? { rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null } : {};
       const min = meritMinRating(entry || {});
       const name = rule ? rule.name : key.replace(/\b\w/g, c => c.toUpperCase());
       wiz.merits.push({ key, name, rating: min, category: meritCategory(key) });
@@ -541,7 +539,7 @@ function attachEvents() {
       const m = wiz.merits[i];
       const slug = m.key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const rule = getRuleByKey(slug);
-      const entry = rule ? { rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null } : (MERITS_DB[m.key] || {});
+      const entry = rule ? { rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null } : {};
       const min = meritMinRating(entry);
       const max = meritMaxRating(entry);
       m.rating = Math.min(max, Math.max(min, m.rating + d));

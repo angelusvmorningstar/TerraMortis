@@ -1,13 +1,12 @@
 /**
  * Merit utilities, prerequisite system, and power/discipline helpers.
- * Depends on constants and the MERITS_DB reference data.
+ * Depends on constants and the rules cache (purchasable_powers API).
  */
 
 import {
   ATTR_NAMES, SKILL_NAMES, DISC_NAMES, COV_SHORT, CLAN_NAMES,
   SORCERY_THEMES, RITUAL_DISCS, INFLUENCE_SPHERES
 } from '../data/constants.js';
-import { MERITS_DB } from '../data/merits-db-data.js';
 import { meetsPrereq as _meetsPrereq, prereqLabel as _prereqLabel } from '../data/prereq.js';
 import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js';
 
@@ -57,14 +56,7 @@ export function meritFixedRating(name) {
     if (rule.rating_range[0] === rule.rating_range[1]) return rule.rating_range[0];
     return null; // range merit
   }
-  // Fallback to MERITS_DB
-  const entry = MERITS_DB ? MERITS_DB[(name || '').toLowerCase()] : null;
-  if (!entry) return null;
-  const rStr = entry.rating || '1';
-  const parts = rStr.split(/[–\-—]/);
-  if (parts.length > 1) return null;
-  const n = parseInt(parts[0]);
-  return n > 0 ? n : null;
+  return null;
 }
 
 /** Look up a merit by name string. Tries rules cache first, falls back to MERITS_DB. */
@@ -74,14 +66,6 @@ export function meritLookup(s) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const rule = getRuleByKey(slug);
   if (rule) return { desc: rule.description, prereq: rule.prereq, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, special: rule.special, _rule: rule };
-
-  // Fallback to MERITS_DB
-  const db = MERITS_DB;
-  if (!db) return null;
-  const k = meritKey(s);
-  if (db[k]) return db[k];
-  const kb = meritKeyBase(s);
-  if (db[kb]) return db[kb];
   return null;
 }
 
@@ -273,19 +257,7 @@ export function buildMeritOptions(c, currentName) {
       qualified.push({ key: nameLow, label: rule.name });
     }
   } else {
-    // Fallback to MERITS_DB
-    const db = MERITS_DB;
-    if (!db) return '<option value="">— loading —</option>';
-    const excluded = new Set(['standing', 'invictus oath', 'style']);
-    for (const [key, entry] of Object.entries(db)) {
-      if (entry.special === 'standing') continue;
-      if (entry.type && excluded.has(entry.type.toLowerCase())) continue;
-      if (domainNames.has(key)) continue;
-      if (influenceNames.has(key)) continue;
-      if (!meritQualifies(c, entry.prereq || '')) continue;
-      const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      qualified.push({ key, label });
-    }
+    return '<option value="">— rules loading —</option>';
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();
@@ -330,21 +302,7 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
       qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
     }
   } else {
-    // Fallback to MERITS_DB
-    const db = MERITS_DB;
-    if (!db) return '<option value="">— loading —</option>';
-    for (const [key, entry] of Object.entries(db)) {
-      if (entry.special === 'standing') continue;
-      if (entry.type && ['style', 'invictus oath'].includes(entry.type.toLowerCase())) continue;
-      if (!meritQualifies(c, entry.prereq || '')) continue;
-      const rStr = entry.rating || '1';
-      const parts = rStr.split(/[–\-—]/);
-      const minR = parseInt(parts[0]) || 1;
-      if (parts.length > 1) { if (minR > maxR) continue; }
-      else { if (minR !== maxR) continue; }
-      const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      qualified.push({ key, label });
-    }
+    return '<option value="">— rules loading —</option>';
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();
@@ -378,19 +336,7 @@ export function buildFThiefOptions(currentName) {
       qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
     }
   } else {
-    // Fallback to MERITS_DB
-    const db = MERITS_DB;
-    if (!db) return '<option value="">— loading —</option>';
-    for (const [key, entry] of Object.entries(db)) {
-      if (entry.special === 'standing') continue;
-      const rStr = entry.rating || '1';
-      const parts = rStr.split(/[–\-—]/);
-      const minR = parseInt(parts[0]) || 1;
-      if (minR > 1) continue;
-      if (parts.length === 1 && minR !== 1) continue;
-      const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      qualified.push({ key, label });
-    }
+    return '<option value="">— rules loading —</option>';
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();

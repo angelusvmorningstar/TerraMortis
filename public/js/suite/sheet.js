@@ -8,7 +8,6 @@ import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   SORCERY_THEMES, RITUAL_DISCS, CORE_DISCS,
 } from './data.js';
-import { MAN_DB } from '../data/man-db-data.js';
 import { getRuleByKey } from '../data/loader.js';
 
 import {
@@ -445,7 +444,7 @@ export function renderSheet() {
       const rank = m.rating || 0;
       const slug = manName ? manName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : null;
       const rule = slug ? getRuleByKey(slug) : null;
-      const db = rule ? { style: rule.parent, rank: rule.rank, effect: rule.description, prereq: rule.prereq ? '(structured)' : null } : (manName ? MAN_DB[manName.toLowerCase()] : null);
+      const db = rule ? { style: rule.parent, rank: rule.rank, effect: rule.description, prereq: rule.prereq ? '(structured)' : null } : null;
       const id = 'man' + i;
       const body = db ? `<div class="man-exp-body">
         <div class="man-style">${db.style} \u2014 Rank ${db.rank}</div>

@@ -1,6 +1,6 @@
 /* Shared pool string parser — resolves discipline keys to dice pools */
 
-import { DISC, SORCERY_THEMES, RITUAL_DISCS } from '../suite/data.js';
+import { SORCERY_THEMES, RITUAL_DISCS } from '../suite/data.js';
 import { getAttrVal, skDots } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { getRuleByKey } from '../data/loader.js';
@@ -82,28 +82,5 @@ export function getPool(char, raw) {
     };
   }
 
-  // Fallback to DISC
-  const info = DISC[key];
-  if (!info) return null;
-  if (!info.a || !info.s) return { noRoll: true, info };
-  const attrV = getAttrVal(char, info.a);
-  const baseDots = skDots(char, info.s);
-  const ptBonus = (char._pt_dot4_bonus_skills instanceof Set && char._pt_dot4_bonus_skills.has(info.s)) ? 1 : 0;
-  const mciBonus = (char._mci_dot3_skills instanceof Set && char._mci_dot3_skills.has(info.s)) ? 1 : 0;
-  const skillV = baseDots + ptBonus + mciBonus;
-  const unskilled = (info.s && skillV === 0) ? unskilledPenalty(info.s) : 0;
-  const discV = info.d ? (char.disciplines ? char.disciplines[info.d] || 0 : 0) : 0;
-  return {
-    total: attrV + skillV + discV + unskilled,
-    attr: info.a, attrV,
-    skill: info.s, skillV, unskilled,
-    discName: info.d, discV,
-    resistance: info.r || null,
-    cost: info.c || null,
-    action: info.ac || null,
-    duration: info.du || null,
-    effect: info.ef || null,
-    isRitual: info.ac === 'Ritual',
-    info
-  };
+  return null;
 }
