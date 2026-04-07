@@ -165,3 +165,31 @@ Only 2 of 6 tasks were completed, and those partially. The dev correctly noted T
 ### Gate Status
 
 Gate: CONCERNS → specs/qa/gates/pp.4-migrate-character-editor.yml
+
+---
+
+### Re-audit Date: 2026-04-08
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full re-audit of all prior issues against current codebase.
+
+#### Issue Resolution
+
+| Issue | Prior Status | Current Status | Evidence |
+|-------|-------------|----------------|----------|
+| REQ-001 (high): MERITS_DB imports in editor | NOT MET | RESOLVED | Zero imports of merits-db-data.js in any editor file. |
+| REQ-002 (high): DEVOTIONS_DB imports in editor | NOT MET | RESOLVED | Zero imports of devotions-db.js in any editor file. |
+| REQ-003 (medium): Hardcoded exclusion Sets in buildMeritOptions | NOT MET | ACCEPTED | Still present (merits.js:244-255). Dev notes: rules DB has no field to distinguish merit subtypes. Structural limitation. |
+| MNT-001 (low): MAN_DB in sheet.js | OPEN | RESOLVED | MAN_DB import removed from editor/sheet.js. |
+
+#### AC Verification (Updated)
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC1-AC5, AC7 | PASS | All legacy imports removed, all callers migrated |
+| AC6: Category field filtering | ACCEPTED | Hardcoded Sets are a pragmatic solution given schema limitations |
+
+### Gate Status
+
+Gate: CONCERNS (low only) → specs/qa/gates/pp.4-migrate-character-editor.yml

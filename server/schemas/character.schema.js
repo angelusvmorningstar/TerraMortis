@@ -1,23 +1,28 @@
 /**
- * JSON Schema (Draft-07) for TM Character v2.
+ * JSON Schema (Draft-07) for TM Character v3.
  *
  * This schema enforces structural correctness — types, required fields,
  * enum values, and array/object shapes. It does NOT enforce business rules
- * such as XP arithmetic, CP budgets, merit prerequisites, or array-length
- * parity between merits and merit_creation. Those require a separate audit layer.
+ * such as XP arithmetic, CP budgets, or merit prerequisites.
+ * Those require a separate audit layer.
+ *
+ * v3 changes (PP.9): creation tracking is now inline on each object.
+ *   - attr_creation, skill_creation, disc_creation, merit_creation removed
+ *   - Attributes, skills, disciplines, merits each embed cp/xp/free + rule_key
+ *   - Powers and fighting styles gain rule_key
+ *   - Disciplines changed from integer to object { dots, cp, xp, free, rule_key }
  *
  * Known legacy fields still present in real data (not rejected, just tolerated):
- *   - merit_creation[].up  (old alias for free, from Excel import)
- *   - fighting_styles[].up (same)
+ *   - fighting_styles[].up (old alias for free, from Excel import)
  *   - merits[].benefit_grants (old MCI format, pre-migration)
  */
 
 export const characterSchema = {
   $schema: 'http://json-schema.org/draft-07/schema#',
-  title: 'TM Character v2',
+  title: 'TM Character v3',
   type: 'object',
   required: ['name'],
-  additionalProperties: true,
+  additionalProperties: false,
 
   properties: {
 
@@ -116,7 +121,7 @@ export const characterSchema = {
       additionalProperties: false
     },
 
-    // ── Attribute creation & priorities ──────────────────────
+    // ── Attribute priorities ─────────────────────────────────
     attribute_priorities: {
       type: 'object',
       properties: {
@@ -125,10 +130,6 @@ export const characterSchema = {
         Social:   { type: 'string', enum: ['Primary', 'Secondary', 'Tertiary'] }
       },
       additionalProperties: false
-    },
-    attr_creation: {
-      type: 'object',
-      additionalProperties: { $ref: '#/definitions/creationPts' }
     },
 
     // ── Skills ────────────────────────────────────────────────
@@ -147,19 +148,12 @@ export const characterSchema = {
       },
       additionalProperties: false
     },
-    skill_creation: {
-      type: 'object',
-      additionalProperties: { $ref: '#/definitions/creationPts' }
-    },
 
     // ── Disciplines ───────────────────────────────────────────
+    // v3: each discipline is now { dots, cp, xp, free, rule_key } instead of integer
     disciplines: {
       type: 'object',
-      additionalProperties: { type: 'integer', minimum: 0, maximum: 5 }
-    },
-    disc_creation: {
-      type: 'object',
-      additionalProperties: { $ref: '#/definitions/creationPts' }
+      additionalProperties: { $ref: '#/definitions/discObj' }
     },
 
     // ── Powers ────────────────────────────────────────────────
@@ -172,12 +166,6 @@ export const characterSchema = {
     merits: {
       type: 'array',
       items: { $ref: '#/definitions/merit' }
-    },
-
-    // Parallel array to merits — same length required (not enforceable in JSON Schema).
-    merit_creation: {
-      type: 'array',
-      items: { $ref: '#/definitions/meritCreation' }
     },
 
     // ── Fighting styles & picks ───────────────────────────────
@@ -261,8 +249,12 @@ export const characterSchema = {
       type: 'object',
       required: ['dots', 'bonus'],
       properties: {
-        dots:  { type: 'integer', minimum: 0, maximum: 10 },
-        bonus: { type: 'integer', minimum: 0 }
+        dots:     { type: 'integer', minimum: 0, maximum: 10 },
+        bonus:    { type: 'integer', minimum: 0 },
+        cp:       { type: 'integer', minimum: 0 },
+        xp:       { type: 'integer', minimum: 0 },
+        free:     { type: 'integer', minimum: 0 },
+        rule_key: { type: ['string', 'null'] }
       },
       additionalProperties: false
     },
@@ -274,18 +266,24 @@ export const characterSchema = {
         dots:       { type: 'integer', minimum: 0, maximum: 5 },
         bonus:      { type: 'integer', minimum: 0 },
         specs:      { type: 'array',   items: { type: 'string' } },
-        nine_again: { type: 'boolean' }
+        nine_again: { type: 'boolean' },
+        cp:         { type: 'integer', minimum: 0 },
+        xp:         { type: 'integer', minimum: 0 },
+        free:       { type: 'integer', minimum: 0 },
+        rule_key:   { type: ['string', 'null'] }
       },
       additionalProperties: false
     },
 
-    // Shared creation-points object used for attrs, skills, discs.
-    creationPts: {
+    discObj: {
       type: 'object',
+      required: ['dots'],
       properties: {
-        cp:   { type: 'integer', minimum: 0 },
-        xp:   { type: 'integer', minimum: 0 },
-        free: { type: 'integer', minimum: 0 }
+        dots:     { type: 'integer', minimum: 0, maximum: 5 },
+        cp:       { type: 'integer', minimum: 0 },
+        xp:       { type: 'integer', minimum: 0 },
+        free:     { type: 'integer', minimum: 0 },
+        rule_key: { type: ['string', 'null'] }
       },
       additionalProperties: false
     },
@@ -317,14 +315,8 @@ export const characterSchema = {
         dot5_text:     { type: 'string' },
         // Legacy MCI format — tolerated but not required
         benefits:      { type: 'array' },
-        benefit_grants:{ type: 'array' }
-      },
-      additionalProperties: true
-    },
-
-    meritCreation: {
-      type: 'object',
-      properties: {
+        benefit_grants:{ type: 'array' },
+        // v3: inline creation tracking (formerly in merit_creation parallel array)
         cp:       { type: 'integer', minimum: 0 },
         xp:       { type: 'integer', minimum: 0 },
         free:     { type: 'integer', minimum: 0 },
@@ -335,8 +327,7 @@ export const characterSchema = {
         free_inv: { type: 'integer', minimum: 0 },
         free_pt:  { type: 'integer', minimum: 0 },
         free_mdb: { type: 'integer', minimum: 0 },
-        // Legacy field from Excel import — tolerated
-        up:       { type: 'integer', minimum: 0 }
+        rule_key: { type: ['string', 'null'] }
       },
       additionalProperties: false
     },
@@ -362,7 +353,9 @@ export const characterSchema = {
         ohm_skills:        { type: 'array', items: { type: 'string' }, maxItems: 2 },
         ohm_allies_sphere: { type: ['string', 'null'] },
         partner:           { type: ['string', 'null'] },
-        shared_merit:      { type: ['string', 'null'] }
+        shared_merit:      { type: ['string', 'null'] },
+        // v3: reference to purchasable_powers key
+        rule_key:          { type: ['string', 'null'] }
       },
       additionalProperties: false
     },
@@ -380,7 +373,9 @@ export const characterSchema = {
         // Legacy field from Excel import — tolerated
         up:        { type: 'integer', minimum: 0 },
         // Legacy per-style picks — tolerated during migration to fighting_picks
-        picks:     { type: 'array', items: { type: 'string' } }
+        picks:     { type: 'array', items: { type: 'string' } },
+        // v3: reference to purchasable_powers key
+        rule_key:  { type: ['string', 'null'] }
       },
       additionalProperties: false
     }

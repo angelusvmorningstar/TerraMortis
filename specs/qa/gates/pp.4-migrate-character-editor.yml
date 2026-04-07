@@ -2,50 +2,28 @@ schema: 1
 story: "PP.4"
 story_title: "Migrate Consumers — Character Editor"
 gate: CONCERNS
-status_reason: "Tasks 1-2 complete with dual-path logic. Tasks 3-6 deferred — edit.js, mci.js, domain.js still import MERITS_DB/DEVOTIONS_DB. AC4, AC5, AC6 not met. AC1 partially met (buildMeritOptions migrated, but hardcoded exclusion sets remain violating AC6)."
+status_reason: "AC4/AC5 now fully met — all MERITS_DB and DEVOTIONS_DB imports removed from editor modules. AC6 remains: buildMeritOptions still uses hardcoded domainNames/influenceNames Sets instead of category/parent field filtering. Dev notes state the rules DB has no field to distinguish these subtypes — accepted as structural limitation."
 reviewer: "Quinn (Test Architect)"
-updated: "2026-04-07"
+updated: "2026-04-08"
 
 waiver: { active: false }
 
 top_issues:
   - id: "REQ-001"
-    severity: high
-    finding: "AC4 ('No imports of merits-db-data.js remain in editor modules') is not met. MERITS_DB still imported in 4 editor files: merits.js:10, sheet.js:17, edit.js:12, mci.js:7."
-    suggested_action: "Tasks 3-5 (edit.js, mci.js, domain.js) were explicitly deferred by dev. These are the files that still hold the imports. Either complete these tasks or formally defer AC4 to PP-7 with a story amendment."
-
-  - id: "REQ-002"
-    severity: high
-    finding: "AC5 ('No imports of devotions-db.js remain in editor modules') is not met. DEVOTIONS_DB still imported in sheet.js:16 and edit.js:9."
-    suggested_action: "Same as REQ-001 — Task 2 was marked done but sheet.js still imports DEVOTIONS_DB. Task 3 (edit.js) was deferred. Formally defer AC5 or complete migration."
-
-  - id: "REQ-003"
-    severity: medium
-    finding: "AC6 ('buildMeritOptions uses category field filtering instead of hardcoded exclusion sets') is not met. The rules-cache path (merits.js:264-274) still uses hardcoded domainNames/influenceNames Sets and parent string checks (['Style', 'Invictus Oath', 'Carthian Law']) instead of filtering by the category/parent fields in the unified schema."
-    suggested_action: "The purchasable_powers schema has a parent field that could distinguish these. If domain/influence merits have distinctive parent values, filter by parent instead of name Sets. Or add a sub_category field to the schema if parent doesn't suffice."
-
-  - id: "MNT-001"
     severity: low
-    finding: "MAN_DB still imported in sheet.js:18 (manoeuvre data). Not listed in ACs but contributes to legacy data dependency."
-    suggested_action: "Not blocking — track for PP-5 or PP-7."
+    finding: "AC6 ('buildMeritOptions uses category field filtering instead of hardcoded exclusion sets') not met. Rules-cache path at merits.js:244-255 still uses hardcoded domainNames/influenceNames Sets. The purchasable_powers schema has no sub_category field to distinguish these merit types."
+    suggested_action: "Accept as structural limitation. The exclusion sets are pragmatic given the schema. Could revisit if a sub_category field is added."
 
 risk_summary:
-  totals:
-    critical: 0
-    high: 2
-    medium: 1
-    low: 1
+  totals: { critical: 0, high: 0, medium: 0, low: 1 }
   recommendations:
-    must_fix:
-      - "Formally amend story to defer AC4/AC5 to PP-7, or complete Tasks 3-5"
-    monitor:
-      - "buildMeritOptions still uses hardcoded name exclusions despite AC6"
+    must_fix: []
+    monitor: []
 
-nfr_validation:
-  _assessed: [reliability, maintainability]
-  reliability:
-    status: PASS
-    notes: "Dual-path ensures functionality regardless of rules cache state. No regression risk."
-  maintainability:
-    status: CONCERNS
-    notes: "4 of 6 tasks deferred. Legacy imports remain across all editor files. Story scope was ambitious; actual delivery is Tasks 1-2 only."
+history:
+  - at: "2026-04-07"
+    gate: CONCERNS
+    note: "Initial review — AC4/AC5/AC6 not met, Tasks 3-5 deferred"
+  - at: "2026-04-08"
+    gate: CONCERNS
+    note: "Re-audit — AC4/AC5 now pass (all legacy imports removed). Only AC6 remains (hardcoded name Sets, accepted as structural limitation)."

@@ -181,3 +181,28 @@ The work done (suite duplicates deleted, json_data_from_js deleted, re-exports c
 ### Gate Status
 
 Gate: FAIL → specs/qa/gates/pp.7-remove-legacy-data.yml
+
+---
+
+### Re-audit Date: 2026-04-08
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full re-audit — checking file deletions and import removal.
+
+#### Issue Resolution
+
+| Issue | Prior Status | Current Status | Evidence |
+|-------|-------------|----------------|----------|
+| REQ-001 (high): data/merits-db-data.js exists | NOT MET | RESOLVED | File deleted. Zero imports remain. |
+| REQ-002 (high): data/devotions-db.js exists | NOT MET | RESOLVED | File deleted. Zero imports remain. |
+| REQ-003 (high): data/man-db-data.js exists | NOT MET | RESOLVED | File deleted. Zero imports remain. |
+| REQ-004 (high): 13 imports remain | NOT MET | RESOLVED | Zero references to any deleted file across entire public/js tree. |
+| REQ-005 (medium): suite/disc-data.js exists | NOT MET | RESOLVED | File deleted. Re-export removed from suite/data.js. |
+| REQ-006 (medium): NFR-15 not updated | NOT MET | N/A | No NFR-15 exists in specs/epics.md. Reference was from an earlier draft. |
+
+AC1-6 all pass. AC7 is N/A.
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.7-remove-legacy-data.yml

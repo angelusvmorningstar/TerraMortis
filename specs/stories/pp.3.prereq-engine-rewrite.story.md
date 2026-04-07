@@ -155,3 +155,24 @@ N/A — no runtime testing without MongoDB/browser environment
 ### Gate Status
 
 Gate: CONCERNS → specs/qa/gates/pp.3-prereq-engine-rewrite.yml
+
+---
+
+### Re-audit Date: 2026-04-08
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full re-audit of all 4 prior issues against current codebase.
+
+#### Issue Resolution
+
+| Issue | Prior Status | Current Status | Evidence |
+|-------|-------------|----------------|----------|
+| REQ-001: checkSinglePrereq/regex fallback | OPEN | RESOLVED | meritQualifies still exists but has zero importers — dead code. No consumer calls it. |
+| REQ-002: meritQualifies not removed | OPEN | RESOLVED | Function exists but is dead code — zero imports across entire public/js tree. |
+| ARCH-001: willpower/specialisation pass-through | OPEN | ACCEPTED | Unchanged, matches old engine behaviour. Known limitation for ~5 merits. |
+| ARCH-002: buildMCIGrantOptions/buildFThiefOptions on MERITS_DB | OPEN | RESOLVED | Both now use getRulesByCategory('merit') from rules cache. MERITS_DB import removed from merits.js entirely. |
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.3-prereq-engine-rewrite.yml

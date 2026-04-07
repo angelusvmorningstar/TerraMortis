@@ -1,0 +1,54 @@
+schema: 1
+story: "PP.9"
+story_title: "Schema v3 — Inline Creation Tracking"
+gate: CONCERNS
+status_reason: "Schema transformation and migration script are solid. All object types correctly migrated. Two issues: AC11 not met (additionalProperties: true means old fields are tolerated, not rejected), and migration validated against only 2 characters (not the full 31)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-08"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "REQ-001"
+    severity: medium
+    finding: "AC11 ('Updated character.schema.js rejects documents with old parallel fields') not met. Top-level additionalProperties is true (line 25), so a document containing attr_creation/skill_creation/disc_creation/merit_creation would pass validation. The migration script correctly removes these fields, but the schema doesn't enforce their absence."
+    suggested_action: "Either set additionalProperties: false (may break if other undeclared fields exist on documents), or add explicit 'not' constraints for the 4 old fields, or accept this as a known gap and rely on the migration having removed them."
+
+  - id: "REQ-002"
+    severity: medium
+    finding: "AC12 ('All 31 characters pass validation after migration') partially met. Dev notes state tm_suite_dev has only 2 characters. The migration was validated against 2, not the full 31. The production dataset (tm_suite) was not migrated."
+    suggested_action: "Re-seed tm_suite_dev with the full 31-character dataset from data/chars_v2.json (via migrate.js), then run migrate-schema-v3.js to validate all 31."
+
+  - id: "ARCH-001"
+    severity: low
+    finding: "Merit definition has additionalProperties: true (line 332). This means any extra field on a merit object passes validation. Most other definitions use false. Inconsistent and allows data creep."
+    suggested_action: "Set to false once all known merit fields are enumerated. Current list appears comprehensive but verify against actual data."
+
+  - id: "ARCH-002"
+    severity: low
+    finding: "Rite XP calculation (migration line 163) uses a simplified formula: 1 for level 1-3, 2 for level 4-5. This may not match the actual VtR 2e rite XP costs. Verify against the rulebook."
+    suggested_action: "Confirm rite XP formula with the ST. If correct, document the formula. If not, adjust."
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 0
+    medium: 2
+    low: 2
+  recommendations:
+    must_fix:
+      - "Validate migration against full 31-character dataset before production deployment"
+    monitor:
+      - "additionalProperties: true at top level means old fields aren't actively rejected"
+
+nfr_validation:
+  _assessed: [security, reliability, maintainability]
+  security:
+    status: PASS
+    notes: "Migration uses transactions (all-or-nothing). Schema validation before write. --dry-run flag available."
+  reliability:
+    status: PASS
+    notes: "Idempotent (skips already-migrated docs). Handles missing/short merit_creation arrays. Transaction rollback on failure."
+  maintainability:
+    status: PASS
+    notes: "Clean migration script with clear logging. Schema definitions well-structured with v3 comments. Old parallel fields removed from schema definitions."

@@ -84,26 +84,44 @@ export function meritByCategory(c, category, filteredIdx) {
   return { merit: m, realIdx: c.merits.indexOf(m) };
 }
 
-/** Ensure merit_creation array is synced with merits array length. */
+/** Ensure every merit has inline creation fields (v3). */
 export function ensureMeritSync(c) {
   if (!c.merits) c.merits = [];
-  if (!c.merit_creation) c.merit_creation = [];
-  while (c.merit_creation.length < c.merits.length) c.merit_creation.push({ cp: 0, free: 0, free_mci: 0, free_vm: 0, xp: 0 });
-  if (c.merit_creation.length > c.merits.length) c.merit_creation.length = c.merits.length;
+  for (const m of c.merits) {
+    if (m.cp === undefined) m.cp = 0;
+    if (m.xp === undefined) m.xp = 0;
+    if (m.free === undefined) m.free = 0;
+    if (m.free_mci === undefined) m.free_mci = 0;
+    if (m.free_vm === undefined) m.free_vm = 0;
+    if (m.free_lk === undefined) m.free_lk = 0;
+    if (m.free_ohm === undefined) m.free_ohm = 0;
+    if (m.free_inv === undefined) m.free_inv = 0;
+    if (m.free_pt === undefined) m.free_pt = 0;
+    if (m.free_mdb === undefined) m.free_mdb = 0;
+  }
 }
 
-/** Append a merit and sync creation records. */
+/** Append a merit with inline creation defaults. */
 export function addMerit(c, merit) {
   if (!c.merits) c.merits = [];
+  if (merit.cp === undefined) merit.cp = 0;
+  if (merit.xp === undefined) merit.xp = 0;
+  if (merit.free === undefined) merit.free = 0;
+  if (merit.free_mci === undefined) merit.free_mci = 0;
+  if (merit.free_vm === undefined) merit.free_vm = 0;
+  if (merit.free_lk === undefined) merit.free_lk = 0;
+  if (merit.free_ohm === undefined) merit.free_ohm = 0;
+  if (merit.free_inv === undefined) merit.free_inv = 0;
+  if (merit.free_pt === undefined) merit.free_pt = 0;
+  if (merit.free_mdb === undefined) merit.free_mdb = 0;
+  if (merit.rule_key === undefined) merit.rule_key = null;
   c.merits.push(merit);
-  ensureMeritSync(c);
 }
 
-/** Remove a merit by real index, splicing both arrays. */
+/** Remove a merit by real index. */
 export function removeMerit(c, realIdx) {
   if (realIdx < 0 || realIdx >= c.merits.length) return;
   c.merits.splice(realIdx, 1);
-  if (c.merit_creation && realIdx < c.merit_creation.length) c.merit_creation.splice(realIdx, 1);
 }
 
 /* ══════════════════════════════════════════════════════
@@ -123,7 +141,7 @@ function _getSkillDots(c, name) {
 function _getDiscDots(c, name) {
   const n = name.toLowerCase();
   const k = Object.keys(c.disciplines || {}).find(d => d.toLowerCase() === n);
-  return k ? (c.disciplines[k] || 0) : 0;
+  return k ? (c.disciplines[k]?.dots || 0) : 0;
 }
 
 function _getMeritRating(c, name) {
@@ -241,18 +259,13 @@ export function meritQualifies(c, prereqStr, structuredPrereq) {
 export function buildMeritOptions(c, currentName) {
   // Try rules cache first
   const rulesDB = getRulesByCategory('merit');
-  const domainNames = new Set(['safe place', 'haven', 'feeding grounds', 'herd', 'mandragora garden']);
-  const influenceNames = new Set(['allies', 'contacts', 'mentor', 'resources', 'retainer', 'staff', 'status']);
   const qualified = [];
 
   if (rulesDB.length) {
     // Rules cache available — use structured data
     for (const rule of rulesDB) {
-      if (rule.special === 'standing') continue;
+      if (rule.sub_category !== 'general') continue;
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
-      const nameLow = rule.name.toLowerCase();
-      if (domainNames.has(nameLow)) continue;
-      if (influenceNames.has(nameLow)) continue;
       if (!_meetsPrereq(c, rule.prereq)) continue;
       qualified.push({ key: nameLow, label: rule.name });
     }
@@ -395,9 +408,9 @@ export function meetsDevPrereqs(c, dev) {
   const discs = c.disciplines || {};
   if (!dev.p || !dev.p.length) return true;
   if (dev.or) {
-    return dev.p.some(p => (discs[p.disc] || 0) >= p.dots);
+    return dev.p.some(p => (discs[p.disc]?.dots || 0) >= p.dots);
   }
-  return dev.p.every(p => (discs[p.disc] || 0) >= p.dots);
+  return dev.p.every(p => (discs[p.disc]?.dots || 0) >= p.dots);
 }
 
 /** Format a devotion's prerequisite list as a human-readable string. */

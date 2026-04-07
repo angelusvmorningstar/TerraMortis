@@ -178,3 +178,19 @@ Only AC5 remains unmet (import removal). Consistent with the PP-3/4/5 deferral p
 ### Gate Status
 
 Gate: CONCERNS → specs/qa/gates/pp.6-migrate-downtime-player.yml
+
+---
+
+### Re-audit Date: 2026-04-08
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full re-audit — checking if legacy imports were removed.
+
+All legacy imports removed from player modules. Zero references to devotions-db.js or merits-db-data.js in downtime-form.js, wizard.js, xp-log-tab.js, or feeding-tab.js. AC5 now passes.
+
+All 8 ACs pass.
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.6-migrate-downtime-player.yml

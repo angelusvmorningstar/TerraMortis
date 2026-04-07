@@ -65,6 +65,17 @@ const constants = load('constants.json');
 
 // ── Transform functions ──
 
+// Merit sub-category mapping — intrinsic to the merit, not the character instance
+const DOMAIN_MERITS = new Set(['safe place', 'haven', 'feeding grounds', 'herd', 'mandragora garden']);
+const INFLUENCE_MERITS = new Set(['allies', 'contacts', 'mentor', 'resources', 'retainer', 'staff', 'status']);
+
+function meritSubCategory(key, entry) {
+  if (entry.special === 'standing') return 'standing';
+  if (DOMAIN_MERITS.has(key)) return 'domain';
+  if (INFLUENCE_MERITS.has(key)) return 'influence';
+  return 'general';
+}
+
 function transformMerits() {
   const docs = [];
   for (const [key, entry] of Object.entries(meritsDB)) {
@@ -72,6 +83,7 @@ function transformMerits() {
       key: makeKey('merit', key),
       name: key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
       category: 'merit',
+      sub_category: meritSubCategory(key, entry),
       parent: entry.type || null,
       rank: null,
       rating_range: parseRatingRange(entry.rating),

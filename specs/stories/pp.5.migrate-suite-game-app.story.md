@@ -170,3 +170,25 @@ N/A — no runtime testing without browser environment
 ### Gate Status
 
 Gate: CONCERNS → specs/qa/gates/pp.5-migrate-suite-game-app.yml
+
+---
+
+### Re-audit Date: 2026-04-08
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full re-audit of all prior issues against current codebase.
+
+#### Issue Resolution
+
+| Issue | Prior Status | Current Status | Evidence |
+|-------|-------------|----------------|----------|
+| REQ-001 (high): 3 suite data files not deleted | NOT MET | RESOLVED | disc-data.js, merits-db-data.js, man-db-data.js all deleted from suite/ |
+| REQ-002 (high): DISC/MERITS_DB/MAN_DB re-exports in data.js | NOT MET | RESOLVED | Re-exports removed. Only local constants remain. |
+| REQ-003 (high): Legacy imports in suite/shared modules | NOT MET | RESOLVED | Zero imports of DISC/MAN_DB/MERITS_DB in pools.js, dice-engine.js, sheet.js, sheet-helpers.js |
+
+All 7 ACs now pass (AC2 remains N/A — static content).
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.5-migrate-suite-game-app.yml

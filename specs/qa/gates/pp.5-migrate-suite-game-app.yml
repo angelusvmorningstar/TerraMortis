@@ -1,51 +1,24 @@
 schema: 1
 story: "PP.5"
 story_title: "Migrate Consumers — Suite and Game App"
-gate: CONCERNS
-status_reason: "Tasks 1-4 complete with dual-path logic. Tasks 5-7 deferred — data files not deleted, re-exports retained, legacy imports remain. AC4/AC5/AC6 not met. AC2 is N/A (game/rules.js is static hand-written content, not data-driven)."
+gate: PASS
+status_reason: "All ACs met. Suite data files deleted, re-exports removed, all consumer imports cleaned. DISC/MAN_DB/MERITS_DB fully eliminated from suite/shared/game modules."
 reviewer: "Quinn (Test Architect)"
-updated: "2026-04-07"
+updated: "2026-04-08"
 
 waiver: { active: false }
-
-top_issues:
-  - id: "REQ-001"
-    severity: high
-    finding: "AC4 ('suite/disc-data.js, suite/merits-db-data.js, suite/man-db-data.js are deleted') not met. All 3 files still exist. Task 6 explicitly deferred to PP-7."
-    suggested_action: "Formally defer AC4 to PP-7 via story amendment. Files retained as fallback until all consumers verified."
-
-  - id: "REQ-002"
-    severity: high
-    finding: "AC5 ('DISC re-export from suite/data.js is removed') not met. suite/data.js:4 still has `export { DISC } from './disc-data.js'`, plus MERITS_DB (line 7) and MAN_DB (line 8) re-exports. Task 5 deferred."
-    suggested_action: "Same as REQ-001 — defer to PP-7."
-
-  - id: "REQ-003"
-    severity: high
-    finding: "AC6 ('No imports of DISC, MAN_DB, or MERITS_DB remain in suite/game/shared modules') not met. pools.js:3 imports DISC, dice-engine.js:9 imports DISC, sheet.js:10 imports MAN_DB, sheet-helpers.js:7 imports MERITS_DB."
-    suggested_action: "Same deferral — legacy imports retained as fallback."
-
-  - id: "REQ-004"
-    severity: low
-    finding: "AC2 ('Game app rules quick-reference reads from rules cache') is structurally N/A. game/rules.js contains a hand-written static RULES array of general game mechanics (roll rules, frenzy, vitae, etc.) — not data-driven. It doesn't import DISC/MERITS_DB/MAN_DB and never did. The AC appears to have been written under a false assumption about what this file does."
-    suggested_action: "Mark AC2 as N/A. The rules quick-reference is a static reference guide, not a data consumer."
+top_issues: []
 
 risk_summary:
-  totals:
-    critical: 0
-    high: 3
-    medium: 0
-    low: 1
+  totals: { critical: 0, high: 0, medium: 0, low: 0 }
   recommendations:
-    must_fix:
-      - "Formally amend story to defer AC4/AC5/AC6 to PP-7"
-    monitor:
-      - "Dual-path fallbacks must not become permanent — track removal in PP-7"
+    must_fix: []
+    monitor: []
 
-nfr_validation:
-  _assessed: [reliability, maintainability]
-  reliability:
-    status: PASS
-    notes: "Dual-path design ensures all pool calculations, power lookups, and merit rendering work regardless of rules cache state. getPool() slug lookup correctly tries rite-/devotion- prefixes for collision-prefixed keys."
-  maintainability:
-    status: CONCERNS
-    notes: "3 of 7 tasks deferred. Legacy data files and imports remain across all suite/shared modules. Same transitional debt pattern as PP-3 and PP-4."
+history:
+  - at: "2026-04-07"
+    gate: CONCERNS
+    note: "Initial review — AC4/5/6 not met, file deletion and import removal deferred"
+  - at: "2026-04-08"
+    gate: PASS
+    note: "Re-audit — all 3 suite data files deleted, re-exports removed from data.js, zero legacy imports remain."
