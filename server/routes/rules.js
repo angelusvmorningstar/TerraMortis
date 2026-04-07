@@ -7,13 +7,38 @@ import { purchasablePowerSchema } from '../schemas/purchasable_power.schema.js';
 const router = Router();
 const col = () => getCollection('purchasable_powers');
 
-// GET /api/rules — full collection, optional ?category= filter
-// Sorted by category then name. Any authenticated user.
+// GET /api/rules — browse rules with optional filtering, search, and pagination.
+// Without ?page: returns flat array (backwards compatible for loadRulesFromApi).
+// With ?page: returns { data, total, page, pages } envelope.
+// Optional: ?category=merit, ?q=search_text, ?limit=50 (default 50, max 100).
 router.get('/', async (req, res) => {
   const filter = {};
   if (req.query.category) filter.category = req.query.category;
-  const docs = await col().find(filter).sort({ category: 1, name: 1 }).toArray();
-  res.json(docs);
+  if (req.query.q) {
+    const q = req.query.q;
+    filter.$or = [
+      { name: { $regex: q, $options: 'i' } },
+      { description: { $regex: q, $options: 'i' } },
+    ];
+  }
+
+  // Non-paginated path — backwards compatible flat array
+  if (!req.query.page) {
+    const docs = await col().find(filter).sort({ category: 1, name: 1 }).toArray();
+    return res.json(docs);
+  }
+
+  // Paginated path
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const total = await col().countDocuments(filter);
+  const pages = Math.ceil(total / limit) || 1;
+  const data = await col().find(filter)
+    .sort({ category: 1, name: 1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .toArray();
+  res.json({ data, total, page, pages });
 });
 
 // GET /api/rules/:key — single power by slug key

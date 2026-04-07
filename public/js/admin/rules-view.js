@@ -1,285 +1,421 @@
 /**
- * Rules domain — browse, search, filter, and edit purchasable powers.
- * ST-only admin panel for managing the unified rules database.
+ * Rules domain — paginated table with modal edit/add for purchasable powers.
+ * ST-only admin panel for managing the unified rules database (620+ entries).
  */
 
-import { apiGet, apiPut } from '../data/api.js';
+import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { esc } from '../data/helpers.js';
 import { invalidateRulesCache } from '../data/loader.js';
 import { prereqLabel } from '../data/prereq.js';
 
-let allRules = [];
-let filteredRules = [];
+// ── State ──
+
+let _container = null;
 let activeCategory = '';
 let searchQuery = '';
-let expandedKey = null;
+let currentPage = 1;
+let totalPages = 1;
+let totalCount = 0;
+let pageSize = parseInt(localStorage.getItem('tm_rules_page_size'), 10) || 50;
+let _debounceTimer = null;
 
 const CATEGORIES = ['', 'attribute', 'skill', 'discipline', 'merit', 'devotion', 'rite', 'manoeuvre'];
-const CAT_LABELS = { '': 'All', attribute: 'Attributes', skill: 'Skills', discipline: 'Disciplines', merit: 'Merits', devotion: 'Devotions', rite: 'Rites', manoeuvre: 'Manoeuvres' };
+const CAT_LABELS = { '': 'All', attribute: 'Attr', skill: 'Skill', discipline: 'Disc', merit: 'Merit', devotion: 'Devot', rite: 'Rite', manoeuvre: 'Man' };
+const CATEGORY_ENUM = ['attribute', 'skill', 'discipline', 'merit', 'devotion', 'rite', 'manoeuvre'];
+
+// ── Init ──
 
 export async function initRulesView(container) {
   if (!container) return;
-  container.innerHTML = '<p class="placeholder-msg">Loading rules...</p>';
+  _container = container;
+  container.innerHTML = '<p class="placeholder-msg">Loading rules\u2026</p>';
+  await fetchAndRender();
+  wireEvents();
+}
 
+// ── Data fetching ──
+
+async function fetchPage() {
+  const params = new URLSearchParams();
+  params.set('page', currentPage);
+  params.set('limit', pageSize);
+  if (activeCategory) params.set('category', activeCategory);
+  if (searchQuery) params.set('q', searchQuery);
+  return apiGet(`/api/rules?${params}`);
+}
+
+async function fetchAndRender() {
   try {
-    allRules = await apiGet('/api/rules');
+    const res = await fetchPage();
+    totalCount = res.total;
+    totalPages = res.pages;
+    currentPage = res.page;
+    render(res.data);
   } catch (err) {
-    container.innerHTML = `<p class="placeholder-msg">Failed to load rules: ${esc(err.message)}</p>`;
-    return;
-  }
-
-  // Update count badge
-  const badge = document.getElementById('rules-count');
-  if (badge) badge.textContent = allRules.length;
-
-  applyFilters();
-  render(container);
-  wireEvents(container);
-}
-
-function applyFilters() {
-  filteredRules = allRules;
-  if (activeCategory) filteredRules = filteredRules.filter(r => r.category === activeCategory);
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    filteredRules = filteredRules.filter(r =>
-      r.name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q)
-    );
+    _container.innerHTML = `<p class="placeholder-msg">Failed to load rules: ${esc(err.message)}</p>`;
   }
 }
 
-function render(container) {
+// ── Render ──
+
+function ratingDisplay(rule) {
+  if (rule.rating_range) return `${rule.rating_range[0]}\u2013${rule.rating_range[1]}`;
+  if (rule.rank) return `Rank ${rule.rank}`;
+  if (rule.xp_fixed != null) return `${rule.xp_fixed} XP`;
+  return '';
+}
+
+function truncate(str, max) {
+  if (!str || str.length <= max) return str || '';
+  return str.slice(0, max) + '\u2026';
+}
+
+function render(data) {
   let h = '';
 
-  // Category filter pills
+  // ── Toolbar: categories + search + Add button ──
   h += '<div class="rules-filters">';
   for (const cat of CATEGORIES) {
     const active = cat === activeCategory ? ' rules-cat-active' : '';
-    const count = cat ? allRules.filter(r => r.category === cat).length : allRules.length;
-    h += `<button class="rules-cat-btn${active}" data-rules-cat="${cat}">${esc(CAT_LABELS[cat])} <span class="rules-cat-count">${count}</span></button>`;
+    h += `<button class="rules-cat-btn${active}" data-rules-cat="${cat}">${esc(CAT_LABELS[cat])}</button>`;
   }
   h += '</div>';
 
-  // Search
   h += '<div class="rules-search-row">';
+  h += '<div class="rules-search-wrap">';
   h += `<input type="text" class="rules-search" id="rules-search" placeholder="Search by name or description\u2026" value="${esc(searchQuery)}">`;
-  h += `<span class="rules-result-count">${filteredRules.length} / ${allRules.length}</span>`;
+  if (searchQuery) h += '<button class="rules-search-clear" id="rules-search-clear" title="Clear search">\u2715</button>';
+  h += '</div>';
+  h += `<span class="rules-result-count">${totalCount} result${totalCount === 1 ? '' : 's'}</span>`;
+  h += '<button class="dt-btn rules-add-btn" id="rules-add-btn">+ Add Rule</button>';
   h += '</div>';
 
-  // Table
-  h += '<div class="rules-table">';
-  for (const rule of filteredRules) {
-    const isExpanded = rule.key === expandedKey;
-    const prereqStr = rule.prereq ? prereqLabel(rule.prereq) : '';
-    const ratingStr = rule.rating_range ? `${rule.rating_range[0]}\u2013${rule.rating_range[1]}` : (rule.rank ? `Rank ${rule.rank}` : '');
-
-    h += `<div class="rules-row${isExpanded ? ' rules-row-expanded' : ''}" data-rules-key="${esc(rule.key)}">`;
-    h += '<div class="rules-row-header" data-rules-toggle>';
-    h += `<span class="rules-name">${esc(rule.name)}</span>`;
-    h += `<span class="rules-cat-tag">${esc(rule.category)}</span>`;
-    if (rule.parent) h += `<span class="rules-parent">${esc(rule.parent)}</span>`;
-    if (ratingStr) h += `<span class="rules-rating">${ratingStr}</span>`;
-    if (prereqStr) h += `<span class="rules-prereq">${esc(prereqStr)}</span>`;
-    h += '</div>';
-
-    if (isExpanded) {
-      h += renderEditPanel(rule);
-    }
-    h += '</div>';
+  // ── Table ──
+  h += '<div class="rules-tbl-wrap"><table class="rules-tbl"><thead><tr>';
+  h += '<th>Name</th><th>Category</th><th>Parent</th><th>Rating</th><th>Prereqs</th><th></th>';
+  h += '</tr></thead><tbody>';
+  for (const rule of data) {
+    const pq = rule.prereq ? truncate(prereqLabel(rule.prereq), 40) : '';
+    h += '<tr>';
+    h += `<td class="rules-td-name">${esc(rule.name)}</td>`;
+    h += `<td><span class="rules-cat-tag">${esc(rule.category)}</span></td>`;
+    h += `<td class="rules-td-dim">${esc(rule.parent || '')}</td>`;
+    h += `<td class="rules-td-dim">${ratingDisplay(rule)}</td>`;
+    h += `<td class="rules-td-prereq" title="${esc(rule.prereq ? prereqLabel(rule.prereq) : '')}">${esc(pq)}</td>`;
+    h += `<td><button class="rules-edit-btn" data-edit-key="${esc(rule.key)}" title="Edit">&#9998;</button></td>`;
+    h += '</tr>';
   }
-  if (!filteredRules.length) {
-    h += '<p class="placeholder-msg">No rules match your search.</p>';
+  if (!data.length) {
+    h += '<tr><td colspan="6" class="rules-td-empty">No rules match your filters.</td></tr>';
   }
+  h += '</tbody></table></div>';
+
+  // ── Pagination ──
+  h += '<div class="rules-pag">';
+  h += `<button class="rules-pag-btn" id="rules-prev"${currentPage <= 1 ? ' disabled' : ''}>\u25C0 Prev</button>`;
+  h += `<span class="rules-pag-info">Page ${currentPage} of ${totalPages}</span>`;
+  h += `<button class="rules-pag-btn" id="rules-next"${currentPage >= totalPages ? ' disabled' : ''}>Next \u25B6</button>`;
+  h += '<select class="rules-pag-size" id="rules-page-size">';
+  for (const sz of [25, 50, 100]) {
+    h += `<option value="${sz}"${sz === pageSize ? ' selected' : ''}>${sz}</option>`;
+  }
+  h += '</select>';
   h += '</div>';
 
-  container.innerHTML = h;
+  _container.innerHTML = h;
 }
 
-function renderEditPanel(rule) {
-  let h = '<div class="rules-edit-panel">';
+// ── Events ──
 
-  // Read-only fields
-  h += '<div class="rules-ro-grid">';
-  h += roField('Key', rule.key);
-  h += roField('Category', rule.category);
-  if (rule.parent) h += roField('Parent', rule.parent);
-  if (rule.rank) h += roField('Rank', rule.rank);
-  if (rule.pool) {
-    const poolParts = [rule.pool.attr, rule.pool.skill, rule.pool.disc].filter(Boolean);
-    h += roField('Pool', poolParts.join(' + ') || 'None');
+function wireEvents() {
+  _container.addEventListener('click', handleClick);
+  _container.addEventListener('input', handleInput);
+  _container.addEventListener('change', handleChange);
+}
+
+function handleClick(e) {
+  const catBtn = e.target.closest('[data-rules-cat]');
+  if (catBtn) { activeCategory = catBtn.dataset.rulesCat; currentPage = 1; fetchAndRender(); return; }
+
+  const editBtn = e.target.closest('[data-edit-key]');
+  if (editBtn) { openEditModal(editBtn.dataset.editKey); return; }
+
+  if (e.target.closest('#rules-add-btn')) { openAddModal(); return; }
+
+  if (e.target.closest('#rules-prev') && currentPage > 1) { currentPage--; fetchAndRender(); return; }
+  if (e.target.closest('#rules-next') && currentPage < totalPages) { currentPage++; fetchAndRender(); return; }
+
+  if (e.target.closest('#rules-search-clear')) {
+    searchQuery = '';
+    currentPage = 1;
+    fetchAndRender().then(() => { document.getElementById('rules-search')?.focus(); });
   }
-  if (rule.resistance) h += roField('Resistance', rule.resistance);
-  if (rule.cost) h += roField('Cost', rule.cost);
-  if (rule.action) h += roField('Action', rule.action);
-  if (rule.duration) h += roField('Duration', rule.duration);
-  h += '</div>';
-
-  // Editable fields
-  h += '<div class="rules-edit-fields">';
-  h += editField('Description', 'textarea', 'description', rule.description || '', 4);
-  h += editRatingRange(rule.rating_range);
-  if (rule.category === 'devotion') {
-    h += editField('XP Cost', 'number', 'xp_fixed', rule.xp_fixed || '', 1);
-  }
-  h += editField('Special', 'text', 'special', rule.special || '');
-  h += editField('Exclusive', 'text', 'exclusive', rule.exclusive || '');
-  h += editField('Bloodline', 'text', 'bloodline', rule.bloodline || '');
-
-  // Prereq editor (JSON)
-  h += '<div class="rules-field">';
-  h += '<label class="rules-field-label">Prerequisites (JSON)</label>';
-  h += `<textarea class="rules-field-input rules-prereq-json" data-field="prereq" rows="4">${esc(rule.prereq ? JSON.stringify(rule.prereq, null, 2) : '')}</textarea>`;
-  h += '<p class="rules-field-hint">Edit as JSON. Leave empty for no prerequisites.</p>';
-  h += '</div>';
-
-  h += '</div>';
-
-  // Save button
-  h += '<div class="rules-edit-actions">';
-  h += `<button class="dt-btn rules-save-btn" data-save-key="${esc(rule.key)}">Save Changes</button>`;
-  h += '<span class="rules-save-status" id="rules-save-status"></span>';
-  h += '</div>';
-
-  h += '</div>';
-  return h;
 }
 
-function roField(label, value) {
-  return `<div class="rules-ro-field"><span class="rules-ro-label">${esc(label)}</span><span class="rules-ro-value">${esc(String(value))}</span></div>`;
-}
-
-function editField(label, type, fieldName, value, rows) {
-  let h = '<div class="rules-field">';
-  h += `<label class="rules-field-label">${esc(label)}</label>`;
-  if (type === 'textarea') {
-    h += `<textarea class="rules-field-input" data-field="${fieldName}" rows="${rows || 3}">${esc(value)}</textarea>`;
-  } else if (type === 'number') {
-    h += `<input type="number" class="rules-field-input rules-field-num" data-field="${fieldName}" value="${esc(String(value))}" min="0">`;
-  } else {
-    h += `<input type="text" class="rules-field-input" data-field="${fieldName}" value="${esc(value)}">`;
-  }
-  h += '</div>';
-  return h;
-}
-
-function editRatingRange(rr) {
-  const min = rr ? rr[0] : '';
-  const max = rr ? rr[1] : '';
-  let h = '<div class="rules-field">';
-  h += '<label class="rules-field-label">Rating Range</label>';
-  h += '<div class="rules-rating-inputs">';
-  h += `<input type="number" class="rules-field-input rules-field-num" data-field="rating_min" value="${min}" min="0" max="5" placeholder="Min">`;
-  h += '<span class="rules-rating-sep">\u2013</span>';
-  h += `<input type="number" class="rules-field-input rules-field-num" data-field="rating_max" value="${max}" min="0" max="5" placeholder="Max">`;
-  h += '</div></div>';
-  return h;
-}
-
-function wireEvents(container) {
-  // Category filter
-  container.addEventListener('click', (e) => {
-    const catBtn = e.target.closest('[data-rules-cat]');
-    if (catBtn) {
-      activeCategory = catBtn.dataset.rulesCat;
-      applyFilters();
-      render(container);
-      wireEvents(container);
-      return;
-    }
-
-    // Row toggle
-    const toggle = e.target.closest('[data-rules-toggle]');
-    if (toggle) {
-      const row = toggle.closest('[data-rules-key]');
-      const key = row?.dataset.rulesKey;
-      expandedKey = expandedKey === key ? null : key;
-      applyFilters();
-      render(container);
-      wireEvents(container);
-      return;
-    }
-
-    // Save
-    const saveBtn = e.target.closest('[data-save-key]');
-    if (saveBtn) {
-      handleSave(saveBtn.dataset.saveKey, container);
-      return;
-    }
-  });
-
-  // Search
-  const searchInput = document.getElementById('rules-search');
-  if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      searchQuery = searchInput.value;
-      applyFilters();
-      render(container);
-      wireEvents(container);
+function handleInput(e) {
+  if (e.target.id !== 'rules-search') return;
+  const inp = e.target;
+  searchQuery = inp.value;
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(() => {
+    const pos = inp.selectionStart;
+    currentPage = 1;
+    fetchAndRender().then(() => {
+      const restored = document.getElementById('rules-search');
+      if (restored) { restored.focus(); restored.selectionStart = restored.selectionEnd = Math.min(pos, restored.value.length); }
     });
+  }, 300);
+}
+
+function handleChange(e) {
+  if (e.target.id === 'rules-page-size') {
+    pageSize = parseInt(e.target.value, 10) || 50;
+    localStorage.setItem('tm_rules_page_size', String(pageSize));
+    currentPage = 1;
+    fetchAndRender();
   }
 }
 
-async function handleSave(key, container) {
-  const panel = container.querySelector('.rules-edit-panel');
-  if (!panel) return;
+// ── Edit Modal ──
+
+async function openEditModal(key) {
+  let rule;
+  try {
+    rule = await apiGet(`/api/rules/${encodeURIComponent(key)}`);
+  } catch (err) {
+    alert(`Failed to load rule: ${err.message}`);
+    return;
+  }
+  showModal(renderModalContent(rule, false));
+}
+
+function openAddModal() {
+  showModal(renderModalContent(null, true));
+}
+
+function showModal(html) {
+  const overlay = document.createElement('div');
+  overlay.className = 'rules-modal-overlay';
+  overlay.innerHTML = `<div class="rules-modal-dialog">${html}</div>`;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  const escHandler = (e) => { if (e.key === 'Escape') { closeModal(); document.removeEventListener('keydown', escHandler); } };
+  document.addEventListener('keydown', escHandler);
+
+  const dialog = overlay.querySelector('.rules-modal-dialog');
+  dialog.querySelector('.rules-modal-cancel')?.addEventListener('click', closeModal);
+  dialog.querySelector('.rules-modal-save')?.addEventListener('click', () => handleModalSave(dialog));
+
+  // Auto-slug for add modal
+  const nameInput = dialog.querySelector('[data-field="name"]');
+  const keyInput = dialog.querySelector('[data-field="key"]');
+  if (nameInput && keyInput) {
+    nameInput.addEventListener('blur', () => {
+      if (!keyInput.dataset.userEdited) keyInput.value = slugify(nameInput.value);
+    });
+    keyInput.addEventListener('input', () => { keyInput.dataset.userEdited = 'true'; });
+  }
+}
+
+function closeModal() {
+  document.querySelector('.rules-modal-overlay')?.remove();
+}
+
+function slugify(str) {
+  return (str || '').toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+// ── Modal Content ──
+
+function renderModalContent(rule, isAdd) {
+  const title = isAdd ? 'Add Rule' : `Edit: ${rule.name}`;
+  const mode = isAdd ? 'add' : 'edit';
+  const key = rule?.key || '';
+
+  let h = `<div class="rules-modal-header">${esc(title)}</div>`;
+  h += `<div class="rules-modal-body" data-mode="${mode}" data-key="${esc(key)}">`;
+
+  if (isAdd) {
+    h += '<div class="rules-modal-grid">';
+    h += mf('Key', 'text', 'key', '', 'auto-generated from name');
+    h += mf('Name', 'text', 'name', '', 'required');
+    h += ms('Category', 'category', '', CATEGORY_ENUM, 'required');
+    h += mf('Parent', 'text', 'parent', '');
+    h += mf('Rank', 'number', 'rank', '');
+    h += mf('XP Fixed', 'number', 'xp_fixed', '');
+    h += '</div>';
+    h += mf('Rating Range', 'rating_range', 'rating_range', null);
+    h += '<div class="rules-modal-grid">';
+    h += mf('Pool Attr', 'text', 'pool_attr', '');
+    h += mf('Pool Skill', 'text', 'pool_skill', '');
+    h += mf('Pool Disc', 'text', 'pool_disc', '');
+    h += '</div>';
+    h += '<div class="rules-modal-grid">';
+    h += mf('Resistance', 'text', 'resistance', '');
+    h += mf('Cost', 'text', 'cost', '');
+    h += mf('Action', 'text', 'action', '');
+    h += mf('Duration', 'text', 'duration', '');
+    h += '</div>';
+    h += mf('Description', 'textarea', 'description', '', null, 4);
+    h += '<div class="rules-modal-grid">';
+    h += mf('Special', 'text', 'special', '');
+    h += mf('Exclusive', 'text', 'exclusive', '');
+    h += mf('Bloodline', 'text', 'bloodline', '');
+    h += '</div>';
+    h += mf('Prerequisites (JSON)', 'textarea', 'prereq', '', 'JSON object or null', 3);
+  } else {
+    h += '<div class="rules-modal-ro">';
+    h += roSpan('Key', rule.key);
+    h += roSpan('Category', rule.category);
+    h += '</div>';
+    h += '<div class="rules-modal-grid">';
+    h += mf('Name', 'text', 'name', rule.name || '');
+    h += mf('Parent', 'text', 'parent', rule.parent || '');
+    h += mf('Rank', 'number', 'rank', rule.rank ?? '');
+    h += mf('XP Fixed', 'number', 'xp_fixed', rule.xp_fixed ?? '');
+    h += '</div>';
+    h += mf('Rating Range', 'rating_range', 'rating_range', rule.rating_range);
+    h += '<div class="rules-modal-grid">';
+    h += mf('Pool Attr', 'text', 'pool_attr', rule.pool?.attr || '');
+    h += mf('Pool Skill', 'text', 'pool_skill', rule.pool?.skill || '');
+    h += mf('Pool Disc', 'text', 'pool_disc', rule.pool?.disc || '');
+    h += '</div>';
+    h += '<div class="rules-modal-grid">';
+    h += mf('Resistance', 'text', 'resistance', rule.resistance || '');
+    h += mf('Cost', 'text', 'cost', rule.cost || '');
+    h += mf('Action', 'text', 'action', rule.action || '');
+    h += mf('Duration', 'text', 'duration', rule.duration || '');
+    h += '</div>';
+    h += mf('Description', 'textarea', 'description', rule.description || '', null, 4);
+    h += '<div class="rules-modal-grid">';
+    h += mf('Special', 'text', 'special', rule.special || '');
+    h += mf('Exclusive', 'text', 'exclusive', rule.exclusive || '');
+    h += mf('Bloodline', 'text', 'bloodline', rule.bloodline || '');
+    h += '</div>';
+    h += mf('Prerequisites (JSON)', 'textarea', 'prereq',
+      rule.prereq ? JSON.stringify(rule.prereq, null, 2) : '', 'JSON object or null', 3);
+  }
+
+  h += '</div>';
+  h += '<div class="rules-modal-footer">';
+  h += '<span class="rules-modal-status" id="rules-modal-status"></span>';
+  h += '<button class="dt-btn rules-modal-cancel">Cancel</button>';
+  h += `<button class="dt-btn rules-modal-save">${isAdd ? 'Create' : 'Save'}</button>`;
+  h += '</div>';
+  return h;
+}
+
+function roSpan(label, value) {
+  return `<div class="rules-modal-ro-field"><span class="rules-modal-ro-label">${esc(label)}</span> <span class="rules-modal-ro-value">${esc(String(value))}</span></div>`;
+}
+
+/** Modal field shorthand. */
+function mf(label, type, name, value, hint, rows) {
+  if (type === 'rating_range') {
+    const min = value ? value[0] : '';
+    const max = value ? value[1] : '';
+    return '<div class="rules-modal-field rules-modal-rr">'
+      + `<label class="rules-modal-label">${esc(label)}</label>`
+      + '<div class="rules-rating-inputs">'
+      + `<input type="number" class="rules-modal-input rules-modal-num" data-field="rating_min" value="${min}" min="0" max="10" placeholder="Min">`
+      + '<span class="rules-rating-sep">\u2013</span>'
+      + `<input type="number" class="rules-modal-input rules-modal-num" data-field="rating_max" value="${max}" min="0" max="10" placeholder="Max">`
+      + '</div></div>';
+  }
+  let h = '<div class="rules-modal-field">';
+  h += `<label class="rules-modal-label">${esc(label)}</label>`;
+  if (type === 'textarea') {
+    h += `<textarea class="rules-modal-input${name === 'prereq' ? ' rules-modal-mono' : ''}" data-field="${name}" rows="${rows || 3}">${esc(String(value))}</textarea>`;
+  } else if (type === 'number') {
+    h += `<input type="number" class="rules-modal-input rules-modal-num" data-field="${name}" value="${esc(String(value))}" min="0">`;
+  } else {
+    h += `<input type="text" class="rules-modal-input" data-field="${name}" value="${esc(String(value))}">`;
+  }
+  if (hint) h += `<div class="rules-modal-hint">${esc(hint)}</div>`;
+  h += '</div>';
+  return h;
+}
+
+/** Modal select shorthand. */
+function ms(label, name, value, options, hint) {
+  let h = '<div class="rules-modal-field">';
+  h += `<label class="rules-modal-label">${esc(label)}</label>`;
+  h += `<select class="rules-modal-input" data-field="${name}">`;
+  h += '<option value="">\u2014</option>';
+  for (const opt of options) h += `<option value="${esc(opt)}"${opt === value ? ' selected' : ''}>${esc(opt)}</option>`;
+  h += '</select>';
+  if (hint) h += `<div class="rules-modal-hint">${esc(hint)}</div>`;
+  h += '</div>';
+  return h;
+}
+
+// ── Modal Save ──
+
+async function handleModalSave(dialog) {
+  const body = dialog.querySelector('.rules-modal-body');
+  const mode = body.dataset.mode;
+  const key = body.dataset.key;
+  const status = dialog.querySelector('#rules-modal-status');
 
   const updates = {};
-
-  // Collect editable fields
-  panel.querySelectorAll('[data-field]').forEach(el => {
-    const field = el.dataset.field;
-    if (field === 'prereq') return; // handled separately
-    if (field === 'rating_min' || field === 'rating_max') return; // handled separately
-    if (field === 'xp_fixed') {
+  body.querySelectorAll('[data-field]').forEach(el => {
+    const f = el.dataset.field;
+    if (f === 'prereq' || f === 'rating_min' || f === 'rating_max' || f === 'pool_attr' || f === 'pool_skill' || f === 'pool_disc') return;
+    if (f === 'xp_fixed' || f === 'rank') {
       const v = parseInt(el.value, 10);
-      updates.xp_fixed = isNaN(v) ? null : v;
+      updates[f] = isNaN(v) ? null : v;
     } else {
-      updates[field] = el.value || null;
+      updates[f] = el.value.trim() || null;
     }
   });
 
   // Rating range
-  const minEl = panel.querySelector('[data-field="rating_min"]');
-  const maxEl = panel.querySelector('[data-field="rating_max"]');
+  const minEl = body.querySelector('[data-field="rating_min"]');
+  const maxEl = body.querySelector('[data-field="rating_max"]');
   if (minEl && maxEl) {
     const min = parseInt(minEl.value, 10);
     const max = parseInt(maxEl.value, 10);
     updates.rating_range = (!isNaN(min) && !isNaN(max)) ? [min, max] : null;
   }
 
+  // Pool
+  const pa = body.querySelector('[data-field="pool_attr"]')?.value.trim() || null;
+  const ps = body.querySelector('[data-field="pool_skill"]')?.value.trim() || null;
+  const pd = body.querySelector('[data-field="pool_disc"]')?.value.trim() || null;
+  updates.pool = (pa || ps || pd) ? { attr: pa, skill: ps, disc: pd } : null;
+
   // Prereq JSON
-  const prereqEl = panel.querySelector('[data-field="prereq"]');
+  const prereqEl = body.querySelector('[data-field="prereq"]');
   if (prereqEl) {
     const raw = prereqEl.value.trim();
-    if (!raw) {
-      updates.prereq = null;
-    } else {
-      try {
-        updates.prereq = JSON.parse(raw);
-      } catch {
-        const status = document.getElementById('rules-save-status');
-        if (status) { status.textContent = 'Invalid prereq JSON'; status.className = 'rules-save-status rules-save-err'; }
-        return;
-      }
-    }
+    if (!raw) { updates.prereq = null; }
+    else { try { updates.prereq = JSON.parse(raw); } catch { setStatus(status, 'Invalid prereq JSON', true); return; } }
   }
 
-  const status = document.getElementById('rules-save-status');
-  if (status) { status.textContent = 'Saving\u2026'; status.className = 'rules-save-status'; }
+  // Client-side validation for Add
+  if (mode === 'add') {
+    if (!updates.key) { setStatus(status, 'Key is required', true); return; }
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(updates.key)) { setStatus(status, 'Key must be lowercase slug (a-z, 0-9, hyphens)', true); return; }
+    if (!updates.name) { setStatus(status, 'Name is required', true); return; }
+    if (!updates.category) { setStatus(status, 'Category is required', true); return; }
+  }
+
+  setStatus(status, 'Saving\u2026', false);
 
   try {
-    const updated = await apiPut(`/api/rules/${encodeURIComponent(key)}`, updates);
-    // Update local cache
-    const idx = allRules.findIndex(r => r.key === key);
-    if (idx >= 0) allRules[idx] = updated;
+    if (mode === 'add') await apiPost('/api/rules', updates);
+    else await apiPut(`/api/rules/${encodeURIComponent(key)}`, updates);
     invalidateRulesCache();
-    if (status) { status.textContent = 'Saved'; status.className = 'rules-save-status rules-save-ok'; }
-    setTimeout(() => {
-      applyFilters();
-      render(container);
-      wireEvents(container);
-    }, 500);
+    setStatus(status, 'Saved', false);
+    setTimeout(() => { closeModal(); fetchAndRender(); }, 400);
   } catch (err) {
-    if (status) { status.textContent = `Save failed: ${err.message}`; status.className = 'rules-save-status rules-save-err'; }
+    setStatus(status, err.message || 'Save failed', true);
   }
+}
+
+function setStatus(el, msg, isError) {
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'rules-modal-status' + (isError ? ' rules-modal-err' : '');
 }
