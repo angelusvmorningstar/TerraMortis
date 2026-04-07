@@ -73,7 +73,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/characters/wizard — player creates their own character
-router.post('/wizard', requireRole('player'), async (req, res) => {
+router.post('/wizard', requireRole('player'), validateCharacter, async (req, res) => {
   const players = getCollection('players');
   const player = await players.findOne({ _id: req.user.player_id });
   const existingIds = player?.character_ids || [];
@@ -118,16 +118,6 @@ router.put('/:id', requireRole('st'), validateCharacter, async (req, res) => {
           _pt_nine_again_skills, _pt_dot4_bonus_skills, _ohm_nine_again_skills,
           willpower,
           ...updates } = req.body;
-
-  // Migrate legacy fighting_styles.up → cp before persisting
-  if (Array.isArray(updates.fighting_styles)) {
-    updates.fighting_styles = updates.fighting_styles.map(fs => {
-      if (!fs || !fs.up) return fs;
-      const { up, ...rest } = fs;
-      rest.cp = (rest.cp || 0) + up;
-      return rest;
-    });
-  }
 
   const result = await col().findOneAndUpdate(
     { _id: oid },
