@@ -1,0 +1,41 @@
+schema: 1
+story: "PP.2"
+story_title: "API Route and Client Loader"
+gate: PASS
+status_reason: "All ACs met. Prior concerns resolved: PUT route now uses field allowlist for defence-in-depth, blocking arbitrary field injection and immutable field overwrites."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-07"
+
+waiver: { active: false }
+
+top_issues: []
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 0
+    medium: 0
+    low: 0
+  recommendations:
+    must_fix: []
+    monitor: []
+
+nfr_validation:
+  _assessed: [security, reliability, maintainability]
+  security:
+    status: PASS
+    notes: "PUT uses UPDATABLE_FIELDS allowlist. key/category immutable. POST has full schema validation. All writes ST-only."
+  reliability:
+    status: PASS
+    notes: "Client loader has proper fallback chain (API → localStorage → null). Non-blocking load prevents startup stalls."
+  maintainability:
+    status: PASS
+    notes: "Follows established patterns. Allowlist is explicit and easy to extend for future fields."
+
+history:
+  - at: "2026-04-07"
+    gate: CONCERNS
+    note: "Initial review — PUT route missing validation, unfiltered body to $set"
+  - at: "2026-04-07"
+    gate: PASS
+    note: "Re-review — PUT now uses UPDATABLE_FIELDS allowlist, empty update returns 400"

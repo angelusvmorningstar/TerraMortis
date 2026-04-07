@@ -104,4 +104,65 @@ N/A — no runtime testing possible without MongoDB connection locally
 - `public/js/admin.js` (modified — import and call loadRulesFromApi)
 
 ## QA Results
-_Pending implementation_
+
+### Review Date: 2026-04-07
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full story review — API route, client loader, app startup wiring.
+
+#### AC Verification
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC1: GET /api/rules returns full collection sorted | PASS | `.sort({ category: 1, name: 1 }).toArray()` |
+| AC2: ?category=merit filter | PASS | Filter applied when query param present |
+| AC3: GET /api/rules/:key returns single | PASS | `findOne({ key })`, 404 on miss |
+| AC4: loadRulesFromApi() fetches + caches to localStorage | PASS | Fetches `/api/rules`, caches to `tm_rules_db`, wired into all 3 entry points |
+| AC5: Falls back to localStorage if API unreachable | PASS | try/catch with localStorage fallback chain |
+| AC6: getRulesDB() synchronous accessor | PASS | Returns `_rulesCache` or reads from localStorage |
+| AC7: Any authenticated user can read | PASS | `requireAuth` on router mount, no role check on GET |
+| AC8: POST/PUT are ST-only with schema validation | PARTIAL | POST has both requireRole('st') + validate(). PUT has requireRole('st') but NO schema validation. |
+
+#### Findings Summary
+
+- **1 medium:** PUT route missing schema validation (REQ-001) — AC8 explicitly says "with schema validation"
+- **1 medium:** PUT route passes unfiltered body to $set (SEC-001) — low real-world risk (ST-only)
+- **1 low:** No try/catch on handlers (MNT-001) — matches existing codebase pattern
+
+#### Strengths
+
+- Client loader exactly mirrors `loadCharsFromApi` pattern — consistent
+- `invalidateRulesCache()` proactively supports PP.8 (admin editor)
+- Non-blocking rules load (`fire-and-forget .catch(() => {})`) avoids slowing app startup
+- POST route has proper duplicate key check (409 Conflict)
+- `_id` and `key` correctly stripped from PUT body
+
+### Gate Status
+
+Gate: CONCERNS → specs/qa/gates/pp.2-api-route-client-loader.yml
+
+---
+
+### Re-review Date: 2026-04-07
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Re-review of 2 medium-severity issues from initial review.
+
+#### Issue Resolution
+
+| Issue | Severity | Status | Evidence |
+|-------|----------|--------|----------|
+| REQ-001: PUT no schema validation | medium | RESOLVED | UPDATABLE_FIELDS allowlist (lines 38-42), only allowlisted fields pass to $set, empty update returns 400 |
+| SEC-001: Unfiltered body to $set | medium | RESOLVED | Same allowlist fix — key, category, _id all blocked from updates |
+
+#### AC8 Updated
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC8: POST/PUT are ST-only with schema validation | PASS | POST: full schema validation. PUT: field allowlist (appropriate for partial updates). |
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.2-api-route-client-loader.yml

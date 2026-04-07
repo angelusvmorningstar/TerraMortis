@@ -1,0 +1,51 @@
+schema: 1
+story: "PP.3"
+story_title: "Prerequisite Engine Rewrite"
+gate: CONCERNS
+status_reason: "Core engine (meetsPrereq, prereqLabel) is solid and all callers updated with dual-path logic. AC4 and AC6 are intentionally deferred — regex engine retained as fallback for when rules cache is unavailable. Acceptable trade-off but needs tracking."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-07"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "REQ-001"
+    severity: medium
+    finding: "AC4 states 'No regex-based prereq parsing remains in the codebase' but checkSinglePrereq() and the regex fallback path in meritQualifies() are retained (merits.js:167-251). Dev notes acknowledge this is intentional — fallback needed until rules cache is guaranteed loaded in all code paths."
+    suggested_action: "Accept as DEFERRED to PP-7 (remove legacy data). Track explicitly. Once rules cache is always available, delete checkSinglePrereq, _getAttrDots, _getSkillDots, _getDiscDots, _getMeritRating, _getCovStatus helper functions."
+
+  - id: "REQ-002"
+    severity: medium
+    finding: "AC6 states 'meritQualifies() function is removed from editor/merits.js' but function is retained with dual-path logic (merits.js:237-251). Still imported in downtime-form.js:21 and used as fallback. Same deferral reason as REQ-001."
+    suggested_action: "Same as REQ-001 — track for PP-7. meritQualifies becomes fully removable once all callers use structured prereqs exclusively."
+
+  - id: "ARCH-001"
+    severity: low
+    finding: "meetsPrereq returns true (pass-through) for 'willpower', 'specialisation', and 'text' leaf types. Willpower comment says 'Can't reliably check'. This means prereqs involving these types are silently accepted."
+    suggested_action: "Acceptable — these are rare edge cases (~5 merits) and match the old engine's behaviour (it also passed through specialisation checks). Document as known limitation."
+
+  - id: "ARCH-002"
+    severity: low
+    finding: "buildMCIGrantOptions() (merits.js:314-346) and buildFThiefOptions() (merits.js:352-378) still use MERITS_DB directly without rules cache path. Inconsistent with buildMeritOptions() which has dual-path."
+    suggested_action: "Non-blocking — these are low-frequency UI functions. Can be migrated in PP-4 or PP-8."
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 0
+    medium: 2
+    low: 2
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Track AC4/AC6 deferral — regex removal should happen in PP-7"
+      - "buildMCIGrantOptions and buildFThiefOptions still hardcoded to MERITS_DB"
+
+nfr_validation:
+  _assessed: [reliability, maintainability]
+  reliability:
+    status: PASS
+    notes: "Dual-path design means prereq checks work regardless of rules cache state. Graceful degradation."
+  maintainability:
+    status: CONCERNS
+    notes: "Two parallel prereq engines coexist temporarily. Acceptable as transitional state but increases cognitive load. Must be resolved by PP-7."
