@@ -34,12 +34,26 @@ router.post('/', requireRole('st'), validate(purchasablePowerSchema), async (req
   res.status(201).json(created);
 });
 
+// Allowlisted fields for PUT updates — defence-in-depth against injection
+const UPDATABLE_FIELDS = new Set([
+  'name', 'parent', 'rank', 'rating_range', 'description',
+  'pool', 'resistance', 'cost', 'action', 'duration',
+  'prereq', 'exclusive', 'xp_fixed', 'special', 'bloodline',
+]);
+
 // PUT /api/rules/:key — ST only, update existing power
+// Only allowlisted fields are accepted. Category and key are immutable.
 router.put('/:key', requireRole('st'), async (req, res) => {
-  const { _id, key, ...updates } = req.body;
+  const filtered = {};
+  for (const [field, value] of Object.entries(req.body)) {
+    if (UPDATABLE_FIELDS.has(field)) filtered[field] = value;
+  }
+  if (!Object.keys(filtered).length) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'No updatable fields provided' });
+  }
   const result = await col().findOneAndUpdate(
     { key: req.params.key },
-    { $set: updates },
+    { $set: filtered },
     { returnDocument: 'after' }
   );
   if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Power not found' });
