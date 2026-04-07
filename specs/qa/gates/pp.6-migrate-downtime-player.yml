@@ -1,0 +1,43 @@
+schema: 1
+story: "PP.6"
+story_title: "Migrate Consumers — Downtime and Player Portal"
+gate: CONCERNS
+status_reason: "All functional migration done — merit, devotion, wizard all use rules cache as primary source with fallbacks. AC5 (no legacy imports) not met, deferred to PP-7 consistent with PP-3/4/5."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-07"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "REQ-001"
+    severity: medium
+    finding: "AC5 ('No imports of devotions-db.js or merits-db-data.js remain in player/downtime modules') not met. downtime-form.js imports both, wizard.js imports MERITS_DB, xp-log-tab.js imports DEVOTIONS_DB. All retained as fallback."
+    suggested_action: "Defer to PP-7 — consistent with PP-3/4/5 deferral pattern. All consumers have rules-cache primary paths."
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 0
+    medium: 1
+    low: 0
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Legacy imports deferred to PP-7 (consistent with PP-3/4/5 pattern)"
+
+nfr_validation:
+  _assessed: [reliability, maintainability]
+  reliability:
+    status: PASS
+    notes: "All consumers have rules-cache primary path with fallback. Devotion filtering includes bloodline gating and meetsPrereq."
+  maintainability:
+    status: CONCERNS
+    notes: "4 legacy imports remain as fallback. Tracked for PP-7 removal."
+
+history:
+  - at: "2026-04-07"
+    gate: CONCERNS
+    note: "Initial review — merit case still MERITS_DB-primary, AC2/AC5 not met"
+  - at: "2026-04-07"
+    gate: CONCERNS
+    note: "Re-review — merit case rewritten to rules-cache-primary. Only AC5 (import removal) remains, deferred to PP-7"

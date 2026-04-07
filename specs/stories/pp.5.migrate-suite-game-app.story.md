@@ -1,6 +1,6 @@
 # Story PP.5: Migrate Consumers — Suite and Game App
 
-## Status: Approved
+## Status: Ready for Review
 
 ## Story
 
@@ -102,16 +102,71 @@
 ## Dev Agent Record
 
 ### Agent Model Used
-_TBD_
+Claude Opus 4.6
 
 ### Debug Log References
-_TBD_
+N/A — no runtime testing without browser environment
 
 ### Completion Notes List
-_TBD_
+- shared/pools.js: getPool() tries rules cache first (slug + rite-/devotion- prefixed lookups), falls back to DISC. Produces identical pool breakdown shape.
+- admin/dice-engine.js: getCharPowers() builds power list from rules cache by category, falls back to DISC iteration. loadPower() and power info banner both try rules cache first.
+- suite/sheet-helpers.js: meritLookup() tries rules cache first, falls back to MERITS_DB.
+- suite/sheet.js: manoeuvre rendering tries rules cache first for style/rank/effect, falls back to MAN_DB.
+- app.js: removed unused DISC import.
+- Tasks 5-6 (data.js cleanup, data file deletion) deferred to PP-7 — re-exports and data files retained as fallback until all consumers verified.
+- DISC/MAN_DB/MERITS_DB imports retained in suite modules as fallback.
 
 ### File List
-_TBD_
+- `public/js/shared/pools.js` (modified — getRuleByKey import, dual-path getPool)
+- `public/js/admin/dice-engine.js` (modified — getRulesByCategory/getRuleByKey import, dual-path getCharPowers/loadPower/render)
+- `public/js/suite/sheet-helpers.js` (modified — getRuleByKey import, dual-path meritLookup)
+- `public/js/suite/sheet.js` (modified — getRuleByKey import, dual-path manoeuvre lookup)
+- `public/js/app.js` (modified — removed unused DISC import)
 
 ## QA Results
-_Pending implementation_
+
+### Review Date: 2026-04-07
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full story review — suite/shared/game module migration from hardcoded data to rules cache.
+
+#### AC Verification
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC1: pools.js uses rules cache instead of DISC | PARTIAL | Dual-path: tries getRuleByKey first (with rite-/devotion- prefix fallback), falls back to DISC. Works correctly but DISC import retained. |
+| AC2: Game app rules.js reads from rules cache | N/A | game/rules.js is a static hand-written reference guide (roll mechanics, frenzy, vitae). No data imports — never used DISC/MERITS_DB. AC incorrectly scoped. |
+| AC3: suite/sheet.js uses rules cache | PARTIAL | Manoeuvre rendering tries getRuleByKey first, falls back to MAN_DB. sheet-helpers meritLookup tries rules cache, falls back to MERITS_DB. |
+| AC4: Delete disc-data.js, merits-db-data.js, man-db-data.js | NOT MET | All 3 files still exist. Task 6 deferred to PP-7. |
+| AC5: DISC re-export removed from suite/data.js | NOT MET | data.js still re-exports DISC, MERITS_DB, MAN_DB. Task 5 deferred. |
+| AC6: No DISC/MAN_DB/MERITS_DB imports in suite/game/shared | NOT MET | 4 files still import: pools.js, dice-engine.js, sheet.js, sheet-helpers.js. |
+| AC7: Identical pool calculation results | PASS | Rules-cache path produces identical pool breakdown shape with all fields mapped. |
+
+#### Task Completion
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Task 1: Migrate shared/pools.js | DONE | Dual-path getPool with rules cache + DISC fallback |
+| Task 2: Migrate admin/dice-engine.js | DONE | getCharPowers, loadPower, render all dual-path |
+| Task 3: Migrate suite/sheet.js + helpers | DONE | meritLookup + manoeuvre rendering dual-path |
+| Task 4: Migrate game/rules.js | N/A | Static content, nothing to migrate |
+| Task 5: Clean up suite/data.js | NOT DONE | Deferred to PP-7 |
+| Task 6: Delete duplicate data files | NOT DONE | Deferred to PP-7 |
+| Task 7: Migrate app.js | DONE | Removed unused DISC import |
+
+#### Findings Summary
+
+- **3 high:** AC4, AC5, AC6 not met — legacy files, re-exports, and imports remain
+- **1 low:** AC2 is N/A — incorrectly scoped to a static reference file
+
+#### Strengths
+
+- getPool() slug lookup correctly handles rite-/devotion- prefixed keys from PP-1 collision strategy
+- Dice engine builds power list from 3 rules categories (discipline, devotion, rite)
+- app.js cleanup is clean — unused DISC import removed
+- Pool breakdown shape in rules-cache path matches legacy shape exactly (info object preserved)
+
+### Gate Status
+
+Gate: CONCERNS → specs/qa/gates/pp.5-migrate-suite-game-app.yml

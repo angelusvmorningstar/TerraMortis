@@ -16,9 +16,8 @@ import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
-import { DEVOTIONS_DB } from '../data/devotions-db.js';
-import { MERITS_DB } from '../data/merits-db-data.js';
-import { meritQualifies } from '../editor/merits.js';
+import { meetsPrereq } from '../editor/merits.js';
+import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole } from '../auth/discord.js';
 
 // Influence merit names that generate monthly influence
@@ -2010,8 +2009,10 @@ function getXpCost(category, item) {
       return 0; // calculated dynamically via row.dotsBuying
     }
     case 'devotion': {
-      const dev = DEVOTIONS_DB.find(d => d.n === item);
-      return dev ? dev.xp : 2;
+      // Try rules cache first
+      const slug = 'devotion-' + item.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const rule = getRuleByKey(slug);
+      return rule ? (rule.xp_fixed || 2) : 2;
     }
     case 'rite': return 4;
     default: return 0;
@@ -2056,31 +2057,33 @@ function getItemsForCategory(category) {
         return found.length ? Math.max(...found.map(m => m.rating || 0)) : 0;
       }
 
-      for (const [key, m] of Object.entries(MERITS_DB)) {
-        if (m.type === 'Invictus Oath' || m.type === 'Carthian Law') continue;
-        if (m.prereq && !meritQualifies(c, m.prereq)) continue;
-        const name = key.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-        const rating = parseMeritRating(m.rating);
-        const currentDots = currentMeritDots(key);
-        if (currentDots >= rating.max) continue;
+      // Try rules cache first, fallback to MERITS_DB
+      const meritRules = getRulesByCategory('merit');
+      if (meritRules.length) {
+        for (const rule of meritRules) {
+          if (rule.parent && (rule.parent === 'Invictus Oath' || rule.parent === 'Carthian Law')) continue;
+          if (!meetsPrereq(c, rule.prereq)) continue;
+          const name = rule.name;
+          const rr = rule.rating_range;
+          const min = rr ? rr[0] : 1;
+          const max = rr ? rr[1] : 1;
+          const currentDots = currentMeritDots(name);
+          if (currentDots >= max) continue;
 
-        if (rating.flat) {
-          // Flat merit: all dots at once
-          items.push({
-            value: `${name}|flat|${rating.max}|0`,
-            label: `${name} (${rating.max} dots, ${rating.max} XP) — all at once`,
-          });
-        } else {
-          // Graduated merit: one entry, dots selector will appear on selection
-          // value encodes: name|grad|currentDots|maxBuyable
-          // maxBuyable: up to 3 can be multi-dot, 4+ is one at a time
-          const maxTarget = currentDots < 3
-            ? Math.min(3, rating.max)
-            : Math.min(currentDots + 1, rating.max);
-          items.push({
-            value: `${name}|grad|${currentDots}|${maxTarget}`,
-            label: `${name} (currently ${currentDots} dot${currentDots !== 1 ? 's' : ''})`,
-          });
+          if (min === max) {
+            items.push({
+              value: `${name}|flat|${max}|0`,
+              label: `${name} (${max} dots, ${max} XP) — all at once`,
+            });
+          } else {
+            const maxTarget = currentDots < 3
+              ? Math.min(3, max)
+              : Math.min(currentDots + 1, max);
+            items.push({
+              value: `${name}|grad|${currentDots}|${maxTarget}`,
+              label: `${name} (currently ${currentDots} dot${currentDots !== 1 ? 's' : ''})`,
+            });
+          }
         }
       }
       items.sort((a, b) => a.label.localeCompare(b.label));
@@ -2088,12 +2091,15 @@ function getItemsForCategory(category) {
     }
     case 'devotion': {
       const discs = c.disciplines || {};
-      return DEVOTIONS_DB
-        .filter(d => {
-          if (d.bl && d.bl !== c.bloodline) return false;
-          return d.p.every(req => (discs[req.disc] || 0) >= req.dots);
+      // Try rules cache first
+      const devRules = getRulesByCategory('devotion');
+      return devRules
+        .filter(rule => {
+          if (rule.bloodline && rule.bloodline !== c.bloodline) return false;
+          if (!rule.prereq) return true;
+          return meetsPrereq(c, rule.prereq);
         })
-        .map(d => ({ value: d.n, label: `${d.n} (${d.xp} XP)` }));
+        .map(rule => ({ value: rule.name, label: `${rule.name} (${rule.xp_fixed || '?'} XP)` }));
     }
     case 'rite': {
       // Rites they could learn at their current Cruac/Theban level

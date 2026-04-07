@@ -1,13 +1,17 @@
 /**
  * Merit utilities, prerequisite system, and power/discipline helpers.
- * Depends on constants and the MERITS_DB reference data.
+ * Depends on constants and the rules cache (purchasable_powers API).
  */
 
 import {
   ATTR_NAMES, SKILL_NAMES, DISC_NAMES, COV_SHORT, CLAN_NAMES,
   SORCERY_THEMES, RITUAL_DISCS, INFLUENCE_SPHERES
 } from '../data/constants.js';
-import { MERITS_DB } from '../data/merits-db-data.js';
+import { meetsPrereq as _meetsPrereq, prereqLabel as _prereqLabel } from '../data/prereq.js';
+import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js';
+
+// Re-export the new prereq engine for direct use by consumers
+export { _meetsPrereq as meetsPrereq, _prereqLabel as prereqLabel };
 
 /* ══════════════════════════════════════════════════════
    Merit string helpers
@@ -44,23 +48,24 @@ export function meritKeyBase(s) {
  * Returns null for graduated/range merits (e.g. Allies 1-5).
  */
 export function meritFixedRating(name) {
-  const entry = MERITS_DB ? MERITS_DB[(name || '').toLowerCase()] : null;
-  if (!entry) return null;
-  const rStr = entry.rating || '1';
-  const parts = rStr.split(/[–\-—]/);
-  if (parts.length > 1) return null; // range merit
-  const n = parseInt(parts[0]);
-  return n > 0 ? n : null;
+  // Try rules cache first
+  const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule) {
+    if (!rule.rating_range) return null;
+    if (rule.rating_range[0] === rule.rating_range[1]) return rule.rating_range[0];
+    return null; // range merit
+  }
+  return null;
 }
 
-/** Look up a merit in MERITS_DB by name string (tries full key then base key). */
+/** Look up a merit by name string. Tries rules cache first, falls back to MERITS_DB. */
 export function meritLookup(s) {
-  const db = MERITS_DB;
-  if (!db) return null;
-  const k = meritKey(s);
-  if (db[k]) return db[k];
-  const kb = meritKeyBase(s);
-  if (db[kb]) return db[kb];
+  // Try rules cache (unified schema)
+  const slug = (s || '').toLowerCase().replace(/\s*[●○]+.*/,'').replace(/\s*\|.*/,'').trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule) return { desc: rule.description, prereq: rule.prereq, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, special: rule.special, _rule: rule };
   return null;
 }
 
@@ -210,9 +215,18 @@ export function checkSinglePrereq(c, token) {
 
 /**
  * Check a full prerequisite string (comma-separated AND, "or"-separated OR).
+ * If the rules cache is available, looks up the structured prereq tree and
+ * delegates to meetsPrereq(). Falls back to regex parsing if cache unavailable.
  */
-export function meritQualifies(c, prereqStr) {
+export function meritQualifies(c, prereqStr, structuredPrereq) {
   if (!prereqStr || prereqStr === '-') return true;
+
+  // If a structured prereq tree was passed directly, use the new engine
+  if (structuredPrereq !== undefined) {
+    return _meetsPrereq(c, structuredPrereq);
+  }
+
+  // Fallback: regex-based parsing for legacy callers
   const andParts = prereqStr.split(/\s*,\s*/);
   return andParts.every(part => {
     const orParts = part.split(/\s+or\s+/i);
@@ -225,20 +239,25 @@ export function meritQualifies(c, prereqStr) {
  * Excludes standing, domain, and influence merits (those have dedicated UI).
  */
 export function buildMeritOptions(c, currentName) {
-  const db = MERITS_DB;
-  if (!db) return '<option value="">— loading —</option>';
-  const excluded = new Set(['standing', 'invictus oath', 'style']);
+  // Try rules cache first
+  const rulesDB = getRulesByCategory('merit');
   const domainNames = new Set(['safe place', 'haven', 'feeding grounds', 'herd', 'mandragora garden']);
   const influenceNames = new Set(['allies', 'contacts', 'mentor', 'resources', 'retainer', 'staff', 'status']);
   const qualified = [];
-  for (const [key, entry] of Object.entries(db)) {
-    if (entry.special === 'standing') continue;
-    if (entry.type && excluded.has(entry.type.toLowerCase())) continue;
-    if (domainNames.has(key)) continue;
-    if (influenceNames.has(key)) continue;
-    if (!meritQualifies(c, entry.prereq || '')) continue;
-    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    qualified.push({ key, label });
+
+  if (rulesDB.length) {
+    // Rules cache available — use structured data
+    for (const rule of rulesDB) {
+      if (rule.special === 'standing') continue;
+      if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+      const nameLow = rule.name.toLowerCase();
+      if (domainNames.has(nameLow)) continue;
+      if (influenceNames.has(nameLow)) continue;
+      if (!_meetsPrereq(c, rule.prereq)) continue;
+      qualified.push({ key: nameLow, label: rule.name });
+    }
+  } else {
+    return '<option value="">— rules loading —</option>';
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();
@@ -265,25 +284,25 @@ export function buildMeritOptions(c, currentName) {
  */
 const MCI_DOT_RATING = [1, 1, 2, 3, 3];
 export function buildMCIGrantOptions(c, dotLevel, currentName) {
-  const db = MERITS_DB;
-  if (!db) return '<option value="">— loading —</option>';
   const maxR = MCI_DOT_RATING[dotLevel] || 1;
   const qualified = [];
-  for (const [key, entry] of Object.entries(db)) {
-    if (entry.special === 'standing') continue;
-    if (entry.type && ['style', 'invictus oath'].includes(entry.type.toLowerCase())) continue;
-    if (!meritQualifies(c, entry.prereq || '')) continue;
-    // Filter by rating: fixed-rating merits must match exactly, graduated must include maxR
-    const rStr = entry.rating || '1';
-    const parts = rStr.split(/[–\-—]/);
-    const minR = parseInt(parts[0]) || 1;
-    const maxMerit = parseInt(parts[parts.length - 1]) || minR;
-    // For graduated (range): show if maxR falls within range
-    // For fixed (single): show if merit rating == maxR
-    if (parts.length > 1) { if (minR > maxR) continue; }
-    else { if (minR !== maxR) continue; }
-    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    qualified.push({ key, label });
+
+  // Try rules cache first
+  const rulesDB = getRulesByCategory('merit');
+  if (rulesDB.length) {
+    for (const rule of rulesDB) {
+      if (rule.special === 'standing') continue;
+      if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+      if (!_meetsPrereq(c, rule.prereq)) continue;
+      const rr = rule.rating_range;
+      if (rr) {
+        if (rr[0] === rr[1]) { if (rr[0] !== maxR) continue; }
+        else { if (rr[0] > maxR) continue; }
+      } else { if (1 !== maxR) continue; }
+      qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
+    }
+  } else {
+    return '<option value="">— rules loading —</option>';
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();
@@ -303,19 +322,21 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
  * Includes all categories since FT can steal covenant-restricted advantages.
  */
 export function buildFThiefOptions(currentName) {
-  const db = MERITS_DB;
-  if (!db) return '<option value="">— loading —</option>';
   const qualified = [];
-  for (const [key, entry] of Object.entries(db)) {
-    if (entry.special === 'standing') continue;
-    const rStr = entry.rating || '1';
-    const parts = rStr.split(/[–\-—]/);
-    const minR = parseInt(parts[0]) || 1;
-    // Only single-dot merits or graduated merits starting at 1
-    if (minR > 1) continue;
-    if (parts.length === 1 && minR !== 1) continue;
-    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    qualified.push({ key, label });
+
+  // Try rules cache first
+  const rulesDB = getRulesByCategory('merit');
+  if (rulesDB.length) {
+    for (const rule of rulesDB) {
+      if (rule.special === 'standing') continue;
+      const rr = rule.rating_range;
+      const minR = rr ? rr[0] : 1;
+      if (minR > 1) continue;
+      if (rr && rr[0] === rr[1] && rr[0] !== 1) continue;
+      qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
+    }
+  } else {
+    return '<option value="">— rules loading —</option>';
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();

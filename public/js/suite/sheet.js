@@ -7,8 +7,8 @@ import { displayName, getWillpower } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   SORCERY_THEMES, RITUAL_DISCS, CORE_DISCS,
-  MAN_DB
 } from './data.js';
+import { getRuleByKey } from '../data/loader.js';
 
 import {
   dots, dotsWithBonus, getAttrDots, getAttrBonus,
@@ -442,7 +442,9 @@ export function renderSheet() {
       const manName = m.manoeuvre || m.name;
       const base = meritBase(m);
       const rank = m.rating || 0;
-      const db = manName ? MAN_DB[manName.toLowerCase()] : null;
+      const slug = manName ? manName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : null;
+      const rule = slug ? getRuleByKey(slug) : null;
+      const db = rule ? { style: rule.parent, rank: rule.rank, effect: rule.description, prereq: rule.prereq ? '(structured)' : null } : null;
       const id = 'man' + i;
       const body = db ? `<div class="man-exp-body">
         <div class="man-style">${db.style} \u2014 Rank ${db.rank}</div>

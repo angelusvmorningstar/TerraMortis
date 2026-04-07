@@ -16,6 +16,7 @@ import { renderTicketsTab } from './player/tickets-tab.js';
 import { renderXpLogTab } from './player/xp-log-tab.js';
 import { startWizard } from './player/wizard.js';
 import { getActiveCycle, getGamePhaseCycle } from './downtime/db.js';
+import { loadRulesFromApi } from './data/loader.js';
 import state from './data/state.js';
 
 let chars = [];
@@ -84,6 +85,9 @@ function renderSidebarUser() {
 // ── Character loading ──
 
 async function loadCharacters() {
+  // Load rules data (purchasable powers) — non-blocking, cached
+  loadRulesFromApi().catch(() => {});
+
   try {
     chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');
     // Sanitise: strip zero-dot disciplines (treated as absent)

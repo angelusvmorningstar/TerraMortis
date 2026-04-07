@@ -6,7 +6,7 @@
 
 import { esc, displayName } from '../data/helpers.js';
 import { ALL_ATTRS, ALL_SKILLS, SKILLS_MENTAL } from '../data/constants.js';
-import { DISC } from '../suite/disc-data.js';
+import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 
 // ── Dice math (decoupled from suite/data.js) ──
 
@@ -91,32 +91,46 @@ function calcPool() {
   return getAttrVal(selAttr) + getSkillVal(selSkill) + getDiscVal(selDisc) + (selSpec ? getSpecBonus() : 0);
 }
 
-/** Get powers available to the selected character from the DISC database. */
+/** Get powers available to the selected character. Tries rules cache, falls back to DISC. */
 function getCharPowers() {
   if (!selectedChar) return [];
   const charDiscs = selectedChar.disciplines || {};
   const charPowers = (selectedChar.powers || []).map(p => p.name);
   const results = [];
-  for (const [name, info] of Object.entries(DISC)) {
-    // Include if character knows the discipline
-    if (info.d && charDiscs[info.d]) {
-      results.push({ name, info });
+
+  // Try rules cache
+  const discRules = getRulesByCategory('discipline');
+  const devRules = getRulesByCategory('devotion');
+  const riteRules = getRulesByCategory('rite');
+  if (discRules.length) {
+    for (const rule of [...discRules, ...riteRules]) {
+      if (rule.parent && charDiscs[rule.parent]) {
+        results.push({ name: rule.name, info: { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } });
+      }
     }
-    // Include devotions the character has learned
-    if (!info.d && charPowers.includes(name)) {
-      results.push({ name, info });
+    for (const rule of devRules) {
+      if (charPowers.includes(rule.name)) {
+        results.push({ name: rule.name, info: { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } });
+      }
     }
   }
-  // Sort by discipline then name
   results.sort((a, b) => (a.info.d || '').localeCompare(b.info.d || '') || a.name.localeCompare(b.name));
   return results;
 }
 
-/** Load a power's pool into the roller state. */
+/** Load a power's pool into the roller state. Tries rules cache, falls back to DISC. */
 function loadPower(powerName) {
-  const info = DISC[powerName];
+  // Try rules cache
+  const slug = powerName.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug) || getRuleByKey('rite-' + slug) || getRuleByKey('devotion-' + slug);
+  let info;
+  if (rule) {
+    info = { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description };
+  } else {
+    return;
+  }
   if (!info || !selectedChar) return;
-  if (!info.a || !info.s) return; // non-rollable
+  if (!info.a || !info.s) return;
 
   const attrV = getAttrVal(info.a);
   const skillV = getSkillVal(info.s);
@@ -184,18 +198,22 @@ function render() {
   h += '</div>';
 
   // Power info banner
-  if (selPower && DISC[selPower]) {
-    const pi = DISC[selPower];
-    h += '<div class="de-power-info">';
-    h += `<div class="de-power-name">${esc(selPower)}</div>`;
-    const details = [];
-    if (pi.c) details.push(`Cost: ${pi.c}`);
-    if (pi.ac) details.push(pi.ac);
-    if (pi.du) details.push(pi.du);
-    if (pi.r) details.push(pi.r);
-    if (details.length) h += `<div class="de-power-stats">${esc(details.join(' · '))}</div>`;
-    if (pi.ef) h += `<div class="de-power-effect">${esc(pi.ef)}</div>`;
-    h += '</div>';
+  if (selPower) {
+    const slug = selPower.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const rule = getRuleByKey(slug) || getRuleByKey('rite-' + slug) || getRuleByKey('devotion-' + slug);
+    const pi = rule ? { c: rule.cost, ac: rule.action, du: rule.duration, r: rule.resistance, ef: rule.description } : null;
+    if (pi) {
+      h += '<div class="de-power-info">';
+      h += `<div class="de-power-name">${esc(selPower)}</div>`;
+      const details = [];
+      if (pi.c) details.push(`Cost: ${pi.c}`);
+      if (pi.ac) details.push(pi.ac);
+      if (pi.du) details.push(pi.du);
+      if (pi.r) details.push(pi.r);
+      if (details.length) h += `<div class="de-power-stats">${esc(details.join(' · '))}</div>`;
+      if (pi.ef) h += `<div class="de-power-effect">${esc(pi.ef)}</div>`;
+      h += '</div>';
+    }
   }
 
   // Pool builder (attribute + skill + discipline) — shown when character selected

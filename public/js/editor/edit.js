@@ -6,10 +6,9 @@ import {
   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS, RITUAL_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS
 } from '../data/constants.js';
-import { DEVOTIONS_DB } from '../data/devotions-db.js';
+import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
 import { meritByCategory, addMerit, removeMerit, ensureMeritSync } from './merits.js';
-import { MERITS_DB } from '../data/merits-db-data.js';
 import { getPoolTotal, getPoolUsed, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { vmAlliesPool, vmAlliesUsed, investedPool, investedUsed } from './domain.js';
 import {
@@ -544,11 +543,13 @@ export function shShowDevSelect(btn) {
     // Actually add the devotion
     if (!sel.value) return;
     const c = state.chars[state.editIdx];
-    const dev = DEVOTIONS_DB.find(d => d.n === sel.value);
-    if (!dev) return;
+    const slug = 'devotion-' + sel.value.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const rule = getRuleByKey(slug);
+    if (!rule) return;
     if (!c.powers) c.powers = [];
-    if (c.powers.some(p => p.category === 'devotion' && p.name === dev.n)) return;
-    c.powers.push({ category: 'devotion', name: dev.n, stats: dev.stats || '', effect: dev.effect || '' });
+    if (c.powers.some(p => p.category === 'devotion' && p.name === rule.name)) return;
+    const devStats = [rule.pool ? `Pool: ${[rule.pool.attr, rule.pool.skill, rule.pool.disc].filter(Boolean).join(' + ')}` : '', rule.action, rule.duration].filter(Boolean).join('  •  ');
+    c.powers.push({ category: 'devotion', name: rule.name, stats: devStats, effect: rule.description || '' });
     _markDirty();
     _renderSheet(c);
   }
@@ -664,17 +665,18 @@ export function shEditPact(powerIdx, field, val) {
    MERIT CREATION POINTS
 ══════════════════════════════════════════════════════════ */
 
-/** Return sorted array of legal non-zero ratings for a merit, based on MERITS_DB. */
+/** Return sorted array of legal non-zero ratings for a merit. Tries rules cache, falls back to MERITS_DB. */
 function _meritLegalRatings(meritName) {
-  if (!MERITS_DB || !meritName) return null;
-  const entry = MERITS_DB[meritName.toLowerCase()];
-  if (!entry) return null;
-  const rStr = entry.rating || '1';
-  const parts = rStr.split(/[–\-—]/);
-  const min = parseInt(parts[0]) || 1;
-  const max = parseInt(parts[parts.length - 1]) || min;
-  if (min === max) return [min]; // fixed
-  return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  if (!meritName) return null;
+  // Try rules cache
+  const slug = meritName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule?.rating_range) {
+    const [min, max] = rule.rating_range;
+    if (min === max) return [min];
+    return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  }
+  return null;
 }
 
 /** Step a merit's total rating to the next/prev legal value (adjusts CP only). */

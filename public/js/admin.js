@@ -2,7 +2,7 @@
 
 import { apiGet, apiPut, apiPost } from './data/api.js';
 import { initAdminArchive } from './admin/archive-admin.js';
-import { sanitiseChar } from './data/loader.js';
+import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
@@ -22,6 +22,7 @@ import { initDataPortabilityView } from './admin/data-portability.js';
 import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
 import { initTicketsView } from './admin/tickets-views.js';
+import { initRulesView } from './admin/rules-view.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
@@ -166,6 +167,7 @@ function switchDomain(domain) {
   if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
   if (domain === 'tickets') initTicketsView(document.getElementById('tickets-admin-content'));
+  if (domain === 'rules') initRulesView(document.getElementById('rules-content'));
 }
 
 document.getElementById('sidebar').addEventListener('click', e => {
@@ -606,6 +608,9 @@ window._plmCreate = async (charId) => {
 };
 
 async function init() {
+  // Load rules data (purchasable powers) — non-blocking, cached
+  loadRulesFromApi().catch(() => {});
+
   try {
     chars = await apiGet('/api/characters');
     chars.forEach(sanitiseChar);

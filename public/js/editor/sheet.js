@@ -9,23 +9,56 @@ import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs,
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
-import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
+import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
+import { getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
-import { DEVOTIONS_DB } from '../data/devotions-db.js';
-import { MERITS_DB } from '../data/merits-db-data.js';
-import { MAN_DB } from '../data/man-db-data.js';
-setDevotionsDB(DEVOTIONS_DB);
+import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
+
+// Build legacy-format shims from rules cache for remaining deep consumers.
+// These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
+function _devDB() {
+  return getRulesByCategory('devotion').map(r => ({
+    n: r.name, p: r.prereq?.all?.map(n => ({ disc: n.name, dots: n.dots })) || (r.prereq?.type === 'discipline' ? [{ disc: r.prereq.name, dots: r.prereq.dots }] : []),
+    xp: r.xp_fixed || 0, cost: r.cost || '', effect: r.description || '',
+    stats: r.pool ? `Pool: ${[r.pool.attr, r.pool.skill, r.pool.disc].filter(Boolean).join(' + ')}` + (r.action ? `  •  ${r.action}` : '') + (r.duration ? `  •  ${r.duration}` : '') : '',
+    bl: r.bloodline,
+  }));
+}
+function _meritDB() {
+  const db = {};
+  for (const r of getRulesByCategory('merit')) {
+    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, special: r.special };
+  }
+  return db;
+}
+function _manDB() {
+  const db = {};
+  for (const r of getRulesByCategory('manoeuvre')) {
+    db[r.name.toLowerCase()] = { name: r.name, style: r.parent, rank: String(r.rank || ''), effect: r.description, prereq: r.prereq };
+  }
+  return db;
+}
+// Module-level aliases rebuilt on each render (rules cache is fast, already in memory)
+let DEVOTIONS_DB = [];
+let MERITS_DB = {};
+let MAN_DB = {};
+function _refreshLegacyDBs() {
+  DEVOTIONS_DB = _devDB();
+  MERITS_DB = _meritDB();
+  MAN_DB = _manDB();
+  if (DEVOTIONS_DB.length) setDevotionsDB(DEVOTIONS_DB);
+}
+_refreshLegacyDBs();
 
 /** Render a prereq warning showing only the terms the character actually fails. */
 function _prereqWarn(c, meritName, m) {
   if (m && m.granted_by === 'Fucking Thief') return '';
-  const entry = meritLookup(meritName);
-  if (!entry || !entry.prereq || entry.prereq === '-') return '';
-  if (meritQualifies(c, entry.prereq)) return '';
-  const failing = entry.prereq.split(/\s*,\s*/).filter(part => !meritQualifies(c, part));
-  if (!failing.length) return '';
-  return '<div class="merit-prereq-warn">\u26A0 Prerequisites not met: <span class="merit-prereq-txt">'+esc(failing.join(', '))+'</span></div>';
+  const rule = getRuleByKey(meritName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+  if (!rule || !rule.prereq) return '';
+  if (meetsPrereq(c, rule.prereq)) return '';
+  const label = prereqLabel(rule.prereq);
+  return '<div class="merit-prereq-warn">\u26A0 Prerequisites not met: <span class="merit-prereq-txt">'+esc(label)+'</span></div>';
 }
 
 /** Render grant pool counters for a merit category. Handles single and multi-target pools. */
@@ -1126,6 +1159,7 @@ export function shRenderMeritRow(m,idPrefix,i,dotHtml) {
 /* ── renderSheet orchestrator ── */
 
 export function renderSheet(c, target = null) {
+  _refreshLegacyDBs();
   const {editMode,chars,editIdx}=state;
   state.openExpId=null;
   const el = target || document.getElementById('sh-content');
