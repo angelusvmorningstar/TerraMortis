@@ -1,6 +1,6 @@
 # Story PP.8: Admin Rules Editor
 
-## Status: Approved
+## Status: Ready for Review
 
 ## Story
 
@@ -105,16 +105,27 @@ Add styles to `public/css/admin-layout.css` following existing section patterns.
 ## Dev Agent Record
 
 ### Agent Model Used
-_TBD_
+Claude Opus 4.6
 
 ### Debug Log References
-_TBD_
+N/A — no runtime testing without browser environment
 
 ### Completion Notes List
-_TBD_
+- Rules sidebar button + domain section added to admin.html
+- rules-view.js: initRulesView fetches /api/rules, renders filterable/searchable table
+- Category filter pills with counts, text search across name + description
+- Row click expands inline edit panel showing read-only fields + editable fields
+- Prereq editor: JSON textarea with parse validation on save
+- Rating range: two number inputs (min, max)
+- xp_fixed input shown only for devotions
+- Save calls PUT /api/rules/:key, updates local cache, invalidates localStorage
+- Styled in admin-layout.css following existing domain patterns
 
 ### File List
-_TBD_
+- `public/admin.html` (modified — Rules sidebar button + domain section)
+- `public/js/admin.js` (modified — import initRulesView, wire switchDomain)
+- `public/js/admin/rules-view.js` (created — full rules browser/editor)
+- `public/css/admin-layout.css` (modified — rules domain styles)
 
 ## QA Results
 _Pending implementation_
