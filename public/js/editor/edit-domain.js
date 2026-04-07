@@ -3,6 +3,12 @@
 import state from '../data/state.js';
 import { meritByCategory, addMerit, removeMerit } from './merits.js';
 import { mciPoolTotal } from './mci.js';
+import { getRuleByKey } from '../data/loader.js';
+
+function ruleKeyFor(name) {
+  const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return getRuleByKey(slug)?.key || null;
+}
 
 /* ── Callback registration (same pattern as edit.js) ── */
 let _markDirty, _renderSheet;
@@ -20,7 +26,7 @@ export function shEditInflMerit(idx, field, val) {
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'influence', idx);
   if (!m) return;
-  if (field === 'name') { m.name = val; m.area = ''; delete m.ghoul; }
+  if (field === 'name') { m.name = val; m.rule_key = ruleKeyFor(val); m.area = ''; delete m.ghoul; }
   else if (field === 'area') m.area = val;
   else if (field === 'rating') m.rating = Math.max(0, Math.min(5, parseInt(val) || 0));
   else if (field === 'ghoul') m.ghoul = val === true || val === 'true' || val === 1;
@@ -95,7 +101,7 @@ export function shEditGenMerit(idx, field, val) {
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'general', idx);
   if (!m) return;
-  if (field === 'name') m.name = val;
+  if (field === 'name') { m.name = val; m.rule_key = ruleKeyFor(val); }
   else if (field === 'qualifier') {
     const prevQualifier = m.qualifier;
     if (val) m.qualifier = val; else delete m.qualifier;
@@ -112,8 +118,7 @@ export function shEditGenMerit(idx, field, val) {
           addMerit(c, { category: 'general', name: val, rating: 0, granted_by: 'Fucking Thief' });
           newIdx = c.merits.length - 1;
         }
-        if (!c.merit_creation[newIdx]) c.merit_creation[newIdx] = {};
-        c.merit_creation[newIdx].free = 1;
+        c.merits[newIdx].free = 1;
       }
     }
   }
@@ -205,7 +210,7 @@ export function shRemoveStandMerit(idx) {
   if (realIdx < 0) return;
   // For MCI: clear all free_mci allocations across the character
   if (m && m.name === 'Mystery Cult Initiation') {
-    (c.merit_creation || []).forEach(mc => { if (mc) mc.free_mci = 0; });
+    (c.merits || []).forEach(m2 => { m2.free_mci = 0; });
     (c.fighting_styles || []).forEach(fs => { fs.free_mci = 0; });
   }
   removeMerit(c, realIdx);
@@ -272,7 +277,7 @@ export function shEditDomMerit(idx, field, val) {
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'domain', idx);
   if (!m) return;
-  if (field === 'name') m.name = val;
+  if (field === 'name') { m.name = val; m.rule_key = ruleKeyFor(val); }
   else if (field === 'rating') m.rating = Math.max(1, Math.min(5, parseInt(val) || 1));
   else if (field === 'qualifier') { if (val) m.qualifier = val; else delete m.qualifier; }
   _markDirty();
@@ -363,8 +368,7 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
       pm.shared_with = (pm.shared_with || []).filter(n => n !== c.name && n !== partnerName);
       // If partner has 0 contribution and no remaining partners, remove the merit
       const pRealIdx = partner.merits.indexOf(pm);
-      const pmc = (partner.merit_creation && partner.merit_creation[pRealIdx]) || { cp: 0, free: 0, xp: 0 };
-      const pContrib = (pmc.cp || 0) + (pmc.free || 0) + (pmc.xp || 0);
+      const pContrib = (pm.cp || 0) + (pm.free || 0) + (pm.xp || 0);
       if (pContrib === 0 && pm.shared_with.length === 0) {
         removeMerit(partner, pRealIdx);
       }
@@ -405,14 +409,14 @@ export function shEditStyle(idx, field, val) {
   if (!fs) return;
   val = Math.max(0, parseInt(val) || 0);
   if (field === 'cp') {
-    const otherCP = (c.merit_creation || []).reduce((s, mc) => s + (mc ? mc.cp || 0 : 0), 0)
+    const otherCP = (c.merits || []).reduce((s, m) => s + (m.cp || 0), 0)
       + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.cp || 0)), 0);
     val = Math.min(val, Math.max(0, 10 - otherCP));
   }
   if (field === 'free_mci') {
     const mciTotal = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
       .reduce((s, m) => s + mciPoolTotal(m), 0);
-    const otherMCI = (c.merit_creation || []).reduce((s, mc) => s + (mc ? mc.free_mci || 0 : 0), 0)
+    const otherMCI = (c.merits || []).reduce((s, m) => s + (m.free_mci || 0), 0)
       + (c.fighting_styles || []).reduce((s, fs2, i2) => s + (i2 === idx ? 0 : (fs2.free_mci || 0)), 0);
     val = Math.min(val, Math.max(0, mciTotal - otherMCI));
   }

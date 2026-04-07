@@ -1,0 +1,33 @@
+schema: 1
+story: "PP.10"
+story_title: "Migrate All Client Code to Schema v3"
+gate: PASS
+status_reason: "177 references migrated across 25 files. Zero legacy references. Both QA concerns resolved: rule_key set on merit name change, disciplines added to blank template."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-08"
+
+waiver: { active: false }
+top_issues: []
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 0 }
+  recommendations:
+    must_fix: []
+    monitor: []
+
+nfr_validation:
+  _assessed: [reliability, maintainability]
+  reliability:
+    status: PASS
+    notes: "Blank template includes disciplines. All merit name changes set rule_key. Optional chaining throughout."
+  maintainability:
+    status: PASS
+    notes: "Zero legacy references. Consistent v3 patterns across all 25 files."
+
+history:
+  - at: "2026-04-08"
+    gate: CONCERNS
+    note: "Initial review — rule_key never set on merit name change, disciplines missing from blank template"
+  - at: "2026-04-08"
+    gate: PASS
+    note: "Both issues fixed by QA: ruleKeyFor() helper in edit-domain.js, disciplines: {} in blank template"

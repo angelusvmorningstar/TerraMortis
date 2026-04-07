@@ -186,7 +186,7 @@ function charAlerts(c) {
   if (xpLeft(c) < 0) red = true;
 
   // Merit CP overspend (budget: 10)
-  const meritCPUsed = (c.merit_creation || []).reduce((s, mc) => s + (mc ? mc.cp || 0 : 0), 0)
+  const meritCPUsed = (c.merits || []).reduce((s, m) => s + (m.cp || 0), 0)
     + (c.fighting_styles || []).reduce((s, fs) => s + (fs.cp || 0), 0)
     + (c.powers || []).filter(p => p.category === 'pact').reduce((s, p) => s + (p.cp || 0), 0)
     + ((c.bp_creation || {}).cp || 0);
@@ -198,7 +198,7 @@ function charAlerts(c) {
   const atPri = c.attribute_priorities || {};
   for (const cat of Object.keys(ATTR_CATS)) {
     const budget = PRI_BUDGETS[atPri[cat] || 'Tertiary'] || 3;
-    const used = (ATTR_CATS[cat] || []).reduce((s, a) => s + (((c.attr_creation || {})[a] || {}).cp || 0), 0);
+    const used = (ATTR_CATS[cat] || []).reduce((s, a) => s + ((c.attributes?.[a]?.cp) || 0), 0);
     if (used > budget) red = true;
   }
 
@@ -206,7 +206,7 @@ function charAlerts(c) {
   const skPri = c.skill_priorities || {};
   for (const cat of Object.keys(SKILL_CATS)) {
     const budget = SKILL_PRI_BUDGETS[skPri[cat] || 'Tertiary'] || 4;
-    const used = (SKILL_CATS[cat] || []).reduce((s, sk) => s + (((c.skill_creation || {})[sk] || {}).cp || 0), 0);
+    const used = (SKILL_CATS[cat] || []).reduce((s, sk) => s + ((c.skills?.[sk]?.cp) || 0), 0);
     if (used > budget) red = true;
   }
 
@@ -397,18 +397,16 @@ async function createNewCharacter() {
     skill_priorities: {},
     attributes: Object.fromEntries(
       ['Intelligence','Wits','Resolve','Strength','Dexterity','Stamina','Presence','Manipulation','Composure']
-        .map(a => [a, { dots: 1, bonus: 0 }])
+        .map(a => [a, { dots: 1, bonus: 0, cp: 0, xp: 0, free: 0, rule_key: null }])
     ),
-    attr_creation: {},
     skills: Object.fromEntries(
       ['Academics','Computer','Crafts','Investigation','Medicine','Occult','Politics','Science',
        'Athletics','Brawl','Drive','Firearms','Larceny','Stealth','Survival','Weaponry',
        'Animal Ken','Empathy','Expression','Intimidation','Persuasion','Socialise','Streetwise','Subterfuge']
-        .map(s => [s, { dots: 0, bonus: 0, specs: [], nine_again: false }])
+        .map(s => [s, { dots: 0, bonus: 0, specs: [], nine_again: false, cp: 0, xp: 0, free: 0, rule_key: null }])
     ),
-    skill_creation: {},
+    disciplines: {},
     merits: [],
-    merit_creation: [],
     powers: [],
     banes: [],
     ordeals: [],
