@@ -1,6 +1,6 @@
 # Story PP.1: Schema, Collection, and Seed Script
 
-## Status: Approved
+## Status: Ready for Review
 
 ## Story
 
@@ -20,14 +20,14 @@
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create JSON Schema file (AC: 2, 5, 6, 7)
+- [x] Task 1: Create JSON Schema file (AC: 2, 5, 6, 7)
   - [ ] Create `server/schemas/purchasable_power.schema.js`
   - [ ] Define required fields: `key` (string, slug format), `name` (string), `category` (enum)
   - [ ] Define optional fields: `parent`, `rank`, `rating_range`, `description`, `pool` (object with attr/skill/disc), `resistance`, `cost`, `action`, `duration`, `prereq`, `exclusive`, `xp_fixed`, `special`, `bloodline`
   - [ ] Define `prereq` as a recursive schema supporting `all`/`any` arrays and leaf nodes with `type`/`name`/`dots`/`qualifier`/`max`
   - [ ] Export `purchasablePowerSchema`
 
-- [ ] Task 2: Build transform script (AC: 1, 4)
+- [x] Task 2: Build transform script (AC: 1, 4)
   - [ ] Create `server/scripts/seed-purchasable-powers.js`
   - [ ] Read all 6 JSON files from `json_data_from_js/`
   - [ ] Transform merits: key from object key, map `type` → `parent`, parse `rating` string → `rating_range` array, parse `prereq` string → JSON Logic tree
@@ -40,7 +40,7 @@
   - [ ] Generate URL-safe slug keys: lowercase, replace spaces/special chars with hyphens
   - [ ] Validate all generated documents against schema before insert
 
-- [ ] Task 3: Prereq string parser (AC: 7)
+- [x] Task 3: Prereq string parser (AC: 7)
   - [ ] Create `server/scripts/lib/parse-prereq.js`
   - [ ] Parse comma-separated AND conditions: `"Brawl 2, Stealth 3"` → `{ all: [{ type: 'skill', name: 'Brawl', dots: 2 }, ...] }`
   - [ ] Parse OR conditions: `"Brawl 1 or Weaponry 1"` → `{ any: [...] }`
@@ -51,7 +51,7 @@
   - [ ] Return `null` for empty/absent prereqs
   - [ ] Log unrecognised patterns for manual review
 
-- [ ] Task 4: Seed execution and validation (AC: 1, 3)
+- [x] Task 4: Seed execution and validation (AC: 1, 3)
   - [ ] Script connects to MongoDB via `MONGODB_URI` env var
   - [ ] Drop `purchasable_powers` collection before insert
   - [ ] Insert all transformed documents
@@ -99,16 +99,24 @@ Use `validate()` from `server/middleware/validate.js` — already wired for all 
 ## Dev Agent Record
 
 ### Agent Model Used
-_TBD_
+Claude Opus 4.6
 
 ### Debug Log References
-_TBD_
+- Prereq parser: 322/322 strings parsed, 0 warnings after paren-aware split fix
+- Transform: 620 documents, 0 key collisions (devotions/rites prefixed with category)
+- Categories: attribute(9), skill(24), discipline(82), rite(79), merit(189), devotion(42), manoeuvre(195)
 
 ### Completion Notes List
-_TBD_
+- Schema supports 3-level recursive prereq tree (covers all known patterns)
+- Key collision resolved: devotions and rites prefixed with `devotion-` and `rite-` since they share names with discipline powers
+- Prereq parser handles 146 unique patterns including: OR inside parens, "Specialisation in X or Y", covenant status, clan gates, humanity thresholds, negations
+- Skills rating_range set to [0,5] (can start at 0), attributes [1,5]
+- Devotion pool/action/duration extracted from `stats` string where available
 
 ### File List
-_TBD_
+- `server/schemas/purchasable_power.schema.js` (created)
+- `server/scripts/lib/parse-prereq.js` (created)
+- `server/scripts/seed-purchasable-powers.js` (created)
 
 ## QA Results
 _Pending implementation_
