@@ -312,25 +312,39 @@ export function buildMeritOptions(c, currentName) {
  */
 const MCI_DOT_RATING = [1, 1, 2, 3, 3];
 export function buildMCIGrantOptions(c, dotLevel, currentName) {
-  const db = MERITS_DB;
-  if (!db) return '<option value="">— loading —</option>';
   const maxR = MCI_DOT_RATING[dotLevel] || 1;
   const qualified = [];
-  for (const [key, entry] of Object.entries(db)) {
-    if (entry.special === 'standing') continue;
-    if (entry.type && ['style', 'invictus oath'].includes(entry.type.toLowerCase())) continue;
-    if (!meritQualifies(c, entry.prereq || '')) continue;
-    // Filter by rating: fixed-rating merits must match exactly, graduated must include maxR
-    const rStr = entry.rating || '1';
-    const parts = rStr.split(/[–\-—]/);
-    const minR = parseInt(parts[0]) || 1;
-    const maxMerit = parseInt(parts[parts.length - 1]) || minR;
-    // For graduated (range): show if maxR falls within range
-    // For fixed (single): show if merit rating == maxR
-    if (parts.length > 1) { if (minR > maxR) continue; }
-    else { if (minR !== maxR) continue; }
-    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    qualified.push({ key, label });
+
+  // Try rules cache first
+  const rulesDB = getRulesByCategory('merit');
+  if (rulesDB.length) {
+    for (const rule of rulesDB) {
+      if (rule.special === 'standing') continue;
+      if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
+      if (!_meetsPrereq(c, rule.prereq)) continue;
+      const rr = rule.rating_range;
+      if (rr) {
+        if (rr[0] === rr[1]) { if (rr[0] !== maxR) continue; }
+        else { if (rr[0] > maxR) continue; }
+      } else { if (1 !== maxR) continue; }
+      qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
+    }
+  } else {
+    // Fallback to MERITS_DB
+    const db = MERITS_DB;
+    if (!db) return '<option value="">— loading —</option>';
+    for (const [key, entry] of Object.entries(db)) {
+      if (entry.special === 'standing') continue;
+      if (entry.type && ['style', 'invictus oath'].includes(entry.type.toLowerCase())) continue;
+      if (!meritQualifies(c, entry.prereq || '')) continue;
+      const rStr = entry.rating || '1';
+      const parts = rStr.split(/[–\-—]/);
+      const minR = parseInt(parts[0]) || 1;
+      if (parts.length > 1) { if (minR > maxR) continue; }
+      else { if (minR !== maxR) continue; }
+      const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      qualified.push({ key, label });
+    }
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();
@@ -350,19 +364,33 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
  * Includes all categories since FT can steal covenant-restricted advantages.
  */
 export function buildFThiefOptions(currentName) {
-  const db = MERITS_DB;
-  if (!db) return '<option value="">— loading —</option>';
   const qualified = [];
-  for (const [key, entry] of Object.entries(db)) {
-    if (entry.special === 'standing') continue;
-    const rStr = entry.rating || '1';
-    const parts = rStr.split(/[–\-—]/);
-    const minR = parseInt(parts[0]) || 1;
-    // Only single-dot merits or graduated merits starting at 1
-    if (minR > 1) continue;
-    if (parts.length === 1 && minR !== 1) continue;
-    const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    qualified.push({ key, label });
+
+  // Try rules cache first
+  const rulesDB = getRulesByCategory('merit');
+  if (rulesDB.length) {
+    for (const rule of rulesDB) {
+      if (rule.special === 'standing') continue;
+      const rr = rule.rating_range;
+      const minR = rr ? rr[0] : 1;
+      if (minR > 1) continue;
+      if (rr && rr[0] === rr[1] && rr[0] !== 1) continue;
+      qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
+    }
+  } else {
+    // Fallback to MERITS_DB
+    const db = MERITS_DB;
+    if (!db) return '<option value="">— loading —</option>';
+    for (const [key, entry] of Object.entries(db)) {
+      if (entry.special === 'standing') continue;
+      const rStr = entry.rating || '1';
+      const parts = rStr.split(/[–\-—]/);
+      const minR = parseInt(parts[0]) || 1;
+      if (minR > 1) continue;
+      if (parts.length === 1 && minR !== 1) continue;
+      const label = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      qualified.push({ key, label });
+    }
   }
   qualified.sort((a, b) => a.label.localeCompare(b.label));
   const curLow = (currentName || '').toLowerCase();
