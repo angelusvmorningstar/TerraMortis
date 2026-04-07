@@ -1,0 +1,41 @@
+schema: 1
+story: "PP.1"
+story_title: "Schema, Collection, and Seed Script"
+gate: PASS
+status_reason: "All ACs met. All prior concerns resolved: pre-insert schema validation added, additionalProperties tightened, dead schema field removed, warnings array documented."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-07"
+
+waiver: { active: false }
+
+top_issues: []
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 0
+    medium: 0
+    low: 0
+  recommendations:
+    must_fix: []
+    monitor: []
+
+nfr_validation:
+  _assessed: [security, reliability, maintainability]
+  security:
+    status: PASS
+    notes: "Seed script runs locally with env-var auth. No user-facing endpoints in this story."
+  reliability:
+    status: PASS
+    notes: "Pre-insert Ajv validation gate added; script aborts on any schema failure."
+  maintainability:
+    status: PASS
+    notes: "Clean separation: schema, parser, seed. Well-commented. 620 docs match expected counts exactly."
+
+history:
+  - at: "2026-04-07"
+    gate: CONCERNS
+    note: "Initial review — missing pre-insert validation, additionalProperties too permissive, dead schema field, undocumented warnings array"
+  - at: "2026-04-07"
+    gate: PASS
+    note: "Re-review — all 4 issues resolved"

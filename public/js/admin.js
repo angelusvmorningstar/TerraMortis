@@ -2,7 +2,7 @@
 
 import { apiGet, apiPut, apiPost } from './data/api.js';
 import { initAdminArchive } from './admin/archive-admin.js';
-import { sanitiseChar } from './data/loader.js';
+import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
 import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
@@ -606,6 +606,9 @@ window._plmCreate = async (charId) => {
 };
 
 async function init() {
+  // Load rules data (purchasable powers) — non-blocking, cached
+  loadRulesFromApi().catch(() => {});
+
   try {
     chars = await apiGet('/api/characters');
     chars.forEach(sanitiseChar);
