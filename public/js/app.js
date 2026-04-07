@@ -54,7 +54,7 @@ import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getR
 //  SUITE IMPORTS
 // ══════════════════════════════════════════════
 
-import suiteState, { CHARS_DATA, DISC } from './suite/data.js';
+import suiteState, { CHARS_DATA } from './suite/data.js';
 import { mountTerr } from './suite/territory.js';
 import {
   handleImport as _handleImport,

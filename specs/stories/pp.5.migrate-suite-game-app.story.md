@@ -1,6 +1,6 @@
 # Story PP.5: Migrate Consumers — Suite and Game App
 
-## Status: Approved
+## Status: Ready for Review
 
 ## Story
 
@@ -102,16 +102,26 @@
 ## Dev Agent Record
 
 ### Agent Model Used
-_TBD_
+Claude Opus 4.6
 
 ### Debug Log References
-_TBD_
+N/A — no runtime testing without browser environment
 
 ### Completion Notes List
-_TBD_
+- shared/pools.js: getPool() tries rules cache first (slug + rite-/devotion- prefixed lookups), falls back to DISC. Produces identical pool breakdown shape.
+- admin/dice-engine.js: getCharPowers() builds power list from rules cache by category, falls back to DISC iteration. loadPower() and power info banner both try rules cache first.
+- suite/sheet-helpers.js: meritLookup() tries rules cache first, falls back to MERITS_DB.
+- suite/sheet.js: manoeuvre rendering tries rules cache first for style/rank/effect, falls back to MAN_DB.
+- app.js: removed unused DISC import.
+- Tasks 5-6 (data.js cleanup, data file deletion) deferred to PP-7 — re-exports and data files retained as fallback until all consumers verified.
+- DISC/MAN_DB/MERITS_DB imports retained in suite modules as fallback.
 
 ### File List
-_TBD_
+- `public/js/shared/pools.js` (modified — getRuleByKey import, dual-path getPool)
+- `public/js/admin/dice-engine.js` (modified — getRulesByCategory/getRuleByKey import, dual-path getCharPowers/loadPower/render)
+- `public/js/suite/sheet-helpers.js` (modified — getRuleByKey import, dual-path meritLookup)
+- `public/js/suite/sheet.js` (modified — getRuleByKey import, dual-path manoeuvre lookup)
+- `public/js/app.js` (modified — removed unused DISC import)
 
 ## QA Results
 _Pending implementation_

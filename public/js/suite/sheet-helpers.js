@@ -7,6 +7,7 @@ import {
   MERITS_DB, SORCERY_THEMES, RITUAL_DISCS
 } from './data.js';
 import { getAttrVal, getAttrBonus as _getAttrBonus, skDots, skSpecs, skSpecStr } from '../data/accessors.js';
+import { getRuleByKey } from '../data/loader.js';
 
 // ── Dot display ──
 
@@ -71,6 +72,11 @@ export function meritKeyBase(m) {
 }
 
 export function meritLookup(m) {
+  // Try rules cache first
+  const slug = meritKey(m).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  if (rule) return { desc: rule.description, prereq: rule.prereq, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, _rule: rule };
+  // Fallback to MERITS_DB
   const k = meritKey(m);
   if (MERITS_DB[k]) return MERITS_DB[k];
   const kb = meritKeyBase(m);
