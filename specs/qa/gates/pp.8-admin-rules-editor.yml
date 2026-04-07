@@ -1,0 +1,33 @@
+schema: 1
+story: "PP.8"
+story_title: "Admin Rules Editor"
+gate: PASS
+status_reason: "All 10 ACs met. Complete rules browser/editor with category pills, search, expandable edit panels, JSON prereq editor, PUT save with cache invalidation. Well-styled following existing admin patterns."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-07"
+
+waiver: { active: false }
+
+top_issues: []
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 0
+    medium: 0
+    low: 0
+  recommendations:
+    must_fix: []
+    monitor: []
+
+nfr_validation:
+  _assessed: [security, reliability, maintainability]
+  security:
+    status: PASS
+    notes: "Save calls PUT /api/rules/:key which is ST-only + allowlisted fields (PP-2). Prereq JSON parsed client-side with try/catch, validated server-side by schema."
+  reliability:
+    status: PASS
+    notes: "Error handling on load (shows message), save (shows error), and prereq parse (shows validation error). invalidateRulesCache ensures fresh data on next load."
+  maintainability:
+    status: PASS
+    notes: "Single self-contained module. Clean separation of render/wire/save. Follows existing admin domain patterns. CSS uses project custom properties."

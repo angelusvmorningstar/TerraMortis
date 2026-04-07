@@ -3026,3 +3026,49 @@ body {
 .tk-admin-edit-row label { display: block; font-size: 11px; color: var(--txt3); margin-bottom: 4px; }
 .tk-admin-edit-title { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 6px 8px; font-size: 13px; font-weight: 600; box-sizing: border-box; }
 .tk-admin-edit-body { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 6px 8px; font-size: 13px; box-sizing: border-box; resize: vertical; }
+
+
+/* ── Rules domain ── */
+.rules-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.rules-cat-btn { padding: 5px 12px; border: 1px solid var(--bdr, rgba(201,169,98,.2)); border-radius: 14px; background: var(--surf, #1A1714); color: var(--txt2, #aaa); font-size: 12px; cursor: pointer; font-family: var(--fh); }
+.rules-cat-btn:hover { background: var(--surf2, #252119); }
+.rules-cat-btn.rules-cat-active { background: var(--gold2, #E0C47A); color: var(--bg, #0D0B09); border-color: var(--gold2); }
+.rules-cat-count { font-size: 10px; opacity: .7; margin-left: 4px; }
+.rules-search-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.rules-search { flex: 1; padding: 8px 12px; background: var(--surf, #1A1714); border: 1px solid var(--bdr, rgba(201,169,98,.2)); border-radius: 4px; color: var(--txt1, #E8E0D0); font-size: 13px; font-family: inherit; }
+.rules-search:focus { border-color: var(--gold2); outline: none; }
+.rules-result-count { font-size: 12px; color: var(--txt2, #aaa); white-space: nowrap; }
+
+.rules-table { display: flex; flex-direction: column; gap: 2px; }
+.rules-row { border: 1px solid rgba(201,169,98,.08); border-radius: 4px; overflow: hidden; }
+.rules-row-expanded { border-color: rgba(201,169,98,.25); }
+.rules-row-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; transition: background .1s; flex-wrap: wrap; }
+.rules-row-header:hover { background: rgba(201,169,98,.04); }
+.rules-name { font-family: var(--fh); font-size: 14px; color: var(--txt1); flex-shrink: 0; }
+.rules-cat-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; padding: 1px 6px; border-radius: 3px; background: rgba(201,169,98,.1); color: var(--gold2); }
+.rules-parent { font-size: 12px; color: var(--txt2); }
+.rules-rating { font-size: 12px; color: var(--gold2); }
+.rules-prereq { font-size: 11px; color: var(--txt3, #777); margin-left: auto; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.rules-edit-panel { padding: 16px; background: var(--surf2, #252119); border-top: 1px solid rgba(201,169,98,.1); }
+.rules-ro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.rules-ro-field { font-size: 12px; }
+.rules-ro-label { color: var(--txt3, #777); display: block; margin-bottom: 2px; }
+.rules-ro-value { color: var(--txt1); }
+
+.rules-edit-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.rules-field { }
+.rules-field-label { display: block; font-size: 12px; color: var(--gold2); font-family: var(--fh); margin-bottom: 4px; }
+.rules-field-input { width: 100%; box-sizing: border-box; padding: 8px 10px; background: var(--surf, #1A1714); color: var(--txt1); border: 1px solid var(--bdr, rgba(201,169,98,.2)); border-radius: 4px; font-family: inherit; font-size: 13px; }
+.rules-field-input:focus { border-color: var(--gold2); outline: none; }
+.rules-field-num { width: 80px; }
+.rules-field-hint { font-size: 11px; color: var(--txt3); margin-top: 3px; }
+.rules-prereq-json { font-family: monospace; font-size: 12px; resize: vertical; }
+.rules-rating-inputs { display: flex; align-items: center; gap: 6px; }
+.rules-rating-sep { color: var(--txt3); }
+
+.rules-edit-actions { display: flex; align-items: center; gap: 12px; }
+.rules-save-btn { padding: 8px 20px; }
+.rules-save-status { font-size: 13px; color: var(--txt2); }
+.rules-save-ok { color: #4CAF50; }
+.rules-save-err { color: var(--crim, #8B0000); }

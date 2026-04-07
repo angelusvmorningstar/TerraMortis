@@ -6,7 +6,6 @@
 
 import { esc, displayName } from '../data/helpers.js';
 import { ALL_ATTRS, ALL_SKILLS, SKILLS_MENTAL } from '../data/constants.js';
-import { DISC } from '../suite/disc-data.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 
 // ── Dice math (decoupled from suite/data.js) ──
@@ -114,12 +113,6 @@ function getCharPowers() {
         results.push({ name: rule.name, info: { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } });
       }
     }
-  } else {
-    // Fallback to DISC
-    for (const [name, info] of Object.entries(DISC)) {
-      if (info.d && charDiscs[info.d]) results.push({ name, info });
-      if (!info.d && charPowers.includes(name)) results.push({ name, info });
-    }
   }
   results.sort((a, b) => (a.info.d || '').localeCompare(b.info.d || '') || a.name.localeCompare(b.name));
   return results;
@@ -134,7 +127,7 @@ function loadPower(powerName) {
   if (rule) {
     info = { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description };
   } else {
-    info = DISC[powerName];
+    return;
   }
   if (!info || !selectedChar) return;
   if (!info.a || !info.s) return;
@@ -208,7 +201,7 @@ function render() {
   if (selPower) {
     const slug = selPower.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const rule = getRuleByKey(slug) || getRuleByKey('rite-' + slug) || getRuleByKey('devotion-' + slug);
-    const pi = rule ? { c: rule.cost, ac: rule.action, du: rule.duration, r: rule.resistance, ef: rule.description } : DISC[selPower];
+    const pi = rule ? { c: rule.cost, ac: rule.action, du: rule.duration, r: rule.resistance, ef: rule.description } : null;
     if (pi) {
       h += '<div class="de-power-info">';
       h += `<div class="de-power-name">${esc(selPower)}</div>`;

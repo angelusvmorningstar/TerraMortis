@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Downtime Form — Full Mock Test</title>
+<style>
+  :root {
+    --bg: #0D0B09; --surf1: #1A1714; --surf2: #252119; --surf3: #333;
+    --gold1: #C9A84C; --gold2: #E0C47A; --fh: 'Cinzel', serif;
+    --text1: #E8E0D0; --text2: #aaa; --crim: #8B0000;
+  }
+  body { background:var(--bg); color:var(--text1); font-family:'Lora',Georgia,serif; padding:30px; max-width:720px; margin:0 auto; }
+
+  /* ── Header ── */
+  .qf-header { margin-bottom:28px; }
+  .qf-title { font-family:var(--fh); color:var(--gold2); font-size:22px; margin:0 0 6px; }
+  .qf-intro { font-size:13px; color:var(--text2); margin:6px 0 0; }
+  .qf-meta { margin-top:8px; }
+  .qf-badge { display:inline-block; padding:3px 10px; border-radius:4px; font-size:12px; font-weight:600; text-transform:uppercase; }
+  .qf-badge-draft { background:var(--surf2); color:var(--gold2); }
+
+  /* ── Sections ── */
+  .qf-section { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid rgba(201,169,98,.12); }
+  .qf-section:last-of-type { border-bottom:none; }
+  .qf-section-title { font-family:var(--fh); font-size:17px; color:var(--gold2); font-weight:600; margin-bottom:8px; cursor:pointer; display:flex; align-items:center; gap:8px; user-select:none; }
+  .qf-section-title::before { content:'▾'; display:inline-block; font-size:13px; transition:transform .2s; flex-shrink:0; width:14px; text-align:center; }
+  .qf-section.collapsed .qf-section-title::before { transform:rotate(-90deg); }
+  .qf-section-tick { margin-left:auto; font-size:16px; color:#4CAF50; display:none; }
+  .qf-section-tick.visible { display:inline; }
+  .qf-section-body { transition:none; }
+  .qf-section.collapsed .qf-section-body { display:none; }
+  .qf-section-intro { font-size:14px; color:#C8B8A0; margin-bottom:20px; line-height:1.6; }
+
+  /* ── Fields ── */
+  .qf-field { margin-bottom:22px; }
+  .qf-label { display:block; font-family:var(--fh); font-size:14px; color:var(--text1); margin-bottom:6px; }
+  .qf-desc { font-size:13px; color:var(--text2); margin:0 0 12px; line-height:1.5; }
+  .qf-req { color:var(--crim); }
+  .qf-input,.qf-textarea,.qf-select { width:100%; box-sizing:border-box; padding:10px; background:var(--surf1); color:var(--text1); border:1px solid var(--surf3); border-radius:4px; font-family:inherit; font-size:14px; }
+  .qf-textarea { resize:vertical; min-height:80px; }
+  .qf-select { cursor:pointer; }
+  .qf-input:focus,.qf-textarea:focus,.qf-select:focus { border-color:var(--gold2); outline:none; }
+  .dt-gated-hidden { display:none; }
+
+  /* ── Project tabs ── */
+  .dt-proj-tabs { display:flex; gap:6px; margin-bottom:0; }
+  .dt-proj-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 6px 8px; border:1px solid rgba(201,169,98,.15); border-bottom:none; border-radius:6px 6px 0 0; background:var(--surf1); color:var(--text2); cursor:pointer; font-family:var(--fh); transition:background .15s,color .15s; }
+  .dt-proj-tab:hover { background:var(--surf2); }
+  .dt-proj-tab-active { background:var(--surf2); color:var(--gold2); border-color:rgba(201,169,98,.3); border-bottom:1px solid var(--surf2); position:relative; z-index:1; margin-bottom:-1px; }
+  .dt-proj-tab-empty .dt-proj-tab-icon { color:var(--crim); }
+  .dt-proj-tab-icon { font-size:18px; line-height:1; }
+  .dt-proj-tab-num { font-size:10px; text-transform:uppercase; letter-spacing:.5px; opacity:.7; }
+  .dt-proj-tab-label { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+
+  /* ── Project panes ── */
+  .dt-proj-pane { border:1px solid rgba(201,169,98,.15); border-radius:0 0 6px 6px; background:var(--surf2); padding:16px 18px; }
+  .dt-proj-pane-hidden { display:none; }
+
+  .dt-proj-feed-summary { padding:12px 14px; background:rgba(201,169,98,.06); border:1px solid rgba(201,169,98,.15); border-radius:4px; margin-bottom:12px; }
+  .dt-proj-feed-summary p { margin:0 0 6px; font-size:14px; color:var(--text2); }
+  .dt-proj-feed-summary p:last-child { margin-bottom:0; }
+  .dt-proj-feed-method { color:var(--gold2); }
+
+  .dt-proj-cast,.dt-proj-merits { display:flex; flex-wrap:wrap; gap:6px 14px; }
+  .dt-proj-cast-label,.dt-proj-merit-label { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; color:var(--text1); }
+  .dt-proj-cast-label input,.dt-proj-merit-label input { accent-color:var(--gold2); }
+
+  /* ── Dice pool row ── */
+  .dt-dice-pool-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .dt-dice-pool-row .qf-select { flex:1; min-width:110px; }
+  .dt-pool-total { font-weight:700; color:var(--gold2); font-size:14px; min-width:30px; }
+  .dt-pool-label { font-size:12px; color:var(--text2); margin-bottom:4px; }
+
+  /* ── Actions ── */
+  .qf-actions { display:flex; gap:12px; margin-top:24px; }
+  .qf-btn { padding:10px 24px; border:none; border-radius:4px; cursor:pointer; font-family:var(--fh); font-size:14px; font-weight:600; }
+  .qf-btn-save { background:var(--surf2); color:var(--gold2); }
+  .qf-btn-submit { background:var(--gold2); color:var(--bg); }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel&family=Lora&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="dt-container">
+
+<div class="qf-header">
+  <h3 class="qf-title">Downtime Submission</h3>
+  <p class="qf-section-intro">Cycle 7 — April 2026</p>
+  <div class="qf-meta"><span class="qf-badge qf-badge-draft">Draft</span></div>
+  <p class="qf-intro">Your responses auto-save as you type.</p>
+</div>
+
+<!-- Character Status -->
+<div class="qf-section collapsed" data-section-key="status">
+  <h4 class="qf-section-title">Character Status<span class="qf-section-tick visible">✔</span></h4>
+  <div class="qf-section-body">
+    <p class="qf-section-intro">Attended last game — Court section enabled.</p>
+  </div>
+</div>
+
+<!-- Court (stub) -->
+<div class="qf-section collapsed" data-section-key="court">
+  <h4 class="qf-section-title">Court: Politics and Correspondence<span class="qf-section-tick">✔</span></h4>
+  <div class="qf-section-body">
+    <div class="qf-field">
+      <label class="qf-label">Travel <span class="qf-req">*</span></label>
+      <textarea class="qf-textarea" rows="2"></textarea>
+    </div>
+    <div class="qf-field">
+      <label class="qf-label">Game Recount <span class="qf-req">*</span></label>
+      <textarea class="qf-textarea" rows="3"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Feeding (stub) -->
+<div class="qf-section collapsed" data-section-key="feeding">
+  <h4 class="qf-section-title">Feeding: The Hunt<span class="qf-section-tick">✔</span></h4>
+  <div class="qf-section-body">
+    <p class="qf-section-intro">Method selection would appear here with pool breakdown.</p>
+  </div>
+</div>
+
+<!-- Territory (stub) -->
+<div class="qf-section collapsed" data-section-key="territory">
+  <h4 class="qf-section-title">The City: Territory and Influence<span class="qf-section-tick">✔</span></h4>
+  <div class="qf-section-body">
+    <p class="qf-section-intro">Territory grid and influence spend would appear here.</p>
+  </div>
+</div>
+
+<!-- ═══ PROJECTS — the main event ═══ -->
+<div class="qf-section" data-section-key="projects" id="projects-section">
+  <h4 class="qf-section-title">Projects: Personal Actions<span class="qf-section-tick">✔</span></h4>
+  <div class="qf-section-body">
+    <p class="qf-section-intro">You have up to four Project slots this Downtime. Each Project must aim to achieve one clear outcome. The first Project is required; the rest are optional.</p>
+
+    <div class="dt-proj-tabs" id="proj-tabs"></div>
+    <div id="proj-panes"></div>
+  </div>
+</div>
+
+<!-- Vamping (stub) -->
+<div class="qf-section collapsed" data-section-key="vamping">
+  <h4 class="qf-section-title">Vamping: Fever for the Flavour<span class="qf-section-tick">✔</span></h4>
+  <div class="qf-section-body">
+    <div class="qf-field">
+      <label class="qf-label">What does your character get up to?</label>
+      <textarea class="qf-textarea" rows="3"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Admin (stub) -->
+<div class="qf-section collapsed" data-section-key="admin">
+  <h4 class="qf-section-title">Admin: Crunching Numbers and Asking Questions<span class="qf-section-tick">✔</span></h4>
+  <div class="qf-section-body">
+    <p class="qf-section-intro">XP spend, lore requests, and form rating would appear here.</p>
+  </div>
+</div>
+
+<div class="qf-actions">
+  <button class="qf-btn qf-btn-save">Save Draft</button>
+  <button class="qf-btn qf-btn-submit">Submit Downtime</button>
+</div>
+
+</div>
+
+<script>
+// ── Mock data ──
+const TERRITORY_DATA = [
+  { id: 'academy', name: 'The Academy' },
+  { id: 'dockyards', name: 'The Dockyards' },
+  { id: 'harbour', name: 'The Harbour' },
+  { id: 'northshore', name: 'The North Shore' },
+  { id: 'secondcity', name: 'The Second City' },
+];
+
+const PROJECT_ACTIONS = [
+  { value: '', label: '— No Action Taken —' },
+  { value: 'ambience_increase', label: 'Ambience Change (Increase)' },
+  { value: 'ambience_decrease', label: 'Ambience Change (Decrease)' },
+  { value: 'attack', label: 'Attack' },
+  { value: 'feed', label: 'Feed: Dedicate extra time to feeding' },
+  { value: 'hide_protect', label: 'Hide/Protect' },
+  { value: 'investigate', label: 'Investigate' },
+  { value: 'patrol_scout', label: 'Patrol/Scout' },
+  { value: 'support', label: 'Support' },
+  { value: 'xp_spend', label: 'XP Spend: Grow your character' },
+  { value: 'misc', label: 'Misc' },
+];
+
+const ACTION_ICONS = {
+  '': '\u2298', 'ambience_increase': '\u25B2', 'ambience_decrease': '\u25BC',
+  'attack': '\u2694', 'feed': '\u2666', 'hide_protect': '\u25C6',
+  'investigate': '\u25CE', 'patrol_scout': '\u25C8', 'support': '\u2605',
+  'xp_spend': '\u2726', 'misc': '\u25CF',
+};
+const ACTION_SHORT = {
+  '': 'No Action', 'ambience_increase': 'Ambience +', 'ambience_decrease': 'Ambience \u2212',
+  'attack': 'Attack', 'feed': 'Feed (Rote)', 'hide_protect': 'Hide/Protect',
+  'investigate': 'Investigate', 'patrol_scout': 'Patrol/Scout', 'support': 'Support',
+  'xp_spend': 'XP Spend', 'misc': 'Misc',
+};
+const ACTION_FIELDS = {
+  '': [],
+  'feed': ['summary'],
+  'xp_spend': ['title', 'xp', 'description'],
+  'ambience_increase': ['title', 'territory', 'pools', 'cast'],
+  'ambience_decrease': ['title', 'territory', 'pools', 'cast'],
+  'attack': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'investigate': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'hide_protect': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
+  'support': ['title', 'pools', 'outcome', 'cast', 'description'],
+  'misc': ['title', 'pools', 'outcome', 'description'],
+};
+
+const mockAttrs = ['Presence', 'Manipulation', 'Composure', 'Wits', 'Intelligence', 'Resolve', 'Strength', 'Dexterity', 'Stamina'];
+const mockSkills = ['Empathy', 'Intimidation', 'Occult', 'Politics', 'Stealth', 'Subterfuge', 'Investigation', 'Athletics'];
+const mockDiscs = ['Nightmare', 'Obfuscate', 'Celerity'];
+const mockAttendees = [
+  { id: '1', name: 'Iseult de Valence' }, { id: '2', name: 'Lord Vance' },
+  { id: '3', name: 'Konstantin Volkov' }, { id: '4', name: 'Livia Aurelius' },
+  { id: '5', name: 'Charles Mercer-Willows' }, { id: '6', name: 'Sister Agatha' },
+];
+const mockMerits = [
+  { name: 'Allies', area: 'Police', rating: 3 },
+  { name: 'Allies', area: 'Underworld', rating: 2 },
+  { name: 'Contacts', area: 'Antiques', rating: 1 },
+  { name: 'Status', area: 'City', rating: 2 },
+  { name: 'Resources', rating: 3 },
+  { name: 'Striking Looks', rating: 2 },
+];
+
+// ── State ──
+let activeTab = 1;
+const slotActions = ['', '', '', ''];
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function renderTabs() {
+  let th = '';
+  for (let n = 1; n <= 4; n++) {
+    const action = slotActions[n - 1];
+    const icon = ACTION_ICONS[action] || ACTION_ICONS[''];
+    const label = ACTION_SHORT[action] || 'No Action';
+    const active = n === activeTab ? ' dt-proj-tab-active' : '';
+    const empty = !action ? ' dt-proj-tab-empty' : '';
+    th += `<button type="button" class="dt-proj-tab${active}${empty}" data-proj-tab="${n}">`;
+    th += `<span class="dt-proj-tab-icon">${icon}</span>`;
+    th += `<span class="dt-proj-tab-num">Action ${n}</span>`;
+    th += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
+    th += '</button>';
+  }
+  document.getElementById('proj-tabs').innerHTML = th;
+}
+
+function renderPane(n) {
+  const action = slotActions[n - 1];
+  const fields = ACTION_FIELDS[action] || [];
+  let h = '';
+
+  // Action dropdown
+  h += '<div class="qf-field">';
+  h += `<label class="qf-label">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
+  h += `<select class="qf-select" data-action-select="${n}">`;
+  for (const opt of PROJECT_ACTIONS) {
+    h += `<option value="${esc(opt.value)}"${action === opt.value ? ' selected' : ''}>${esc(opt.label)}</option>`;
+  }
+  h += '</select></div>';
+
+  if (fields.includes('summary')) {
+    h += '<div class="dt-proj-feed-summary">';
+    h += '<p>This action dedicates a Project slot to feeding. Details are configured in the <strong>Feeding</strong> section above.</p>';
+    h += '<p class="dt-proj-feed-method">Method: <strong>Intimidation + Nightmare</strong></p>';
+    h += '</div>';
+  }
+
+  if (fields.includes('title')) {
+    h += '<div class="qf-field"><label class="qf-label">Project Title</label>';
+    h += '<p class="qf-desc">A short name for this project.</p>';
+    h += '<input type="text" class="qf-input" placeholder="e.g. Harbour Investigation"></div>';
+  }
+
+  if (fields.includes('territory')) {
+    h += '<div class="qf-field"><label class="qf-label">Territory</label>';
+    h += '<select class="qf-select"><option value="">— No Territory —</option>';
+    for (const t of TERRITORY_DATA) h += `<option value="${t.id}">${esc(t.name)}</option>`;
+    h += '</select></div>';
+  }
+
+  if (fields.includes('pools')) {
+    h += renderPool('Primary Dice Pool');
+    h += renderPool('Secondary Dice Pool (optional)');
+  }
+
+  if (fields.includes('outcome')) {
+    h += '<div class="qf-field"><label class="qf-label">Desired Outcome</label>';
+    h += '<p class="qf-desc">Each Project must aim to achieve ONE clear thing.</p>';
+    h += '<input type="text" class="qf-input"></div>';
+  }
+
+  if (fields.includes('cast')) {
+    h += '<div class="qf-field"><label class="qf-label">Characters Involved</label>';
+    h += '<p class="qf-desc">Select other PCs collaborating with or targeted by this action.</p>';
+    h += '<div class="dt-proj-cast">';
+    for (const a of mockAttendees) {
+      h += `<label class="dt-proj-cast-label"><input type="checkbox"><span>${esc(a.name)}</span></label>`;
+    }
+    h += '</div></div>';
+  }
+
+  if (fields.includes('merits')) {
+    h += '<div class="qf-field"><label class="qf-label">Applicable Merits</label>';
+    h += '<p class="qf-desc">Select merits from your sheet that support this action.</p>';
+    h += '<div class="dt-proj-merits">';
+    for (const m of mockMerits) {
+      const mName = m.area ? `${m.name} (${m.area})` : m.name;
+      const dots = '\u25CF'.repeat(m.rating);
+      h += `<label class="dt-proj-merit-label"><input type="checkbox"><span>${esc(mName)} ${dots}</span></label>`;
+    }
+    h += '</div></div>';
+  }
+
+  if (fields.includes('xp')) {
+    h += '<div class="qf-field"><label class="qf-label">XP Expenditure</label>';
+    h += '<p class="qf-desc">Describe what you are spending XP on in this action.</p>';
+    h += '<textarea class="qf-textarea" rows="2"></textarea></div>';
+  }
+
+  if (fields.includes('description')) {
+    h += '<div class="qf-field"><label class="qf-label">Description</label>';
+    h += '<p class="qf-desc">Additional context, narrative, or details for this action.</p>';
+    h += '<textarea class="qf-textarea" rows="3"></textarea></div>';
+  }
+
+  return h;
+}
+
+function renderPool(label) {
+  let h = '<div class="qf-field">';
+  h += `<div class="dt-pool-label">${label}</div>`;
+  h += '<div class="dt-dice-pool-row">';
+  h += '<select class="qf-select"><option value="">Attribute</option>';
+  for (const a of mockAttrs) h += `<option>${a}</option>`;
+  h += '</select>';
+  h += '<select class="qf-select"><option value="">Skill</option>';
+  for (const s of mockSkills) h += `<option>${s}</option>`;
+  h += '</select>';
+  h += '<select class="qf-select"><option value="">Discipline</option>';
+  for (const d of mockDiscs) h += `<option>${d}</option>`;
+  h += '</select>';
+  h += '<span class="dt-pool-total">—</span>';
+  h += '</div></div>';
+  return h;
+}
+
+function renderAll() {
+  renderTabs();
+  let panes = '';
+  for (let n = 1; n <= 4; n++) {
+    const vis = n === activeTab ? '' : ' dt-proj-pane-hidden';
+    panes += `<div class="dt-proj-pane${vis}" data-proj-pane="${n}">${renderPane(n)}</div>`;
+  }
+  document.getElementById('proj-panes').innerHTML = panes;
+  updateTick();
+}
+
+function updateTick() {
+  const tick = document.querySelector('[data-section-key="projects"] .qf-section-tick');
+  if (tick) tick.classList.toggle('visible', !!slotActions[0]);
+}
+
+// ── Events ──
+const container = document.getElementById('dt-container');
+
+// Section collapse
+container.addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-proj-tab]');
+  if (tab) {
+    activeTab = parseInt(tab.dataset.projTab, 10);
+    renderAll();
+    return;
+  }
+  const title = e.target.closest('.qf-section-title');
+  if (title) {
+    const section = title.closest('.qf-section');
+    if (section) section.classList.toggle('collapsed');
+  }
+});
+
+// Action dropdown change
+container.addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-action-select]');
+  if (sel) {
+    const n = parseInt(sel.dataset.actionSelect, 10);
+    slotActions[n - 1] = sel.value;
+    renderAll();
+  }
+});
+
+// Tick logic for stubs
+container.addEventListener('input', () => {
+  document.querySelectorAll('.qf-section[data-section-key]').forEach(section => {
+    const key = section.dataset.sectionKey;
+    if (key === 'status' || key === 'projects') return;
+    const tick = section.querySelector('.qf-section-tick');
+    if (!tick) return;
+    const body = section.querySelector('.qf-section-body');
+    if (!body) return;
+    const inputs = body.querySelectorAll('textarea, input:not([type="checkbox"])');
+    let allFilled = true, hasFields = false;
+    inputs.forEach(el => { hasFields = true; if (!el.value.trim()) allFilled = false; });
+    tick.classList.toggle('visible', hasFields && allFilled);
+  });
+});
+
+renderAll();
+</script>
+</body>
+</html>
