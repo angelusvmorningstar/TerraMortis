@@ -22,6 +22,7 @@ import residencyRouter from './routes/territory-residency.js';
 import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
+import rulesRouter from './routes/rules.js';
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use('/api/territory-residency', requireAuth, residencyRouter);
 app.use('/api/attendance', requireAuth, attendanceRouter);
 app.use('/api/archive_documents', requireAuth, archiveDocumentsRouter);
 app.use('/api/tickets', requireAuth, ticketsRouter);
+app.use('/api/rules', requireAuth, rulesRouter);
 
 // Public game session endpoint — used by website banner (no auth)
 app.get('/api/game_sessions/next', getNextSession);

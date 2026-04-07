@@ -64,6 +64,79 @@ export async function loadCharsFromApi() {
   return null;
 }
 
+// ── Rules (purchasable powers) loader ──
+
+const RULES_KEY = 'tm_rules_db';
+let _rulesCache = null;
+
+/**
+ * Fetch the purchasable_powers collection from the API, cache to localStorage.
+ * Falls back to localStorage if API is unreachable.
+ * Returns the array of power documents, or null.
+ */
+export async function loadRulesFromApi() {
+  try {
+    const rules = await apiGet('/api/rules');
+    if (Array.isArray(rules) && rules.length) {
+      _rulesCache = rules;
+      localStorage.setItem(RULES_KEY, JSON.stringify(rules));
+      return rules;
+    }
+  } catch {
+    // API unreachable — fall through to localStorage
+  }
+
+  // Fall back to localStorage cache
+  try {
+    const raw = localStorage.getItem(RULES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        _rulesCache = parsed;
+        return parsed;
+      }
+    }
+  } catch {
+    // Corrupt localStorage — fall through
+  }
+
+  return null;
+}
+
+/** Get the cached rules array synchronously. Returns null if not yet loaded. */
+export function getRulesDB() {
+  if (_rulesCache) return _rulesCache;
+  // Try localStorage as fallback for sync access before async load completes
+  try {
+    const raw = localStorage.getItem(RULES_KEY);
+    if (raw) {
+      _rulesCache = JSON.parse(raw);
+      return _rulesCache;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+/** Get a single rule by key slug. */
+export function getRuleByKey(key) {
+  const db = getRulesDB();
+  if (!db) return null;
+  return db.find(r => r.key === key) || null;
+}
+
+/** Get all rules for a given category. */
+export function getRulesByCategory(category) {
+  const db = getRulesDB();
+  if (!db) return [];
+  return db.filter(r => r.category === category);
+}
+
+/** Invalidate the rules cache (call after ST edits a rule). */
+export function invalidateRulesCache() {
+  _rulesCache = null;
+  localStorage.removeItem(RULES_KEY);
+}
+
 /** Get tracker data for a character from localStorage. */
 export function getTrackerData(name) {
   const raw = localStorage.getItem(`tm_tracker_${name}`);

@@ -61,7 +61,7 @@ import {
   handleDtImport as _handleDtImport,
   setImportCallbacks,
 } from './suite/import.js';
-import { loadCharsFromApi, sanitiseChar } from './data/loader.js';
+import { loadCharsFromApi, sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -231,6 +231,9 @@ function populateSuiteDropdowns(chars) {
 }
 
 async function loadAllData() {
+  // 0. Load rules data (purchasable powers) — non-blocking, cached
+  loadRulesFromApi().catch(() => {});
+
   // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();
   if (apiChars) {
