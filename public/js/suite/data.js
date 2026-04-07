@@ -4,8 +4,6 @@
 export { DISC } from './disc-data.js';
 export { CHARS_DATA } from './chars-data.js';
 export { ICONS } from './icons-data.js';
-export { MERITS_DB } from './merits-db-data.js';
-export { MAN_DB } from './man-db-data.js';
 
 // ── SVG icon constants ──
 

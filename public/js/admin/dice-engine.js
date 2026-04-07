@@ -6,7 +6,7 @@
 
 import { esc, displayName } from '../data/helpers.js';
 import { ALL_ATTRS, ALL_SKILLS, SKILLS_MENTAL } from '../data/constants.js';
-import { DISC } from '../suite/disc-data.js';
+import { DISC } from '../suite/data.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 
 // ── Dice math (decoupled from suite/data.js) ──

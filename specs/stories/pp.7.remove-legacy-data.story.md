@@ -1,6 +1,6 @@
 # Story PP.7: Remove Legacy Data Files
 
-## Status: Approved
+## Status: Ready for Review
 
 ## Story
 
@@ -87,16 +87,31 @@ This story MUST NOT proceed until PP-4, PP-5, and PP-6 are all Done. Any remaini
 ## Dev Agent Record
 
 ### Agent Model Used
-_TBD_
+Claude Opus 4.6
 
 ### Debug Log References
-_TBD_
+- Import audit: 0 remaining references to deleted suite data files
+- `data/merits-db-data.js`, `data/devotions-db.js`, `data/man-db-data.js` retained — still used as fallback by editor/sheet.js, editor/edit.js, editor/merits.js, downtime-form.js, wizard.js, xp-log-tab.js
+- `suite/disc-data.js` retained — still re-exported by suite/data.js, used by shared/pools.js
 
 ### Completion Notes List
-_TBD_
+- Deleted `suite/merits-db-data.js` and `suite/man-db-data.js` (duplicates of data/ versions)
+- Deleted `json_data_from_js/` directory (6 files — migration source for PP-1 seed script)
+- Removed MERITS_DB and MAN_DB re-exports from `suite/data.js`
+- Rewired `suite/sheet-helpers.js` to import MERITS_DB from `data/merits-db-data.js` (was via suite/data.js)
+- Rewired `suite/sheet.js` to import MAN_DB from `data/man-db-data.js` (was via suite/data.js)
+- Rewired `admin/dice-engine.js` to import DISC from `suite/data.js` (was directly from suite/disc-data.js)
+- AC1-3 partially met: 2 of the 3 listed data/ files cannot be deleted yet — they're still used as fallback in ~8 editor/player files. Full removal requires completing the remaining fallback elimination across sheet.js devotion rendering, oath lookups, pact editing, and manoeuvre style management.
+- AC4 met: json_data_from_js/ deleted
 
 ### File List
-_TBD_
+- `public/js/suite/merits-db-data.js` (deleted)
+- `public/js/suite/man-db-data.js` (deleted)
+- `json_data_from_js/` (deleted — 6 files)
+- `public/js/suite/data.js` (modified — removed MERITS_DB and MAN_DB re-exports)
+- `public/js/suite/sheet-helpers.js` (modified — rewired MERITS_DB import to data/)
+- `public/js/suite/sheet.js` (modified — rewired MAN_DB import to data/)
+- `public/js/admin/dice-engine.js` (modified — rewired DISC import to suite/data.js)
 
 ## QA Results
 _Pending implementation_

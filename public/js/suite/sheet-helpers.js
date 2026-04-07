@@ -4,8 +4,9 @@
 
 import state from './data.js';
 import {
-  MERITS_DB, SORCERY_THEMES, RITUAL_DISCS
+  SORCERY_THEMES, RITUAL_DISCS
 } from './data.js';
+import { MERITS_DB } from '../data/merits-db-data.js';
 import { getAttrVal, getAttrBonus as _getAttrBonus, skDots, skSpecs, skSpecStr } from '../data/accessors.js';
 import { getRuleByKey } from '../data/loader.js';
 

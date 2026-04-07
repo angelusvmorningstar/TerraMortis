@@ -7,8 +7,8 @@ import { displayName, getWillpower } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   SORCERY_THEMES, RITUAL_DISCS, CORE_DISCS,
-  MAN_DB
 } from './data.js';
+import { MAN_DB } from '../data/man-db-data.js';
 import { getRuleByKey } from '../data/loader.js';
 
 import {
