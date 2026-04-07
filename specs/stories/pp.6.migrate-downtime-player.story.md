@@ -1,6 +1,6 @@
 # Story PP.6: Migrate Consumers — Downtime and Player Portal
 
-## Status: Approved
+## Status: Ready for Review
 
 ## Story
 
@@ -97,16 +97,22 @@ New: `getRuleByKey(slugify(item))` returns `rule.xp_fixed`
 ## Dev Agent Record
 
 ### Agent Model Used
-_TBD_
+Claude Opus 4.6
 
 ### Debug Log References
-_TBD_
+N/A
 
 ### Completion Notes List
-_TBD_
+- downtime-form.js: getXpCost('devotion') tries rules cache (devotion- prefix slug). getItemsForCategory('devotion') builds from rules cache with meetsPrereq filtering. Merit prereq check updated in PP-3.
+- xp.js: xpSpentPowers devotion lookup tries rules cache for xp_fixed. getRuleByKey imported.
+- wizard.js: merit search, merit add, merit adjust, merit display all try rules cache first. Search uses getRulesByCategory('merit') when available.
+- xp-log-tab.js: no direct DEVOTIONS_DB usage in body — it only calls setDevotionsDB(). Left as-is; xp.js now has its own rules cache path.
+- All legacy imports retained as fallback until PP-7.
 
 ### File List
-_TBD_
+- `public/js/player/downtime-form.js` (modified — getRulesByCategory import, devotion XP cost + items dual-path)
+- `public/js/editor/xp.js` (modified — getRuleByKey import, devotion XP lookup dual-path)
+- `public/js/player/wizard.js` (modified — getRulesByCategory/getRuleByKey import, 4 MERITS_DB references dual-path)
 
 ## QA Results
 _Pending implementation_

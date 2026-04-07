@@ -19,7 +19,7 @@ import { xpLeft } from '../editor/xp.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
 import { meritQualifies, meetsPrereq } from '../editor/merits.js';
-import { getRuleByKey } from '../data/loader.js';
+import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole } from '../auth/discord.js';
 
 // Influence merit names that generate monthly influence
@@ -2011,6 +2011,10 @@ function getXpCost(category, item) {
       return 0; // calculated dynamically via row.dotsBuying
     }
     case 'devotion': {
+      // Try rules cache first
+      const slug = 'devotion-' + item.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const rule = getRuleByKey(slug);
+      if (rule) return rule.xp_fixed || 2;
       const dev = DEVOTIONS_DB.find(d => d.n === item);
       return dev ? dev.xp : 2;
     }
@@ -2092,6 +2096,18 @@ function getItemsForCategory(category) {
     }
     case 'devotion': {
       const discs = c.disciplines || {};
+      // Try rules cache first
+      const devRules = getRulesByCategory('devotion');
+      if (devRules.length) {
+        return devRules
+          .filter(rule => {
+            if (rule.bloodline && rule.bloodline !== c.bloodline) return false;
+            if (!rule.prereq) return true;
+            return meetsPrereq(c, rule.prereq);
+          })
+          .map(rule => ({ value: rule.name, label: `${rule.name} (${rule.xp_fixed || '?'} XP)` }));
+      }
+      // Fallback to DEVOTIONS_DB
       return DEVOTIONS_DB
         .filter(d => {
           if (d.bl && d.bl !== c.bloodline) return false;

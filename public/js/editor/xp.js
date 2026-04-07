@@ -3,6 +3,8 @@
  * Pure functions — no DOM side-effects.
  */
 
+import { getRuleByKey } from '../data/loader.js';
+
 /**
  * Convert XP spent into dot count (flat rate).
  * @param {number} xpSpent - total XP allocated
@@ -121,6 +123,10 @@ export function xpSpentPowers(c) {
   const devXP = (c.powers || [])
     .filter(p => p.category === 'devotion')
     .reduce((t, p) => {
+      // Try rules cache first, fallback to _devotionsDB
+      const slug = 'devotion-' + p.name.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const rule = getRuleByKey(slug);
+      if (rule) return t + (rule.xp_fixed || 0);
       const db = _devotionsDB ? _devotionsDB.find(d => d.n === p.name) : null;
       return t + (db ? db.xp || 0 : 0);
     }, 0);
