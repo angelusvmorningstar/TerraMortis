@@ -933,7 +933,8 @@
   "air of menace": {
     "desc": "+2 to menace; others spend Willpower to pick fights. Social manoeuvring harder.",
     "prereq": "Intimidation 2",
-    "type": "Style"
+    "type": "Social",
+    "rating": "1–3"
   },
   "body as weapon": {
     "desc": "+1 bashing on unarmed strikes.",
