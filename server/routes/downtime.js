@@ -3,6 +3,8 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
 import { stripStReview } from '../helpers/strip-st-review.js';
+import { validate } from '../middleware/validate.js';
+import { downtimeSubmissionSchema, downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
 
 function parseId(id) {
   try {
@@ -24,7 +26,7 @@ cyclesRouter.get('/', async (req, res) => {
 });
 
 // POST /api/downtime_cycles — ST only
-cyclesRouter.post('/', requireRole('st'), async (req, res) => {
+cyclesRouter.post('/', requireRole('st'), validate(downtimeCycleSchema), async (req, res) => {
   const doc = req.body;
   const result = await cycles().insertOne(doc);
   const created = await cycles().findOne({ _id: result.insertedId });
@@ -53,7 +55,7 @@ export const submissionsRouter = Router();
 const submissions = () => getCollection('downtime_submissions');
 
 // POST /api/downtime_submissions — both roles can create
-submissionsRouter.post('/', async (req, res) => {
+submissionsRouter.post('/', validate(downtimeSubmissionSchema), async (req, res) => {
   const doc = { ...req.body };
   // Normalise ID fields to ObjectId so GET queries match correctly
   if (doc.cycle_id) {
