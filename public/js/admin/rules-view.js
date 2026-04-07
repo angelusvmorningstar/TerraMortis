@@ -3,7 +3,7 @@
  * ST-only admin panel for managing the unified rules database (620+ entries).
  */
 
-import { apiGet, apiPut, apiPost } from '../data/api.js';
+import { apiGet, apiPut, apiPost, apiDelete } from '../data/api.js';
 import { esc } from '../data/helpers.js';
 import { invalidateRulesCache } from '../data/loader.js';
 import { prereqLabel } from '../data/prereq.js';
@@ -102,7 +102,7 @@ function render(data) {
     h += `<td class="rules-td-dim">${esc(rule.parent || '')}</td>`;
     h += `<td class="rules-td-dim">${ratingDisplay(rule)}</td>`;
     h += `<td class="rules-td-prereq" title="${esc(rule.prereq ? prereqLabel(rule.prereq) : '')}">${esc(pq)}</td>`;
-    h += `<td><button class="rules-edit-btn" data-edit-key="${esc(rule.key)}" title="Edit">&#9998;</button></td>`;
+    h += `<td><button class="rules-edit-btn" data-edit-key="${esc(rule.key)}" title="Edit">&#9998;</button><button class="rules-del-btn" data-del-key="${esc(rule.key)}" data-del-name="${esc(rule.name)}" title="Delete">&#128465;</button></td>`;
     h += '</tr>';
   }
   if (!data.length) {
@@ -140,6 +140,9 @@ function handleClick(e) {
   const editBtn = e.target.closest('[data-edit-key]');
   if (editBtn) { openEditModal(editBtn.dataset.editKey); return; }
 
+  const delBtn = e.target.closest('[data-del-key]');
+  if (delBtn) { handleDelete(delBtn.dataset.delKey, delBtn.dataset.delName); return; }
+
   if (e.target.closest('#rules-add-btn')) { openAddModal(); return; }
 
   if (e.target.closest('#rules-prev') && currentPage > 1) { currentPage--; fetchAndRender(); return; }
@@ -176,6 +179,19 @@ function handleChange(e) {
   }
 }
 
+// ── Delete ──
+
+async function handleDelete(key, name) {
+  if (!confirm(`Delete rule "${name}" (${key})?\n\nThis cannot be undone.`)) return;
+  try {
+    await apiDelete(`/api/rules/${encodeURIComponent(key)}`);
+    invalidateRulesCache();
+    fetchAndRender();
+  } catch (err) {
+    alert(`Delete failed: ${err.message}`);
+  }
+}
+
 // ── Edit Modal ──
 
 async function openEditModal(key) {
@@ -206,6 +222,9 @@ function showModal(html) {
   const dialog = overlay.querySelector('.rules-modal-dialog');
   dialog.querySelector('.rules-modal-cancel')?.addEventListener('click', closeModal);
   dialog.querySelector('.rules-modal-save')?.addEventListener('click', () => handleModalSave(dialog));
+
+  // Wire prereq builder events
+  wirePrereqEvents(dialog);
 
   // Auto-slug for add modal
   const nameInput = dialog.querySelector('[data-field="name"]');
@@ -263,7 +282,7 @@ function renderModalContent(rule, isAdd) {
     h += mf('Exclusive', 'text', 'exclusive', '');
     h += mf('Bloodline', 'text', 'bloodline', '');
     h += '</div>';
-    h += mf('Prerequisites (JSON)', 'textarea', 'prereq', '', 'JSON object or null', 3);
+    h += renderPrereqField(null);
   } else {
     h += '<div class="rules-modal-ro">';
     h += roSpan('Key', rule.key);
@@ -293,8 +312,7 @@ function renderModalContent(rule, isAdd) {
     h += mf('Exclusive', 'text', 'exclusive', rule.exclusive || '');
     h += mf('Bloodline', 'text', 'bloodline', rule.bloodline || '');
     h += '</div>';
-    h += mf('Prerequisites (JSON)', 'textarea', 'prereq',
-      rule.prereq ? JSON.stringify(rule.prereq, null, 2) : '', 'JSON object or null', 3);
+    h += renderPrereqField(rule.prereq);
   }
 
   h += '</div>';
@@ -418,4 +436,187 @@ function setStatus(el, msg, isError) {
   if (!el) return;
   el.textContent = msg;
   el.className = 'rules-modal-status' + (isError ? ' rules-modal-err' : '');
+}
+
+// ── Prereq Builder ──
+
+const PREREQ_TYPES = [
+  { value: 'attribute', label: 'Attribute', hasName: true, hasDots: true },
+  { value: 'skill', label: 'Skill', hasName: true, hasDots: true },
+  { value: 'discipline', label: 'Discipline', hasName: true, hasDots: true },
+  { value: 'merit', label: 'Merit', hasName: true, hasDots: true, hasQualifier: true },
+  { value: 'status', label: 'Status', hasDots: true, hasQualifier: true },
+  { value: 'not_status', label: 'No Status', hasQualifier: true },
+  { value: 'clan', label: 'Clan', hasName: true },
+  { value: 'bloodline', label: 'Bloodline', hasName: true },
+  { value: 'blood_potency', label: 'Blood Potency', hasDots: true },
+  { value: 'humanity', label: 'Humanity \u2264', hasMax: true },
+  { value: 'not', label: 'Not (merit)', hasName: true, hasQualifier: true },
+  { value: 'text', label: 'Text (free)', hasName: true },
+];
+
+function renderPrereqField(prereq) {
+  const json = prereq ? JSON.stringify(prereq, null, 2) : '';
+  let h = '<div class="rules-modal-field prereq-builder-wrap">';
+  h += '<label class="rules-modal-label">Prerequisites</label>';
+  h += '<div class="prereq-tabs">';
+  h += '<button type="button" class="prereq-tab prereq-tab-active" data-prereq-tab="builder">Builder</button>';
+  h += '<button type="button" class="prereq-tab" data-prereq-tab="json">JSON</button>';
+  h += '</div>';
+  h += `<div class="prereq-panel prereq-panel-builder" id="prereq-builder">${renderBuilderFromTree(prereq)}</div>`;
+  h += `<div class="prereq-panel prereq-panel-json" style="display:none"><textarea class="rules-modal-input rules-modal-mono" data-field="prereq" rows="4">${esc(json)}</textarea><div class="rules-modal-hint">Advanced: edit raw JSON directly</div></div>`;
+  h += '</div>';
+  return h;
+}
+
+function renderBuilderFromTree(node) {
+  const leaves = treeToLeaves(node);
+  const combinator = node?.any ? 'any' : 'all';
+  let h = '<div class="prereq-combinator-row">';
+  h += '<label class="prereq-combo-label">Conditions joined by:</label>';
+  h += `<select class="rules-modal-input prereq-combo-sel" id="prereq-combinator">`;
+  h += `<option value="all"${combinator === 'all' ? ' selected' : ''}>ALL (and)</option>`;
+  h += `<option value="any"${combinator === 'any' ? ' selected' : ''}>ANY (or)</option>`;
+  h += '</select>';
+  h += '</div>';
+  h += '<div class="prereq-leaves" id="prereq-leaves">';
+  if (leaves.length === 0) {
+    h += '<div class="prereq-empty">No prerequisites. Click + to add one.</div>';
+  }
+  leaves.forEach((leaf, i) => { h += renderLeafRow(leaf, i); });
+  h += '</div>';
+  h += '<button type="button" class="dt-btn prereq-add-btn" id="prereq-add-leaf">+ Add Condition</button>';
+  return h;
+}
+
+function treeToLeaves(node) {
+  if (!node) return [];
+  if (node.all) return node.all.filter(n => !n.all && !n.any);
+  if (node.any) return node.any.filter(n => !n.all && !n.any);
+  return [node]; // single leaf
+}
+
+function renderLeafRow(leaf, idx) {
+  const td = PREREQ_TYPES.find(t => t.value === leaf.type) || PREREQ_TYPES[0];
+  let h = `<div class="prereq-leaf" data-leaf-idx="${idx}">`;
+  h += '<select class="rules-modal-input prereq-type-sel" data-leaf-field="type">';
+  for (const t of PREREQ_TYPES) h += `<option value="${t.value}"${t.value === leaf.type ? ' selected' : ''}>${esc(t.label)}</option>`;
+  h += '</select>';
+  if (td.hasName) h += `<input type="text" class="rules-modal-input prereq-leaf-name" data-leaf-field="name" placeholder="Name" value="${esc(leaf.name || '')}">`;
+  if (td.hasDots) h += `<input type="number" class="rules-modal-input rules-modal-num" data-leaf-field="dots" placeholder="Dots" min="0" max="10" value="${leaf.dots || ''}">`;
+  if (td.hasQualifier) h += `<input type="text" class="rules-modal-input prereq-leaf-qual" data-leaf-field="qualifier" placeholder="Qualifier" value="${esc(leaf.qualifier || '')}">`;
+  if (td.hasMax) h += `<input type="number" class="rules-modal-input rules-modal-num" data-leaf-field="max" placeholder="Max" min="0" max="10" value="${leaf.max ?? ''}">`;
+  h += `<button type="button" class="prereq-rm-btn" data-rm-leaf="${idx}" title="Remove">\u00D7</button>`;
+  h += '</div>';
+  return h;
+}
+
+function leavesToTree(leaves, combinator) {
+  if (leaves.length === 0) return null;
+  if (leaves.length === 1) return leaves[0];
+  return { [combinator]: leaves };
+}
+
+function collectLeavesFromDOM(container) {
+  const leaves = [];
+  container.querySelectorAll('.prereq-leaf').forEach(row => {
+    const leaf = {};
+    row.querySelectorAll('[data-leaf-field]').forEach(el => {
+      const f = el.dataset.leafField;
+      if (f === 'dots' || f === 'max') {
+        const v = parseInt(el.value, 10);
+        if (!isNaN(v)) leaf[f] = v;
+      } else {
+        if (el.value.trim()) leaf[f] = el.value.trim();
+      }
+    });
+    if (leaf.type) leaves.push(leaf);
+  });
+  return leaves;
+}
+
+function syncBuilderToJSON(dialog) {
+  const builder = dialog.querySelector('#prereq-builder');
+  const textarea = dialog.querySelector('[data-field="prereq"]');
+  if (!builder || !textarea) return;
+  const combo = dialog.querySelector('#prereq-combinator')?.value || 'all';
+  const leaves = collectLeavesFromDOM(builder);
+  const tree = leavesToTree(leaves, combo);
+  textarea.value = tree ? JSON.stringify(tree, null, 2) : '';
+}
+
+function syncJSONToBuilder(dialog) {
+  const textarea = dialog.querySelector('[data-field="prereq"]');
+  const builder = dialog.querySelector('#prereq-builder');
+  if (!textarea || !builder) return;
+  const raw = textarea.value.trim();
+  let tree = null;
+  if (raw) { try { tree = JSON.parse(raw); } catch { return; } }
+  builder.innerHTML = renderBuilderFromTree(tree);
+  wirePrereqEvents(dialog);
+}
+
+function wirePrereqEvents(dialog) {
+  const builder = dialog.querySelector('#prereq-builder');
+  if (!builder) return;
+
+  // Tab switching
+  dialog.querySelectorAll('[data-prereq-tab]').forEach(tab => {
+    tab.onclick = () => {
+      const target = tab.dataset.prereqTab;
+      dialog.querySelectorAll('.prereq-tab').forEach(t => t.classList.toggle('prereq-tab-active', t.dataset.prereqTab === target));
+      dialog.querySelector('.prereq-panel-builder').style.display = target === 'builder' ? '' : 'none';
+      dialog.querySelector('.prereq-panel-json').style.display = target === 'json' ? '' : 'none';
+      if (target === 'json') syncBuilderToJSON(dialog);
+      if (target === 'builder') syncJSONToBuilder(dialog);
+    };
+  });
+
+  // Add leaf
+  const addBtn = builder.querySelector('#prereq-add-leaf');
+  if (addBtn) {
+    addBtn.onclick = () => {
+      const leavesEl = builder.querySelector('#prereq-leaves');
+      const empty = leavesEl.querySelector('.prereq-empty');
+      if (empty) empty.remove();
+      const idx = leavesEl.querySelectorAll('.prereq-leaf').length;
+      const div = document.createElement('div');
+      div.innerHTML = renderLeafRow({ type: 'attribute' }, idx);
+      leavesEl.appendChild(div.firstElementChild);
+      syncBuilderToJSON(dialog);
+    };
+  }
+
+  // Remove leaf + type change + field edits
+  builder.addEventListener('click', (e) => {
+    const rmBtn = e.target.closest('[data-rm-leaf]');
+    if (rmBtn) {
+      rmBtn.closest('.prereq-leaf').remove();
+      syncBuilderToJSON(dialog);
+    }
+  });
+
+  builder.addEventListener('change', (e) => {
+    if (e.target.dataset.leafField === 'type') {
+      // Re-render this leaf row with correct fields
+      const row = e.target.closest('.prereq-leaf');
+      const idx = row.dataset.leafIdx;
+      const newType = e.target.value;
+      const leaf = { type: newType };
+      const div = document.createElement('div');
+      div.innerHTML = renderLeafRow(leaf, idx);
+      row.replaceWith(div.firstElementChild);
+      syncBuilderToJSON(dialog);
+    } else {
+      syncBuilderToJSON(dialog);
+    }
+  });
+
+  builder.addEventListener('input', (e) => {
+    if (e.target.dataset.leafField) syncBuilderToJSON(dialog);
+  });
+
+  // Combinator change
+  const comboSel = builder.querySelector('#prereq-combinator');
+  if (comboSel) comboSel.addEventListener('change', () => syncBuilderToJSON(dialog));
 }

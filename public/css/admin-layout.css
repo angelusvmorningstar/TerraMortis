@@ -3057,6 +3057,8 @@ body {
 .rules-cat-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; padding: 1px 6px; border-radius: 3px; background: rgba(201,169,98,.1); color: var(--gold2); }
 .rules-edit-btn { background: none; border: none; color: var(--txt3, #777); font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1; }
 .rules-edit-btn:hover { color: var(--gold2, #E0C47A); }
+.rules-del-btn { background: none; border: none; color: var(--txt3, #777); font-size: 14px; cursor: pointer; padding: 2px 6px; line-height: 1; margin-left: 2px; }
+.rules-del-btn:hover { color: var(--crim, #8B0000); }
 
 /* Pagination */
 .rules-pag { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px 0; font-size: 13px; }
@@ -3093,3 +3095,23 @@ body {
 .rules-modal-hint { font-size: 10px; color: var(--txt3); }
 .rules-rating-inputs { display: flex; align-items: center; gap: 6px; }
 .rules-rating-sep { color: var(--txt3); }
+
+/* Prereq builder */
+.prereq-builder-wrap { grid-column: 1 / -1; }
+.prereq-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.prereq-tab { padding: 4px 12px; border: 1px solid var(--bdr, rgba(201,169,98,.2)); border-radius: 4px 4px 0 0; background: var(--surf, #1A1714); color: var(--txt3, #777); font-size: 11px; cursor: pointer; font-family: var(--fh); }
+.prereq-tab:hover { color: var(--txt1); }
+.prereq-tab-active { background: var(--surf2, #252119); color: var(--gold2); border-bottom-color: var(--surf2); }
+.prereq-panel { min-height: 40px; }
+.prereq-combinator-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+.prereq-combo-label { color: var(--txt2); }
+.prereq-combo-sel { width: auto; padding: 4px 8px; font-size: 12px; }
+.prereq-leaves { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.prereq-leaf { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.prereq-type-sel { width: 130px; flex-shrink: 0; padding: 5px 8px; font-size: 12px; }
+.prereq-leaf-name { flex: 1; min-width: 100px; padding: 5px 8px; font-size: 12px; }
+.prereq-leaf-qual { width: 100px; padding: 5px 8px; font-size: 12px; }
+.prereq-rm-btn { background: none; border: none; color: var(--txt3); font-size: 16px; cursor: pointer; padding: 2px 6px; }
+.prereq-rm-btn:hover { color: var(--crim, #8B0000); }
+.prereq-empty { font-size: 12px; color: var(--txt3); font-style: italic; padding: 6px 0; }
+.prereq-add-btn { font-size: 11px; padding: 4px 12px; align-self: flex-start; }

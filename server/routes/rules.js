@@ -85,4 +85,11 @@ router.put('/:key', requireRole('st'), async (req, res) => {
   res.json(result);
 });
 
+// DELETE /api/rules/:key — ST only, remove a rule
+router.delete('/:key', requireRole('st'), async (req, res) => {
+  const result = await col().deleteOne({ key: req.params.key });
+  if (result.deletedCount === 0) return res.status(404).json({ error: 'NOT_FOUND', message: 'Power not found' });
+  res.status(204).end();
+});
+
 export default router;
