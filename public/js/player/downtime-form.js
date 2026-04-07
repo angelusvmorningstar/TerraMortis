@@ -18,7 +18,8 @@ import { calcVitaeMax } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
-import { meritQualifies } from '../editor/merits.js';
+import { meritQualifies, meetsPrereq } from '../editor/merits.js';
+import { getRuleByKey } from '../data/loader.js';
 import { getRole } from '../auth/discord.js';
 
 // Influence merit names that generate monthly influence
@@ -2058,7 +2059,10 @@ function getItemsForCategory(category) {
 
       for (const [key, m] of Object.entries(MERITS_DB)) {
         if (m.type === 'Invictus Oath' || m.type === 'Carthian Law') continue;
-        if (m.prereq && !meritQualifies(c, m.prereq)) continue;
+        // Try structured prereq from rules cache; fallback to string parsing
+        const rule = getRuleByKey(key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+        if (rule?.prereq) { if (!meetsPrereq(c, rule.prereq)) continue; }
+        else if (m.prereq && !meritQualifies(c, m.prereq)) continue;
         const name = key.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
         const rating = parseMeritRating(m.rating);
         const currentDots = currentMeritDots(key);

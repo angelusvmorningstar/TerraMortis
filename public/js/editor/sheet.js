@@ -9,7 +9,8 @@ import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs,
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
-import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr } from './merits.js';
+import { meritBase, meritDotCount, meritLookup, meritFixedRating, meritQualifies, buildMeritOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
+import { getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
 import { DEVOTIONS_DB } from '../data/devotions-db.js';
@@ -21,7 +22,18 @@ setDevotionsDB(DEVOTIONS_DB);
 function _prereqWarn(c, meritName, m) {
   if (m && m.granted_by === 'Fucking Thief') return '';
   const entry = meritLookup(meritName);
-  if (!entry || !entry.prereq || entry.prereq === '-') return '';
+  if (!entry) return '';
+
+  // Try structured prereq from rules cache first (PP-3 engine)
+  const rule = getRuleByKey(meritName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+  if (rule && rule.prereq) {
+    if (meetsPrereq(c, rule.prereq)) return '';
+    const label = prereqLabel(rule.prereq);
+    return '<div class="merit-prereq-warn">\u26A0 Prerequisites not met: <span class="merit-prereq-txt">'+esc(label)+'</span></div>';
+  }
+
+  // Fallback: legacy string-based prereq check
+  if (!entry.prereq || entry.prereq === '-') return '';
   if (meritQualifies(c, entry.prereq)) return '';
   const failing = entry.prereq.split(/\s*,\s*/).filter(part => !meritQualifies(c, part));
   if (!failing.length) return '';

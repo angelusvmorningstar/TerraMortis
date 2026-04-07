@@ -8,6 +8,10 @@ import {
   SORCERY_THEMES, RITUAL_DISCS, INFLUENCE_SPHERES
 } from '../data/constants.js';
 import { MERITS_DB } from '../data/merits-db-data.js';
+import { meetsPrereq as _meetsPrereq, prereqLabel as _prereqLabel } from '../data/prereq.js';
+
+// Re-export the new prereq engine for direct use by consumers
+export { _meetsPrereq as meetsPrereq, _prereqLabel as prereqLabel };
 
 /* ══════════════════════════════════════════════════════
    Merit string helpers
@@ -210,9 +214,18 @@ export function checkSinglePrereq(c, token) {
 
 /**
  * Check a full prerequisite string (comma-separated AND, "or"-separated OR).
+ * If the rules cache is available, looks up the structured prereq tree and
+ * delegates to meetsPrereq(). Falls back to regex parsing if cache unavailable.
  */
-export function meritQualifies(c, prereqStr) {
+export function meritQualifies(c, prereqStr, structuredPrereq) {
   if (!prereqStr || prereqStr === '-') return true;
+
+  // If a structured prereq tree was passed directly, use the new engine
+  if (structuredPrereq !== undefined) {
+    return _meetsPrereq(c, structuredPrereq);
+  }
+
+  // Fallback: regex-based parsing for legacy callers
   const andParts = prereqStr.split(/\s*,\s*/);
   return andParts.every(part => {
     const orParts = part.split(/\s+or\s+/i);
