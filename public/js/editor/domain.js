@@ -128,7 +128,7 @@ export function calcContactsInfluence(c) {
  * @returns {number}
  */
 /** Check if character has Honey with Vinegar merit. */
-function hasHoneyWithVinegar(c) {
+export function hasHoneyWithVinegar(c) {
   return (c.merits || []).some(m => m.name === 'Honey With Vinegar' || m.name === 'Honey with Vinegar');
 }
 
