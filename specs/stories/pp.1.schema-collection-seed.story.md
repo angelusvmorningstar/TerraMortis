@@ -1,6 +1,6 @@
 # Story PP.1: Schema, Collection, and Seed Script
 
-## Status: Ready for Review
+## Status: Done
 
 ## Story
 
@@ -119,4 +119,68 @@ Claude Opus 4.6
 - `server/scripts/seed-purchasable-powers.js` (created)
 
 ## QA Results
-_Pending implementation_
+
+### Review Date: 2026-04-07
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full story review — schema, prereq parser, seed script, source data alignment.
+
+#### AC Verification
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC1: ~620 docs, 7 categories | PASS | 620 exact: attribute(9), skill(24), discipline(82), rite(79), merit(189), devotion(42), manoeuvre(195) |
+| AC2: JSON Schema validation via validate() | PARTIAL | Schema exists and follows pattern. But seed script does NOT validate docs before insert. |
+| AC3: Idempotent seed | PASS | Drops collection and re-inserts. Indexes recreated. |
+| AC4: json_data_from_js/ as source | PASS | All 5 source files loaded correctly. |
+| AC5: Rejects missing required fields | PARTIAL | Schema requires key/name/category. But additionalProperties: true weakens rejection. |
+| AC6: Category enum constrained | PASS | 7-value enum enforced. |
+| AC7: Prereq null or all/any tree | PASS | 3-level recursive schema. 322/322 strings parsed, 0 warnings. |
+
+#### Findings Summary
+
+- **1 high severity:** No pre-insert schema validation in seed script (TEST-001)
+- **1 medium severity:** additionalProperties: true on top-level schema (ARCH-001)
+- **2 low severity:** Dead `or` field in prereq leaf schema; module-level warnings array
+
+#### Strengths
+
+- Prereq parser handles 146 unique patterns with zero warnings — thorough work
+- Key collision strategy (category prefix for devotions/rites) is clean
+- Category counts match source data exactly
+- Code is well-structured and well-commented
+
+### Gate Status
+
+Gate: CONCERNS → specs/qa/gates/pp.1-schema-collection-seed.yml
+
+---
+
+### Re-review Date: 2026-04-07
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Re-review of all 4 issues raised in initial review.
+
+#### Issue Resolution
+
+| Issue | Severity | Status | Evidence |
+|-------|----------|--------|----------|
+| TEST-001: No pre-insert schema validation | high | RESOLVED | seed script lines 293-308: Ajv validates all docs, aborts on failure |
+| ARCH-001: additionalProperties: true | medium | RESOLVED | schema line 70: set to false, line 74: _id explicitly allowed |
+| ARCH-002: Dead `or` field in prereqLeaf | low | RESOLVED | Removed from prereqLeaf properties |
+| MNT-001: Undocumented warnings array | low | RESOLVED | parse-prereq.js lines 60-62: safety comment added |
+
+#### AC Verification (Updated)
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC2: JSON Schema validation via validate() | PASS | Schema validated pre-insert via Ajv in seed script |
+| AC5: Rejects missing required fields | PASS | additionalProperties: false now rejects extraneous fields |
+
+All 7 ACs now fully PASS.
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.1-schema-collection-seed.yml
