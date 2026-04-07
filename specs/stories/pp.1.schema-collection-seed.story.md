@@ -1,6 +1,6 @@
 # Story PP.1: Schema, Collection, and Seed Script
 
-## Status: Draft
+## Status: Approved
 
 ## Story
 

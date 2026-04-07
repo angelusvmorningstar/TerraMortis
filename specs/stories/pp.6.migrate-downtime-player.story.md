@@ -1,6 +1,6 @@
 # Story PP.6: Migrate Consumers — Downtime and Player Portal
 
-## Status: Draft
+## Status: Approved
 
 ## Story
 

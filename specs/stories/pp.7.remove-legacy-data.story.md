@@ -1,6 +1,6 @@
 # Story PP.7: Remove Legacy Data Files
 
-## Status: Draft
+## Status: Approved
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story PP.8: Admin Rules Editor
 
-## Status: Draft
+## Status: Approved
 
 ## Story
 

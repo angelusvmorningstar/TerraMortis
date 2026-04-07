@@ -1,6 +1,6 @@
 # Story PP.4: Migrate Consumers — Character Editor
 
-## Status: Draft
+## Status: Approved
 
 ## Story
 

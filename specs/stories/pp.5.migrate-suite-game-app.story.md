@@ -1,6 +1,6 @@
 # Story PP.5: Migrate Consumers — Suite and Game App
 
-## Status: Draft
+## Status: Approved
 
 ## Story
 

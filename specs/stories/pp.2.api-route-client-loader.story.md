@@ -1,6 +1,6 @@
 # Story PP.2: API Route and Client Loader
 
-## Status: Draft
+## Status: Approved
 
 ## Story
 
