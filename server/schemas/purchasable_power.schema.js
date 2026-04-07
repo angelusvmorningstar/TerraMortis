@@ -27,7 +27,6 @@ const prereqLeaf = {
     dots:      { type: 'integer', minimum: 0 },
     qualifier: { type: 'string' },
     max:       { type: 'integer', minimum: 0 },
-    or:        { type: 'string' },
   },
   required: ['type'],
   additionalProperties: false,
@@ -68,9 +67,12 @@ export const purchasablePowerSchema = {
   title: 'TM Purchasable Power',
   type: 'object',
   required: ['key', 'name', 'category'],
-  additionalProperties: true,
+  additionalProperties: false,
 
   properties: {
+    // MongoDB _id (injected on insert, present on read)
+    _id: {},
+
     // Identity
     key:       { type: 'string', minLength: 1, pattern: '^[a-z0-9][a-z0-9-]*$' },
     name:      { type: 'string', minLength: 1 },

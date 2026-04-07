@@ -15,8 +15,10 @@
 
 import { readFileSync } from 'node:fs';
 import { MongoClient } from 'mongodb';
+import Ajv from 'ajv';
 import 'dotenv/config';
 import { parsePrereq, getWarnings, clearWarnings } from './lib/parse-prereq.js';
+import { purchasablePowerSchema } from '../schemas/purchasable_power.schema.js';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -287,6 +289,23 @@ async function seed() {
     ...transformDevotions(),
     ...transformManoeuvres(),
   ];
+
+  // Validate all documents against schema before insert
+  const ajv = new Ajv({ allErrors: true });
+  const validate = ajv.compile(purchasablePowerSchema);
+  const invalid = [];
+  for (const doc of allDocs) {
+    if (!validate(doc)) {
+      invalid.push({ key: doc.key, errors: validate.errors.map(e => `${e.instancePath} ${e.message}`) });
+    }
+  }
+  if (invalid.length) {
+    console.error(`SCHEMA VALIDATION FAILED: ${invalid.length} documents failed:`);
+    invalid.slice(0, 10).forEach(i => console.error(`  ${i.key}:`, i.errors.join('; ')));
+    if (invalid.length > 10) console.error(`  ... and ${invalid.length - 10} more`);
+    process.exit(1);
+  }
+  console.log(`Schema validation: all ${allDocs.length} documents passed`);
 
   // Check for duplicate keys
   const keySet = new Set();

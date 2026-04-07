@@ -57,6 +57,9 @@ const STYLE_NAMES = new Set([
   'Armed Defence', 'Berserker', 'Staff Fighting',
 ]);
 
+// Module-level warnings accumulator. NOT safe for concurrent use in a server process.
+// This module is designed for batch seed scripts only. If imported server-side,
+// refactor to return warnings per call instead.
 const warnings = [];
 
 /**
