@@ -47,6 +47,40 @@ export function applyDerivedMerits(c) {
     });
   });
 
+  // Auto-map free_mci allocations to tier_grants when tier_grants is absent.
+  // Matches merits by free_mci amount to available tier budgets (greedy, largest first).
+  // Runs once per MCI — once tier_grants exists, user manages it manually.
+  const _AUTO_TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier
+  (c.merits || []).forEach(mci => {
+    if (mci.name !== 'Mystery Cult Initiation' || mci.tier_grants) return;
+    const rating = mci.rating || 0;
+    if (rating === 0) return;
+    const d1c = mci.dot1_choice || 'merits', d3c = mci.dot3_choice || 'merits', d5c = mci.dot5_choice || 'merits';
+    // Build list of available merit tiers (descending budget for greedy match)
+    const avail = [];
+    if (rating >= 5 && d5c === 'merits') avail.push(5);
+    if (rating >= 4) avail.push(4);
+    if (rating >= 3 && d3c === 'merits') avail.push(3);
+    if (rating >= 2) avail.push(2);
+    if (rating >= 1 && d1c === 'merits') avail.push(1);
+    if (!avail.length) return;
+    // Collect merits with free_mci, sorted largest first
+    const candidates = (c.merits || [])
+      .filter(m => m !== mci && (m.free_mci || 0) > 0)
+      .map(m => ({ name: m.name, category: m.category, rating: m.free_mci, qualifier: m.area || m.qualifier || null }))
+      .sort((a, b) => b.rating - a.rating);
+    if (!candidates.length) return;
+    mci.tier_grants = [];
+    const usedTiers = new Set();
+    for (const cand of candidates) {
+      // Find best matching tier: budget >= candidate rating, not yet used
+      const tier = avail.find(t => !usedTiers.has(t) && _AUTO_TIER_BUDGETS[t] >= cand.rating);
+      if (tier == null) continue;
+      usedTiers.add(tier);
+      mci.tier_grants.push({ tier, name: cand.name, category: cand.category, rating: Math.min(cand.rating, _AUTO_TIER_BUDGETS[tier]), qualifier: cand.qualifier });
+    }
+  });
+
   // Migrate legacy 'Regular' fighting style → 'Fighting Merit' (type: merit)
   (c.fighting_styles || []).forEach(fs => {
     if (fs.name === 'Regular') { fs.name = 'Fighting Merit'; fs.type = 'merit'; }
