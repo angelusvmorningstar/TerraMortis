@@ -8,6 +8,7 @@ import {
 } from './data.js';
 import { getAttrVal, getAttrBonus as _getAttrBonus, skDots, skSpecs, skSpecStr } from '../data/accessors.js';
 import { getRuleByKey } from '../data/loader.js';
+import { prereqLabel } from '../data/prereq.js';
 
 // ── Dot display ──
 
@@ -75,7 +76,7 @@ export function meritLookup(m) {
   // Try rules cache first
   const slug = meritKey(m).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const rule = getRuleByKey(slug);
-  if (rule) return { desc: rule.description, prereq: rule.prereq, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, _rule: rule };
+  if (rule) return { desc: rule.description, prereq: rule.prereq ? prereqLabel(rule.prereq) : null, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, _rule: rule };
   return null;
 }
 
