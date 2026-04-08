@@ -596,6 +596,8 @@ async function init() {
 
 // ── Window registrations (needed by inline onclick in rendered sheet HTML) ──
 
+Object.defineProperty(window, 'chars', { get: () => chars });
+Object.defineProperty(window, 'editIdx', { get: () => editorState.editIdx });
 Object.assign(window, {
   toggleExp, toggleDisc, renderSheet, editFromSheet: () => {
     editorState.editMode = true;
