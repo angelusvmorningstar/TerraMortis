@@ -234,6 +234,12 @@ export function shEditMCIDot(standIdx, dotKey, val) {
 
 const _MCI_TIER_BUDGET = [0, 1, 1, 2, 3, 3];
 
+function _meritCategory(name) {
+  if (_INFL_NAMES.has(name)) return 'influence';
+  if (_DOM_NAMES.has(name)) return 'domain';
+  return 'general';
+}
+
 export function shEditMCITierGrant(standIdx, tier, meritName) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
@@ -243,9 +249,7 @@ export function shEditMCITierGrant(standIdx, tier, meritName) {
   // Remove existing grant for this tier
   m.tier_grants = m.tier_grants.filter(t => t.tier !== tier);
   if (meritName) {
-    const slug = meritName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const rule = getRuleByKey(slug);
-    const cat = rule?.sub_category || 'general';
+    const cat = _meritCategory(meritName);
     const budget = _MCI_TIER_BUDGET[tier] || 0;
     m.tier_grants.push({ tier, name: meritName, category: cat, rating: budget, qualifier: null });
   }

@@ -131,24 +131,38 @@ export function applyDerivedMerits(c) {
   }
 
   // ── MCI tier_grants auto-allocation ──
-  // When any MCI has tier_grants, clear all free_mci and rebuild entirely from tiers.
-  // This prevents stale manual allocations from persisting alongside tier tracking.
+  // Only clear free_mci on merits that are targeted by tier_grants (prevents
+  // wiping manual allocations on merits not covered by any tier).
   const TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number
-  const hasTierGrants = mcis.some(mci => mci.active !== false && mci.tier_grants && mci.tier_grants.length > 0);
-  if (hasTierGrants) {
-    // Clear all free_mci on all merits and styles — tiers will re-apply what's needed
-    (c.merits || []).forEach(m => { if (m.name !== 'Mystery Cult Initiation') m.free_mci = 0; });
-    (c.fighting_styles || []).forEach(fs => { fs.free_mci = 0; });
+  // First pass: collect all tier-targeted merit keys and clear their free_mci
+  const _tierTargetKeys = new Set();
+  for (const mci of mcis) {
+    if (mci.active === false || !mci.tier_grants) continue;
+    for (const tg of mci.tier_grants) _tierTargetKeys.add(tg.name + '|' + (tg.qualifier || ''));
   }
+  if (_tierTargetKeys.size > 0) {
+    (c.merits || []).forEach(m => {
+      if (m.name === 'Mystery Cult Initiation') return;
+      const key = m.name + '|' + (m.area || m.qualifier || '');
+      if (_tierTargetKeys.has(key)) m.free_mci = 0;
+    });
+  }
+  // Second pass: apply tier grants
   for (const mci of mcis) {
     if (mci.active === false || !mci.tier_grants) continue;
     const rating = mci.rating || 0;
     // Prune tier_grants above current rating
     mci.tier_grants = mci.tier_grants.filter(tg => tg.tier <= rating);
-    // Apply each tier grant
+    // Apply each tier grant — match by name + qualifier/area, lenient on category
     for (const tg of mci.tier_grants) {
+      // Fix stale category on tier_grant (from old bug)
+      const _INFL = ['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status'];
+      const _DOM = ['Safe Place','Haven','Feeding Grounds','Herd','Mandragora Garden'];
+      if (_INFL.includes(tg.name)) tg.category = 'influence';
+      else if (_DOM.includes(tg.name)) tg.category = 'domain';
+
       let target = (c.merits || []).find(m =>
-        m.name === tg.name && m.category === tg.category &&
+        m.name === tg.name &&
         (!tg.qualifier || m.area === tg.qualifier || m.qualifier === tg.qualifier)
       );
       if (!target) {
