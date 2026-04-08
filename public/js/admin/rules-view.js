@@ -17,6 +17,8 @@ let currentPage = 1;
 let totalPages = 1;
 let totalCount = 0;
 let pageSize = parseInt(localStorage.getItem('tm_rules_page_size'), 10) || 50;
+let sortField = 'name';
+let sortOrder = 'asc';
 let _debounceTimer = null;
 
 const CATEGORIES = ['', 'attribute', 'skill', 'discipline', 'merit', 'devotion', 'rite', 'manoeuvre'];
@@ -41,6 +43,8 @@ async function fetchPage() {
   params.set('limit', pageSize);
   if (activeCategory) params.set('category', activeCategory);
   if (searchQuery) params.set('q', searchQuery);
+  if (sortField !== 'name') params.set('sort', sortField);
+  if (sortOrder === 'desc') params.set('order', 'desc');
   return apiGet(`/api/rules?${params}`);
 }
 
@@ -87,7 +91,17 @@ function render(data) {
 
   // ── Table ──
   h += '<div class="rules-tbl-wrap"><table class="rules-tbl"><thead><tr>';
-  h += '<th>Name</th><th>Category</th><th>Parent</th><th>Rank</th><th>Range</th><th>XP</th><th>Prereqs</th><th></th>';
+  const cols = [
+    { key: 'name', label: 'Name' }, { key: 'category', label: 'Category' },
+    { key: 'parent', label: 'Parent' }, { key: 'rank', label: 'Rank' },
+    { key: 'rating_range', label: 'Range' }, { key: 'xp_fixed', label: 'XP' },
+  ];
+  for (const col of cols) {
+    const active = sortField === col.key;
+    const arrow = active ? (sortOrder === 'asc' ? ' \u25B2' : ' \u25BC') : '';
+    h += `<th class="rules-th-sort${active ? ' rules-th-active' : ''}" data-sort="${col.key}">${col.label}${arrow}</th>`;
+  }
+  h += '<th>Prereqs</th><th></th>';
   h += '</tr></thead><tbody>';
   for (const rule of data) {
     const pq = rule.prereq ? truncate(prereqLabel(rule.prereq), 40) : '';
@@ -131,6 +145,16 @@ function wireEvents() {
 }
 
 function handleClick(e) {
+  const sortTh = e.target.closest('[data-sort]');
+  if (sortTh) {
+    const col = sortTh.dataset.sort;
+    if (sortField === col) sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    else { sortField = col; sortOrder = 'asc'; }
+    currentPage = 1;
+    fetchAndRender();
+    return;
+  }
+
   const catBtn = e.target.closest('[data-rules-cat]');
   if (catBtn) { activeCategory = catBtn.dataset.rulesCat; currentPage = 1; fetchAndRender(); return; }
 

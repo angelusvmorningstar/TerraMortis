@@ -3046,7 +3046,10 @@ body {
 .rules-tbl-wrap { overflow-x: auto; margin-bottom: 12px; }
 .rules-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .rules-tbl thead { position: sticky; top: 0; z-index: 1; }
-.rules-tbl th { text-align: left; padding: 8px 10px; background: var(--surf2, #252119); color: var(--gold2, #E0C47A); font-family: var(--fh); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--bdr, rgba(201,169,98,.2)); }
+.rules-tbl th { text-align: left; padding: 8px 10px; background: var(--surf2, #252119); color: var(--gold2, #E0C47A); font-family: var(--fh); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--bdr, rgba(201,169,98,.2)); white-space: nowrap; }
+.rules-th-sort { cursor: pointer; user-select: none; }
+.rules-th-sort:hover { color: var(--txt1, #E8E0D0); }
+.rules-th-active { color: var(--txt1, #E8E0D0); }
 .rules-tbl td { padding: 7px 10px; border-bottom: 1px solid rgba(201,169,98,.06); vertical-align: middle; }
 .rules-tbl tbody tr:nth-child(even) { background: rgba(201,169,98,.02); }
 .rules-tbl tbody tr:hover { background: rgba(201,169,98,.06); }

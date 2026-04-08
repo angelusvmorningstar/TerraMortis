@@ -31,10 +31,17 @@ router.get('/', async (req, res) => {
   // Paginated path
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+
+  // Sorting — allowlisted fields only
+  const SORTABLE = new Set(['name', 'category', 'parent', 'rank', 'rating_range', 'xp_fixed']);
+  const sortField = SORTABLE.has(req.query.sort) ? req.query.sort : 'name';
+  const sortOrder = req.query.order === 'desc' ? -1 : 1;
+  const sort = { [sortField]: sortOrder, name: 1 };
+
   const total = await col().countDocuments(filter);
   const pages = Math.ceil(total / limit) || 1;
   const data = await col().find(filter)
-    .sort({ category: 1, name: 1 })
+    .sort(sort)
     .skip((page - 1) * limit)
     .limit(limit)
     .toArray();
