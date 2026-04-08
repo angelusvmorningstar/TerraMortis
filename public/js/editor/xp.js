@@ -50,15 +50,18 @@ export function xpGame(c) {
   return ((c.xp_log || {}).earned || {}).game || 0;
 }
 
-/** XP bonus from Professional Training: 1 XP per asset skill at 5 dots (requires PT ≥ 3). */
+/** XP bonus from Professional Training: 1 XP per asset skill at 5+ effective dots (requires PT ≥ 3).
+ *  Effective dots = base dots + PT dot 4 bonus (+1 to chosen asset skill). */
 export function xpPT5(c) {
   const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
   if (!ptM || meritRating(c, ptM) < 3) return 0;
   const assets = (ptM.asset_skills || []).filter(Boolean);
   if (!assets.length) return 0;
+  const ptBonus = c._pt_dot4_bonus_skills instanceof Set ? c._pt_dot4_bonus_skills : new Set();
   return assets.filter(sk => {
     const s = (c.skills || {})[sk];
-    return s && (s.dots || 0) >= 5;
+    const effective = (s?.dots || 0) + (ptBonus.has(sk) ? 1 : 0);
+    return effective >= 5;
   }).length;
 }
 

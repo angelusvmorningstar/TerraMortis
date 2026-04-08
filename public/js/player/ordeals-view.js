@@ -156,7 +156,8 @@ function renderXPBreakdown(char) {
   if (earnedParts.pt5 > 0) {
     const ptM = (char.merits || []).find(m => m.name === 'Professional Training');
     const ptAssets = (ptM?.asset_skills || []).filter(Boolean);
-    const maxedAssets = ptAssets.filter(sk => (char.skills?.[sk]?.dots || 0) >= 5);
+    const ptBonus = char._pt_dot4_bonus_skills instanceof Set ? char._pt_dot4_bonus_skills : new Set();
+    const maxedAssets = ptAssets.filter(sk => ((char.skills?.[sk]?.dots || 0) + (ptBonus.has(sk) ? 1 : 0)) >= 5);
     h += `<tr class="xpl-bonus"><td>Professional Training (${earnedParts.pt5} asset${earnedParts.pt5 > 1 ? 's' : ''} at 5)</td><td class="xpl-n">${earnedParts.pt5}</td></tr>`;
     for (const sk of maxedAssets) h += `<tr class="xpl-sub"><td>\u00a0\u00a0\u00b7 ${esc(sk)} \u25cf\u25cf\u25cf\u25cf\u25cf</td><td class="xpl-n">1</td></tr>`;
   }
