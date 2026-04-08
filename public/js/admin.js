@@ -1,4 +1,5 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
+console.log('%c[TM Admin] build 2026-04-08T1', 'color: #E0C47A; font-weight: bold');
 
 import { apiGet, apiPut, apiPost } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
