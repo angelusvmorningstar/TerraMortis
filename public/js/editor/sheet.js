@@ -804,8 +804,12 @@ export function shRenderGeneralMerits(c, editMode) {
       const pw = _prereqWarn(c, m.name, m);
       const purch = (m.cp || 0) + (m.xp || 0), bon = (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0);
       const dotH = shDotsMixed(purch, bon);
-      if (m.granted_by) { const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by; h += '<div class="merit-plain' + (pw ? ' merit-prereq-fail' : '') + '"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + esc(qual) + '</div></div><span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>' + dotH + '</div>' + pw; }
-      else { h += shRenderMeritRow(m.name + qual + (m.rating ? ' ' + shDots(m.rating) : ''), 'merit', i, dotH); if (pw) h += pw; }
+      if (m.granted_by) {
+        const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
+        const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
+        h += shRenderMeritRow(m.name + qual, 'gmerit', i, grantTag + dotH);
+        if (pw) h += pw;
+      } else { h += shRenderMeritRow(m.name + qual + (m.rating ? ' ' + shDots(m.rating) : ''), 'merit', i, dotH); if (pw) h += pw; }
     });
   }
   h += '</div></div>'; return h;
