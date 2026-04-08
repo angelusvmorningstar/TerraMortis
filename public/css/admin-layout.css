@@ -2449,6 +2449,36 @@ body {
 .dp-error-list li { font-size: 12px; color: var(--txt2); }
 .dp-error-list strong { color: var(--txt); }
 
+/* Excel import preview */
+.dp-excel-preview { margin-top: 16px; }
+.dp-excel-header { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.dp-excel-warnings { margin-bottom: 10px; }
+.dp-excel-warn { font-size: 11px; color: #d4a832; padding: 2px 0; }
+.dp-excel-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+.dp-excel-tbl th { text-align: left; padding: 6px 8px; background: var(--surf2); color: var(--gold2); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--bdr); }
+.dp-excel-tbl td { padding: 5px 8px; border-bottom: 1px solid rgba(201,169,98,.06); }
+.dp-excel-row { cursor: pointer; }
+.dp-excel-row:hover { background: rgba(201,169,98,.04); }
+.dp-excel-dimmed { opacity: .4; cursor: default; }
+.dp-excel-name { font-family: var(--fh); }
+.dp-badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: .5px; }
+.dp-badge-update { background: rgba(201,169,98,.15); color: var(--gold2); }
+.dp-badge-new { background: rgba(106,170,106,.15); color: #6abf6a; }
+.dp-badge-dim { background: rgba(120,120,120,.1); color: var(--txt3); }
+.dp-badge-warn { background: rgba(212,168,50,.15); color: #d4a832; }
+.dp-excel-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.dp-excel-progress { font-size: 12px; color: var(--txt2); }
+.dp-excel-errors { margin-top: 8px; }
+.dp-diff-panel { padding: 8px 12px; background: var(--surf2); border-radius: 4px; }
+.dp-diff-section { margin-bottom: 8px; }
+.dp-diff-title { font-size: 10px; color: var(--gold2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; font-family: var(--fh); }
+.dp-diff-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 12px; }
+.dp-diff-field { color: var(--txt2); min-width: 100px; }
+.dp-diff-old { color: var(--txt3); }
+.dp-diff-arrow { color: var(--txt3); }
+.dp-diff-new { color: var(--gold2); }
+.dp-diff-warn { font-size: 11px; color: #d4a832; padding: 1px 0; }
+
 /* ── Ordeals (OR-2 / OR-3) ── */
 
 .or-shell {

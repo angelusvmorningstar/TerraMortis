@@ -3,9 +3,12 @@
  * Validators, writers, and CSV parser are in data-portability-import.js.
  */
 
-import { apiGet } from '../data/api.js';
+import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { downloadCSV as downloadCharCSV } from '../editor/export.js';
 import { validateRow, writeRow, parseCSV } from './data-portability-import.js';
+import { parseExcelWorkbook } from './excel-parser.js';
+import { mergeExcelOntoCharacter } from './excel-merge.js';
+import { getRuleByKey } from '../data/loader.js';
 
 let chars = [];
 
@@ -25,7 +28,9 @@ export function initDataPortabilityView(charData) {
   el.querySelectorAll('.dp-file-input').forEach(input => {
     input.addEventListener('change', async e => {
       if (!e.target.files[0]) return;
-      await handleImport(e.target.dataset.collection, e.target.files[0]);
+      const collection = e.target.dataset.collection;
+      if (collection === 'characters') await handleExcelImport(e.target.files[0]);
+      else await handleImport(collection, e.target.files[0]);
       e.target.value = '';
     });
   });
@@ -36,7 +41,7 @@ export function initDataPortabilityView(charData) {
 
 function buildShell() {
   const collections = [
-    { id: 'characters',    label: 'Characters',    desc: 'Full character sheets (Affinity Publisher merge format)', noImport: true },
+    { id: 'characters',    label: 'Characters',    desc: 'Full character sheets (Affinity Publisher merge format)', excelImport: true },
     { id: 'territories',   label: 'Territories',   desc: 'Territory ambience, regents, feeding rights' },
     { id: 'game_sessions', label: 'Game Sessions',  desc: 'Session dates and game numbers' },
     { id: 'attendance',    label: 'Attendance',     desc: 'Per-character attendance per session (expanded rows)' },
@@ -50,7 +55,11 @@ function buildShell() {
     h += `<div class="dp-card-desc">${c.desc}</div>`;
     h += `<div class="dp-card-btns">`;
     h += `<button class="dt-btn dp-export-btn" data-collection="${c.id}">Export CSV</button>`;
-    if (!c.noImport) {
+    if (c.excelImport) {
+      const xlsxOk = typeof window !== 'undefined' && window.XLSX;
+      h += `<button class="dt-btn dp-import-btn dp-excel-import" data-collection="${c.id}"${xlsxOk ? '' : ' disabled title="XLSX library not loaded"'}>Import from Excel</button>`;
+      h += `<input type="file" accept=".xlsx" class="dp-file-input" data-collection="${c.id}" style="display:none">`;
+    } else if (!c.noImport) {
       h += `<button class="dt-btn dp-import-btn" data-collection="${c.id}">Import CSV</button>`;
       h += `<button class="dt-btn dp-verify-btn" data-collection="${c.id}">Verify</button>`;
       h += `<input type="file" accept=".csv" class="dp-file-input" data-collection="${c.id}" style="display:none">`;
@@ -254,4 +263,203 @@ function triggerDownload(csv, name) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ── Excel Import ─────────────────────────────────────────────────────────────
+
+let _importResults = [];
+let _importChars = [];
+
+async function handleExcelImport(file) {
+  const resultEl = document.getElementById('dp-result');
+  resultEl.innerHTML = '<p class="dp-result-loading">Parsing Excel workbook\u2026</p>';
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array' });
+    const { characters: excelChars, warnings } = parseExcelWorkbook(workbook);
+
+    if (!excelChars.length) {
+      resultEl.innerHTML = '<p class="dp-result-err">No characters found in workbook.' + (warnings.length ? '<br>' + warnings.join('<br>') : '') + '</p>';
+      return;
+    }
+
+    // Load existing characters from API
+    const existingChars = await apiGet('/api/characters');
+    const existingMap = new Map();
+    for (const c of existingChars) existingMap.set(c.name, c);
+
+    // Merge each Excel character onto existing data
+    _importResults = [];
+    for (const excel of excelChars) {
+      const existing = existingMap.get(excel.name) || null;
+      const result = mergeExcelOntoCharacter(existing, excel);
+      _importResults.push(result);
+      existingMap.delete(excel.name);
+    }
+
+    // Add DB-only characters as "Not in Excel"
+    for (const [name, c] of existingMap) {
+      _importResults.push({ merged: c, changes: [], warnings: [], isNew: false, notInExcel: true });
+    }
+
+    _importChars = existingChars;
+    renderImportPreview(resultEl, warnings);
+  } catch (err) {
+    resultEl.innerHTML = `<p class="dp-result-err">Excel import failed: ${err.message}</p>`;
+  }
+}
+
+function _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function renderImportPreview(el, globalWarnings) {
+  let h = '<div class="dp-excel-preview">';
+  h += '<div class="dp-excel-header">';
+  h += `<span class="dp-stat">${_importResults.length} characters parsed</span>`;
+  const updates = _importResults.filter(r => !r.isNew && !r.notInExcel && r.changes.length);
+  const newChars = _importResults.filter(r => r.isNew);
+  const unchanged = _importResults.filter(r => !r.isNew && !r.notInExcel && !r.changes.length);
+  const notInExcel = _importResults.filter(r => r.notInExcel);
+  h += `<span class="dp-stat dp-stat-ok">${updates.length} to update</span>`;
+  if (newChars.length) h += `<span class="dp-stat" style="color:var(--gold2)">${newChars.length} new</span>`;
+  h += `<span class="dp-stat">${unchanged.length} unchanged</span>`;
+  if (notInExcel.length) h += `<span class="dp-stat">${notInExcel.length} DB only</span>`;
+  h += '</div>';
+
+  if (globalWarnings.length) {
+    h += '<div class="dp-excel-warnings">' + globalWarnings.map(w => '<div class="dp-excel-warn">\u26A0 ' + _esc(w) + '</div>').join('') + '</div>';
+  }
+
+  // Table
+  h += '<table class="dp-excel-tbl"><thead><tr>';
+  h += '<th><input type="checkbox" id="dp-excel-all" checked></th>';
+  h += '<th>Character</th><th>Status</th><th>Changes</th><th>Warnings</th>';
+  h += '</tr></thead><tbody>';
+
+  _importResults.forEach((r, i) => {
+    if (r.notInExcel) {
+      h += `<tr class="dp-excel-row dp-excel-dimmed"><td></td><td>${_esc(r.merged.name)}</td><td><span class="dp-badge dp-badge-dim">Not in Excel</span></td><td>\u2014</td><td></td></tr>`;
+      return;
+    }
+    const status = r.isNew ? 'New' : r.changes.length ? 'Update' : 'Unchanged';
+    const badgeCls = r.isNew ? 'dp-badge-new' : r.changes.length ? 'dp-badge-update' : 'dp-badge-dim';
+    const checked = r.isNew ? '' : r.changes.length ? ' checked' : '';
+    const warnCount = r.warnings.length;
+
+    h += `<tr class="dp-excel-row" data-idx="${i}">`;
+    h += `<td><input type="checkbox" class="dp-excel-chk" data-idx="${i}"${checked}${status === 'Unchanged' ? ' disabled' : ''}></td>`;
+    h += `<td class="dp-excel-name">${_esc(r.merged.name)}</td>`;
+    h += `<td><span class="dp-badge ${badgeCls}">${status}</span></td>`;
+    h += `<td>${r.changes.length || '\u2014'}</td>`;
+    h += `<td>${warnCount ? '<span class="dp-badge dp-badge-warn">' + warnCount + '</span>' : ''}</td>`;
+    h += '</tr>';
+
+    // Expandable diff panel
+    if (r.changes.length || r.warnings.length) {
+      h += `<tr class="dp-excel-diff" id="dp-diff-${i}" style="display:none"><td colspan="5"><div class="dp-diff-panel">`;
+      if (r.warnings.length) {
+        h += '<div class="dp-diff-section"><div class="dp-diff-title">Warnings</div>';
+        r.warnings.forEach(w => { h += '<div class="dp-diff-warn">\u26A0 ' + _esc(w) + '</div>'; });
+        h += '</div>';
+      }
+      // Group changes by section
+      const sections = {};
+      for (const ch of r.changes) {
+        if (!sections[ch.section]) sections[ch.section] = [];
+        sections[ch.section].push(ch);
+      }
+      for (const [sec, chs] of Object.entries(sections)) {
+        h += `<div class="dp-diff-section"><div class="dp-diff-title">${_esc(sec)}</div>`;
+        for (const ch of chs) {
+          h += `<div class="dp-diff-row"><span class="dp-diff-field">${_esc(ch.field)}</span><span class="dp-diff-old">${_esc(String(ch.old))}</span><span class="dp-diff-arrow">\u2192</span><span class="dp-diff-new">${_esc(String(ch.new))}</span></div>`;
+        }
+        h += '</div>';
+      }
+      h += '</div></td></tr>';
+    }
+  });
+
+  h += '</tbody></table>';
+  h += '<div class="dp-excel-actions">';
+  h += '<button class="dt-btn dp-excel-apply" id="dp-excel-apply">Apply Import</button>';
+  h += '<span class="dp-excel-progress" id="dp-excel-progress"></span>';
+  h += '</div></div>';
+
+  el.innerHTML = h;
+
+  // Wire events
+  el.querySelector('#dp-excel-all')?.addEventListener('change', e => {
+    el.querySelectorAll('.dp-excel-chk:not(:disabled)').forEach(cb => { cb.checked = e.target.checked; });
+  });
+  el.querySelectorAll('.dp-excel-row[data-idx]').forEach(row => {
+    row.addEventListener('click', e => {
+      if (e.target.tagName === 'INPUT') return;
+      const idx = row.dataset.idx;
+      const diff = el.querySelector(`#dp-diff-${idx}`);
+      if (diff) diff.style.display = diff.style.display === 'none' ? '' : 'none';
+    });
+  });
+  el.querySelector('#dp-excel-apply')?.addEventListener('click', () => applyExcelImport(el));
+}
+
+async function applyExcelImport(el) {
+  const btn = el.querySelector('#dp-excel-apply');
+  const prog = el.querySelector('#dp-excel-progress');
+  if (btn) btn.disabled = true;
+
+  const selected = [];
+  el.querySelectorAll('.dp-excel-chk:checked').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx, 10);
+    if (!isNaN(idx)) selected.push(idx);
+  });
+
+  if (!selected.length) {
+    if (prog) prog.textContent = 'No characters selected.';
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  let updated = 0, created = 0, failed = 0;
+  const errors = [];
+
+  for (let si = 0; si < selected.length; si++) {
+    const r = _importResults[selected[si]];
+    if (prog) prog.textContent = `${si + 1} of ${selected.length}\u2026`;
+
+    try {
+      if (r.isNew) {
+        await apiPost('/api/characters', r.merged);
+        created++;
+      } else {
+        const id = r.merged._id;
+        const body = { ...r.merged };
+        delete body._id;
+        await apiPut(`/api/characters/${id}`, body);
+        updated++;
+      }
+    } catch (err) {
+      failed++;
+      errors.push({ name: r.merged.name, error: err.message });
+    }
+  }
+
+  let msg = `Done: ${updated} updated`;
+  if (created) msg += `, ${created} created`;
+  if (failed) msg += `, ${failed} failed`;
+  if (prog) prog.textContent = msg;
+  if (btn) btn.disabled = false;
+
+  if (errors.length) {
+    let errH = '<div class="dp-excel-errors">';
+    errors.forEach(e => { errH += `<div class="dp-diff-warn">\u2716 ${_esc(e.name)}: ${_esc(e.error)}</div>`; });
+    errH += '</div>';
+    el.querySelector('.dp-excel-actions')?.insertAdjacentHTML('afterend', errH);
+  }
+
+  // Refresh character data
+  try {
+    chars = await apiGet('/api/characters');
+    // Trigger grid refresh if available
+    if (typeof window.renderCharGrid === 'function') window.renderCharGrid();
+  } catch { /* ignore refresh failure */ }
 }
