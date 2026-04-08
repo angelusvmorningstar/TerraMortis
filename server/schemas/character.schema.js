@@ -310,7 +310,10 @@ export const characterSchema = {
         // MCI per-dot choices
         dot1_choice:   { type: 'string', enum: ['speciality', 'merits'] },
         dot1_spec:     { type: 'string' },
+        dot1_spec_skill: { type: 'string' },
         dot3_choice:   { type: 'string', enum: ['skill', 'merits'] },
+        dot3_skill:    { type: 'string' },
+        dot4_skill:    { type: 'string' },
         dot5_choice:   { type: 'string', enum: ['advantage', 'merits'] },
         dot5_text:     { type: 'string' },
         // Legacy MCI format — tolerated but not required

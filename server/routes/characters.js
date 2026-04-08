@@ -7,6 +7,16 @@ import { validateCharacter } from '../middleware/validateCharacter.js';
 const router = Router();
 const col = () => getCollection('characters');
 
+/** Strip ephemeral underscore-prefixed fields from req.body before validation. */
+function stripEphemeral(req, res, next) {
+  if (req.body && typeof req.body === 'object') {
+    for (const key of Object.keys(req.body)) {
+      if (key.startsWith('_')) delete req.body[key];
+    }
+  }
+  next();
+}
+
 function parseId(id) {
   try {
     return new ObjectId(id);
@@ -73,7 +83,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/characters/wizard — player creates their own character
-router.post('/wizard', requireRole('player'), validateCharacter, async (req, res) => {
+router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter, async (req, res) => {
   const players = getCollection('players');
   const player = await players.findOne({ _id: req.user.player_id });
   const existingIds = player?.character_ids || [];
@@ -100,7 +110,7 @@ router.post('/wizard', requireRole('player'), validateCharacter, async (req, res
 });
 
 // POST /api/characters — ST only
-router.post('/', requireRole('st'), validateCharacter, async (req, res) => {
+router.post('/', requireRole('st'), stripEphemeral, validateCharacter, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
 
@@ -110,14 +120,12 @@ router.post('/', requireRole('st'), validateCharacter, async (req, res) => {
 });
 
 // PUT /api/characters/:id — ST only
-router.put('/:id', requireRole('st'), validateCharacter, async (req, res) => {
+// Strip ephemeral fields (underscore-prefixed client-side computed data) before validation.
+router.put('/:id', requireRole('st'), stripEphemeral, validateCharacter, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 
-  const { _id, _gameXP, _grant_pools, _mci_free_specs, _mci_dot3_skills,
-          _pt_nine_again_skills, _pt_dot4_bonus_skills, _ohm_nine_again_skills,
-          willpower,
-          ...updates } = req.body;
+  const { _id, willpower, ...updates } = req.body;
 
   const result = await col().findOneAndUpdate(
     { _id: oid },
