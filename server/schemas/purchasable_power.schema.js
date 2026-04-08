@@ -123,7 +123,6 @@ export const purchasablePowerSchema = {
 
     // Cost & metadata
     xp_fixed:  { type: ['integer', 'null'], minimum: 0 },
-    special:   { type: ['string', 'null'] },
     bloodline: { type: ['string', 'null'] },
   },
 };

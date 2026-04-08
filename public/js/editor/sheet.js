@@ -27,7 +27,7 @@ function _devDB() {
 function _meritDB() {
   const db = {};
   for (const r of getRulesByCategory('merit')) {
-    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, special: r.special };
+    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, sub_category: r.sub_category };
   }
   return db;
 }

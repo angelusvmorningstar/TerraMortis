@@ -13,6 +13,19 @@ import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js'
 // Re-export the new prereq engine for direct use by consumers
 export { _meetsPrereq as meetsPrereq, _prereqLabel as prereqLabel };
 
+/** Check if a merit is excluded by a merit the character already owns. */
+function _isExcluded(c, meritName) {
+  const owned = (c.merits || []).map(m => m.name.toLowerCase());
+  // Check if any owned merit's exclusive list includes this candidate
+  for (const m of (c.merits || [])) {
+    const rule = getRuleByKey(m.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+    if (!rule || !rule.exclusive) continue;
+    const excluded = rule.exclusive.split(',').map(s => s.trim().toLowerCase());
+    if (excluded.includes(meritName.toLowerCase())) return rule.name;
+  }
+  return null;
+}
+
 /* ══════════════════════════════════════════════════════
    Merit string helpers
    ══════════════════════════════════════════════════════ */
@@ -65,7 +78,7 @@ export function meritLookup(s) {
   const slug = (s || '').toLowerCase().replace(/\s*[●○]+.*/,'').replace(/\s*\|.*/,'').trim()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const rule = getRuleByKey(slug);
-  if (rule) return { desc: rule.description, prereq: rule.prereq, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, special: rule.special, _rule: rule };
+  if (rule) return { desc: rule.description, prereq: rule.prereq, rating: rule.rating_range ? `${rule.rating_range[0]}–${rule.rating_range[1]}` : null, type: rule.parent, sub_category: rule.sub_category, _rule: rule };
   return null;
 }
 
@@ -267,7 +280,9 @@ export function buildMeritOptions(c, currentName) {
       if (rule.sub_category !== 'general') continue;
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
       if (!_meetsPrereq(c, rule.prereq)) continue;
-      qualified.push({ key: nameLow, label: rule.name });
+      const excl = _isExcluded(c, rule.name);
+      if (excl && rule.name.toLowerCase() !== (currentName || '').toLowerCase()) continue;
+      qualified.push({ key: rule.name.toLowerCase(), label: rule.name });
     }
   } else {
     return '<option value="">— rules loading —</option>';
@@ -304,9 +319,10 @@ export function buildMCIGrantOptions(c, dotLevel, currentName) {
   const rulesDB = getRulesByCategory('merit');
   if (rulesDB.length) {
     for (const rule of rulesDB) {
-      if (rule.special === 'standing') continue;
+      if (rule.sub_category === 'standing') continue;
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
       if (!_meetsPrereq(c, rule.prereq)) continue;
+      if (_isExcluded(c, rule.name) && rule.name.toLowerCase() !== (currentName || '').toLowerCase()) continue;
       const rr = rule.rating_range;
       if (rr) {
         if (rr[0] === rr[1]) { if (rr[0] !== maxR) continue; }
@@ -341,7 +357,7 @@ export function buildFThiefOptions(currentName) {
   const rulesDB = getRulesByCategory('merit');
   if (rulesDB.length) {
     for (const rule of rulesDB) {
-      if (rule.special === 'standing') continue;
+      if (rule.sub_category === 'standing') continue;
       const rr = rule.rating_range;
       const minR = rr ? rr[0] : 1;
       if (minR > 1) continue;

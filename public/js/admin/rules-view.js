@@ -275,7 +275,6 @@ function renderModalContent(rule, isAdd) {
     h += '</div>';
     h += mf('Description', 'textarea', 'description', '', null, 4);
     h += '<div class="rules-modal-grid">';
-    h += mf('Special', 'text', 'special', '');
     h += mf('Exclusive', 'text', 'exclusive', '');
     h += mf('Bloodline', 'text', 'bloodline', '');
     h += '</div>';
@@ -305,7 +304,6 @@ function renderModalContent(rule, isAdd) {
     h += '</div>';
     h += mf('Description', 'textarea', 'description', rule.description || '', null, 4);
     h += '<div class="rules-modal-grid">';
-    h += mf('Special', 'text', 'special', rule.special || '');
     h += mf('Exclusive', 'text', 'exclusive', rule.exclusive || '');
     h += mf('Bloodline', 'text', 'bloodline', rule.bloodline || '');
     h += '</div>';

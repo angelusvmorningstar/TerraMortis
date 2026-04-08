@@ -96,7 +96,6 @@ function transformMerits() {
       prereq: parsePrereq(entry.prereq),
       exclusive: entry.excl || null,
       xp_fixed: null,
-      special: entry.special || null,
       bloodline: null,
     });
   }
