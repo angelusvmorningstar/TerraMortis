@@ -25,6 +25,8 @@ data/backup/
 
 # Character data — source of truth is MongoDB, not git
 data/chars_v2.json
+data/chars_v3.json
+data/chars_dev.json
 data/chars_test.json
 archive/tm_characters.json
 
