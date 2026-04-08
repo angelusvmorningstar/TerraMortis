@@ -27,14 +27,14 @@ function _devDB() {
 function _meritDB() {
   const db = {};
   for (const r of getRulesByCategory('merit')) {
-    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, sub_category: r.sub_category };
+    db[r.name.toLowerCase()] = { desc: r.description, prereq: r.prereq, prereqStr: r.prereq ? prereqLabel(r.prereq) : null, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, sub_category: r.sub_category };
   }
   return db;
 }
 function _manDB() {
   const db = {};
   for (const r of getRulesByCategory('manoeuvre')) {
-    db[r.name.toLowerCase()] = { name: r.name, style: r.parent, rank: String(r.rank || ''), effect: r.description, prereq: r.prereq };
+    db[r.name.toLowerCase()] = { name: r.name, style: r.parent, rank: String(r.rank || ''), effect: r.description, prereq: r.prereq, prereqStr: r.prereq ? prereqLabel(r.prereq) : null };
   }
   return db;
 }
@@ -1053,12 +1053,12 @@ export function shRenderManoeuvres(c, editMode) {
     allPicks.forEach((pk, pi) => {
       const manName = typeof pk === 'string' ? pk : pk.manoeuvre;
       const db = MAN_DB[manName.toLowerCase()];
-      const prereqOk = !db || _prereqsMet(c, db.prereq);
+      const prereqOk = !db || !db.prereq || meetsPrereq(c, db.prereq);
       h += '<div class="mci-benefit-row">'
         + '<span class="mci-dot-lbl">' + (db ? '\u25CF'.repeat(parseInt(db.rank) || 1) : '\u25CF') + '</span>'
         + '<span style="flex:1;font-size:11px' + (prereqOk ? '' : ';color:var(--crim)') + '">' + esc(manName) + '</span>'
         + (db ? '<span style="font-size:9px;color:var(--txt3);margin-right:6px">' + esc(db.style) + '</span>' : '')
-        + (!prereqOk ? '<span style="font-size:9px;color:var(--crim);margin-right:4px" title="' + esc(db.prereq) + '">prereq</span>' : '')
+        + (!prereqOk ? '<span style="font-size:9px;color:var(--crim);margin-right:4px" title="' + esc(db.prereqStr || '') + '">prereq</span>' : '')
         + '<button class="sk-spec-rm" onclick="shRemovePick(' + pi + ')" title="Remove">&times;</button></div>';
     });
 
@@ -1129,10 +1129,10 @@ export function shRenderManoeuvres(c, editMode) {
       allPicks.forEach((pk, pi) => {
         const manName = typeof pk === 'string' ? pk : pk.manoeuvre;
         const db = MAN_DB[manName.toLowerCase()];
-        const prereqOk = !db || _prereqsMet(c, db.prereq);
+        const prereqOk = !db || !db.prereq || meetsPrereq(c, db.prereq);
         const id2 = 'man' + pi;
         const body = db
-          ? '<div class="man-exp-body"><div class="man-style">' + esc(db.style) + ' \u2014 Rank ' + esc(db.rank) + '</div><div>' + esc(db.effect || '') + '</div>' + (db.prereq ? '<div class="man-prereq">Prerequisite: ' + esc(db.prereq) + '</div>' : '') + '</div>'
+          ? '<div class="man-exp-body"><div class="man-style">' + esc(db.style) + ' \u2014 Rank ' + esc(db.rank) + '</div><div>' + esc(db.effect || '') + '</div>' + (db.prereqStr ? '<div class="man-prereq">Prerequisite: ' + esc(db.prereqStr) + '</div>' : '') + '</div>'
           : '<div>' + esc(manName) + '</div>';
         h += '<div class="exp-row' + (prereqOk ? '' : ' merit-prereq-fail') + '" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(manName) + '</div>'
           + (db ? '<div class="merit-sub-sh">' + esc(db.style) + ' \u2014 Rank ' + db.rank + (prereqOk ? '' : ' \u2014 prereq not met') + '</div>' : '') + '</div>'
@@ -1150,7 +1150,7 @@ export function shRenderMeritRow(m,idPrefix,i,dotHtml) {
   const b2=meritBase(m),dc=meritDotCount(m),ds=dc?shDots(dc):'',pm=b2.match(/^([^(]+?)\s*\((.+)\)$/),mn=pm?pm[1].trim():b2,sn=pm?pm[2].trim():null;
   const nh=sn?'<div class="merit-name-sh">'+esc(mn)+'</div><div class="merit-sub-sh">'+esc(sn)+'</div>':'<div class="merit-name-sh">'+esc(mn)+'</div>';
   const db=meritLookup(m),dt=dotHtml!==undefined?dotHtml:(ds?'<span class="merit-dots-sh">'+ds+'</span>':'');
-  if(db&&db.desc){const id2=idPrefix+i,body='<div>'+esc(db.desc)+'</div>'+(db.prereq?'<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: '+esc(db.prereq)+'</div>':'');
+  if(db&&db.desc){const id2=idPrefix+i,pqStr=db.prereq?prereqLabel(db.prereq):'',body='<div>'+esc(db.desc)+'</div>'+(pqStr?'<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: '+esc(pqStr)+'</div>':'');
     return '<div class="exp-row" id="exp-row-'+id2+'" onclick="toggleExp(\''+id2+'\')"><div style="flex:1;min-width:0">'+nh+'</div>'+dt+'<span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-'+id2+'">'+body+'</div>';}
   return '<div class="merit-plain"><div style="flex:1;min-width:0">'+nh+'</div>'+dt+'</div>';
 }

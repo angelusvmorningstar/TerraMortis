@@ -4,6 +4,7 @@
 
 import { apiPost } from '../data/api.js';
 import { esc } from '../data/helpers.js';
+import { prereqLabel } from '../data/prereq.js';
 import {
   CLANS, COVENANTS, MASKS_DIRGES,
   ATTR_CATS, SKILL_CATS,
@@ -257,7 +258,7 @@ function stepMerits() {
       ? rulesDB
           .filter(r => !SKIP_TYPES.has(r.parent) && r.name.toLowerCase().includes(q))
           .slice(0, 12)
-          .map(r => [r.name.toLowerCase(), { desc: r.description, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, prereq: r.prereq }])
+          .map(r => [r.name.toLowerCase(), { desc: r.description, rating: r.rating_range ? `${r.rating_range[0]}–${r.rating_range[1]}` : null, type: r.parent, prereq: r.prereq ? prereqLabel(r.prereq) : null }])
       : [];
 
     if (results.length) {
