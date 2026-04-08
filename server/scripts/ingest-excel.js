@@ -190,6 +190,38 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
     };
   }
 
+  // ── Touchstones from Character Data (cols 104-113 = Humanity 10 down to 1) ──
+  // Format: "● (Name)" = active touchstone, "○" = empty slot, "○ (Name)" = lost touchstone
+  if (!c.touchstones) c.touchstones = [];
+  if (!c.touchstones.length) {
+    for (let col = 104; col <= 113; col++) {
+      const humLevel = 114 - col; // col 104 = Humanity 10, col 113 = Humanity 1
+      const raw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: col })]?.v;
+      if (!raw || raw === '¬') continue;
+      const nameMatch = raw.match(/\((.+)\)\s*$/);
+      if (nameMatch) {
+        c.touchstones.push({ humanity: humLevel, name: nameMatch[1].trim() });
+      }
+    }
+  }
+
+  // ── Skill specialisations from Character Data (cols 59-82) ──
+  const SPEC_COLS = {
+    Academics: 59, Computer: 60, Crafts: 61, Investigation: 62,
+    Medicine: 63, Occult: 64, Politics: 65, Science: 66,
+    Athletics: 67, Brawl: 68, Drive: 69, Firearms: 70,
+    Larceny: 71, Stealth: 72, Survival: 73, Weaponry: 74,
+    'Animal Ken': 75, Empathy: 76, Expression: 77, Intimidation: 78,
+    Persuasion: 79, Socialise: 80, Streetwise: 81, Subterfuge: 82,
+  };
+  const _specMap = {};
+  for (const [skill, col] of Object.entries(SPEC_COLS)) {
+    const raw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: col })]?.v;
+    if (raw && raw !== '¬' && raw !== '-') {
+      _specMap[skill] = String(raw).split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+
   // ── Skills: v3 inline { dots, bonus, specs, nine_again, cp, xp, free, rule_key } ──
   if (!c.skills) c.skills = {};
   for (const [skill, row] of Object.entries(SKILL_ROWS)) {
@@ -200,7 +232,7 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
     if (dots > 0 || existing_skill) {
       c.skills[skill] = {
         dots, bonus: existing_skill?.bonus || 0,
-        specs: existing_skill?.specs || [], nine_again: existing_skill?.nine_again || false,
+        specs: _specMap[skill] || existing_skill?.specs || [], nine_again: existing_skill?.nine_again || false,
         cp: pts.cp, xp: pts.xp, free: pts.free,
         rule_key: rulesMap.get(`skill:${slugify(skill)}`) || null,
       };
