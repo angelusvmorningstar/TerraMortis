@@ -43,6 +43,7 @@ function _manDB() {
 let DEVOTIONS_DB = [];
 let MERITS_DB = {};
 let MAN_DB = {};
+let _mciHasTiers = false; // true when any active MCI has tier_grants — suppresses manual MCI inputs
 function _refreshLegacyDBs() {
   DEVOTIONS_DB = _devDB();
   MERITS_DB = _meritDB();
@@ -509,7 +510,7 @@ export function shRenderInfluenceMerits(c, editMode) {
   let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits' + _inflBadge + '</div><div class="merit-list">';
   if (editMode) {
     // All non-Contacts influence merits
-    const _inflMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+    const _inflMciPool = _mciHasTiers ? 0 : (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _inflHasVM = hasViralMythology(c);
     const _inflHasLK = hasLorekeeper(c);
     const _inflHasINV = hasInvested(c);
@@ -578,7 +579,7 @@ export function shRenderDomainMerits(c, editMode) {
   const _domBadge = editMode ? _alertBadge(_domAlert) : '';
   let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits' + _domBadge + '</div><div class="merit-list">';
   if (editMode) {
-    const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+    const _domMciPool = _mciHasTiers ? 0 : (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c);
     domM.forEach((m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di), tOpts = DOMAIN_MERIT_TYPES.filter(t => t !== 'Herd' || !hTk || m.name === 'Herd').map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + esc(t) + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.xp || 0), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = chars.filter(ch => ch.name !== c.name && !parts.includes(ch.name));
@@ -607,7 +608,7 @@ export function shRenderStandingMerits(c, editMode) {
   const standM = (c.merits || []).filter(m => m.category === 'standing');
   if (!editMode && !standM.length) return '';
   let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Standing Merits</div><div class="merit-list">';
-  const _standMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+  const _standMciPool = _mciHasTiers ? 0 : (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
   const _standSorted = editMode ? standM : standM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   _standSorted.forEach((m, si) => {
     const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0);
@@ -774,7 +775,7 @@ export function shRenderGeneralMerits(c, editMode) {
       + '<span class="sh-bh-total">= Humanity ' + _humDerived + '</span>'
       + '</div>';
     h += _renderPoolCounters(c, 'general') + _renderPoolCounters(c, 'influence') + _renderPoolCounters(c, 'domain');
-    const _genMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
+    const _genMciPool = _mciHasTiers ? 0 : (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _KERBEROS_ASPECTS = ['Monstrous', 'Competitive', 'Seductive'];
     const _CRUAC_STYLES = ['Opening the Void', 'Primal Creation', 'Unbridled Chaos'];
     const _mdbMerit = oM.find(m => m.name === 'The Mother-Daughter Bond');
@@ -1018,7 +1019,7 @@ export function shRenderManoeuvres(c, editMode) {
   const allPicks = c.fighting_picks || [];
   if (!editMode && !styles.length && !allPicks.length) return '';
 
-  const mciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
+  const mciPool = _mciHasTiers ? 0 : (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false)
     .reduce((s, m) => s + mciPoolTotal(m), 0);
   const otsExtraPicks = c._ots_free_dots || 0;
 
@@ -1235,6 +1236,7 @@ export function renderSheet(c, target = null) {
   const el = target || document.getElementById('sh-content');
   if (!c) { el.innerHTML = ''; return; }
   applyDerivedMerits(c); ensureMeritSync(c);
+  _mciHasTiers = (c.merits || []).some(m => m.name === 'Mystery Cult Initiation' && m.active !== false && m.tier_grants && m.tier_grants.length > 0);
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '', st = c.status || {}, wp = getWillpower(c);
   const clanImg = ICONS[CLAN_ICON_KEY[c.clan] || ''] || '', covImg = ICONS[COV_ICON_KEY[c.covenant] || ''] || '';
   const allB = c.banes || [], curseIdx = allB.findIndex(b => b.name.toLowerCase().includes('curse')), curse = curseIdx >= 0 ? allB[curseIdx] : null, regB = allB.filter((_, i) => i !== curseIdx);
