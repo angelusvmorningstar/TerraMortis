@@ -414,7 +414,50 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
     if (fs.rule_key === undefined) fs.rule_key = rulesMap.get(`manoeuvre:${slugify(fs.name)}`) || null;
   }
 
-  // ── Powers: set rule_key ──
+  // ── Powers from Character Data "Blood 1-30" (cols 253-282) + stats (cols 283-312) ──
+  // Format: "Discipline ●● | Power Name" or "Blood Sorcery | Theme ●" or "Cruac ● | Rite Name"
+  if (!c.powers) c.powers = [];
+  if (!c.powers.length) {
+    const RITUAL_DISCS = ['Cruac', 'Theban'];
+    const SORCERY_THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
+    for (let i = 0; i < 30; i++) {
+      const raw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 253 + i })]?.v;
+      if (!raw || raw === '¬') continue;
+      const statsRaw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 283 + i })]?.v;
+      const stats = (statsRaw && statsRaw !== '¬' && typeof statsRaw === 'string' && statsRaw.trim()) ? statsRaw.trim() : undefined;
+
+      const parts = raw.split('|').map(s => s.trim());
+      const dotMatch = raw.match(/[●]+/);
+      const rank = dotMatch ? dotMatch[0].length : 0;
+
+      if (parts[0] === 'Blood Sorcery' && parts.length >= 2) {
+        // Sorcery theme — not a power entry, skip (themes are discipline dots)
+        continue;
+      }
+
+      // Parse discipline/tradition from first part
+      const discPart = parts[0].replace(/[●○]+/g, '').trim();
+      const powerName = parts.length > 1 ? parts[1].replace(/[●○]+/g, '').trim() : discPart;
+
+      if (RITUAL_DISCS.includes(discPart)) {
+        // Rite: "Cruac ● | Rite Name"
+        c.powers.push({
+          category: 'rite', name: powerName, tradition: discPart,
+          level: rank || 1, free: false, stats,
+          rule_key: rulesMap.get(`rite:rite-${slugify(powerName)}`) || null,
+        });
+      } else if (rank > 0) {
+        // Discipline power: "Obfuscate ●● | Touch of Shadow"
+        c.powers.push({
+          category: 'discipline', name: powerName, discipline: discPart,
+          rank, stats, pool_size: null, effect: '',
+          rule_key: rulesMap.get(`discipline:${slugify(powerName)}`) || null,
+        });
+      }
+    }
+  }
+
+  // ── Powers: set rule_key on existing powers ──
   for (const p of (c.powers || [])) {
     if (p.rule_key !== undefined) continue;
     const slug = slugify(p.name);
