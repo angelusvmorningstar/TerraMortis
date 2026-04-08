@@ -219,6 +219,10 @@
 .mci-pool-lbl{font-family:var(--fh);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);}
 .mci-pool-val{font-family:var(--fh);font-size:12px;color:var(--gold2);}
 .mci-pool-hint{font-family:var(--fb);font-size:10px;color:var(--txt3);font-style:italic;}
+.mci-tier-pick{display:flex;gap:6px;align-items:center;margin-top:3px;}
+.mci-tier-sel{padding:3px 6px;font-size:11px;background:var(--surf);color:var(--txt1);border:1px solid var(--bdr);border-radius:3px;max-width:200px;}
+.mci-tier-qual{max-width:120px;padding:3px 6px;font-size:11px;}
+.mci-unassigned{color:var(--txt3);font-style:italic;font-size:11px;}
 
 /* ── General merit editing ── */
 .gen-edit-row{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--w-a5);}

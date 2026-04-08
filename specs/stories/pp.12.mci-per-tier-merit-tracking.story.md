@@ -1,6 +1,6 @@
 # Story PP.12: MCI Per-Tier Merit Allocation Tracking
 
-## Status: Draft
+## Status: Ready for Review
 
 ## Story
 
@@ -47,52 +47,52 @@ This story adds per-tier merit selection inline in the MCI editor UI, auto-manag
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Schema and data model (AC: 10, 11)
-  - [ ] Add `tier_grants` to merit definition in `character.schema.js`: `{ type: 'array', items: { type: 'object', properties: { tier: integer 1-5, name: string, category: string, rating: integer, qualifier: string|null }, required: ['tier', 'name', 'category', 'rating'] } }`
-  - [ ] Write migration in `applyDerivedMerits()` (mci.js): if MCI has `benefit_grants` but no `tier_grants`, convert `benefit_grants[i]` to `tier_grants` entries with tier = i+1. Skip null entries (some tiers may be unassigned in legacy data).
-  - [ ] Verify schema validation passes for both new and migrated data
+- [x] Task 1: Schema and data model (AC: 10, 11)
+  - [x] Add `tier_grants` to merit definition in `character.schema.js`: `{ type: 'array', items: { type: 'object', properties: { tier: integer 1-5, name: string, category: string, rating: integer, qualifier: string|null }, required: ['tier', 'name', 'category', 'rating'] } }`
+  - [x] Write migration in `applyDerivedMerits()` (mci.js): if MCI has `benefit_grants` but no `tier_grants`, convert `benefit_grants[i]` to `tier_grants` entries with tier = i+1. Skip null entries (some tiers may be unassigned in legacy data).
+  - [x] Verify schema validation passes for both new and migrated data
 
-- [ ] Task 2: Auto-allocation engine (AC: 4, 5, 7)
-  - [ ] In `applyDerivedMerits()` (mci.js), after computing MCI pools:
+- [x] Task 2: Auto-allocation engine (AC: 4, 5, 7)
+  - [x] In `applyDerivedMerits()` (mci.js), after computing MCI pools:
     - For each active MCI, iterate `tier_grants`
     - For each grant, find the target merit in `c.merits` by name + category + qualifier
     - Set `free_mci` on target merit to the grant's rating
     - Track total auto-allocated dots
-  - [ ] Remaining pool (total pool - auto-allocated) stays available for manual `free_mci` allocation
-  - [ ] When a tier choice changes away from "merits", remove matching `tier_grants` entries and clear their `free_mci`
+  - [x] Remaining pool (total pool - auto-allocated) stays available for manual `free_mci` allocation
+  - [x] When a tier choice changes away from "merits", remove matching `tier_grants` entries and clear their `free_mci`
 
-- [ ] Task 3: Editor per-tier merit picker UI (AC: 1, 2, 6, 9)
-  - [ ] In `_renderMCI()` (sheet.js), for each tier that grants merit dots:
+- [x] Task 3: Editor per-tier merit picker UI (AC: 1, 2, 6, 9)
+  - [x] In `_renderMCI()` (sheet.js), for each tier that grants merit dots:
     - Below the choice buttons, render a merit dropdown (reuse `buildMCIGrantOptions` pattern)
     - Filter by: rating range includes tier budget, prerequisites met, not a standing merit
     - Show current selection if `tier_grants` has an entry for this tier
     - Include qualifier input for merits that need one (Allies area, Contacts sphere, etc.)
-  - [ ] Add handler `shEditMCITierGrant(standIdx, tier, meritName, qualifier)` in edit-domain.js
+  - [x] Add handler `shEditMCITierGrant(standIdx, tier, meritName, qualifier)` in edit-domain.js
     - Creates/updates `tier_grants` entry for the given tier
     - Finds or creates the target merit in `c.merits` (with inline creation defaults)
     - Re-renders sheet to reflect changes
-  - [ ] Validate: tier grant rating ≤ tier budget (1 for dots 1-2, 2 for dot 3, 3 for dots 4-5)
+  - [x] Validate: tier grant rating ≤ tier budget (1 for dots 1-2, 2 for dot 3, 3 for dots 4-5)
 
-- [ ] Task 4: Player view per-tier display (AC: 8)
-  - [ ] In `suite/sheet.js`, replace flat `mci-grants` block with per-tier display
-  - [ ] For each MCI, iterate tiers 1-5:
+- [x] Task 4: Player view per-tier display (AC: 8)
+  - [x] In `suite/sheet.js`, replace flat `mci-grants` block with per-tier display
+  - [x] For each MCI, iterate tiers 1-5:
     - If tier choice is speciality/skill/advantage, show that (already shown)
     - If tier choice is merits AND `tier_grants` has entries for this tier, show "Tier N: Merit Name ●●"
     - If tier choice is merits but no `tier_grants`, show "Tier N: (unassigned)" dimmed
-  - [ ] Non-merit tiers (speciality, skill, advantage) continue to display as before
+  - [x] Non-merit tiers (speciality, skill, advantage) continue to display as before
 
-- [ ] Task 5: Audit integration (AC: 12)
-  - [ ] In `audit.js`, add gate `mci_tier_over`: check each tier_grant doesn't exceed its budget
-  - [ ] Add gate `mci_unassigned`: warn if merit-choice tiers have no tier_grants (pool dots unassigned to tiers)
+- [x] Task 5: Audit integration (AC: 12)
+  - [x] In `public/js/data/audit.js`, add gate `mci_tier_over`: check each tier_grant doesn't exceed its budget
+  - [x] Add gate `mci_unassigned`: warn if merit-choice tiers have no tier_grants (pool dots unassigned to tiers)
 
-- [ ] Task 6: Remove/update flat pool display
-  - [ ] Remove the flat `mci-grants` block from suite/sheet.js (replaced by per-tier in Task 4)
-  - [ ] Update pool counter in editor to show "X auto-assigned + Y manual" breakdown
-  - [ ] Ensure `getMCIPoolUsed()` still counts both tier-assigned and manually allocated `free_mci`
+- [x] Task 6: Remove/update flat pool display
+  - [x] Remove the flat `mci-grants` block from suite/sheet.js (replaced by per-tier in Task 4)
+  - [x] Update pool counter in editor to show "X auto-assigned + Y manual" breakdown
+  - [x] Ensure `getMCIPoolUsed()` still counts both tier-assigned and manually allocated `free_mci`
 
 ## Dev Notes
 
-### Tier dot budgets (constant)
+### Tier dot budgets (constant — reuse `_DOT_RATING` in `edit-domain.js`)
 
 | Tier | Dot 1 | Dot 2 | Dot 3 | Dot 4 | Dot 5 |
 |------|-------|-------|-------|-------|-------|
@@ -147,6 +147,7 @@ The tier grant should store `qualifier` when applicable, and the picker should s
 - Player view → verify per-tier breakdown displayed correctly
 - Multiple MCIs → verify grants don't cross-contaminate
 - Audit → verify tier over-budget and unassigned warnings
+- Backwards compat: character with existing manual `free_mci` allocations (no `tier_grants`) → verify merits and pool totals still work correctly
 
 ---
 
@@ -155,13 +156,34 @@ The tier grant should store `qualifier` when applicable, and the picker should s
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-08 | 1.0 | Initial story creation | Claude Opus 4.6 |
+| 2026-04-08 | 2.0 | Implementation complete — all 6 tasks | Claude Opus 4.6 |
 
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.6
 
 ### Debug Log References
+- benefit_grants → tier_grants migration added to applyDerivedMerits
+- Auto-allocation clears tier-targeted free_mci before re-applying (prevents stacking on re-render)
+- buildMCIGrantOptions reused for tier picker filtering
+- Player view shows per-tier breakdown with dots, including non-merit choices (spec/skill/advantage)
 
 ### Completion Notes List
+- Schema: `tier_grants` array added to merit definition with tier, name, category, rating, qualifier
+- Migration: benefit_grants auto-converted to tier_grants in applyDerivedMerits (runs on every load)
+- Auto-allocation: tier_grants drive free_mci on target merits; merits created if not found; stale allocations cleared per render cycle
+- Editor: per-tier merit dropdown appears below each merit-choice tier; qualifier input for Allies/Status; pool counter shows "X assigned, Y manual"
+- Player view: per-tier breakdown under each MCI showing tier dots, merit name, and dots; non-merit choices (spec/skill/advantage) shown inline
+- Audit: mci_tier_over (error if grant exceeds budget), mci_unassigned (warning for empty merit tiers)
+- Choice change: switching from merits to speciality/skill/advantage clears that tier's grants
 
 ### File List
+- `server/schemas/character.schema.js` — tier_grants added to merit definition
+- `public/js/editor/mci.js` — benefit_grants migration, tier auto-allocation engine
+- `public/js/editor/sheet.js` — per-tier merit picker in _renderMCI, read-only tier display
+- `public/js/editor/edit-domain.js` — shEditMCITierGrant, shEditMCITierQual handlers, tier clearing on choice change
+- `public/css/editor.css` — tier picker styles
+- `public/js/suite/sheet.js` — per-tier display in player view
+- `public/css/suite.css` — tier list styles
+- `public/js/data/audit.js` — mci_tier_over and mci_unassigned gates

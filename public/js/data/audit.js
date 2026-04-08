@@ -146,6 +146,34 @@ export function auditCharacter(c) {
   if (!c.mask) warnings.push({ gate: 'no_mask', message: 'Mask not set' });
   if (!c.dirge) warnings.push({ gate: 'no_dirge', message: 'Dirge not set' });
 
+  // ── MCI tier grants ──
+  const MCI_TIER_BUDGET = [0, 1, 1, 2, 3, 3];
+  for (const m of (c.merits || [])) {
+    if (m.name !== 'Mystery Cult Initiation' || m.active === false) continue;
+    const rating = m.rating || 0;
+    const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
+    const tg = m.tier_grants || [];
+    // Check tier over-budget
+    for (const g of tg) {
+      const budget = MCI_TIER_BUDGET[g.tier] || 0;
+      if (g.rating > budget) {
+        errors.push({ gate: 'mci_tier_over', message: `MCI tier ${g.tier}: ${g.name} (${g.rating}) exceeds budget (${budget})`, detail: { tier: g.tier, merit: g.name } });
+      }
+    }
+    // Check unassigned merit tiers
+    const meritTiers = [];
+    if (rating >= 1 && d1c === 'merits') meritTiers.push(1);
+    if (rating >= 2) meritTiers.push(2);
+    if (rating >= 3 && d3c === 'merits') meritTiers.push(3);
+    if (rating >= 4) meritTiers.push(4);
+    if (rating >= 5 && d5c === 'merits') meritTiers.push(5);
+    const assigned = new Set(tg.map(t => t.tier));
+    const unassigned = meritTiers.filter(t => !assigned.has(t));
+    if (unassigned.length) {
+      warnings.push({ gate: 'mci_unassigned', message: `MCI${m.cult_name ? ' (' + m.cult_name + ')' : ''}: tier${unassigned.length > 1 ? 's' : ''} ${unassigned.join(', ')} unassigned`, detail: { tiers: unassigned } });
+    }
+  }
+
   // ── Merit prereqs ──
   for (const m of (c.merits || [])) {
     if (m.granted_by) continue; // granted merits bypass prereqs

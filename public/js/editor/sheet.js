@@ -639,39 +639,62 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
   if (editMode) {
     h += meritBdRow(rIdx, m, meritFixedRating(m.name)); h += _prereqWarn(c, m.name);
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
+    const _tg = m.tier_grants || [];
+    const _MCI_TIER_BUDGET = [0, 1, 1, 2, 3, 3];
+    const _tierGrant = (tier) => _tg.find(t => t.tier === tier);
+    const _tierPicker = (tier) => {
+      const budget = _MCI_TIER_BUDGET[tier];
+      const cur = _tierGrant(tier);
+      const dotLevel = tier <= 2 ? 0 : tier <= 3 ? 2 : 3; // map to buildMCIGrantOptions dotLevel index
+      const opts = buildMCIGrantOptions(c, dotLevel, cur?.name || '');
+      let ph = '<div class="mci-tier-pick"><select class="mci-tier-sel" onchange="shEditMCITierGrant(' + si + ',' + tier + ',this.value)"><option value="">\u2014 select merit (' + budget + ' dot' + (budget > 1 ? 's' : '') + ') \u2014</option>' + opts + '</select>';
+      if (cur && (cur.category === 'influence' && (cur.name === 'Allies' || cur.name === 'Status'))) ph += '<input type="text" class="stand-name-input mci-tier-qual" value="' + esc(cur.qualifier || '') + '" placeholder="Sphere / area" onchange="shEditMCITierQual(' + si + ',' + tier + ',this.value)">';
+      ph += '</div>';
+      return ph;
+    };
     for (let d = 0; d < 5 && d < eDots; d++) {
+      const tier = d + 1;
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><div class="mci-dot-content">';
       if (d === 0) {
         h += '<button class="mci-choice-btn' + (d1c === 'speciality' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot1_choice\',\'speciality\')">Specialisation</button>';
         h += '<button class="mci-choice-btn' + (d1c === 'merits' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot1_choice\',\'merits\')">1 Merit</button>';
         if (d1c === 'speciality') { h += '<select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot1_spec_skill\',this.value)"><option value="">' + (m.dot1_spec_skill || '\u2014 skill \u2014') + '</option>' + ALL_SKILLS.map(sk => '<option' + (m.dot1_spec_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select>'; h += '<input type="text" class="stand-name-input" value="' + esc(m.dot1_spec || '') + '" placeholder="Specialisation" onchange="shEditMCIDot(' + si + ',\'dot1_spec\',this.value)">'; }
+        else h += _tierPicker(1);
       } else if (d === 1) {
         h += '<span class="mci-benefit-text">1 merit dot</span>';
+        h += _tierPicker(2);
       } else if (d === 2) {
         h += '<button class="mci-choice-btn' + (d3c === 'skill' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot3_choice\',\'skill\')">Skill Dot</button>';
         h += '<button class="mci-choice-btn' + (d3c === 'merits' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot3_choice\',\'merits\')">2 Merits</button>';
         if (d3c === 'skill') h += '<select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot3_skill\',this.value)"><option value="">' + (m.dot3_skill || '\u2014 skill \u2014') + '</option>' + ALL_SKILLS.map(sk => '<option' + (m.dot3_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select>';
+        else h += _tierPicker(3);
       } else if (d === 3) {
         h += '<span class="mci-benefit-text">3 merit dots</span>';
+        h += _tierPicker(4);
       } else if (d === 4) {
         h += '<button class="mci-choice-btn' + (d5c === 'advantage' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot5_choice\',\'advantage\')">Advantage</button>';
         h += '<button class="mci-choice-btn' + (d5c === 'merits' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot5_choice\',\'merits\')">3 Merits</button>';
         if (d5c === 'advantage') h += '<input type="text" class="stand-name-input" value="' + esc(m.dot5_text || '') + '" placeholder="Advantage description" onchange="shEditMCIDot(' + si + ',\'dot5_text\',this.value)">';
+        else h += _tierPicker(5);
       }
       h += '</div></div>';
     }
     const pool = mciPoolTotal(m);
-    if (pool > 0) h += '<div class="mci-pool-row"><span class="mci-pool-lbl">Merit Pool</span><span class="mci-pool-val">' + pool + ' dot' + (pool === 1 ? '' : 's') + '</span><span class="mci-pool-hint">allocate via MCI in any merit or manoeuvre</span></div>';
+    const autoAlloc = _tg.reduce((s, t) => s + Math.min(t.rating, _MCI_TIER_BUDGET[t.tier] || 0), 0);
+    const manualRemain = pool - autoAlloc;
+    if (pool > 0) h += '<div class="mci-pool-row"><span class="mci-pool-lbl">Merit Pool</span><span class="mci-pool-val">' + pool + ' dot' + (pool === 1 ? '' : 's') + (autoAlloc > 0 ? ' (' + autoAlloc + ' assigned' + (manualRemain > 0 ? ', ' + manualRemain + ' manual' : '') + ')' : '') + '</span></div>';
   } else if (!inactive) {
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
+    const _tg2 = m.tier_grants || [];
+    const _tierLabel = (tier) => { const tg = _tg2.find(t => t.tier === tier); return tg ? esc(tg.name) + (tg.qualifier ? ' (' + esc(tg.qualifier) + ')' : '') + ' ' + shDots(tg.rating) : '<span class="mci-unassigned">(unassigned)</span>'; };
     for (let d = 0; d < 5 && d < m.rating; d++) {
       let txt;
-      if (d === 0) txt = d1c === 'speciality' ? 'Specialisation' + (m.dot1_spec_skill ? ' \u2014 ' + m.dot1_spec_skill + (m.dot1_spec ? ' (' + m.dot1_spec + ')' : '') : '') : '1 merit dot';
-      else if (d === 1) txt = '1 merit dot';
-      else if (d === 2) txt = d3c === 'skill' ? 'Skill Dot' + (m.dot3_skill ? ' (' + m.dot3_skill + ')' : '') : '2 merit dots';
-      else if (d === 3) txt = '3 merit dots';
-      else if (d === 4) txt = d5c === 'advantage' ? 'Advantage' + (m.dot5_text ? ' \u2014 ' + m.dot5_text : '') : '3 merit dots';
-      h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><span class="mci-benefit-text">' + esc(txt || '') + '</span></div>';
+      if (d === 0) txt = d1c === 'speciality' ? 'Specialisation' + (m.dot1_spec_skill ? ' \u2014 ' + m.dot1_spec_skill + (m.dot1_spec ? ' (' + m.dot1_spec + ')' : '') : '') : _tierLabel(1);
+      else if (d === 1) txt = _tierLabel(2);
+      else if (d === 2) txt = d3c === 'skill' ? 'Skill Dot' + (m.dot3_skill ? ' (' + m.dot3_skill + ')' : '') : _tierLabel(3);
+      else if (d === 3) txt = _tierLabel(4);
+      else if (d === 4) txt = d5c === 'advantage' ? 'Advantage' + (m.dot5_text ? ' \u2014 ' + m.dot5_text : '') : _tierLabel(5);
+      h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><span class="mci-benefit-text">' + (txt || '') + '</span></div>';
     }
   }
   h += '</div>'; return h;

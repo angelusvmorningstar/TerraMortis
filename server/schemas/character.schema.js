@@ -332,6 +332,22 @@ export const characterSchema = {
         dot4_skill:    { type: 'string' },
         dot5_choice:   { type: 'string', enum: ['advantage', 'merits'] },
         dot5_text:     { type: 'string' },
+        // MCI per-tier merit grants
+        tier_grants: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['tier', 'name', 'category', 'rating'],
+            properties: {
+              tier:      { type: 'integer', minimum: 1, maximum: 5 },
+              name:      { type: 'string', minLength: 1 },
+              category:  { type: 'string' },
+              rating:    { type: 'integer', minimum: 0, maximum: 5 },
+              qualifier: { type: ['string', 'null'] }
+            },
+            additionalProperties: false
+          }
+        },
         // Legacy MCI format — tolerated but not required
         benefits:      { type: 'array' },
         benefit_grants:{ type: 'array' },

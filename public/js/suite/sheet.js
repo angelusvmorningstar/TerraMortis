@@ -395,7 +395,26 @@ export function renderSheet() {
       html += `<div class="stand-row">
         <div class="stand-name-row"><span class="stand-label">${m.name}</span><span class="stand-dots">${dots(m.rating || 0)}</span></div>
         ${m.qualifier ? `<div class="stand-sub">${m.qualifier}</div>` : ''}
+        ${m.cult_name ? `<div class="stand-sub">${m.cult_name}</div>` : ''}
       </div>`;
+      if (m.name === 'Mystery Cult Initiation' && m.rating > 0) {
+        const tg = m.tier_grants || [];
+        const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
+        const tierDots = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
+        html += '<div class="mci-tier-list">';
+        for (let d = 0; d < Math.min(5, m.rating); d++) {
+          const tier = d + 1;
+          const grant = tg.find(t => t.tier === tier);
+          let label;
+          if (d === 0 && d1c === 'speciality') label = 'Spec: ' + (m.dot1_spec_skill || '') + (m.dot1_spec ? ' (' + m.dot1_spec + ')' : '');
+          else if (d === 2 && d3c === 'skill') label = 'Skill: ' + (m.dot3_skill || '');
+          else if (d === 4 && d5c === 'advantage') label = 'Adv: ' + (m.dot5_text || '');
+          else if (grant) label = grant.name + (grant.qualifier ? ' (' + grant.qualifier + ')' : '') + ' ' + dots(grant.rating);
+          else label = '<span class="mci-tier-empty">(unassigned)</span>';
+          html += '<div class="mci-tier-row"><span class="mci-tier-dot">' + tierDots[d] + '</span><span class="mci-tier-label">' + label + '</span></div>';
+        }
+        html += '</div>';
+      }
     });
     html += `</div></div>`;
   }

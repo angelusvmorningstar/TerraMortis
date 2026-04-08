@@ -224,6 +224,42 @@ export function shEditMCIDot(standIdx, dotKey, val) {
   const { merit: m } = meritByCategory(c, 'standing', standIdx);
   if (!m || m.name !== 'Mystery Cult Initiation') return;
   m[dotKey] = val;
+  // Clear tier_grants for affected tier when choice changes away from merits
+  if (dotKey === 'dot1_choice' && val === 'speciality' && m.tier_grants) m.tier_grants = m.tier_grants.filter(t => t.tier !== 1);
+  if (dotKey === 'dot3_choice' && val === 'skill' && m.tier_grants) m.tier_grants = m.tier_grants.filter(t => t.tier !== 3);
+  if (dotKey === 'dot5_choice' && val === 'advantage' && m.tier_grants) m.tier_grants = m.tier_grants.filter(t => t.tier !== 5);
+  _markDirty();
+  _renderSheet(c);
+}
+
+const _MCI_TIER_BUDGET = [0, 1, 1, 2, 3, 3];
+
+export function shEditMCITierGrant(standIdx, tier, meritName) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const { merit: m } = meritByCategory(c, 'standing', standIdx);
+  if (!m || m.name !== 'Mystery Cult Initiation') return;
+  if (!m.tier_grants) m.tier_grants = [];
+  // Remove existing grant for this tier
+  m.tier_grants = m.tier_grants.filter(t => t.tier !== tier);
+  if (meritName) {
+    const slug = meritName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const rule = getRuleByKey(slug);
+    const cat = rule?.sub_category || 'general';
+    const budget = _MCI_TIER_BUDGET[tier] || 0;
+    m.tier_grants.push({ tier, name: meritName, category: cat, rating: budget, qualifier: null });
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditMCITierQual(standIdx, tier, qualifier) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const { merit: m } = meritByCategory(c, 'standing', standIdx);
+  if (!m || m.name !== 'Mystery Cult Initiation' || !m.tier_grants) return;
+  const tg = m.tier_grants.find(t => t.tier === tier);
+  if (tg) tg.qualifier = qualifier || null;
   _markDirty();
   _renderSheet(c);
 }

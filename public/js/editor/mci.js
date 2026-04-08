@@ -4,7 +4,7 @@
  * applyDerivedMerits computes available pools each render cycle.
  */
 
-import { removeMerit, ensureMeritSync } from './merits.js';
+import { addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
 
 /**
@@ -35,6 +35,17 @@ export function applyDerivedMerits(c) {
     const stolenIdx = (c.merits || []).findIndex(m => m.name === ftMerit.qualifier && m.category === 'general' && !m.granted_by);
     if (stolenIdx >= 0) c.merits[stolenIdx].granted_by = 'Fucking Thief';
   }
+
+  // Migrate legacy benefit_grants → tier_grants on MCI merits
+  (c.merits || []).forEach(m => {
+    if (m.name !== 'Mystery Cult Initiation') return;
+    if (m.tier_grants || !m.benefit_grants || !m.benefit_grants.length) return;
+    m.tier_grants = [];
+    m.benefit_grants.forEach((bg, i) => {
+      if (!bg || !bg.name) return;
+      m.tier_grants.push({ tier: i + 1, name: bg.name, category: bg.category || 'general', rating: bg.rating || 1, qualifier: bg.qualifier || bg.area || null });
+    });
+  });
 
   // Migrate legacy 'Regular' fighting style → 'Fighting Merit' (type: merit)
   (c.fighting_styles || []).forEach(fs => {
@@ -83,6 +94,37 @@ export function applyDerivedMerits(c) {
   const totalMCIPool = mcis.filter(m => m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
   if (totalMCIPool > 0) {
     c._grant_pools.push({ source: 'MCI', name: '_mci', category: 'any', amount: totalMCIPool });
+  }
+
+  // ── MCI tier_grants auto-allocation ──
+  // For merits with tier_grants, free_mci is entirely driven by tier assignments.
+  // Manual free_mci (merits not targeted by any tier) is untouched.
+  const TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number
+  const _tierTargets = new Set(); // track which merits are tier-managed
+  for (const mci of mcis) {
+    if (mci.active === false || !mci.tier_grants) continue;
+    const rating = mci.rating || 0;
+    // Prune tier_grants above current rating
+    mci.tier_grants = mci.tier_grants.filter(tg => tg.tier <= rating);
+    // Collect targets and clear their free_mci before re-applying
+    for (const tg of mci.tier_grants) {
+      let target = (c.merits || []).find(m =>
+        m.name === tg.name && m.category === tg.category &&
+        (!tg.qualifier || m.area === tg.qualifier || m.qualifier === tg.qualifier)
+      );
+      if (!target) {
+        const newMerit = { name: tg.name, category: tg.category, rating: 0, granted_by: 'MCI' };
+        if (tg.qualifier) {
+          if (tg.category === 'influence') newMerit.area = tg.qualifier;
+          else newMerit.qualifier = tg.qualifier;
+        }
+        addMerit(c, newMerit);
+        target = c.merits[c.merits.length - 1];
+      }
+      const tKey = target.name + '|' + (target.area || target.qualifier || '');
+      if (!_tierTargets.has(tKey)) { target.free_mci = 0; _tierTargets.add(tKey); }
+      target.free_mci += Math.min(tg.rating, TIER_BUDGETS[tg.tier] || 0);
+    }
   }
 
   // ── PT: clear stale free_pt before re-applying ──
