@@ -1,6 +1,7 @@
 /* Admin app entry point — auth gate, sidebar routing, API data loading, character editing */
 
 import { apiGet, apiPut, apiPost } from './data/api.js';
+import { loadGameXP } from './data/game-xp.js';
 import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
@@ -461,34 +462,7 @@ async function saveCharToApi() {
 
 // ── Init ──
 
-/**
- * Compute game XP per character from game_sessions attendance data.
- * Caches result as c._gameXP for use by xpGame().
- */
-async function loadGameXP() {
-  try {
-    const gameSessions = await apiGet('/api/game_sessions');
-    for (const c of chars) c._gameXP = 0;
-
-    for (const s of gameSessions) {
-      for (const a of s.attendance || []) {
-        const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
-        if (xp === 0) continue;
-
-        // Find matching character by any available key
-        const c = chars.find(ch =>
-          (a.character_id && ch._id === a.character_id) ||
-          ch.name === a.character_name ||
-          ch.name === a.name ||
-          displayName(ch) === (a.display_name || a.character_display)
-        );
-        if (c) c._gameXP += xp;
-      }
-    }
-  } catch (err) {
-    console.warn('Could not load game sessions for XP:', err.message);
-  }
-}
+// loadGameXP imported from data/game-xp.js (shared with player portal)
 
 // ── Player link modal ──
 
@@ -612,7 +586,7 @@ async function init() {
   try {
     chars = await apiGet('/api/characters');
     chars.forEach(sanitiseChar);
-    await loadGameXP();
+    await loadGameXP(chars);
     renderCharGrid();
   } catch (err) {
     console.error('Failed to load characters:', err.message);

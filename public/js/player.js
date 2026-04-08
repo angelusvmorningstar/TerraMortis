@@ -1,6 +1,7 @@
 /* Player portal entry point — auth gate, tab routing, character loading, read-only sheet */
 
 import { apiGet } from './data/api.js';
+import { loadGameXP } from './data/game-xp.js';
 import { esc, displayName, sortName } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
@@ -92,6 +93,7 @@ async function loadCharacters() {
     chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');
     // Sanitise: strip zero-dot disciplines (treated as absent)
     chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if ((v?.dots ?? v) === 0) delete c.disciplines[k]; } });
+    await loadGameXP(chars);
   } catch (err) {
     document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">Failed to load characters: ${esc(err.message)}</p>`;
