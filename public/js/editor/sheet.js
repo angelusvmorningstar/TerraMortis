@@ -497,8 +497,8 @@ export function shRenderInfluenceMerits(c,editMode) {
     if(contactsEntry){
       const cIdx=c.merits.indexOf(contactsEntry),rating=contactsEntry.rating||0,spheres=contactsEntry.spheres||[],frDots=contactsEntry.free||0,baseDots=(contactsEntry.cp||0)+(contactsEntry.xp||0),spOpts=s=>INFLUENCE_SPHERES.map(sp=>'<option'+(s===sp?' selected':'')+'>'+sp+'</option>').join('');
       h+='<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts '+shDots(rating)+(cInf?' \u2014 <span class="inf-val">'+cInf+'</span> inf':'')+'</div>';
-      h+=meritBdRow(cIdx,cMc,meritFixedRating(contactsEntry.name),{showMCI:_inflMciPool>0});
-      if(cMc.free_pt)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">PT Bonus: +'+cMc.free_pt+' dots (auto) \u2014 removed if PT is removed</div>';
+      h+=meritBdRow(cIdx,contactsEntry,meritFixedRating(contactsEntry.name),{showMCI:_inflMciPool>0});
+      if(contactsEntry.free_pt)h+='<div style="font-size:10px;color:var(--gold2);padding:2px 8px">PT Bonus: +'+contactsEntry.free_pt+' dots (auto) \u2014 removed if PT is removed</div>';
       for(let d=0;d<rating;d++){
         const sp=spheres[d]||'';
         let src='';
