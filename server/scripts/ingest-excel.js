@@ -174,6 +174,18 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
     }
   }
 
+  // ── Infer clan favoured attribute from raw Excel free column ──
+  if (!c.clan_attribute && c.clan) {
+    const CLAN_ATTR_OPTS = {
+      Daeva: ['Dexterity', 'Manipulation'], Gangrel: ['Composure', 'Stamina'],
+      Mekhet: ['Intelligence', 'Wits'], Nosferatu: ['Composure', 'Strength'],
+      Ventrue: ['Presence', 'Resolve'],
+    };
+    const opts = CLAN_ATTR_OPTS[c.clan] || [];
+    // Read raw free values directly from Excel before attribute building overwrites them
+    c.clan_attribute = opts.find(a => num(charWs, ATTR_ROWS[a], 12) >= 2) || opts[0] || null;
+  }
+
   // ── Attributes: v3 inline { dots, bonus, cp, xp, free, rule_key } ──
   if (!c.attributes) c.attributes = {};
   for (const [attr, row] of Object.entries(ATTR_ROWS)) {
@@ -276,6 +288,8 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
 
   c.attribute_priorities = c.attribute_priorities || inferPriority(ATTR_CATS, c.attributes, ATTR_PRI);
   c.skill_priorities = c.skill_priorities || inferPriority(SKILL_CATS, c.skills, SKILL_PRI);
+
+  // clan_attribute already inferred before attributes were built (see below)
 
   // ── Disciplines: v3 { dots, cp, xp, free, rule_key } objects ──
   if (!c.disciplines) c.disciplines = {};
