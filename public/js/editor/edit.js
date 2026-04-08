@@ -14,7 +14,7 @@ import { vmAlliesPool, vmAlliesUsed, investedPool, investedUsed } from './domain
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditDerivedMeritArea,
@@ -26,7 +26,7 @@ import {
 export {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shEditDerivedMeritArea,
