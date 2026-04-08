@@ -140,8 +140,19 @@ function renderXPBreakdown(char) {
     for (const name of completedOrdeals)
       h += sub(name, 3);
   }
-  if (earnedParts.game > 0)
+  if (earnedParts.game > 0) {
     h += `<tr><td>Game attendance</td><td class="xpl-n">${earnedParts.game}</td></tr>`;
+    for (const g of (char._gameXPDetail || [])) {
+      const paid = g.paid ? ' <span class="xpl-paid">PAID</span>' : '';
+      const parts = [];
+      if (g.attended) parts.push('attend');
+      if (g.costuming) parts.push('costume');
+      if (g.downtime) parts.push('downtime');
+      if (g.extra) parts.push('+' + g.extra);
+      const detail = parts.length ? ' <span class="xpl-dim">(' + parts.join(', ') + ')</span>' : '';
+      h += `<tr class="xpl-sub"><td>\u00a0\u00a0\u00b7 ${esc(g.title)}${paid}${detail}</td><td class="xpl-n">${g.xp}</td></tr>`;
+    }
+  }
   if (earnedParts.pt5 > 0)
     h += `<tr class="xpl-bonus"><td>Professional Training \u25cf\u25cf\u25cf\u25cf\u25cf</td><td class="xpl-n">${earnedParts.pt5}</td></tr>`;
   h += `<tr class="xpl-total"><td>Total</td><td class="xpl-n">${totalEarned}</td></tr>`;

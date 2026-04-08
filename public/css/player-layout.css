@@ -320,6 +320,9 @@ body {
   padding-bottom: 1px;
 }
 
+.xpl-paid { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .5px; padding: 1px 5px; border-radius: 3px; background: rgba(106,170,106,.2); color: var(--green2, #6aaa6a); margin-left: 6px; vertical-align: middle; }
+.xpl-dim { color: var(--txt3); font-size: 11px; }
+
 .xpl-none {
   color: var(--txt3);
   font-style: italic;
