@@ -113,13 +113,40 @@ function findSheetName(charName, sheetMap) {
 
 function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
   // Start from existing DB character or empty shell
-  const c = existing ? JSON.parse(JSON.stringify(existing)) : {};
-  delete c._id; // Remove MongoDB _id for re-insert
+  const c = existing ? JSON.parse(JSON.stringify(existing)) : {
+    name: 'Unknown', player: null, clan: null, bloodline: null, covenant: null,
+    mask: null, dirge: null, court_title: null, concept: null, pronouns: null,
+    apparent_age: null, honorific: null, moniker: null, features: null, retired: false,
+    blood_potency: 1, humanity: 7, humanity_base: 7,
+    status: { city: 0, clan: 0, covenant: 0 }, covenant_standings: {},
+    attributes: {}, skills: {}, disciplines: {},
+    merits: [], powers: [], fighting_styles: [], fighting_picks: [],
+    touchstones: [], banes: [], ordeals: [],
+    willpower: {}, aspirations: [],
+    xp_log: { earned: {}, spent: {} },
+  };
+  delete c._id;
 
-  // ── Identity from Character Data sheet (only if not from DB) ──
-  if (!c.name) {
-    c.name = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 5 })]?.v || 'Unknown';
+  // ── Identity from Character Data sheet headers ──
+  // Scan header row to discover columns, then read values for this character
+  const ID_MAP = {
+    'Name': 'name', 'Player': 'player', 'Clan': 'clan', 'Bloodline': 'bloodline',
+    'Covenant': 'covenant', 'Mask': 'mask', 'Dirge': 'dirge',
+    'Concept': 'concept', 'Pronouns': 'pronouns', 'Apparent Age': 'apparent_age',
+    'Honorific': 'honorific', 'Moniker': 'moniker', 'Court Title': 'court_title',
+    'Blood Potency': 'blood_potency', 'Humanity': 'humanity', 'Humanity Base': 'humanity_base',
+  };
+  const INT_FIELDS = new Set(['blood_potency', 'humanity', 'humanity_base']);
+  for (let col = 0; col < 250; col++) {
+    const header = dataWs[XLSX.utils.encode_cell({ r: 0, c: col })]?.v;
+    if (!header) continue;
+    const field = ID_MAP[String(header).trim()];
+    if (!field) continue;
+    const raw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: col })]?.v;
+    if (raw == null || raw === '' || raw === '\u00AC') continue;
+    c[field] = INT_FIELDS.has(field) ? (parseInt(raw, 10) || 0) : String(raw).trim();
   }
+  if (!c.name) c.name = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 5 })]?.v || 'Unknown';
 
   // ── Attributes: v3 inline { dots, bonus, cp, xp, free, rule_key } ──
   if (!c.attributes) c.attributes = {};
@@ -181,40 +208,47 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
   }
 
   // Read merit names from Character Data (cols 114-143)
+  // Create merit objects if they don't exist on the character
   let genSlotIdx = 0, manSlotIdx = 0;
   const matched = new Set();
 
   for (let col = 114; col <= 143; col++) {
     const raw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: col })]?.v || '';
     const parsed = parseMeritSlot(raw);
-    if (!parsed) continue;
+    if (!parsed || !parsed.name) continue;
 
     const isManoeuvre = merits.some(m => m.category === 'manoeuvre' && m.name === parsed.name);
 
     if (isManoeuvre) {
-      const match = merits.find(m =>
+      let match = merits.find(m =>
         m.category === 'manoeuvre' && m.name === parsed.name && !matched.has(merits.indexOf(m))
       );
-      if (match) {
-        const pts = readPoints(charWs, MAN_ROW_START + manSlotIdx);
-        Object.assign(match, { cp: pts.cp, xp: pts.xp, free: pts.free });
-        matched.add(merits.indexOf(match));
+      const pts = readPoints(charWs, MAN_ROW_START + manSlotIdx);
+      if (!match) {
+        match = { category: 'manoeuvre', name: parsed.name, rating: parsed.dots, ...ZERO_MC, rule_key: rulesMap.get(`manoeuvre:${slugify(parsed.name)}`) || null };
+        merits.push(match);
       }
+      Object.assign(match, { cp: pts.cp, xp: pts.xp, free: pts.free });
+      matched.add(merits.indexOf(match));
       manSlotIdx++;
     } else {
-      const match = merits.find(m =>
+      let match = merits.find(m =>
         m.category === 'general' && m.name === parsed.name && !matched.has(merits.indexOf(m))
       );
-      if (match) {
-        const pts = readPoints(charWs, MERIT_ROW_START + genSlotIdx);
-        Object.assign(match, { cp: pts.cp, xp: pts.xp, free: pts.free });
-        matched.add(merits.indexOf(match));
+      const pts = readPoints(charWs, MERIT_ROW_START + genSlotIdx);
+      if (!match) {
+        match = { category: 'general', name: parsed.name, rating: parsed.dots, ...ZERO_MC,
+          rule_key: rulesMap.get(`merit:${slugify(parsed.name)}`) || null };
+        if (parsed.qualifier) match.qualifier = parsed.qualifier;
+        merits.push(match);
       }
+      Object.assign(match, { cp: pts.cp, xp: pts.xp, free: pts.free });
+      matched.add(merits.indexOf(match));
       genSlotIdx++;
     }
   }
 
-  // Influence merits (cols 176-195 names, 196-215 areas)
+  // Influence merits (cols 176-195 names, 196-215 areas) — create if not found
   const inflPool = merits.filter(m => m.category === 'influence').slice();
   for (let i = 0; i < 20; i++) {
     const nameRaw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 176 + i })]?.v || '';
@@ -222,33 +256,44 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
     if (!nameRaw || nameRaw === '¬') continue;
     const meritType = nameRaw.trim();
     const area = (areaRaw && areaRaw !== '¬') ? areaRaw.trim() : '';
+    const pts = readPoints(charWs, INFL_ROW_START + i);
 
-    const match = inflPool.find(m => {
+    let match = inflPool.find(m => {
       if (m.name !== meritType) return false;
       if (!area) return true;
       const mArea = m.area || m.qualifier || '';
       return mArea.toLowerCase().includes(area.toLowerCase()) || area.toLowerCase().includes(mArea.toLowerCase());
     });
-    if (match) {
-      const pts = readPoints(charWs, INFL_ROW_START + i);
-      Object.assign(match, { cp: pts.cp, xp: pts.xp, free: pts.free });
-      inflPool.splice(inflPool.indexOf(match), 1);
+    if (!match) {
+      match = { category: 'influence', name: meritType, rating: 0, area: area || null, ...ZERO_MC,
+        rule_key: rulesMap.get(`merit:${slugify(meritType)}`) || null };
+      merits.push(match);
     }
+    Object.assign(match, { cp: pts.cp, xp: pts.xp, free: pts.free });
+    inflPool.splice(inflPool.indexOf(match), 1);
   }
 
-  // Domain merits
-  for (const dm of merits.filter(m => m.category === 'domain')) {
-    const row = DOMAIN_ROWS[dm.name];
-    if (!row) continue;
+  // Domain merits — create if not found
+  for (const [dmName, row] of Object.entries(DOMAIN_ROWS)) {
     const pts = readPoints(charWs, row);
+    if (!pts.cp && !pts.free && !pts.xp) continue;
+    let dm = merits.find(m => m.category === 'domain' && m.name === dmName);
+    if (!dm) {
+      dm = { category: 'domain', name: dmName, rating: 0, ...ZERO_MC, rule_key: rulesMap.get(`merit:${slugify(dmName)}`) || null };
+      merits.push(dm);
+    }
     Object.assign(dm, { cp: pts.cp, xp: pts.xp, free: pts.free });
   }
 
-  // Standing merits (MCI, PT)
-  for (const sm of merits.filter(m => m.category === 'standing')) {
-    const row = sm.name === 'Mystery Cult Initiation' ? MCI_ROW : sm.name === 'Professional Training' ? PT_ROW : null;
-    if (!row) continue;
+  // Standing merits (MCI, PT) — create if not found
+  for (const [smName, row] of [['Mystery Cult Initiation', MCI_ROW], ['Professional Training', PT_ROW]]) {
     const pts = readPoints(charWs, row);
+    if (!pts.cp && !pts.free && !pts.xp) continue;
+    let sm = merits.find(m => m.category === 'standing' && m.name === smName);
+    if (!sm) {
+      sm = { category: 'standing', name: smName, rating: 0, ...ZERO_MC, rule_key: rulesMap.get(`merit:${slugify(smName)}`) || null };
+      merits.push(sm);
+    }
     Object.assign(sm, { cp: pts.cp, xp: pts.xp, free: pts.free });
   }
 
