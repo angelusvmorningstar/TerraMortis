@@ -277,7 +277,7 @@ export function buildMeritOptions(c, currentName) {
   if (rulesDB.length) {
     // Rules cache available — use structured data
     for (const rule of rulesDB) {
-      if (rule.sub_category !== 'general') continue;
+      if (rule.sub_category && rule.sub_category !== 'general') continue;
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
       if (!_meetsPrereq(c, rule.prereq)) continue;
       const excl = _isExcluded(c, rule.name);
