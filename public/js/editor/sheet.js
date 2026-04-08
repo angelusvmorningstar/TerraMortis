@@ -13,6 +13,7 @@ import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOpti
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
 import { domMeritTotal, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
+import { auditCharacter } from '../data/audit.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
@@ -49,6 +50,22 @@ function _refreshLegacyDBs() {
   if (DEVOTIONS_DB.length) setDevotionsDB(DEVOTIONS_DB);
 }
 _refreshLegacyDBs();
+
+/** Render the audit badge — error/warning icon next to character name with hover tooltip. */
+function _auditBadge(c) {
+  const audit = auditCharacter(c);
+  if (audit.valid && audit.warnings.length === 0) {
+    return '<span class="audit-badge audit-ok" title="All checks passed">\u2714</span>';
+  }
+  const lines = [];
+  for (const e of audit.errors) lines.push('\u2716 ' + e.message);
+  for (const w of audit.warnings) lines.push('\u26A0 ' + w.message);
+  const tooltip = lines.join('\n');
+  const cls = audit.errors.length ? 'audit-err' : 'audit-warn';
+  const icon = audit.errors.length ? '\u2716' : '\u26A0';
+  const count = audit.errors.length + audit.warnings.length;
+  return `<span class="audit-badge ${cls}" title="${esc(tooltip)}">${icon} ${count}</span>`;
+}
 
 /** Render a prereq warning showing only the terms the character actually fails. */
 function _prereqWarn(c, meritName, m) {
@@ -1172,7 +1189,7 @@ export function renderSheet(c, target = null) {
   const isDesktop = el.closest('.cd-sheet');
   if (isDesktop) h += '<div class="sh-desktop'+(editMode?' sh-editing':'')+'"><div class="sh-dcol sh-dcol-left">';
   // Header
-  h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(displayName(c)))+'</div>';
+  h+='<div class="sh-char-hdr"><div class="sh-namerow"><div class="sh-char-name">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.name)+'" onchange="shEdit(\'name\',this.value);document.getElementById(\'edit-charname\').textContent=this.value">':esc(displayName(c)))+'</div>'+_auditBadge(c);
   if(editMode){h+='<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.honorific||'')+'" onchange="shEdit(\'honorific\',this.value||null)" placeholder="Honorific (e.g. Lord, Lady)" style="font-size:12px"></div><div style="flex:1"><input class="sh-edit-input" value="'+esc(c.moniker||'')+'" onchange="shEdit(\'moniker\',this.value||null)" placeholder="Moniker (overrides display name)" style="font-size:12px"></div></div>';}
   h+='<div class="sh-player-row"><span class="sh-char-player">'+(editMode?'<input class="sh-edit-input" value="'+esc(c.player||'')+'" onchange="shEdit(\'player\',this.value)" placeholder="Player">':esc(c.player||''))+'</span><span class="sh-xp-badge'+(xpLeft(c)<0?' xp-over':xpLeft(c)>0?' xp-under':'')+'">XP '+xpLeft(c)+'/'+xpEarned(c)+'</span></div></div>';
   if(editMode){const eT=xpEarned(c),sT=xpSpent(c);
