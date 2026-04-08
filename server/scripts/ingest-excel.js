@@ -474,6 +474,17 @@ async function main() {
   for (const c of existingChars) existingMap.set(c.name, c);
   console.log(`Loaded ${existingChars.length} existing characters from database`);
 
+  // Load players for linking (match by display_name or username to Excel "Player Name")
+  const players = await db.collection('players').find({}).toArray();
+  const playerMap = new Map();
+  for (const p of players) {
+    const dn = (p.display_name || '').toLowerCase().trim();
+    const un = (p.username || '').toLowerCase().trim();
+    if (dn) playerMap.set(dn, p);
+    if (un && un !== dn) playerMap.set(un, p);
+  }
+  console.log(`Loaded ${players.length} players for linking`);
+
   // Build Excel sheet name lookup
   const dataWs = wb.Sheets['Character Data'];
   if (!dataWs) { console.error('No "Character Data" sheet found'); process.exit(1); }
@@ -515,14 +526,28 @@ async function main() {
 
     const c = buildCharacter(wb.Sheets[sheetName], dataWs, dataRow, existing, rulesMap);
 
+    // Match player by display_name for linking after insert
+    if (c.player) {
+      const pKey = c.player.toLowerCase().trim();
+      const player = playerMap.get(pKey)
+        || [...playerMap.values()].find(p => {
+          const dn = (p.display_name || '').toLowerCase();
+          return dn.startsWith(pKey) || pKey.startsWith(dn);
+        });
+      if (player) {
+        c.__playerId = String(player._id);
+        c.__playerName = player.display_name || player.username;
+      }
+    }
+
     // Count rule_key stats
     for (const a of Object.values(c.attributes || {})) { if (a.rule_key) ruleKeyHits++; else ruleKeyMisses++; }
     for (const s of Object.values(c.skills || {})) { if (s.rule_key) ruleKeyHits++; else ruleKeyMisses++; }
     for (const m of (c.merits || [])) { if (m.rule_key) ruleKeyHits++; else ruleKeyMisses++; }
     for (const p of (c.powers || [])) { if (p.rule_key) ruleKeyHits++; else ruleKeyMisses++; }
 
-    // Validate
-    const { _id, ...docForValidation } = c;
+    // Validate (strip internal linking fields)
+    const { _id, __playerId, __playerName, ...docForValidation } = c;
     if (!validate(docForValidation)) {
       const errors = validate.errors.map(e => `${e.instancePath} ${e.message}`).join('; ');
       console.error(`  ✗ ${charName} — VALIDATION FAILED: ${errors}`);
@@ -534,7 +559,8 @@ async function main() {
     const meritCount = (c.merits || []).length;
     const discCount = Object.keys(c.disciplines || {}).length;
     const powerCount = (c.powers || []).length;
-    console.log(`  ✓ ${charName} → ${sheetName} (${meritCount} merits, ${discCount} discs, ${powerCount} powers)`);
+    const playerTag = c.__playerName ? ` [player: ${c.__playerName}]` : ' [no player match]';
+    console.log(`  ✓ ${charName} → ${sheetName} (${meritCount} merits, ${discCount} discs, ${powerCount} powers)${playerTag}`);
 
     results.push(c);
     matchCount++;
@@ -560,8 +586,10 @@ async function main() {
   // Output
   if (JSON_OUT) {
     const outPath = new URL('../../data/chars_v3.json', import.meta.url).pathname;
-    writeFileSync(outPath, JSON.stringify(results, null, 2));
-    console.log(`\nWrote ${results.length} characters to ${outPath}`);
+    // Strip internal linking fields from JSON output
+    const clean = results.map(c => { const { __playerId, __playerName, ...rest } = c; return rest; });
+    writeFileSync(outPath, JSON.stringify(clean, null, 2));
+    console.log(`\nWrote ${clean.length} characters to ${outPath}`);
   }
 
   if (DRY_RUN) {
@@ -581,10 +609,35 @@ async function main() {
   }
 
   // Write to database
+  // Strip internal linking fields before insert
+  const playerLinks = [];
+  for (const c of results) {
+    if (c.__playerId) playerLinks.push({ playerId: c.__playerId, playerName: c.__playerName, charName: c.name });
+    delete c.__playerId;
+    delete c.__playerName;
+  }
+
   const col = db.collection('characters');
   await col.deleteMany({});
   if (results.length) await col.insertMany(results);
   console.log(`\n✅ Inserted ${results.length} characters into tm_suite_dev.characters`);
+
+  // Link players to their characters
+  if (playerLinks.length) {
+    const playersCol = db.collection('players');
+    let linked = 0;
+    for (const { playerId, playerName, charName } of playerLinks) {
+      const inserted = await col.findOne({ name: charName });
+      if (!inserted) continue;
+      await playersCol.updateOne(
+        { _id: playerId },
+        { $set: { character_ids: [inserted._id] } }
+      );
+      linked++;
+      console.log(`  → ${charName} linked to player ${playerName}`);
+    }
+    console.log(`✅ Linked ${linked} characters to players`);
+  }
 
   await client.close();
 }
