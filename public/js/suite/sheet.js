@@ -395,18 +395,7 @@ export function renderSheet() {
       html += `<div class="stand-row">
         <div class="stand-name-row"><span class="stand-label">${m.name}</span><span class="stand-dots">${dots(m.rating || 0)}</span></div>
         ${m.qualifier ? `<div class="stand-sub">${m.qualifier}</div>` : ''}
-        ${m.cult_name ? `<div class="stand-sub">${m.cult_name}</div>` : ''}
       </div>`;
-      if (m.name === 'Mystery Cult Initiation') {
-        const grants = (c.merits || []).filter(g => (g.free_mci || 0) > 0);
-        const styleGrants = (c.fighting_styles || []).filter(fs => (fs.free_mci || 0) > 0);
-        if (grants.length || styleGrants.length) {
-          html += '<div class="mci-grants">';
-          for (const g of grants) html += `<div class="mci-grant-row"><span class="mci-grant-name">${g.name}${g.area ? ' (' + g.area + ')' : ''}</span><span class="mci-grant-dots">${dots(g.free_mci)}</span></div>`;
-          for (const fs of styleGrants) html += `<div class="mci-grant-row"><span class="mci-grant-name">${fs.name}</span><span class="mci-grant-dots">${dots(fs.free_mci)}</span></div>`;
-          html += '</div>';
-        }
-      }
     });
     html += `</div></div>`;
   }
