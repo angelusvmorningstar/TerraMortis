@@ -130,11 +130,14 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
   // ── Identity from Character Data sheet headers ──
   // Scan header row to discover columns, then read values for this character
   const ID_MAP = {
-    'Name': 'name', 'Player': 'player', 'Clan': 'clan', 'Bloodline': 'bloodline',
+    'Name': 'name', 'Character Name': 'name',
+    'Player': 'player', 'Player Name': 'player',
+    'Clan': 'clan', 'Bloodline': 'bloodline',
     'Covenant': 'covenant', 'Mask': 'mask', 'Dirge': 'dirge',
     'Concept': 'concept', 'Pronouns': 'pronouns', 'Apparent Age': 'apparent_age',
     'Honorific': 'honorific', 'Moniker': 'moniker', 'Court Title': 'court_title',
-    'Blood Potency': 'blood_potency', 'Humanity': 'humanity', 'Humanity Base': 'humanity_base',
+    'Blood Potency': 'blood_potency', 'BP': 'blood_potency',
+    'Humanity': 'humanity', 'Hum': 'humanity', 'Humanity Base': 'humanity_base',
   };
   const INT_FIELDS = new Set(['blood_potency', 'humanity', 'humanity_base']);
   for (let col = 0; col < 250; col++) {

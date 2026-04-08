@@ -30,11 +30,14 @@ export function mergeExcelOntoCharacter(existing, excel) {
   // ── Identity from Excel Character Data headers ──
   // Map common header names to character fields
   const ID_MAP = {
-    'Name': 'name', 'Player': 'player', 'Clan': 'clan', 'Bloodline': 'bloodline',
+    'Name': 'name', 'Character Name': 'name',
+    'Player': 'player', 'Player Name': 'player',
+    'Clan': 'clan', 'Bloodline': 'bloodline',
     'Covenant': 'covenant', 'Mask': 'mask', 'Dirge': 'dirge',
     'Concept': 'concept', 'Pronouns': 'pronouns', 'Apparent Age': 'apparent_age',
     'Honorific': 'honorific', 'Moniker': 'moniker', 'Court Title': 'court_title',
-    'Blood Potency': 'blood_potency', 'Humanity': 'humanity',
+    'Blood Potency': 'blood_potency', 'BP': 'blood_potency',
+    'Humanity': 'humanity', 'Hum': 'humanity', 'Humanity Base': 'humanity_base',
   };
   const INT_FIELDS = new Set(['blood_potency', 'humanity']);
   if (excel.identity) {
