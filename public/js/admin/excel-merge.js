@@ -27,6 +27,32 @@ export function mergeExcelOntoCharacter(existing, excel) {
   const changes = [];
   const warnings = [];
 
+  // ── Identity from Excel Character Data headers ──
+  // Map common header names to character fields
+  const ID_MAP = {
+    'Name': 'name', 'Player': 'player', 'Clan': 'clan', 'Bloodline': 'bloodline',
+    'Covenant': 'covenant', 'Mask': 'mask', 'Dirge': 'dirge',
+    'Concept': 'concept', 'Pronouns': 'pronouns', 'Apparent Age': 'apparent_age',
+    'Honorific': 'honorific', 'Moniker': 'moniker', 'Court Title': 'court_title',
+    'Blood Potency': 'blood_potency', 'Humanity': 'humanity',
+  };
+  const INT_FIELDS = new Set(['blood_potency', 'humanity']);
+  if (excel.identity) {
+    for (const [header, val] of Object.entries(excel.identity)) {
+      const field = ID_MAP[header];
+      if (!field) continue;
+      const newVal = INT_FIELDS.has(field) ? parseInt(val, 10) || 0 : String(val).trim();
+      const oldVal = c[field];
+      if (oldVal !== newVal && newVal) {
+        if (oldVal && field !== 'name') {
+          warnings.push(`${header}: "${oldVal}" → "${newVal}" (identity change)`);
+        }
+        changes.push({ section: 'Identity', field: header, old: oldVal || '(empty)', new: newVal });
+        c[field] = newVal;
+      }
+    }
+  }
+
   // ── Attributes ──
   if (!c.attributes) c.attributes = {};
   for (const [attr, pts] of Object.entries(excel.attributes)) {

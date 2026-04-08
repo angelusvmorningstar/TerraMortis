@@ -155,10 +155,18 @@ function extractCharacter(charWs, dataWs, dataRow) {
     merits: num(charWs, 9, 13), powers: num(charWs, 10, 13), special: num(charWs, 11, 13),
   };
 
-  // Identity from Character Data
+  // Identity from Character Data — read all non-empty cells from this row
   const name = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 5 })]?.v || '';
+  const identity = {};
+  // Scan header row (row 0) to build column→field mapping, then read values
+  for (let col = 0; col < 250; col++) {
+    const header = dataWs[XLSX.utils.encode_cell({ r: 0, c: col })]?.v;
+    if (!header) continue;
+    const val = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: col })]?.v;
+    if (val != null && val !== '' && val !== '\u00AC') identity[String(header).trim()] = val;
+  }
 
-  return { name, attributes, skills, disciplines, generalMerits, influenceMerits, domainMerits, standingMerits, xpLog, warnings };
+  return { name, identity, attributes, skills, disciplines, generalMerits, influenceMerits, domainMerits, standingMerits, xpLog, warnings };
 }
 
 /**
