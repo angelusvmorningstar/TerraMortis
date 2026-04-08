@@ -239,6 +239,44 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
     }
   }
 
+  // ── Infer attribute and skill priorities from CP totals ──
+  const ATTR_CATS = {
+    Mental: ['Intelligence', 'Wits', 'Resolve'],
+    Physical: ['Strength', 'Dexterity', 'Stamina'],
+    Social: ['Presence', 'Manipulation', 'Composure'],
+  };
+  const SKILL_CATS = {
+    Mental: ['Academics', 'Computer', 'Crafts', 'Investigation', 'Medicine', 'Occult', 'Politics', 'Science'],
+    Physical: ['Athletics', 'Brawl', 'Drive', 'Firearms', 'Larceny', 'Stealth', 'Survival', 'Weaponry'],
+    Social: ['Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Streetwise', 'Subterfuge'],
+  };
+  const ATTR_PRI = { 5: 'Primary', 4: 'Secondary', 3: 'Tertiary' };
+  const SKILL_PRI = { 11: 'Primary', 7: 'Secondary', 4: 'Tertiary' };
+
+  function inferPriority(cats, obj, priMap) {
+    const totals = {};
+    for (const [cat, names] of Object.entries(cats)) {
+      totals[cat] = names.reduce((s, n) => s + (obj[n]?.cp || 0), 0);
+    }
+    // Sort categories by CP descending, assign priorities in order
+    const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    const pris = ['Primary', 'Secondary', 'Tertiary'];
+    const result = {};
+    // Try exact match first
+    let exactMatch = true;
+    for (const [cat, total] of Object.entries(totals)) {
+      if (priMap[total]) result[cat] = priMap[total];
+      else exactMatch = false;
+    }
+    if (exactMatch && new Set(Object.values(result)).size === 3) return result;
+    // Fallback: rank by CP spent
+    sorted.forEach(([cat], i) => { result[cat] = pris[i]; });
+    return result;
+  }
+
+  c.attribute_priorities = c.attribute_priorities || inferPriority(ATTR_CATS, c.attributes, ATTR_PRI);
+  c.skill_priorities = c.skill_priorities || inferPriority(SKILL_CATS, c.skills, SKILL_PRI);
+
   // ── Disciplines: v3 { dots, cp, xp, free, rule_key } objects ──
   if (!c.disciplines) c.disciplines = {};
   for (const [disc, row] of Object.entries(DISC_ROWS)) {
