@@ -151,6 +151,29 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
   }
   if (!c.name) c.name = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: 5 })]?.v || 'Unknown';
 
+  // ── Status (city/clan/covenant + cross-covenant standings) ──
+  // Cols 83-85: City/Clan/Covenant status (numeric)
+  // Cols 86-93: Covenant standings pairs (name + dot string)
+  const _numCell = (col) => { const v = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: col })]?.v; return typeof v === 'number' ? v : parseInt(v, 10) || 0; };
+  const _strCell = (col) => { const v = dataWs[XLSX.utils.encode_cell({ r: dataRow, c: col })]?.v; return (v && v !== '¬' && v !== '-') ? String(v).trim() : null; };
+  const _dotCount = (str) => str ? (str.match(/●/g) || []).length : 0;
+
+  if (!c.status) c.status = {};
+  const cityS = _numCell(83), clanS = _numCell(84), covS = _numCell(85);
+  if (cityS) c.status.city = cityS;
+  if (clanS) c.status.clan = clanS;
+  if (covS) c.status.covenant = covS;
+
+  if (!c.covenant_standings) c.covenant_standings = {};
+  for (let i = 0; i < 4; i++) {
+    const covName = _strCell(86 + i * 2);
+    const covDots = _strCell(87 + i * 2);
+    if (covName && covDots) {
+      const dots = _dotCount(covDots);
+      if (dots > 0) c.covenant_standings[covName] = dots;
+    }
+  }
+
   // ── Attributes: v3 inline { dots, bonus, cp, xp, free, rule_key } ──
   if (!c.attributes) c.attributes = {};
   for (const [attr, row] of Object.entries(ATTR_ROWS)) {
