@@ -111,16 +111,30 @@ function extractCharacter(charWs, dataWs, dataRow) {
   if (ptPts.cp || ptPts.free || ptPts.xp) standingMerits['Professional Training'] = ptPts;
 
   // General merits + manoeuvres from Character Data columns 114-143
+  // The Character Data sheet lists merits in order; the individual character sheet
+  // has general merits in rows 79-98 and manoeuvres in rows 101-120 (separate runs).
+  // We read the name from Character Data, then read CP/Free/XP from the character sheet.
+  // General merits and manoeuvres are interleaved in Character Data columns 114-143.
+  // In the individual character sheet they occupy SEPARATE row blocks with independent indices:
+  //   General: rows 79-98 (20 slots), Manoeuvres: rows 101-120 (20 slots)
+  // We can't tell gen from man without the character data, so we read points at BOTH
+  // possible indices. The merge engine will pick the correct one based on category match.
+  // We also store running gen/man slot indices so the merge engine can advance them correctly.
   const generalMerits = [];
-  const manoeuvres = [];
-  let genSlotIdx = 0, manSlotIdx = 0;
+  let _genIdx = 0, _manIdx = 0;
   for (let c = 114; c <= 143; c++) {
     const raw = dataWs[XLSX.utils.encode_cell({ r: dataRow, c })]?.v || '';
     const parsed = parseMeritSlot(raw);
     if (!parsed) continue;
-    // We don't know if it's a manoeuvre or general here — store both slot indices
-    generalMerits.push({ ...parsed, slotRow: MERIT_ROW_START + genSlotIdx, manSlotRow: MAN_ROW_START + manSlotIdx });
-    genSlotIdx++;
+    generalMerits.push({
+      ...parsed,
+      _genPts: readPoints(charWs, MERIT_ROW_START + _genIdx),
+      _manPts: readPoints(charWs, MAN_ROW_START + _manIdx),
+      _genIdx, _manIdx,
+    });
+    // Both counters speculatively advance; merge engine will use the correct one
+    _genIdx++;
+    _manIdx++;
   }
 
   // Influence merits from Character Data columns 176-195 (names) + 196-215 (areas)

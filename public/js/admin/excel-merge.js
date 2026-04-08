@@ -69,17 +69,28 @@ export function mergeExcelOntoCharacter(existing, excel) {
   // ── Merits: match by name and apply points ──
   const merits = c.merits || [];
 
-  // General merits from Excel
+  // General merits from Excel — match against character merits to determine gen vs man
+  const genMatched = new Set();
   for (const gm of excel.generalMerits) {
-    const match = merits.find(m =>
-      (m.category === 'general' || m.category === 'manoeuvre') && m.name === gm.name
+    // Try manoeuvre match first
+    const manMatch = merits.find(m =>
+      m.category === 'manoeuvre' && m.name === gm.name && !genMatched.has(merits.indexOf(m))
     );
-    if (match) {
-      const pts = readMeritPoints(gm, match.category === 'manoeuvre');
-      applyMeritPoints(match, pts, changes, gm.name);
-    } else if (gm.name) {
-      warnings.push(`General merit "${gm.name}" not found on character`);
+    if (manMatch) {
+      applyMeritPoints(manMatch, gm._manPts || { cp: 0, free: 0, xp: 0 }, changes, gm.name);
+      genMatched.add(merits.indexOf(manMatch));
+      continue;
     }
+    // Try general merit match
+    const genMatch = merits.find(m =>
+      m.category === 'general' && m.name === gm.name && !genMatched.has(merits.indexOf(m))
+    );
+    if (genMatch) {
+      applyMeritPoints(genMatch, gm._genPts || { cp: 0, free: 0, xp: 0 }, changes, gm.name);
+      genMatched.add(merits.indexOf(genMatch));
+      continue;
+    }
+    if (gm.name) warnings.push(`General merit "${gm.name}" not found on character`);
   }
 
   // Influence merits
@@ -135,14 +146,6 @@ export function mergeExcelOntoCharacter(existing, excel) {
   delete c.attr_creation; delete c.skill_creation; delete c.disc_creation; delete c.merit_creation;
 
   return { merged: c, changes, warnings, isNew };
-}
-
-function readMeritPoints(gm, isManoeuvre) {
-  // generalMerits have slotRow and manSlotRow from parser — but we don't have the sheet here.
-  // Points are already read during parsing and stored on influence/domain/standing merits.
-  // For general merits, we'd need the raw sheet — but the parser doesn't store points per-general-merit.
-  // Return zero — this is a limitation; general merit points need to be read during parse.
-  return gm.points || { cp: 0, free: 0, xp: 0 };
 }
 
 function applyMeritPoints(merit, pts, changes, label) {
