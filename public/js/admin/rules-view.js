@@ -58,12 +58,7 @@ async function fetchAndRender() {
 
 // ── Render ──
 
-function ratingDisplay(rule) {
-  if (rule.rating_range) return `${rule.rating_range[0]}\u2013${rule.rating_range[1]}`;
-  if (rule.rank) return `Rank ${rule.rank}`;
-  if (rule.xp_fixed != null) return `${rule.xp_fixed} XP`;
-  return '';
-}
+function dots(n) { return n > 0 ? '\u25CF'.repeat(n) : ''; }
 
 function truncate(str, max) {
   if (!str || str.length <= max) return str || '';
@@ -92,7 +87,7 @@ function render(data) {
 
   // ── Table ──
   h += '<div class="rules-tbl-wrap"><table class="rules-tbl"><thead><tr>';
-  h += '<th>Name</th><th>Category</th><th>Parent</th><th>Rating</th><th>Prereqs</th><th></th>';
+  h += '<th>Name</th><th>Category</th><th>Parent</th><th>Rank</th><th>Range</th><th>XP</th><th>Prereqs</th><th></th>';
   h += '</tr></thead><tbody>';
   for (const rule of data) {
     const pq = rule.prereq ? truncate(prereqLabel(rule.prereq), 40) : '';
@@ -100,13 +95,15 @@ function render(data) {
     h += `<td class="rules-td-name">${esc(rule.name)}</td>`;
     h += `<td><span class="rules-cat-tag">${esc(rule.category)}</span></td>`;
     h += `<td class="rules-td-dim">${esc(rule.parent || '')}</td>`;
-    h += `<td class="rules-td-dim">${ratingDisplay(rule)}</td>`;
+    h += `<td class="rules-td-dots">${rule.rank ? dots(rule.rank) : ''}</td>`;
+    h += `<td class="rules-td-dim">${rule.rating_range ? rule.rating_range[0] + '\u2013' + rule.rating_range[1] : ''}</td>`;
+    h += `<td class="rules-td-dim">${rule.xp_fixed != null ? rule.xp_fixed : ''}</td>`;
     h += `<td class="rules-td-prereq" title="${esc(rule.prereq ? prereqLabel(rule.prereq) : '')}">${esc(pq)}</td>`;
     h += `<td><button class="rules-edit-btn" data-edit-key="${esc(rule.key)}" title="Edit">&#9998;</button><button class="rules-del-btn" data-del-key="${esc(rule.key)}" data-del-name="${esc(rule.name)}" title="Delete">&#128465;</button></td>`;
     h += '</tr>';
   }
   if (!data.length) {
-    h += '<tr><td colspan="6" class="rules-td-empty">No rules match your filters.</td></tr>';
+    h += '<tr><td colspan="8" class="rules-td-empty">No rules match your filters.</td></tr>';
   }
   h += '</tbody></table></div>';
 

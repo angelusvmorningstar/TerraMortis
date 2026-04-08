@@ -3052,6 +3052,7 @@ body {
 .rules-tbl tbody tr:hover { background: rgba(201,169,98,.06); }
 .rules-td-name { font-family: var(--fh); color: var(--txt1); white-space: nowrap; }
 .rules-td-dim { color: var(--txt2, #aaa); font-size: 12px; }
+.rules-td-dots { color: var(--gold2, #E0C47A); font-size: 11px; letter-spacing: 1px; white-space: nowrap; }
 .rules-td-prereq { font-size: 11px; color: var(--txt3, #777); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rules-td-empty { text-align: center; color: var(--txt3); padding: 24px; }
 .rules-cat-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; padding: 1px 6px; border-radius: 3px; background: rgba(201,169,98,.1); color: var(--gold2); }
