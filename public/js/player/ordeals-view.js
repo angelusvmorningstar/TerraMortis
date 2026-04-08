@@ -153,8 +153,13 @@ function renderXPBreakdown(char) {
       h += `<tr class="xpl-sub"><td>\u00a0\u00a0\u00b7 ${esc(g.title)}${paid}${detail}</td><td class="xpl-n">${g.xp}</td></tr>`;
     }
   }
-  if (earnedParts.pt5 > 0)
-    h += `<tr class="xpl-bonus"><td>Professional Training \u25cf\u25cf\u25cf\u25cf\u25cf</td><td class="xpl-n">${earnedParts.pt5}</td></tr>`;
+  if (earnedParts.pt5 > 0) {
+    const ptM = (char.merits || []).find(m => m.name === 'Professional Training');
+    const ptAssets = (ptM?.asset_skills || []).filter(Boolean);
+    const maxedAssets = ptAssets.filter(sk => (char.skills?.[sk]?.dots || 0) >= 5);
+    h += `<tr class="xpl-bonus"><td>Professional Training (${earnedParts.pt5} asset${earnedParts.pt5 > 1 ? 's' : ''} at 5)</td><td class="xpl-n">${earnedParts.pt5}</td></tr>`;
+    for (const sk of maxedAssets) h += `<tr class="xpl-sub"><td>\u00a0\u00a0\u00b7 ${esc(sk)} \u25cf\u25cf\u25cf\u25cf\u25cf</td><td class="xpl-n">1</td></tr>`;
+  }
   h += `<tr class="xpl-total"><td>Total</td><td class="xpl-n">${totalEarned}</td></tr>`;
   h += '</table></div>';
 

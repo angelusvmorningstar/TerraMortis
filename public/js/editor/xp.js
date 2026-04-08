@@ -50,11 +50,16 @@ export function xpGame(c) {
   return ((c.xp_log || {}).earned || {}).game || 0;
 }
 
-/** XP bonus from Professional Training dot 5: 1 XP. Dynamic — present only when PT≥5 is active. */
+/** XP bonus from Professional Training: 1 XP per asset skill at 5 dots (requires PT ≥ 3). */
 export function xpPT5(c) {
   const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
-  if (!ptM) return 0;
-  return meritRating(c, ptM) >= 5 ? 1 : 0;
+  if (!ptM || meritRating(c, ptM) < 3) return 0;
+  const assets = (ptM.asset_skills || []).filter(Boolean);
+  if (!assets.length) return 0;
+  return assets.filter(sk => {
+    const s = (c.skills || {})[sk];
+    return s && (s.dots || 0) >= 5;
+  }).length;
 }
 
 /**
