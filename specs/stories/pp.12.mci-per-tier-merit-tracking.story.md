@@ -187,3 +187,38 @@ Claude Opus 4.6
 - `public/js/suite/sheet.js` — per-tier display in player view
 - `public/css/suite.css` — tier list styles
 - `public/js/data/audit.js` — mci_tier_over and mci_unassigned gates
+
+## QA Results
+
+### Review Date: 2026-04-08
+
+### Reviewed By: Quinn (Test Architect)
+
+**Scope:** Full story review — schema, auto-allocation engine, editor UI, player view, audit gates.
+
+#### AC Verification
+
+| AC | Status | Notes |
+|----|--------|-------|
+| AC1: Per-tier merit picker for merit-granting tiers | PASS | _tierPicker() renders dropdown per tier in _renderMCI |
+| AC2: Dropdown filtered by tier budget and prereqs | PASS | buildMCIGrantOptions reused with dotLevel mapped from tier |
+| AC3: tier_grants array on MCI merit | PASS | Schema defined, handlers create/update entries |
+| AC4: free_mci auto-updated from tier_grants | PASS | mci.js clears then re-applies per render cycle |
+| AC5: Manual pool still works | PASS | Remaining pool after auto-allocation available for manual free_mci |
+| AC6: Over-budget rejected | PASS | Rating clamped to _MCI_TIER_BUDGET[tier] in shEditMCITierGrant |
+| AC7: Choice change clears tier grants | PASS | shEditMCIDot filters tier_grants when switching away from merits |
+| AC8: Player view per-tier breakdown | PASS | suite/sheet.js renders mci-tier-list with per-tier rows |
+| AC9: Editor view with editable dropdowns | PASS | _tierPicker renders select + qualifier input per tier |
+| AC10: Schema updated | PASS | tier_grants array in merit definition with proper item schema |
+| AC11: Legacy migration | PASS | benefit_grants → tier_grants conversion in applyDerivedMerits |
+| AC12: Audit gates | PASS | mci_tier_over (error) and mci_unassigned (warning) in audit.js |
+
+#### Hygiene notes (non-blocking)
+
+- `_meritCategory()` in edit-domain.js:237 uses hardcoded `_INFL_NAMES`/`_DOM_NAMES` Sets instead of `getRuleByKey(slug).sub_category`. Correct results but inconsistent with the sub_category approach.
+- Duplicate tier budget constants in mci.js (`_AUTO_TIER_BUDGETS` and `TIER_BUDGETS`) could be unified.
+- Legacy `shEditMCIGrant`/`shEditDerivedMeritArea` handlers are dead code after tier_grants migration.
+
+### Gate Status
+
+Gate: PASS → specs/qa/gates/pp.12-mci-per-tier-merit-tracking.yml

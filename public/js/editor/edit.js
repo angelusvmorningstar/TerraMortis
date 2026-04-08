@@ -14,10 +14,9 @@ import { vmAlliesPool, vmAlliesUsed, investedPool, investedUsed } from './domain
 import {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
-  shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
   registerCallbacks as registerDomainCallbacks
 } from './edit-domain.js';
@@ -26,10 +25,9 @@ import {
 export {
   shEditInflMerit, shEditContactSphere, shEditStatusMode, shRemoveInflMerit, shAddInflMerit, shAddVMAllies, shAddLKMerit,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
-  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCIGrant, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
+  shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
-  shEditDerivedMeritArea,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick
 };
 

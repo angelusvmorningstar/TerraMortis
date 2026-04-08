@@ -1,0 +1,29 @@
+schema: 1
+story: "PP.12"
+story_title: "MCI Per-Tier Merit Allocation Tracking"
+gate: PASS
+status_reason: "All 12 ACs met. Schema, auto-allocation engine, editor tier pickers, player view breakdown, and audit gates all implemented. Two minor hygiene items noted."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-08"
+
+waiver: { active: false }
+
+top_issues: []
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 0 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "_meritCategory() in edit-domain.js:237 uses hardcoded _INFL_NAMES/_DOM_NAMES Sets instead of getRuleByKey(slug).sub_category. Produces correct results but inconsistent with the sub_category approach added earlier. Low priority cleanup."
+      - "Duplicate TIER_BUDGETS constants in mci.js (_AUTO_TIER_BUDGETS and TIER_BUDGETS) — can be unified."
+      - "Legacy shEditMCIGrant/shEditDerivedMeritArea handlers in edit-domain.js are dead code after tier_grants migration — can be removed."
+
+nfr_validation:
+  _assessed: [reliability, maintainability]
+  reliability:
+    status: PASS
+    notes: "Auto-allocation clears stale free_mci before re-applying per render cycle. benefit_grants migration runs on load. Orphaned tier_grants handled gracefully."
+  maintainability:
+    status: PASS
+    notes: "Clean separation: schema in character.schema.js, engine in mci.js, UI in sheet.js, handlers in edit-domain.js, audit in audit.js. Per-tier data model is explicit and self-documenting."

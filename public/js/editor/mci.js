@@ -12,6 +12,8 @@ import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekee
  * Does NOT modify merit ratings or free dots — those are user-controlled.
  * @param {object} c - character object (mutated in place)
  */
+const MCI_TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number (1-5), 0 unused
+
 export function applyDerivedMerits(c) {
   if (!c) return;
 
@@ -50,7 +52,7 @@ export function applyDerivedMerits(c) {
   // Auto-map free_mci allocations to tier_grants when tier_grants is absent.
   // Matches merits by free_mci amount to available tier budgets (greedy, largest first).
   // Runs once per MCI — once tier_grants exists, user manages it manually.
-  const _AUTO_TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier
+  const _AUTO_TIER_BUDGETS = MCI_TIER_BUDGETS;
   (c.merits || []).forEach(mci => {
     if (mci.name !== 'Mystery Cult Initiation' || mci.tier_grants) return;
     const rating = mci.rating || 0;
@@ -133,7 +135,7 @@ export function applyDerivedMerits(c) {
   // ── MCI tier_grants auto-allocation ──
   // Only clear free_mci on merits that are targeted by tier_grants (prevents
   // wiping manual allocations on merits not covered by any tier).
-  const TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number
+  const TIER_BUDGETS = MCI_TIER_BUDGETS;
   // First pass: collect all tier-targeted merit keys and clear their free_mci
   const _tierTargetKeys = new Set();
   for (const mci of mcis) {

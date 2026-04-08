@@ -235,9 +235,9 @@ export function shEditMCIDot(standIdx, dotKey, val) {
 const _MCI_TIER_BUDGET = [0, 1, 1, 2, 3, 3];
 
 function _meritCategory(name) {
-  if (_INFL_NAMES.has(name)) return 'influence';
-  if (_DOM_NAMES.has(name)) return 'domain';
-  return 'general';
+  const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const rule = getRuleByKey(slug);
+  return rule?.sub_category || 'general';
 }
 
 export function shEditMCITierGrant(standIdx, tier, meritName) {
@@ -264,46 +264,6 @@ export function shEditMCITierQual(standIdx, tier, qualifier) {
   if (!m || m.name !== 'Mystery Cult Initiation' || !m.tier_grants) return;
   const tg = m.tier_grants.find(t => t.tier === tier);
   if (tg) tg.qualifier = qualifier || null;
-  _markDirty();
-  _renderSheet(c);
-}
-
-const _INFL_NAMES = new Set(['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status']);
-const _DOM_NAMES = new Set(['Safe Place','Haven','Feeding Grounds','Herd','Mandragora Garden']);
-
-export function shEditDerivedMeritArea(mciRealIdx, dotLevel, val) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const mci = c.merits[mciRealIdx];
-  if (!mci || !mci.benefit_grants) return;
-  const grant = mci.benefit_grants[dotLevel];
-  if (!grant) return;
-  if (val) grant.qualifier = val;
-  else delete grant.qualifier;
-  _markDirty();
-  _renderSheet(c);
-}
-
-export function shEditMCIGrant(standIdx, dotLevel, field, val) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const { merit: m } = meritByCategory(c, 'standing', standIdx);
-  if (!m || m.name !== 'Mystery Cult Initiation') return;
-  if (!m.benefit_grants) m.benefit_grants = [null, null, null, null, null];
-  const _DOT_RATING = [1, 1, 2, 3, 3];
-  if (field === 'name') {
-    if (!val) {
-      m.benefit_grants[dotLevel] = null;
-    } else {
-      const cat = _INFL_NAMES.has(val) ? 'influence' : _DOM_NAMES.has(val) ? 'domain' : 'general';
-      m.benefit_grants[dotLevel] = { category: cat, name: val, rating: _DOT_RATING[dotLevel] || 1 };
-    }
-  } else if (field === 'qualifier') {
-    if (m.benefit_grants[dotLevel]) {
-      if (val) m.benefit_grants[dotLevel].qualifier = val;
-      else delete m.benefit_grants[dotLevel].qualifier;
-    }
-  }
   _markDirty();
   _renderSheet(c);
 }
