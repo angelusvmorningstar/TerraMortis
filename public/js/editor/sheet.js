@@ -935,6 +935,8 @@ function _checkSingleTerm(c, term) {
  */
 function _prereqsMet(c, prereqStr) {
   if (!prereqStr) return true;
+  // Structured prereq tree from rules cache — use meetsPrereq engine
+  if (typeof prereqStr === 'object') return meetsPrereq(c, prereqStr);
   const [statPart, manPart] = prereqStr.split(';').map(s => s.trim());
 
   if (manPart) {
