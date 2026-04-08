@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { requireRole } from '../middleware/auth.js';
-import { validateCharacter } from '../middleware/validateCharacter.js';
+import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
 
 const router = Router();
 const col = () => getCollection('characters');
@@ -120,8 +120,9 @@ router.post('/', requireRole('st'), stripEphemeral, validateCharacter, async (re
 });
 
 // PUT /api/characters/:id — ST only
-// Strip ephemeral fields (underscore-prefixed client-side computed data) before validation.
-router.put('/:id', requireRole('st'), stripEphemeral, validateCharacter, async (req, res) => {
+// Uses partial schema validation: types/shapes checked but no field is required,
+// so both full document saves and partial updates (e.g. regent assignment) are valid.
+router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid character ID format' });
 

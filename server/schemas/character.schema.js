@@ -17,6 +17,22 @@
  *   - merits[].benefit_grants (old MCI format, pre-migration)
  */
 
+/**
+ * Derive a partial-update schema: same type/shape validation but no required fields.
+ * Used for PUT (partial $set updates) where only some fields are sent.
+ */
+function derivePartialSchema(schema) {
+  const clone = JSON.parse(JSON.stringify(schema));
+  clone.title += ' (partial)';
+  delete clone.$schema;
+  (function stripRequired(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    delete obj.required;
+    for (const v of Object.values(obj)) stripRequired(v);
+  })(clone);
+  return clone;
+}
+
 export const characterSchema = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'TM Character v3',
@@ -384,3 +400,6 @@ export const characterSchema = {
     }
   }
 };
+
+/** Partial schema for PUT — validates types/shapes but no field is required. */
+export const characterPartialSchema = derivePartialSchema(characterSchema);
