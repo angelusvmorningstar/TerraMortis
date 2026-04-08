@@ -70,6 +70,30 @@ export function auditCharacter(c) {
     }
   }
 
+  // ── Skill specialisations ──
+  const ptM = (c.merits || []).find(m => m.name === 'Professional Training');
+  const ptFree = (ptM && (meritRating(c, ptM)) >= 3) ? 2 : 0;
+  const ptAssets = new Set((ptM && meritRating(c, ptM) >= 3 && ptM.asset_skills) ? (ptM.asset_skills || []).filter(Boolean) : []);
+  let assetSpecs = 0, nonAssetSpecs = 0;
+  Object.entries(c.skills || {}).forEach(([sk, skillObj]) => {
+    const count = (skillObj?.specs || []).length;
+    if (ptAssets.has(sk)) assetSpecs += count;
+    else nonAssetSpecs += count;
+  });
+  const mciFreeSpecs = (c._mci_free_specs || []).filter(fs =>
+    fs.skill && fs.spec && (c.skills || {})[fs.skill] && ((c.skills[fs.skill].specs || []).includes(fs.spec))
+  ).length;
+  const ptFreeCovered = Math.min(ptFree, assetSpecs);
+  const totalSpecs = nonAssetSpecs + assetSpecs;
+  const freeSpecs = 3 + ptFreeCovered + mciFreeSpecs;
+  const paidSpecs = Math.max(0, nonAssetSpecs + Math.max(0, assetSpecs - ptFreeCovered) - 3 - mciFreeSpecs);
+  if (totalSpecs < 3) {
+    warnings.push({ gate: 'spec_under', message: `${3 - totalSpecs} of 3 free specialisations unused`, detail: { total: totalSpecs, free: 3 } });
+  }
+  if (paidSpecs > 0 && left < 0) {
+    warnings.push({ gate: 'spec_xp', message: `${paidSpecs} specialisation${paidSpecs > 1 ? 's' : ''} cost XP (${paidSpecs} XP)`, detail: { paid: paidSpecs, freeTotal: freeSpecs } });
+  }
+
   // ── Discipline CP (3 total, max 1 out-of-clan) ──
   const inCL = BLOODLINE_DISCS[c.bloodline] || CLAN_DISCS[c.clan] || [];
   let discCPIn = 0, discCPOut = 0;
