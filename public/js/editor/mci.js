@@ -131,16 +131,21 @@ export function applyDerivedMerits(c) {
   }
 
   // ── MCI tier_grants auto-allocation ──
-  // For merits with tier_grants, free_mci is entirely driven by tier assignments.
-  // Manual free_mci (merits not targeted by any tier) is untouched.
+  // When any MCI has tier_grants, clear all free_mci and rebuild entirely from tiers.
+  // This prevents stale manual allocations from persisting alongside tier tracking.
   const TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number
-  const _tierTargets = new Set(); // track which merits are tier-managed
+  const hasTierGrants = mcis.some(mci => mci.active !== false && mci.tier_grants && mci.tier_grants.length > 0);
+  if (hasTierGrants) {
+    // Clear all free_mci on all merits and styles — tiers will re-apply what's needed
+    (c.merits || []).forEach(m => { if (m.name !== 'Mystery Cult Initiation') m.free_mci = 0; });
+    (c.fighting_styles || []).forEach(fs => { fs.free_mci = 0; });
+  }
   for (const mci of mcis) {
     if (mci.active === false || !mci.tier_grants) continue;
     const rating = mci.rating || 0;
     // Prune tier_grants above current rating
     mci.tier_grants = mci.tier_grants.filter(tg => tg.tier <= rating);
-    // Collect targets and clear their free_mci before re-applying
+    // Apply each tier grant
     for (const tg of mci.tier_grants) {
       let target = (c.merits || []).find(m =>
         m.name === tg.name && m.category === tg.category &&
@@ -155,9 +160,7 @@ export function applyDerivedMerits(c) {
         addMerit(c, newMerit);
         target = c.merits[c.merits.length - 1];
       }
-      const tKey = target.name + '|' + (target.area || target.qualifier || '');
-      if (!_tierTargets.has(tKey)) { target.free_mci = 0; _tierTargets.add(tKey); }
-      target.free_mci += Math.min(tg.rating, TIER_BUDGETS[tg.tier] || 0);
+      target.free_mci = (target.free_mci || 0) + Math.min(tg.rating, TIER_BUDGETS[tg.tier] || 0);
     }
   }
 

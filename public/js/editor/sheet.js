@@ -648,7 +648,8 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
       const dotLevel = tier <= 2 ? 0 : tier <= 3 ? 2 : 3; // map to buildMCIGrantOptions dotLevel index
       const opts = buildMCIGrantOptions(c, dotLevel, cur?.name || '');
       let ph = '<div class="mci-tier-pick"><select class="mci-tier-sel" onchange="shEditMCITierGrant(' + si + ',' + tier + ',this.value)"><option value="">\u2014 select merit (' + budget + ' dot' + (budget > 1 ? 's' : '') + ') \u2014</option>' + opts + '</select>';
-      if (cur && (cur.category === 'influence' && (cur.name === 'Allies' || cur.name === 'Status'))) ph += '<input type="text" class="stand-name-input mci-tier-qual" value="' + esc(cur.qualifier || '') + '" placeholder="Sphere / area" onchange="shEditMCITierQual(' + si + ',' + tier + ',this.value)">';
+      const _needsQual = cur && (cur.name === 'Allies' || cur.name === 'Status');
+      if (_needsQual) ph += '<input type="text" class="stand-name-input mci-tier-qual" value="' + esc(cur.qualifier || '') + '" placeholder="Sphere / area" onchange="shEditMCITierQual(' + si + ',' + tier + ',this.value)">';
       ph += '</div>';
       return ph;
     };
