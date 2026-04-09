@@ -73,10 +73,10 @@ router.post('/discord/callback', async (req, res) => {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'No player record found — contact an ST' });
   }
 
-  // Update last_login
+  // Update last_login and cache Discord avatar hash
   await col.updateOne(
     { _id: player._id },
-    { $set: { last_login: new Date().toISOString() } }
+    { $set: { last_login: new Date().toISOString(), discord_avatar: user.avatar || null, discord_id: user.id } }
   );
 
   res.json({
