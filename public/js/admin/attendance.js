@@ -140,13 +140,12 @@ function renderGrid() {
 
   const att = activeSession.attendance || [];
 
-  // Sort by player name for display (keep original indices for updates)
+  // Preserve original array order for display (matches MongoDB document order)
   const sorted = att.map((a, i) => {
     const c = chars.find(ch => ch._id === a.character_id || ch.name === a.character_name || ch.name === a.name);
     const player = a.player || (c ? c.player : '') || '';
     return { a, i, player };
   });
-  sorted.sort((x, y) => x.player.localeCompare(y.player));
 
   // Summaries
   const totalAttended = att.filter(a => a.attended).length;
