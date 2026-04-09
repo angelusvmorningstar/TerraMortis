@@ -622,12 +622,21 @@ window._plmCreate = async (charId) => {
 
 // ── Ordeals modal (ST tooling from char card) ──
 
+const ORDEAL_TYPES = ['questionnaire', 'rules', 'lore', 'history', 'covenant'];
+const ORDEAL_LABELS = {
+  questionnaire: 'Questionnaire',
+  rules: 'Rules',
+  lore: 'Lore',
+  history: 'History',
+  covenant: 'Covenant',
+};
+
 function openOrdealsModal(c) {
   document.getElementById('ordeals-modal')?.remove();
 
   const overlay = document.createElement('div');
   overlay.id = 'ordeals-modal';
-  overlay.className = 'plm-overlay';
+  overlay.className = 'plm-overlay om-overlay';
   overlay.dataset.charId = String(c._id);
   document.getElementById('admin-app').appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -641,40 +650,39 @@ function _renderOrdealsModal(c) {
   const ordeals = c.ordeals || [];
   const done = ordeals.filter(o => o.complete).length;
 
-  const rows = ordeals.length ? ordeals.map((o, i) => `<tr>
-    <td class="om-check">
-      <input type="checkbox" ${o.complete ? 'checked' : ''} onclick="window._omToggle('${esc(String(c._id))}',${i},this.checked)" />
-    </td>
-    <td><input type="text" class="plm-input om-name-input" value="${esc(o.name || '')}" data-idx="${i}" onchange="window._omRename('${esc(String(c._id))}',${i},this.value)" /></td>
-    <td class="om-xp">${o.complete ? '3 XP' : '\u2014'}</td>
-    <td class="om-actions"><button class="dt-btn plm-unlink-btn" onclick="window._omRemove('${esc(String(c._id))}',${i})">Remove</button></td>
-  </tr>`).join('') : '<tr><td colspan="4" class="plm-empty" style="padding:12px 8px">No ordeals yet.</td></tr>';
+  // Lookup map of existing ordeal entries by their normalised key
+  const existingByKey = {};
+  ordeals.forEach((o, i) => {
+    const k = (o.name || '').toLowerCase();
+    if (ORDEAL_TYPES.includes(k)) existingByKey[k] = i;
+  });
 
-  overlay.innerHTML = `<div class="plm-dialog">
-    <div class="plm-header">
+  // Build a fixed row for each ordeal type — present or not
+  const rows = ORDEAL_TYPES.map(key => {
+    const idx = existingByKey[key];
+    const o = idx !== undefined ? ordeals[idx] : null;
+    const present = o !== null;
+    const complete = present && !!o.complete;
+    return `<tr class="om-row${present ? '' : ' om-row-absent'}">
+      <td class="om-check">
+        <input type="checkbox" ${complete ? 'checked' : ''} onclick="window._omToggleType('${esc(String(c._id))}','${key}',this.checked)" />
+      </td>
+      <td class="om-name">${ORDEAL_LABELS[key]}</td>
+      <td class="om-xp">${complete ? '3 XP' : '\u2014'}</td>
+    </tr>`;
+  }).join('');
+
+  overlay.innerHTML = `<div class="plm-dialog om-dialog">
+    <div class="plm-header om-header">
       <h3>Ordeals \u2014 ${esc(displayName(c))}</h3>
       <button class="cd-close" onclick="document.getElementById('ordeals-modal').remove()">&times;</button>
     </div>
-    <p class="plm-loading">${done} of ${ordeals.length} complete \u2014 ${done * 3} XP awarded</p>
-    <div class="plm-list"><table class="plm-table">
-      <thead><tr><th style="width:40px">Done</th><th>Name</th><th style="width:70px">XP</th><th style="width:90px"></th></tr></thead>
+    <p class="om-summary">${done} of ${ORDEAL_TYPES.length} complete \u2014 ${done * 3} XP awarded</p>
+    <div class="om-table-wrap"><table class="plm-table om-table">
+      <thead><tr><th style="width:50px">Done</th><th>Ordeal</th><th style="width:70px">XP</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
-    <div class="plm-create">
-      <h4>Add ordeal</h4>
-      <div class="plm-form">
-        <label class="plm-label" style="flex:1 1 240px">Name<input id="om-new-name" class="plm-input" placeholder="e.g. The Long Night" type="text" /></label>
-        <label class="plm-label">
-          <span>Complete?</span>
-          <select id="om-new-complete" class="plm-select">
-            <option value="0">No</option>
-            <option value="1">Yes</option>
-          </select>
-        </label>
-        <button class="dt-btn" onclick="window._omAdd('${esc(String(c._id))}')">Add</button>
-      </div>
-      <p id="om-err" class="plm-error" style="display:none"></p>
-    </div>
+    <p id="om-err" class="plm-error" style="display:none"></p>
   </div>`;
 }
 
@@ -696,52 +704,28 @@ async function _omSave(c) {
   }
 }
 
-window._omToggle = async (charId, idx, checked) => {
-  const c = chars.find(ch => String(ch._id) === String(charId));
-  if (!c || !c.ordeals || !c.ordeals[idx]) return;
-  c.ordeals[idx].complete = !!checked;
-  c.ordeals[idx].xp = checked ? 3 : 0;
-  if (checked && !c.ordeals[idx].approved_at) c.ordeals[idx].approved_at = new Date().toISOString();
-  await _omSave(c);
-  _renderOrdealsModal(c);
-};
-
-window._omRename = async (charId, idx, name) => {
-  const c = chars.find(ch => String(ch._id) === String(charId));
-  if (!c || !c.ordeals || !c.ordeals[idx]) return;
-  const trimmed = (name || '').trim();
-  if (!trimmed) return;
-  c.ordeals[idx].name = trimmed;
-  await _omSave(c);
-  // No re-render — keeps focus in the input field
-};
-
-window._omRemove = async (charId, idx) => {
-  const c = chars.find(ch => String(ch._id) === String(charId));
-  if (!c || !c.ordeals || !c.ordeals[idx]) return;
-  if (!confirm('Remove ordeal "' + (c.ordeals[idx].name || '(unnamed)') + '"?')) return;
-  c.ordeals.splice(idx, 1);
-  await _omSave(c);
-  _renderOrdealsModal(c);
-};
-
-window._omAdd = async (charId) => {
+window._omToggleType = async (charId, key, checked) => {
   const c = chars.find(ch => String(ch._id) === String(charId));
   if (!c) return;
-  const nameEl = document.getElementById('om-new-name');
-  const compEl = document.getElementById('om-new-complete');
-  const errEl = document.getElementById('om-err');
-  if (errEl) errEl.style.display = 'none';
-  const name = (nameEl?.value || '').trim();
-  if (!name) {
-    if (errEl) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; }
-    return;
-  }
-  const complete = compEl?.value === '1';
   if (!c.ordeals) c.ordeals = [];
-  const entry = { name, complete, xp: complete ? 3 : 0 };
-  if (complete) entry.approved_at = new Date().toISOString();
-  c.ordeals.push(entry);
+
+  // Find existing entry for this ordeal type (case-insensitive)
+  const idx = c.ordeals.findIndex(o => (o.name || '').toLowerCase() === key);
+
+  if (checked) {
+    // Mark complete — create entry if missing
+    if (idx >= 0) {
+      c.ordeals[idx].complete = true;
+      c.ordeals[idx].xp = 3;
+      if (!c.ordeals[idx].approved_at) c.ordeals[idx].approved_at = new Date().toISOString();
+    } else {
+      c.ordeals.push({ name: key, complete: true, xp: 3, approved_at: new Date().toISOString() });
+    }
+  } else {
+    // Unticked — remove the entry entirely
+    if (idx >= 0) c.ordeals.splice(idx, 1);
+  }
+
   await _omSave(c);
   _renderOrdealsModal(c);
 };
