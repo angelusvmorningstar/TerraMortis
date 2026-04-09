@@ -282,6 +282,8 @@ body {
 .char-card:hover { border-color: var(--gold2); }
 .char-card.retired { opacity: 0.5; }
 .char-card.retired:hover { opacity: 0.75; }
+.char-card.unlinked { background: rgba(139, 0, 0, 0.12); border-color: rgba(139, 0, 0, 0.4); }
+.char-card.unlinked:hover { border-color: var(--crim, #8B0000); }
 .cc-audit { display: flex; gap: 4px; align-items: center; margin-left: auto; flex-shrink: 0; }
 .cc-audit-badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; font-family: var(--fh); letter-spacing: .02em; cursor: default; white-space: pre-line; font-weight: 600; }
 .cc-audit-err { background: rgba(180,40,40,.18); color: var(--crim2, #B22222); border: 1px solid rgba(180,40,40,.3); }

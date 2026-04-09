@@ -254,6 +254,12 @@ function renderCharGrid() {
   const grid = document.getElementById('char-grid');
   const count = document.getElementById('char-count');
 
+  // Build set of all character IDs linked to any player
+  const linkedCharIds = new Set();
+  for (const p of _players) {
+    for (const id of (p.character_ids || [])) linkedCharIds.add(String(id));
+  }
+
   // Sync character.player from linked player's display_name
   for (const c of chars) {
     const linked = _players.find(p => (p.character_ids || []).some(id => String(id) === String(c._id)));
@@ -280,7 +286,8 @@ function renderCharGrid() {
     const ordDone = ordeals.filter(o => o.complete).length;
     const ordTotal = ordeals.length;
 
-    return `<div class="char-card${c.retired ? ' retired' : ''}" data-id="${c._id}">
+    const unlinked = !linkedCharIds.has(String(c._id));
+    return `<div class="char-card${c.retired ? ' retired' : ''}${unlinked ? ' unlinked' : ''}" data-id="${c._id}">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
         <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
