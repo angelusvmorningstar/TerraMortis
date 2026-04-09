@@ -73,10 +73,16 @@ router.post('/discord/callback', async (req, res) => {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'No player record found — contact an ST' });
   }
 
-  // Update last_login and cache Discord avatar hash
+  // Refresh cached Discord profile fields on every login
   await col.updateOne(
     { _id: player._id },
-    { $set: { last_login: new Date().toISOString(), discord_avatar: user.avatar || null, discord_id: user.id } }
+    { $set: {
+      last_login: new Date().toISOString(),
+      discord_id: user.id,
+      discord_username: user.username || null,
+      discord_global_name: user.global_name || null,
+      discord_avatar: user.avatar || null,
+    } }
   );
 
   res.json({
@@ -130,6 +136,17 @@ router.get('/me', async (req, res) => {
   if (!player) {
     return res.status(403).json({ error: 'FORBIDDEN', message: 'No player record found — contact an ST' });
   }
+
+  // Refresh cached Discord profile fields on token validation
+  await meCol.updateOne(
+    { _id: player._id },
+    { $set: {
+      discord_id: user.id,
+      discord_username: user.username || null,
+      discord_global_name: user.global_name || null,
+      discord_avatar: user.avatar || null,
+    } }
+  );
 
   res.json({
     id: user.id,

@@ -14,10 +14,11 @@ export const playerSchema = {
   additionalProperties: true,
 
   properties: {
-    display_name:     { type: 'string', minLength: 1 },
-    discord_id:       { type: ['string', 'null'] },
-    discord_username: { type: ['string', 'null'] },
-    discord_avatar:   { type: ['string', 'null'] },
+    display_name:       { type: 'string', minLength: 1 },
+    discord_id:         { type: ['string', 'null'] },
+    discord_username:   { type: ['string', 'null'] },
+    discord_global_name:{ type: ['string', 'null'] },
+    discord_avatar:     { type: ['string', 'null'] },
     role:             { type: 'string', enum: ['player', 'st'], default: 'player' },
     character_ids:    { type: 'array', items: { type: 'string' } },
     ordeals:          { type: 'object', additionalProperties: true },
