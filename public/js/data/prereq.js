@@ -55,8 +55,15 @@ export function meetsPrereq(char, node) {
     case 'skill':
       return skDots(char, node.name) >= dots;
 
-    case 'discipline':
-      return (char.disciplines?.[node.name]?.dots || 0) >= dots;
+    case 'discipline': {
+      // Try exact match first, then accent-normalised fallback (Crúac → Cruac)
+      let discDots = char.disciplines?.[node.name]?.dots;
+      if (discDots == null) {
+        const norm = node.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        discDots = char.disciplines?.[norm]?.dots;
+      }
+      return (discDots || 0) >= dots;
+    }
 
     case 'merit': {
       const merits = char.merits || [];
