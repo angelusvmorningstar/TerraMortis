@@ -95,9 +95,13 @@ export function auditCharacter(c) {
   }
 
   // ── Discipline CP (3 total, max 1 out-of-clan) ──
+  // Excludes ritual disciplines (Cruac/Theban) and sorcery themes — they have their own CP rules
   const inCL = BLOODLINE_DISCS[c.bloodline] || CLAN_DISCS[c.clan] || [];
+  const SORCERY_THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
+  const EXCLUDE_FROM_BUDGET = new Set([...RITUAL_DISCS, ...SORCERY_THEMES]);
   let discCPIn = 0, discCPOut = 0;
   for (const [d, v] of Object.entries(c.disciplines || {})) {
+    if (EXCLUDE_FROM_BUDGET.has(d)) continue;
     const cp = v?.cp || 0;
     if (inCL.includes(d)) discCPIn += cp;
     else discCPOut += cp;
