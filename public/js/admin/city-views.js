@@ -240,23 +240,35 @@ function renderPrestige() {
 // ══════════════════════════════════════
 
 /**
- * Build a map of sphere -> [{ name, allies, contacts, total }, ...]
+ * Normalise a sphere name for caseless matching.
+ * "high society", "High Society", " HIGH SOCIETY " all collapse to "High Society".
+ */
+function normaliseSphere(raw) {
+  return raw.trim().toLowerCase().replace(/\s+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Build a map of sphere -> [{ name, allies, hasContacts }, ...]
  * Aggregates Allies and Contacts influence merits across all active characters.
  * Spheres may come from `area` (primary) or `qualifier` (MCI grants).
- * Contacts `area` can be comma-separated ("Street, Occult, Industry"); each
- * listed sphere is credited with the full rating (the rating is not subdivided).
+ *
+ * Allies dots are summed per sphere — these drive the influence ranking.
+ * Contacts is presence-only: a character either has a Contact in this sphere
+ * (one dot per sphere on a Contacts merit) or they don't. Contacts dots are
+ * NOT added to the rank score.
  */
 function getSpheresData() {
   const active = chars.filter(c => !c.retired);
-  const spheres = {}; // sphere -> charId -> { name, allies, contacts }
+  const spheres = {}; // canonicalSphere -> charId -> { name, allies, hasContacts }
 
-  const addEntry = (sphere, c, kind, dots) => {
-    const key = sphere.trim();
+  const addEntry = (sphereRaw, c, kind, dots) => {
+    const key = normaliseSphere(sphereRaw);
     if (!key) return;
     if (!spheres[key]) spheres[key] = {};
     const cid = String(c._id || c.name);
-    if (!spheres[key][cid]) spheres[key][cid] = { name: displayName(c), allies: 0, contacts: 0 };
-    spheres[key][cid][kind] += dots;
+    if (!spheres[key][cid]) spheres[key][cid] = { name: displayName(c), allies: 0, hasContacts: false };
+    if (kind === 'allies') spheres[key][cid].allies += dots;
+    else if (kind === 'contacts') spheres[key][cid].hasContacts = true;
   };
 
   for (const c of active) {
@@ -274,17 +286,15 @@ function getSpheresData() {
     }
   }
 
-  // Convert to sorted array per sphere
+  // Convert to sorted array per sphere — sort rows by allies dots (descending), then name
   const out = [];
   for (const sphere of Object.keys(spheres)) {
-    const rows = Object.values(spheres[sphere]).map(r => ({
-      ...r, total: r.allies + r.contacts,
-    }));
-    rows.sort((a, b) => b.total - a.total || b.allies - a.allies || a.name.localeCompare(b.name));
-    const sphereTotal = rows.reduce((s, r) => s + r.total, 0);
+    const rows = Object.values(spheres[sphere]);
+    rows.sort((a, b) => b.allies - a.allies || a.name.localeCompare(b.name));
+    const sphereTotal = rows.reduce((s, r) => s + r.allies, 0);
     out.push({ sphere, rows, total: sphereTotal });
   }
-  // Sort spheres by overall dots (biggest influence areas first), then alphabetically
+  // Sort spheres by total allies dots (biggest influence areas first), then alphabetically
   out.sort((a, b) => b.total - a.total || a.sphere.localeCompare(b.sphere));
   return out;
 }
@@ -299,15 +309,14 @@ function renderSpheres() {
   h += '<div class="spheres-list">';
   for (const { sphere, rows, total } of data) {
     h += `<div class="sphere-block">`;
-    h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} dots</span></div>`;
-    h += '<table class="infl-table"><thead><tr><th>#</th><th>Character</th><th>Allies</th><th>Contacts</th><th>Total</th></tr></thead><tbody>';
+    h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} ally dots</span></div>`;
+    h += '<table class="infl-table"><thead><tr><th>#</th><th>Character</th><th>Allies</th><th>Contact</th></tr></thead><tbody>';
     rows.forEach((r, i) => {
       h += `<tr>
         <td class="infl-num">${i + 1}</td>
         <td class="infl-name">${esc(r.name)}</td>
         <td class="infl-num">${r.allies || '\u2014'}</td>
-        <td class="infl-num">${r.contacts || '\u2014'}</td>
-        <td class="infl-num infl-total">${r.total}</td>
+        <td class="infl-num">${r.hasContacts ? '\u2713' : ''}</td>
       </tr>`;
     });
     h += '</tbody></table>';
