@@ -13,6 +13,9 @@ test-results/
 # IDE
 .vscode/
 
+# macOS
+.DS_Store
+
 # Generated/exported files
 Character Data Export.csv
 Character Template.csv
