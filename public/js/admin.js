@@ -240,10 +240,10 @@ function renderCharGrid() {
   function charCard(c) {
     const bp = c.blood_potency || 1;
     const hum = c.humanity != null ? c.humanity : '?';
-    const xpL = xpLeft(c);
     const title = c.court_title ? `<span class="cc-tag title">${esc(c.court_title)}</span>` : '';
     const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
-    const { red, yellow } = charAlerts(c);
+    const { red, yellow } = charAlerts(c); // runs applyDerivedMerits first
+    const xpL = xpLeft(c); // must be AFTER charAlerts so derived merits are applied
     const badge = red ? '<span class="cc-alert red" title="Data error">!</span>'
                 : yellow ? '<span class="cc-alert yellow" title="Unspent dots">&#9679;</span>' : '';
 
