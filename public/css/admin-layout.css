@@ -282,8 +282,10 @@ body {
 .char-card:hover { border-color: var(--gold2); }
 .char-card.retired { opacity: 0.5; }
 .char-card.retired:hover { opacity: 0.75; }
-.cc-link { font-size: 14px; opacity: 0.5; margin-left: auto; flex-shrink: 0; cursor: default; }
-.cc-link:hover { opacity: 1; }
+.cc-audit { display: flex; gap: 4px; align-items: center; margin-left: auto; flex-shrink: 0; }
+.cc-audit-badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; font-family: var(--fh); letter-spacing: .02em; cursor: default; white-space: pre-line; font-weight: 600; }
+.cc-audit-err { background: rgba(180,40,40,.18); color: var(--crim2, #B22222); border: 1px solid rgba(180,40,40,.3); }
+.cc-audit-warn { background: rgba(212,168,50,.18); color: #d4a832; border: 1px solid rgba(212,168,50,.3); }
 
 .retired-divider {
   grid-column: 1 / -1;

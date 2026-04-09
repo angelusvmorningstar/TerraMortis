@@ -3,6 +3,7 @@ console.log('%c[TM Admin] build 2026-04-08T1', 'color: #E0C47A; font-weight: bol
 
 import { apiGet, apiPut, apiPost } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
+import { auditCharacter } from './data/audit.js';
 import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
@@ -178,6 +179,25 @@ document.getElementById('sidebar').addEventListener('click', e => {
   switchDomain(btn.dataset.domain);
 });
 
+// ── Audit badges: error + warning icons with counts and hover breakdown ──
+
+function _auditBadges(audit) {
+  const errs = audit.errors.length;
+  const warns = audit.warnings.length;
+  if (!errs && !warns) return '';
+  let h = '<div class="cc-audit">';
+  if (errs) {
+    const tip = audit.errors.map(e => '\u2716 ' + e.message).join('\n');
+    h += `<span class="cc-audit-badge cc-audit-err" title="${esc(tip)}">\u2716${errs > 1 ? ' ' + errs : ''}</span>`;
+  }
+  if (warns) {
+    const tip = audit.warnings.map(w => '\u26A0 ' + w.message).join('\n');
+    h += `<span class="cc-audit-badge cc-audit-warn" title="${esc(tip)}">\u26A0${warns > 1 ? ' ' + warns : ''}</span>`;
+  }
+  h += '</div>';
+  return h;
+}
+
 // ── Character alert checks ──
 
 function charAlerts(c) {
@@ -251,18 +271,16 @@ function renderCharGrid() {
     const hum = c.humanity != null ? c.humanity : '?';
     const title = c.court_title ? `<span class="cc-tag title">${esc(c.court_title)}</span>` : '';
     const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
-    const { red, yellow } = charAlerts(c); // runs applyDerivedMerits first
-    const xpL = xpLeft(c); // must be AFTER charAlerts so derived merits are applied
-    const badge = red ? '<span class="cc-alert red" title="Data error">!</span>'
-                : yellow ? '<span class="cc-alert yellow" title="Unspent dots">&#9679;</span>' : '';
-    const linkedPlayer = _players.find(p => (p.character_ids || []).some(id => String(id) === String(c._id)));
-    const linkIcon = linkedPlayer ? `<span class="cc-link" title="Linked to ${esc(linkedPlayer.display_name || linkedPlayer.discord_username || '')}">&#128279;</span>` : '';
+    charAlerts(c); // runs applyDerivedMerits so xp/audit work correctly
+    const xpL = xpLeft(c);
+    const audit = auditCharacter(c);
+    const auditBadges = _auditBadges(audit);
 
     return `<div class="char-card${c.retired ? ' retired' : ''}" data-id="${c._id}">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
         <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
-        ${linkIcon}${badge ? `<div class="cc-alert-wrap">${badge}</div>` : ''}
+        ${auditBadges}
       </div>
       <div class="cc-mid">
         <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>

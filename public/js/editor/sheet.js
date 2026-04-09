@@ -52,20 +52,22 @@ function _refreshLegacyDBs() {
 }
 _refreshLegacyDBs();
 
-/** Render the audit badge — error/warning icon next to character name with hover tooltip. */
+/** Render audit badges — separate error and warning indicators with counts and hover breakdown. */
 function _auditBadge(c) {
   const audit = auditCharacter(c);
   if (audit.valid && audit.warnings.length === 0) {
     return '<span class="audit-badge audit-ok" title="All checks passed">\u2714</span>';
   }
-  const lines = [];
-  for (const e of audit.errors) lines.push('\u2716 ' + e.message);
-  for (const w of audit.warnings) lines.push('\u26A0 ' + w.message);
-  const tooltip = lines.join('\n');
-  const cls = audit.errors.length ? 'audit-err' : 'audit-warn';
-  const icon = audit.errors.length ? '\u2716' : '\u26A0';
-  const count = audit.errors.length + audit.warnings.length;
-  return `<span class="audit-badge ${cls}" title="${esc(tooltip)}">${icon} ${count}</span>`;
+  let h = '';
+  if (audit.errors.length) {
+    const tip = audit.errors.map(e => '\u2716 ' + e.message).join('\n');
+    h += `<span class="audit-badge audit-err" title="${esc(tip)}">\u2716${audit.errors.length > 1 ? ' ' + audit.errors.length : ''}</span>`;
+  }
+  if (audit.warnings.length) {
+    const tip = audit.warnings.map(w => '\u26A0 ' + w.message).join('\n');
+    h += `<span class="audit-badge audit-warn" title="${esc(tip)}">\u26A0${audit.warnings.length > 1 ? ' ' + audit.warnings.length : ''}</span>`;
+  }
+  return h;
 }
 
 /** Render a prereq warning showing only the terms the character actually fails. */
