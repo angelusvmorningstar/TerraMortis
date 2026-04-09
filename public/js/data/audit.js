@@ -188,7 +188,7 @@ export function auditCharacter(c) {
   // grants that weren't properly tracked. Sorcery themes legitimately use
   // `free` as unlocks, and the +1 clan attribute bonus is stored in `free`,
   // so both are exempt from the warning.
-  const SORCERY_THEMES = new Set(['Creation','Destruction','Divination','Protection','Transmutation']);
+  const SORCERY_THEME_SET = EXCLUDE_FROM_BUDGET;
   const freeItems = [];
   for (const [a, v] of Object.entries(c.attributes || {})) {
     const isClan = c.clan_attribute === a;
@@ -200,7 +200,7 @@ export function auditCharacter(c) {
     if (f > 0) freeItems.push(`${s} (skill) +${f}`);
   }
   for (const [d, v] of Object.entries(c.disciplines || {})) {
-    if (SORCERY_THEMES.has(d)) continue;
+    if (SORCERY_THEME_SET.has(d)) continue;
     const f = v?.free || 0;
     if (f > 0) freeItems.push(`${d} (disc) +${f}`);
   }
