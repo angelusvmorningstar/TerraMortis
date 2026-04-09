@@ -276,6 +276,10 @@ function renderCharGrid() {
     const audit = auditCharacter(c);
     const auditBadges = _auditBadges(audit);
 
+    const ordeals = c.ordeals || [];
+    const ordDone = ordeals.filter(o => o.complete).length;
+    const ordTotal = ordeals.length;
+
     return `<div class="char-card${c.retired ? ' retired' : ''}" data-id="${c._id}">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
@@ -292,6 +296,7 @@ function renderCharGrid() {
         <span>BP <span class="val">${bp}</span></span>
         <span>Hum <span class="val">${hum}</span></span>
         <span>XP <span class="val">${xpL}/${xpEarned(c)}</span></span>
+        <span class="cc-ordeals" onclick="event.stopPropagation(); window._openOrdealsModal('${c._id}')" title="Manage ordeals">Ord <span class="val">${ordDone}/${ordTotal}</span></span>
       </div>
     </div>`;
   }
@@ -606,6 +611,137 @@ window._plmCreate = async (charId) => {
   } catch (err) {
     if (errEl) { errEl.textContent = err.message; errEl.style.display = ''; }
   }
+};
+
+// ── Ordeals modal (ST tooling from char card) ──
+
+function openOrdealsModal(c) {
+  document.getElementById('ordeals-modal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ordeals-modal';
+  overlay.className = 'plm-overlay';
+  overlay.dataset.charId = String(c._id);
+  document.getElementById('admin-app').appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  _renderOrdealsModal(c);
+}
+
+function _renderOrdealsModal(c) {
+  const overlay = document.getElementById('ordeals-modal');
+  if (!overlay) return;
+  const ordeals = c.ordeals || [];
+  const done = ordeals.filter(o => o.complete).length;
+
+  const rows = ordeals.length ? ordeals.map((o, i) => `<tr>
+    <td class="om-check">
+      <input type="checkbox" ${o.complete ? 'checked' : ''} onclick="window._omToggle('${esc(String(c._id))}',${i},this.checked)" />
+    </td>
+    <td><input type="text" class="plm-input om-name-input" value="${esc(o.name || '')}" data-idx="${i}" onchange="window._omRename('${esc(String(c._id))}',${i},this.value)" /></td>
+    <td class="om-xp">${o.complete ? '3 XP' : '\u2014'}</td>
+    <td class="om-actions"><button class="dt-btn plm-unlink-btn" onclick="window._omRemove('${esc(String(c._id))}',${i})">Remove</button></td>
+  </tr>`).join('') : '<tr><td colspan="4" class="plm-empty" style="padding:12px 8px">No ordeals yet.</td></tr>';
+
+  overlay.innerHTML = `<div class="plm-dialog">
+    <div class="plm-header">
+      <h3>Ordeals \u2014 ${esc(displayName(c))}</h3>
+      <button class="cd-close" onclick="document.getElementById('ordeals-modal').remove()">&times;</button>
+    </div>
+    <p class="plm-loading">${done} of ${ordeals.length} complete \u2014 ${done * 3} XP awarded</p>
+    <div class="plm-list"><table class="plm-table">
+      <thead><tr><th style="width:40px">Done</th><th>Name</th><th style="width:70px">XP</th><th style="width:90px"></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="plm-create">
+      <h4>Add ordeal</h4>
+      <div class="plm-form">
+        <label class="plm-label" style="flex:1 1 240px">Name<input id="om-new-name" class="plm-input" placeholder="e.g. The Long Night" type="text" /></label>
+        <label class="plm-label">
+          <span>Complete?</span>
+          <select id="om-new-complete" class="plm-select">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </label>
+        <button class="dt-btn" onclick="window._omAdd('${esc(String(c._id))}')">Add</button>
+      </div>
+      <p id="om-err" class="plm-error" style="display:none"></p>
+    </div>
+  </div>`;
+}
+
+async function _omSave(c) {
+  const idx = chars.indexOf(c);
+  if (idx < 0 || !c._id) return;
+  // Recompute xp_log.earned.ordeals for consistency with sheet editor path
+  if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };
+  if (!c.xp_log.earned) c.xp_log.earned = {};
+  c.xp_log.earned.ordeals = (c.ordeals || []).reduce((s, o) => s + (o.xp || 0), 0);
+  try {
+    const { _id, ...body } = c;
+    const updated = await apiPut('/api/characters/' + _id, body);
+    Object.assign(chars[idx], updated);
+    renderCharGrid();
+  } catch (err) {
+    const errEl = document.getElementById('om-err');
+    if (errEl) { errEl.textContent = 'Save failed: ' + err.message; errEl.style.display = ''; }
+  }
+}
+
+window._omToggle = async (charId, idx, checked) => {
+  const c = chars.find(ch => String(ch._id) === String(charId));
+  if (!c || !c.ordeals || !c.ordeals[idx]) return;
+  c.ordeals[idx].complete = !!checked;
+  c.ordeals[idx].xp = checked ? 3 : 0;
+  if (checked && !c.ordeals[idx].approved_at) c.ordeals[idx].approved_at = new Date().toISOString();
+  await _omSave(c);
+  _renderOrdealsModal(c);
+};
+
+window._omRename = async (charId, idx, name) => {
+  const c = chars.find(ch => String(ch._id) === String(charId));
+  if (!c || !c.ordeals || !c.ordeals[idx]) return;
+  const trimmed = (name || '').trim();
+  if (!trimmed) return;
+  c.ordeals[idx].name = trimmed;
+  await _omSave(c);
+  // No re-render — keeps focus in the input field
+};
+
+window._omRemove = async (charId, idx) => {
+  const c = chars.find(ch => String(ch._id) === String(charId));
+  if (!c || !c.ordeals || !c.ordeals[idx]) return;
+  if (!confirm('Remove ordeal "' + (c.ordeals[idx].name || '(unnamed)') + '"?')) return;
+  c.ordeals.splice(idx, 1);
+  await _omSave(c);
+  _renderOrdealsModal(c);
+};
+
+window._omAdd = async (charId) => {
+  const c = chars.find(ch => String(ch._id) === String(charId));
+  if (!c) return;
+  const nameEl = document.getElementById('om-new-name');
+  const compEl = document.getElementById('om-new-complete');
+  const errEl = document.getElementById('om-err');
+  if (errEl) errEl.style.display = 'none';
+  const name = (nameEl?.value || '').trim();
+  if (!name) {
+    if (errEl) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; }
+    return;
+  }
+  const complete = compEl?.value === '1';
+  if (!c.ordeals) c.ordeals = [];
+  const entry = { name, complete, xp: complete ? 3 : 0 };
+  if (complete) entry.approved_at = new Date().toISOString();
+  c.ordeals.push(entry);
+  await _omSave(c);
+  _renderOrdealsModal(c);
+};
+
+window._openOrdealsModal = (charId) => {
+  const c = chars.find(ch => String(ch._id) === String(charId));
+  if (c) openOrdealsModal(c);
 };
 
 async function init() {

@@ -286,6 +286,15 @@ body {
 .cc-audit-badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; font-family: var(--fh); letter-spacing: .02em; cursor: default; white-space: pre-line; font-weight: 600; }
 .cc-audit-err { background: rgba(180,40,40,.18); color: var(--crim2, #B22222); border: 1px solid rgba(180,40,40,.3); }
 .cc-audit-warn { background: rgba(212,168,50,.18); color: #d4a832; border: 1px solid rgba(212,168,50,.3); }
+.cc-ordeals {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cc-ordeals:hover { border-color: var(--gold2); background: rgba(224,196,122,0.08); }
 
 .retired-divider {
   grid-column: 1 / -1;
@@ -746,6 +755,43 @@ body {
 .infl-total {
   font-weight: 700;
   color: var(--gold2);
+}
+
+/* ── Spheres panel ── */
+
+.spheres-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sphere-block {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+.sphere-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.sphere-name {
+  font-family: var(--fh);
+  font-size: 15px;
+  color: var(--gold2);
+  letter-spacing: 0.5px;
+}
+
+.sphere-total {
+  font-size: 12px;
+  color: var(--txt3);
+  text-transform: uppercase;
 }
 
 /* ── Downtime domain ── */
@@ -2069,6 +2115,13 @@ body {
 }
 .plm-input:focus, .plm-select:focus { outline: none; border-color: var(--gold-a30); }
 .plm-select { min-width: 100px; }
+
+/* ── Ordeals modal ── */
+.om-check { text-align: center; }
+.om-check input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--gold2); }
+.om-name-input { width: 100%; min-width: 0; }
+.om-xp { font-size: 12px; color: var(--gold2); text-align: center; }
+.om-actions { text-align: right; }
 
 /* ── Players domain ── */
 

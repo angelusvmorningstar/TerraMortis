@@ -50,7 +50,7 @@ export async function initCityView() {
 
 function renderCity(container) {
   container.innerHTML = `<div class="city-split">
-    <div class="city-left">${renderCourt()}${renderAscendancy()}${renderPrestige()}</div>
+    <div class="city-left">${renderCourt()}${renderAscendancy()}${renderPrestige()}${renderSpheres()}</div>
     <div class="city-right">${renderTerritories()}</div>
   </div>`;
   wireEvents(container);
@@ -232,6 +232,88 @@ function renderPrestige() {
     </tr>`;
   });
   h += '</tbody></table>';
+  return h;
+}
+
+// ══════════════════════════════════════
+//  SPHERES (Allies & Contacts, by sphere)
+// ══════════════════════════════════════
+
+/**
+ * Build a map of sphere -> [{ name, allies, contacts, total }, ...]
+ * Aggregates Allies and Contacts influence merits across all active characters.
+ * Spheres may come from `area` (primary) or `qualifier` (MCI grants).
+ * Contacts `area` can be comma-separated ("Street, Occult, Industry"); each
+ * listed sphere is credited with the full rating (the rating is not subdivided).
+ */
+function getSpheresData() {
+  const active = chars.filter(c => !c.retired);
+  const spheres = {}; // sphere -> charId -> { name, allies, contacts }
+
+  const addEntry = (sphere, c, kind, dots) => {
+    const key = sphere.trim();
+    if (!key) return;
+    if (!spheres[key]) spheres[key] = {};
+    const cid = String(c._id || c.name);
+    if (!spheres[key][cid]) spheres[key][cid] = { name: displayName(c), allies: 0, contacts: 0 };
+    spheres[key][cid][kind] += dots;
+  };
+
+  for (const c of active) {
+    for (const m of (c.merits || [])) {
+      if (m.category !== 'influence') continue;
+      if (m.name !== 'Allies' && m.name !== 'Contacts') continue;
+      const dots = m.rating || 0;
+      if (dots <= 0) continue;
+      const raw = (m.area || m.qualifier || '').toString();
+      if (!raw) continue;
+      const kind = m.name === 'Allies' ? 'allies' : 'contacts';
+      for (const part of raw.split(',')) {
+        addEntry(part, c, kind, dots);
+      }
+    }
+  }
+
+  // Convert to sorted array per sphere
+  const out = [];
+  for (const sphere of Object.keys(spheres)) {
+    const rows = Object.values(spheres[sphere]).map(r => ({
+      ...r, total: r.allies + r.contacts,
+    }));
+    rows.sort((a, b) => b.total - a.total || b.allies - a.allies || a.name.localeCompare(b.name));
+    const sphereTotal = rows.reduce((s, r) => s + r.total, 0);
+    out.push({ sphere, rows, total: sphereTotal });
+  }
+  // Sort spheres by overall dots (biggest influence areas first), then alphabetically
+  out.sort((a, b) => b.total - a.total || a.sphere.localeCompare(b.sphere));
+  return out;
+}
+
+function renderSpheres() {
+  const data = getSpheresData();
+  let h = '<h3 class="city-section-title">Spheres</h3>';
+  if (!data.length) {
+    h += '<p class="placeholder">No Allies or Contacts with sphere assignments.</p>';
+    return h;
+  }
+  h += '<div class="spheres-list">';
+  for (const { sphere, rows, total } of data) {
+    h += `<div class="sphere-block">`;
+    h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} dots</span></div>`;
+    h += '<table class="infl-table"><thead><tr><th>#</th><th>Character</th><th>Allies</th><th>Contacts</th><th>Total</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      h += `<tr>
+        <td class="infl-num">${i + 1}</td>
+        <td class="infl-name">${esc(r.name)}</td>
+        <td class="infl-num">${r.allies || '\u2014'}</td>
+        <td class="infl-num">${r.contacts || '\u2014'}</td>
+        <td class="infl-num infl-total">${r.total}</td>
+      </tr>`;
+    });
+    h += '</tbody></table>';
+    h += '</div>';
+  }
+  h += '</div>';
   return h;
 }
 
