@@ -64,6 +64,7 @@ const COURT_TITLES = ['', 'Head of State', 'Primogen', 'Socialite', 'Enforcer', 
 const REGENT_TERRITORIES = ['The Academy', 'The North Shore', 'The Dockyards', 'The Second City', 'The Harbour'];
 
 let chars = [];
+let _players = []; // cached for link icon on char cards
 let selectedChar = null;
 
 // ── Editor wiring ──
@@ -233,6 +234,14 @@ function renderCharGrid() {
   const grid = document.getElementById('char-grid');
   const count = document.getElementById('char-count');
 
+  // Sync character.player from linked player's display_name
+  for (const c of chars) {
+    const linked = _players.find(p => (p.character_ids || []).some(id => String(id) === String(c._id)));
+    if (linked && linked.display_name && c.player !== linked.display_name) {
+      c.player = linked.display_name;
+    }
+  }
+
   const sorted = [...chars].sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const active = sorted.filter(c => !c.retired);
   const retired = sorted.filter(c => c.retired);
@@ -246,12 +255,14 @@ function renderCharGrid() {
     const xpL = xpLeft(c); // must be AFTER charAlerts so derived merits are applied
     const badge = red ? '<span class="cc-alert red" title="Data error">!</span>'
                 : yellow ? '<span class="cc-alert yellow" title="Unspent dots">&#9679;</span>' : '';
+    const linkedPlayer = _players.find(p => (p.character_ids || []).some(id => String(id) === String(c._id)));
+    const linkIcon = linkedPlayer ? `<span class="cc-link" title="Linked to ${esc(linkedPlayer.display_name || linkedPlayer.discord_username || '')}">&#128279;</span>` : '';
 
     return `<div class="char-card${c.retired ? ' retired' : ''}" data-id="${c._id}">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
         <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
-        ${badge ? `<div class="cc-alert-wrap">${badge}</div>` : ''}
+        ${linkIcon}${badge ? `<div class="cc-alert-wrap">${badge}</div>` : ''}
       </div>
       <div class="cc-mid">
         <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>
@@ -587,6 +598,7 @@ async function init() {
     chars = await apiGet('/api/characters');
     chars.forEach(sanitiseChar);
     await loadGameXP(chars);
+    try { _players = await apiGet('/api/players'); } catch { _players = []; }
     renderCharGrid();
   } catch (err) {
     console.error('Failed to load characters:', err.message);

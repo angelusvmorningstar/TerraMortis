@@ -282,6 +282,8 @@ body {
 .char-card:hover { border-color: var(--gold2); }
 .char-card.retired { opacity: 0.5; }
 .char-card.retired:hover { opacity: 0.75; }
+.cc-link { font-size: 14px; opacity: 0.5; margin-left: auto; flex-shrink: 0; cursor: default; }
+.cc-link:hover { opacity: 1; }
 
 .retired-divider {
   grid-column: 1 / -1;
