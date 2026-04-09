@@ -16,8 +16,8 @@
 
 import { xpEarned, xpSpent, xpLeft, xpSpentAttrs, xpSpentSkills,
          xpSpentMerits, xpSpentPowers, xpSpentSpecial, meritRating } from '../editor/xp.js';
-import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS,
-         CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
+import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './constants.js';
+import { isInClanDisc } from './accessors.js';
 import { meetsPrereq } from './prereq.js';
 import { getRuleByKey } from './loader.js';
 
@@ -95,18 +95,18 @@ export function auditCharacter(c) {
   }
 
   // ── Discipline CP (3 total, max 1 out-of-clan) ──
-  // Ritual disciplines (Cruac/Theban) count toward the budget as out-of-clan,
-  // matching the builder's display at shRenderDisciplines. Sorcery themes
-  // (Creation, Destruction, Divination, Protection, Transmutation) are unlocked
-  // by Cruac dots, not purchased, so they're excluded from the CP budget.
-  const inCL = BLOODLINE_DISCS[c.bloodline] || CLAN_DISCS[c.clan] || [];
+  // In-clan determined via isInClanDisc: clan/bloodline list plus covenant
+  // rituals (Cruac for Circle of the Crone, Theban for Lancea et Sanctum) per
+  // VtR 2e Blood & Smoke. Sorcery themes (Creation, Destruction, Divination,
+  // Protection, Transmutation) are unlocked by Cruac dots, not purchased, so
+  // they're excluded from the CP budget.
   const SORCERY_THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
   const EXCLUDE_FROM_BUDGET = new Set(SORCERY_THEMES);
   let discCPIn = 0, discCPOut = 0;
   for (const [d, v] of Object.entries(c.disciplines || {})) {
     if (EXCLUDE_FROM_BUDGET.has(d)) continue;
     const cp = v?.cp || 0;
-    if (inCL.includes(d)) discCPIn += cp;
+    if (isInClanDisc(c, d)) discCPIn += cp;
     else discCPOut += cp;
   }
   const discCPTotal = discCPIn + discCPOut;

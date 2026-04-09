@@ -6,7 +6,7 @@ import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, getWillpower } from '../data/helpers.js';
-import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus } from '../data/accessors.js';
+import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, isInClanDisc } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
@@ -320,25 +320,38 @@ export function shRenderDisciplines(c, editMode) {
     return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"><div class="disc-tap-left">' + nTag + dTag + '</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
   }
   function renderDiscEditRow(d, r, isIC, style) {
-    const dObj = (c.disciplines || {})[d] || {}, cr = { cp: dObj.cp || 0, free: dObj.free || 0, xp: dObj.xp || 0 }, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = (cr.cp || 0), xd = xpToDots(cr.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
+    const dObj = (c.disciplines || {})[d] || {}, cr = { cp: dObj.cp || 0, free: dObj.free || 0, xp: dObj.xp || 0 }, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = (cr.cp || 0) + (cr.free || 0), xd = xpToDots(cr.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
     let h2 = '<div class="disc-tap-row disc-edit"><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
     if (r > 0) h2 += '<span class="disc-tap-dots">' + shDots(r) + '</span>';
-    h2 += '</div></div><div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
+    h2 += '</div></div><div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Free</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.free || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
     return h2;
   }
   if (editMode) {
-    const clanD = CLAN_DISCS[c.clan] || [], blD = BLOODLINE_DISCS[c.bloodline] || null, inCL = blD || clanD, dd = c.disciplines || {};
-    const iCP = Object.entries(dd).filter(([d]) => inCL.includes(d)).reduce((s, [, v]) => s + (v.cp || 0), 0), oCP = Object.entries(dd).filter(([d]) => !inCL.includes(d)).reduce((s, [, v]) => s + (v.cp || 0), 0), rem = 3 - iCP - oCP;
-    h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span style="color:' + (iCP >= 2 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">In-clan: ' + iCP + ' (min 2)</span><span style="color:' + (oCP <= 1 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';
-    CORE_DISCS.forEach(d => { h += renderDiscEditRow(d, (c.disciplines || {})[d]?.dots || 0, inCL.includes(d), null); });
-    h += '</div></div>';
+    const dd = c.disciplines || {};
     const THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
+    const THEMES_SET = new Set(THEMES);
+    // Exclude themes from the creation CP budget — they're unlocked by Cruac
+    // dots, not purchased. Cruac/Theban count as in-clan for CotC/LeS members
+    // per VtR 2e Blood & Smoke (isInClanDisc handles that).
+    const iCP = Object.entries(dd)
+      .filter(([d]) => !THEMES_SET.has(d) && isInClanDisc(c, d))
+      .reduce((s, [, v]) => s + (v.cp || 0), 0);
+    const oCP = Object.entries(dd)
+      .filter(([d]) => !THEMES_SET.has(d) && !isInClanDisc(c, d))
+      .reduce((s, [, v]) => s + (v.cp || 0), 0);
+    const rem = 3 - iCP - oCP;
+    h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span style="color:' + (iCP >= 2 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">In-clan: ' + iCP + ' (min 2)</span><span style="color:' + (oCP <= 1 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';
+    CORE_DISCS.forEach(d => { h += renderDiscEditRow(d, (c.disciplines || {})[d]?.dots || 0, isInClanDisc(c, d), null); });
+    h += '</div></div>';
     const cn = (c.covenant || '').toLowerCase(), showCr = cn.includes('crone') || (c.disciplines || {}).Cruac?.dots > 0, showTh = cn.includes('lancea') || (c.disciplines || {}).Theban?.dots > 0;
     if (showCr || showTh) {
       h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
-      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'color:rgba(220,160,120,.9)');
-      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'color:rgba(220,160,120,.9)');
-      // Sorcery themes — show when Cruac is present, dimmer style
+      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, isInClanDisc(c, 'Cruac'), 'color:rgba(220,160,120,.9)');
+      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, isInClanDisc(c, 'Theban'), 'color:rgba(220,160,120,.9)');
+      // Sorcery themes — show when Cruac is present, dimmer style.
+      // Themes pass isIC=false so the XP cost stays at 4/dot (they use themed
+      // advancement, not normal discipline XP), and a Free input is exposed
+      // so STs can allocate theme dots manually (themes are unlocks).
       if (showCr) {
         for (const theme of THEMES) {
           h += renderDiscEditRow(theme, (c.disciplines || {})[theme]?.dots || 0, false, 'color:rgba(180,140,100,.75);font-size:12px');

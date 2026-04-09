@@ -1,9 +1,9 @@
 /* Sheet-mode edit handlers — all read state.editIdx and write to state.chars[state.editIdx] */
 
 import state from '../data/state.js';
-import { getAttrVal, getAttrBonus, setAttrVal } from '../data/accessors.js';
+import { getAttrVal, getAttrBonus, setAttrVal, isInClanDisc } from '../data/accessors.js';
 import {
-  CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS, RITUAL_DISCS,
+  CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
   SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -376,17 +376,19 @@ export function shEditDiscPt(disc, field, val) {
   if (!c.disciplines) c.disciplines = {};
   if (!c.disciplines[disc]) c.disciplines[disc] = { dots: 0, cp: 0, free: 0, xp: 0, rule_key: null };
   val = Math.max(0, val || 0);
-  if (field === 'cp') {
-    // Enforce: 3 total CP, max 1 out-of-clan CP
-    const inClanList = BLOODLINE_DISCS[c.bloodline] || CLAN_DISCS[c.clan] || [];
-    const isInClan = inClanList.includes(disc);
+  // Sorcery themes are unlocks, not CP-purchased — exclude from budget checks.
+  const SORCERY_THEMES = new Set(['Creation','Destruction','Divination','Protection','Transmutation']);
+  if (field === 'cp' && !SORCERY_THEMES.has(disc)) {
+    // Enforce: 3 total CP, max 1 out-of-clan CP.
+    // In-clan determined via isInClanDisc (clan/bloodline + covenant rituals).
+    const isIC = isInClanDisc(c, disc);
     const otherCP = Object.entries(c.disciplines)
-      .filter(([d]) => d !== disc)
+      .filter(([d]) => d !== disc && !SORCERY_THEMES.has(d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     val = Math.min(val, 3 - otherCP);
-    if (!isInClan) {
+    if (!isIC) {
       const otherOutCP = Object.entries(c.disciplines)
-        .filter(([d]) => d !== disc && !inClanList.includes(d))
+        .filter(([d]) => d !== disc && !SORCERY_THEMES.has(d) && !isInClanDisc(c, d))
         .reduce((s, [, v]) => s + (v.cp || 0), 0);
       val = Math.min(val, 1 - otherOutCP);
     }
@@ -394,9 +396,10 @@ export function shEditDiscPt(disc, field, val) {
   }
   c.disciplines[disc][field] = val;
   const cr = c.disciplines[disc];
-  const inClanList2 = BLOODLINE_DISCS[c.bloodline] || CLAN_DISCS[c.clan] || [];
   const discBase = (cr.cp || 0) + (cr.free || 0);
-  const discCostMult = RITUAL_DISCS.includes(disc) ? 4 : (inClanList2.includes(disc) ? 3 : 4);
+  // In-clan XP rate (3/dot) applies to covenant rituals for CotC/LeS members;
+  // everything else (incl. themes and out-of-clan rituals) pays 4/dot.
+  const discCostMult = isInClanDisc(c, disc) ? 3 : 4;
   cr.dots = discBase + xpToDots(cr.xp || 0, discBase, discCostMult);
   // Recalculate XP spent on disciplines
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };

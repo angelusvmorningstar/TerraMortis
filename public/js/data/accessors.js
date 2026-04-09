@@ -1,5 +1,32 @@
 /* v2 schema accessor functions — shared between Editor and Suite */
 
+import { CLAN_DISCS, BLOODLINE_DISCS } from './constants.js';
+
+// ── Clan/bloodline/covenant discipline helpers ──
+
+/**
+ * Return the list of in-clan disciplines for a character, preferring the
+ * bloodline list when present, else the clan list.
+ */
+export function clanDiscList(c) {
+  return BLOODLINE_DISCS[c?.bloodline] || CLAN_DISCS[c?.clan] || [];
+}
+
+/**
+ * Per VtR 2e (Blood & Smoke), ritual sorceries are treated as in-clan for
+ * members of the relevant covenant:
+ *   Cruac  → Circle of the Crone
+ *   Theban → Lancea et Sanctum
+ */
+export function isInClanDisc(c, discName) {
+  if (!discName) return false;
+  if (clanDiscList(c).includes(discName)) return true;
+  const cov = (c?.covenant || '').toLowerCase();
+  if (discName === 'Cruac' && cov.includes('crone')) return true;
+  if (discName === 'Theban' && cov.includes('lancea')) return true;
+  return false;
+}
+
 // ── Attributes ──
 
 export function getAttrVal(c, attr) {
