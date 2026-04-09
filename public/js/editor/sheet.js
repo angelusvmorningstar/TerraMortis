@@ -243,8 +243,10 @@ export function shRenderAttributes(c, editMode) {
     ATTR_COLS.forEach(col => {
       h += '<div>'; col.forEach(a => {
         const base = getAttrVal(c, a), bonus = getAttrBonus(c, a), isClan = c.clan_attribute === a;
-        h += '<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, bonus) + '</div></div>';
         const ao = c.attributes[a] || {}, cr = { cp: ao.cp || 0, free: ao.free || 0, xp: ao.xp || 0 }, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (cr.cp || 0), xd = xpToDots(cr.xp || 0, ab, 4), tot = ab + xd;
+        // Clan-attribute +1 is stored in .free — exclude that legit case from the highlight.
+        const aFreeMark = (cr.free > 0 && !(isClan && cr.free === 1)) ? ' has-free-dots' : '';
+        h += '<div><div class="attr-cell attr-cell-edit' + aFreeMark + '"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, bonus) + '</div></div>';
         h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + tot + '</span></div></div>';
         { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || ''; h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button>' + (src ? '<span class="bd-src-lbl">(' + src + ')</span>' : '') + (bonus > 0 ? '<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">' + (tot + bonus) + '</span></div>' : '') + '</div>'; }
         h += '</div></div>';
@@ -288,7 +290,8 @@ export function shRenderSkills(c, editMode) {
       SKILL_COLS.forEach(col => {
         const s = col[ri];
         const sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0, dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn) : '\u2013';
-        h += '<div class="sk-edit-cell"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
+        const skFreeMark = ((c.skills?.[s]?.free || 0) > 0) ? ' has-free-dots' : '';
+        h += '<div class="sk-edit-cell' + skFreeMark + '"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
         const so2 = (c.skills || {})[s] || {}, cr = { cp: so2.cp || 0, free: so2.free || 0, xp: so2.xp || 0 }, sE = s.replace(/'/g, "\\'"), sb = (cr.cp || 0) + (cr.free || 0), sxd = xpToDots(cr.xp || 0, sb, 2), st2 = sb + sxd;
         const sFr = cr.free || 0;
         h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span> <span class="attr-bd-ro" style="color:var(--gold2)">' + sFr + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + st2 + '</span></div></div>';
@@ -321,7 +324,10 @@ export function shRenderDisciplines(c, editMode) {
   }
   function renderDiscEditRow(d, r, isIC, style) {
     const dObj = (c.disciplines || {})[d] || {}, cr = { cp: dObj.cp || 0, free: dObj.free || 0, xp: dObj.xp || 0 }, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = (cr.cp || 0) + (cr.free || 0), xd = xpToDots(cr.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
-    let h2 = '<div class="disc-tap-row disc-edit"><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
+    // Themes legitimately use .free as unlocks — no highlight for them.
+    const THEME_SET = new Set(['Creation','Destruction','Divination','Protection','Transmutation']);
+    const freeMark = (cr.free > 0 && !THEME_SET.has(d)) ? ' has-free-dots' : '';
+    let h2 = '<div class="disc-tap-row disc-edit' + freeMark + '"><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
     if (r > 0) h2 += '<span class="disc-tap-dots">' + shDots(r) + '</span>';
     h2 += '</div></div><div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Free</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.free || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
     return h2;
@@ -1109,7 +1115,7 @@ export function shRenderManoeuvres(c, editMode) {
       if (tags.length) h += '<span style="font-size:9px;color:var(--txt3);margin-left:6px">' + tags.map(t => esc(t)).join(', ') + '</span>';
       h += '</div><span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
 
-      h += '<div class="merit-bd-row">'
+      h += '<div class="merit-bd-row' + ((fs.free || 0) > 0 ? ' has-free-dots' : '') + '">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'

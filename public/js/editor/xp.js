@@ -203,7 +203,8 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
     ? '<span class="bd-needs-hint">' + total + ' / ' + fixedAt + ' needed</span>' : '';
-  let h = '<div class="merit-bd-row">'
+  const freeMark = (fr > 0) ? ' has-free-dots' : '';
+  let h = '<div class="merit-bd-row' + freeMark + '">'
     + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + cp + '" onchange="shEditMeritPt(' + realIdx + ',\'cp\',+this.value)"></div>'
     + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + xp + '" onchange="shEditMeritPt(' + realIdx + ',\'xp\',+this.value)"></div>'
     + '<div class="bd-sep"></div>'

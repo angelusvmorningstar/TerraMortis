@@ -181,6 +181,45 @@ export function auditCharacter(c) {
     }
   }
 
+  // ── Free dots used in character ──
+  // Flag any item (attribute, skill, discipline, merit, fighting style)
+  // that was paid for with the unsourced `free` bucket. These dots bypass
+  // CP/XP accounting and usually come from legacy imports or manual ST
+  // grants that weren't properly tracked. Sorcery themes legitimately use
+  // `free` as unlocks, and the +1 clan attribute bonus is stored in `free`,
+  // so both are exempt from the warning.
+  const SORCERY_THEMES = new Set(['Creation','Destruction','Divination','Protection','Transmutation']);
+  const freeItems = [];
+  for (const [a, v] of Object.entries(c.attributes || {})) {
+    const isClan = c.clan_attribute === a;
+    const f = v?.free || 0;
+    if (f > 0 && !(isClan && f === 1)) freeItems.push(`${a} (attr) +${f}`);
+  }
+  for (const [s, v] of Object.entries(c.skills || {})) {
+    const f = v?.free || 0;
+    if (f > 0) freeItems.push(`${s} (skill) +${f}`);
+  }
+  for (const [d, v] of Object.entries(c.disciplines || {})) {
+    if (SORCERY_THEMES.has(d)) continue;
+    const f = v?.free || 0;
+    if (f > 0) freeItems.push(`${d} (disc) +${f}`);
+  }
+  for (const m of (c.merits || [])) {
+    const f = m?.free || 0;
+    if (f > 0) freeItems.push(`${m.name} (merit) +${f}`);
+  }
+  for (const fs of (c.fighting_styles || [])) {
+    const f = fs?.free || 0;
+    if (f > 0) freeItems.push(`${fs.name} (style) +${f}`);
+  }
+  if (freeItems.length) {
+    warnings.push({
+      gate: 'free_dots_used',
+      message: `Free dots used in character! (${freeItems.length} item${freeItems.length === 1 ? '' : 's'})`,
+      detail: { items: freeItems },
+    });
+  }
+
   // ── Merit prereqs ──
   for (const m of (c.merits || [])) {
     if (m.granted_by) continue; // granted merits bypass prereqs

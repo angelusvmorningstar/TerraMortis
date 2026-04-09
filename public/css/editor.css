@@ -510,3 +510,30 @@
 .sh-desktop .dev-add-btn,
 .sh-desktop .sh-bane-add,
 .sh-desktop .sk-spec-add{font-size:13px;padding:6px 14px;}
+
+/* ── Free-dot highlighter ──
+   Marks any item (attribute, skill, discipline, merit, fighting style)
+   that was purchased using the unsourced `free` bucket. These dots bypass
+   the normal CP/XP economy and usually come from legacy imports or manual
+   ST grants that weren't properly tracked. Not necessarily wrong, but
+   worth review. */
+.has-free-dots {
+  box-shadow: inset 0 0 0 2px rgba(180, 40, 40, 0.55);
+  border-radius: 4px;
+  position: relative;
+}
+.has-free-dots::before {
+  content: 'FREE';
+  position: absolute;
+  top: -6px;
+  right: 6px;
+  font-family: var(--fh);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: rgba(180, 40, 40, 0.85);
+  padding: 1px 5px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 2;
+}
