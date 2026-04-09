@@ -332,12 +332,33 @@ export function shRenderDisciplines(c, editMode) {
     h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span style="color:' + (iCP >= 2 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">In-clan: ' + iCP + ' (min 2)</span><span style="color:' + (oCP <= 1 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';
     CORE_DISCS.forEach(d => { h += renderDiscEditRow(d, (c.disciplines || {})[d]?.dots || 0, inCL.includes(d), null); });
     h += '</div></div>';
+    const THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
     const cn = (c.covenant || '').toLowerCase(), showCr = cn.includes('crone') || (c.disciplines || {}).Cruac?.dots > 0, showTh = cn.includes('lancea') || (c.disciplines || {}).Theban?.dots > 0;
-    if (showCr || showTh) { h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">'; if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'color:rgba(220,160,120,.9)'); if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'color:rgba(220,160,120,.9)'); h += '</div></div>'; }
+    if (showCr || showTh) {
+      h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
+      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'color:rgba(220,160,120,.9)');
+      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'color:rgba(220,160,120,.9)');
+      // Sorcery themes — show when Cruac is present, dimmer style
+      if (showCr) {
+        for (const theme of THEMES) {
+          h += renderDiscEditRow(theme, (c.disciplines || {})[theme]?.dots || 0, false, 'color:rgba(180,140,100,.75);font-size:12px');
+        }
+      }
+      h += '</div></div>';
+    }
   } else if (c.disciplines && Object.keys(c.disciplines).length) {
-    const de = Object.entries(c.disciplines).filter(([, r]) => (r?.dots || 0) > 0).sort(([a], [b]) => a.localeCompare(b)), core = de.filter(([d]) => CORE_DISCS.includes(d)), rit = de.filter(([d]) => RITUAL_DISCS.includes(d));
+    const THEMES_READ = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
+    const de = Object.entries(c.disciplines).filter(([, r]) => (r?.dots || 0) > 0).sort(([a], [b]) => a.localeCompare(b)),
+          core = de.filter(([d]) => CORE_DISCS.includes(d)),
+          rit = de.filter(([d]) => RITUAL_DISCS.includes(d)),
+          themes = de.filter(([d]) => THEMES_READ.includes(d));
     if (core.length) { h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-list">'; core.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, null); }); h += '</div></div>'; }
-    if (rit.length) { h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">'; rit.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); }); h += '</div></div>'; }
+    if (rit.length || themes.length) {
+      h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
+      rit.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); });
+      themes.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'color:rgba(180,140,100,.75);font-size:12px'); });
+      h += '</div></div>';
+    }
   }
   // Devotions
   const devP = (c.powers || []).filter(p => p.category === 'devotion');
