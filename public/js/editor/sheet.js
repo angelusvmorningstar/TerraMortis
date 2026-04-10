@@ -320,8 +320,42 @@ export function shRenderSkills(c, editMode) {
 
 export function shRenderDisciplines(c, editMode) {
   let h = '';
+
+  // ── Derive discipline powers from the purchasable_powers rules cache.
+  // Each power is keyed by parent (discipline name) + rank (1–5).
+  // Falls back to stored c.powers entries for any discipline not covered
+  // by the rules DB (e.g. homebrew).
+  const _discRules = getRulesByCategory('discipline');
+  function _discPowers(discName, dots) {
+    const fromRules = _discRules
+      .filter(r => r.parent === discName && r.rank != null && r.rank <= dots)
+      .sort((a, b) => a.rank - b.rank);
+    if (fromRules.length) return fromRules.map(r => ({
+      name: r.name,
+      stats: _fmtRuleStats(r),
+      effect: r.description || '',
+    }));
+    // Fallback: stored powers on the character (legacy / homebrew)
+    return (c.powers || [])
+      .filter(p => p.category === 'discipline' && p.discipline === discName)
+      .sort((a, b) => (a.rank || 0) - (b.rank || 0))
+      .map(p => ({ name: p.name, stats: p.stats || '', effect: p.effect || '' }));
+  }
+  function _fmtRuleStats(r) {
+    const parts = [];
+    if (r.cost) parts.push('Cost: ' + r.cost);
+    if (r.pool) {
+      const p = [r.pool.attr, r.pool.skill].filter(Boolean).join(' + ');
+      const res = r.resistance ? ' \u2013 ' + r.resistance : '';
+      parts.push('Pool: ' + (p || '\u2013') + res);
+    }
+    if (r.action) parts.push(r.action);
+    if (r.duration) parts.push(r.duration);
+    return parts.length ? parts.join('  \u2022  ') : '';
+  }
+
   function renderDiscRow(d, r, nameStyle) {
-    const dp = (c.powers || []).filter(p => p.category === 'discipline' && p.discipline === d), hasPow = dp.length > 0, id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
+    const dp = _discPowers(d, r || 0), hasPow = dp.length > 0, id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
     const nTag = (nameStyle ? '<span class="disc-tap-name" style="' + nameStyle + '">' : '<span class="disc-tap-name">') + esc(d) + '</span>', dTag = r ? '<span class="disc-tap-dots">' + shDots(r) + '</span>' : '';
     if (!hasPow) return '<div class="disc-tap-row"><div class="disc-tap-left">' + nTag + dTag + '</div></div>';
@@ -332,9 +366,16 @@ export function shRenderDisciplines(c, editMode) {
     // Themes legitimately use .free as unlocks — no highlight for them.
     const THEME_SET = new Set(['Creation','Destruction','Divination','Protection','Transmutation']);
     const freeMark = (cr.free > 0 && !THEME_SET.has(d)) ? ' has-free-dots' : '';
-    let h2 = '<div class="disc-tap-row disc-edit' + freeMark + '"><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
+    const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
+    // Derive powers from rules cache (same as view mode)
+    const dp = _discPowers(d, dt);
+    let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
+    let h2 = '<div class="disc-tap-row disc-edit' + freeMark + '"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
     if (r > 0) h2 += '<span class="disc-tap-dots">' + shDots(r) + '</span>';
-    h2 += '</div></div><div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Free</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.free || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
+    if (dp.length) h2 += '</div><span class="disc-tap-arr">\u203A</span></div>';
+    else h2 += '</div></div>';
+    h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">Free</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.free || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'free\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
+    if (dp.length) h2 += '<div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
     return h2;
   }
   if (editMode) {

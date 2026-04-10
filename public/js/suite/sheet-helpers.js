@@ -7,7 +7,7 @@ import {
   SORCERY_THEMES, RITUAL_DISCS
 } from './data.js';
 import { getAttrVal, getAttrBonus as _getAttrBonus, skDots, skSpecs, skSpecStr } from '../data/accessors.js';
-import { getRuleByKey } from '../data/loader.js';
+import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { prereqLabel } from '../data/prereq.js';
 
 // ── Dot display ──
@@ -82,11 +82,44 @@ export function meritLookup(m) {
 
 // ── Power helpers ──
 
-export function powersForDisc(powers, discName) {
-  // v2 powers have category/discipline fields
+function _fmtRuleStats(r) {
+  const parts = [];
+  if (r.cost) parts.push('Cost: ' + r.cost);
+  if (r.pool) {
+    const p = [r.pool.attr, r.pool.skill].filter(Boolean).join(' + ');
+    const res = r.resistance ? ' \u2013 ' + r.resistance : '';
+    parts.push('Pool: ' + (p || '\u2013') + res);
+  }
+  if (r.action) parts.push(r.action);
+  if (r.duration) parts.push(r.duration);
+  return parts.length ? parts.join('  \u2022  ') : '';
+}
+
+/**
+ * Return powers for a discipline, derived from the purchasable_powers
+ * rules cache (keyed by parent + rank ≤ dots). Falls back to stored
+ * c.powers entries for homebrew disciplines that aren't in the rules.
+ *
+ * @param {Array} powers - c.powers array
+ * @param {string} discName - discipline name (e.g. "Nightmare")
+ * @param {number} [dots] - current dot rating; when provided, rules-derived
+ *   powers are capped to this rank. Omit for legacy callers.
+ */
+export function powersForDisc(powers, discName, dots) {
+  // Try rules-derived powers first
+  if (dots != null && dots > 0) {
+    const fromRules = getRulesByCategory('discipline')
+      .filter(r => r.parent === discName && r.rank != null && r.rank <= dots)
+      .sort((a, b) => a.rank - b.rank);
+    if (fromRules.length) return fromRules.map(r => ({
+      name: r.name,
+      stats: _fmtRuleStats(r),
+      effect: r.description || '',
+    }));
+  }
+  // Fallback: stored powers on the character (legacy / homebrew)
   return powers.filter(p => {
     if (p.discipline === discName) return true;
-    // Fallback for legacy pipe-delimited name matching
     if (SORCERY_THEMES.includes(discName)) {
       return p.name.includes('| ' + discName) || p.name.startsWith(discName);
     }
