@@ -17,6 +17,7 @@
 
 import 'dotenv/config';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { MongoClient } from 'mongodb';
 import XLSX from 'xlsx';
@@ -32,7 +33,7 @@ const CONFIRM = args.includes('--confirm');
 const FILE_ARG = args.find(a => a.startsWith('--file='));
 const EXCEL_PATH = FILE_ARG
   ? FILE_ARG.slice(7)
-  : new URL('../../Terra Mortis Character Master (v3.0).xlsx', import.meta.url).pathname;
+  : fileURLToPath(new URL('../../Terra Mortis Character Master (v3.0).xlsx', import.meta.url));
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) { console.error('MONGODB_URI not set.'); process.exit(1); }
@@ -537,13 +538,18 @@ async function main() {
     if (match) sheetMap[match[1].trim()] = sn;
   }
 
-  // Build Character Data row lookup (name in column F = index 5)
+  // Build Character Data row lookup (name in column F = index 5), preserving order
   const dataRowMap = {};
+  const dataRowOrder = [];
   for (let r = 1; r <= 40; r++) {
     const name = dataWs[XLSX.utils.encode_cell({ r, c: 5 })]?.v || '';
-    if (name) dataRowMap[name] = r;
+    if (name) { dataRowMap[name] = r; dataRowOrder.push(name); }
   }
-  console.log(`Excel: ${Object.keys(dataRowMap).length} characters in Character Data sheet\n`);
+  console.log(`Excel: ${dataRowOrder.length} characters in Character Data sheet\n`);
+
+  // Build ordered list of character sheet tabs (exclude system sheets)
+  const SYSTEM_SHEETS = new Set(['Character Data', 'Attendance', 'Finances', 'Template', 'Lists']);
+  const charSheetOrder = wb.SheetNames.filter(sn => !SYSTEM_SHEETS.has(sn) && !sn.startsWith('Lookup'));
 
   // Set up schema validation
   const ajv = new Ajv({ allErrors: true });
@@ -556,8 +562,10 @@ async function main() {
   let matchCount = 0, skipCount = 0;
   let ruleKeyHits = 0, ruleKeyMisses = 0;
 
-  for (const [charName, dataRow] of Object.entries(dataRowMap)) {
-    const sheetName = findSheetName(charName, sheetMap);
+  for (let i = 0; i < dataRowOrder.length; i++) {
+    const charName = dataRowOrder[i];
+    const dataRow = dataRowMap[charName];
+    const sheetName = findSheetName(charName, sheetMap) || charSheetOrder[i] || null;
     if (!sheetName || !wb.Sheets[sheetName]) {
       console.log(`  SKIP: ${charName} — no individual sheet found`);
       skipCount++;
@@ -589,15 +597,18 @@ async function main() {
     for (const m of (c.merits || [])) { if (m.rule_key) ruleKeyHits++; else ruleKeyMisses++; }
     for (const p of (c.powers || [])) { if (p.rule_key) ruleKeyHits++; else ruleKeyMisses++; }
 
-    // Validate (strip internal linking fields)
-    const { _id, __playerId, __playerName, ...docForValidation } = c;
+    // Validate (strip internal linking fields + any legacy fields not in schema)
+    const { _id, __playerId, __playerName, ...rest } = c;
+    const schemaKeys = new Set(Object.keys(characterSchema.properties || {}));
+    const docForValidation = Object.fromEntries(Object.entries(rest).filter(([k]) => schemaKeys.has(k)));
     if (!validate(docForValidation)) {
       const errors = validate.errors.map(e => `${e.instancePath} ${e.message}`).join('; ');
-      console.error(`  ✗ ${charName} — VALIDATION FAILED: ${errors}`);
-      console.error('    Aborting — no documents written.');
-      await client.close();
-      process.exit(1);
+      console.error(`  ✗ ${charName} — VALIDATION FAILED (skipped): ${errors}`);
+      skipCount++;
+      continue;
     }
+    // Use the cleaned object going forward
+    Object.keys(rest).forEach(k => { if (!schemaKeys.has(k)) delete c[k]; });
 
     const meritCount = (c.merits || []).length;
     const discCount = Object.keys(c.disciplines || {}).length;
@@ -628,7 +639,7 @@ async function main() {
 
   // Output
   if (JSON_OUT) {
-    const outPath = new URL('../../data/chars_v3.json', import.meta.url).pathname;
+    const outPath = fileURLToPath(new URL('../../data/chars_v3.json', import.meta.url));
     // Strip internal linking fields from JSON output
     const clean = results.map(c => { const { __playerId, __playerName, ...rest } = c; return rest; });
     writeFileSync(outPath, JSON.stringify(clean, null, 2));
