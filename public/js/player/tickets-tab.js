@@ -107,12 +107,14 @@ export async function renderTicketsTab(containerEl) {
       }
 
       const rowClass = isExpanded ? ' tk-item-expanded' : '';
+      const editHint = canEdit && !isExpanded ? '<span class="tk-edit-hint">click to edit</span>' : '';
       return `
         <div class="tk-item${rowClass}">
           <div class="tk-item-header tk-item-toggle" data-id="${esc(String(t._id))}">
             <span class="tk-item-title">${esc(t.title)}</span>
             ${typeBadge}
             ${statusBadge}
+            ${editHint}
             <span class="tk-item-meta">${esc(date)}</span>
             <span class="tk-item-chevron">${isExpanded ? '\u2303' : '\u2304'}</span>
           </div>
