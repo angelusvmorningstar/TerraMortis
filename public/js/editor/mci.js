@@ -36,7 +36,7 @@ export function applyDerivedMerits(c) {
   // Current system is pool-based (free_mci only) and never sets granted_by for MCI.
   // Clear the field so these orphaned merits become ST-editable/deletable.
   (c.merits || []).forEach(m => {
-    if (m.granted_by === 'Mystery Cult Initiation') delete m.granted_by;
+    if (m.granted_by === 'Mystery Cult Initiation' || m.granted_by === 'MCI') delete m.granted_by;
   });
 
   // Migrate Fucking Thief stolen merits: backfill granted_by if missing
