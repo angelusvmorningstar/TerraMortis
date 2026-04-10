@@ -16,6 +16,7 @@ import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getP
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
+import { initSpheresView } from './admin/spheres-view.js';
 import { initDowntimeView } from './admin/downtime-views.js';
 import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
@@ -164,6 +165,7 @@ function switchDomain(domain) {
   if (domain === 'players') initPlayersView(chars);
   if (domain === 'engine') { initNextSession(); initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
+  if (domain === 'spheres') initSpheresView();
   if (domain === 'downtime') initDowntimeView();
   if (domain === 'attendance') initAttendance(chars);
   if (domain === 'data') initDataPortabilityView(chars);
