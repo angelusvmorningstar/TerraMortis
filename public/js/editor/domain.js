@@ -73,6 +73,27 @@ export function domMeritTotal(c, name) {
   return Math.min(cap, total);
 }
 
+/**
+ * Effective domain merit access for a character — their own total, or the
+ * total from any partner who lists this character in their shared_with.
+ * Used by the prereq checker to validate access through shared resources.
+ * @param {object} c - character object
+ * @param {string} name - merit name (e.g. "Haven")
+ * @returns {number}
+ */
+export function domMeritAccess(c, name) {
+  const own = domMeritTotal(c, name);
+  if (own > 0) return own;
+  for (const partner of (state.chars || [])) {
+    const pm = (partner.merits || []).find(m =>
+      m.category === 'domain' && m.name === name &&
+      (m.shared_with || []).includes(c.name)
+    );
+    if (pm) return domMeritTotal(partner, name);
+  }
+  return 0;
+}
+
 /* ══════════════════════════════════════════════════════
    Influence calculations
    ══════════════════════════════════════════════════════ */
