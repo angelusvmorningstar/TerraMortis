@@ -4,7 +4,7 @@
  * Uses same localStorage keys as the suite tracker for cross-app compatibility.
  */
 
-import { esc, displayName, redactPlayer } from '../data/helpers.js';
+import { esc, displayName, sortName, redactPlayer } from '../data/helpers.js';
 import { calcVitaeMax, calcWillpowerMax, influenceTotal } from '../data/accessors.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 
@@ -120,7 +120,7 @@ function render() {
   h += '<div class="st-admin-pick">';
   h += '<select class="de-sc-btn" id="sta-char" style="flex:1;">';
   h += '<option value="">\u2014 Add character \u2014</option>';
-  for (const c of chars) {
+  for (const c of [...chars].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
     if (activeNames.includes(c.name)) continue;
     h += `<option value="${esc(c.name)}">${esc(displayName(c))}</option>`;
   }

@@ -61,7 +61,7 @@ function renderCity(container) {
 // ══════════════════════════════════════
 
 function renderCourt() {
-  const active = chars.filter(c => !c.retired);
+  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const titled = active.filter(c => c.court_title).sort((a, b) => {
     const ai = TITLE_ORDER.indexOf(a.court_title);
     const bi = TITLE_ORDER.indexOf(b.court_title);
@@ -144,7 +144,7 @@ function renderAscendancy() {
 // ══════════════════════════════════════
 
 function getPrestigeData() {
-  const active = chars.filter(c => !c.retired);
+  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
   // Faction sizes
   const clanSize = {};
@@ -246,7 +246,7 @@ function getFeedingRights(terrId) {
 }
 
 function renderFeedingChips(terrId) {
-  const active = chars.filter(c => !c.retired);
+  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const rights = getFeedingRights(terrId);
   if (!rights.length) return '<span class="terr-feed-empty">None assigned</span>';
   return rights.map((cid, i) => {
@@ -257,7 +257,7 @@ function renderFeedingChips(terrId) {
 }
 
 function renderFeedingDropdown(terrId) {
-  const active = chars.filter(c => !c.retired);
+  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const rights = getFeedingRights(terrId);
   const opts = active
     .filter(c => !rights.includes(String(c._id)))
@@ -269,7 +269,7 @@ function renderFeedingDropdown(terrId) {
 }
 
 function renderTerritories() {
-  const active = chars.filter(c => !c.retired);
+  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const regents = active.filter(c => c.regent_territory);
   let h = '<h3 class="city-section-title">Territories</h3>';
 
@@ -449,7 +449,7 @@ function patchFeedingList(terrId) {
 function patchFeedingDropdown(terrId) {
   const el = document.getElementById('terr-feed-sel-' + terrId);
   if (!el) return;
-  const active = chars.filter(c => !c.retired);
+  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const rights = _feedingEdits[terrId] || [];
   el.innerHTML = `<option value="">\u2014 Add character \u2014</option>` +
     active
@@ -481,7 +481,7 @@ async function saveCourt() {
 
   try {
     // Clear all existing court titles, then assign new ones
-    const active = chars.filter(c => !c.retired);
+    const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
     for (const c of active) {
       if (!c.court_title) continue;
       // Check if still assigned
@@ -510,7 +510,7 @@ async function saveCourt() {
 
 async function saveTerritories() {
   const status = document.getElementById('terr-save-status');
-  const active = chars.filter(c => !c.retired);
+  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
   try {
     // Build desired state: { territory: { regentId, lieutenantName } }

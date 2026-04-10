@@ -744,8 +744,12 @@ window._openOrdealsModal = (charId) => {
 };
 
 async function init() {
-  // Load rules data (purchasable powers) — non-blocking, cached
-  loadRulesFromApi().catch(() => {});
+  // Load rules data (purchasable powers) — non-blocking, cached.
+  // After load completes, refresh the rite name dropdown if the editor is open.
+  loadRulesFromApi().then(() => {
+    const tradEl = document.getElementById('rite-add-trad');
+    if (tradEl) shRefreshRiteDropdown(tradEl.value || (tradEl.options && tradEl.options[0] ? tradEl.options[0].value : ''));
+  }).catch(() => {});
 
   try {
     chars = await apiGet('/api/characters');

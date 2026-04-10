@@ -140,11 +140,15 @@ function renderGrid() {
 
   const att = activeSession.attendance || [];
 
-  // Preserve original array order for display (matches MongoDB document order)
   const sorted = att.map((a, i) => {
     const c = chars.find(ch => ch._id === a.character_id || ch.name === a.character_name || ch.name === a.name);
     const player = a.player || (c ? c.player : '') || '';
-    return { a, i, player };
+    return { a, i, c, player };
+  });
+  sorted.sort((x, y) => {
+    const nx = x.c ? displayName(x.c) : (x.a.character_display || x.a.name || '');
+    const ny = y.c ? displayName(y.c) : (y.a.character_display || y.a.name || '');
+    return nx.localeCompare(ny);
   });
 
   // Summaries
@@ -170,8 +174,7 @@ function renderGrid() {
       <th class="att-check-col">Paid</th>
     </tr></thead><tbody>`;
 
-  for (const { a, i } of sorted) {
-    const c = chars.find(ch => ch._id === a.character_id || ch.name === a.character_name || ch.name === a.name);
+  for (const { a, i, c } of sorted) {
     const charDisplay = c ? displayName(c) : (a.character_display || a.display_name || a.name || '');
     const playerName = a.player || (c ? c.player : '') || '';
     const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
