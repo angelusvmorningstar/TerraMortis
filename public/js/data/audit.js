@@ -251,6 +251,7 @@ export function auditCharacter(c) {
     if (f > 0) freeItems.push(`${s} (skill) +${f}`);
   }
   for (const [d, v] of Object.entries(c.disciplines || {})) {
+    if (!_validDiscs.has(d)) continue; // ignore removed/theme disciplines
     const f = v?.free || 0;
     if (f > 0) freeItems.push(`${d} (disc) +${f}`);
   }
