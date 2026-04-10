@@ -81,6 +81,8 @@ And `sheet.js` line 623 shows the "PT Bonus" info line when `contactsEntry.free_
 - `pts` is already defined by the time we add the sync — no re-query needed.
 - The sync uses the same `(cp + xp + free)` sum as MCI. PT is excluded from `ensureMeritSync`'s general loop (that exclusion remains — PT has its own role/asset display logic that `ensureMeritSync` doesn't handle). This early sync is separate from and does not conflict with that.
 - `free` on PT is the generic free bucket — if Fix.14 is implemented first this becomes `(pt.cp || 0) + (pt.xp || 0)` only.
+- If Fix.14 has already landed when this is implemented, remove `(pt.free || 0)` from the sync sum — it will always be 0 after Fix.14's migration. Write the sync as `const _ptInlineTotal = (pt.cp || 0) + (pt.xp || 0);` only.
+- Note: `xpSpentSkills` in `xp.js` also uses `ptM.rating >= 3` directly (not via applyDerivedMerits). This function is pure and may run before the rating sync. This is a pre-existing issue not in scope for Fix.17, but flagged for awareness.
 
 ---
 

@@ -98,6 +98,7 @@ The `free_bloodline` field follows the established pattern:
   (c.merits || []).forEach(m => { if (m.granted_by === 'Bloodline') m.free = 0; });
   ```
   Add this immediately before the bloodline grant loop so old data with `free: 1` is cleaned up on every render.
+- [ ] Also clear `free_bloodline` on bloodline merits unconditionally every render — mirror how PT clears `free_pt = 0` on all merits before re-applying. Add: `(c.merits || []).forEach(m => { if (m.granted_by === 'Bloodline') { m.free = 0; m.free_bloodline = 0; } });` before the grant loop, so ex-Gorgon characters with orphaned bloodline merits do not keep `free_bloodline: 1` indefinitely.
 
 ### Task 3: Track bloodline-granted specs in `applyDerivedMerits` (`mci.js`)
 
@@ -157,6 +158,8 @@ The `free_bloodline` field follows the established pattern:
 - The `meritBdRow` in `xp.js` only shows an `Fr` input for `m.free` (generic). `free_bloodline` should NOT add a new input — bloodline grants are read-only. They'll just silently add to the displayed total.
 - The audit's `granted_by` exemption (audit.js line 259) already skips bloodline merits, so no change needed there.
 - At the time of writing, `free: 1` is still in the DB for existing Gorgon characters. Task 2's clear step (`m.free = 0`) will fix this at render time without requiring a migration.
+- Fix.15 must be implemented BEFORE Fix.14. The `meritRating` and merit total expressions will be touched by both — Fix.15 adds `free_bloodline`, Fix.14 removes `free`. Done in this order the Fix.14 dev sees both changes and handles them in one pass.
+- Fix.16 depends on Fix.15's capitalisation fix and DB migration (Task 7). Both must land together or the AoE dropdown `selected` matching will break for existing characters in the transition window.
 
 ---
 

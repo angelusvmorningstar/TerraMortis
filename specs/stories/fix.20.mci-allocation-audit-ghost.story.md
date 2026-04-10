@@ -60,7 +60,7 @@ What should NOT be validated:
   - Delete `const missingTiers = []`, all `checkMeritTier` calls, and the `if (missingTiers.length) errors.push(...)` block
   - Keep the `mci_tier_over` check (lines 167–172) — over-budget tier grants are still a real error
 
-- [ ] Optionally (if desired): add a softer **warning** for unconfigured `dotN_choice` fields:
+- [ ] **Recommended**: add a softer **warning** for unconfigured `dotN_choice` fields (removing `mci_unallocated` leaves no signal at all for MCI misconfiguration):
   ```js
   // Warn if dotN_choice tiers are reached but the choice field is blank
   if (rating >= 1 && !m.dot1_choice) warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 1 choice not set` });

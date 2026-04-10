@@ -169,6 +169,13 @@ Every occurrence of `(ao.cp || 0) + (ao.free || 0)` in `sheet.js` and `edit.js` 
   - Map the value to `cp` instead: `ao.cp = (ao.cp || 0) + (pts.free || 0)` etc.
   - This ensures any dots the Excel sheet had in the "free" column are treated as CP on import going forward
 
+### Task 13: Plug gaps identified in architectural review
+
+- [ ] `public/js/editor/mci.js` line ~168: The K-9/Falconry style detection check includes `(fs.free||0)` — after migration this is 0, but legacy DB data where only `fs.free > 0` (no `cp`) will silently lose the Retainer grant. **Task 9's migration script must move `fs.free` to `fs.cp` for ALL fighting styles across all characters, not just Charlie Ballsack's three entries.**
+- [ ] `public/js/editor/edit-domain.js` line ~391 (`shAddStyle`): when a new fighting style is added the initialiser pushes `{ ..., free: 0, ... }`. Remove `free: 0` from this object — the field should not be initialised at all after Fix.14.
+- [ ] `public/js/editor/edit-domain.js` line ~438 (`shAddPick`): `totalDots` sum includes `(fs.free||0)`. Remove this dead term.
+- [ ] `public/js/editor/mci.js` `getPoolUsed` function (~line 394): after `m.free` is zeroed everywhere this function always returns 0, breaking the merit pool over-spend guard at `edit.js` line ~749. Either delete `getPoolUsed` (if `getMCIPoolUsed` supersedes it) or update it to sum `free_mci` instead. Confirm whether `edit.js` line 749's over-spend cap can simply be removed or must be rewritten against `getMCIPoolUsed`.
+
 ## Dev Notes
 
 - `p.free` on rite power objects is a **boolean**, not a dot count. Do not modify it.
@@ -176,6 +183,9 @@ Every occurrence of `(ao.cp || 0) + (ao.free || 0)` in `sheet.js` and `edit.js` 
 - Named merit pools (`free_mci`, `free_vm`, `free_lk`, `free_pt`, `free_ohm`, `free_inv`, `free_mdb`) are NOT being removed.
 - After this change, `meritRating(m)` should return `(m.cp || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.xp || 0)` — or fall back to `m.rating` if no inline fields present.
 - The migration script must be run by the user (`node server/migrations/zero-free-fields.js`) after deploying the code change. Run code deploy first, migration second, so the app never tries to display removed `Fr` inputs on stale live data.
+- Fix.14 must come AFTER Fix.15 — the dev implementing Fix.14 must retain `(m.free_bloodline || 0)` in all merit total expressions (added by Fix.15). Do NOT remove free_bloodline when removing free.
+- The migration script (Task 9) must move ALL `fs.free > 0` fighting style dots to `cp`, not just Charlie Ballsack's entries.
+- Drop `(pt.free || 0)` from the Fix.17 PT sync code when implementing — by the time Fix.14 runs, pt.free is always 0 anyway.
 
 ---
 
