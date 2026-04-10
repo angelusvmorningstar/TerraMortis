@@ -63,7 +63,11 @@ function _auditBadge(c) {
     h += `<span class="audit-badge audit-err" title="${esc(tip)}">\u2716${audit.errors.length > 1 ? ' ' + audit.errors.length : ''}</span>`;
   }
   if (audit.warnings.length) {
-    const tip = audit.warnings.map(w => '\u26A0 ' + w.message).join('\n');
+    const tip = audit.warnings.map(w => {
+      let line = '\u26A0 ' + w.message;
+      if (w.detail?.items?.length) line += '\n  \u2022 ' + w.detail.items.join('\n  \u2022 ');
+      return line;
+    }).join('\n');
     h += `<span class="audit-badge audit-warn" title="${esc(tip)}">\u26A0${audit.warnings.length > 1 ? ' ' + audit.warnings.length : ''}</span>`;
   }
   return h;

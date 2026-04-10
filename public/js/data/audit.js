@@ -255,6 +255,7 @@ export function auditCharacter(c) {
     if (f > 0) freeItems.push(`${d} (disc) +${f}`);
   }
   for (const m of (c.merits || [])) {
+    if (m.granted_by) continue; // system-managed (applyDerivedMerits sets free on these)
     const f = m?.free || 0;
     if (f > 0) freeItems.push(`${m.name} (merit) +${f}`);
   }
