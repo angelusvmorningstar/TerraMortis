@@ -36,8 +36,6 @@ export function auditCharacter(c) {
   const left = xpLeft(c);
   if (left < 0) {
     errors.push({ gate: 'xp_overspend', message: `XP overspent by ${Math.abs(left)}`, detail: { earned, spent, left } });
-  } else if (left > 0) {
-    warnings.push({ gate: 'xp_unspent', message: `${left} XP unspent`, detail: { earned, spent, left } });
   }
 
   // ── Attribute CP per category ──
