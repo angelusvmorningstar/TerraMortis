@@ -12,20 +12,23 @@
  */
 
 import { apiGet } from '../data/api.js';
-import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer } from '../data/helpers.js';
-
-const CDN = 'https://cdn.discordapp.com';
+import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 
 function avatarUrl(c) {
-  const pi = c._player_info;
-  if (pi && pi.discord_id && pi.discord_avatar) {
-    return `${CDN}/avatars/${pi.discord_id}/${pi.discord_avatar}.png?size=64`;
+  const pi = c._player_info || {};
+  // In dev mode this returns a generic black square regardless of the
+  // underlying data. In normal mode it returns the real CDN avatar, or a
+  // deterministic per-character default silhouette when the player has no
+  // custom avatar set.
+  if (isRedactMode() || !pi.discord_id || !pi.discord_avatar) {
+    if (isRedactMode()) return discordAvatarUrl(null, null);
+    // Deterministic default silhouette (0–5) keyed to the character id
+    let h = 0;
+    const s = String(c._id || c.name || '');
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return `https://cdn.discordapp.com/embed/avatars/${Math.abs(h) % 6}.png`;
   }
-  // Fallback default Discord avatar (0–5 silhouette set)
-  let h = 0;
-  const s = String(c._id || c.name || '');
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return `${CDN}/embed/avatars/${Math.abs(h) % 6}.png`;
+  return discordAvatarUrl(pi.discord_id, pi.discord_avatar, 64);
 }
 
 function statusDots(n) {

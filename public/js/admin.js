@@ -7,7 +7,7 @@ import { auditCharacter } from './data/audit.js';
 import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
-import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer } from './data/helpers.js';
+import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer, discordAvatarUrl } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
@@ -134,11 +134,13 @@ function renderSidebarUser() {
 
   const el = document.getElementById('sidebar-user');
   const name = esc(user.global_name || user.username);
-  const avatarUrl = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
-    : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
-
   const info = getPlayerInfo();
+  const avatarUrl = info?.role === 'dev'
+    ? discordAvatarUrl(null, null)
+    : user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
+      : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
+
   const playerLink = info?.is_dual_role
     ? `<a href="player" class="sidebar-player-link">My Character</a>`
     : '';

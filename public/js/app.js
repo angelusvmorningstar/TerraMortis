@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY, displayName, sortName, redactPlayer } from './data/helpers.js';
+import { CLAN_ICON_KEY, displayName, sortName, redactPlayer, discordAvatarUrl } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -727,9 +727,11 @@ function renderUserHeader() {
     hdr.appendChild(userEl);
   }
   const name = user.global_name || user.username;
-  const avatarUrl = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`
-    : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
+  const avatarUrl = user.role === 'dev'
+    ? discordAvatarUrl(null, null)
+    : user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`
+      : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
   userEl.innerHTML = `<img src="${avatarUrl}" style="width:24px;height:24px;border-radius:50%;"><span>${name}</span><button onclick="logout()" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;font-family:var(--fh);">Log out</button>`;
 }
 

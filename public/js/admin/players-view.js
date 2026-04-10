@@ -19,6 +19,7 @@
  */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
+import { discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 
 function esc(s) {
   const d = document.createElement('div');
@@ -107,9 +108,7 @@ function playerCard(p) {
     ? new Date(p.last_login).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : '<span class="pv-dim">Never logged in</span>';
 
-  const avatarUrl = p.discord_id && p.discord_avatar
-    ? `https://cdn.discordapp.com/avatars/${esc(p.discord_id)}/${esc(p.discord_avatar)}.png?size=40`
-    : `https://cdn.discordapp.com/embed/avatars/0.png`;
+  const avatarUrl = discordAvatarUrl(p.discord_id, p.discord_avatar, 40);
 
   const didDisplay = p.discord_id
     ? `<span class="pv-did">${esc(p.discord_id)}</span>`
@@ -120,7 +119,7 @@ function playerCard(p) {
     : '<span class="pv-dim">No username set</span>';
 
   return `<div class="pv-card" data-id="${esc(p._id)}">
-    <img class="pv-avatar" src="${avatarUrl}" alt="" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+    <img class="pv-avatar" src="${avatarUrl}" alt=""${isRedactMode() ? '' : ` onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'"`}>
     <div class="pv-info">
       <div class="pv-name-row">
         <span class="pv-name">${esc(p.display_name || '(unnamed)')}</span>

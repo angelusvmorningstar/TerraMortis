@@ -38,6 +38,26 @@ export function redactCharName(s) {
   return isRedactMode() ? _blockOut(s, 8, 14) : s;
 }
 
+/** Generic black-square avatar used in dev mode to redact Discord pics.
+ *  Inline SVG data URL so no network call is made. */
+const REDACTED_AVATAR =
+  'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+    '<rect width="64" height="64" fill="#000"/>' +
+    '</svg>'
+  );
+
+/** Return a Discord CDN avatar URL, or the generic redacted block in dev mode.
+ *  discordId / avatarHash may be null — falls back to Discord's default avatar
+ *  set (embed/avatars/0.png) in normal mode. */
+export function discordAvatarUrl(discordId, avatarHash, size = 64) {
+  if (isRedactMode()) return REDACTED_AVATAR;
+  if (discordId && avatarHash) {
+    return `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.png?size=${size}`;
+  }
+  return 'https://cdn.discordapp.com/embed/avatars/0.png';
+}
+
 const CLAN_ICON_KEY = {
   Daeva: 'daeva',
   Gangrel: 'gangrel',

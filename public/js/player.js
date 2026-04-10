@@ -2,7 +2,7 @@
 
 import { apiGet } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
-import { esc, displayName, sortName } from './data/helpers.js';
+import { esc, displayName, sortName, discordAvatarUrl } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
@@ -66,9 +66,11 @@ function renderSidebarUser() {
 
   const el = document.getElementById('sidebar-user');
   const name = esc(user.global_name || user.username);
-  const avatarUrl = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
-    : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
+  const avatarUrl = user.role === 'dev'
+    ? discordAvatarUrl(null, null)
+    : user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
+      : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
 
   // Show ST Admin link for dual-role users
   if (getUser()?.role === 'st') {
