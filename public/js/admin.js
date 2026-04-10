@@ -185,7 +185,29 @@ document.getElementById('sidebar').addEventListener('click', e => {
   const btn = e.target.closest('.sidebar-btn');
   if (!btn) return;
   switchDomain(btn.dataset.domain);
+  // Auto-collapse sidebar on tablet after selecting a domain
+  if (window.innerWidth <= 1024) {
+    document.getElementById('admin-app').classList.add('sb-collapsed');
+  }
 });
+
+// ── Sidebar collapse ──
+
+{
+  const SB_KEY = 'tm_sidebar_collapsed';
+  const appEl = document.getElementById('admin-app');
+  if (localStorage.getItem(SB_KEY) === '1' || (window.innerWidth <= 1024 && localStorage.getItem(SB_KEY) !== '0')) {
+    appEl.classList.add('sb-collapsed');
+  }
+  document.getElementById('sb-close').addEventListener('click', () => {
+    appEl.classList.add('sb-collapsed');
+    localStorage.setItem(SB_KEY, '1');
+  });
+  document.getElementById('sb-open').addEventListener('click', () => {
+    appEl.classList.remove('sb-collapsed');
+    localStorage.setItem(SB_KEY, '0');
+  });
+}
 
 // ── Audit badges: error + warning icons with counts and hover breakdown ──
 
