@@ -161,8 +161,13 @@ export function applyDerivedMerits(c) {
       ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0) + (fs.up||0)) >= 1
     );
     if (!hasStyle) return;
-    const m = (c.merits || []).find(m => m.name === 'Retainer' && m.granted_by === styleName);
-    if (!m) return;
+    let m = (c.merits || []).find(m => m.name === 'Retainer' && m.granted_by === styleName);
+    if (!m) {
+      const area = styleName === 'K-9' ? 'Dog' : 'Falcon';
+      if (!c.merits) c.merits = [];
+      m = { name: 'Retainer', category: 'influence', rating: 0, area, granted_by: styleName };
+      c.merits.push(m);
+    }
     m.free = 1;
   });
 
