@@ -3236,6 +3236,7 @@ body {
 .tk-edit-error { color: var(--crim); font-size: 12px; margin: 6px 0; }
 .tk-btn-save { background: none; border: 1px solid var(--gold2); color: var(--gold2); font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 16px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
 .tk-btn-save:hover { background: rgba(224,196,122,0.12); }
+.tk-edit-hint { font-family: var(--fh); font-size: 10px; letter-spacing: .04em; color: var(--gold2); opacity: .6; }
 
 /* ── Responsive ── */
 
