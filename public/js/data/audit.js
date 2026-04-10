@@ -153,31 +153,85 @@ export function auditCharacter(c) {
   if (!c.mask) warnings.push({ gate: 'no_mask', message: 'Mask not set' });
   if (!c.dirge) warnings.push({ gate: 'no_dirge', message: 'Dirge not set' });
 
-  // ── MCI tier grants ──
+  // ── MCI allocation ──
+  // Each MCI has 5 tiers (capped at the merit's rating). Tiers 2 and 4 always
+  // grant merits; tiers 1, 3 and 5 grant either merits or an alternative
+  // (specialisation, skill dot, advantage) depending on dotN_choice. Every
+  // grant tier needs a fully-specified entry: a tier_grants record (with
+  // qualifier where required) for merit grants, or the dotN_skill / dotN_text
+  // fields for the alternates. Anything missing is a hard error.
   const MCI_TIER_BUDGET = [0, 1, 1, 2, 3, 3];
   for (const m of (c.merits || [])) {
     if (m.name !== 'Mystery Cult Initiation' || m.active === false) continue;
     const rating = m.rating || 0;
+    if (rating === 0) continue;
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
     const tg = m.tier_grants || [];
-    // Check tier over-budget
+    const tgByTier = new Map(tg.map(g => [g.tier, g]));
+    const cultLbl = m.cult_name ? ` (${m.cult_name})` : '';
+
+    // Tier over-budget (existing check)
     for (const g of tg) {
       const budget = MCI_TIER_BUDGET[g.tier] || 0;
       if (g.rating > budget) {
-        errors.push({ gate: 'mci_tier_over', message: `MCI tier ${g.tier}: ${g.name} (${g.rating}) exceeds budget (${budget})`, detail: { tier: g.tier, merit: g.name } });
+        errors.push({ gate: 'mci_tier_over', message: `MCI${cultLbl} tier ${g.tier}: ${g.name} (${g.rating}) exceeds budget (${budget})`, detail: { tier: g.tier, merit: g.name } });
       }
     }
-    // Check unassigned merit tiers
-    const meritTiers = [];
-    if (rating >= 1 && d1c === 'merits') meritTiers.push(1);
-    if (rating >= 2) meritTiers.push(2);
-    if (rating >= 3 && d3c === 'merits') meritTiers.push(3);
-    if (rating >= 4) meritTiers.push(4);
-    if (rating >= 5 && d5c === 'merits') meritTiers.push(5);
-    const assigned = new Set(tg.map(t => t.tier));
-    const unassigned = meritTiers.filter(t => !assigned.has(t));
-    if (unassigned.length) {
-      warnings.push({ gate: 'mci_unassigned', message: `MCI${m.cult_name ? ' (' + m.cult_name + ')' : ''}: tier${unassigned.length > 1 ? 's' : ''} ${unassigned.join(', ')} unassigned`, detail: { tiers: unassigned } });
+
+    // Per-tier completeness
+    const missingTiers = [];
+    const checkMeritTier = (tier) => {
+      const g = tgByTier.get(tier);
+      if (!g || !g.name) { missingTiers.push(tier); return; }
+      if ((g.name === 'Allies' || g.name === 'Status') && !g.qualifier) missingTiers.push(tier);
+    };
+    if (rating >= 1) {
+      if (d1c === 'speciality') {
+        if (!m.dot1_spec_skill || !m.dot1_spec) missingTiers.push(1);
+      } else checkMeritTier(1);
+    }
+    if (rating >= 2) checkMeritTier(2);
+    if (rating >= 3) {
+      if (d3c === 'skill') {
+        if (!m.dot3_skill) missingTiers.push(3);
+      } else checkMeritTier(3);
+    }
+    if (rating >= 4) checkMeritTier(4);
+    if (rating >= 5) {
+      if (d5c === 'advantage') {
+        if (!m.dot5_text) missingTiers.push(5);
+      } else checkMeritTier(5);
+    }
+    if (missingTiers.length) {
+      errors.push({
+        gate: 'mci_unallocated',
+        message: `MCI${cultLbl} not properly allocated (tier${missingTiers.length > 1 ? 's' : ''} ${missingTiers.join(', ')})`,
+        detail: { tiers: missingTiers },
+      });
+    }
+  }
+
+  // ── Professional Training allocation ──
+  // PT requires Asset Skill picks at rating 2 (slots 0/1), rating 3 (slot 2),
+  // and a dot4_skill choice at rating 4 that must match one of the chosen
+  // asset skills. Missing slots are a hard error.
+  for (const m of (c.merits || [])) {
+    if (m.name !== 'Professional Training' || m.active === false) continue;
+    const rating = m.rating || 0;
+    if (rating === 0) continue;
+    const as = m.asset_skills || [];
+    const validAs = as.filter(Boolean);
+    const roleLbl = m.role ? ` (${m.role})` : '';
+    const missing = [];
+    if (rating >= 2 && (!as[0] || !as[1])) missing.push('Asset Skills 1/2');
+    if (rating >= 3 && !as[2]) missing.push('3rd Asset Skill');
+    if (rating >= 4 && (!m.dot4_skill || !validAs.includes(m.dot4_skill))) missing.push('On-the-Job Training skill');
+    if (missing.length) {
+      errors.push({
+        gate: 'pt_unallocated',
+        message: `PT${roleLbl} skills not properly allocated: ${missing.join(', ')}`,
+        detail: { missing },
+      });
     }
   }
 
