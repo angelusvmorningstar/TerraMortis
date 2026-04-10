@@ -1,0 +1,600 @@
+[
+  {
+    "_id": {
+      "$oid": "69d3a503268a60765e441362"
+    },
+    "discord_id": "000000000000000000",
+    "discord_username": "robkwan_99",
+    "display_name": "Robert Kwan",
+    "role": "st",
+    "character_ids": [
+      {
+        "$oid": "69d3a503268a60765e441361"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-06T12:20:19.582Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69d3a503268a60765e441363"
+    },
+    "discord_id": "000000000000000000",
+    "discord_username": "lead_st",
+    "display_name": "Lead ST",
+    "role": "st",
+    "character_ids": [],
+    "ordeals": {},
+    "created_at": "2026-04-06T12:20:19.582Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ac6"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Darren Pope",
+    "role": "st",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99625a"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-05T23:54:13.613Z",
+    "discord_username": null
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ac7"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Ethan Drake",
+    "role": "st",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996251"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-02T02:13:27.630Z",
+    "discord_username": null
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ac8"
+    },
+    "discord_id": null,
+    "display_name": "Sarah Mitchell",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99624b"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "smitch_22"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ac9"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Jenny Park",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99624c"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-04T04:54:56.994Z",
+    "discord_username": "jenp_games"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4aca"
+    },
+    "discord_id": null,
+    "display_name": "Danielle Ford",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99624d"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "dford_x"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4acb"
+    },
+    "discord_id": null,
+    "display_name": "Marcus Webb",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99624e"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "mwebb_01"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4acc"
+    },
+    "discord_id": null,
+    "display_name": "Tom Elliot",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99624f"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "telliot_rpg"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4acd"
+    },
+    "discord_id": null,
+    "display_name": "Owen Bright",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996250"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "obright_42"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ace"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Frank Niles",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996252"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-04T04:14:42.055Z",
+    "discord_username": "fniles_77"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4acf"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Roger Hale",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996253"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-05T07:16:23.235Z",
+    "discord_username": "rhale_dev"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad0"
+    },
+    "discord_id": null,
+    "display_name": "Callum Yorke",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996254"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "cyorke_larp"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad1"
+    },
+    "discord_id": null,
+    "display_name": "Dean Shaw",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996255"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "dshaw_88"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad2"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Priya Anand",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996256"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-04T10:57:11.554Z",
+    "discord_username": "panand_3"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad3"
+    },
+    "discord_id": null,
+    "display_name": "Grace Molloy",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996257"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "gmolloy_9"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad4"
+    },
+    "discord_id": null,
+    "display_name": "Sam Whittle",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996258"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "swhittle_55"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad5"
+    },
+    "discord_id": null,
+    "display_name": "Liam Voss",
+    "role": "player",
+    "character_ids": [
+      "69ce0ae3318c36dbbd088dc3"
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad7"
+    },
+    "discord_id": null,
+    "display_name": "Wendy Lau",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99625c"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "wlau_design"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad8"
+    },
+    "discord_id": null,
+    "display_name": "Tess Underwood",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99625d"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "tunderwood_94"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ad9"
+    },
+    "discord_id": null,
+    "display_name": "Alex Barlow",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99625e"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "abarlow_eg"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ada"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Megan Cross",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb99625f"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-05T07:44:26.911Z",
+    "discord_username": "mcross_tea"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4adb"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Nina Reeves",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996260"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-04T06:43:27.845Z",
+    "discord_username": "nreeves_jb"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4adc"
+    },
+    "discord_id": null,
+    "display_name": "Dylan Fraser",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996261"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "dfraser_kw"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4add"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Hannah Ortiz",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996262"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-04T10:22:31.401Z",
+    "discord_username": "hortiz_dv"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ade"
+    },
+    "discord_id": null,
+    "display_name": "Joel Finch",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996263"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "jfinch_44"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4adf"
+    },
+    "discord_id": "000000000000000000",
+    "display_name": "Brendan Cole",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996264"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": "2026-04-04T05:13:27.673Z",
+    "discord_username": "bcole_c4"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ae0"
+    },
+    "discord_id": null,
+    "display_name": "Rebecca Tan",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996265"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "rtan_100"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ae1"
+    },
+    "discord_id": null,
+    "display_name": "Sienna Hart",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996266"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "shart_pb"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ae2"
+    },
+    "discord_id": null,
+    "display_name": "Vincent Chau",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996267"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "vchau_85"
+  },
+  {
+    "_id": {
+      "$oid": "69cce5a2aa132fdfb0dc4ae4"
+    },
+    "discord_id": null,
+    "display_name": "Chloe Barrett",
+    "role": "player",
+    "character_ids": [
+      {
+        "$oid": "69cf7da860b712b5eb996269"
+      }
+    ],
+    "ordeals": {},
+    "created_at": "2026-04-01T09:30:10.904Z",
+    "last_login": null,
+    "discord_username": "cbarrett_am"
+  },
+  {
+    "_id": {
+      "$oid": "69d0de6b8479c4e56c0b8269"
+    },
+    "discord_id": null,
+    "discord_username": null,
+    "display_name": "No Discord",
+    "role": "player",
+    "character_ids": [],
+    "ordeals": {},
+    "created_at": "2026-04-04T09:48:27.069Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69d2ffc6bd33d244eb2b71dd"
+    },
+    "discord_id": null,
+    "discord_username": "azure_851",
+    "display_name": "Azure",
+    "role": "player",
+    "character_ids": [],
+    "ordeals": {},
+    "created_at": "2026-04-06T00:35:18.510Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69d5f16f6786a1d4e917622e"
+    },
+    "discord_id": null,
+    "discord_username": null,
+    "display_name": "No Discord",
+    "role": "player",
+    "character_ids": [],
+    "ordeals": {},
+    "created_at": "2026-04-08T06:10:55.816Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69d5f1782a17f36a8d404bd1"
+    },
+    "discord_id": null,
+    "discord_username": null,
+    "display_name": "No Discord",
+    "role": "player",
+    "character_ids": [],
+    "ordeals": {},
+    "created_at": "2026-04-08T06:11:04.545Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69d5f1870e0de3dbfe67ceb6"
+    },
+    "discord_id": null,
+    "discord_username": null,
+    "display_name": "No Discord",
+    "role": "player",
+    "character_ids": [],
+    "ordeals": {},
+    "created_at": "2026-04-08T06:11:19.084Z",
+    "last_login": null
+  },
+  {
+    "_id": {
+      "$oid": "69d5f190f97a4b2de0f1c45c"
+    },
+    "discord_id": null,
+    "discord_username": null,
+    "display_name": "No Discord",
+    "role": "player",
+    "character_ids": [],
+    "ordeals": {},
+    "created_at": "2026-04-08T06:11:28.597Z",
+    "last_login": null
+  }
+]
