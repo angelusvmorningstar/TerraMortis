@@ -16,7 +16,7 @@
 
 import { xpEarned, xpSpent, xpLeft, xpSpentAttrs, xpSpentSkills,
          xpSpentMerits, xpSpentPowers, xpSpentSpecial, meritRating } from '../editor/xp.js';
-import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './constants.js';
+import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS, CORE_DISCS, RITUAL_DISCS } from './constants.js';
 import { isInClanDisc } from './accessors.js';
 import { meetsPrereq } from './prereq.js';
 import { getRuleByKey } from './loader.js';
@@ -94,8 +94,11 @@ export function auditCharacter(c) {
 
   // ── Discipline CP (3 total, max 1 out-of-clan) ──
   // Cruac and Theban are always out-of-clan per house rule.
+  // Only count valid purchasable disciplines (CORE_DISCS + RITUAL_DISCS).
+  const _validDiscs = new Set([...CORE_DISCS, ...RITUAL_DISCS]);
   let discCPIn = 0, discCPOut = 0;
   for (const [d, v] of Object.entries(c.disciplines || {})) {
+    if (!_validDiscs.has(d)) continue;
     const cp = v?.cp || 0;
     if (isInClanDisc(c, d)) discCPIn += cp;
     else discCPOut += cp;
