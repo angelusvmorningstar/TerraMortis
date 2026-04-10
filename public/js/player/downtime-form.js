@@ -10,7 +10,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName, parseOutcomeSections } from '../data/helpers.js';
+import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
@@ -1577,8 +1577,8 @@ function openCastModal(slotId, container) {
     h += `<label class="dt-cast-item${isAtt ? ' dt-cast-att' : ''}" data-att="${isAtt ? '1' : '0'}">`;
     h += `<div class="dt-cast-avatar">${initials}</div>`;
     h += '<div class="dt-cast-info">';
-    h += `<div class="dt-cast-charname">${esc(c.name)}</div>`;
-    if (c.player) h += `<div class="dt-cast-player">${esc(c.player)}</div>`;
+    h += `<div class="dt-cast-charname">${esc(redactCharName(c.name))}</div>`;
+    if (c.player) h += `<div class="dt-cast-player">${esc(redactPlayer(c.player))}</div>`;
     h += '</div>';
     h += `<input type="checkbox" class="dt-cast-check" value="${esc(String(c.id))}"${checked}>`;
     h += '</label>';

@@ -4,7 +4,7 @@
  * Uses same localStorage keys as the suite tracker for cross-app compatibility.
  */
 
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, redactPlayer } from '../data/helpers.js';
 import { calcVitaeMax, calcWillpowerMax, influenceTotal } from '../data/accessors.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 
@@ -151,7 +151,7 @@ function render() {
     h += `<div class="st-admin-row-hdr">`;
     h += `<div><div class="st-admin-name">${esc(displayName(c))}</div>`;
     h += `<div class="st-admin-meta">${esc(c.clan || '')}${c.bloodline ? ' \u00B7 ' + esc(c.bloodline) : ''} \u00B7 ${esc(c.covenant || '')}</div></div>`;
-    h += `<div class="st-admin-meta">${esc(c.player || '')}</div>`;
+    h += `<div class="st-admin-meta">${esc(redactPlayer(c.player || ''))}</div>`;
     h += `<button class="st-admin-dismiss" data-dismiss="${en}">\u2715</button>`;
     h += `</div>`;
 

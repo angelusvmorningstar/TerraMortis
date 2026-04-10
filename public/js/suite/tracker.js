@@ -7,7 +7,7 @@
 
 
 import state from './data.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, redactPlayer } from '../data/helpers.js';
 import { getAttrVal, influenceTotal, calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
 
 // ══════════════════════════════════════════════
@@ -184,7 +184,7 @@ function renderStOverview() {
           <div class="st-char-name">${displayName(c)}</div>
           <div class="st-char-meta">${c.clan || ''}${c.bloodline ? ' · ' + c.bloodline : ''} · ${c.covenant || ''}</div>
         </div>
-        <div class="st-char-meta" style="margin-right:6px;">${c.player || ''}</div>
+        <div class="st-char-meta" style="margin-right:6px;">${redactPlayer(c.player || '')}</div>
         <button class="st-char-dismiss" onclick="stDismiss('${escapedName}')">✕</button>
       </div>
       <div class="st-char-trackers">

@@ -7,7 +7,7 @@ import { auditCharacter } from './data/audit.js';
 import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
-import { esc, clanIcon, covIcon, shortCov, displayName, sortName } from './data/helpers.js';
+import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
@@ -142,9 +142,13 @@ function renderSidebarUser() {
   const playerLink = info?.is_dual_role
     ? `<a href="player" class="sidebar-player-link">My Character</a>`
     : '';
+  const devBadge = info?.role === 'dev'
+    ? `<span class="sidebar-dev-badge" title="Dev mode — character and player names are redacted in the UI">DEV MODE</span>`
+    : '';
 
   el.innerHTML = `<img class="sidebar-avatar" src="${avatarUrl}" alt="">` +
     `<span class="sidebar-username">${name}</span>` +
+    `${devBadge}` +
     `${playerLink}` +
     `<button class="sidebar-logout" id="logout-btn">Log out</button>`;
 
@@ -292,7 +296,7 @@ function renderCharGrid() {
     return `<div class="char-card${c.retired ? ' retired' : ''}${unlinked ? ' unlinked' : ''}" data-id="${c._id}">
       <div class="cc-top">
         <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
-        <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(c.player || '')}</span></div>
+        <div class="cc-identity"><span class="cc-name">${esc(displayName(c))}</span><br><span class="cc-player">${esc(redactPlayer(c.player || ''))}</span></div>
         ${auditBadges}
       </div>
       <div class="cc-mid">
@@ -343,7 +347,7 @@ function openCharDetail(c) {
   panel.innerHTML = `
     <div class="cd-header">
       <h3 class="cd-name">${esc(displayName(c))}</h3>
-      <span class="cd-player">${esc(c.player || '')}</span>
+      <span class="cd-player">${esc(redactPlayer(c.player || ''))}</span>
       <div class="cd-header-actions">
         <span class="cd-dirty-badge" id="cd-dirty-badge" style="display:none">Unsaved</span>
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>

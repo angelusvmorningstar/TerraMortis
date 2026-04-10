@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════
 
 import state from './data.js';
-import { displayName, getWillpower } from '../data/helpers.js';
+import { displayName, getWillpower, redactPlayer } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   SORCERY_THEMES, RITUAL_DISCS, CORE_DISCS,
@@ -68,7 +68,7 @@ export function renderSheet() {
   <div class="sh-namerow">
     <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
-      <span class="sh-char-player">${c.player || ''}</span>
+      <span class="sh-char-player">${redactPlayer(c.player || '')}</span>
       <span class="sh-xp-badge">XP ${xpLeft(c)}/${c.xp_total != null ? c.xp_total : '?'}</span>
     </div>
   </div>

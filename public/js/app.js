@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY, displayName, sortName } from './data/helpers.js';
+import { CLAN_ICON_KEY, displayName, sortName, redactPlayer } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -352,7 +352,7 @@ function openPanel(mode) {
     charList.forEach(c => {
       const el = document.createElement('div');
       el.className = 'panel-item';
-      el.innerHTML = `<div><div class="pi-main">${displayName(c)}</div><div class="pi-sub">${c.clan || ''} \u00B7 ${c.covenant || ''}</div></div><div class="pi-badge">${c.player || ''}</div>`;
+      el.innerHTML = `<div><div class="pi-main">${displayName(c)}</div><div class="pi-sub">${c.clan || ''} \u00B7 ${c.covenant || ''}</div></div><div class="pi-badge">${redactPlayer(c.player || '')}</div>`;
       el.addEventListener('click', () => { pickChar(c); closePanel(); });
       body.appendChild(el);
     });

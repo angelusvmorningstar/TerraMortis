@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
-import { requireRole } from '../middleware/auth.js';
+import { requireRole, isStRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { historyResponseSchema } from '../schemas/questionnaire.schema.js';
 
@@ -119,11 +119,11 @@ router.put('/:id', async (req, res) => {
   if (req.body.status === 'submitted') {
     updates.status = 'submitted';
     updates.submitted_at = updates.updated_at;
-  } else if (req.body.status === 'approved' && req.user.role === 'st') {
+  } else if (req.body.status === 'approved' && isStRole(req.user)) {
     updates.status = 'approved';
     updates.approved_at = updates.updated_at;
   } else if (req.body.status === 'draft') {
-    if (existing.status !== 'approved' || req.user.role === 'st') {
+    if (existing.status !== 'approved' || isStRole(req.user)) {
       updates.status = 'draft';
     }
   }

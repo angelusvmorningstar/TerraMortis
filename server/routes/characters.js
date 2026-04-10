@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
-import { requireRole } from '../middleware/auth.js';
+import { requireRole, isStRole } from '../middleware/auth.js';
 import { validateCharacter, validateCharacterPartial } from '../middleware/validateCharacter.js';
 
 const router = Router();
@@ -28,7 +28,7 @@ function parseId(id) {
 // GET /api/characters — ST gets all, player gets only their characters
 // ?mine=1 forces the player-only path for any role (used by player portal)
 router.get('/', async (req, res) => {
-  if (req.user.role === 'st' && !req.query.mine) {
+  if (isStRole(req.user) && !req.query.mine) {
     const chars = await col().find().toArray();
     return res.json(chars);
   }

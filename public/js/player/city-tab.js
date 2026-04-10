@@ -4,7 +4,7 @@
  */
 
 import { apiGet } from '../data/api.js';
-import { esc, displayName, sortName } from '../data/helpers.js';
+import { esc, displayName, sortName, redactPlayer } from '../data/helpers.js';
 import { clanIcon, covIcon } from '../data/helpers.js';
 
 export async function renderCityTab(el) {
@@ -96,7 +96,7 @@ export async function renderCityTab(el) {
     h += '<div class="city-char-list">';
     for (const c of sorted) {
       h += '<div class="city-char-row">';
-      h += `<span class="city-char-name">${esc(displayName(c))}${c.player ? ` <span class="city-char-player">(${esc(c.player)})</span>` : ''}</span>`;
+      h += `<span class="city-char-name">${esc(displayName(c))}${c.player ? ` <span class="city-char-player">(${esc(redactPlayer(c.player))})</span>` : ''}</span>`;
       h += '<span class="city-char-meta">';
       if (c.clan) h += `${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span>`;
       if (c.court_title) h += `<span class="city-char-position">${esc(c.court_title)}</span>`;

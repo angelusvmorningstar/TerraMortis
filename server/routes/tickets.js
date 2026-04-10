@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { validate } from '../middleware/validate.js';
+import { isStRole } from '../middleware/auth.js';
 import { ticketSchema } from '../schemas/ticket.schema.js';
 
 const router = Router();
@@ -17,7 +18,7 @@ function parseId(id) {
 
 // GET /api/tickets — players see only their own; STs see all
 router.get('/', async (req, res) => {
-  const filter = req.user.role === 'st' ? {} : { player_id: req.user.player_id };
+  const filter = isStRole(req.user) ? {} : { player_id: req.user.player_id };
   const tickets = await col().find(filter).sort({ created_at: -1 }).toArray();
   res.json(tickets);
 });

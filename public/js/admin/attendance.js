@@ -5,7 +5,7 @@
  */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, redactPlayer } from '../data/helpers.js';
 
 let chars = [];
 let sessions = [];
@@ -178,7 +178,7 @@ function renderGrid() {
     const absentClass = a.attended ? '' : ' att-absent';
 
     html += `<tr class="att-row${absentClass}">
-      <td class="att-player-name">${esc(playerName)}</td>
+      <td class="att-player-name">${esc(redactPlayer(playerName))}</td>
       <td class="att-char-name">${esc(charDisplay)}</td>
       <td class="att-check"><input type="checkbox" ${a.attended ? 'checked' : ''} onchange="attUpdate(${i},'attended',this.checked)"></td>
       <td class="att-check"><input type="checkbox" ${a.costuming ? 'checked' : ''} onchange="attUpdate(${i},'costuming',this.checked)"></td>

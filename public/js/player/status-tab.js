@@ -12,7 +12,7 @@
  */
 
 import { apiGet } from '../data/api.js';
-import { esc, displayName, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer } from '../data/helpers.js';
 
 const CDN = 'https://cdn.discordapp.com';
 
@@ -39,7 +39,7 @@ function renderRow(c, val, rank, isMe) {
     <img class="status-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
     <div class="status-name-wrap">
       <div class="status-name">${esc(displayName(c))}</div>
-      ${c.player ? `<div class="status-player">${esc(c.player)}</div>` : ''}
+      ${c.player ? `<div class="status-player">${esc(redactPlayer(c.player))}</div>` : ''}
     </div>
     <span class="status-dots">${statusDots(val)}</span>
     <span class="status-val">${val}</span>

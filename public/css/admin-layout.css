@@ -270,6 +270,19 @@ body {
 
 .sidebar-player-link:hover { opacity: 1; }
 
+.sidebar-dev-badge {
+  display: inline-block;
+  font-family: var(--fh);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #fff;
+  background: rgba(180, 40, 40, 0.85);
+  padding: 2px 7px;
+  border-radius: 2px;
+  margin: 4px 8px;
+  cursor: help;
+}
+
 /* ── Character grid — desktop widths ── */
 
 .char-grid {

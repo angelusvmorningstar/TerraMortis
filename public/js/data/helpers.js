@@ -2,6 +2,41 @@
 
 import { ICONS } from './icons.js';
 import { ARCHETYPES_DB } from './constants.js';
+import { getRole } from '../auth/discord.js';
+
+/* ── Dev-mode redaction ────────────────────────────────────
+   The 'dev' role has full ST-equivalent access but every character and
+   player name shown in the UI is replaced with a black block so the
+   developer can work on the app without seeing real player PII.
+   Redaction happens at the display-helper level; underlying data on
+   the character objects is untouched so lookups, sorts, and API
+   round-trips all still work. */
+
+const REDACT_BLOCK = '\u2588';
+
+export function isRedactMode() {
+  return getRole() === 'dev';
+}
+
+/** Replace a name-like string with a block-character placeholder.
+ *  Length is clamped so layout stays stable without revealing exact length. */
+function _blockOut(s, min = 8, max = 14) {
+  if (s == null || s === '') return s;
+  const len = Math.max(min, Math.min(max, String(s).length));
+  return REDACT_BLOCK.repeat(len);
+}
+
+/** Wrap a raw player-name string for display. Returns the original string
+ *  for non-dev roles; otherwise returns a block-character redaction. */
+export function redactPlayer(s) {
+  return isRedactMode() ? _blockOut(s, 6, 12) : s;
+}
+
+/** Wrap a raw character-name string for display (use when you need to show
+ *  a name that didn't come through displayName(c) — e.g. legacy lookups). */
+export function redactCharName(s) {
+  return isRedactMode() ? _blockOut(s, 8, 14) : s;
+}
 
 const CLAN_ICON_KEY = {
   Daeva: 'daeva',
@@ -43,13 +78,15 @@ export function shDotsWithBonus(base, bonus) {
   return '\u25CF'.repeat(base) + '\u25CB'.repeat(bonus);
 }
 
-/** Display name: honorific + (moniker || name) */
+/** Display name: honorific + (moniker || name). Redacted in dev mode. */
 export function displayName(c) {
   const base = c.moniker || c.name;
-  return c.honorific ? c.honorific + ' ' + base : base;
+  const raw = c.honorific ? c.honorific + ' ' + base : base;
+  return isRedactMode() ? _blockOut(raw, 10, 16) : raw;
 }
 
-/** Sort key: moniker || name (no honorific) */
+/** Sort key: moniker || name (no honorific). Not redacted — used only for
+ *  internal sort order, never rendered to the DOM. */
 export function sortName(c) {
   return (c.moniker || c.name).toLowerCase();
 }

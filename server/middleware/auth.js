@@ -57,10 +57,26 @@ export async function requireAuth(req, res, next) {
   next();
 }
 
+/**
+ * "dev" is a privacy-redacted ST role — full read/write access, but the
+ * client UI redacts character and player names. For access-control
+ * purposes it's equivalent to 'st' everywhere.
+ */
+export function isStRole(user) {
+  const r = user?.role;
+  return r === 'st' || r === 'dev';
+}
+
 // Role gate middleware — use after requireAuth
 export function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    const role = req.user?.role;
+    if (!role) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'Insufficient role' });
+    }
+    // dev is treated as st for all access checks
+    const effective = roles.includes('st') && !roles.includes('dev') ? [...roles, 'dev'] : roles;
+    if (!effective.includes(role)) {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Insufficient role' });
     }
     next();
