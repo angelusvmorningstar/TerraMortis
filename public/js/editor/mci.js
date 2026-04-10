@@ -124,8 +124,9 @@ export function applyDerivedMerits(c) {
   // to be pruned on every render. Only sync when inline fields are present (legacy JSON data
   // only has rating, no cp/xp, and must not be overwritten with 0).
   for (const mci of mcis) {
-    if (mci.cp !== undefined || mci.xp !== undefined) {
-      mci.rating = (mci.cp || 0) + (mci.xp || 0) + (mci.free || 0);
+    const _inlineTotal = (mci.cp || 0) + (mci.xp || 0) + (mci.free || 0);
+    if (_inlineTotal > 0) {
+      mci.rating = _inlineTotal;
     }
   }
   // Collect free specialisations granted by active MCIs at dot 1
