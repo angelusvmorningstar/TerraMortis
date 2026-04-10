@@ -118,6 +118,16 @@ export function applyDerivedMerits(c) {
 
   // ── MCI grant pools ──
   const mcis = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation');
+  // Sync MCI rating from inline creation fields. MCI is excluded from the general merit sync
+  // (edit.js ensureMeritSync skips it), but rating must be accurate for tier grant pruning and
+  // pool calculations. The ingest script sets cp/xp but leaves rating at 0, causing tier grants
+  // to be pruned on every render. Only sync when inline fields are present (legacy JSON data
+  // only has rating, no cp/xp, and must not be overwritten with 0).
+  for (const mci of mcis) {
+    if (mci.cp !== undefined || mci.xp !== undefined) {
+      mci.rating = (mci.cp || 0) + (mci.xp || 0) + (mci.free || 0);
+    }
+  }
   // Collect free specialisations granted by active MCIs at dot 1
   mcis.filter(m => m.active !== false && (m.rating || 0) >= 1 && m.dot1_choice === 'speciality').forEach(m => {
     if (m.dot1_spec_skill && m.dot1_spec) c._mci_free_specs.push({ skill: m.dot1_spec_skill, spec: m.dot1_spec });
