@@ -627,7 +627,13 @@ export function shRenderDomainMerits(c, editMode) {
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c);
     domM.forEach((m, di) => {
       const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di), tOpts = DOMAIN_MERIT_TYPES.filter(t => t !== 'Herd' || !hTk || m.name === 'Herd').map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + esc(t) + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.xp || 0), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = chars.filter(ch => ch.name !== c.name && !parts.includes(ch.name));
-      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + shDots(dd) + '</span><span class="dom-total-lbl" title="Total across all contributors">Total: ' + shDots(eT) + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      // Total display: own dots filled + partner contribution hollow.
+      // Cap own at the total so a single character can't double-paint dots
+      // beyond the merit's effective rating.
+      const _ownCapped = Math.min(dd, eT);
+      const _partnerDots = Math.max(0, eT - _ownCapped);
+      const _totalDots = _partnerDots > 0 ? shDotsMixed(_ownCapped, _partnerDots) : shDots(eT);
+      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + shDots(dd) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit }); h += _prereqWarn(c, m.name);
       if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
@@ -642,7 +648,11 @@ export function shRenderDomainMerits(c, editMode) {
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
       const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, dPurch = (ssjB > 0 || flockB > 0) ? _dRaw : Math.min(5, _dRaw);
       const dotHtml = (ssjB > 0 || flockB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="merit-dots-sh">' + shDots(de) + '</span>';
-      h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (dp ? '<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</div>' : '') + '</div><div style="text-align:right">' + (dp ? '<div class="dom-total-view">' + shDots(de) + '</div><div class="dom-own-view">mine: ' + shDots(dO) + '</div>' : dotHtml) + '</div></div>';
+      // Shared display: own dots filled + partner contribution hollow.
+      const _shOwn = Math.min(dO, de);
+      const _shPart = Math.max(0, de - _shOwn);
+      const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
+      h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (dp ? '<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</div>' : '') + '</div><div style="text-align:right">' + (dp ? _shHtml : dotHtml) + '</div></div>';
     });
   }
   h += '</div></div>'; return h;
