@@ -1,6 +1,6 @@
 # Story Fix.2: Area of Expertise — Qualifier-Matched +2 Bonus
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -159,3 +159,7 @@ _To be filled by dev agent_
 
 ## Change Log
 _To be filled by dev agent_
+
+### Review Findings
+
+- [x] [Review][Defer] Bloodline grants persist to DB after first character save [mci.js applyDerivedMerits()] — deferred, pre-existing pattern; intentional design consistent with MCI/PT/K-9/OHM grants
