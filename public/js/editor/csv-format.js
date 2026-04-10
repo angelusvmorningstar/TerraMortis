@@ -11,7 +11,7 @@ import { xpLeft, xpEarned } from './xp.js';
 import { getWillpower } from '../data/helpers.js';
 import { applyDerivedMerits } from './mci.js';
 import {
-  ALL_SKILLS, CLAN_BANES, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES
+  ALL_SKILLS, CLAN_BANES, CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
 
 // ── Formatting helpers ──
@@ -103,7 +103,6 @@ export const CSV_HEADERS = [
   'Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare',
   'Obfuscate', 'Protean', 'Resilience', 'Vigour',
   'Cruac', 'Theban',
-  'Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation',
   ...Array.from({ length: 30 }, (_, i) => `Blood ${i + 1}`),
   ...Array.from({ length: 30 }, (_, i) => `Blood Stats ${i + 1}`),
   ...Array.from({ length: 30 }, (_, i) => `Blood Effect ${i + 1}`),
@@ -285,11 +284,6 @@ export function charToRow(c) {
     const dots = discs[d]?.dots || 0;
     row.push(dots > 0 ? fmtDots(dots) : '-');
   }
-  for (const d of SORCERY_THEMES) {
-    const dots = discs[d]?.dots || 0;
-    row.push(dots > 0 ? fmtDots(dots) : '-');
-  }
-
   // Blood powers (30 slots — discipline powers, devotions, rites, pacts)
   const powers = c.powers || [];
   for (let i = 0; i < 30; i++) {

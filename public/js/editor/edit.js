@@ -376,19 +376,16 @@ export function shEditDiscPt(disc, field, val) {
   if (!c.disciplines) c.disciplines = {};
   if (!c.disciplines[disc]) c.disciplines[disc] = { dots: 0, cp: 0, free: 0, xp: 0, rule_key: null };
   val = Math.max(0, val || 0);
-  // Sorcery themes are unlocks, not CP-purchased — exclude from budget checks.
-  const SORCERY_THEMES = new Set(['Creation','Destruction','Divination','Protection','Transmutation']);
-  if (field === 'cp' && !SORCERY_THEMES.has(disc)) {
+  if (field === 'cp') {
     // Enforce: 3 total CP, max 1 out-of-clan CP.
-    // In-clan determined via isInClanDisc (clan/bloodline + covenant rituals).
     const isIC = isInClanDisc(c, disc);
     const otherCP = Object.entries(c.disciplines)
-      .filter(([d]) => d !== disc && !SORCERY_THEMES.has(d))
+      .filter(([d]) => d !== disc)
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     val = Math.min(val, 3 - otherCP);
     if (!isIC) {
       const otherOutCP = Object.entries(c.disciplines)
-        .filter(([d]) => d !== disc && !SORCERY_THEMES.has(d) && !isInClanDisc(c, d))
+        .filter(([d]) => d !== disc && !isInClanDisc(c, d))
         .reduce((s, [, v]) => s + (v.cp || 0), 0);
       val = Math.min(val, 1 - otherOutCP);
     }
@@ -397,9 +394,7 @@ export function shEditDiscPt(disc, field, val) {
   c.disciplines[disc][field] = val;
   const cr = c.disciplines[disc];
   const discBase = (cr.cp || 0) + (cr.free || 0);
-  // Cruac and Theban are always out-of-clan (4 XP/dot) regardless of covenant.
-  // All other disciplines use the standard in-clan (3/dot) vs out-of-clan (4/dot) rate.
-  const discCostMult = (disc === 'Cruac' || disc === 'Theban') ? 4 : isInClanDisc(c, disc) ? 3 : 4;
+  const discCostMult = isInClanDisc(c, disc) ? 3 : 4;
   cr.dots = discBase + xpToDots(cr.xp || 0, discBase, discCostMult);
   // Recalculate XP spent on disciplines
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };

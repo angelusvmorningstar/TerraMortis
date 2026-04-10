@@ -1,6 +1,6 @@
 /* Shared pool string parser — resolves discipline keys to dice pools */
 
-import { SORCERY_THEMES, RITUAL_DISCS } from '../suite/data.js';
+import { RITUAL_DISCS } from '../suite/data.js';
 import { getAttrVal, skDots } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { getRuleByKey } from '../data/loader.js';
@@ -8,16 +8,6 @@ import { getRuleByKey } from '../data/loader.js';
 /** Unskilled penalty: -3 for Mental skills, -1 for Physical/Social. */
 function unskilledPenalty(skillName) {
   return SKILLS_MENTAL.includes(skillName) ? -3 : -1;
-}
-
-/**
- * Check if a raw pool string targets a Sorcery theme.
- * Returns the theme name (e.g. 'Creation') or null.
- */
-export function isSorceryTheme(raw) {
-  const key = raw.includes('|') ? raw.split('|')[1].trim() : raw.trim();
-  const m = key.match(/^(Creation|Destruction|Divination|Protection|Transmutation)\s*●/);
-  return m ? m[1] : null;
 }
 
 /**
@@ -37,21 +27,6 @@ export function extractKey(raw) {
  * or { noRoll: true, info } for non-rollable disciplines, or null if unknown.
  */
 export function getPool(char, raw) {
-  const theme = isSorceryTheme(raw);
-  if (theme) {
-    const td = char.disciplines?.[theme]?.dots || 0;
-    const intel = getAttrVal(char, 'Intelligence');
-    const occ = skDots(char, 'Occult');
-    return {
-      total: intel + occ + td,
-      attr: 'Intelligence', attrV: intel,
-      skill: 'Occult', skillV: occ,
-      discName: theme, discV: td,
-      resistance: null,
-      cost: '1 V 1+ Suc', action: 'Ritual',
-      isRitual: true, info: {}
-    };
-  }
   const key = extractKey(raw);
 
   // Try rules cache first — discipline powers keyed by slug

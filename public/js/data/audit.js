@@ -93,16 +93,9 @@ export function auditCharacter(c) {
   }
 
   // ── Discipline CP (3 total, max 1 out-of-clan) ──
-  // In-clan determined via isInClanDisc: clan/bloodline list plus covenant
-  // rituals (Cruac for Circle of the Crone, Theban for Lancea et Sanctum) per
-  // VtR 2e Blood & Smoke. Sorcery themes (Creation, Destruction, Divination,
-  // Protection, Transmutation) are unlocked by Cruac dots, not purchased, so
-  // they're excluded from the CP budget.
-  const SORCERY_THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
-  const EXCLUDE_FROM_BUDGET = new Set(SORCERY_THEMES);
+  // Cruac and Theban are always out-of-clan per house rule.
   let discCPIn = 0, discCPOut = 0;
   for (const [d, v] of Object.entries(c.disciplines || {})) {
-    if (EXCLUDE_FROM_BUDGET.has(d)) continue;
     const cp = v?.cp || 0;
     if (isInClanDisc(c, d)) discCPIn += cp;
     else discCPOut += cp;
@@ -240,11 +233,9 @@ export function auditCharacter(c) {
   // grants that weren't properly tracked.
   //
   // Exemptions:
-  //   * Sorcery themes use `free` as the unlock bucket — never flagged.
   //   * Every attribute carries 1 base dot in `free`, plus 1 more on the
   //     clan-favoured attribute (base + favoured = 2 in `free`). Anything
   //     beyond that baseline is the genuinely-suspect "free" allocation.
-  const SORCERY_THEME_SET = EXCLUDE_FROM_BUDGET;
   const freeItems = [];
   for (const [a, v] of Object.entries(c.attributes || {})) {
     const isClan = c.clan_attribute === a;
@@ -257,7 +248,6 @@ export function auditCharacter(c) {
     if (f > 0) freeItems.push(`${s} (skill) +${f}`);
   }
   for (const [d, v] of Object.entries(c.disciplines || {})) {
-    if (SORCERY_THEME_SET.has(d)) continue;
     const f = v?.free || 0;
     if (f > 0) freeItems.push(`${d} (disc) +${f}`);
   }

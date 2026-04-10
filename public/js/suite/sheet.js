@@ -6,7 +6,7 @@ import state from './data.js';
 import { displayName, getWillpower, redactPlayer } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
-  SORCERY_THEMES, RITUAL_DISCS, CORE_DISCS,
+  RITUAL_DISCS, CORE_DISCS,
 } from './data.js';
 import { getRuleByKey } from '../data/loader.js';
 import { prereqLabel } from '../data/prereq.js';
@@ -304,7 +304,6 @@ export function renderSheet() {
     const discEntries = Object.entries(c.disciplines).filter(([, r]) => (r?.dots || 0) > 0).sort(([a], [b]) => a.localeCompare(b));
     const coreDiscs = discEntries.filter(([d]) => CORE_DISCS.includes(d));
     const ritualDiscs = discEntries.filter(([d]) => RITUAL_DISCS.includes(d));
-    const themeDiscs = discEntries.filter(([d]) => SORCERY_THEMES.includes(d));
 
     // 1. Disciplines
     if (coreDiscs.length) {
@@ -335,14 +334,10 @@ export function renderSheet() {
       html += `</div></div>`;
     }
 
-    // 3. Blood Sorcery (Cruac, Theban, then themes)
-    if (ritualDiscs.length || themeDiscs.length) {
+    // 3. Blood Sorcery (Cruac, Theban)
+    if (ritualDiscs.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">`;
       ritualDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); });
-      if (themeDiscs.length) {
-        html += `<div class="disc-sub-head">Themes</div>`;
-        themeDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.75)'); });
-      }
       html += `</div></div>`;
     }
 

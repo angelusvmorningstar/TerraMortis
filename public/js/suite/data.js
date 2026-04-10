@@ -14,7 +14,6 @@ export const STAT_SVG = `<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/200
 
 // ── Inline constants ──
 
-export const SORCERY_THEMES = []; // removed — themes replaced by rite system
 export const RITUAL_DISCS = ['Cruac', 'Theban'];
 export const CORE_DISCS = ['Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare', 'Obfuscate', 'Protean', 'Resilience', 'Vigour'];
 

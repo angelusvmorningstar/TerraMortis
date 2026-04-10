@@ -363,12 +363,10 @@ function openPanel(mode) {
     } else {
       const powers = suiteState.rollChar.powers || [];
       const groups = {};
-      const SORCERY_THEMES = [];
       powers.forEach(p => {
         const lookupKey = p.name || '';
         const pi = getPool(suiteState.rollChar, lookupKey);
-        let disc = p.discipline || p.category || 'Other';
-        if (SORCERY_THEMES.includes(disc)) disc = disc + ' (Sorcery)';
+        const disc = p.discipline || p.category || 'Other';
         if (!groups[disc]) groups[disc] = [];
         const dispName = p.name || '';
         groups[disc].push({ raw: lookupKey, disp: dispName, pi });

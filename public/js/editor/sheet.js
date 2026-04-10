@@ -3,7 +3,7 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, SORCERY_THEMES, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, isInClanDisc } from '../data/accessors.js';
@@ -362,9 +362,7 @@ export function shRenderDisciplines(c, editMode) {
   }
   function renderDiscEditRow(d, r, isIC, style) {
     const dObj = (c.disciplines || {})[d] || {}, cr = { cp: dObj.cp || 0, free: dObj.free || 0, xp: dObj.xp || 0 }, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = (cr.cp || 0) + (cr.free || 0), xd = xpToDots(cr.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
-    // Themes legitimately use .free as unlocks — no highlight for them.
-    const THEME_SET = new Set(['Creation','Destruction','Divination','Protection','Transmutation']);
-    const freeMark = (cr.free > 0 && !THEME_SET.has(d)) ? ' has-free-dots' : '';
+    const freeMark = cr.free > 0 ? ' has-free-dots' : '';
     const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     // Derive powers from rules cache (same as view mode)
     const dp = _discPowers(d, dt);
@@ -379,16 +377,11 @@ export function shRenderDisciplines(c, editMode) {
   }
   if (editMode) {
     const dd = c.disciplines || {};
-    const THEMES = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
-    const THEMES_SET = new Set(THEMES);
-    // Exclude themes from the creation CP budget — they're unlocked by Cruac
-    // dots, not purchased. Cruac/Theban count as in-clan for CotC/LeS members
-    // per VtR 2e Blood & Smoke (isInClanDisc handles that).
     const iCP = Object.entries(dd)
-      .filter(([d]) => !THEMES_SET.has(d) && isInClanDisc(c, d))
+      .filter(([d]) => isInClanDisc(c, d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     const oCP = Object.entries(dd)
-      .filter(([d]) => !THEMES_SET.has(d) && !isInClanDisc(c, d))
+      .filter(([d]) => !isInClanDisc(c, d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     const rem = 3 - iCP - oCP;
     h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span style="color:' + (iCP >= 2 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">In-clan: ' + iCP + ' (min 2)</span><span style="color:' + (oCP <= 1 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';

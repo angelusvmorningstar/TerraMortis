@@ -5,7 +5,7 @@
 
 import {
   ATTR_NAMES, SKILL_NAMES, DISC_NAMES, COV_SHORT, CLAN_NAMES,
-  SORCERY_THEMES, RITUAL_DISCS, INFLUENCE_SPHERES
+  RITUAL_DISCS, INFLUENCE_SPHERES
 } from '../data/constants.js';
 import { meetsPrereq as _meetsPrereq, prereqLabel as _prereqLabel } from '../data/prereq.js';
 import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js';
@@ -392,9 +392,6 @@ function _esc(s) {
 /** Filter a powers array to those belonging to a specific discipline. */
 export function powersForDisc(powers, discName) {
   if (!powers) return [];
-  if (SORCERY_THEMES.includes(discName)) {
-    return powers.filter(p => p.name && p.name.includes('| ' + discName));
-  }
   if (RITUAL_DISCS.includes(discName)) {
     return powers.filter(p => p.name && (p.name.startsWith(discName) || p.name.includes('| ' + discName)));
   }
@@ -407,13 +404,11 @@ export function powersForDisc(powers, discName) {
 
 /** Return powers not attributable to any known discipline on the character. */
 export function otherPowers(c) {
-  const allSorcery = [...SORCERY_THEMES, ...RITUAL_DISCS];
   const discNames = Object.keys(c.disciplines || {});
   return (c.powers || []).filter(p => {
     if (!p.name) return false;
     const key = p.name.split('|')[0].trim().replace(/\s*[●○]+$/, '').replace(/\s+\d+$/, '');
-    if (SORCERY_THEMES.includes(key.split(' ').pop())) return false;
-    if (allSorcery.some(d => p.name.startsWith(d))) return false;
+    if (RITUAL_DISCS.some(d => p.name.startsWith(d))) return false;
     return !discNames.some(d => key === d || key.startsWith(d + ' '));
   });
 }

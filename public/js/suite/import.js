@@ -157,7 +157,7 @@ function parseExcelToChars(rows) {
     ['Intimidation', 'Intimidation Spec'], ['Persuasion', 'Persuasion Spec'],
     ['Socialise', 'Socialise Spec'], ['Streetwise', 'Streetwise Spec'], ['Subterfuge', 'Subterfuge Spec'],
   ];
-  const DISC_NAMES = ['Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare', 'Obfuscate', 'Protean', 'Resilience', 'Vigour', 'Cruac', 'Theban', 'Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
+  const DISC_NAMES = ['Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare', 'Obfuscate', 'Protean', 'Resilience', 'Vigour', 'Cruac', 'Theban'];
 
   const result = [];
   for (let ri = 1; ri < rows.length; ri++) {

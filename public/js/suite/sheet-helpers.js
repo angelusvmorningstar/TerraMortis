@@ -4,7 +4,7 @@
 
 import state from './data.js';
 import {
-  SORCERY_THEMES, RITUAL_DISCS
+  RITUAL_DISCS
 } from './data.js';
 import { getAttrVal, getAttrBonus as _getAttrBonus, skDots, skSpecs, skSpecStr } from '../data/accessors.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
@@ -120,9 +120,6 @@ export function powersForDisc(powers, discName, dots) {
   // Fallback: stored powers on the character (legacy / homebrew)
   return powers.filter(p => {
     if (p.discipline === discName) return true;
-    if (SORCERY_THEMES.includes(discName)) {
-      return p.name.includes('| ' + discName) || p.name.startsWith(discName);
-    }
     if (RITUAL_DISCS.includes(discName)) {
       return p.name.startsWith(discName + ' |') ||
         p.name.startsWith(discName + '|') ||

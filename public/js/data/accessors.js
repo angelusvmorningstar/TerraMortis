@@ -13,17 +13,12 @@ export function clanDiscList(c) {
 }
 
 /**
- * Per VtR 2e (Blood & Smoke), ritual sorceries are treated as in-clan for
- * members of the relevant covenant:
- *   Cruac  → Circle of the Crone
- *   Theban → Lancea et Sanctum
+ * Cruac and Theban are always out-of-clan regardless of covenant per house rule.
+ * Only clan/bloodline disciplines count as in-clan.
  */
 export function isInClanDisc(c, discName) {
   if (!discName) return false;
   if (clanDiscList(c).includes(discName)) return true;
-  const cov = (c?.covenant || '').toLowerCase();
-  if (discName === 'Cruac' && cov.includes('crone')) return true;
-  if (discName === 'Theban' && cov.includes('lancea')) return true;
   return false;
 }
 

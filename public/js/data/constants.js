@@ -129,7 +129,6 @@ export const CLAN_BANES = {
 
 export const CORE_DISCS = ['Animalism','Auspex','Celerity','Dominate','Majesty','Nightmare','Obfuscate','Protean','Resilience','Vigour'];
 export const RITUAL_DISCS = ['Cruac','Theban'];
-export const SORCERY_THEMES = []; // removed — themes replaced by rite system
 
 export const INFLUENCE_SPHERES = ['Bureaucracy','Church','Finance','Health','High Society','Industry','Legal','Media','Military','Occult','Police','Politics','Street','Transportation','Underworld','University'];
 export const INFLUENCE_MERIT_TYPES = ['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status'];
