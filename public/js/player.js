@@ -12,6 +12,7 @@ import { renderFeedingTab } from './player/feeding-tab.js';
 import { renderStoryTab } from './player/story-tab.js';
 import { initArchiveTab } from './player/archive-tab.js';
 import { renderCityTab } from './player/city-tab.js';
+import { renderStatusTab } from './player/status-tab.js';
 import { renderPrimerTab } from './player/primer-tab.js';
 import { renderTicketsTab } from './player/tickets-tab.js';
 import { renderXpLogTab } from './player/xp-log-tab.js';
@@ -195,6 +196,7 @@ function selectCharacter(activeChars, idx) {
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
   renderStoryTab(document.getElementById('story-content'), activeChar);
   renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
+  renderStatusTab(document.getElementById('tab-status'), activeChar);
   initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars);
 
   // Regency tab — only visible for regents

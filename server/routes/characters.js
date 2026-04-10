@@ -55,6 +55,45 @@ router.get('/public', async (req, res) => {
   res.json(chars);
 });
 
+// GET /api/characters/status — status ranking data (any authenticated user)
+// Returns active characters with clan/covenant status, joined with their
+// linked player's Discord avatar so the player portal Status tab can
+// render ranked lists with profile pics. Must be declared before /:id.
+router.get('/status', async (req, res) => {
+  const chars = await col()
+    .find(
+      { retired: { $ne: true }, pending_approval: { $ne: true } },
+      {
+        projection: {
+          name: 1, honorific: 1, moniker: 1,
+          clan: 1, covenant: 1,
+          'status.clan': 1, 'status.covenant': 1,
+          player: 1,
+        },
+      }
+    )
+    .toArray();
+
+  // Join linked player Discord info for avatars
+  const players = await getCollection('players')
+    .find({}, { projection: { _id: 1, character_ids: 1, discord_id: 1, discord_avatar: 1 } })
+    .toArray();
+  const charToPlayer = new Map();
+  for (const p of players) {
+    for (const cid of (p.character_ids || [])) {
+      charToPlayer.set(String(cid), {
+        discord_id: p.discord_id || null,
+        discord_avatar: p.discord_avatar || null,
+      });
+    }
+  }
+  for (const c of chars) {
+    c._player_info = charToPlayer.get(String(c._id)) || null;
+  }
+
+  res.json(chars);
+});
+
 // GET /api/characters/names — lightweight list of all active character names (any authenticated user)
 router.get('/names', async (req, res) => {
   const chars = await col()
