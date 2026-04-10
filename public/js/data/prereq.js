@@ -36,14 +36,16 @@ function _getStatus(char, qualifier) {
  * Check if a character meets a prerequisite tree.
  * @param {Object} char — character object with attributes, skills, disciplines, merits, clan, bloodline, humanity
  * @param {Object|null} node — prereq tree node, or null (no prereqs)
+ * @param {Object} [opts] — optional callbacks
+ * @param {Function} [opts.domTotal] — (name, qualifier) => number; returns shared domain merit total
  * @returns {boolean}
  */
-export function meetsPrereq(char, node) {
+export function meetsPrereq(char, node, opts = {}) {
   if (!node) return true;
 
   // Combinators
-  if (node.all) return node.all.every(n => meetsPrereq(char, n));
-  if (node.any) return node.any.some(n => meetsPrereq(char, n));
+  if (node.all) return node.all.every(n => meetsPrereq(char, n, opts));
+  if (node.any) return node.any.some(n => meetsPrereq(char, n, opts));
 
   // Leaf node
   const dots = node.dots || 0;
@@ -67,11 +69,17 @@ export function meetsPrereq(char, node) {
 
     case 'merit': {
       const merits = char.merits || [];
-      return merits.some(m => {
+      const directMatch = merits.some(m => {
         if (m.name !== node.name) return false;
         if (node.qualifier && m.qualifier !== node.qualifier && m.area !== node.qualifier) return false;
         return (m.rating || 0) >= (dots || 1);
       });
+      if (directMatch) return true;
+      if (opts.domTotal) {
+        const total = opts.domTotal(node.name, node.qualifier || null);
+        if (total >= (dots || 1)) return true;
+      }
+      return false;
     }
 
     case 'status':

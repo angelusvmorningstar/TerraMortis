@@ -74,7 +74,7 @@ function _prereqWarn(c, meritName, m) {
   if (m && m.granted_by === 'Fucking Thief') return '';
   const rule = getRuleByKey(meritName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
   if (!rule || !rule.prereq) return '';
-  if (meetsPrereq(c, rule.prereq)) return '';
+  if (meetsPrereq(c, rule.prereq, { domTotal: (name) => domMeritTotal(c, name) })) return '';
   const label = prereqLabel(rule.prereq);
   return '<div class="merit-prereq-warn">\u26A0 Prerequisites not met: <span class="merit-prereq-txt">' + esc(label) + '</span></div>';
 }
