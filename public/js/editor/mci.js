@@ -32,6 +32,13 @@ export function applyDerivedMerits(c) {
     delete m.up;
   });
 
+  // Migrate legacy MCI-granted merits: old code stamped granted_by on merits it created.
+  // Current system is pool-based (free_mci only) and never sets granted_by for MCI.
+  // Clear the field so these orphaned merits become ST-editable/deletable.
+  (c.merits || []).forEach(m => {
+    if (m.granted_by === 'Mystery Cult Initiation') delete m.granted_by;
+  });
+
   // Migrate Fucking Thief stolen merits: backfill granted_by if missing
   const ftMerit = (c.merits || []).find(m => m.name === 'Fucking Thief' && m.category === 'general');
   if (ftMerit && ftMerit.qualifier) {
