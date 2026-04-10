@@ -185,15 +185,20 @@ export function auditCharacter(c) {
   // Flag any item (attribute, skill, discipline, merit, fighting style)
   // that was paid for with the unsourced `free` bucket. These dots bypass
   // CP/XP accounting and usually come from legacy imports or manual ST
-  // grants that weren't properly tracked. Sorcery themes legitimately use
-  // `free` as unlocks, and the +1 clan attribute bonus is stored in `free`,
-  // so both are exempt from the warning.
+  // grants that weren't properly tracked.
+  //
+  // Exemptions:
+  //   * Sorcery themes use `free` as the unlock bucket — never flagged.
+  //   * Every attribute carries 1 base dot in `free`, plus 1 more on the
+  //     clan-favoured attribute (base + favoured = 2 in `free`). Anything
+  //     beyond that baseline is the genuinely-suspect "free" allocation.
   const SORCERY_THEME_SET = EXCLUDE_FROM_BUDGET;
   const freeItems = [];
   for (const [a, v] of Object.entries(c.attributes || {})) {
     const isClan = c.clan_attribute === a;
-    const f = v?.free || 0;
-    if (f > 0 && !(isClan && f === 1)) freeItems.push(`${a} (attr) +${f}`);
+    const expected = 1 + (isClan ? 1 : 0);
+    const suspect = (v?.free || 0) - expected;
+    if (suspect > 0) freeItems.push(`${a} (attr) +${suspect}`);
   }
   for (const [s, v] of Object.entries(c.skills || {})) {
     const f = v?.free || 0;

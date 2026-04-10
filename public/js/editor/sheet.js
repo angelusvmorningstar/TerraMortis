@@ -244,8 +244,10 @@ export function shRenderAttributes(c, editMode) {
       h += '<div>'; col.forEach(a => {
         const base = getAttrVal(c, a), bonus = getAttrBonus(c, a), isClan = c.clan_attribute === a;
         const ao = c.attributes[a] || {}, cr = { cp: ao.cp || 0, free: ao.free || 0, xp: ao.xp || 0 }, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (cr.cp || 0), xd = xpToDots(cr.xp || 0, ab, 4), tot = ab + xd;
-        // Clan-attribute +1 is stored in .free — exclude that legit case from the highlight.
-        const aFreeMark = (cr.free > 0 && !(isClan && cr.free === 1)) ? ' has-free-dots' : '';
+        // Every attribute stores its base 1 dot in .free, and the clan-favoured
+        // attribute stores 2 (base + favoured). Only flag the genuinely-suspect
+        // surplus above that baseline.
+        const aFreeMark = ((cr.free || 0) - baseDots > 0) ? ' has-free-dots' : '';
         h += '<div><div class="attr-cell attr-cell-edit' + aFreeMark + '"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, bonus) + '</div></div>';
         h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + tot + '</span></div></div>';
         { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || ''; h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button>' + (src ? '<span class="bd-src-lbl">(' + src + ')</span>' : '') + (bonus > 0 ? '<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">' + (tot + bonus) + '</span></div>' : '') + '</div>'; }
