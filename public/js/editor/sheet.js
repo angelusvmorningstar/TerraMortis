@@ -243,21 +243,25 @@ export function shRenderAttributes(c, editMode) {
     ATTR_COLS.forEach(col => {
       h += '<div>'; col.forEach(a => {
         const base = getAttrVal(c, a), bonus = getAttrBonus(c, a), isClan = c.clan_attribute === a;
+        const autoBonus = (c.disciplines?.[BONUS_SOURCE[a]]?.dots || 0);
         const ao = c.attributes[a] || {}, cr = { cp: ao.cp || 0, free: ao.free || 0, xp: ao.xp || 0 }, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (cr.cp || 0), xd = xpToDots(cr.xp || 0, ab, 4), tot = ab + xd;
         // Every attribute stores its base 1 dot in .free, and the clan-favoured
         // attribute stores 2 (base + favoured). Only flag the genuinely-suspect
         // surplus above that baseline.
         const aFreeMark = ((cr.free || 0) - baseDots > 0) ? ' has-free-dots' : '';
-        h += '<div><div class="attr-cell attr-cell-edit' + aFreeMark + '"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, bonus) + '</div></div>';
+        h += '<div><div class="attr-cell attr-cell-edit' + aFreeMark + '"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
         h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + tot + '</span></div></div>';
-        { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || ''; h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button>' + (src ? '<span class="bd-src-lbl">(' + src + ')</span>' : '') + (bonus > 0 ? '<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">' + (tot + bonus) + '</span></div>' : '') + '</div>'; }
+        { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || '', effTotal = tot + autoBonus + bonus;
+          if (autoBonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">' + src + '</span><span class="bd-src" style="color:rgba(220,160,120,.8)">+' + autoBonus + '</span></div>';
+          h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button>' + (autoBonus > 0 || bonus > 0 ? '<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">' + effTotal + '</span></div>' : '') + '</div>'; }
         h += '</div></div>';
       }); h += '</div>';
     });
   } else {
     ATTR_ROWS.forEach(row => row.forEach(a => {
       const base = getAttrVal(c, a), bonus = getAttrBonus(c, a);
-      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, bonus) + '</div></div>';
+      const autoBonus = (c.disciplines?.[BONUS_SOURCE[a]]?.dots || 0);
+      h += '<div class="attr-cell"><div class="attr-name-sh">' + a + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
     }));
   }
   h += '</div></div>';
@@ -353,30 +357,19 @@ export function shRenderDisciplines(c, editMode) {
     const cn = (c.covenant || '').toLowerCase(), showCr = cn.includes('crone') || (c.disciplines || {}).Cruac?.dots > 0, showTh = cn.includes('lancea') || (c.disciplines || {}).Theban?.dots > 0;
     if (showCr || showTh) {
       h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
-      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, isInClanDisc(c, 'Cruac'), 'color:rgba(220,160,120,.9)');
-      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, isInClanDisc(c, 'Theban'), 'color:rgba(220,160,120,.9)');
-      // Sorcery themes — show when Cruac is present, dimmer style.
-      // Themes pass isIC=false so the XP cost stays at 4/dot (they use themed
-      // advancement, not normal discipline XP), and a Free input is exposed
-      // so STs can allocate theme dots manually (themes are unlocks).
-      if (showCr) {
-        for (const theme of THEMES) {
-          h += renderDiscEditRow(theme, (c.disciplines || {})[theme]?.dots || 0, false, 'color:rgba(180,140,100,.75);font-size:12px');
-        }
-      }
+      // Cruac and Theban are always out-of-clan (4 XP/dot) regardless of covenant.
+      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'color:rgba(220,160,120,.9)');
+      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'color:rgba(220,160,120,.9)');
       h += '</div></div>';
     }
   } else if (c.disciplines && Object.keys(c.disciplines).length) {
-    const THEMES_READ = ['Creation', 'Destruction', 'Divination', 'Protection', 'Transmutation'];
     const de = Object.entries(c.disciplines).filter(([, r]) => (r?.dots || 0) > 0).sort(([a], [b]) => a.localeCompare(b)),
           core = de.filter(([d]) => CORE_DISCS.includes(d)),
-          rit = de.filter(([d]) => RITUAL_DISCS.includes(d)),
-          themes = de.filter(([d]) => THEMES_READ.includes(d));
+          rit = de.filter(([d]) => RITUAL_DISCS.includes(d));
     if (core.length) { h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-list">'; core.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, null); }); h += '</div></div>'; }
-    if (rit.length || themes.length) {
+    if (rit.length) {
       h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
       rit.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); });
-      themes.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'color:rgba(180,140,100,.75);font-size:12px'); });
       h += '</div></div>';
     }
   }

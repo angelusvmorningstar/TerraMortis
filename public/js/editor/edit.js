@@ -397,9 +397,9 @@ export function shEditDiscPt(disc, field, val) {
   c.disciplines[disc][field] = val;
   const cr = c.disciplines[disc];
   const discBase = (cr.cp || 0) + (cr.free || 0);
-  // In-clan XP rate (3/dot) applies to covenant rituals for CotC/LeS members;
-  // everything else (incl. themes and out-of-clan rituals) pays 4/dot.
-  const discCostMult = isInClanDisc(c, disc) ? 3 : 4;
+  // Cruac and Theban are always out-of-clan (4 XP/dot) regardless of covenant.
+  // All other disciplines use the standard in-clan (3/dot) vs out-of-clan (4/dot) rate.
+  const discCostMult = (disc === 'Cruac' || disc === 'Theban') ? 4 : isInClanDisc(c, disc) ? 3 : 4;
   cr.dots = discBase + xpToDots(cr.xp || 0, discBase, discCostMult);
   // Recalculate XP spent on disciplines
   if (!c.xp_log) c.xp_log = { earned: {}, spent: {} };

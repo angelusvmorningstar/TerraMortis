@@ -18,7 +18,21 @@ Terra Mortis TM Suite is a browser-based character management system for a Vampi
 - **Frontend:** Netlify (`terramortissuite.netlify.app`), deploys from `main` branch
 - **API:** Render (`tm-suite-api.onrender.com`), deploys from `main` branch
 - **Database:** MongoDB Atlas (`tm_suite`)
-- **Branching:** push to `dev` freely, merge to `main` to deploy. Both services auto-deploy from `main`.
+- **Branching:** Two developer branches feed into `dev`, which merges to `main` for production.
+  - `Morningstar` — Angelus's working branch
+  - `Piatra` — Peter's working branch
+  - `dev` — integration branch; both developers merge into here
+  - `main` — production; auto-deploys to Netlify + Render
+
+## Branch Sync Protocol
+
+**At the start of every significant work request**, before making any changes:
+
+1. Check what's on `dev` that isn't in the current branch: `git log HEAD..origin/dev --oneline`
+2. If `dev` is ahead, merge it in: `git merge dev`
+3. Resolve any conflicts, then proceed with the work.
+
+This keeps `Morningstar` and `Piatra` current with each other's merged work before new changes are layered on top.
 
 ## Architecture
 
