@@ -144,66 +144,6 @@ export function applyDerivedMerits(c) {
     c._grant_pools.push({ source: 'MCI', name: '_mci', category: 'any', amount: totalMCIPool });
   }
 
-  // ── MCI tier_grants auto-allocation ──
-  const TIER_BUDGETS = MCI_TIER_BUDGETS;
-  // First pass: clear free_mci on all non-MCI merits when any active MCI has tier_grants.
-  // A targeted-only clear leaves stale dots on merits that are removed from a tier slot —
-  // reassigning tier 3 from Contacts to Hobbyist Clique would leave Contacts.free_mci = 2
-  // indefinitely since it's no longer in _tierTargetKeys. The broad clear is safe because
-  // free_mci on merits is always re-derived from tier_grants; manual pool allocation
-  // (for characters without tier_grants) uses fighting_styles.free_mci which is unaffected.
-  const _hasTierGrants = mcis.some(m => m.active !== false && m.tier_grants && m.tier_grants.length > 0);
-  if (_hasTierGrants) {
-    (c.merits || []).forEach(m => {
-      if (m.name === 'Mystery Cult Initiation') return;
-      m.free_mci = 0;
-    });
-  } else {
-    // Targeted clear only — for characters still on manual MCI pool allocation
-    const _tierTargetKeys = new Set();
-    for (const mci of mcis) {
-      if (mci.active === false || !mci.tier_grants) continue;
-      for (const tg of mci.tier_grants) _tierTargetKeys.add(tg.name + '|' + (tg.qualifier || ''));
-    }
-    if (_tierTargetKeys.size > 0) {
-      (c.merits || []).forEach(m => {
-        if (m.name === 'Mystery Cult Initiation') return;
-        const key = m.name + '|' + (m.area || m.qualifier || '');
-        if (_tierTargetKeys.has(key)) m.free_mci = 0;
-      });
-    }
-  }
-  // Second pass: apply tier grants
-  for (const mci of mcis) {
-    if (mci.active === false || !mci.tier_grants) continue;
-    const rating = mci.rating || 0;
-    // Prune tier_grants above current rating
-    mci.tier_grants = mci.tier_grants.filter(tg => tg.tier <= rating);
-    // Apply each tier grant — match by name + qualifier/area, lenient on category
-    for (const tg of mci.tier_grants) {
-      // Fix stale category on tier_grant (from old bug)
-      const _INFL = ['Allies','Contacts','Mentor','Resources','Retainer','Staff','Status'];
-      const _DOM = ['Safe Place','Haven','Feeding Grounds','Herd','Mandragora Garden'];
-      if (_INFL.includes(tg.name)) tg.category = 'influence';
-      else if (_DOM.includes(tg.name)) tg.category = 'domain';
-
-      let target = (c.merits || []).find(m =>
-        m.name === tg.name &&
-        (!tg.qualifier || m.area === tg.qualifier || m.qualifier === tg.qualifier)
-      );
-      if (!target) {
-        const newMerit = { name: tg.name, category: tg.category, rating: 0, granted_by: 'MCI' };
-        if (tg.qualifier) {
-          if (tg.category === 'influence') newMerit.area = tg.qualifier;
-          else newMerit.qualifier = tg.qualifier;
-        }
-        addMerit(c, newMerit);
-        target = c.merits[c.merits.length - 1];
-      }
-      target.free_mci = (target.free_mci || 0) + Math.min(tg.rating, TIER_BUDGETS[tg.tier] || 0);
-    }
-  }
-
   // ── PT: clear stale free_pt before re-applying ──
   (c.merits || []).forEach(m => { m.free_pt = 0; });
 
