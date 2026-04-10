@@ -612,6 +612,21 @@ export function shToggleRiteFree(powerIdx) {
   _renderSheet(c);
 }
 
+/** Rebuild the rite-add dropdown when the tradition selector changes. */
+export function shRefreshRiteDropdown(tradition) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const discDots = tradition === 'Cruac' ? (c.disciplines || {}).Cruac?.dots || 0 : (c.disciplines || {}).Theban?.dots || 0;
+  const allRites = getRulesByCategory('rite');
+  const tradRites = allRites
+    .filter(r => r.parent === tradition && r.rank != null && r.rank <= discDots)
+    .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
+  const sel = document.getElementById('rite-add-name');
+  if (!sel || sel.tagName !== 'SELECT') return;
+  sel.innerHTML = '<option value="" data-rank="" disabled selected>\u2014 select rite \u2014</option>' +
+    tradRites.map(r => '<option value="' + r.name.replace(/"/g, '&quot;') + '" data-rank="' + r.rank + '">' + '\u25CF'.repeat(r.rank) + ' ' + r.name + '</option>').join('');
+}
+
 /* ══════════════════════════════════════════════════════════
    PACTS
 ══════════════════════════════════════════════════════════ */

@@ -46,7 +46,7 @@ import {
   shEditStandMerit, shEditStandAssetSkill,
   shToggleMCI, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
-  shAddRite, shRemoveRite, shToggleRiteFree,
+  shAddRite, shRemoveRite, shToggleRiteFree, shRefreshRiteDropdown,
   shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   registerCallbacks as registerEditCallbacks
@@ -789,7 +789,7 @@ Object.assign(window, {
   shEditStandMerit, shEditStandAssetSkill,
   shToggleMCI, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
-  shAddRite, shRemoveRite, shToggleRiteFree,
+  shAddRite, shRemoveRite, shToggleRiteFree, shRefreshRiteDropdown,
   shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   clickAttrDot, adjAttrBonus, clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,

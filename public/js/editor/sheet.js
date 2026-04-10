@@ -462,8 +462,26 @@ export function shRenderDisciplines(c, editMode) {
       if (cruacDots > 0) trads.push('Cruac');
       if (thebanDots > 0) trads.push('Theban');
       if (trads.length) {
-        const tradSel = trads.length > 1 ? '<select id="rite-add-trad" class="gen-qual-input" style="width:90px">' + trads.map(t => '<option>' + t + '</option>').join('') + '</select>' : '<span style="font-size:11px;color:rgba(220,160,120,.9);padding:0 4px">' + trads[0] + '</span><input type="hidden" id="rite-add-trad" value="' + trads[0] + '">';
-        h += '<div class="dev-add-row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input type="text" id="rite-add-name" class="gen-qual-input" placeholder="Rite name\u2026" style="flex:1;min-width:120px"><select id="rite-add-level" class="gen-qual-input" style="width:80px">' + [1, 2, 3, 4, 5].map(r => '<option value="' + r + '">\u25CF'.repeat(r) + '</option>').join('') + '</select>' + tradSel + '<button class="dev-add-btn" onclick="shAddRite(document.getElementById(\'rite-add-trad\').value,document.getElementById(\'rite-add-name\').value,+document.getElementById(\'rite-add-level\').value)">+ Add</button></div>';
+        const defaultTrad = trads[0];
+        const defaultDots = defaultTrad === 'Cruac' ? cruacDots : thebanDots;
+        const allRites = getRulesByCategory('rite');
+        const availRites = allRites
+          .filter(r => r.parent === defaultTrad && r.rank != null && r.rank <= defaultDots)
+          .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
+        const tradSel = trads.length > 1
+          ? '<select id="rite-add-trad" class="gen-qual-input" style="width:90px" onchange="shRefreshRiteDropdown(this.value)">' + trads.map(t => '<option>' + t + '</option>').join('') + '</select>'
+          : '<span style="font-size:11px;color:rgba(220,160,120,.9);padding:0 4px">' + trads[0] + '</span><input type="hidden" id="rite-add-trad" value="' + trads[0] + '">';
+        let nameSel;
+        if (availRites.length) {
+          nameSel = '<select id="rite-add-name" class="gen-qual-input" style="flex:1;min-width:140px"><option value="" data-rank="" disabled selected>\u2014 select rite \u2014</option>' +
+            availRites.map(r => '<option value="' + esc(r.name) + '" data-rank="' + r.rank + '">' + '\u25CF'.repeat(r.rank) + ' ' + esc(r.name) + '</option>').join('') + '</select>';
+        } else {
+          nameSel = '<input type="text" id="rite-add-name" class="gen-qual-input" placeholder="Rite name\u2026" style="flex:1;min-width:120px"><select id="rite-add-level" class="gen-qual-input" style="width:80px">' + [1, 2, 3, 4, 5].map(r => '<option value="' + r + '">' + '\u25CF'.repeat(r) + '</option>').join('') + '</select><span style="font-size:10px;color:var(--crim)">Rites not loaded</span>';
+        }
+        const addOnclick = availRites.length
+          ? '(function(){var s=document.getElementById(\'rite-add-name\');var n=s.value;var lv=+(s.options[s.selectedIndex]?.dataset?.rank||1);if(n)shAddRite(document.getElementById(\'rite-add-trad\').value,n,lv);})()'
+          : 'shAddRite(document.getElementById(\'rite-add-trad\').value,document.getElementById(\'rite-add-name\').value,+document.getElementById(\'rite-add-level\').value)';
+        h += '<div class="dev-add-row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' + nameSel + tradSel + '<button class="dev-add-btn" onclick="' + addOnclick + '">+ Add</button></div>';
       }
     }
     h += '</div></div>';
