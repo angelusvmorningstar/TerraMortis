@@ -377,11 +377,12 @@ export function shRenderDisciplines(c, editMode) {
   }
   if (editMode) {
     const dd = c.disciplines || {};
+    const _validDiscs = new Set([...CORE_DISCS, ...RITUAL_DISCS]);
     const iCP = Object.entries(dd)
-      .filter(([d]) => isInClanDisc(c, d))
+      .filter(([d]) => _validDiscs.has(d) && isInClanDisc(c, d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     const oCP = Object.entries(dd)
-      .filter(([d]) => !isInClanDisc(c, d))
+      .filter(([d]) => _validDiscs.has(d) && !isInClanDisc(c, d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     const rem = 3 - iCP - oCP;
     h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span style="color:' + (iCP >= 2 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">In-clan: ' + iCP + ' (min 2)</span><span style="color:' + (oCP <= 1 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';

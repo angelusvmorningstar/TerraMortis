@@ -4,7 +4,8 @@ import state from '../data/state.js';
 import { getAttrVal, getAttrBonus, setAttrVal, isInClanDisc } from '../data/accessors.js';
 import {
   CLAN_BANES, BLOODLINE_CLANS, BLOODLINE_DISCS, CLAN_DISCS,
-  SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS
+  SKILL_CATS, SKILL_PRI_BUDGETS, ALL_SKILLS, ATTR_CATS, PRI_BUDGETS,
+  CORE_DISCS, RITUAL_DISCS
 } from '../data/constants.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { xpToDots, xpEarned, xpSpent } from './xp.js';
@@ -378,14 +379,16 @@ export function shEditDiscPt(disc, field, val) {
   val = Math.max(0, val || 0);
   if (field === 'cp') {
     // Enforce: 3 total CP, max 1 out-of-clan CP.
+    // Only count valid purchasable disciplines.
+    const _validDiscs = new Set([...CORE_DISCS, ...RITUAL_DISCS]);
     const isIC = isInClanDisc(c, disc);
     const otherCP = Object.entries(c.disciplines)
-      .filter(([d]) => d !== disc)
+      .filter(([d]) => d !== disc && _validDiscs.has(d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     val = Math.min(val, 3 - otherCP);
     if (!isIC) {
       const otherOutCP = Object.entries(c.disciplines)
-        .filter(([d]) => d !== disc && !isInClanDisc(c, d))
+        .filter(([d]) => d !== disc && _validDiscs.has(d) && !isInClanDisc(c, d))
         .reduce((s, [, v]) => s + (v.cp || 0), 0);
       val = Math.min(val, 1 - otherOutCP);
     }
