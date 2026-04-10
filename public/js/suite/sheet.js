@@ -275,7 +275,7 @@ export function renderSheet() {
   if (c.disciplines && Object.keys(c.disciplines).length) {
 
     function renderDiscRow(d, r, nameStyle) {
-      const discPowers = powersForDisc(c.powers || [], d);
+      const discPowers = powersForDisc(c.powers || [], d, r);
       const hasPowers = discPowers.length > 0;
       const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
       let drawerHtml = '';
