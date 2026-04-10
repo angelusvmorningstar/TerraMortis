@@ -2,7 +2,7 @@
 
 import state from '../data/state.js';
 import { APPROVED_BLOODLINES, MASKS_DIRGES, CLANS, COVENANTS, COURT_TITLES } from '../data/constants.js';
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, isRedactMode, redactCharName, redactPlayer } from '../data/helpers.js';
 
 let _markDirty, _xpLeft;
 export function registerCallbacks(markDirty, xpLeft) {
@@ -27,19 +27,27 @@ export function renderIdentityTab(c) {
       <div class="form-grid">
         <div class="form-row">
           <label class="form-label">Character Name</label>
-          <input class="form-input" value="${esc(c.name || '')}" onchange="updField('name',this.value)">
+          ${isRedactMode()
+            ? `<input class="form-input" value="${esc(redactCharName(c.name || ''))}" disabled>`
+            : `<input class="form-input" value="${esc(c.name || '')}" onchange="updField('name',this.value)">`}
         </div>
         <div class="form-row">
           <label class="form-label">Honorific</label>
-          <input class="form-input" value="${esc(c.honorific || '')}" onchange="updField('honorific',this.value||null)" placeholder="e.g. Lord, Lady, Doctor, Sister">
+          ${isRedactMode()
+            ? `<input class="form-input" value="${esc(redactCharName(c.honorific || ''))}" disabled>`
+            : `<input class="form-input" value="${esc(c.honorific || '')}" onchange="updField('honorific',this.value||null)" placeholder="e.g. Lord, Lady, Doctor, Sister">`}
         </div>
         <div class="form-row">
           <label class="form-label">Moniker</label>
-          <input class="form-input" value="${esc(c.moniker || '')}" onchange="updField('moniker',this.value||null)" placeholder="Overrides name for display">
+          ${isRedactMode()
+            ? `<input class="form-input" value="${esc(redactCharName(c.moniker || ''))}" disabled>`
+            : `<input class="form-input" value="${esc(c.moniker || '')}" onchange="updField('moniker',this.value||null)" placeholder="Overrides name for display">`}
         </div>
         <div class="form-row">
           <label class="form-label">Player Name</label>
-          <input class="form-input" value="${esc(c.player || '')}" onchange="updField('player',this.value)">
+          ${isRedactMode()
+            ? `<input class="form-input" value="${esc(redactPlayer(c.player || ''))}" disabled>`
+            : `<input class="form-input" value="${esc(c.player || '')}" onchange="updField('player',this.value)">`}
         </div>
         <div class="form-row">
           <label class="form-label">Concept</label>

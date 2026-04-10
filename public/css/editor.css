@@ -511,6 +511,19 @@
 .sh-desktop .sh-bane-add,
 .sh-desktop .sk-spec-add{font-size:13px;padding:6px 14px;}
 
+/* ── Dev-mode redacted inputs ──
+   Disabled inputs in dev mode display block-character placeholders.
+   Style them to look deliberate (black background, gold text) rather
+   than like broken greyed-out controls. */
+input.form-input:disabled,
+input.sh-edit-input:disabled {
+  background: #111;
+  color: var(--gold2);
+  opacity: 1;
+  cursor: not-allowed;
+  -webkit-text-fill-color: var(--gold2);
+}
+
 /* ── Free-dot highlighter ──
    Marks any item (attribute, skill, discipline, merit, fighting style)
    that was purchased using the unsourced `free` bucket. These dots bypass
