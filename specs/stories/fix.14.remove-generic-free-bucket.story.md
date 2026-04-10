@@ -31,6 +31,14 @@ The schema currently carries a generic `free` field on every allocatable object.
 | `c.disciplines[d].free` | Legacy import + theme remnants | Should be 0; theme disciplines still have orphaned values in live DB | Zero in migration; remove from code |
 | `c.merits[].free` | Manual ST override via `Fr` input box | No named source; legitimate grants should use named pools | Remove `Fr` input and field; zero in migration |
 | `c.fighting_styles[].free` | Legacy import | No named source; legitimate dots should be CP | Zero in migration; remove from code |
+| K-9/Falconry Retainer `m.free = 1` (`mci.js:178`) | Set by `applyDerivedMerits` each render | Legitimate grant but uses wrong field — no named source | Convert to `free_retainer: 1`; add to merit total calculations |
+| Excel merge `ao/so/dObj/merit.free = pts.free` (`excel-merge.js:64,77,90,182`) | Import tool copies `free` column from Excel | Source of all legacy `free` data | Stop writing `free`; map to `cp` instead |
+
+### What is NOT in scope
+
+- `p.free` on rite power objects — boolean flag meaning "rite costs no XP". Completely different semantic from the dot bucket. Do not touch.
+- Fix.19 covers `edit-domain.js:121` (Fucking Thief `free: 1`).
+- Fix.15 covers bloodline grant `free: 1` → `free_bloodline`.
 
 ### Seed data note
 
@@ -57,6 +65,8 @@ Every occurrence of `(ao.cp || 0) + (ao.free || 0)` in `sheet.js` and `edit.js` 
 6. The `bonus` field on attributes/skills is unaffected
 7. Charlie Ballsack's style dot totals are preserved (dots moved to `cp`)
 8. Rite `p.free` boolean is unaffected
+9. K-9/Falconry Retainer shows `free_retainer: 1` in its breakdown (named, not generic)
+10. Excel merge tool no longer writes to `free` fields on import
 
 ## Tasks / Subtasks
 
@@ -143,6 +153,21 @@ Every occurrence of `(ao.cp || 0) + (ao.free || 0)` in `sheet.js` and `edit.js` 
 ### Task 10: Update chars_v2.json to strip attribute free fields
 
 - [ ] Remove or zero `free` from all attribute objects in `data/chars_v2.json` (they are `1` or `2` throughout; the code will derive these values)
+
+### Task 11: Convert K-9/Falconry Retainer grant to `free_retainer` (`mci.js`)
+
+- [ ] In `public/js/editor/mci.js`, K-9/Falconry block (~lines 153–172):
+  - Change the clear step from `m.free = 0` to `m.free_retainer = 0; m.free = 0`
+  - Change the grant step from `m.free = 1` to `m.free_retainer = 1`
+- [ ] Add `free_retainer` to `meritBdRow` in `xp.js` — same pattern as other named pools (display-only, no editable input)
+- [ ] Add `free_retainer` to all merit total expressions in `sheet.js` and `edit.js` that currently sum `free_mci + free_vm + ...`
+
+### Task 12: Stop writing `free` in Excel merge tool (`excel-merge.js`)
+
+- [ ] In `public/js/admin/excel-merge.js`, at lines ~64, 77, 90, 182:
+  - Remove `ao.free = pts.free` / `so.free = pts.free` / `dObj.free = pts.free` / `merit.free = pts.free`
+  - Map the value to `cp` instead: `ao.cp = (ao.cp || 0) + (pts.free || 0)` etc.
+  - This ensures any dots the Excel sheet had in the "free" column are treated as CP on import going forward
 
 ## Dev Notes
 
