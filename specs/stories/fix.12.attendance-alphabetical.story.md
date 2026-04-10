@@ -1,6 +1,6 @@
 # Story Fix.12: Attendance List — Alphabetical Character Order
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
