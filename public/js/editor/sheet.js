@@ -705,7 +705,13 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
       const _missing = !cur || !cur.name || (_needsQual && !cur.qualifier);
       const _cls = 'mci-tier-pick' + (_missing ? ' has-unfilled' : '');
       let ph = '<div class="' + _cls + '"><select class="mci-tier-sel" onchange="shEditMCITierGrant(' + si + ',' + tier + ',this.value)"><option value="">\u2014 select merit (' + budget + ' dot' + (budget > 1 ? 's' : '') + ') \u2014</option>' + opts + '</select>';
-      if (_needsQual) ph += '<input type="text" class="stand-name-input mci-tier-qual" value="' + esc(cur.qualifier || '') + '" placeholder="Sphere / area" onchange="shEditMCITierQual(' + si + ',' + tier + ',this.value)">';
+      if (_needsQual) {
+        if (cur.name === 'Allies') {
+          ph += '<select class="mci-tier-sel" onchange="shEditMCITierQual(' + si + ',' + tier + ',this.value)"><option value="">\u2014 sphere \u2014</option>' + INFLUENCE_SPHERES.map(sp => '<option' + (cur.qualifier === sp ? ' selected' : '') + '>' + esc(sp) + '</option>').join('') + '</select>';
+        } else {
+          ph += '<input type="text" class="stand-name-input mci-tier-qual" value="' + esc(cur.qualifier || '') + '" placeholder="Sphere / area" onchange="shEditMCITierQual(' + si + ',' + tier + ',this.value)">';
+        }
+      }
       ph += '</div>';
       return ph;
     };

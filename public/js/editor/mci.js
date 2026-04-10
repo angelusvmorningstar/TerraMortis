@@ -143,21 +143,33 @@ export function applyDerivedMerits(c) {
   }
 
   // ── MCI tier_grants auto-allocation ──
-  // Only clear free_mci on merits that are targeted by tier_grants (prevents
-  // wiping manual allocations on merits not covered by any tier).
   const TIER_BUDGETS = MCI_TIER_BUDGETS;
-  // First pass: collect all tier-targeted merit keys and clear their free_mci
-  const _tierTargetKeys = new Set();
-  for (const mci of mcis) {
-    if (mci.active === false || !mci.tier_grants) continue;
-    for (const tg of mci.tier_grants) _tierTargetKeys.add(tg.name + '|' + (tg.qualifier || ''));
-  }
-  if (_tierTargetKeys.size > 0) {
+  // First pass: clear free_mci on all non-MCI merits when any active MCI has tier_grants.
+  // A targeted-only clear leaves stale dots on merits that are removed from a tier slot —
+  // reassigning tier 3 from Contacts to Hobbyist Clique would leave Contacts.free_mci = 2
+  // indefinitely since it's no longer in _tierTargetKeys. The broad clear is safe because
+  // free_mci on merits is always re-derived from tier_grants; manual pool allocation
+  // (for characters without tier_grants) uses fighting_styles.free_mci which is unaffected.
+  const _hasTierGrants = mcis.some(m => m.active !== false && m.tier_grants && m.tier_grants.length > 0);
+  if (_hasTierGrants) {
     (c.merits || []).forEach(m => {
       if (m.name === 'Mystery Cult Initiation') return;
-      const key = m.name + '|' + (m.area || m.qualifier || '');
-      if (_tierTargetKeys.has(key)) m.free_mci = 0;
+      m.free_mci = 0;
     });
+  } else {
+    // Targeted clear only — for characters still on manual MCI pool allocation
+    const _tierTargetKeys = new Set();
+    for (const mci of mcis) {
+      if (mci.active === false || !mci.tier_grants) continue;
+      for (const tg of mci.tier_grants) _tierTargetKeys.add(tg.name + '|' + (tg.qualifier || ''));
+    }
+    if (_tierTargetKeys.size > 0) {
+      (c.merits || []).forEach(m => {
+        if (m.name === 'Mystery Cult Initiation') return;
+        const key = m.name + '|' + (m.area || m.qualifier || '');
+        if (_tierTargetKeys.has(key)) m.free_mci = 0;
+      });
+    }
   }
   // Second pass: apply tier grants
   for (const mci of mcis) {
