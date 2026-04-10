@@ -6,6 +6,7 @@
 
 import { addMerit, removeMerit, ensureMeritSync } from './merits.js';
 import { hasViralMythology, vmAlliesPool, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, hasInvested, investedPool } from './domain.js';
+import { BLOODLINE_GRANTS } from '../data/constants.js';
 
 /**
  * Compute grant pools and set ephemeral tracking data.
@@ -349,6 +350,27 @@ export function applyDerivedMerits(c) {
     if (otsDots > 0) {
       c._ots_covenant_bonus = otsDots;
       c._ots_free_dots = otsDots * 2;
+    }
+  }
+
+  // ── Bloodline grants (specs and merits) ──
+  const bloodlineGrants = BLOODLINE_GRANTS[c.bloodline];
+  if (bloodlineGrants) {
+    for (const { skill, spec } of (bloodlineGrants.skill_specs || [])) {
+      if (!c.skills) c.skills = {};
+      if (!c.skills[skill]) c.skills[skill] = { dots: 0, bonus: 0, specs: [], nine_again: false };
+      if (!c.skills[skill].specs) c.skills[skill].specs = [];
+      if (!c.skills[skill].specs.includes(spec)) c.skills[skill].specs.push(spec);
+    }
+    for (const grant of (bloodlineGrants.merits || [])) {
+      const exists = (c.merits || []).some(m =>
+        m.name === grant.name && m.granted_by === 'Bloodline' &&
+        (m.qualifier || null) === (grant.qualifier || null)
+      );
+      if (!exists) {
+        if (!c.merits) c.merits = [];
+        c.merits.push({ name: grant.name, category: grant.category, qualifier: grant.qualifier || null, free: 1, granted_by: 'Bloodline' });
+      }
     }
   }
 

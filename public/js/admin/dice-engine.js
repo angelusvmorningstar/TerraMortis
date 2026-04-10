@@ -80,11 +80,15 @@ function getDiscVal(name) {
 }
 function getSpecBonus() {
   if (!selSpec || !selectedChar) return 0;
-  // Check for Area of Expertise merit (gives +2 instead of +1)
-  const hasAoE = (selectedChar.merits || []).some(m =>
-    m.name && m.name.toLowerCase() === 'area of expertise'
+  return specBonusFor(selectedChar, selSpec);
+}
+
+function specBonusFor(char, spec) {
+  const aoe = (char.merits || []).some(m =>
+    m.name === 'Area of Expertise' && m.qualifier &&
+    m.qualifier.toLowerCase() === spec.toLowerCase()
   );
-  return hasAoE ? 2 : 1;
+  return aoe ? 2 : 1;
 }
 
 function calcPool() {
@@ -260,7 +264,7 @@ function render() {
       h += '<div class="de-spec-row">';
       for (const sp of specs) {
         const on = selSpec === sp ? ' on' : '';
-        h += `<button class="de-spec-chip${on}" data-spec="${esc(sp)}">${esc(sp)} <span class="de-spec-bonus">+${getSpecBonus()}</span></button>`;
+        h += `<button class="de-spec-chip${on}" data-spec="${esc(sp)}">${esc(sp)} <span class="de-spec-bonus">+${specBonusFor(selectedChar, sp)}</span></button>`;
       }
       h += '</div>';
     }
