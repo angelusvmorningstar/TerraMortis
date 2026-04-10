@@ -90,17 +90,6 @@ export const BLOODLINE_CLANS = {
   Ventrue:['Apollinaire','Bron','Gorgons','Icelus','Lasombra','Malkovians','Rotgrafen','Vardyvle']
 };
 
-/** Permanent per-bloodline grants applied at render time by applyDerivedMerits. */
-export const BLOODLINE_GRANTS = {
-  Gorgons: {
-    skill_specs: [{ skill: 'Animal Ken', spec: 'Snakes' }],
-    merits: [
-      { name: 'Area of Expertise', category: 'general', qualifier: 'Snakes' },
-      { name: 'Interdisciplinary Specialty', category: 'general', qualifier: 'Snakes' },
-    ],
-  },
-};
-
 export const CLAN_ATTR_OPTIONS = {
   Daeva:['Dexterity','Manipulation'],
   Gangrel:['Composure','Stamina'],

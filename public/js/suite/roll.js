@@ -6,7 +6,6 @@ import state from './data.js';
 
 import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { skSpecs, skNineAgain } from '../data/accessors.js';
-import { hasAoE } from '../data/helpers.js';
 
 // ── Imports from other suite modules (will exist once extracted) ──
 // showResistSec / updResist live in shared/resist.js
@@ -109,11 +108,11 @@ export function updPool() {
     const specs = skSpecs(rc, pi.skill);
     const na = skNineAgain(rc, pi.skill);
     if (specs.length) {
-      html += '<div class="effpool-specs">' + specs.map(s => {
-        const aoe = hasAoE(rc, s);
-        const bonus = na ? '2 (9-again)' : aoe ? '2 (AoE)' : '1';
-        return '<span class="effpool-spec">' + s + ' <span class="effpool-spec-bonus">+' + bonus + '</span></span>';
-      }).join('') + '</div>';
+      html += '<div class="effpool-specs">' + specs.map(s =>
+        '<span class="effpool-spec">' + s +
+        ' <span class="effpool-spec-bonus">+' + (na ? '2 (9-again)' : '1') +
+        '</span></span>'
+      ).join('') + '</div>';
     }
   }
 

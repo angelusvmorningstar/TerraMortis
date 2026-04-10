@@ -10,7 +10,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE } from '../data/helpers.js';
+import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
@@ -2425,12 +2425,13 @@ function renderAcquisitionsSection(saved) {
 
   // Specialisation chips (if selected skill has specs)
   const skSavedSpec = saved['skill_acq_pool_spec'] || '';
+  const hasAoE = (c.merits || []).some(m => m.name?.toLowerCase() === 'area of expertise');
   let specBonus = 0;
   let skSpecs = [];
   if (skSavedSkill && c.skills?.[skSavedSkill]?.specs?.length) {
     skSpecs = c.skills[skSavedSkill].specs;
     if (skSavedSpec && skSpecs.includes(skSavedSpec)) {
-      specBonus = hasAoE(c, skSavedSpec) ? 2 : 1;
+      specBonus = hasAoE ? 2 : 1;
     }
   }
 
@@ -2449,7 +2450,7 @@ function renderAcquisitionsSection(saved) {
     h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
     for (const sp of skSpecs) {
       const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
-      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE ? 2 : 1}</span></button>`;
     }
     h += '</div>';
   }
@@ -3160,8 +3161,11 @@ function renderQuestion(q, value) {
             if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = sv?.specs || []; }
           }
 
-          // Spec bonus: +2 if Area of Expertise qualifier matches the selected spec
-          const specBonus = feedSpecName ? (hasAoE(c, feedSpecName) ? 2 : 1) : 0;
+          // Spec bonus: check for Area of Expertise merit
+          const hasAoE = (c.merits || []).some(m =>
+            m.name && m.name.toLowerCase() === 'area of expertise'
+          );
+          const specBonus = feedSpecName ? (hasAoE ? 2 : 1) : 0;
 
           // Discipline selector
           const availDiscs = m.discs.filter(d => c.disciplines?.[d]?.dots);
@@ -3187,7 +3191,7 @@ function renderQuestion(q, value) {
             h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
             for (const sp of bestSpecs) {
               const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
-              h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+              h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE ? 2 : 1}</span></button>`;
             }
             h += '</div>';
           }
@@ -3215,8 +3219,9 @@ function renderQuestion(q, value) {
         const skills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0; });
         const discs = Object.entries(c.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
 
+        const hasAoECustom = (c.merits || []).some(mr => mr.name && mr.name.toLowerCase() === 'area of expertise');
         const customSpecs = feedCustomSkill ? (c.skills?.[feedCustomSkill]?.specs || []) : [];
-        const customSpecBonus = feedSpecName ? (hasAoE(c, feedSpecName) ? 2 : 1) : 0;
+        const customSpecBonus = feedSpecName ? (hasAoECustom ? 2 : 1) : 0;
 
         let customTotal = 0;
         if (feedCustomAttr) { const a = c.attributes?.[feedCustomAttr]; if (a) customTotal += (a.dots || 0) + (a.bonus || 0); }
@@ -3251,7 +3256,7 @@ function renderQuestion(q, value) {
           h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
           for (const sp of customSpecs) {
             const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
-            h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+            h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoECustom ? 2 : 1}</span></button>`;
           }
           h += '</div>';
         }

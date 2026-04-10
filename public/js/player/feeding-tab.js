@@ -10,7 +10,7 @@
 
 import { apiGet, apiPut } from '../data/api.js';
 import { getGamePhaseCycle } from '../downtime/db.js';
-import { esc, displayName, hasAoE } from '../data/helpers.js';
+import { esc, displayName } from '../data/helpers.js';
 import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
@@ -285,7 +285,8 @@ function buildPool(method, discName, specName) {
     if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = c.skills?.[s]?.specs || []; }
   }
 
-  const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE(c, specName) ? 2 : 1) : 0;
+  const hasAoE = (c.merits || []).some(m => m.name?.toLowerCase() === 'area of expertise');
+  const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE ? 2 : 1) : 0;
   const discVal = (discName && c.disciplines?.[discName]?.dots) || 0;
   const unskilled = bestSV === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
