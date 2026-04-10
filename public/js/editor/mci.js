@@ -110,8 +110,8 @@ export function applyDerivedMerits(c) {
   }
 
   // Clear ephemeral tracking
-  delete c._pt_nine_again_skills;
-  delete c._pt_dot4_bonus_skills;
+  c._pt_nine_again_skills = new Set();
+  c._pt_dot4_bonus_skills = new Set();
   delete c._mci_dot3_skills;
   delete c._ohm_nine_again_skills;
   c._grant_pools = [];
@@ -235,19 +235,22 @@ export function applyDerivedMerits(c) {
 
     // Dot 1: 2 free Contacts dots — auto-applied like OHM (no role required)
     if (dots >= 1) {
-      const m = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Contacts');
-      if (m) m.free_pt = 2;
+      let ctM = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Contacts');
+      if (!ctM) {
+        if (!c.merits) c.merits = [];
+        ctM = { name: 'Contacts', category: 'influence', rating: 0, granted_by: 'PT' };
+        c.merits.push(ctM);
+      }
+      ctM.free_pt = 2;
     }
 
     // Dot 2: nine_again on all asset skills (3rd skill added at dot 3 also qualifies)
     if (dots >= 2 && assets.length) {
-      if (!c._pt_nine_again_skills) c._pt_nine_again_skills = new Set();
       for (const sk of assets) c._pt_nine_again_skills.add(sk);
     }
 
     // Dot 4: bonus dot on chosen asset skill
     if (dots >= 4 && pt.dot4_skill) {
-      if (!c._pt_dot4_bonus_skills) c._pt_dot4_bonus_skills = new Set();
       c._pt_dot4_bonus_skills.add(pt.dot4_skill);
     }
   }
