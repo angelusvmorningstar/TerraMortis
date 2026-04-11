@@ -2448,6 +2448,9 @@ function buildAmbienceData(terrs) {
   // Form columns are checkbox selections: non-empty cell = player selected that territory = 1.
   // Values are always positive (no negative influence column in the form).
   const influenceCount = {};
+  console.log('[AmbDash] influence debug — first 3 subs _raw.influence:',
+    submissions.slice(0, 3).map(s => ({ char: s.character_name, inf: s._raw?.influence }))
+  );
   for (const sub of submissions) {
     const inf = sub._raw?.influence || {};
     for (const [k, v] of Object.entries(inf)) {
