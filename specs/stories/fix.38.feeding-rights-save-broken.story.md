@@ -1,6 +1,6 @@
 # Story fix.38: Player Portal — Save Feeding Rights Button Broken
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -79,3 +79,4 @@ await apiPut('/api/territory-residency', {
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-11 | 1.0 | Story authored | Claude (SM) |
+| 2026-04-11 | 1.1 | Root cause: button used undefined class `qf-submit-btn`; correct is `qf-btn qf-btn-submit`. Browser default styling caused red-border appearance. Save logic was functional. One-character fix. | Claude (SM) |
