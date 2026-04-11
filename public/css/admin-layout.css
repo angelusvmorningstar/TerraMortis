@@ -872,7 +872,15 @@ body {
   text-transform: uppercase;
 }
 
-.sphere-table { table-layout: fixed; }
+.sphere-table {
+  table-layout: auto;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.sphere-table th,
+.sphere-table td { white-space: nowrap; }
+.sphere-table .infl-name { white-space: nowrap; padding-right: 20px; }
 
 /* ── Downtime domain ── */
 
