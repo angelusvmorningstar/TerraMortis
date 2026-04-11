@@ -19,7 +19,8 @@ import {
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
   shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
-  registerCallbacks as registerDomainCallbacks
+  registerCallbacks as registerDomainCallbacks,
+  getDirtyPartners, clearDirtyPartners
 } from './edit-domain.js';
 
 /* Re-export merit-category handlers so consumers can import from edit.js */
@@ -29,7 +30,8 @@ export {
   shEditStandMerit, shEditStandAssetSkill, shToggleMCI, shEditMCIDot, shEditMCITierGrant, shEditMCITierQual, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditDomMerit, shRemoveDomMerit, shAddDomMerit,
   shAddDomainPartner, shRemoveDomainPartner,
-  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick
+  shAddStyle, shRemoveStyle, shEditStyle, shAddPick, shRemovePick,
+  getDirtyPartners, clearDirtyPartners
 };
 
 /* ── Callback registration (avoids circular deps with main.js / sheet.js) ── */

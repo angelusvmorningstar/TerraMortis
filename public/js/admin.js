@@ -49,7 +49,8 @@ import {
   shAddRite, shRemoveRite, shToggleRiteFree, shRefreshRiteDropdown,
   shAddPact, shRemovePact, shEditPact,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
-  registerCallbacks as registerEditCallbacks
+  registerCallbacks as registerEditCallbacks,
+  getDirtyPartners, clearDirtyPartners
 } from './editor/edit.js';
 import { renderIdentityTab, updField, updStatus, registerCallbacks as registerIdentityCallbacks } from './editor/identity.js';
 import {
@@ -503,6 +504,16 @@ async function createNewCharacter() {
   }
 }
 
+function buildSaveBody(c) {
+  // Strip _id (goes in URL) and all ephemeral _-prefixed runtime fields
+  const body = {};
+  for (const [k, v] of Object.entries(c)) {
+    if (k === '_id' || k.startsWith('_')) continue;
+    body[k] = v;
+  }
+  return body;
+}
+
 async function saveCharToApi() {
   const idx = editorState.editIdx;
   const c = chars[idx];
@@ -512,8 +523,8 @@ async function saveCharToApi() {
   saveBtn.textContent = 'Saving...';
 
   try {
-    const { _id, ...body } = c;
-    const updated = await apiPut('/api/characters/' + _id, body);
+    const _id = c._id;
+    const updated = await apiPut('/api/characters/' + _id, buildSaveBody(c));
     Object.assign(chars[idx], updated);
     selectedChar = chars[idx];
     editorState.dirty.clear();
@@ -524,6 +535,19 @@ async function saveCharToApi() {
     setTimeout(() => { saveBtn.textContent = 'Save to DB'; }, 2000);
 
     renderCharGrid();
+
+    // Cascade-save any partner characters dirtied by domain sharing edits
+    const partnerIds = [...getDirtyPartners()].filter(id => String(id) !== String(_id));
+    clearDirtyPartners();
+    if (partnerIds.length) {
+      await Promise.all(partnerIds.map(pid => {
+        const pc = chars.find(ch => String(ch._id) === String(pid));
+        if (!pc) return Promise.resolve();
+        return apiPut('/api/characters/' + pid, buildSaveBody(pc))
+          .then(upd => { Object.assign(pc, upd); })
+          .catch(err => console.warn('Partner save failed for', pid, err));
+      }));
+    }
   } catch (err) {
     saveBtn.textContent = 'Error';
     console.error('Save failed:', err.message);
