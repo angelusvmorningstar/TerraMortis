@@ -4023,9 +4023,12 @@ body {
   font-size: 13px;
 }
 
-.proc-amb-pos { color: #90d090; }
-.proc-amb-neg { color: #ff9090; }
-.proc-amb-neutral { color: var(--txt2); }
+.proc-amb-pos,
+.proc-amb-table td.proc-amb-pos { color: #90d090; }
+.proc-amb-neg,
+.proc-amb-table td.proc-amb-neg { color: #ff9090; }
+.proc-amb-neutral,
+.proc-amb-table td.proc-amb-neutral { color: var(--txt2); }
 
 .proc-amb-note {
   font-size: 11px;
