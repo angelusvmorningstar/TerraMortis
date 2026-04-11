@@ -874,8 +874,13 @@ export function shRenderGeneralMerits(c, editMode) {
         else if (isDC || isFF) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 skill \u2014') + '</option>' + ['Brawl', 'Weaponry'].map(s => '<option' + (m.qualifier === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>';
         else if (isMDB) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 Cr\u00FAac Style \u2014') + '</option>' + _CRUAC_STYLES.map(s => '<option' + (m.qualifier === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>';
         else if (isKerberos) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 Aspect \u2014') + '</option>' + _KERBEROS_ASPECTS.map(a => '<option' + (m.qualifier === a ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>';
-        else if (nSp && cSp.length) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 spec \u2014') + '</option>' + cSp.map(sp => '<option' + (m.qualifier === sp ? ' selected' : '') + '>' + esc(sp) + '</option>').join('') + '</select>';
-        else h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
+        else if (nSp) {
+          if (cSp.length) {
+            h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">\u2014 spec \u2014</option>' + cSp.map(sp => '<option value="' + esc(sp) + '"' + (m.qualifier === sp ? ' selected' : '') + '>' + esc(sp) + '</option>').join('') + '</select>';
+          } else {
+            h += '<select class="gen-qual-input" disabled><option value="">\u2014 add a specialisation first \u2014</option></select>';
+          }
+        } else h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
         h += '<span class="infl-dots-derived">' + shDots(dd) + '</span><button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
         if (_mdbChosenStyle && m.name === _mdbChosenStyle && _mdbMentorRating > 0) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">MDB Bonus: +' + _mdbMentorRating + ' dots (auto) \u2014 equals Mentor rating</div>';
         h += _prereqWarn(c, m.name, m);
