@@ -1,6 +1,6 @@
 # Story feature.43: Downtime Processing Mode — Backbone
 
-## Status: Approved
+## Status: done
 
 ## Story
 
@@ -198,8 +198,30 @@ The existing `st_note` field on `projects_resolved` remains in place. The proces
 
 ### Agent Model Used
 
+claude-sonnet-4-6
+
 ### Debug Log References
+
+None.
 
 ### Completion Notes List
 
+- `getUser` import added to `downtime-views.js` for ST note attribution.
+- `processingMode` flag and `procExpandedKey` added as module-level state.
+- `PHASE_ORDER`, `PHASE_LABELS`, `PHASE_NUM_TO_LABEL`, `ACTION_TYPE_LABELS`, `ALL_ACTION_TYPES` constants defined.
+- "Processing" button added to toolbar in `buildShell()`. Wired in `initDowntimeView()`.
+- `renderSubmissions()` now delegates to `renderProcessingMode()` when `processingMode` is true.
+- `loadCycleById()` resets `procExpandedKey` on cycle switch and keeps processing btn state in sync.
+- `buildProcessingQueue(subs)`: aggregates sorcery, feeding, projects, sphere actions, contacts, retainers into tagged queue entries. Contacts and retainers use flat `merit_actions_resolved` index (matching existing per-character panel logic).
+- `getEntryReview(entry)` / `saveEntryReview(entry, patch)`: read/write per-action review objects on the submission document via `updateSubmission`.
+- `renderProcessingMode(container)`: groups queue by phase, renders collapsed rows with char/label/desc/status columns, wires all click/blur/change handlers.
+- `renderActionPanel(entry, review)`: renders expanded detail — player pool (read-only), ST validated pool (editable), validation status toggle, player feedback, ST notes thread with add-note, re-tag dropdown (projects only), open-submission link.
+- Schema check: `resolvedAction` definition uses `additionalProperties: true`, so new fields (`pool_player`, `pool_validated`, `pool_status`, `notes_thread`, `player_feedback`) and top-level `feeding_review` do not require schema changes.
+- Processing mode does not reset when switching cycles; `procExpandedKey` resets to avoid stale expansion.
+- Task 5 (re-tag) implemented for project actions only; saves `action_type` to `projects_resolved[idx]`.
+- Task 6 (cycle selection respects processing mode): yes, queue is rebuilt from current `submissions` on each render.
+
 ### File List
+
+- `public/js/admin/downtime-views.js`
+- `public/css/admin-layout.css`
