@@ -233,6 +233,22 @@ export function shRemoveStandMerit(idx) {
   _renderSheet(c);
 }
 
+export function shEditMeritAttache(realIdx, retainerKey, dots) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const m = (c.merits || [])[realIdx];
+  if (!m) return;
+  if (!retainerKey) {
+    m.free_attache = 0;
+    delete m.retainer_source;
+  } else {
+    m.retainer_source = retainerKey;
+    m.free_attache = Math.max(0, dots || 0);
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shEditMCIDot(standIdx, dotKey, val) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];

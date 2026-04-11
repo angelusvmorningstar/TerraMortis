@@ -244,6 +244,26 @@ export function investedUsed(c) {
   return total;
 }
 
+/** Check if character has the Attaché merit. */
+export function hasAttache(c) {
+  return (c.merits || []).some(m => m.name === 'Attach\u00e9');
+}
+
+/** Attaché pool per retainer = Invictus covenant Status. */
+export function attachePool(c) {
+  if (!hasAttache(c)) return 0;
+  return (c.status || {}).covenant || 0;
+}
+
+/** Count Attaché free_attache dots allocated from a specific retainer key. */
+export function attacheUsed(c, attacheKey) {
+  let total = 0;
+  (c.merits || []).forEach(m => {
+    if (m.retainer_source === attacheKey) total += (m.free_attache || 0);
+  });
+  return total;
+}
+
 /** Check if character has the Lorekeeper merit. */
 export function hasLorekeeper(c) {
   return (c.merits || []).some(m => m.name === 'Lorekeeper');
