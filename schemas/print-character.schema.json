@@ -1,0 +1,272 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TM Print Character — Resolved Display Data",
+  "description": "Fully resolved character data for PDF generation. All values are pre-computed — no derivation required by the consumer. Produced by the print function from the in-memory character object after applyDerivedMerits and loadGameXP have run.",
+  "type": "object",
+  "required": ["identity", "stats", "attributes", "skills", "disciplines", "merits", "xp"],
+
+  "properties": {
+
+    "identity": {
+      "type": "object",
+      "required": ["name", "displayName"],
+      "properties": {
+        "name":          { "type": "string", "description": "Legal character name" },
+        "displayName":   { "type": "string", "description": "Resolved display name: honorific + (moniker || name)" },
+        "player":        { "type": ["string", "null"], "description": "Player display name" },
+        "honorific":     { "type": ["string", "null"], "description": "Title prefix (Lord, Lady, Doctor, Sister)" },
+        "moniker":       { "type": ["string", "null"], "description": "Display name override" },
+        "concept":       { "type": ["string", "null"] },
+        "pronouns":      { "type": ["string", "null"] },
+        "apparent_age":  { "type": ["string", "null"] },
+        "clan":          { "type": ["string", "null"], "enum": ["Daeva", "Gangrel", "Mekhet", "Nosferatu", "Ventrue", null] },
+        "bloodline":     { "type": ["string", "null"] },
+        "covenant":      { "type": ["string", "null"], "enum": ["Carthian Movement", "Circle of the Crone", "Invictus", "Lancea et Sanctum", "Ordo Dracul", "Unaligned", null] },
+        "mask":          { "type": ["string", "null"], "description": "Public archetype" },
+        "dirge":         { "type": ["string", "null"], "description": "Private archetype" },
+        "court_title":   { "type": ["string", "null"], "description": "Court position (Premier, Primogen, etc.)" },
+        "regent_territory": { "type": ["string", "null"], "description": "Derived from territories collection, null if not a regent" }
+      }
+    },
+
+    "stats": {
+      "type": "object",
+      "description": "All derived at render time, never stored",
+      "required": ["blood_potency", "humanity", "health", "willpower", "defence", "speed", "size"],
+      "properties": {
+        "blood_potency": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "humanity":      { "type": "integer", "minimum": 0, "maximum": 10 },
+        "health":        { "type": "integer", "description": "Stamina + Size" },
+        "willpower":     { "type": "integer", "description": "Resolve + Composure" },
+        "defence":       { "type": "integer", "description": "Lower of Dex/Wits + Athletics" },
+        "speed":         { "type": "integer", "description": "Strength + Dexterity + 5 + Celerity" },
+        "size":          { "type": "integer", "description": "5 (+ 1 if Giant)" },
+        "vitae_max":     { "type": "integer", "description": "Derived from Blood Potency" },
+        "status": {
+          "type": "object",
+          "properties": {
+            "city":     { "type": "integer", "minimum": 0, "maximum": 10, "description": "Base + title bonus" },
+            "clan":     { "type": "integer", "minimum": 0, "maximum": 5 },
+            "covenant": { "type": "integer", "minimum": 0, "maximum": 5, "description": "May include OTS floor" }
+          }
+        },
+        "influence_total": { "type": "integer", "description": "Sum of all influence sources" }
+      }
+    },
+
+    "willpower_conditions": {
+      "type": "object",
+      "description": "Derived from Mask and Dirge archetypes",
+      "properties": {
+        "mask_1wp":  { "type": "string", "description": "Mask: regain 1 WP when..." },
+        "mask_all":  { "type": "string", "description": "Mask: regain all WP when..." },
+        "dirge_1wp": { "type": "string", "description": "Dirge: regain 1 WP when..." },
+        "dirge_all": { "type": "string", "description": "Dirge: regain all WP when..." }
+      }
+    },
+
+    "attributes": {
+      "type": "object",
+      "description": "Nine attributes. effective = dots + bonus (includes discipline bonuses like Vigour → Strength)",
+      "required": ["Intelligence", "Wits", "Resolve", "Strength", "Dexterity", "Stamina", "Presence", "Manipulation", "Composure"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["dots", "bonus", "effective"],
+        "properties": {
+          "dots":      { "type": "integer", "minimum": 1, "maximum": 10, "description": "Base dots (includes creation + XP)" },
+          "bonus":     { "type": "integer", "minimum": 0, "description": "Discipline-derived bonus (e.g. Vigour, Resilience, Mantle of Amorous Fire)" },
+          "effective": { "type": "integer", "minimum": 1, "description": "dots + bonus — use this for display and pool calculations" }
+        }
+      }
+    },
+
+    "skills": {
+      "type": "array",
+      "description": "Only skills with effective dots > 0 or specialisations. Sorted by category then name.",
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "effective"],
+        "properties": {
+          "name":       { "type": "string" },
+          "category":   { "type": "string", "enum": ["Mental", "Physical", "Social"] },
+          "dots":       { "type": "integer", "minimum": 0, "maximum": 5, "description": "Base stored dots" },
+          "bonus":      { "type": "integer", "minimum": 0, "description": "Bonus dots (e.g. from attribute bonuses)" },
+          "pt_bonus":   { "type": "integer", "minimum": 0, "maximum": 1, "description": "+1 from Professional Training dot 4" },
+          "mci_bonus":  { "type": "integer", "minimum": 0, "maximum": 1, "description": "+1 from MCI dot 3 skill choice" },
+          "effective":  { "type": "integer", "minimum": 0, "maximum": 5, "description": "min(dots + bonus + pt_bonus + mci_bonus, 5) — use this for display" },
+          "nine_again": { "type": "boolean", "description": "true if 9-Again from any source (stored, PT, MCI, OHM)" },
+          "nine_again_sources": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["stored", "PT", "MCI", "OHM"] },
+            "description": "Which grants provide 9-Again on this skill"
+          },
+          "specialisations": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Specialisation names. Area of Expertise match gives +2 instead of +1."
+          }
+        }
+      }
+    },
+
+    "disciplines": {
+      "type": "array",
+      "description": "Only disciplines with dots > 0. Powers derived from purchasable_powers rules cache.",
+      "items": {
+        "type": "object",
+        "required": ["name", "dots"],
+        "properties": {
+          "name":     { "type": "string", "description": "Discipline name (e.g. 'Nightmare', 'Cruac')" },
+          "dots":     { "type": "integer", "minimum": 1, "maximum": 5 },
+          "in_clan":  { "type": "boolean", "description": "true if in clan/bloodline list or covenant ritual discipline" },
+          "powers": {
+            "type": "array",
+            "description": "One entry per rank up to dots, derived from rules DB",
+            "items": {
+              "type": "object",
+              "required": ["rank", "name"],
+              "properties": {
+                "rank":        { "type": "integer", "minimum": 1, "maximum": 5 },
+                "name":        { "type": "string" },
+                "stats":       { "type": "string", "description": "Formatted: 'Cost: 1V  •  Pool: Pre + Itm  •  Instant  •  Scene'" },
+                "effect":      { "type": "string" },
+                "cost":        { "type": ["string", "null"] },
+                "pool":        { "type": ["string", "null"], "description": "Formatted pool expression" },
+                "action":      { "type": ["string", "null"] },
+                "duration":    { "type": ["string", "null"] },
+                "resistance":  { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "merits": {
+      "type": "array",
+      "description": "All merits grouped by category. Effective rating includes shared/SSJ/Flock bonuses.",
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "effective_rating"],
+        "properties": {
+          "name":             { "type": "string" },
+          "category":         { "type": "string", "enum": ["general", "influence", "domain", "standing", "manoeuvre"] },
+          "effective_rating": { "type": "integer", "minimum": 0, "description": "Resolved total including shared/bonus dots" },
+          "own_dots":         { "type": "integer", "minimum": 0, "description": "Character's own contribution (for shared merits)" },
+          "qualifier":        { "type": ["string", "null"], "description": "e.g. Allies qualifier sphere" },
+          "area":             { "type": ["string", "null"], "description": "e.g. Contacts sphere, Status scope" },
+          "granted_by":       { "type": ["string", "null"], "description": "Source of granted dots (MCI, PT, VM, etc.)" },
+          "shared_with":      { "type": "array", "items": { "type": "string" }, "description": "Partner character names (domain merits only)" },
+          "is_shared":        { "type": "boolean" },
+          "bonuses":          { "type": "array", "items": { "type": "string" }, "description": "e.g. ['+2 SSJ', '+1 Flock']" },
+          "cult_name":        { "type": ["string", "null"], "description": "MCI cult name" },
+          "asset_skills":     { "type": "array", "items": { "type": "string" }, "description": "PT asset skills" },
+          "influence":        { "type": "integer", "minimum": 0, "description": "Influence points generated (0, 1, or 2)" }
+        }
+      }
+    },
+
+    "devotions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name":   { "type": "string" },
+          "xp_cost": { "type": "integer" },
+          "prereqs": { "type": "string", "description": "Formatted prerequisite string" },
+          "effect":  { "type": "string" }
+        }
+      }
+    },
+
+    "rites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "tradition", "level"],
+        "properties": {
+          "name":      { "type": "string" },
+          "tradition": { "type": "string", "enum": ["Cruac", "Theban"] },
+          "level":     { "type": "integer", "minimum": 1, "maximum": 5 },
+          "free":      { "type": "boolean", "description": "true if within the free rite pool (dots × 2)" },
+          "xp_cost":   { "type": "integer", "description": "0 if free, 1 if level ≤ 3, 2 if level ≥ 4" }
+        }
+      }
+    },
+
+    "fighting_styles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "dots"],
+        "properties": {
+          "name":  { "type": "string" },
+          "dots":  { "type": "integer", "minimum": 0 },
+          "tags":  { "type": "array", "items": { "type": "string" }, "description": "Style tags (e.g. 'Movement (Agile)', 'Light Melee')" },
+          "picks": { "type": "array", "items": { "type": "string" }, "description": "Selected manoeuvres at each rank" }
+        }
+      }
+    },
+
+    "touchstones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["humanity", "name"],
+        "properties": {
+          "humanity": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "name":     { "type": "string" },
+          "desc":     { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "banes": {
+      "type": "array",
+      "description": "Includes the clan curse as the first entry (if present)",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name":     { "type": "string" },
+          "effect":   { "type": "string" },
+          "is_curse": { "type": "boolean", "description": "true for the clan curse, false for additional banes" }
+        }
+      }
+    },
+
+    "xp": {
+      "type": "object",
+      "description": "All values derived at render time from character data + game sessions",
+      "required": ["earned", "spent", "remaining"],
+      "properties": {
+        "earned":    { "type": "integer", "description": "Total XP earned (starting + humanity drops + ordeals + game attendance)" },
+        "spent":     { "type": "integer", "description": "Total XP spent (attributes + skills + disciplines + merits + devotions + special)" },
+        "remaining": { "type": "integer", "description": "earned - spent" },
+        "breakdown": {
+          "type": "object",
+          "description": "Itemised earned/spent sources",
+          "properties": {
+            "starting":       { "type": "integer", "description": "Always 10" },
+            "humanity_drops": { "type": "integer", "description": "(humanity_base - humanity) × 2" },
+            "ordeals":        { "type": "integer", "description": "Completed ordeals × 3" },
+            "game":           { "type": "integer", "description": "Sum from game_sessions attendance (1 attend + 1 costume + 1 downtime + extra)" },
+            "spent_attributes":  { "type": "integer" },
+            "spent_skills":      { "type": "integer" },
+            "spent_disciplines": { "type": "integer" },
+            "spent_merits":      { "type": "integer" },
+            "spent_devotions":   { "type": "integer" },
+            "spent_special":     { "type": "integer", "description": "Blood Potency XP, style XP, etc." }
+          }
+        }
+      }
+    },
+
+    "influence_breakdown": {
+      "type": "array",
+      "description": "Line-by-line breakdown of influence sources (same as the tooltip on Total Influence)",
+      "items": { "type": "string" }
+    }
+  }
+}
