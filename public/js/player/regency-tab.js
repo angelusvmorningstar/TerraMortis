@@ -110,7 +110,7 @@ function render(container) {
 
   // Save button
   h += '<div class="regency-actions">';
-  h += '<button id="reg-save" class="qf-submit-btn">Save Feeding Rights</button>';
+  h += '<button id="reg-save" class="qf-btn qf-btn-submit">Save Feeding Rights</button>';
   h += '<span id="reg-save-status" class="qf-save-status"></span>';
   h += '</div>';
 
