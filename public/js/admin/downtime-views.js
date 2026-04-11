@@ -80,7 +80,9 @@ function buildShell() {
     <div id="dt-submissions" class="dt-submissions"></div>`;
 }
 
-// ── Character data bridge ───────────────────────────────────────────────────
+// ── Character + player data bridge ──────────────────────────────────────────
+
+let players = [];
 
 async function loadCharacters() {
   try {
@@ -94,25 +96,117 @@ async function loadCharacters() {
     characters = [];
     charMap = new Map();
   }
+  try { players = await apiGet('/api/players'); } catch { players = []; }
 }
 
-export function findCharacter(submissionName) {
-  if (!submissionName) return null;
-  const key = submissionName.toLowerCase().trim();
+// ── Fuzzy matching utilities ────────────────────────────────────────────────
 
-  // Exact match on name or moniker
-  const exact = charMap.get(key);
-  if (exact) return exact;
+function _norm(s) { return (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
-  // Fallback: check if any character name/moniker appears as a word within the submission name
-  for (const c of characters) {
-    const cName = (c.name || '').toLowerCase().trim();
-    const cMoniker = (c.moniker || '').toLowerCase().trim();
-    if (cName && key.includes(cName)) return c;
-    if (cMoniker && key.includes(cMoniker)) return c;
+function _wordSet(s) { return new Set(_norm(s).split(/[\s'']+/).filter(Boolean)); }
+
+/** Word-overlap score: fraction of query words found in target (0-1). */
+function _wordOverlap(query, target) {
+  const qw = _wordSet(query);
+  const tw = _wordSet(target);
+  if (!qw.size) return 0;
+  let hits = 0;
+  for (const w of qw) { if (tw.has(w)) hits++; }
+  return hits / qw.size;
+}
+
+/** Substring containment score: 1 if target contains query or vice versa, 0.5 for partial word overlap. */
+function _containsScore(query, target) {
+  const q = _norm(query), t = _norm(target);
+  if (q === t) return 1;
+  if (t.includes(q) || q.includes(t)) return 0.9;
+  return 0;
+}
+
+/**
+ * Find the best matching character for a CSV submission row.
+ * Combines character name matching and player name matching for a combined score.
+ *
+ * Character name is compared against: c.name, c.moniker, displayName(c)
+ * Player name is compared against: player.display_name, player.discord_username, player.discord_global_name, c.player
+ *
+ * Returns { character, score, warnings[] } or { character: null, score: 0, warnings[] }
+ */
+export function findCharacter(submissionCharName, submissionPlayerName) {
+  if (!submissionCharName && !submissionPlayerName) return null;
+
+  // Build player → character_ids lookup
+  const playerCharIds = new Map(); // character_id string → player doc
+  for (const p of players) {
+    for (const cid of (p.character_ids || [])) playerCharIds.set(String(cid), p);
   }
 
-  return null;
+  let bestChar = null, bestScore = 0;
+
+  for (const c of characters) {
+    // Character name score (weight: 0.7)
+    const cNames = [c.name, c.moniker, c.honorific ? (c.honorific + ' ' + (c.moniker || c.name)) : null].filter(Boolean);
+    let charScore = 0;
+    if (submissionCharName) {
+      for (const cn of cNames) {
+        const exact = _containsScore(submissionCharName, cn);
+        const overlap = _wordOverlap(submissionCharName, cn);
+        charScore = Math.max(charScore, exact, overlap);
+      }
+    }
+
+    // Player name score (weight: 0.3)
+    let playerScore = 0;
+    if (submissionPlayerName) {
+      const p = playerCharIds.get(String(c._id));
+      const pNames = [
+        c.player,
+        p?.display_name,
+        p?.discord_username,
+        p?.discord_global_name,
+      ].filter(Boolean);
+      for (const pn of pNames) {
+        const exact = _containsScore(submissionPlayerName, pn);
+        const overlap = _wordOverlap(submissionPlayerName, pn);
+        playerScore = Math.max(playerScore, exact, overlap);
+      }
+    }
+
+    const combined = (submissionCharName && submissionPlayerName)
+      ? charScore * 0.7 + playerScore * 0.3
+      : submissionCharName ? charScore : playerScore;
+
+    if (combined > bestScore) {
+      bestScore = combined;
+      bestChar = c;
+    }
+  }
+
+  // Require a minimum confidence threshold
+  if (bestScore < 0.4) return null;
+  return bestChar;
+}
+
+/**
+ * Match a CSV submission and return match details with warnings.
+ * Used by the import flow to surface unmatched/low-confidence matches.
+ */
+export function matchSubmission(sub) {
+  const charName = sub.submission.character_name;
+  const playerName = sub.submission.player_name;
+  const char = findCharacter(charName, playerName);
+  const warnings = [];
+
+  if (!char) {
+    warnings.push(`No match found for character "${charName}" (player: ${playerName})`);
+  } else {
+    const matchedName = char.moniker || char.name;
+    if (_norm(charName) !== _norm(matchedName) && _norm(charName) !== _norm(char.name)) {
+      warnings.push(`Fuzzy match: "${charName}" → ${matchedName} (${char.name})`);
+    }
+  }
+
+  return { character: char, warnings };
 }
 
 const FEED_METHODS = [
@@ -431,8 +525,8 @@ function renderMatchSummary() {
   const el = document.getElementById('dt-match-summary');
   if (!submissions.length) { el.innerHTML = ''; return; }
 
-  const matched = submissions.filter(s => findCharacter(s.character_name));
-  const unmatched = submissions.filter(s => !findCharacter(s.character_name));
+  const matched = submissions.filter(s => findCharacter(s.character_name, s.player_name));
+  const unmatched = submissions.filter(s => !findCharacter(s.character_name, s.player_name));
   const rolled = submissions.filter(s => s.feeding_roll);
 
   const approved = submissions.filter(s => s.approval_status === 'approved').length;
@@ -476,7 +570,7 @@ function renderSubmissions() {
     const attended = sub.attended_last_game ? '\u2713' : '\u2717';
     const attendedClass = sub.attended_last_game ? 'dt-attended' : 'dt-absent';
 
-    const char = findCharacter(s.character_name);
+    const char = findCharacter(s.character_name, s.player_name);
     const matchIcon = char ? '<span class="dt-match-icon">\u2713</span>' : '<span class="dt-unmatch-icon">\u26A0</span>';
     const clan = char ? esc(char.clan || '') : '';
     const isExpanded = expandedId === s._id;
@@ -707,7 +801,7 @@ function renderSubmissions() {
       const subId = btn.dataset.subId;
       const idx = +btn.dataset.projIdx;
       const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name) : null;
+      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
       const pen = (sub?._proj_pending || [])[idx] || {};
       const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
       showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
@@ -768,7 +862,7 @@ function renderSubmissions() {
       const subId = btn.dataset.subId;
       const idx = +btn.dataset.meritIdx;
       const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name) : null;
+      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
       const pen = (sub?._merit_pending || [])[idx] || {};
       const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
       showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
@@ -846,7 +940,7 @@ function renderSubmissions() {
       e.stopPropagation();
       const id = btn.dataset.subId;
       const sub = submissions.find(s => s._id === id);
-      const char = sub ? findCharacter(sub.character_name) : null;
+      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
 
       let poolSize = 1, expression = '';
       if (char && sub._feed_method) {
@@ -1252,15 +1346,25 @@ async function processFile(file) {
     return;
   }
 
-  // Enrich each parsed submission with character_id (needed for player-side filtering)
+  // Enrich each parsed submission with character_id via combined fuzzy matching
+  const matchWarnings = [];
   for (const sub of parsed) {
-    const char = findCharacter(sub.submission.character_name);
-    if (char) sub._character_id = char._id;
+    const { character, warnings: mw } = matchSubmission(sub);
+    if (character) sub._character_id = character._id;
+    matchWarnings.push(...mw);
+  }
+  if (matchWarnings.length) {
+    warnEl.innerHTML += matchWarnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('');
   }
 
   try {
     const result = await upsertCycle(parsed);
-    warnEl.innerHTML = `<div class="dt-success">Loaded ${result.created} new, ${result.updated} updated submissions.</div>`;
+    const matched = parsed.filter(s => s._character_id).length;
+    const unmatched = parsed.length - matched;
+    let msg = `Loaded ${result.created} new, ${result.updated} updated submissions.`;
+    if (unmatched) msg += ` ${unmatched} submission${unmatched > 1 ? 's' : ''} could not be linked to a character.`;
+    warnEl.innerHTML = (matchWarnings.length ? matchWarnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('') : '')
+      + `<div class="dt-success">${esc(msg)}</div>`;
     await loadAllCycles();
   } catch (err) {
     warnEl.innerHTML += `<div class="dt-warn">Import failed: ${esc(err.message)}</div>`;
@@ -1457,7 +1561,7 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   for (const sub of approvedSubs) {
     const char = sub.character_id
       ? characters.find(c => String(c._id) === String(sub.character_id))
-      : findCharacter(sub.character_name);
+      : findCharacter(sub.character_name, sub.player_name);
     if (!char) continue;
     const vitaeSpent    = sub.st_review?.vitae_spent    || 0;
     const wpSpent       = sub.st_review?.willpower_spent || 0;
@@ -1841,7 +1945,7 @@ async function buildExportMd(sub, char, questResp) {
 async function handleExportSingle(subId) {
   const sub = submissions.find(s => s._id === subId);
   if (!sub) return;
-  const char = findCharacter(sub.character_name);
+  const char = findCharacter(sub.character_name, sub.player_name);
   let questResp = null;
   if (char) {
     try { questResp = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
@@ -1857,14 +1961,14 @@ async function handleExportAll() {
   // Load all questionnaire responses in parallel
   const questMap = {};
   await Promise.all(sorted.map(async sub => {
-    const char = findCharacter(sub.character_name);
+    const char = findCharacter(sub.character_name, sub.player_name);
     if (char) {
       try { questMap[sub._id] = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
     }
   }));
   const parts = [];
   for (const sub of sorted) {
-    const char = findCharacter(sub.character_name);
+    const char = findCharacter(sub.character_name, sub.player_name);
     parts.push(await buildExportMd(sub, char, questMap[sub._id] || null));
   }
   const cycleLabel = allCycles.find(c => c._id === selectedCycleId)?.label || 'downtime';
@@ -2364,7 +2468,7 @@ function renderFeedingScene() {
   // Build a map from character _id → submission for quick lookup
   const subByCharId = new Map();
   for (const s of submissions) {
-    const char = findCharacter(s.character_name);
+    const char = findCharacter(s.character_name, s.player_name);
     if (char) subByCharId.set(String(char._id), s);
   }
 
