@@ -23,6 +23,7 @@ import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
   influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft
 } from '../data/accessors.js';
+import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 
 // ── Sheet character selection ──
 
@@ -365,7 +366,9 @@ export function renderSheet() {
   // ── Influence Merits ──
   const inflMerits = influenceMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (inflMerits.length) {
-    html += `<div class="sh-sec"><div class="sh-sec-title">Influence Merits</div><div class="merit-list">`;
+    const _inflTip = influenceBreakdown(c).join('\n');
+    const _inflTotal = calcTotalInfluence(c);
+    html += `<div class="sh-sec"><div class="sh-sec-title" title="${_inflTip}">Influence Merits <span style="font-size:11px;color:var(--gold2);letter-spacing:0">(${_inflTotal} inf)</span></div><div class="merit-list">`;
     inflMerits.forEach((m, i) => {
       html += renderMeritRow(m, 'infl', i);
     });
