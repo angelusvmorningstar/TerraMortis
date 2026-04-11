@@ -355,13 +355,15 @@ export const characterSchema = {
         cp:       { type: 'integer', minimum: 0 },
         xp:       { type: 'integer', minimum: 0 },
         free:     { type: 'integer', minimum: 0 },
-        free_mci: { type: 'integer', minimum: 0 },
-        free_vm:  { type: 'integer', minimum: 0 },
-        free_lk:  { type: 'integer', minimum: 0 },
-        free_ohm: { type: 'integer', minimum: 0 },
-        free_inv: { type: 'integer', minimum: 0 },
-        free_pt:  { type: 'integer', minimum: 0 },
-        free_mdb: { type: 'integer', minimum: 0 },
+        free_mci:       { type: 'integer', minimum: 0 },
+        free_vm:        { type: 'integer', minimum: 0 },
+        free_lk:        { type: 'integer', minimum: 0 },
+        free_ohm:       { type: 'integer', minimum: 0 },
+        free_inv:       { type: 'integer', minimum: 0 },
+        free_pt:        { type: 'integer', minimum: 0 },
+        free_mdb:       { type: 'integer', minimum: 0 },
+        free_bloodline: { type: 'integer', minimum: 0 },
+        free_retainer:  { type: 'integer', minimum: 0 },
         rule_key: { type: ['string', 'null'] }
       },
       additionalProperties: false
@@ -405,6 +407,7 @@ export const characterSchema = {
         xp:        { type: 'integer', minimum: 0 },
         free:      { type: 'integer', minimum: 0 },
         free_mci:  { type: 'integer', minimum: 0 },
+        free_ots:  { type: 'integer', minimum: 0 },
         // Legacy field from Excel import — tolerated
         up:        { type: 'integer', minimum: 0 },
         // Legacy per-style picks — tolerated during migration to fighting_picks
