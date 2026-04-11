@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
@@ -212,6 +212,29 @@ export async function initDowntimeView() {
   });
   await loadCharacters();
   await loadAllCycles();
+
+  // Dev-only: preview CSV button (no MongoDB writes)
+  if (location.hostname === 'localhost') {
+    const toolbar = document.querySelector('.dt-toolbar');
+    if (toolbar) {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = '.csv';
+      inp.style.display = 'none';
+      inp.id = 'dt-preview-input';
+      inp.addEventListener('change', e => { if (e.target.files[0]) processFilePreview(e.target.files[0]); });
+
+      const btn = document.createElement('button');
+      btn.className = 'dt-btn';
+      btn.textContent = 'Preview CSV';
+      btn.title = 'Load CSV for local preview — not saved to MongoDB';
+      btn.style.cssText = 'border-color:var(--gold2);color:var(--gold2)';
+      btn.addEventListener('click', () => inp.click());
+
+      toolbar.appendChild(inp);
+      toolbar.appendChild(btn);
+    }
+  }
 }
 
 function buildShell() {
@@ -1548,6 +1571,89 @@ async function processFile(file) {
     warnEl.innerHTML += `<div class="dt-warn">Import failed: ${esc(err.message)}</div>`;
     console.error('Downtime CSV import failed:', err);
   }
+}
+
+// ── Dev CSV Preview (localhost only — no MongoDB writes) ─────────────────────
+
+async function processFilePreview(file) {
+  const warnEl = document.getElementById('dt-warnings');
+  warnEl.innerHTML = '<div class="dt-warn" style="background:rgba(224,196,122,.08);border-color:var(--gold2);color:var(--gold2)">&#9888; Preview mode — data is not saved to MongoDB.</div>';
+
+  const text = await file.text();
+  const { submissions: parsed, warnings } = parseDowntimeCSV(text);
+
+  if (warnings.length) {
+    warnEl.innerHTML += warnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('');
+  }
+  if (!parsed.length) {
+    warnEl.innerHTML += '<div class="dt-warn">No submissions found in CSV.</div>';
+    return;
+  }
+
+  // Match to characters
+  for (const sub of parsed) {
+    const { character } = matchSubmission(sub);
+    if (character) sub._character_id = character._id;
+  }
+
+  // Build synthetic submission documents (same shape as MongoDB docs)
+  const devCycleId = 'dev-preview-cycle';
+  const devSubs = parsed.map((sub, i) => ({
+    _id: `dev-preview-${i}`,
+    cycle_id: devCycleId,
+    character_id: sub._character_id ? String(sub._character_id) : null,
+    character_name: sub.submission.character_name,
+    player_name: sub.submission.player_name,
+    approval_status: 'pending',
+    status: 'submitted',
+    timestamp: sub.submission.timestamp,
+    attended: sub.submission.attended_last_game,
+    responses: mapRawToResponses(sub, characters),
+    projects_resolved: [],
+    merit_actions_resolved: [],
+    updated_at: new Date().toISOString(),
+  }));
+
+  // Build synthetic cycle
+  const devCycle = {
+    _id: devCycleId,
+    label: `Preview \u2014 ${file.name}`,
+    game_number: 0,
+    status: 'closed',
+    submission_count: devSubs.length,
+    loaded_at: new Date().toISOString(),
+  };
+
+  // Inject into module state (prepend so it appears first in selector)
+  allCycles = [devCycle, ...allCycles.filter(c => c._id !== devCycleId)];
+  activeCycle = null;
+  currentCycle = devCycle;
+  selectedCycleId = devCycleId;
+  submissions = devSubs;
+
+  // Rebuild cycle selector
+  const sel = document.getElementById('dt-cycle-sel');
+  if (sel) {
+    sel.innerHTML = allCycles.map(c =>
+      `<option value="${esc(c._id)}"${c._id === devCycleId ? ' selected' : ''}>${esc(c.label)}${c.status === 'active' ? ' (active)' : ''}</option>`
+    ).join('');
+  }
+
+  // Render with dev data
+  renderPhaseRibbon(devCycle, devSubs);
+  document.getElementById('dt-export-all').style.display = devSubs.length ? '' : 'none';
+  document.getElementById('dt-close-cycle').style.display = 'none';
+  document.getElementById('dt-open-game').style.display = 'none';
+  document.getElementById('dt-cycle-status').innerHTML =
+    `<span class="dt-status-badge dt-status-approved">preview</span><span class="domain-count">${devSubs.length} submissions</span>`;
+  renderSnapshotPanel(devCycle);
+  renderMatchSummary();
+  renderFeedingScene();
+  renderFeedingMatrix();
+  renderConflicts();
+  renderInvestigations();
+  renderNpcs();
+  renderSubmissions();
 }
 
 // ── Cycle Reset Wizard (GC-5) ────────────────────────────────────────────────

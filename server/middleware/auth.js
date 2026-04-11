@@ -15,6 +15,21 @@ export async function requireAuth(req, res, next) {
 
   const token = authHeader.slice(7);
 
+  // Dev bypass: accept the local dev token in non-production environments only
+  if (process.env.NODE_ENV !== 'production' && token === 'dev-local-token') {
+    req.user = {
+      id: 'dev-preview',
+      username: 'dev-preview',
+      global_name: 'Dev Preview',
+      avatar: null,
+      role: 'st',
+      player_id: null,
+      character_ids: [],
+      is_dual_role: false,
+    };
+    return next();
+  }
+
   // Check cache first
   const cached = tokenCache.get(token);
   if (cached && cached.expiresAt > Date.now()) {
