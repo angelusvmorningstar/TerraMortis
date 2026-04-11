@@ -1191,7 +1191,9 @@ export function shRenderManoeuvres(c, editMode) {
     const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
     const otsFreeDots = c._ots_free_dots || 0;
-    const otsUsed = (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
+    const fmEntry0 = styles.find(fs => fs.type === 'merit' && fs.name === 'Fighting Merit');
+    const otsUsed = (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0)
+                  + (fmEntry0 ? (fmEntry0.free_ots || 0) : 0);
 
     const maxPicks = totalDots;
     h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
@@ -1253,14 +1255,15 @@ export function shRenderManoeuvres(c, editMode) {
     const fmEntry = fMerits.find(fs => fs.name === 'Fighting Merit');
     if (fmEntry) {
       const si = styles.indexOf(fmEntry);
-      const dots = (fmEntry.cp || 0) + (fmEntry.free_mci || 0) + (fmEntry.xp || 0);
+      const dots = (fmEntry.cp || 0) + (fmEntry.free_mci || 0) + (fmEntry.free_ots || 0) + (fmEntry.xp || 0);
       const fsUp = fmEntry.up || 0;
       h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">Fighting Merit</span></div>'
         + '<span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
       h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">MCI</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fmEntry.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
