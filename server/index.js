@@ -23,6 +23,7 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
+import pdfRouter from './routes/pdf.js';
 
 const app = express();
 
@@ -39,7 +40,7 @@ app.use(cors({
   }
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Health check — proves DB connectivity
 app.get('/api/health', (req, res) => {
@@ -67,6 +68,7 @@ app.use('/api/attendance', requireAuth, attendanceRouter);
 app.use('/api/archive_documents', requireAuth, archiveDocumentsRouter);
 app.use('/api/tickets', requireAuth, ticketsRouter);
 app.use('/api/rules', requireAuth, rulesRouter);
+app.use('/api/pdf', requireAuth, pdfRouter);
 
 // Public game session endpoint — used by website banner (no auth)
 app.get('/api/game_sessions/next', getNextSession);
