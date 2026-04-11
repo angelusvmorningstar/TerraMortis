@@ -45,6 +45,8 @@ export function applyDerivedMerits(c) {
     const stolenIdx = (c.merits || []).findIndex(m => m.name === ftMerit.qualifier && m.category === 'general' && !m.granted_by);
     if (stolenIdx >= 0) c.merits[stolenIdx].granted_by = 'Fucking Thief';
   }
+  // Clear legacy free dot on Fucking Thief stolen merits (never legitimate)
+  (c.merits || []).forEach(m => { if (m.granted_by === 'Fucking Thief') m.free = 0; });
 
   // Migrate legacy benefit_grants → tier_grants on MCI merits
   (c.merits || []).forEach(m => {
