@@ -185,7 +185,7 @@ export function auditCharacter(c) {
   // asset skills. Missing slots are a hard error.
   for (const m of (c.merits || [])) {
     if (m.name !== 'Professional Training' || m.active === false) continue;
-    const rating = m.rating || 0;
+    const rating = (m.cp||0) + (m.xp||0) + (m.free_bloodline||0) + (m.free_retainer||0) + (m.free_mci||0) + (m.free_vm||0);
     if (rating === 0) continue;
     const as = m.asset_skills || [];
     const validAs = as.filter(Boolean);

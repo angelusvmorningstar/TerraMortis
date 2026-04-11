@@ -863,13 +863,17 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
   h += '</div>'; return h;
 }
 function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
+  const inactive = m.active === false;
   const as = m.asset_skills || [], eDots = editMode ? dd : m.rating;
   const dots = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
   const _skSel = (slotIdx, label) => { const cur = as[slotIdx] || ''; return '<select class="pt-skill-sel" onchange="shEditStandAssetSkill(' + si + ',' + slotIdx + ',this.value)"><option value="">' + (cur || label) + '</option>' + ALL_SKILLS.map(sk => '<option' + (cur === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select>'; };
-  let h = '<div class="pt-block"><div class="pt-header"><span class="merit-name-sh">' + esc(m.name) + '</span>';
+  let h = '<div class="pt-block' + (inactive ? ' mci-inactive' : '') + '"><div class="pt-header"><div class="mci-title"><span class="merit-name-sh">' + esc(m.name) + '</span>';
   if (editMode) h += '<input type="text" class="stand-name-input" value="' + esc(m.role || '') + '" placeholder="Role" onchange="shEditStandMerit(' + si + ',\'role\',this.value)">';
   else if (m.role) h += '<span class="merit-sub-sh">' + esc(m.role) + '</span>';
-  h += '<span class="merit-dots-sh">' + shDots(eDots) + '</span></div>';
+  h += '</div><div class="mci-header-right">';
+  if (editMode) { h += '<button class="mci-toggle-btn" onclick="shTogglePT(' + si + ')" title="' + (inactive ? 'Activate PT' : 'Suspend PT') + '">' + (inactive ? 'Suspended' : 'Active') + '</button>'; h += '<button class="dev-rm-btn" onclick="shRemoveStandMerit(' + si + ')" title="Remove PT">\u00D7</button>'; }
+  else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
+  h += '<span class="merit-dots-sh">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
     h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0 });
     h += _prereqWarn(c, m.name);
