@@ -102,10 +102,14 @@ export function xpSpentSkills(c) {
   const mciFreeSpecs = (c._mci_free_specs || []).filter(fs =>
     fs.skill && fs.spec && (c.skills || {})[fs.skill] && ((c.skills[fs.skill].specs || []).includes(fs.spec))
   ).length;
+  // Bloodline-granted specs are also exempt from XP cost
+  const bloodlineFreeSpecs = (c._bloodline_free_specs || []).filter(fs =>
+    fs.skill && fs.spec && (c.skills || {})[fs.skill] && ((c.skills[fs.skill].specs || []).includes(fs.spec))
+  ).length;
   // PT free covers asset specs first; baseline 3 covers everything else
   const ptFreeCovered = Math.min(ptFree, assetSpecs);
   const paidSpecs = nonAssetSpecs + Math.max(0, assetSpecs - ptFreeCovered);
-  const specXP = Math.max(0, paidSpecs - 3 - mciFreeSpecs);
+  const specXP = Math.max(0, paidSpecs - 3 - mciFreeSpecs - bloodlineFreeSpecs);
   return skillXP + specXP;
 }
 
@@ -184,7 +188,7 @@ export function xpLeft(c) {
  */
 export function meritRating(c, m) {
   if (m.cp === undefined && m.free === undefined && m.xp === undefined) return m.rating || 0;
-  return (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
+  return (m.cp || 0) + (m.free || 0) + (m.free_bloodline || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
     + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.xp || 0);
 }
 
@@ -197,8 +201,8 @@ export function meritRating(c, m) {
  *   threshold is met, then shows fixedAt.
  */
 export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
-  const cp = mc.cp || 0, xp = mc.xp || 0, fr = mc.free || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0, finv = mc.free_inv || 0, fpt = mc.free_pt || 0, fmdb = mc.free_mdb || 0;
-  const total = cp + xp + fr + fmci + fvm + flk + fohm + finv + fpt + fmdb;
+  const cp = mc.cp || 0, xp = mc.xp || 0, fr = mc.free || 0, fbl = mc.free_bloodline || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0, finv = mc.free_inv || 0, fpt = mc.free_pt || 0, fmdb = mc.free_mdb || 0;
+  const total = cp + xp + fr + fbl + fmci + fvm + flk + fohm + finv + fpt + fmdb;
   // Effective display: for fixed merits, only show dots once the threshold is reached
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
