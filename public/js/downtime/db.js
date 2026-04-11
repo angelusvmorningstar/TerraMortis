@@ -224,10 +224,10 @@ export function mapRawToResponses(parsed, characters) {
   }
   if (f.territories) r.feeding_territories = normaliseTerritoryGrid(f.territories);
 
-  // Influence territory selections (checkbox columns — 1 = spending influence there, 0 = not)
+  // Influence territory amounts — numeric values (positive = increase, negative = decrease)
   const inf = parsed.influence || {};
-  const infActive = Object.entries(inf).filter(([, v]) => v > 0).map(([k]) => k);
-  if (infActive.length) r.influence_territories = JSON.stringify(infActive);
+  const infNonZero = Object.fromEntries(Object.entries(inf).filter(([, v]) => v !== 0));
+  if (Object.keys(infNonZero).length) r.influence_territories = JSON.stringify(infNonZero);
 
   // Projects (up to 4)
   const projects = parsed.projects || [];

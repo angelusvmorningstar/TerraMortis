@@ -271,13 +271,13 @@ export function parseDowntimeCSV(csvText) {
           }
         },
         influence: {
-          // These columns are checkbox/text selections ("The Academy" if selected, blank if not).
-          // A non-empty cell = player is spending influence in that territory (= +1).
-          'The Academy':    str(c[COL.INF_ACADEMY])    ? 1 : 0,
-          'The Harbour':    str(c[COL.INF_HARBOUR])    ? 1 : 0,
-          'The Dockyards':  str(c[COL.INF_DOCKLANDS])  ? 1 : 0,
-          'The Second City': str(c[COL.INF_SECOND_CITY]) ? 1 : 0,
-          'The Shore':      str(c[COL.INF_SHORE])      ? 1 : 0,
+          // Form stores numeric influence amounts (positive = increase, negative = decrease).
+          // Use int() to get the actual value.
+          'The Academy':    int(c[COL.INF_ACADEMY])    || 0,
+          'The Harbour':    int(c[COL.INF_HARBOUR])    || 0,
+          'The Dockyards':  int(c[COL.INF_DOCKLANDS])  || 0,
+          'The Second City': int(c[COL.INF_SECOND_CITY]) || 0,
+          'The Shore':      int(c[COL.INF_SHORE])      || 0,
         },
         projects: [
           parseProject(c, COL.PROJ1), parseProject(c, COL.PROJ2),

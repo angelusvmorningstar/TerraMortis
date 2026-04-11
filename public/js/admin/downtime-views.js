@@ -2388,6 +2388,17 @@ const TERRITORY_SLUG_MAP = {
   northshore: 'northshore',
 };
 
+/** Scan free text for a territory mention; returns TERRITORY_DATA id or null. */
+function extractTerritoryFromText(text) {
+  if (!text) return null;
+  if (/\bacademy\b/i.test(text)) return 'academy';
+  if (/\bharbou?r\b/i.test(text)) return 'harbour';
+  if (/\bdockyards?\b/i.test(text)) return 'dockyards';
+  if (/\bsecond\s+city\b/i.test(text)) return 'secondcity';
+  if (/\bnorth(?:ern)?\s*shore\b/i.test(text)) return 'northshore';
+  return null;
+}
+
 /** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found or barrens. */
 function resolveTerrId(raw) {
   if (!raw) return null;
@@ -2444,19 +2455,35 @@ function buildAmbienceData(terrs) {
     }
   }
 
-  // ── Influence: count characters spending influence per territory from _raw.influence ──
-  // Form columns are checkbox selections: non-empty cell = player selected that territory = 1.
-  // Values are always positive (no negative influence column in the form).
-  // Influence: read from responses.influence_territories (JSON array of territory names)
-  // Stored by mapRawToResponses; one entry per territory the character spends influence on.
-  const influenceCount = {};
+  // ── Influence: sum numeric amounts per territory ──
+  // influence_territories stores { "The Academy": 3, "The Dockyards": -2, ... }
+  // Positive values = ambience increase; negative = decrease.
+  const infPos = {}, infNeg = {};
   for (const sub of submissions) {
-    let infTerrs = [];
-    try { infTerrs = JSON.parse(sub.responses?.influence_territories || '[]'); } catch { infTerrs = []; }
-    for (const k of infTerrs) {
-      const tid = resolveTerrId(k);
+    let infObj = {};
+    try { infObj = JSON.parse(sub.responses?.influence_territories || '{}'); } catch { infObj = {}; }
+    // Handle legacy format (array of names from old uploads) — treat each as +1
+    if (Array.isArray(infObj)) {
+      for (const k of infObj) {
+        const tid = resolveTerrId(k);
+        if (tid) infPos[tid] = (infPos[tid] || 0) + 1;
+      }
+    } else {
+      for (const [k, v] of Object.entries(infObj)) {
+        const tid = resolveTerrId(k);
+        if (!tid) continue;
+        const val = Number(v) || 0;
+        if (val > 0) infPos[tid] = (infPos[tid] || 0) + val;
+        else if (val < 0) infNeg[tid] = (infNeg[tid] || 0) + Math.abs(val);
+      }
+    }
+    // Resolved merit actions (ST-tagged post-processing)
+    for (const act of (sub.merit_actions_resolved || [])) {
+      if (!['validated', 'no_roll'].includes(act.status)) continue;
+      const tid = resolveTerrId(act.territory || '');
       if (!tid) continue;
-      influenceCount[tid] = (influenceCount[tid] || 0) + 1;
+      if (act.action_type === 'ambience_increase') infPos[tid] = (infPos[tid] || 0) + 1;
+      else if (act.action_type === 'ambience_decrease') infNeg[tid] = (infNeg[tid] || 0) + 1;
     }
   }
 
@@ -2484,7 +2511,9 @@ function buildAmbienceData(terrs) {
     const feeders = feederCounts[id] || 0;
     const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
     const entropy = -1;
-    const influence = influenceCount[id] || 0;
+    const inf_pos = infPos[id] || 0;
+    const inf_neg = infNeg[id] || 0;
+    const influence = inf_pos - inf_neg;
     const projects = projectDelta[id] || 0;
     const net = entropy + overfeedVal + influence + projects;
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
@@ -2497,7 +2526,7 @@ function buildAmbienceData(terrs) {
       const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
       projStep = AMBIENCE_STEPS_LIST[newIdx];
     }
-    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, influence, projects, net, projStep };
+    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, projects, net, projStep };
   });
 }
 
@@ -2537,9 +2566,10 @@ function renderAmbienceDashboard() {
       const gap = r.cap - r.feeders;
       const gapStr = gap >= 0 ? `+${gap}` : String(gap);
       const gapClass = gap < 0 ? 'proc-amb-neg' : '';
-      const infDisplay = r.influence > 0
-        ? `<span class="proc-amb-pos">+${r.influence}</span>`
-        : '0';
+      const infNet = r.inf_pos - r.inf_neg;
+      const infNetStr = infNet > 0 ? `+${infNet}` : String(infNet);
+      const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
+      const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span> | <span class="proc-amb-neg">-${r.inf_neg}</span> | <span class="${infNetClass}">${infNetStr}</span>`;
       h += `<tr>`;
       h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
       h += `<td>${esc(r.ambience)}</td>`;
