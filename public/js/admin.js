@@ -59,7 +59,7 @@ import {
   clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
-import { printSheet } from './editor/print.js';
+import { printSheet, exportJSON } from './editor/print.js';
 import editorState from './data/state.js';
 
 const CLANS = ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue'];
@@ -384,6 +384,7 @@ function openCharDetail(c) {
         <span class="cd-dirty-badge" id="cd-dirty-badge" style="display:none">Unsaved</span>
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
         <button class="dt-btn" id="cd-print">Print</button>
+        <button class="dt-btn" id="cd-export-json">JSON</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
         <a class="dt-btn cd-player-view" href="player.html" id="cd-player-view">Player View</a>
         <button class="dt-btn" id="cd-archive">Archive</button>
@@ -399,6 +400,7 @@ function openCharDetail(c) {
 
   document.getElementById('cd-close').addEventListener('click', closeCharDetail);
   document.getElementById('cd-print').addEventListener('click', () => printSheet());
+  document.getElementById('cd-export-json').addEventListener('click', () => exportJSON());
   document.getElementById('cd-edit-toggle').addEventListener('click', () => {
     editorState.editMode = !editorState.editMode;
     const btn = document.getElementById('cd-edit-toggle');
