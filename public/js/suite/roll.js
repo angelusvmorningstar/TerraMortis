@@ -33,6 +33,11 @@ export function loadPool(total, name, pi) {
   state.PS = Math.max(0, total);
   state.MOD = 0;
   state.POOL_INFO = pi || null;
+  // Auto-set 9-Again when the pool source grants it
+  if (pi?.nineAgain) setAgain(9);
+  else setAgain(10);
+  // Reset Rote — player toggles manually (PT dot-5 costs 1 WP)
+  if (state.ROTE) togMod('rote');
   showResistSec();
   updPool();
   const banner = document.getElementById('pool-banner');
@@ -97,6 +102,8 @@ export function updPool() {
   if (pi.skill) segs.push('<span class="effpool-seg">' + pi.skill + ' <b>' + pi.skillV + '</b></span>');
   if (pi.unskilled) segs.push('<span class="effpool-seg" style="color:#E8A0A0;">unskilled <b>' + pi.unskilled + '</b></span>');
   if (pi.discName && pi.discV) segs.push('<span class="effpool-seg">' + pi.discName + ' <b>' + pi.discV + '</b></span>');
+  if (pi.meritBonus && pi.meritLabel) segs.push('<span class="effpool-seg" style="color:#E0C47A;">' + pi.meritLabel + ' <b>+' + pi.meritBonus + '</b></span>');
+  if (pi.roteEligible && !state.ROTE) segs.push('<span class="effpool-seg" style="color:#9E7AE0;font-size:10px;cursor:pointer" onclick="togMod(\'rote\')" title="PT dot 5: spend 1 WP for Rote quality">Rote \u2713</span>');
   if (state.WP) segs.push('<span class="effpool-seg" style="color:#7EC8A0;">WP <b>+3</b></span>');
   if (state.RESIST_MODE === '-' && state.RESIST_VAL > 0) {
     segs.push('<span class="effpool-seg" style="color:#A8C4E0;">\u2212Resist <b>' + state.RESIST_VAL + '</b></span>');

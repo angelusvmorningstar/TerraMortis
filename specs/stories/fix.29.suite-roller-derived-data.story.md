@@ -1,6 +1,6 @@
 # Story fix.29: Suite Dice Roller — Apply Derived Character Data
 
-## Status: Approved
+## Status: done
 
 ## Story
 
