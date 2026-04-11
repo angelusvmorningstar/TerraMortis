@@ -384,7 +384,7 @@ export function renderSheet() {
       if (hasPartners) {
         // Own dots from all purchase sources
         const own = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
-                  + (m.free_retainer || 0) + (m.free_vm || 0) + (m.free_lk || 0)
+                  + (m.free_pet || 0) + (m.free_vm || 0) + (m.free_lk || 0)
                   + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
         // Partner contributions — try state.chars first, fall back to
         // server-enriched _partner_dots (player portal ?mine=1 path)

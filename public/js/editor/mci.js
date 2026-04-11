@@ -163,7 +163,7 @@ export function applyDerivedMerits(c) {
   // ── K-9 / Falconry: clear then auto-apply 1 free dot to their granted Retainers ──
   const _STYLE_RETAINER_GRANTS = ['K-9', 'Falconry'];
   (c.merits || []).forEach(m => {
-    if (m.name === 'Retainer' && _STYLE_RETAINER_GRANTS.includes(m.granted_by)) { m.free = 0; m.free_retainer = 0; }
+    if (m.name === 'Retainer' && _STYLE_RETAINER_GRANTS.includes(m.granted_by)) { m.free = 0; m.free_pet = 0; }
   });
   _STYLE_RETAINER_GRANTS.forEach(styleName => {
     const hasStyle = (c.fighting_styles || []).some(fs =>
@@ -178,7 +178,7 @@ export function applyDerivedMerits(c) {
       m = { name: 'Retainer', category: 'influence', rating: 0, area, granted_by: styleName };
       c.merits.push(m);
     }
-    m.free_retainer = 1;
+    m.free_pet = 1;
   });
 
   // ── PT grant pools ──
@@ -369,7 +369,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach(m => {
     // MCI and PT have their own render logic; MG's total includes partner contributions
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
-    const total = (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.cp || 0) + (m.xp || 0);
+    const total = (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.cp || 0) + (m.xp || 0);
     if (total > 0) m.rating = total;
   });
 }
