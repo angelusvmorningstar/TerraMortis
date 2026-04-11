@@ -6,8 +6,9 @@
 
 import state from '../data/state.js';
 import { esc } from '../data/helpers.js';
-import { getAttrEffective as getAttrVal, getAttrBonus, getSkillObj } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getAttrBonus, getSkillObj, skDots, skBonus } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
+import { domMeritTotal, domMeritContrib, ssjHerdBonus, flockHerdBonus } from './domain.js';
 import { xpEarned, xpLeft } from './xp.js';
 
 const ATTR_NAMES = ['Intelligence','Wits','Resolve','Strength','Dexterity','Stamina','Presence','Manipulation','Composure'];
@@ -37,19 +38,43 @@ export function printSheet() {
   }).join('');
 
   const skillsHtml = SKILL_NAMES.map(s => {
+    const baseDots = skDots(c, s);
+    const ptBonus = (c._pt_dot4_bonus_skills?.has(s) && baseDots < 5) ? 1 : 0;
+    const mciBonus = (c._mci_dot3_skills?.has(s) && baseDots < 5) ? 1 : 0;
+    const d = Math.min(baseDots + skBonus(c, s) + ptBonus + mciBonus, 5);
     const sk = getSkillObj(c, s);
-    const d = sk.dots + (sk.bonus || 0);
     if (!d && !sk.specs.length) return '';
     const specs = sk.specs.length ? ` (${sk.specs.join(', ')})` : '';
-    const na = sk.nine_again ? ' [9-again]' : '';
-    return `<tr><td>${esc(s)}${esc(specs)}</td><td>${dots(d)} (${d})${na}</td></tr>`;
+    const na = sk.nine_again || c._pt_nine_again_skills?.has(s) || c._mci_dot3_skills?.has(s) || c._ohm_nine_again_skills?.has(s);
+    const tags = [];
+    if (na) tags.push('9-again');
+    if (ptBonus) tags.push('+1 PT');
+    if (mciBonus) tags.push('+1 MCI');
+    const tagStr = tags.length ? ' [' + tags.join(', ') + ']' : '';
+    return `<tr><td>${esc(s)}${esc(specs)}</td><td>${dots(d)} (${d})${tagStr}</td></tr>`;
   }).filter(Boolean).join('');
 
   const meritsHtml = (c.merits || []).map(m => {
     const qual = m.qualifier ? ` (${m.qualifier})` : '';
     const area = m.area ? ` (${m.area})` : '';
     const tag = m.granted_by ? ` [${m.granted_by}]` : '';
-    return `<tr><td>${esc(m.name)}${esc(qual)}${esc(area)}${esc(tag)}</td><td>${dots(m.rating || 0)} (${m.rating || 0})</td></tr>`;
+    let effectiveDots = m.rating || 0;
+    let suffix = '';
+    // Shared domain merits: show total (own + partner)
+    if (m.category === 'domain' && (m.shared_with || []).length > 0) {
+      const total = domMeritTotal(c, m.name);
+      const own = domMeritContrib(c, m.name);
+      effectiveDots = total;
+      if (total > own) suffix = ` (${own} own + ${total - own} shared)`;
+    }
+    // Herd: include SSJ and Flock bonuses
+    if (m.name === 'Herd') {
+      const ssj = ssjHerdBonus(c);
+      const flock = flockHerdBonus(c);
+      if (ssj) { effectiveDots += ssj; suffix += ` +${ssj} SSJ`; }
+      if (flock) { effectiveDots += flock; suffix += ` +${flock} Flock`; }
+    }
+    return `<tr><td>${esc(m.name)}${esc(qual)}${esc(area)}${esc(tag)}</td><td>${dots(effectiveDots)} (${effectiveDots})${esc(suffix)}</td></tr>`;
   }).join('');
 
   const discsHtml = Object.entries(c.disciplines || {}).filter(([, d]) => (d?.dots || 0) > 0).map(([name, d]) => {
