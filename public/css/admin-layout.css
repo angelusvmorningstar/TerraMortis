@@ -872,6 +872,8 @@ body {
   text-transform: uppercase;
 }
 
+.sphere-table { table-layout: fixed; }
+
 /* ── Downtime domain ── */
 
 .dt-toolbar {
