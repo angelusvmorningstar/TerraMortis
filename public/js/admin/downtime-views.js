@@ -31,7 +31,9 @@ let currentCycle = null;
 let selectedCycleId = null;
 let expandedId = null;
 let processingMode = false;
-let procExpandedKey = null; // tracks which action row is expanded in processing mode
+let procExpandedKey = null;    // tracks which action row is expanded in processing mode
+let cycleReminders = [];       // processing_reminders from the current cycle document
+let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -102,6 +104,23 @@ const ALL_ACTION_TYPES = [
   'investigate', 'patrol_scout', 'support', 'misc', 'xp_spend',
   'block', 'rumour', 'grow', 'acquisition',
 ];
+
+// Human-readable labels for pool_status values across all action types
+const POOL_STATUS_LABELS = {
+  pending:   'Pending',
+  validated: 'Validated',
+  no_roll:   'No Roll',
+  resolved:  'Resolved',
+  no_effect: 'No Effect',
+};
+
+/** Returns a stable action_key string for reminder targeting. Returns null for sorcery entries. */
+function entryActionKey(entry) {
+  if (entry.source === 'feeding') return 'feeding';
+  if (entry.source === 'project') return `project_${entry.actionIdx}`;
+  if (entry.source === 'merit')   return `merit_${entry.actionIdx}`;
+  return null; // sorcery entries are sources, not targets
+}
 
 // ── Cycle Phase Ribbon ───────────────────────────────────────────────────────
 
@@ -616,6 +635,7 @@ async function loadCycleById(cycleId) {
     return;
   }
   currentCycle = cycle;
+  cycleReminders = cycle.processing_reminders || [];
 
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
@@ -2005,14 +2025,21 @@ function buildProcessingQueue(subs) {
 
     // ── Sorcery (resolve_first) ──
     const sorcCount = parseInt(resp['sorcery_slot_count'] || '1', 10);
+    // Tradition detection: check character disciplines for Cruac or Theban
+    const sorcChar = charMap.get((charName || '').toLowerCase().trim());
+    const discs = sorcChar?.disciplines || {};
+    let tradition = 'Unknown';
+    if (discs.Cruac) tradition = 'Cruac';
+    else if (discs.Theban) tradition = 'Theban';
+
     for (let n = 1; n <= sorcCount; n++) {
       const rite = resp[`sorcery_${n}_rite`];
       if (!rite) continue;
-      const targets = resp[`sorcery_${n}_targets`] || '';
-      const notes   = resp[`sorcery_${n}_notes`]   || '';
+      const targetsText = resp[`sorcery_${n}_targets`] || '';
+      const notes       = resp[`sorcery_${n}_notes`]   || '';
       let desc = rite;
-      if (targets) desc += ` — targets: ${targets}`;
-      if (notes)   desc += ` — ${notes}`;
+      if (targetsText) desc += ` — targets: ${targetsText}`;
+      if (notes)       desc += ` — ${notes}`;
       queue.push({
         key: `${sub._id}:sorcery:${n}`,
         subId: sub._id,
@@ -2020,11 +2047,14 @@ function buildProcessingQueue(subs) {
         phase: PHASE_NUM_TO_LABEL[0],
         phaseNum: 0,
         actionType: 'resolve_first',
-        label: `Sorcery: ${rite}`,
+        label: `${tradition}: ${rite}`,
         description: desc,
         source: 'sorcery',
         actionIdx: n,
         poolPlayer: resp[`sorcery_${n}_pool_expr`] || '',
+        riteName: rite,
+        tradition,
+        targetsText,
       });
     }
 
@@ -2171,7 +2201,7 @@ function getEntryReview(entry) {
   if (entry.source === 'feeding') return sub.feeding_review || null;
   if (entry.source === 'project') return (sub.projects_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
-  if (entry.source === 'sorcery') return null; // future feature.44
+  if (entry.source === 'sorcery') return (sub.sorcery_review || {})[entry.actionIdx] || null;
   return null;
 }
 
@@ -2200,7 +2230,15 @@ async function saveEntryReview(entry, patch) {
     await updateSubmission(entry.subId, { merit_actions_resolved: resolved });
     sub.merit_actions_resolved = resolved;
   }
-  // sorcery: review data covered by feature.44
+  } else if (entry.source === 'sorcery') {
+    const sub = submissions.find(s => s._id === entry.subId);
+    if (!sub) return;
+    const sorcReview = { ...(sub.sorcery_review || {}) };
+    const current = sorcReview[entry.actionIdx] || { pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    sorcReview[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { sorcery_review: sorcReview });
+    sub.sorcery_review = sorcReview;
+  }
 }
 
 /** Render the phase-ordered processing queue into the given container. */
@@ -2240,7 +2278,7 @@ function renderProcessingMode(container) {
       h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
       h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
       h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
-      h += `<span class="proc-row-status ${status}">${status === 'no_roll' ? 'No Roll' : status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+      h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
       h += '</div>';
 
       if (isExpanded) {
@@ -2346,6 +2384,80 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire "Attach Reminder" open button
+  container.querySelectorAll('.proc-attach-open-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      attachReminderKey = btn.dataset.procKey;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire "Cancel" on attach panel
+  container.querySelectorAll('.proc-attach-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      attachReminderKey = null;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire "Attach" confirm
+  container.querySelectorAll('.proc-attach-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const panel = container.querySelector(`.proc-attach-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+
+      const textInput = panel.querySelector('.proc-attach-text');
+      const reminderText = textInput ? textInput.value.trim() : '';
+
+      // Gather checked targets
+      const targets = [];
+      panel.querySelectorAll('.proc-attach-target:checked').forEach(cb => {
+        targets.push({
+          sub_id:    cb.dataset.subId,
+          char_name: cb.dataset.charName,
+          action_key: cb.dataset.actionKey,
+        });
+      });
+
+      if (!reminderText) { textInput?.focus(); return; }
+
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+
+      const user = getUser();
+      const reminder = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+        source_sub_id:    entry.subId,
+        source_char_name: entry.charName,
+        source_rite:      entry.riteName,
+        source_tradition: entry.tradition,
+        text:             reminderText,
+        created_by:       user?.global_name || user?.username || 'ST',
+        created_at:       new Date().toISOString(),
+        targets,
+      };
+
+      cycleReminders = [...cycleReminders, reminder];
+      attachReminderKey = null;
+
+      try {
+        const updated = await updateCycle(selectedCycleId, { processing_reminders: cycleReminders });
+        // Sync back to allCycles
+        const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+        if (idx >= 0) allCycles[idx].processing_reminders = cycleReminders;
+      } catch (err) {
+        cycleReminders = cycleReminders.filter(r => r.id !== reminder.id); // rollback
+        alert('Failed to save reminder: ' + err.message);
+      }
+
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire open-sub links
   container.querySelectorAll('.proc-open-sub-link').forEach(link => {
     link.addEventListener('click', e => {
@@ -2366,6 +2478,61 @@ function renderProcessingMode(container) {
   });
 }
 
+/** Render the inline Attach Reminder panel for a resolved sorcery entry. */
+function _renderAttachPanel(entry) {
+  // Build the list of all non-sorcery actions, grouped by character
+  const allActions = buildProcessingQueue(submissions).filter(e => e.source !== 'sorcery');
+
+  // Pre-selection: word-overlap match against entry.targetsText
+  const targetWords = (entry.targetsText || '').toLowerCase().split(/[\s,;]+/).filter(Boolean);
+  function isPreSelected(charName) {
+    if (!targetWords.length) return false;
+    const nameWords = charName.toLowerCase().split(/\s+/);
+    return nameWords.some(w => w.length > 2 && targetWords.some(t => t.includes(w) || w.includes(t)));
+  }
+
+  // Group by char
+  const byChar = new Map();
+  for (const a of allActions) {
+    if (!byChar.has(a.charName)) byChar.set(a.charName, []);
+    byChar.get(a.charName).push(a);
+  }
+
+  let h = `<div class="proc-attach-panel" data-proc-key="${esc(entry.key)}">`;
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Reminder Text</div>';
+  h += `<input class="proc-attach-text" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae" style="width:100%;margin-bottom:12px">`;
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Attach to Actions:</div>';
+  h += '<div class="proc-attach-actions">';
+
+  for (const [charName, actions] of byChar) {
+    const preSel = isPreSelected(charName);
+    h += `<div class="proc-attach-char-group">`;
+    h += `<div class="proc-attach-char-header">${esc(charName)}</div>`;
+    for (const a of actions) {
+      const ak = entryActionKey(a);
+      if (!ak) continue;
+      const checked = preSel ? ' checked' : '';
+      h += `<label class="proc-attach-target-row">`;
+      h += `<input type="checkbox" class="proc-attach-target"${checked} data-sub-id="${esc(a.subId)}" data-char-name="${esc(a.charName)}" data-action-key="${esc(ak)}" data-proc-key="${esc(entry.key)}">`;
+      h += ` ${esc(a.label)}${a.description ? ' — ' + esc(a.description.slice(0, 50)) : ''}`;
+      h += `</label>`;
+    }
+    h += `</div>`;
+  }
+
+  if (!allActions.length) {
+    h += '<p style="color:var(--txt3);font-size:12px">No other actions in this cycle.</p>';
+  }
+
+  h += '</div>'; // proc-attach-actions
+  h += '<div class="proc-attach-btn-row">';
+  h += `<button class="dt-btn proc-attach-confirm-btn" data-proc-key="${esc(entry.key)}">Attach</button>`;
+  h += `<button class="dt-btn proc-attach-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button>`;
+  h += '</div>';
+  h += '</div>'; // proc-attach-panel
+  return h;
+}
+
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
@@ -2374,8 +2541,20 @@ function renderActionPanel(entry, review) {
   const poolStatus    = rev.pool_status    || 'pending';
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
+  const isSorcery     = entry.source === 'sorcery';
 
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
+
+  // ── Reminder badges (non-sorcery target actions) ──
+  const actionKey = entryActionKey(entry);
+  if (actionKey) {
+    const badges = cycleReminders.filter(r =>
+      r.targets && r.targets.some(t => t.sub_id === entry.subId && t.action_key === actionKey)
+    );
+    for (const r of badges) {
+      h += `<div class="proc-reminder-badge">\u2691 ${esc(r.source_rite)} (${esc(r.source_tradition)}) \u2014 ${esc(r.text)}</div>`;
+    }
+  }
 
   // Full description if it was truncated
   if (entry.description && entry.description.length > 80) {
@@ -2394,15 +2573,42 @@ function renderActionPanel(entry, review) {
   h += '</div>';
   h += '</div>'; // proc-detail-grid
 
-  // Validation status
+  // Validation status — sorcery uses Resolved/No Effect labels
+  const statusOptions = isSorcery
+    ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
+    : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
+
   h += '<div style="margin-bottom:12px">';
   h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
   h += '<div class="proc-val-status">';
-  for (const [val, label] of [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']]) {
+  for (const [val, label] of statusOptions) {
     h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
   }
   h += '</div>';
   h += '</div>';
+
+  // ── Attach Reminder (sorcery resolved) ──
+  if (isSorcery) {
+    const reminderCount = cycleReminders.filter(r =>
+      r.source_sub_id === entry.subId && r.source_rite === entry.riteName
+    ).length;
+
+    if (poolStatus === 'resolved') {
+      if (attachReminderKey === entry.key) {
+        // Render the inline attach panel
+        h += _renderAttachPanel(entry);
+      } else {
+        h += `<div style="margin-bottom:12px">`;
+        h += `<button class="dt-btn proc-attach-open-btn" data-proc-key="${esc(entry.key)}">Attach Reminder</button>`;
+        if (reminderCount) {
+          h += ` <span class="proc-attach-count">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</span>`;
+        }
+        h += `</div>`;
+      }
+    } else if (reminderCount) {
+      h += `<div class="proc-attach-count" style="margin-bottom:12px">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
+    }
+  }
 
   // Player feedback
   h += '<div style="margin-bottom:12px">';

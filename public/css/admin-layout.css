@@ -3775,3 +3775,83 @@ body {
   font-family: var(--fh);
   margin-bottom: 6px;
 }
+
+/* ── feature.44: Sorcery reminder badge ── */
+.proc-reminder-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  background: rgba(224, 196, 122, 0.08);
+  border-left: 3px solid var(--gold2);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--gold2);
+  font-family: var(--fh);
+}
+
+/* ── feature.44: Attach Reminder panel ── */
+.proc-attach-panel {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.proc-attach-actions {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  background: var(--surf0, var(--bg));
+}
+
+.proc-attach-char-group {
+  border-bottom: 1px solid var(--bdr);
+  padding: 6px 10px;
+}
+.proc-attach-char-group:last-child { border-bottom: none; }
+
+.proc-attach-char-header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold2);
+  font-family: var(--fh);
+  margin-bottom: 4px;
+}
+
+.proc-attach-target-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--txt2);
+  margin-bottom: 3px;
+  cursor: pointer;
+}
+.proc-attach-target-row:hover { color: var(--txt1); }
+
+.proc-attach-text {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.proc-attach-text:focus { outline: none; border-color: var(--gold2); }
+
+.proc-attach-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.proc-attach-count {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
