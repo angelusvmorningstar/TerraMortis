@@ -23,8 +23,9 @@ export function isInClanDisc(c, discName) {
 }
 
 // ── Physical discipline → attribute mapping (VtR 2e) ──
-// Celerity adds to Dexterity, Vigour adds to Strength, Resilience adds to Stamina.
-const DISC_ATTR_MAP = { Dexterity: 'Celerity', Strength: 'Vigour', Stamina: 'Resilience' };
+// Vigour adds to Strength, Resilience adds to Stamina.
+// Celerity does NOT add to Dexterity — it adds to Defence and Speed directly.
+const DISC_ATTR_MAP = { Strength: 'Vigour', Stamina: 'Resilience' };
 
 /**
  * Discipline bonus for a physical attribute.
@@ -134,19 +135,21 @@ export function calcSize(c) {
 
 export function calcSpeed(c) {
   const str = getAttrEffective(c, 'Strength');
-  const dex = getAttrEffective(c, 'Dexterity');
+  const dex = getAttrTotal(c, 'Dexterity');
   const sz = calcSize(c);
+  const celerity = c.disciplines?.Celerity?.dots || 0;
   const fleet = (c.merits || []).find(m => m.name === 'Fleet of Foot');
-  return str + dex + sz + (fleet ? fleet.rating : 0);
+  return str + dex + sz + celerity + (fleet ? fleet.rating : 0);
 }
 
 export function calcDefence(c) {
-  const dex = getAttrEffective(c, 'Dexterity');
+  const dex = getAttrTotal(c, 'Dexterity');
   const wits = getAttrVal(c, 'Wits');
+  const celerity = c.disciplines?.Celerity?.dots || 0;
   const base = Math.min(dex, wits);
   const dc = (c.merits || []).find(m => m.name === 'Defensive Combat');
-  if (dc) return base + skDots(c, dc.qualifier || 'Athletics');
-  return base + skDots(c, 'Athletics');
+  const skill = dc ? skDots(c, dc.qualifier || 'Athletics') : skDots(c, 'Athletics');
+  return base + skill + celerity;
 }
 
 export function calcHealth(c) {
