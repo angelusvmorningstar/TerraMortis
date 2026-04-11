@@ -46,18 +46,44 @@ router.get('/', async (req, res) => {
     attended = entry?.attended === true;
   }
 
-  // Resolve current character _ids by name — attendance may store stale IDs from prior imports
+  // Resolve current character records from attendance entries.
+  // Attendance entries may store stale names/IDs from prior imports — look up
+  // current characters by both character_id and character_name for robustness.
   const attendedEntries = attendance.filter(a => a.attended && !matchesChar(a));
-  const attendeeNames = attendedEntries.map(a => a.character_name || a.name || '').filter(Boolean);
-  const currentChars = attendeeNames.length
-    ? await getCollection('characters').find({ name: { $in: attendeeNames } }, { projection: { _id: 1, name: 1 } }).toArray()
+
+  // Gather all character_ids and names from attendance for a single bulk lookup
+  const lookupIds = [];
+  const lookupNames = [];
+  for (const a of attendedEntries) {
+    if (a.character_id) {
+      try { lookupIds.push(new ObjectId(a.character_id)); } catch { /* invalid id */ }
+    }
+    const n = a.character_name || a.name || '';
+    if (n) lookupNames.push(n);
+  }
+
+  const currentChars = (lookupIds.length || lookupNames.length)
+    ? await getCollection('characters').find(
+        { $or: [
+          ...(lookupIds.length ? [{ _id: { $in: lookupIds } }] : []),
+          ...(lookupNames.length ? [{ name: { $in: lookupNames } }] : []),
+        ] },
+        { projection: { _id: 1, name: 1, moniker: 1, honorific: 1 } }
+      ).toArray()
     : [];
-  const nameToId = new Map(currentChars.map(c => [c.name, String(c._id)]));
+
+  const charById = new Map(currentChars.map(c => [String(c._id), c]));
+  const charByName = new Map(currentChars.map(c => [c.name, c]));
 
   const attendees = attendedEntries
     .map(a => {
-      const name = a.character_name || a.name || '';
-      return { id: nameToId.get(name) || String(a.character_id), name: a.display_name || a.character_display || name };
+      const aName = a.character_name || a.name || '';
+      const char = charById.get(String(a.character_id)) || charByName.get(aName);
+      if (!char) return { id: String(a.character_id || ''), name: aName };
+      const display = char.honorific
+        ? char.honorific + ' ' + (char.moniker || char.name)
+        : (char.moniker || char.name);
+      return { id: String(char._id), name: display };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
