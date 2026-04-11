@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { generateToStream } = require('../lib/pdf-gen/generate.js');
+const { generateToStream } = require('../lib/pdf-gen/generate.cjs');
 
 const router = Router();
 
