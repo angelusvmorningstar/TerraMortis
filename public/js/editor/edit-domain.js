@@ -118,7 +118,6 @@ export function shEditGenMerit(idx, field, val) {
           addMerit(c, { category: 'general', name: val, rating: 0, granted_by: 'Fucking Thief' });
           newIdx = c.merits.length - 1;
         }
-        c.merits[newIdx].free = 1;
       }
     }
   }

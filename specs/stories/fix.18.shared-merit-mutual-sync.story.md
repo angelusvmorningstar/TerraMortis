@@ -79,6 +79,7 @@ The server route `PUT /api/characters/:id` could accept an optional `cascade_par
   }
   ```
 - [ ] Extract the body-building logic from `saveCharToApi` into a `buildSaveBody(c)` helper (or call the existing logic inline if it's simple enough to reuse)
+- [ ] `buildSaveBody(c)` MUST strip all ephemeral fields (those prefixed with `_`, e.g. `_grant_pools`, `_pt_nine_again_skills`, `_mci_free_specs`, `_bloodline_free_specs`, `_ots_free_dots`) — the same fields that the primary save already strips. Failing to do this will write ephemeral runtime data to the DB for partner characters. Examine the existing `saveCharToApi` body-building logic to confirm the exact strip list before implementing.
 
 ### Task 3: Verify round-trip
 

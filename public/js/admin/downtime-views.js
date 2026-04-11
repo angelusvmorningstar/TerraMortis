@@ -9,7 +9,7 @@ import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGa
 import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
-import { displayName, sortName } from '../data/helpers.js';
+import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
@@ -363,7 +363,7 @@ async function loadCycleById(cycleId) {
     const activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
     const currentRegId = cycle.regency_character_id ? String(cycle.regency_character_id) : '';
     const opts = activeChars.map(c =>
-      `<option value="${esc(String(c._id))}"${String(c._id) === currentRegId ? ' selected' : ''}>${esc(displayName(c))}</option>`
+      `<option value="${esc(String(c._id))}"${String(c._id) === currentRegId ? ' selected' : ''}>${esc(displayNameRaw(c))}</option>`
     ).join('');
     statusHtml += `<label class="dt-regency-edit"><span>Regent</span>
       <select id="dt-regency-sel" class="dt-regency-sel">

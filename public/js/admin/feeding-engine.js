@@ -3,7 +3,7 @@
  * Self-contained: character data, pool building, rolling, vitae application.
  */
 
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, displayNameRaw } from '../data/helpers.js';
 import { getAttrVal, skDots, calcVitaeMax } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 
@@ -119,7 +119,7 @@ function render() {
   h += '<option value="">Character</option>';
   for (const c of chars) {
     const sel = feedChar && feedChar._id === c._id ? ' selected' : '';
-    h += `<option value="${esc(c._id)}"${sel}>${esc(displayName(c))}</option>`;
+    h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
   }
   h += '</select>';
 
