@@ -1358,7 +1358,7 @@ async function processFile(file) {
   }
 
   try {
-    const result = await upsertCycle(parsed);
+    const result = await upsertCycle(parsed, characters);
     const matched = parsed.filter(s => s._character_id).length;
     const unmatched = parsed.length - matched;
     let msg = `Loaded ${result.created} new, ${result.updated} updated submissions.`;
@@ -2985,7 +2985,27 @@ function renderResolveBadge(roll) {
 // ── Project Resolution Panel (Story 1.2) ────────────────────────────────────
 
 function renderProjectsPanel(s, raw, char) {
-  const projects = raw.projects || [];
+  let projects = raw.projects || [];
+  // Fallback: construct project list from responses when _raw.projects is absent
+  // (happens when CSV data was mapped to responses but _raw wasn't restructured)
+  if (!projects.length && s.responses) {
+    for (let n = 1; n <= 4; n++) {
+      const action = s.responses[`project_${n}_action`];
+      if (!action) continue;
+      projects.push({
+        action_type: action,
+        action_type_raw: action,
+        project_name: s.responses[`project_${n}_title`] || null,
+        desired_outcome: s.responses[`project_${n}_outcome`] || '',
+        primary_pool: s.responses[`project_${n}_pool_expr`] ? { expression: s.responses[`project_${n}_pool_expr`] } : null,
+        secondary_pool: s.responses[`project_${n}_pool2_expr`] ? { expression: s.responses[`project_${n}_pool2_expr`] } : null,
+        characters: s.responses[`project_${n}_cast`] || null,
+        merits: s.responses[`project_${n}_merits`] || null,
+        xp_spend: s.responses[`project_${n}_xp`] || null,
+        detail: s.responses[`project_${n}_description`] || null,
+      });
+    }
+  }
   if (!projects.length) return '';
 
   const resolved = s.projects_resolved || [];

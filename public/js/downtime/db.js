@@ -68,7 +68,7 @@ export async function updateSubmission(id, updates) {
  * Upsert parsed submissions into a cycle.
  * Creates the cycle if none active, then posts each submission.
  */
-export async function upsertCycle(parsedSubmissions) {
+export async function upsertCycle(parsedSubmissions, characters) {
   let cycle = await getActiveCycle();
   if (!cycle) {
     const all = await getCycles();
@@ -96,6 +96,7 @@ export async function upsertCycle(parsedSubmissions) {
       timestamp: parsed.submission.timestamp,
       attended: parsed.submission.attended_last_game,
       _raw: parsed,
+      responses: mapRawToResponses(parsed, characters || null),
       updated_at: new Date().toISOString(),
     };
 
@@ -116,6 +117,136 @@ export async function upsertCycle(parsedSubmissions) {
   });
 
   return { cycle, created, updated, unchanged };
+}
+
+// ── CSV → responses mapping ────────────────────────────────────────────────
+
+/**
+ * Normalise a free-text feeding method to the form's enum ID.
+ */
+function normaliseFeedMethod(raw) {
+  if (!raw) return null;
+  const s = raw.trim().toLowerCase();
+  if (/seduc/i.test(s)) return 'seduction';
+  if (/stalk|hunt/i.test(s)) return 'stalking';
+  if (/force|attack/i.test(s)) return 'force';
+  if (/animal|beast/i.test(s)) return 'animal';
+  if (/vessel|herd/i.test(s)) return 'vessel';
+  return 'other';
+}
+
+/**
+ * Normalise CSV territory grid to the form's { slug: status } JSON format.
+ */
+function normaliseTerritoryGrid(rawTerrs) {
+  if (!rawTerrs || typeof rawTerrs !== 'object') return null;
+  const nameToSlug = {
+    'The Academy': 'the_academy',
+    'The City Harbour': 'the_city_harbour',
+    'The Docklands': 'the_docklands',
+    'The Second City': 'the_second_city',
+    'The Northern Shore': 'the_northern_shore',
+    'The Barrens': 'the_barrens__no_territory_',
+  };
+  const statusMap = { 'Resident': 'resident', 'Poaching': 'poach', 'Feeding': 'feed', 'Not feeding here': 'none' };
+  const result = {};
+  for (const [name, val] of Object.entries(rawTerrs)) {
+    const slug = nameToSlug[name];
+    if (!slug) continue;
+    result[slug] = statusMap[val] || 'none';
+  }
+  return JSON.stringify(result);
+}
+
+/**
+ * Map a parsed CSV submission object into flat responses matching the player
+ * portal form format. Characters array is optional — used for name→ID
+ * resolution in shoutout picks.
+ */
+export function mapRawToResponses(parsed, characters) {
+  const r = {};
+
+  // Court / narrative
+  const n = parsed.narrative || {};
+  if (n.travel_description) r.travel = n.travel_description;
+  if (n.game_recount) r.game_recount = n.game_recount;
+  if (n.ic_correspondence) r.correspondence = n.ic_correspondence;
+  if (n.most_trusted_pc) r.trust = n.most_trusted_pc;
+  if (n.actively_harming_pc) r.harm = n.actively_harming_pc;
+  if (n.aspirations) r.aspirations = n.aspirations;
+  // Shoutout: resolve names to IDs when possible
+  if (n.standout_rp) {
+    const names = n.standout_rp.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+    const resolved = names.map(name => {
+      if (!characters) return name;
+      const c = characters.find(ch =>
+        ch.name === name || ch.moniker === name ||
+        (ch.name || '').toLowerCase() === name.toLowerCase()
+      );
+      return c ? String(c._id) : name;
+    });
+    r.rp_shoutout = JSON.stringify(resolved);
+  }
+
+  // Regency
+  const reg = parsed.regency || {};
+  r._gate_is_regent = reg.is_regent ? 'yes' : 'no';
+  if (reg.territory) r.regent_territory = reg.territory;
+  if (reg.regency_action) r.regency_action = reg.regency_action;
+
+  // Feeding
+  const f = parsed.feeding || {};
+  if (f.method) {
+    r._feed_method = normaliseFeedMethod(f.method);
+    if (r._feed_method === 'other') r.feeding_description = f.method;
+  }
+  if (f.territories) r.feeding_territories = normaliseTerritoryGrid(f.territories);
+
+  // Projects (up to 4)
+  const projects = parsed.projects || [];
+  projects.forEach((p, i) => {
+    const n = i + 1;
+    if (p.action_type) r[`project_${n}_action`] = p.action_type;
+    if (p.project_name) r[`project_${n}_title`] = p.project_name;
+    if (p.desired_outcome) r[`project_${n}_outcome`] = p.desired_outcome;
+    if (p.detail || p.description) r[`project_${n}_description`] = p.detail || p.description;
+    if (p.primary_pool?.expression) r[`project_${n}_pool_expr`] = p.primary_pool.expression;
+    if (p.secondary_pool?.expression) r[`project_${n}_pool2_expr`] = p.secondary_pool.expression;
+    if (p.characters) r[`project_${n}_cast`] = typeof p.characters === 'string' ? p.characters : JSON.stringify(p.characters);
+    if (p.merits) r[`project_${n}_merits`] = p.merits;
+    if (p.xp_spend != null) r[`project_${n}_xp`] = String(p.xp_spend);
+  });
+
+  // Sphere actions (up to 5)
+  (parsed.sphere_actions || []).forEach((s, i) => {
+    const n = i + 1;
+    if (s.merit_type) r[`sphere_${n}_merit`] = s.merit_type;
+    if (s.action_type) r[`sphere_${n}_action`] = s.action_type;
+    if (s.desired_outcome) r[`sphere_${n}_outcome`] = s.desired_outcome;
+    if (s.description) r[`sphere_${n}_description`] = s.description;
+  });
+
+  // Contacts
+  (parsed.contact_actions?.requests || []).forEach((req, i) => {
+    r[`contact_${i + 1}_request`] = req;
+  });
+
+  // Retainers
+  (parsed.retainer_actions?.actions || []).forEach((task, i) => {
+    r[`retainer_${i + 1}_task`] = task;
+  });
+
+  // Sorcery
+  if (parsed.ritual_casting?.casting) r.sorcery_1_rite = parsed.ritual_casting.casting;
+
+  // Meta
+  const m = parsed.meta || {};
+  if (m.xp_spend) r.xp_spend = m.xp_spend;
+  if (m.lore_questions) r.lore_request = m.lore_questions;
+  if (m.st_notes) r.vamping = m.st_notes;
+  if (m.form_comments) r.form_feedback = m.form_comments;
+
+  return r;
 }
 
 // ── Rolls ───────────────────────────────────────────────────────────────────

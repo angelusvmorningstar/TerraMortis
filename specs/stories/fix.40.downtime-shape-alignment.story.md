@@ -1,6 +1,6 @@
 # Story fix.40: Downtime Submission Shape Alignment
 
-## Status: Approved
+## Status: done
 
 ## Story
 
