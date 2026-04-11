@@ -798,7 +798,8 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
         h += '<button class="mci-choice-btn' + (d3c === 'merits' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot3_choice\',\'merits\')">2 Merits</button>';
         if (d3c === 'skill') {
           const _d3Missing = !m.dot3_skill;
-          h += '<span class="mci-spec-pick' + (_d3Missing ? ' has-unfilled' : '') + '"><select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot3_skill\',this.value)"><option value="">' + (m.dot3_skill || '\u2014 skill \u2014') + '</option>' + ALL_SKILLS.map(sk => '<option' + (m.dot3_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></span>';
+          const _d3Skills = ALL_SKILLS.filter(sk => { const s = c.skills?.[sk]; return (s?.dots || 0) < 5; });
+          h += '<span class="mci-spec-pick' + (_d3Missing ? ' has-unfilled' : '') + '"><select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot3_skill\',this.value)"><option value="">' + (m.dot3_skill || '\u2014 skill \u2014') + '</option>' + _d3Skills.map(sk => '<option' + (m.dot3_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></span>';
         }
       } else if (d === 3) {
         h += '<span class="mci-benefit-text">3 merit dots</span>';
@@ -816,13 +817,25 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
     if (pool > 0) h += '<div class="mci-pool-row"><span class="mci-pool-lbl">Merit Pool</span><span class="mci-pool-val">' + pool + ' dot' + (pool === 1 ? '' : 's') + ' \u2014 allocate via MCI field on each merit</span></div>';
   } else if (!inactive) {
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
+    const tg = m.tier_grants || [];
+    const tierGrant = (tier) => { const g = tg.find(t => t.tier === tier); return g ? esc(g.name) + (g.qualifier ? ' (' + esc(g.qualifier) + ')' : '') + ' ' + shDots(g.rating) : null; };
     for (let d = 0; d < 5 && d < m.rating; d++) {
       let txt;
-      if (d === 0) txt = d1c === 'speciality' ? 'Specialisation' + (m.dot1_spec_skill ? ' \u2014 ' + m.dot1_spec_skill + (m.dot1_spec ? ' (' + m.dot1_spec + ')' : '') : '') : '1 merit dot';
-      else if (d === 1) txt = '1 merit dot';
-      else if (d === 2) txt = d3c === 'skill' ? 'Skill Dot' + (m.dot3_skill ? ' (' + m.dot3_skill + ')' : '') : '2 merit dots';
-      else if (d === 3) txt = '3 merit dots';
-      else if (d === 4) txt = d5c === 'advantage' ? 'Advantage' + (m.dot5_text ? ' \u2014 ' + m.dot5_text : '') : '3 merit dots';
+      const tier = d + 1;
+      if (d === 0) {
+        if (d1c === 'speciality') txt = 'Spec: ' + (m.dot1_spec_skill ? esc(m.dot1_spec_skill) + (m.dot1_spec ? ' (' + esc(m.dot1_spec) + ')' : '') : '<span class="mci-unset">(unset)</span>');
+        else txt = tierGrant(tier) || '1 merit dot <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 1) {
+        txt = tierGrant(tier) || '1 merit dot <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 2) {
+        if (d3c === 'skill') txt = 'Skill: ' + (m.dot3_skill ? esc(m.dot3_skill) + ' +1' : '<span class="mci-unset">(unset)</span>');
+        else txt = tierGrant(tier) || '2 merit dots <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 3) {
+        txt = tierGrant(tier) || '3 merit dots <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 4) {
+        if (d5c === 'advantage') txt = 'Advantage: ' + (m.dot5_text ? esc(m.dot5_text) : '<span class="mci-unset">(unset)</span>');
+        else txt = tierGrant(tier) || '3 merit dots <span class="mci-unset">(unassigned)</span>';
+      }
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><span class="mci-benefit-text">' + (txt || '') + '</span></div>';
     }
   }
