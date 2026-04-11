@@ -302,11 +302,28 @@ export function shRenderSkills(c, editMode) {
     const ptMSpec = (c.merits || []).find(m => m.name === 'Professional Training');
     const ptFreeSpec = (ptMSpec && ptMSpec.rating >= 3) ? 2 : 0;
     const ptAssetSet = new Set((ptMSpec && ptMSpec.rating >= 3 && ptMSpec.asset_skills) ? (ptMSpec.asset_skills || []).filter(Boolean) : []);
+    // Bloodline free specs — excluded from paid count
+    const blFreeSpecs = c._bloodline_free_specs || [];
+    const blBySkill = {};
+    blFreeSpecs.forEach(({ skill }) => { blBySkill[skill] = (blBySkill[skill] || 0) + 1; });
+    const blTotal = blFreeSpecs.length;
     let _assetSp = 0, _nonAssetSp = 0;
-    Object.entries(c.skills || {}).forEach(([sk, skillObj]) => { const cnt = (skillObj && skillObj.specs) ? skillObj.specs.length : 0; if (ptAssetSet.has(sk)) _assetSp += cnt; else _nonAssetSp += cnt; });
+    Object.entries(c.skills || {}).forEach(([sk, skillObj]) => {
+      const allCnt = (skillObj && skillObj.specs) ? skillObj.specs.length : 0;
+      const paid = Math.max(0, allCnt - (blBySkill[sk] || 0));
+      if (ptAssetSet.has(sk)) _assetSp += paid; else _nonAssetSp += paid;
+    });
     const ptFreeCov = Math.min(ptFreeSpec, _assetSp), paidSp = _nonAssetSp + Math.max(0, _assetSp - ptFreeCov);
     const specXP = Math.max(0, paidSp - 3), cpSp = Math.min(paidSp, 3), cpCls = cpSp === 3 ? 'sc-full' : 'sc-val';
-    h += '<div class="sh-spec-counter">Specialisations <span class="' + cpCls + '">' + cpSp + ' / 3 CP</span>' + (specXP ? ' + <span style="font-size:10px;color:var(--crim)">' + specXP + ' XP</span>' : '') + (ptFreeSpec ? ' + <span style="font-size:10px;color:var(--gold2)">' + ptFreeCov + ' / ' + ptFreeSpec + ' PT (asset skills)</span>' : '') + '</div>';
+    const bonusTotal = ptFreeSpec + blTotal, bonusUsed = ptFreeCov + blTotal;
+    const bonusParts = [];
+    if (ptFreeSpec) bonusParts.push('PT: ' + ptFreeCov + '/' + ptFreeSpec + ' (asset skills)');
+    if (blTotal) bonusParts.push('Bloodline: ' + blTotal);
+    h += '<div class="sh-spec-counter">Specialisations <span class="' + cpCls + '">' + cpSp + ' / 3 CP</span>'
+      + (specXP ? ' + <span style="font-size:10px;color:var(--crim)">' + specXP + ' XP</span>' : '')
+      + (bonusTotal ? ' + <span style="font-size:10px;color:var(--gold2)">Bonus: ' + bonusUsed + '/' + bonusTotal + '</span>' : '')
+      + (bonusParts.length ? '<div style="font-size:10px;color:var(--txt3);margin-top:1px">' + bonusParts.join(' \u00B7 ') + '</div>' : '')
+      + '</div>';
   }
   h += '<div class="skills-3col">';
   if (editMode) {
