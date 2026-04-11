@@ -134,6 +134,7 @@ function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
     if (i <= base) h += '<span class="sh-track-dot sh-track-base">\u25CF</span>';
     else if (i <= base + bonus) h += '<span class="sh-track-dot" style="color:' + bonusColor + '">\u25CB</span>';
     else h += '<span class="sh-track-dot sh-track-empty">\u25CB</span>';
+    if (maxDots > 5 && i === 5) h += '<br>';
   }
   return h + '</div>';
 }
@@ -827,8 +828,10 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
     }
     if (eDots >= 4) {
       const dot4 = m.dot4_skill || '', validAs = as.filter(Boolean);
+      const _skEffDots = sk => { const so = (c.skills || {})[sk] || {}; return (so.cp || 0) + xpToDots(so.xp || 0, so.cp || 0, 2); };
+      const eligibleAs = validAs.filter(sk => _skEffDots(sk) < 5);
       const _pt4Missing = !dot4 || !validAs.includes(dot4);
-      h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF\u25CF</span><div><span class="mci-benefit-text">On the Job Training: +1 dot in an Asset Skill</span><div class="pt-skill-pick' + (_pt4Missing ? ' has-unfilled' : '') + '" style="display:flex;gap:4px;margin-top:4px"><select class="pt-skill-sel" onchange="shEditStandMerit(' + si + ',\'dot4_skill\',this.value)"><option value="">' + (dot4 || '\u2014 choose \u2014') + '</option>' + validAs.map(sk => '<option' + (dot4 === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></div></div></div>';
+      h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF\u25CF</span><div><span class="mci-benefit-text">On the Job Training: +1 dot in an Asset Skill</span><div class="pt-skill-pick' + (_pt4Missing ? ' has-unfilled' : '') + '" style="display:flex;gap:4px;margin-top:4px"><select class="pt-skill-sel" onchange="shEditStandMerit(' + si + ',\'dot4_skill\',this.value)"><option value="">' + (dot4 || '\u2014 choose \u2014') + '</option>' + eligibleAs.map(sk => '<option' + (dot4 === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></div></div></div>';
     }
     if (eDots >= 5) h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF\u25CF\u25CF</span><span class="mci-benefit-text">The Routine: spend 1 WP for Rote quality on any Asset Skill action. Adds +3 to roll</span></div>';
     h += '</div>';
