@@ -616,3 +616,7 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .gcp-pool-n{font-family:var(--fhd);font-size:20px;color:var(--gold2);line-height:1;}
 .gcp-pool-lbl{font-family:var(--fh);font-size:11px;color:var(--txt);letter-spacing:.02em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .gcp-pool-sub{font-family:var(--fh);font-size:9px;color:var(--txt3);letter-spacing:.04em;margin-top:1px;}
+.gcp-pool-btn.gcp-9a{border-color:var(--gold-a30);position:relative;}
+.gcp-9a-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--gold2);color:var(--bg);font-family:var(--fh);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;}
+.gcp-pool-btn.gcp-rote{border-color:rgba(158,122,224,0.4);}
+.gcp-rote-badge{position:absolute;top:-4px;right:14px;width:16px;height:16px;border-radius:50%;background:#9E7AE0;color:#fff;font-family:var(--fh);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;}
