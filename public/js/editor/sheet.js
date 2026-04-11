@@ -224,7 +224,7 @@ export function shRenderStatsStrip(c) {
 
 export function shRenderAttributes(c, editMode) {
   const ATTR_ROWS = [['Intelligence', 'Strength', 'Presence'], ['Wits', 'Dexterity', 'Manipulation'], ['Resolve', 'Stamina', 'Composure']];
-  const catOrder = ['Mental', 'Physical', 'Social'], BONUS_SOURCE = { Strength: 'Vigour', Stamina: 'Resilience' };
+  const catOrder = ['Mental', 'Physical', 'Social'], BONUS_SOURCE = { Strength: 'Vigour', Dexterity: 'Celerity', Stamina: 'Resilience' };
   // Normalise clan_attribute from attribute free field if missing
   if (!c.clan_attribute && c.attributes) { const ca = Object.entries(c.attributes).find(([, ao]) => (ao.free || 0) === 2); if (ca) c.clan_attribute = ca[0]; }
   const _attrAlert = editMode ? (catOrder.some(cat => { const budget = PRI_BUDGETS[(c.attribute_priorities || {})[cat] || 'Tertiary'] || 3, usedCP = (ATTR_CATS[cat] || []).reduce((s, a) => s + ((c.attributes?.[a]?.cp) || 0), 0); return budget - usedCP < 0; }) ? 'red' : null) : null;

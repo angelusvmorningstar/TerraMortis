@@ -22,6 +22,20 @@ export function isInClanDisc(c, discName) {
   return false;
 }
 
+// ── Physical discipline → attribute mapping (VtR 2e) ──
+// Celerity adds to Dexterity, Vigour adds to Strength, Resilience adds to Stamina.
+const DISC_ATTR_MAP = { Dexterity: 'Celerity', Strength: 'Vigour', Stamina: 'Resilience' };
+
+/**
+ * Discipline bonus for a physical attribute.
+ * Returns the discipline dots if the character has Celerity/Vigour/Resilience, else 0.
+ */
+export function discAttrBonus(c, attr) {
+  const disc = DISC_ATTR_MAP[attr];
+  if (!disc) return 0;
+  return c.disciplines?.[disc]?.dots || 0;
+}
+
 // ── Attributes ──
 
 export function getAttrVal(c, attr) {
@@ -32,8 +46,14 @@ export function getAttrBonus(c, attr) {
   return c.attributes?.[attr]?.bonus || 0;
 }
 
+/** Base dots + merit/title bonus (no discipline enhancement). */
 export function getAttrTotal(c, attr) {
   return getAttrVal(c, attr) + getAttrBonus(c, attr);
+}
+
+/** Full effective value: base + bonus + discipline enhancement. Use for pools and derived stats. */
+export function getAttrEffective(c, attr) {
+  return getAttrVal(c, attr) + getAttrBonus(c, attr) + discAttrBonus(c, attr);
 }
 
 export function setAttrVal(c, attr, dots, bonus) {
@@ -113,16 +133,15 @@ export function calcSize(c) {
 }
 
 export function calcSpeed(c) {
-  const str = getAttrVal(c, 'Strength');
-  const dex = getAttrVal(c, 'Dexterity');
+  const str = getAttrEffective(c, 'Strength');
+  const dex = getAttrEffective(c, 'Dexterity');
   const sz = calcSize(c);
-  const vigour = c.disciplines?.Vigour?.dots || 0;
   const fleet = (c.merits || []).find(m => m.name === 'Fleet of Foot');
-  return str + dex + sz + vigour + (fleet ? fleet.rating : 0);
+  return str + dex + sz + (fleet ? fleet.rating : 0);
 }
 
 export function calcDefence(c) {
-  const dex = getAttrVal(c, 'Dexterity');
+  const dex = getAttrEffective(c, 'Dexterity');
   const wits = getAttrVal(c, 'Wits');
   const base = Math.min(dex, wits);
   const dc = (c.merits || []).find(m => m.name === 'Defensive Combat');
@@ -131,8 +150,7 @@ export function calcDefence(c) {
 }
 
 export function calcHealth(c) {
-  const resilience = c.disciplines?.Resilience?.dots || 0;
-  return getAttrVal(c, 'Stamina') + calcSize(c) + resilience;
+  return getAttrEffective(c, 'Stamina') + calcSize(c);
 }
 
 export function calcWillpowerMax(c) {

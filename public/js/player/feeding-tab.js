@@ -11,7 +11,7 @@
 import { apiGet, apiPut } from '../data/api.js';
 import { getGamePhaseCycle } from '../downtime/db.js';
 import { esc, displayName, hasAoE } from '../data/helpers.js';
-import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { getRole } from '../auth/discord.js';
