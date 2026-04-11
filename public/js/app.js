@@ -63,6 +63,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi } from './data/loader.js';
+import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
@@ -248,7 +249,10 @@ async function loadAllData() {
     editorState.chars = [];
   }
 
-  // 1b. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
+  // 1b. Load game session XP (attendance-based) — same as admin/player portal
+  await loadGameXP(editorState.chars).catch(() => {});
+
+  // 1c. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
   editorState.chars.forEach(c => applyDerivedMerits(c));
 
   // 2. Copy to suite state
