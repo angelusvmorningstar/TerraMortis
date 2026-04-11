@@ -75,7 +75,7 @@ function _auditBadge(c) {
 
 /** Render a prereq warning showing only the terms the character actually fails. */
 function _prereqWarn(c, meritName, m) {
-  if (m && m.granted_by === 'Fucking Thief') return '';
+  if (m && m.granted_by) return '';
   const rule = getRuleByKey(meritName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
   if (!rule || !rule.prereq) return '';
   if (meetsPrereq(c, rule.prereq, { domTotal: (name) => domMeritAccess(c, name) })) return '';
