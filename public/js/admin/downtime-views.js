@@ -2898,14 +2898,22 @@ function renderProjectsPanel(s, raw, char) {
 
     h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : ' dt-proj-unresolved'}">`;
     h += `<div class="dt-proj-header">`;
-    h += `<span class="dt-proj-type">${esc(proj.action_type)}</span>`;
+    h += `<span class="dt-proj-type">${esc(proj.action_type_raw || proj.action_type)}</span>`;
     h += isResolved
       ? ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`
       : ` <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>`;
     h += '</div>';
 
-    if (proj.desired_outcome) h += `<div class="dt-proj-outcome"><em>Desired:</em> ${esc(proj.desired_outcome)}</div>`;
-    if (proj.description) h += `<div class="dt-proj-desc">${esc(proj.description)}</div>`;
+    // Structured fields extracted from description
+    if (proj.project_name) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Name:</span> ${esc(proj.project_name)}</div>`;
+    if (proj.desired_outcome) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Desired:</span> ${esc(proj.desired_outcome)}</div>`;
+    if (proj.characters) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Characters:</span> ${esc(proj.characters)}</div>`;
+    if (proj.primary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Primary Pool:</span> ${esc(proj.primary_pool.expression)}</div>`;
+    if (proj.secondary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Secondary Pool:</span> ${esc(proj.secondary_pool.expression)}</div>`;
+    if (proj.xp_spend != null) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">XP Spend:</span> ${esc(String(proj.xp_spend))}</div>`;
+    if (proj.merits) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Merits:</span> ${esc(proj.merits)}</div>`;
+    if (proj.bonuses) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Bonuses:</span> ${esc(proj.bonuses)}</div>`;
+    if (proj.detail) h += `<div class="dt-proj-desc">${esc(proj.detail)}</div>`;
 
     // Pool builder
     if (char) {
