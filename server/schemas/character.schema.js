@@ -87,7 +87,7 @@ export const characterSchema = {
     status: {
       type: 'object',
       properties: {
-        city:     { type: 'integer', minimum: 0, maximum: 5 },
+        city:     { type: 'integer', minimum: 0, maximum: 10 },
         clan:     { type: 'integer', minimum: 0, maximum: 5 },
         covenant: { type: 'integer', minimum: 0, maximum: 5 }
       },

@@ -246,7 +246,7 @@ export function shStatusUp(key) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   if (!c.status) c.status = {};
-  c.status[key] = Math.min(5, (c.status[key] || 0) + 1);
+  c.status[key] = Math.min(key === 'city' ? 10 : 5, (c.status[key] || 0) + 1);
   _markDirty();
   _renderSheet(c);
 }

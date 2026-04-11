@@ -128,9 +128,9 @@ function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
   return '<span class="merit-dots-sh">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
-function _statusTrack(base, bonus, bonusColor) {
+function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
   let h = '<div class="sh-status-track">';
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= maxDots; i++) {
     if (i <= base) h += '<span class="sh-track-dot sh-track-base">\u25CF</span>';
     else if (i <= base + bonus) h += '<span class="sh-track-dot" style="color:' + bonusColor + '">\u25CB</span>';
     else h += '<span class="sh-track-dot sh-track-empty">\u25CB</span>';
@@ -142,13 +142,21 @@ function _statusEditBtns(downFn, upFn) {
 }
 function _cityStatusDots(base, titleBonus) {
   if (!base && !titleBonus) return '';
-  return '<div class="sh-city-dots">' + '<span class="sh-city-dot crim">\u25CF</span>'.repeat(base) + '<span class="sh-city-dot gold">\u25CF</span>'.repeat(titleBonus) + '</div>';
+  const total = base + titleBonus;
+  let h = '<div class="sh-city-dots">';
+  for (let i = 1; i <= 10; i++) {
+    if (i <= base) h += '<span class="sh-city-dot crim">\u25CF</span>';
+    else if (i <= total) h += '<span class="sh-city-dot gold">\u25CF</span>';
+    else h += '<span class="sh-city-dot empty">\u25CB</span>';
+    if (i === 5) h += '<br>';
+  }
+  return h + '</div>';
 }
 function _cityStatusPip(editMode, base, total, titleBonus) {
   if (editMode) return '<div class="sh-stat-pip">'
     + '<div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div>'
     + '<div class="sh-status-lbl">City</div>'
-    + _statusTrack(base, titleBonus, 'var(--gold2)')
+    + _statusTrack(base, titleBonus, 'var(--gold2)', 10)
     + _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')')
     + '</div>';
   return '<div class="sh-stat-pip"><div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div><div class="sh-status-lbl">City</div></div>';
