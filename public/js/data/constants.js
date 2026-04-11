@@ -43,8 +43,8 @@ export const ARCHETYPES_DB = {
   'Survivor':         { wp1: 'Favour the safe path over the higher risk, higher reward path.',          wpAll: 'Abandon a social group or relationship in order to stay safe.' },
   'Visionary':        { wp1: 'Help someone by sharing your vision with them.',                          wpAll: 'Put yourself at risk to show a group the power of your vision.' },
 };
-export const COURT_TITLES = ['','Head of State','Primogen','Socialite','Enforcer','Administrator','Regent'];
-export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1,'Regent':0};
+export const COURT_TITLES = ['','Head of State','Primogen','Socialite','Enforcer','Administrator'];
+export const TITLE_STATUS_BONUS = {'Head of State':3,'Primogen':2,'Socialite':1,'Enforcer':1,'Administrator':1};
 
 
 export const BLOODLINE_DISCS = {

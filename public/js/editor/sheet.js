@@ -86,8 +86,9 @@ function _prereqWarn(c, meritName, m) {
 /** Render grant pool counters for a merit category. Handles single and multi-target pools. */
 function _renderPoolCounters(c, category) {
   const pools = getPoolsForCategory(c, category);
-  // Include 'any' category pools (MCI pool) in all merit sections
-  const anyPools = (c._grant_pools || []).filter(p => p.category === 'any');
+  // Include 'any' category pools (MCI pool) only in the general section — it applies everywhere
+  // but repeating it in every category is redundant noise
+  const anyPools = category === 'general' ? (c._grant_pools || []).filter(p => p.category === 'any') : [];
   // Also include 'vm' category pools (VM Allies bonus) in the influence section
   const vmPools = category === 'influence' ? (c._grant_pools || []).filter(p => p.category === 'vm') : [];
   // Also include 'ohm' category pools (OHM grants) in the influence section
