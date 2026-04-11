@@ -1980,6 +1980,30 @@ body {
   font-size: 14px;
 }
 
+.att-add-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surf1);
+  border-bottom: 1px solid var(--surf2);
+}
+
+.att-add-form select {
+  background: var(--surf2);
+  color: var(--txt1);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  min-width: 200px;
+}
+
+.att-add-form select:focus {
+  outline: none;
+  border-color: var(--gold2);
+}
+
 /* ── Engine split layout ── */
 .engine-split {
   display: grid;
