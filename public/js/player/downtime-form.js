@@ -10,7 +10,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE } from '../data/helpers.js';
+import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, findRegentTerritory } from '../data/helpers.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
@@ -28,6 +28,7 @@ const INFLUENCE_TERRITORIES = FEEDING_TERRITORIES.filter(t => !t.includes('Barre
 let responseDoc = null;
 let currentChar = null;
 let currentCycle = null;
+let _territories = [];
 let gateValues = {};
 let saveTimer = null;
 let priorPublishedLabel = null; // label of most recent published cycle other than current
@@ -207,7 +208,7 @@ function getInfluenceBudget() {
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
 function getRegentCap() {
-  const terrName = currentChar.regent_territory;
+  const terrName = findRegentTerritory(_territories, currentChar)?.territory;
   const terr = TERRITORY_DATA.find(t => t.name === terrName);
   if (!terr) return 6; // sensible default
   return AMBIENCE_CAP[terr.ambience] || 6;
@@ -220,8 +221,8 @@ function collectResponses() {
   responses['_gate_attended'] = gateValues.attended || '';
   responses['_gate_is_regent'] = gateValues.is_regent || '';
   responses['_gate_has_sorcery'] = gateValues.has_sorcery || '';
-  if (gateValues.is_regent === 'yes' && currentChar.regent_territory) {
-    responses['regent_territory'] = currentChar.regent_territory;
+  if (gateValues.is_regent === 'yes' && findRegentTerritory(_territories, currentChar)?.territory) {
+    responses['regent_territory'] = findRegentTerritory(_territories, currentChar)?.territory;
   }
 
   // Collect manual gate values
@@ -592,7 +593,7 @@ async function saveResidency(responses) {
   }
   try {
     await apiPut('/api/territory-residency', {
-      territory: currentChar.regent_territory,
+      territory: findRegentTerritory(_territories, currentChar)?.territory,
       residents,
     });
     persistedResidency = residents;
@@ -633,8 +634,9 @@ function renderDowntimeResults(outcomeText, sub) {
   return h;
 }
 
-export async function renderDowntimeTab(targetEl, char) {
+export async function renderDowntimeTab(targetEl, char, territories) {
   currentChar = char;
+  _territories = territories || [];
   responseDoc = null;
   currentCycle = null;
   gateValues = {};
@@ -707,7 +709,7 @@ export async function renderDowntimeTab(targetEl, char) {
   } catch { /* ignore */ }
 
   // Auto-detect regent status from character data
-  gateValues.is_regent = currentChar.regent_territory ? 'yes' : 'no';
+  gateValues.is_regent = findRegentTerritory(_territories, currentChar)?.territory ? 'yes' : 'no';
 
   // Load character name list and persisted residency for regency dropdowns
   if (gateValues.is_regent === 'yes') {
@@ -715,7 +717,7 @@ export async function renderDowntimeTab(targetEl, char) {
       allCharNames = await apiGet('/api/characters/names');
     } catch { allCharNames = []; }
     try {
-      const res = await apiGet(`/api/territory-residency?territory=${encodeURIComponent(currentChar.regent_territory)}`);
+      const res = await apiGet(`/api/territory-residency?territory=${encodeURIComponent(findRegentTerritory(_territories, currentChar)?.territory)}`);
       persistedResidency = res.residents || [];
     } catch { persistedResidency = []; }
   }
@@ -939,7 +941,7 @@ function renderForm(container) {
     h += '<span class="dt-badge dt-badge-off">Absent</span>';
   }
   if (gateValues.is_regent === 'yes') {
-    h += `<span class="dt-badge dt-badge-on">Regent \u2014 ${esc(currentChar.regent_territory)}</span>`;
+    h += `<span class="dt-badge dt-badge-on">Regent \u2014 ${esc(findRegentTerritory(_territories, currentChar)?.territory)}</span>`;
   }
   if (gateValues.has_sorcery === 'yes') {
     const traditions = [];
@@ -2539,7 +2541,7 @@ function renderEquipmentRow(n, saved) {
 function renderRegencySection(saved) {
   const regencySection = DOWNTIME_SECTIONS.find(s => s.key === 'regency');
   const cap = getRegentCap();
-  const terrName = currentChar.regent_territory;
+  const terrName = findRegentTerritory(_territories, currentChar)?.territory;
   const terr = TERRITORY_DATA.find(t => t.name === terrName);
   const ambience = terr ? terr.ambience : 'Unknown';
   const regentName = displayName(currentChar);

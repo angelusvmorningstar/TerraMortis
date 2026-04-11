@@ -122,6 +122,21 @@ export function sortName(c) {
   return (c.moniker || c.name).toLowerCase();
 }
 
+/**
+ * Find a character's regent territory from the territories array.
+ * Returns { territory, territoryId, lieutenantId } or null.
+ * Caches result on c._regentTerritory (ephemeral, not persisted).
+ */
+export function findRegentTerritory(territories, c) {
+  if (!territories || !c) return null;
+  if (c._regentTerritory !== undefined) return c._regentTerritory;
+  const cid = String(c._id);
+  const t = territories.find(t => t.regent_id === cid);
+  const result = t ? { territory: t.name || t.id, territoryId: t.id, lieutenantId: t.lieutenant_id || null } : null;
+  c._regentTerritory = result;
+  return result;
+}
+
 export function esc(s) {
   return s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

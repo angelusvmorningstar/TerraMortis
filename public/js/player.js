@@ -2,7 +2,7 @@
 
 import { apiGet } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
-import { esc, displayName, sortName, discordAvatarUrl } from './data/helpers.js';
+import { esc, displayName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
@@ -23,6 +23,7 @@ import state from './data/state.js';
 
 let chars = [];
 let activeChar = null;
+let _territories = [];
 let retiredChars = [];
 
 // Expose sheet helpers to onclick handlers in rendered HTML
@@ -145,8 +146,11 @@ async function loadCharacters() {
   const archiveBtn = document.getElementById('tab-btn-archive');
   if (archiveBtn) archiveBtn.style.display = '';
 
+  // Load territories for regent derivation
+  try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
+
   // City, Primer, and Tickets tabs — render once, independent of active character
-  renderCityTab(document.getElementById('tab-city'));
+  renderCityTab(document.getElementById('tab-city'), _territories);
   renderPrimerTab(document.getElementById('tab-primer'));
   renderTicketsTab(document.getElementById('tickets-content'));
 
@@ -194,18 +198,21 @@ function selectCharacter(activeChars, idx) {
   state.editIdx = chars.indexOf(activeChar);
   renderSheet(activeChar);
   initOrdeals(activeChar, chars);
-  renderDowntimeTab(document.getElementById('tab-downtime'), activeChar);
+  renderDowntimeTab(document.getElementById('tab-downtime'), activeChar, _territories);
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
   renderStoryTab(document.getElementById('story-content'), activeChar);
   renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
   renderStatusTab(document.getElementById('tab-status'), activeChar);
   initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars);
 
+  // Derive regent status from territories (single source of truth)
+  const regInfo = findRegentTerritory(_territories, activeChar);
+
   // Regency tab — only visible for regents
   const regBtn = document.getElementById('tab-btn-regency');
-  if (activeChar.regent_territory) {
+  if (regInfo) {
     if (regBtn) regBtn.style.display = '';
-    renderRegencyTab(document.getElementById('regency-content'), activeChar);
+    renderRegencyTab(document.getElementById('regency-content'), activeChar, _territories);
   } else {
     if (regBtn) regBtn.style.display = 'none';
   }

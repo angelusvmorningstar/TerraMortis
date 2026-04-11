@@ -7,7 +7,7 @@ import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, redactPlayer } from '../data/helpers.js';
 import { clanIcon, covIcon } from '../data/helpers.js';
 
-export async function renderCityTab(el) {
+export async function renderCityTab(el, territories) {
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
 
   let chars = [];
@@ -18,6 +18,10 @@ export async function renderCityTab(el) {
     return;
   }
 
+  // Load territories if not passed (standalone call or legacy)
+  let terrs = territories || [];
+  if (!terrs.length) { try { terrs = await apiGet('/api/territories'); } catch { terrs = []; } }
+
   const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
   const courtHolders = chars.filter(c => TITLE_ORDER.includes(c.court_title))
     .sort((a, b) => {
@@ -25,8 +29,14 @@ export async function renderCityTab(el) {
       const bi = TITLE_ORDER.indexOf(b.court_title);
       return ai - bi || sortName(a).localeCompare(sortName(b));
     });
-  const regents = chars.filter(c => c.regent_territory)
-    .sort((a, b) => (c => c.regent_territory || '')(a).localeCompare((c => c.regent_territory || '')(b)));
+  // Derive regents from territory documents (single source of truth)
+  const regents = terrs
+    .filter(t => t.regent_id)
+    .map(t => {
+      const c = chars.find(ch => String(ch._id) === t.regent_id);
+      return { territory: t.name || t.id, char: c };
+    })
+    .sort((a, b) => a.territory.localeCompare(b.territory));
 
   // Who's Who — grouped by covenant, alphabetical covenant order
   const covGroups = new Map();
@@ -69,10 +79,10 @@ export async function renderCityTab(el) {
   h += '<div class="city-panel-title">Regents</div>';
   if (regents.length) {
     h += '<div class="city-regent-list">';
-    for (const c of regents) {
+    for (const r of regents) {
       h += '<div class="city-regent-row">';
-      h += `<span class="city-regent-territory">${esc(c.regent_territory)}</span>`;
-      h += `<span class="city-regent-name">${esc(displayName(c))}</span>`;
+      h += `<span class="city-regent-territory">${esc(r.territory)}</span>`;
+      h += `<span class="city-regent-name">${r.char ? esc(displayName(r.char)) : '<span class="city-placeholder">(vacant)</span>'}</span>`;
       h += '</div>';
     }
     h += '</div>';

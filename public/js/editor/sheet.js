@@ -3,7 +3,7 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, displayNameRaw, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, isInClanDisc } from '../data/accessors.js';
@@ -1451,10 +1451,12 @@ export function renderSheet(c, target = null) {
   h += '</div>'; // end left
   // Right panel
   h += '<div class="sh-hdr-right">';
-  const tOpts = COURT_TITLES.map(t => '<option' + (c.court_title === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join(''), trOpts = REGENT_TERRITORIES.map(t => '<option' + (c.regent_territory === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+  const tOpts = COURT_TITLES.map(t => '<option' + (c.court_title === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join('');
+  // Regent territory is derived from territories collection, not stored on character
+  const _regTerrName = c._regentTerritory?.territory || null;
   h += '<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
-  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; h += '<select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'regent_territory\',this.value||null)"><option value="">(no territory)</option>' + trOpts + '</select>'; }
-  else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (c.regent_territory) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(c.regent_territory) + '</div>'; }
+  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--gold2)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
+  else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), cityTotal = cityBase + titleBonus;
   h += '<div class="sh-faction-sub">Title</div>' + _cityStatusDots(cityBase, titleBonus) + '</div>' + _cityStatusPip(editMode, cityBase, cityTotal, titleBonus) + '</div>';
   const covRow = (img, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) => { h += '<div class="sh-hdr-row">' + (img ? '<div class="sh-faction-icon"><img src="' + img + '"></div>' : '<div class="sh-icon-slot"></div>') + '<div class="sh-faction-text">' + (editMode ? editH : viewH) + '<div class="sh-faction-sub">' + sub + '</div></div>' + _statusPip(editMode, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) + '</div>'; };
