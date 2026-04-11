@@ -137,6 +137,8 @@ export const DOMAIN_MERIT_TYPES = ['Safe Place','Haven','Feeding Grounds','Herd'
 /** Style Tags — maps fighting style names to their tag(s). Styles without tags use orthodox-only advancement. */
 export const STYLE_TAGS = {
   'Avoidance': ['Movement (Agile)'],
+  'Courtoisie': ['Light Melee'],
+  'Light Weapons': ['Light Melee'],
   'Berserker': ['Attitude (Enraged)'],
   'Bowmanship': ['Archery'],
   'Boxing': ['Striking'],
