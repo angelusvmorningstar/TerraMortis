@@ -75,7 +75,7 @@ export function renderCharPools(el, char, onTap) {
   // ── Skill pools (only non-zero skills) ──
   let skillHtml = '';
   for (const sk of SKILL_ORDER) {
-    const skD = skDots(char, sk) + skBonus(char, sk);
+    const skD = Math.min(skDots(char, sk) + skBonus(char, sk), 5);
     if (!skD) continue;
     const attr  = SKILL_ATTR[sk];
     const attrV = getAttrEffective(char, attr) + getAttrBonus(char, attr);

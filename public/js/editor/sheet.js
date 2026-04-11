@@ -781,7 +781,8 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
         h += '<button class="mci-choice-btn' + (d3c === 'merits' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot3_choice\',\'merits\')">2 Merits</button>';
         if (d3c === 'skill') {
           const _d3Missing = !m.dot3_skill;
-          h += '<span class="mci-spec-pick' + (_d3Missing ? ' has-unfilled' : '') + '"><select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot3_skill\',this.value)"><option value="">' + (m.dot3_skill || '\u2014 skill \u2014') + '</option>' + ALL_SKILLS.map(sk => '<option' + (m.dot3_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></span>';
+          const _d3Skills = ALL_SKILLS.filter(sk => { const s = c.skills?.[sk]; return (s?.dots || 0) < 5; });
+          h += '<span class="mci-spec-pick' + (_d3Missing ? ' has-unfilled' : '') + '"><select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot3_skill\',this.value)"><option value="">' + (m.dot3_skill || '\u2014 skill \u2014') + '</option>' + _d3Skills.map(sk => '<option' + (m.dot3_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></span>';
         }
       } else if (d === 3) {
         h += '<span class="mci-benefit-text">3 merit dots</span>';
