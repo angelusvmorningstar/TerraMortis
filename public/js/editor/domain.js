@@ -176,7 +176,7 @@ export function vmAlliesPool(c) {
   (c.merits || []).forEach((m, i) => {
     if (m.category !== 'influence' || m.name !== 'Allies') return;
     if (m.granted_by === 'VM') return;  // only exclude VM bonus — MCI and other sources count
-    total += (m.cp || 0) + (m.xp || 0) + (m.free || 0) + (m.free_mci || 0);
+    total += (m.cp || 0) + (m.xp || 0) + (m.free_mci || 0);
   });
   return total;
 }
