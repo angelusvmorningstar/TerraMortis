@@ -62,7 +62,7 @@ function renderCity(container) {
 
 function renderCourt() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
-  const titled = active.filter(c => c.court_title).sort((a, b) => {
+  const titled = active.filter(c => c.court_title && c.court_title !== 'Regent').sort((a, b) => {
     const ai = TITLE_ORDER.indexOf(a.court_title);
     const bi = TITLE_ORDER.indexOf(b.court_title);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || sortName(a).localeCompare(sortName(b));
