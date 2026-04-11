@@ -3978,6 +3978,17 @@ body {
   color: var(--txt3);
 }
 
+.proc-amb-pending-chip {
+  font-size: 11px;
+  font-family: 'Lora', serif;
+  background: #5a3010;
+  color: #ffb870;
+  border: 1px solid #c07030;
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin-left: 10px;
+}
+
 .proc-amb-body {
   padding: 14px;
 }

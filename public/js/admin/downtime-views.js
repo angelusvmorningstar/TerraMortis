@@ -2488,23 +2488,35 @@ function buildAmbienceData(terrs) {
   }
 
   // ── Projects: sum roll successes from ambience project actions ──
-  const projectDelta = {};
+  const projPos = {}, projNeg = {};
+  let pendingAmbienceCount = 0;
   for (const sub of submissions) {
+    // Count pending: ambience project actions in form responses with no resolved roll
+    for (let n = 1; n <= 4; n++) {
+      const action = sub.responses?.[`project_${n}_action`];
+      if (action !== 'ambience_increase' && action !== 'ambience_decrease') continue;
+      const resolved = (sub.projects_resolved || [])[n - 1];
+      if (!resolved?.roll) pendingAmbienceCount++;
+    }
+    // Sum resolved roll successes
     for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
       if (!proj) continue;
       if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
       if (!proj.roll) continue;
-      const terrRaw = sub.responses?.[`project_${idx + 1}_territory`] || '';
-      const tid = resolveTerrId(terrRaw);
+      const n = idx + 1;
+      const terrRaw = sub.responses?.[`project_${n}_territory`] || '';
+      const desc = sub.responses?.[`project_${n}_description`] || '';
+      const outcome = sub.responses?.[`project_${n}_outcome`] || '';
+      const tid = resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = proj.roll.successes ?? 0;
-      const delta = proj.action_type === 'ambience_increase' ? successes : -successes;
-      projectDelta[tid] = (projectDelta[tid] || 0) + delta;
+      if (proj.action_type === 'ambience_increase') projPos[tid] = (projPos[tid] || 0) + successes;
+      else projNeg[tid] = (projNeg[tid] || 0) + successes;
     }
   }
 
   // ── Assemble rows ──
-  return TERRITORY_DATA.map(td => {
+  const rows = TERRITORY_DATA.map(td => {
     const id = td.id;
     const ambience = startingAmbience[id] || td.ambience;
     const cap = AMBIENCE_CAP[ambience] ?? 6;
@@ -2514,32 +2526,36 @@ function buildAmbienceData(terrs) {
     const inf_pos = infPos[id] || 0;
     const inf_neg = infNeg[id] || 0;
     const influence = inf_pos - inf_neg;
-    const projects = projectDelta[id] || 0;
+    const proj_pos = projPos[id] || 0;
+    const proj_neg = projNeg[id] || 0;
+    const projects = proj_pos - proj_neg;
     const net = entropy + overfeedVal + influence + projects;
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
     let projStep = ambience;
     if (startIdx >= 0) {
-      // Cap: max +1 step improvement, max -2 steps degradation
       let delta = 0;
-      if (net > 0) delta = Math.min(1, net);
-      else if (net < 0) delta = Math.max(-2, net);
+      if (net > 0) delta = 1;
+      else if (net < -5) delta = -2;
+      else if (net < 0) delta = -1;
       const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
       projStep = AMBIENCE_STEPS_LIST[newIdx];
     }
-    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, projects, net, projStep };
+    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
   });
+  return { rows, pendingAmbienceCount };
 }
 
 /** Render the Ambience Dashboard panel (collapsible). Returns HTML string. */
 function renderAmbienceDashboard() {
   const terrs = cachedTerritories || TERRITORY_DATA;
-  const rows = buildAmbienceData(terrs);
+  const { rows, pendingAmbienceCount } = buildAmbienceData(terrs);
   const profile = currentCycle?.discipline_profile || {};
   const notes = currentCycle?.ambience_notes || '';
 
   let h = `<div class="proc-amb-dashboard">`;
   h += `<div class="proc-amb-header" data-toggle="amb-dash">`;
   h += `<span class="proc-amb-title">Ambience Dashboard</span>`;
+  if (pendingAmbienceCount > 0) h += `<span class="proc-amb-pending-chip">${pendingAmbienceCount} ambience action${pendingAmbienceCount > 1 ? 's' : ''} pending</span>`;
   h += `<span class="proc-amb-toggle">${ambDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
   h += `</div>`;
 
@@ -2576,13 +2592,17 @@ function renderAmbienceDashboard() {
       h += `<td class="proc-amb-neg">${r.entropy}</td>`;
       h += `<td>${r.feeders}/${r.cap} | <span class="${gapClass}">${gapStr}</span></td>`;
       h += `<td>${infDisplay}</td>`;
-      h += `<td class="${r.projects > 0 ? 'proc-amb-pos' : r.projects < 0 ? 'proc-amb-neg' : ''}">${r.projects > 0 ? '+' + r.projects : r.projects}</td>`;
+      const projNet = r.proj_pos - r.proj_neg;
+      const projNetStr = projNet > 0 ? `+${projNet}` : String(projNet);
+      const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
+      const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
+      h += `<td>${projDisplay}</td>`;
       h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
       h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
       h += `</tr>`;
     }
     h += `</tbody></table>`;
-    h += `<p class="proc-amb-note">Net change is informational. The ST uses it to judge step movement. Maximum +1 step improvement, up to -2 steps degradation per month.</p>`;
+    h += `<p class="proc-amb-note">Net change is informational. Positive net = +1 step. Negative net = -1 step. Net below -5 = -2 steps.</p>`;
 
     // ── Discipline Profile Matrix ──
     h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
