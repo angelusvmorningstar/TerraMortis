@@ -70,7 +70,8 @@ function renderCourt() {
 
   let h = '<h3 class="city-section-title">Court</h3><div class="court-list">';
   for (const c of titled) {
-    const territory = c.regent_territory ? ' — Regent of ' + esc(c.regent_territory) : '';
+    const _rt = terrDocs.find(td => td.regent_id === String(c._id));
+    const territory = _rt ? ' — Regent of ' + esc(_rt.name || _rt.id) : '';
     h += `<div class="court-row">
       <span class="court-title">${esc(c.court_title)}</span>
       <span class="court-name">${esc(displayName(c))}</span>
@@ -268,17 +269,18 @@ function renderFeedingDropdown(terrId) {
   </select>`;
 }
 
+function _terrDoc(terrId) { return terrDocs.find(d => d.id === terrId); }
+
 function renderTerritories() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
-  const regents = active.filter(c => c.regent_territory);
   let h = '<h3 class="city-section-title">Territories</h3>';
 
   for (const t of TERRITORIES) {
-    const regent = regents.find(c => c.regent_territory === t.name);
+    const td = _terrDoc(t.id);
+    const regent = td?.regent_id ? active.find(c => String(c._id) === td.regent_id) : null;
     const modSign = t.ambienceMod >= 0 ? '+' : '';
-    const ltName = regent?.regent_lieutenant;
-    const lt = ltName ? active.find(c => c.name === ltName) : null;
-    const ltDisplay = lt ? esc(displayName(lt)) : ltName ? esc(ltName) : null;
+    const lt = td?.lieutenant_id ? active.find(c => String(c._id) === td.lieutenant_id) : null;
+    const ltDisplay = lt ? esc(displayName(lt)) : null;
     const open = _terrExpanded.has(t.id);
 
     h += `<div class="terr-card${open ? ' terr-card-open' : ''}" id="terr-card-${esc(t.id)}">`;
@@ -316,26 +318,28 @@ function renderTerritories() {
   h += '<button class="city-edit-toggle" id="terr-edit-toggle">Edit Regents &amp; Lieutenants</button>';
   h += '<div class="terr-edit-panel" id="terr-edit-panel" style="display:none">';
   for (const t of TERRITORIES) {
-    const regent = active.find(c => c.regent_territory === t.name);
-    h += `<div class="terr-edit-block" data-territory="${esc(t.name)}">`;
+    const td = _terrDoc(t.id);
+    const regentId = td?.regent_id || '';
+    const ltId = td?.lieutenant_id || '';
+    h += `<div class="terr-edit-block" data-territory="${esc(t.id)}">`;
     h += `<div class="terr-edit-name">${esc(t.name)}</div>`;
     h += '<div class="terr-edit-row">';
     h += '<label>Regent:</label>';
-    h += `<select class="terr-edit-sel" data-terr-role="regent" data-terr-name="${esc(t.name)}">`;
+    h += `<select class="terr-edit-sel" data-terr-role="regent" data-terr-id="${esc(t.id)}">`;
     h += '<option value="">— Vacant —</option>';
     for (const c of active) {
-      const sel = regent && regent._id === c._id ? ' selected' : '';
+      const sel = regentId === String(c._id) ? ' selected' : '';
       h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
     }
     h += '</select></div>';
 
     h += '<div class="terr-edit-row">';
     h += '<label>Lieutenant:</label>';
-    h += `<select class="terr-edit-sel" data-terr-role="lieutenant" data-terr-name="${esc(t.name)}">`;
+    h += `<select class="terr-edit-sel" data-terr-role="lieutenant" data-terr-id="${esc(t.id)}">`;
     h += '<option value="">— None —</option>';
     for (const c of active) {
-      const sel = regent?.regent_lieutenant === c.name ? ' selected' : '';
-      h += `<option value="${esc(c.name)}"${sel}>${esc(displayNameRaw(c))}</option>`;
+      const sel = ltId === String(c._id) ? ' selected' : '';
+      h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
     }
     h += '</select></div>';
     h += '</div>';
@@ -510,37 +514,26 @@ async function saveCourt() {
 
 async function saveTerritories() {
   const status = document.getElementById('terr-save-status');
-  const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
   try {
-    // Build desired state: { territory: { regentId, lieutenantName } }
-    const desired = {};
+    // Write regent_id / lieutenant_id to each territory document
     for (const t of TERRITORIES) {
-      const regSel = document.querySelector(`[data-terr-role="regent"][data-terr-name="${t.name}"]`);
-      const ltSel = document.querySelector(`[data-terr-role="lieutenant"][data-terr-name="${t.name}"]`);
-      desired[t.name] = { regentId: regSel?.value || '', ltName: ltSel?.value || '' };
-    }
+      const regSel = document.querySelector(`[data-terr-role="regent"][data-terr-id="${t.id}"]`);
+      const ltSel = document.querySelector(`[data-terr-role="lieutenant"][data-terr-id="${t.id}"]`);
+      const regentId = regSel?.value || null;
+      const lieutenantId = ltSel?.value || null;
 
-    // Clear regent_territory from characters no longer assigned
-    for (const c of active) {
-      if (!c.regent_territory) continue;
-      const d = desired[c.regent_territory];
-      if (!d || d.regentId !== c._id) {
-        await apiPut(`/api/characters/${c._id}`, { regent_territory: null, regent_lieutenant: null });
-        c.regent_territory = null;
-        c.regent_lieutenant = null;
-      }
-    }
+      await apiPost('/api/territories', {
+        id: t.id,
+        regent_id: regentId,
+        lieutenant_id: lieutenantId,
+      });
 
-    // Assign new regents
-    for (const [terrName, { regentId, ltName }] of Object.entries(desired)) {
-      if (!regentId) continue;
-      const c = active.find(x => x._id === regentId);
-      if (c && (c.regent_territory !== terrName || c.regent_lieutenant !== ltName)) {
-        await apiPut(`/api/characters/${c._id}`, { regent_territory: terrName, regent_lieutenant: ltName || null });
-        c.regent_territory = terrName;
-        c.regent_lieutenant = ltName || null;
-      }
+      // Update local cache
+      const idx = terrDocs.findIndex(d => d.id === t.id);
+      const patch = { id: t.id, regent_id: regentId, lieutenant_id: lieutenantId };
+      if (idx >= 0) Object.assign(terrDocs[idx], patch);
+      else terrDocs.push(patch);
     }
 
     if (status) status.textContent = 'Saved';

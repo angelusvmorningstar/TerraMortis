@@ -75,8 +75,8 @@ export const characterSchema = {
     dirge:       { type: ['string', 'null'] },
     court_title: { type: ['string', 'null'] },
 
-    regent_territory:  { type: ['string', 'null'] },
-    regent_lieutenant: { type: ['string', 'null'] },
+    // regent_territory / regent_lieutenant removed — regent status is
+    // now derived from the territories collection (regent_id field).
 
     // ── Core Stats ────────────────────────────────────────────
     blood_potency: { type: 'integer', minimum: 0, maximum: 10 },
