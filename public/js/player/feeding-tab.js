@@ -14,7 +14,7 @@ import { esc, displayName, hasAoE } from '../data/helpers.js';
 import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
-import { getRole } from '../auth/discord.js';
+import { isSTRole } from '../auth/discord.js';
 
 // Dice math (10-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
@@ -302,7 +302,7 @@ function buildPool(method, discName, specName) {
 
 function render() {
   if (!container) return;
-  const isST = getRole() === 'st';
+  const isST = isSTRole();
   let h = '<div class="feeding-wrap">';
   h += '<h3 class="feeding-title">Feeding: The Hunt</h3>';
 

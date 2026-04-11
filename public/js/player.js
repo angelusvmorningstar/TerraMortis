@@ -3,7 +3,7 @@
 import { apiGet } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { esc, displayName, sortName, discordAvatarUrl } from './data/helpers.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole } from './auth/discord.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
@@ -72,8 +72,8 @@ function renderSidebarUser() {
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
       : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
 
-  // Show ST Admin link for dual-role users
-  if (getUser()?.role === 'st') {
+  // Show ST Admin link for ST and dev-role users
+  if (isSTRole()) {
     const adminLink = document.getElementById('nav-admin');
     if (adminLink) adminLink.style.display = '';
   }
