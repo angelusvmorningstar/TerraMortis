@@ -85,7 +85,7 @@ function getSpecBonus() {
 
 function specBonusFor(char, spec) {
   const aoe = (char.merits || []).some(m =>
-    m.name === 'Area of Expertise' && m.qualifier &&
+    m.name?.toLowerCase() === 'area of expertise' && m.qualifier &&
     m.qualifier.toLowerCase() === spec.toLowerCase()
   );
   return aoe ? 2 : 1;
