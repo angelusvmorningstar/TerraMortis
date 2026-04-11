@@ -130,9 +130,30 @@ function normaliseFeedMethod(raw) {
   if (/seduc/i.test(s)) return 'seduction';
   if (/stalk|hunt/i.test(s)) return 'stalking';
   if (/force|attack/i.test(s)) return 'force';
-  if (/animal|beast/i.test(s)) return 'animal';
-  if (/vessel|herd/i.test(s)) return 'vessel';
+  if (/familiar|animal|beast/i.test(s)) return 'familiar';
+  if (/intimid/i.test(s)) return 'intimidation';
   return 'other';
+}
+
+/**
+ * Normalise a CSV sphere action string to the schema enum.
+ */
+function normaliseSphereAction(raw) {
+  if (!raw) return '';
+  const s = raw.trim().toLowerCase();
+  if (/ambience.*increase|make.*delicious/i.test(s)) return 'ambience_increase';
+  if (/ambience.*decrease/i.test(s)) return 'ambience_decrease';
+  if (/attack/i.test(s)) return 'attack';
+  if (/block/i.test(s)) return 'block';
+  if (/hide|protect/i.test(s)) return 'hide_protect';
+  if (/investigat/i.test(s)) return 'investigate';
+  if (/patrol|scout/i.test(s)) return 'patrol_scout';
+  if (/rumour|rumor/i.test(s)) return 'rumour';
+  if (/support/i.test(s)) return 'support';
+  if (/grow/i.test(s)) return 'grow';
+  if (/acqui/i.test(s)) return 'acquisition';
+  if (/misc/i.test(s)) return 'misc';
+  return '';
 }
 
 /**
@@ -221,7 +242,7 @@ export function mapRawToResponses(parsed, characters) {
   (parsed.sphere_actions || []).forEach((s, i) => {
     const n = i + 1;
     if (s.merit_type) r[`sphere_${n}_merit`] = s.merit_type;
-    if (s.action_type) r[`sphere_${n}_action`] = s.action_type;
+    if (s.action_type) r[`sphere_${n}_action`] = normaliseSphereAction(s.action_type);
     if (s.desired_outcome) r[`sphere_${n}_outcome`] = s.desired_outcome;
     if (s.description) r[`sphere_${n}_description`] = s.description;
   });
