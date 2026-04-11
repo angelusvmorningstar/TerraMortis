@@ -34,6 +34,9 @@ let processingMode = false;
 let procExpandedKey = null;    // tracks which action row is expanded in processing mode
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
+let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
+let ambDashCollapsed = false;  // collapse state for the Ambience Dashboard panel
+let discDashCollapsed = false; // collapse state for the Discipline Profile Matrix panel
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -226,11 +229,12 @@ export async function initDowntimeView() {
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
   document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
-  document.getElementById('dt-processing-btn').addEventListener('click', () => {
+  document.getElementById('dt-processing-btn').addEventListener('click', async () => {
     processingMode = !processingMode;
     procExpandedKey = null;
     document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
     if (processingMode) {
+      await ensureTerritories();
       renderProcessingMode(document.getElementById('dt-submissions'));
     } else {
       renderSubmissions();
@@ -647,6 +651,7 @@ async function loadCycleById(cycleId) {
   }
   currentCycle = cycle;
   cycleReminders = cycle.processing_reminders || [];
+  cachedTerritories = null; // refresh territory ambience on next processing render
 
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
@@ -2335,6 +2340,229 @@ async function saveEntryReview(entry, patch) {
   }
 }
 
+// ── Ambience Dashboard (feature.47) ─────────────────────────────────────────
+
+const AMBIENCE_STEPS_LIST = [
+  'Hostile', 'Barrens', 'Neglected', 'Untended',
+  'Settled', 'Tended', 'Curated', 'Verdant', 'The Rack',
+];
+
+/** Load (or reuse) territories from the DB, falling back to TERRITORY_DATA. */
+async function ensureTerritories() {
+  if (cachedTerritories) return cachedTerritories;
+  let db = [];
+  try { db = await apiGet('/api/territories'); } catch { /* ignore */ }
+  if (db.length) {
+    cachedTerritories = db;
+  } else {
+    cachedTerritories = TERRITORY_DATA.map(t => ({ ...t }));
+  }
+  return cachedTerritories;
+}
+
+/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found. */
+function resolveTerrId(raw) {
+  if (!raw) return null;
+  const lower = raw.toLowerCase().replace(/^the\s+/i, '');
+  for (const td of TERRITORY_DATA) {
+    const tdName = td.name.toLowerCase().replace(/^the\s+/i, '');
+    if (td.id === raw || td.name === raw || tdName === lower || lower.includes(tdName) || tdName.includes(lower)) {
+      return td.id;
+    }
+  }
+  return null;
+}
+
+/**
+ * Build the per-territory aggregation data for the ambience dashboard.
+ * Returns an array of row objects (one per territory).
+ */
+function buildAmbienceData(terrs) {
+  // terrs: array from cachedTerritories / TERRITORY_DATA, keyed by .id
+  const terrById = {};
+  for (const t of TERRITORY_DATA) terrById[t.id] = t;
+
+  // Find current ambience from DB records (which may differ from TERRITORY_DATA defaults)
+  const startingAmbience = {};
+  if (terrs && terrs.length) {
+    for (const t of terrs) {
+      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
+      if (td) startingAmbience[td.id] = t.ambience || td.ambience;
+    }
+  }
+  // Fallback to TERRITORY_DATA
+  for (const td of TERRITORY_DATA) {
+    if (!startingAmbience[td.id]) startingAmbience[td.id] = td.ambience;
+  }
+
+  // ── Overfeeding: count feeders per territory ──
+  const feederCounts = {};
+  for (const sub of submissions) {
+    let grid = {};
+    try { grid = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { grid = {}; }
+    for (const [k, v] of Object.entries(grid)) {
+      if (!v || v === 'none') continue;
+      const tid = resolveTerrId(k) || k;
+      feederCounts[tid] = (feederCounts[tid] || 0) + 1;
+    }
+  }
+
+  // ── Influence: count resolved ally/merit ambience actions per territory ──
+  const influenceDelta = {};
+  for (const sub of submissions) {
+    for (const [idx, ma] of (sub.merit_actions_resolved || []).entries()) {
+      if (!ma) continue;
+      if (ma.action_type !== 'ambience_increase' && ma.action_type !== 'ambience_decrease') continue;
+      if (ma.pool_status !== 'validated' && ma.pool_status !== 'no_roll') continue;
+      // Territory: from matching merit action data
+      const slot = idx + 1;
+      const terrRaw = sub.responses?.[`merit_${slot}_territory`] || sub.responses?.[`sphere_${slot}_territory`] || '';
+      const tid = resolveTerrId(terrRaw);
+      if (!tid) continue;
+      const delta = ma.action_type === 'ambience_increase' ? 1 : -1;
+      influenceDelta[tid] = (influenceDelta[tid] || 0) + delta;
+    }
+  }
+
+  // ── Projects: sum roll successes from ambience project actions ──
+  const projectDelta = {};
+  for (const sub of submissions) {
+    for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
+      if (!proj) continue;
+      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
+      if (!proj.roll) continue;
+      const terrRaw = sub.responses?.[`project_${idx + 1}_territory`] || '';
+      const tid = resolveTerrId(terrRaw);
+      if (!tid) continue;
+      const successes = proj.roll.successes ?? 0;
+      const delta = proj.action_type === 'ambience_increase' ? successes : -successes;
+      projectDelta[tid] = (projectDelta[tid] || 0) + delta;
+    }
+  }
+
+  // ── Assemble rows ──
+  return TERRITORY_DATA.map(td => {
+    const id = td.id;
+    const ambience = startingAmbience[id] || td.ambience;
+    const cap = AMBIENCE_CAP[ambience] ?? 6;
+    const feeders = feederCounts[id] || 0;
+    const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
+    const entropy = -1;
+    const influence = influenceDelta[id] || 0;
+    const projects = projectDelta[id] || 0;
+    const net = entropy + overfeedVal + influence + projects;
+    const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
+    let projStep = ambience;
+    if (startIdx >= 0) {
+      // Cap: max +1 step improvement, max -2 steps degradation
+      let delta = 0;
+      if (net > 0) delta = Math.min(1, net);
+      else if (net < 0) delta = Math.max(-2, net);
+      const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
+      projStep = AMBIENCE_STEPS_LIST[newIdx];
+    }
+    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, influence, projects, net, projStep };
+  });
+}
+
+/** Render the Ambience Dashboard panel (collapsible). Returns HTML string. */
+function renderAmbienceDashboard() {
+  const terrs = cachedTerritories || TERRITORY_DATA;
+  const rows = buildAmbienceData(terrs);
+  const profile = currentCycle?.discipline_profile || {};
+  const notes = currentCycle?.ambience_notes || '';
+
+  let h = `<div class="proc-amb-dashboard">`;
+  h += `<div class="proc-amb-header" data-toggle="amb-dash">`;
+  h += `<span class="proc-amb-title">Ambience Dashboard</span>`;
+  h += `<span class="proc-amb-toggle">${ambDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+  h += `</div>`;
+
+  if (!ambDashCollapsed) {
+    h += `<div class="proc-amb-body">`;
+
+    // ── Territory Ambience Table ──
+    h += `<table class="proc-amb-table">`;
+    h += `<thead><tr>
+      <th>Territory</th>
+      <th title="Current ambience step">Starting</th>
+      <th title="Fixed -1 entropy per cycle">Entropy</th>
+      <th title="Feeders vs cap">Overfeeding</th>
+      <th title="Resolved influence/ally ambience actions">Influence</th>
+      <th title="Ambience project roll successes">Projects</th>
+      <th title="Sum of all columns">Net Change</th>
+      <th title="Projected new ambience step (preview only)">Projected</th>
+    </tr></thead>`;
+    h += `<tbody>`;
+    for (const r of rows) {
+      const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
+      const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
+      const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
+      const feedTip = `${r.feeders} feeders / cap ${r.cap}`;
+      h += `<tr>`;
+      h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
+      h += `<td>${esc(r.ambience)}</td>`;
+      h += `<td class="proc-amb-neg">${r.entropy}</td>`;
+      h += `<td class="${r.overfeed < 0 ? 'proc-amb-neg' : ''}" title="${esc(feedTip)}">${r.overfeed === 0 ? '0' : r.overfeed}</td>`;
+      h += `<td class="${r.influence > 0 ? 'proc-amb-pos' : r.influence < 0 ? 'proc-amb-neg' : ''}">${r.influence > 0 ? '+' + r.influence : r.influence}</td>`;
+      h += `<td class="${r.projects > 0 ? 'proc-amb-pos' : r.projects < 0 ? 'proc-amb-neg' : ''}">${r.projects > 0 ? '+' + r.projects : r.projects}</td>`;
+      h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
+      h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
+      h += `</tr>`;
+    }
+    h += `</tbody></table>`;
+    h += `<p class="proc-amb-note">Net change is informational. The ST uses it to judge step movement. Maximum +1 step improvement, up to -2 steps degradation per month.</p>`;
+
+    // ── Discipline Profile Matrix ──
+    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
+    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
+    h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+
+    if (!discDashCollapsed) {
+      // Find disciplines and territories with any count > 0
+      const discSet = new Set();
+      const terrSet = new Set();
+      for (const [terrId, discs] of Object.entries(profile)) {
+        for (const [disc, count] of Object.entries(discs)) {
+          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
+        }
+      }
+      const discList = [...discSet].sort();
+      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
+
+      if (!discList.length) {
+        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
+      } else {
+        h += `<table class="proc-disc-table">`;
+        h += `<thead><tr><th>Discipline</th>`;
+        for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
+        h += `</tr></thead><tbody>`;
+        for (const disc of discList) {
+          h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
+          for (const t of terrList) {
+            const count = profile[t.id]?.[disc] || 0;
+            h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
+          }
+          h += `</tr>`;
+        }
+        h += `</tbody></table>`;
+      }
+    }
+
+    // ── ST Notes ──
+    h += `<div class="proc-amb-notes-block">`;
+    h += `<label class="proc-amb-notes-lbl">ST Ambience Notes</label>`;
+    h += `<textarea class="proc-amb-notes" placeholder="Working notes about the territory picture this cycle...">${esc(notes)}</textarea>`;
+    h += `</div>`;
+
+    h += `</div>`; // proc-amb-body
+  }
+
+  h += `</div>`; // proc-amb-dashboard
+  return h;
+}
+
 /** Render the phase-ordered processing queue into the given container. */
 function renderProcessingMode(container) {
   if (!submissions.length) {
@@ -2356,6 +2584,9 @@ function renderProcessingMode(container) {
   }
 
   let h = '<div class="proc-queue">';
+
+  // Ambience Dashboard — always shown at top of Processing Mode
+  h += renderAmbienceDashboard();
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
@@ -2596,6 +2827,27 @@ function renderProcessingMode(container) {
 
       renderProcessingMode(container);
     });
+  });
+
+  // Wire Ambience Dashboard collapse toggles
+  container.querySelector('[data-toggle="amb-dash"]')?.addEventListener('click', () => {
+    ambDashCollapsed = !ambDashCollapsed;
+    renderProcessingMode(container);
+  });
+  container.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
+    discDashCollapsed = !discDashCollapsed;
+    renderProcessingMode(container);
+  });
+
+  // Wire ST ambience notes textarea (save on blur)
+  container.querySelector('.proc-amb-notes')?.addEventListener('blur', async e => {
+    const val = e.target.value;
+    try {
+      await updateCycle(selectedCycleId, { ambience_notes: val });
+      const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+      if (idx >= 0) allCycles[idx].ambience_notes = val;
+      if (currentCycle) currentCycle.ambience_notes = val;
+    } catch (err) { console.error('Failed to save ambience notes:', err.message); }
   });
 
   // Wire open-sub links

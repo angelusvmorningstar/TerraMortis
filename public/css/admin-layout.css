@@ -3934,3 +3934,150 @@ body {
   padding: 4px 8px;
   border-left: 2px solid var(--surf3);
 }
+
+/* ── Ambience Dashboard (feature.47) ─────────────────────────────────────── */
+
+.proc-amb-dashboard {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.proc-amb-header,
+.proc-disc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surf2);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--bdr);
+}
+.proc-amb-header:hover,
+.proc-disc-header:hover { background: var(--surf3); }
+
+.proc-disc-header {
+  background: var(--surf1);
+  border-bottom: none;
+  border-top: 1px solid var(--bdr);
+  margin-top: 16px;
+}
+
+.proc-amb-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: .5px;
+  color: var(--gold2);
+}
+
+.proc-amb-toggle {
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.proc-amb-body {
+  padding: 14px;
+}
+
+.proc-amb-table,
+.proc-disc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.proc-amb-table th,
+.proc-disc-table th {
+  text-align: left;
+  padding: 5px 8px;
+  background: var(--surf2);
+  color: var(--txt2);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: .3px;
+  border-bottom: 1px solid var(--bdr);
+  white-space: nowrap;
+}
+
+.proc-amb-table td,
+.proc-disc-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  color: var(--txt1);
+  white-space: nowrap;
+}
+
+.proc-amb-table tr:last-child td,
+.proc-disc-table tr:last-child td { border-bottom: none; }
+
+.proc-amb-terr {
+  font-weight: 500;
+}
+
+.proc-amb-net {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.proc-amb-pos { color: #90d090; }
+.proc-amb-neg { color: #ff9090; }
+
+.proc-amb-note {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+  margin: 4px 0 12px;
+}
+
+.proc-amb-empty {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.proc-disc-name {
+  font-weight: 500;
+  color: var(--txt2);
+}
+
+.proc-disc-used { color: var(--txt1); }
+.proc-disc-high {
+  color: var(--gold2);
+  font-weight: 700;
+  background: rgba(224, 196, 122, .06);
+}
+
+.proc-amb-notes-block {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bdr);
+}
+
+.proc-amb-notes-lbl {
+  display: block;
+  font-size: 11px;
+  color: var(--txt3);
+  font-family: 'Cinzel', serif;
+  letter-spacing: .3px;
+  margin-bottom: 6px;
+}
+
+.proc-amb-notes {
+  width: 100%;
+  min-height: 60px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt1);
+  font-size: 12px;
+  font-family: 'Lora', serif;
+  padding: 8px 10px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.proc-amb-notes:focus { border-color: var(--gold2); outline: none; }
