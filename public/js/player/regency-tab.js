@@ -1,21 +1,25 @@
 /**
  * Regency tab — standalone territory management for regents.
- * Residency grid (10 slots) + regency action.
- * Persists to /api/territory-residency and saves action to downtime submission.
+ * Feeding rights are stored on the territory document (territories collection)
+ * as `feeding_rights: string[]` — same source as the ST City tab.
  */
 
-import { apiGet, apiPut } from '../data/api.js';
+import { apiGet, apiPost } from '../data/api.js';
 import { esc, displayName, findRegentTerritory } from '../data/helpers.js';
 import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
 
-const RESIDENCY_SLOTS = 12; // Regent + Lieutenant + 10 feeding rights
+const FEEDING_SLOTS = 10; // editable feeding right slots (excludes Regent + Lieutenant header rows)
 
 let currentChar = null;
 let _territories = [];
 let allCharNames = [];
-let persistedResidency = [];
 
 function _regInfo() { return findRegentTerritory(_territories, currentChar); }
+
+function _terrDoc() {
+  const ri = _regInfo();
+  return ri ? _territories.find(t => t.id === ri.territoryId) : null;
+}
 
 export async function renderRegencyTab(container, char, territories) {
   currentChar = char;
@@ -30,12 +34,6 @@ export async function renderRegencyTab(container, char, territories) {
   try {
     allCharNames = await apiGet('/api/characters/names');
   } catch { allCharNames = []; }
-
-  // Load persisted residency
-  try {
-    const res = await apiGet(`/api/territory-residency?territory=${encodeURIComponent(ri.territory)}`);
-    persistedResidency = res?.residents || [];
-  } catch { persistedResidency = []; }
 
   render(container);
 }
@@ -53,56 +51,46 @@ function render(container) {
   const terr = TERRITORY_DATA.find(t => t.name === terrName);
   const ambience = terr ? terr.ambience : 'Unknown';
   const regentName = displayName(currentChar);
+  const feedingRights = _terrDoc()?.feeding_rights || [];
 
   let h = '<div class="regency-wrap">';
   h += `<h3 class="regency-title">Regency: ${esc(terrName)}</h3>`;
   h += `<p class="regency-meta">Ambience: ${esc(ambience)} — Feeding rights cap: ${cap}</p>`;
   h += `<p class="regency-desc">Grant feeding rights for your territory. Slots beyond the cap are highlighted as over-capacity.</p>`;
 
-  // Residency grid
+  // Header rows — Regent (locked) and Lieutenant (locked)
   h += '<div class="dt-residency-grid">';
-  for (let i = 1; i <= RESIDENCY_SLOTS; i++) {
-    const overCap = i > cap;
-    const rowClass = overCap ? 'dt-residency-row dt-over-cap' : 'dt-residency-row';
-    const savedVal = persistedResidency[i - 1] || '';
 
-    let label, locked = false, value = savedVal;
-    if (i === 1) { label = 'Regent'; locked = true; value = currentChar._id; }
-    else if (i === 2) {
-      label = 'Lieutenant';
-      locked = true;
-      // Lieutenant is set on the character record, not selectable
-      value = _regInfo()?.lieutenantId || '';
-    }
-    else { label = `Feeding Right ${i - 2}`; }
+  // Regent row
+  h += '<div class="dt-residency-row">';
+  h += '<span class="dt-residency-label">Regent</span>';
+  h += `<span class="dt-residency-locked">${esc(regentName)}</span>`;
+  h += '</div>';
+
+  // Lieutenant row
+  const ltId = ri?.lieutenantId || '';
+  const ltChar = ltId ? allCharNames.find(c => String(c._id) === ltId) : null;
+  const ltName = ltChar ? displayName(ltChar) : (ltId ? ltId : '— None —');
+  h += '<div class="dt-residency-row">';
+  h += '<span class="dt-residency-label">Lieutenant</span>';
+  h += `<span class="dt-residency-locked">${esc(ltName)}</span>`;
+  h += '</div>';
+
+  // Feeding right slots
+  for (let i = 1; i <= FEEDING_SLOTS; i++) {
+    const overCap = i + 2 > cap; // slots 1-2 are regent+lieutenant, feeding starts at position 3
+    const rowClass = overCap ? 'dt-residency-row dt-over-cap' : 'dt-residency-row';
+    const savedVal = feedingRights[i - 1] || '';
 
     h += `<div class="${rowClass}">`;
-    h += `<span class="dt-residency-label">${label}</span>`;
-
-    if (locked) {
-      // Find display name for locked slots
-      let lockedName = '';
-      if (i === 1) {
-        lockedName = regentName;
-      } else if (value) {
-        const ltChar = allCharNames.find(c => c.name === value || c._id === value);
-        lockedName = ltChar ? displayName(ltChar) : value;
-      } else {
-        lockedName = '— None —';
-      }
-      h += `<span class="dt-residency-locked">${esc(lockedName)}</span>`;
-      h += `<input type="hidden" id="reg-slot-${i}" value="${esc(value)}">`;
-    } else {
-      h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}">`;
-      h += '<option value="">— None —</option>';
-      for (const c of allCharNames) {
-        const cName = displayName(c);
-        const sel = value === c._id ? ' selected' : '';
-        h += `<option value="${esc(c._id)}"${sel}>${esc(cName)}</option>`;
-      }
-      h += '</select>';
+    h += `<span class="dt-residency-label">Feeding Right ${i}</span>`;
+    h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}">`;
+    h += '<option value="">— None —</option>';
+    for (const c of allCharNames) {
+      const sel = savedVal === String(c._id) ? ' selected' : '';
+      h += `<option value="${esc(String(c._id))}"${sel}>${esc(displayName(c))}</option>`;
     }
-
+    h += '</select>';
     if (overCap) h += '<span class="dt-over-cap-warn">Over capacity</span>';
     h += '</div>';
   }
@@ -110,7 +98,7 @@ function render(container) {
 
   // Save button
   h += '<div class="regency-actions">';
-  h += '<button id="reg-save" class="qf-submit-btn">Save Feeding Rights</button>';
+  h += '<button id="reg-save" class="qf-btn qf-btn-submit">Save Feeding Rights</button>';
   h += '<span id="reg-save-status" class="qf-save-status"></span>';
   h += '</div>';
 
@@ -120,20 +108,16 @@ function render(container) {
 }
 
 function wireEvents(container) {
-  // Residency dropdown changes — disable already-selected
   container.querySelectorAll('[data-residency-slot]').forEach(sel => {
     sel.addEventListener('change', () => updateResidencyOptions(container));
   });
   updateResidencyOptions(container);
-
-  // Save
   container.querySelector('#reg-save')?.addEventListener('click', saveRegency);
 }
 
 function updateResidencyOptions(container) {
   const selects = container.querySelectorAll('[data-residency-slot]');
-  const selected = new Set();
-  selected.add(currentChar._id);
+  const selected = new Set([String(currentChar._id)]);
   selects.forEach(sel => { if (sel.value) selected.add(sel.value); });
 
   selects.forEach(sel => {
@@ -147,31 +131,37 @@ function updateResidencyOptions(container) {
 
 async function saveRegency() {
   const statusEl = document.getElementById('reg-save-status');
-  const residents = [];
-  for (let i = 1; i <= RESIDENCY_SLOTS; i++) {
+  const ri = _regInfo();
+  if (!ri?.territoryId) {
+    if (statusEl) statusEl.textContent = 'Error: territory not found';
+    return;
+  }
+
+  const feedingRights = [];
+  for (let i = 1; i <= FEEDING_SLOTS; i++) {
     const el = document.getElementById(`reg-slot-${i}`);
-    residents.push(el?.value || '');
+    if (el?.value) feedingRights.push(el.value);
   }
 
   try {
-    await apiPut('/api/territory-residency', {
-      territory: _regInfo()?.territory || '',
-      residents: residents.filter(Boolean),
-    });
-    persistedResidency = residents;
-    if (statusEl) statusEl.textContent = 'Saved';
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    await apiPost('/api/territories', { id: ri.territoryId, feeding_rights: feedingRights });
+
+    // Update local territory doc so display reflects saved state
+    const td = _territories.find(t => t.id === ri.territoryId);
+    if (td) td.feeding_rights = feedingRights;
+
+    if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
   }
 }
 
-/** Get the current residency list (for downtime submission to include). */
+/** Get the current feeding rights list (for downtime submission). */
 export function getResidencyList() {
-  const residents = [];
-  for (let i = 1; i <= RESIDENCY_SLOTS; i++) {
+  const list = [];
+  for (let i = 1; i <= FEEDING_SLOTS; i++) {
     const el = document.getElementById(`reg-slot-${i}`);
-    residents.push(el?.value || '');
+    list.push(el?.value || '');
   }
-  return residents;
+  return list;
 }

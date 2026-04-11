@@ -1,6 +1,6 @@
 # Story fix.37: Rites Dropdown Stuck on "Loading"
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -74,3 +74,4 @@ If there is already a `shRefreshRiteDropdown` function, confirm it is called aft
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-11 | 1.0 | Story authored | Claude (SM) |
+| 2026-04-11 | 1.1 | Implemented: fallback to text input + level select when availRites is empty (rules DB not seeded or not yet loaded). admin.js post-load callback upgraded to full renderSheet() re-render so fallback is replaced once rules arrive. | Claude (SM) |

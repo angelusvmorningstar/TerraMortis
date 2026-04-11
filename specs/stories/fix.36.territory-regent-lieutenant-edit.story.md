@@ -1,6 +1,6 @@
 # Story fix.36: Territories — Regent and Lieutenant Assignment UI
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -89,3 +89,4 @@ Saving calls `apiPost('/api/territories', { id, regent_id, lieutenant_id })` —
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-11 | 1.0 | Story authored | Claude (SM) |
+| 2026-04-11 | 1.1 | Implemented: removed hidden bottom panel; Regent/Lieutenant dropdowns moved inline into expanded territory card. Per-territory Save button added (saveTerritory function). Refreshes card header immediately after save. | Claude (SM) |
