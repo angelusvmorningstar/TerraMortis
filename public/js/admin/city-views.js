@@ -7,7 +7,7 @@
 import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { displayName, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { displayName, displayNameRaw, sortName, clanIcon, covIcon } from '../data/helpers.js';
 
 const TERRITORIES = [
   { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
@@ -93,7 +93,7 @@ function renderCourt() {
     h += '<option value="">— Vacant —</option>';
     for (const c of active) {
       const sel = holder && holder._id === c._id ? ' selected' : '';
-      h += `<option value="${esc(c._id)}"${sel}>${esc(displayName(c))}</option>`;
+      h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
     }
     h += '</select></div>';
   }
@@ -261,7 +261,7 @@ function renderFeedingDropdown(terrId) {
   const rights = getFeedingRights(terrId);
   const opts = active
     .filter(c => !rights.includes(String(c._id)))
-    .map(c => `<option value="${esc(String(c._id))}">${esc(displayName(c))}</option>`)
+    .map(c => `<option value="${esc(String(c._id))}">${esc(displayNameRaw(c))}</option>`)
     .join('');
   return `<select id="terr-feed-sel-${esc(terrId)}" class="terr-feed-sel">
     <option value="">\u2014 Add character \u2014</option>${opts}
@@ -325,7 +325,7 @@ function renderTerritories() {
     h += '<option value="">— Vacant —</option>';
     for (const c of active) {
       const sel = regent && regent._id === c._id ? ' selected' : '';
-      h += `<option value="${esc(c._id)}"${sel}>${esc(displayName(c))}</option>`;
+      h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
     }
     h += '</select></div>';
 
@@ -335,7 +335,7 @@ function renderTerritories() {
     h += '<option value="">— None —</option>';
     for (const c of active) {
       const sel = regent?.regent_lieutenant === c.name ? ' selected' : '';
-      h += `<option value="${esc(c.name)}"${sel}>${esc(displayName(c))}</option>`;
+      h += `<option value="${esc(c.name)}"${sel}>${esc(displayNameRaw(c))}</option>`;
     }
     h += '</select></div>';
     h += '</div>';
@@ -454,7 +454,7 @@ function patchFeedingDropdown(terrId) {
   el.innerHTML = `<option value="">\u2014 Add character \u2014</option>` +
     active
       .filter(c => !rights.includes(String(c._id)))
-      .map(c => `<option value="${esc(String(c._id))}">${esc(displayName(c))}</option>`)
+      .map(c => `<option value="${esc(String(c._id))}">${esc(displayNameRaw(c))}</option>`)
       .join('');
 }
 

@@ -4,7 +4,7 @@
  * Uses same localStorage keys as the suite tracker for cross-app compatibility.
  */
 
-import { esc, displayName, sortName, redactPlayer } from '../data/helpers.js';
+import { esc, displayName, displayNameRaw, sortName, redactPlayer } from '../data/helpers.js';
 import { calcVitaeMax, calcWillpowerMax, influenceTotal } from '../data/accessors.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 
@@ -122,7 +122,7 @@ function render() {
   h += '<option value="">\u2014 Add character \u2014</option>';
   for (const c of [...chars].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
     if (activeNames.includes(c.name)) continue;
-    h += `<option value="${esc(c.name)}">${esc(displayName(c))}</option>`;
+    h += `<option value="${esc(c.name)}">${esc(displayNameRaw(c))}</option>`;
   }
   h += '</select>';
   h += '</div>';

@@ -105,6 +105,14 @@ export function displayName(c) {
   return isRedactMode() ? _blockOut(raw, 10, 16) : raw;
 }
 
+/** Display name without redaction — for functional UI controls (dropdowns,
+ *  option text) where the user needs to read the name to make a selection.
+ *  Identical to displayName() but skips the dev-mode block-out. */
+export function displayNameRaw(c) {
+  const base = c.moniker || c.name;
+  return c.honorific ? c.honorific + ' ' + base : base;
+}
+
 /** Sort key: moniker || name (no honorific). Not redacted — used only for
  *  internal sort order, never rendered to the DOM. */
 export function sortName(c) {
