@@ -5,7 +5,7 @@
 //  Page size: A4 (595.28 × 841.89 pt)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit/js/pdfkit.es.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
