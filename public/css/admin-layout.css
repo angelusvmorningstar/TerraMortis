@@ -3855,3 +3855,56 @@ body {
   color: var(--txt3);
   font-style: italic;
 }
+
+/* ── feature.45: Feeding info in processing panel ── */
+.proc-feed-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--surf1);
+  border-radius: 4px;
+  border: 1px solid var(--bdr);
+}
+
+.proc-feed-field {
+  font-size: 12px;
+  color: var(--txt2);
+  white-space: nowrap;
+}
+
+.proc-feed-lbl {
+  font-family: var(--fh);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--txt3);
+  margin-right: 4px;
+}
+
+.proc-feed-rote-badge {
+  background: rgba(224, 196, 122, 0.15);
+  color: var(--gold2);
+  border: 1px solid rgba(224, 196, 122, 0.3);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-family: var(--fh);
+}
+
+.proc-feed-no-method {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  margin-bottom: 12px;
+}
+
+.proc-feed-roll-result {
+  font-size: 12px;
+  color: var(--gold2);
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  background: rgba(224, 196, 122, 0.08);
+  border-radius: 4px;
+}

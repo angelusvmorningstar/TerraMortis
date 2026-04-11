@@ -105,6 +105,17 @@ const ALL_ACTION_TYPES = [
   'block', 'rumour', 'grow', 'acquisition',
 ];
 
+const FEED_METHOD_LABELS_MAP = {
+  seduction: 'Seduction', stalking: 'Stalking', force: 'By Force',
+  familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other',
+};
+
+// Discipline names to detect in validated pool expressions for discipline × territory recording
+const KNOWN_DISCIPLINES = [
+  'Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare',
+  'Obfuscate', 'Resilience', 'Vigor', 'Vigour', 'Protean', 'Cruac', 'Theban',
+];
+
 // Human-readable labels for pool_status values across all action types
 const POOL_STATUS_LABELS = {
   pending:   'Pending',
@@ -2058,12 +2069,20 @@ function buildProcessingQueue(subs) {
       });
     }
 
-    // ── Feeding ──
-    const feedMethod = resp['_feed_method'];
-    if (feedMethod) {
-      const feedDisc  = resp['_feed_disc'] || '';
-      const feedDesc  = resp['feeding_description'] || '';
-      const poolLabel = [feedMethod, feedDisc].filter(Boolean).join(' + ');
+    // ── Feeding (all submissions get an entry; no-method submissions show as undeclared) ──
+    {
+      const feedMethod  = resp['_feed_method'] || '';
+      const feedDisc    = resp['_feed_disc']   || '';
+      const feedDesc    = resp['feeding_description'] || '';
+      const feedSpec    = resp['_feed_spec']   || '';
+      const feedRote    = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
+      let   feedTerrs   = {};
+      try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
+      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
+                       || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
+                       || '';
+      const methodLabel = feedMethod ? (FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod) : '';
+      const poolLabel   = [methodLabel, feedDisc].filter(Boolean).join(' + ');
       queue.push({
         key: `${sub._id}:feeding`,
         subId: sub._id,
@@ -2072,10 +2091,18 @@ function buildProcessingQueue(subs) {
         phaseNum: 1,
         actionType: 'feeding',
         label: 'Feeding',
-        description: feedDesc || poolLabel,
+        description: feedDesc || poolLabel || 'No feeding method declared',
         source: 'feeding',
         actionIdx: 0,
         poolPlayer: poolLabel,
+        feedMethod,
+        feedMethodLabel: methodLabel,
+        feedDisc,
+        feedSpec,
+        feedRote,
+        feedTerrs,
+        primaryTerr,
+        noMethod: !feedMethod,
       });
     }
 
@@ -2194,6 +2221,37 @@ function buildProcessingQueue(subs) {
   return queue;
 }
 
+/**
+ * Recompute discipline × territory profile from all currently-validated feeding reviews.
+ * Called after any feeding pool_status or pool_validated change. Saves to cycle document.
+ */
+async function recomputeDisciplineProfile() {
+  const profile = {};
+  for (const sub of submissions) {
+    const rev = sub.feeding_review || {};
+    if (rev.pool_status !== 'validated' || !rev.pool_validated) continue;
+    let feedTerrs = {};
+    try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
+    const active = Object.entries(feedTerrs).filter(([, v]) => v && v !== 'none').map(([k]) => k);
+    if (!active.length) continue;
+    const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
+    for (const territory of active) {
+      if (!profile[territory]) profile[territory] = {};
+      for (const disc of foundDiscs) {
+        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+      }
+    }
+  }
+  try {
+    await updateCycle(selectedCycleId, { discipline_profile: profile });
+    const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+    if (idx >= 0) allCycles[idx].discipline_profile = profile;
+    if (currentCycle) currentCycle.discipline_profile = profile;
+  } catch (err) {
+    console.error('Failed to save discipline profile:', err.message);
+  }
+}
+
 /** Get the review object for a queue entry from its submission. */
 function getEntryReview(entry) {
   const sub = submissions.find(s => s._id === entry.subId);
@@ -2215,6 +2273,10 @@ async function saveEntryReview(entry, patch) {
     const updated = { ...current, ...patch };
     await updateSubmission(entry.subId, { feeding_review: updated });
     sub.feeding_review = updated;
+    // Recompute discipline × territory profile when pool or status changes
+    if ('pool_status' in patch || 'pool_validated' in patch) {
+      recomputeDisciplineProfile(); // async, fire-and-forget
+    }
   } else if (entry.source === 'project') {
     const resolved = [...(sub.projects_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
@@ -2381,6 +2443,33 @@ function renderProcessingMode(container) {
       }
       procExpandedKey = null;
       renderProcessingMode(container);
+    });
+  });
+
+  // Wire feeding roll buttons
+  container.querySelectorAll('.proc-feed-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const subId = btn.dataset.subId;
+      const isRote = btn.dataset.rote === 'true';
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      const poolValidated = review?.pool_validated || '';
+      if (!poolValidated) return;
+      const match = poolValidated.match(/(\d+)\s*$/);
+      const diceCount = match ? parseInt(match[1], 10) : 0;
+      if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      const sub = submissions.find(s => s._id === subId);
+      showRollModal(
+        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll, rote: isRote },
+        async result => {
+          await updateSubmission(subId, { feeding_roll: result });
+          if (sub) sub.feeding_roll = result;
+          renderProcessingMode(container);
+        }
+      );
     });
   });
 
@@ -2561,6 +2650,35 @@ function renderActionPanel(entry, review) {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
   }
 
+  // ── Feeding-specific detail display ──
+  if (entry.source === 'feeding') {
+    if (entry.noMethod) {
+      h += `<div class="proc-feed-no-method">No feeding method declared by player.</div>`;
+    } else {
+      h += '<div class="proc-feed-info">';
+      h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Method</span> ${esc(entry.feedMethodLabel || entry.feedMethod)}</span>`;
+      if (entry.feedDisc) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Discipline</span> ${esc(entry.feedDisc)}</span>`;
+      if (entry.feedSpec) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Specialisation</span> ${esc(entry.feedSpec)}</span>`;
+      if (entry.feedRote) h += `<span class="proc-feed-field proc-feed-rote-badge">Rote</span>`;
+      const activeTerms = Object.entries(entry.feedTerrs || {}).filter(([, v]) => v && v !== 'none')
+        .map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
+      if (activeTerms) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Territory</span> ${esc(activeTerms)}</span>`;
+      if (entry.primaryTerr) {
+        const terrRec = TERRITORY_DATA.find(t => t.id === entry.primaryTerr || t.name === entry.primaryTerr || t.name?.toLowerCase() === entry.primaryTerr.replace(/_/g, ' ').toLowerCase());
+        const amb = terrRec?.ambienceMod ?? 0;
+        if (amb !== 0) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Ambience</span> ${amb > 0 ? '+' : ''}${amb}</span>`;
+      }
+      h += '</div>';
+    }
+    // Previous roll result
+    const feedSub = submissions.find(s => s._id === entry.subId);
+    const feedRoll = feedSub?.feeding_roll;
+    if (feedRoll) {
+      const roteTag = feedRoll.params?.rote ? ' (rote)' : '';
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(feedRoll.successes))} success${feedRoll.successes !== 1 ? 'es' : ''}${feedRoll.exceptional ? ' \u2014 exceptional' : ''}${roteTag}</div>`;
+    }
+  }
+
   // Pool row
   h += '<div class="proc-detail-grid">';
   h += '<div class="proc-detail-col">';
@@ -2608,6 +2726,15 @@ function renderActionPanel(entry, review) {
     } else if (reminderCount) {
       h += `<div class="proc-attach-count" style="margin-bottom:12px">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
     }
+  }
+
+  // Roll button for validated feeding entries
+  if (entry.source === 'feeding' && poolStatus === 'validated') {
+    const feedSub  = submissions.find(s => s._id === entry.subId);
+    const isRote   = entry.feedRote || feedSub?.st_review?.feeding_rote || false;
+    h += '<div style="margin-bottom:12px">';
+    h += `<button class="dt-btn proc-feed-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-rote="${isRote}">Roll Feeding</button>`;
+    h += '</div>';
   }
 
   // Player feedback
