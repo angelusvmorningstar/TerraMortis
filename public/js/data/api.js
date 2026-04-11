@@ -24,7 +24,7 @@ async function request(method, path, body) {
 
   if (!res.ok) {
     const msg = data.message || data.error || 'Request failed';
-    if (data.errors) console.warn(`API ${method} ${path} validation errors:`, data.errors);
+    if (data.errors) console.warn(`API ${method} ${path} validation errors:`, JSON.stringify(data.errors, null, 2));
     throw new Error(msg);
   }
   return data;

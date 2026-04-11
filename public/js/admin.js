@@ -504,11 +504,14 @@ async function createNewCharacter() {
   }
 }
 
+// Legacy parallel-array fields superseded by inline cp/xp on each object (v3 schema)
+const _LEGACY_FIELDS = new Set(['attr_creation', 'skill_creation', 'disc_creation', 'merit_creation']);
+
 function buildSaveBody(c) {
-  // Strip _id (goes in URL) and all ephemeral _-prefixed runtime fields
+  // Strip _id (goes in URL), all ephemeral _-prefixed runtime fields, and legacy v2 fields
   const body = {};
   for (const [k, v] of Object.entries(c)) {
-    if (k === '_id' || k.startsWith('_')) continue;
+    if (k === '_id' || k.startsWith('_') || _LEGACY_FIELDS.has(k)) continue;
     body[k] = v;
   }
   return body;

@@ -51,7 +51,9 @@ export const characterSchema = {
     pronouns:     { type: ['string', 'null'] },
     apparent_age: { type: ['string', 'null'] },
     features:     { type: ['string', 'null'] },
-    retired:      { type: 'boolean' },
+    retired:          { type: 'boolean' },
+    pending_approval: { type: 'boolean' },
+    created_at:       { type: 'string' },
 
     clan: {
       type: ['string', 'null'],
