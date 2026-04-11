@@ -48,7 +48,7 @@ import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool,
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
-import { printSheet, exportJSON } from './editor/print.js';
+import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
 // ══════════════════════════════════════════════
@@ -546,6 +546,7 @@ Object.assign(window, {
   // Editor sheet view (prefixed where needed)
   editFromSheet,
   printSheet,
+  printPDF,
   exportJSON,
   renderSheet: editorRenderSheet,
   toggleExp: editorToggleExp,

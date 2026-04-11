@@ -139,6 +139,33 @@ ${d.influence_breakdown.map(l => '<div>' + esc(l) + '</div>').join('')}
   win.print();
 }
 
+/** Generate a PDF via the server API and open in a new tab. */
+export async function printPDF() {
+  const c = state.chars[state.editIdx];
+  if (!c) return;
+  const data = serialiseForPrint(c);
+  const token = localStorage.getItem('tm_auth_token');
+  const apiBase = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+  try {
+    const res = await fetch(`${apiBase}/api/pdf/character`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('PDF generation failed: ' + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  } catch (err) {
+    console.error('PDF generation failed:', err);
+    // Fallback to HTML print
+    printSheet();
+  }
+}
+
 /** Export the resolved character data as a downloadable JSON file. */
 export function exportJSON() {
   const c = state.chars[state.editIdx];
