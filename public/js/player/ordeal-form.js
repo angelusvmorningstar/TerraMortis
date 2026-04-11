@@ -4,7 +4,7 @@
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc } from '../data/helpers.js';
-import { getRole } from '../auth/discord.js';
+import { isSTRole } from '../auth/discord.js';
 
 let responseDoc = null;
 let currentType = null;
@@ -118,8 +118,7 @@ export async function renderOrdealForm(targetEl, type, title, sections) {
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
-  const role = getRole();
-  const isST = role === 'st';
+  const isST = isSTRole();
   const isApproved = status === 'approved';
   const isSubmitted = status === 'submitted';
   const readOnly = !editing;

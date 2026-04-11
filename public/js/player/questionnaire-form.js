@@ -10,7 +10,7 @@
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName, clanIcon, covIcon } from '../data/helpers.js';
 import { QUESTIONNAIRE_SECTIONS } from './questionnaire-data.js';
-import { getRole } from '../auth/discord.js';
+import { getRole, isSTRole } from '../auth/discord.js';
 
 // Fields derived from the character sheet — not rendered as questions.
 const SHEET_FIELDS = {
@@ -172,7 +172,7 @@ export async function renderQuestionnaire(targetEl, char) {
   // Player viewing their own: /api/players/me is sufficient.
   discordUsername = '';
   try {
-    if (getRole() === 'st') {
+    if (isSTRole()) {
       const allPlayers = await apiGet('/api/players');
       const ownerDoc = allPlayers.find(p =>
         (p.character_ids || []).some(id => String(id) === String(char._id))
@@ -205,8 +205,7 @@ export async function renderQuestionnaire(targetEl, char) {
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
-  const role = getRole();
-  const isST = role === 'st';
+  const isST = isSTRole();
   const isApproved = status === 'approved';
   const isSubmitted = status === 'submitted';
   const canPlayerEdit = !isApproved;
