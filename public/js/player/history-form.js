@@ -4,7 +4,7 @@
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName } from '../data/helpers.js';
 import { HISTORY_SECTIONS } from './history-data.js';
-import { getRole } from '../auth/discord.js';
+import { isSTRole } from '../auth/discord.js';
 
 let responseDoc = null;
 let currentCharId = null;
@@ -95,8 +95,7 @@ export async function renderHistory(targetEl, char) {
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
-  const role = getRole();
-  const isST = role === 'st';
+  const isST = isSTRole();
   const isApproved = status === 'approved';
   const isSubmitted = status === 'submitted';
   const readOnly = !editing;

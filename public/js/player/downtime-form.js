@@ -18,7 +18,7 @@ import { calcVitaeMax } from '../data/accessors.js';
 import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
-import { getRole } from '../auth/discord.js';
+import { getRole, isSTRole } from '../auth/discord.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -888,8 +888,7 @@ function renderCycleGatePage() {
 function renderForm(container) {
   const saved = responseDoc?.responses || {};
   const status = responseDoc?.status || 'new';
-  const role = getRole();
-  const isST = role === 'st';
+  const isST = isSTRole();
   const isSubmitted = status === 'submitted';
 
   let h = '';

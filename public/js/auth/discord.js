@@ -34,6 +34,12 @@ export function getRole() {
   return user ? user.role : null;
 }
 
+/** True if the user has ST-level access (role is 'st' or 'dev'). */
+export function isSTRole() {
+  const r = getRole();
+  return r === 'st' || r === 'dev';
+}
+
 export function getPlayerInfo() {
   const user = getUser();
   if (!user) return null;
