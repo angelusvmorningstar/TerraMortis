@@ -353,7 +353,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach(m => {
     // MCI and PT have their own render logic; MG's total includes partner contributions
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
-    const total = (m.free || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.cp || 0) + (m.xp || 0);
+    const total = (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.cp || 0) + (m.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

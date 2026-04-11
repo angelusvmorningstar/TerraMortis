@@ -387,7 +387,7 @@ export function shAddStyle(styleName, type = 'style') {
   const c = state.chars[state.editIdx];
   if (!c.fighting_styles) c.fighting_styles = [];
   if (c.fighting_styles.some(fs => fs.name === styleName)) return;
-  c.fighting_styles.push({ name: styleName, type, cp: 0, free: 0, free_mci: 0, xp: 0 });
+  c.fighting_styles.push({ name: styleName, type, cp: 0, free_mci: 0, xp: 0 });
   _markDirty();
   _renderSheet(c);
 }
@@ -434,7 +434,7 @@ export function shAddPick(manName) {
   const c = state.chars[state.editIdx];
   if (!c.fighting_picks) c.fighting_picks = [];
   const totalDots = (c.fighting_styles || [])
-    .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0), 0);
+    .reduce((s, fs) => s + (fs.cp||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0), 0);
   const maxPicks = totalDots;
   if (c.fighting_picks.length >= maxPicks) return;
   const already = c.fighting_picks.some(pk =>
