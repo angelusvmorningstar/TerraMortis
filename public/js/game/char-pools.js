@@ -3,7 +3,7 @@
    above the read-only character sheet in t-editor. */
 
 import {
-  getAttrEffective, getAttrBonus, skDots, skBonus,
+  getAttrEffective, getAttrBonus, skDots, skBonus, skNineAgain,
   calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, calcSpeed,
 } from '../data/accessors.js';
 import { getPool } from '../shared/pools.js';
@@ -73,16 +73,36 @@ export function renderCharPools(el, char, onTap) {
   h += '</div>';
 
   // ── Skill pools (only non-zero skills) ──
+  // Include PT dot-4 and MCI dot-3 bonus dots from applyDerivedMerits
   let skillHtml = '';
   for (const sk of SKILL_ORDER) {
-    const skD = Math.min(skDots(char, sk) + skBonus(char, sk), 5);
+    const baseDots = skDots(char, sk);
+    const ptBonus = (char._pt_dot4_bonus_skills?.has(sk) && baseDots < 5) ? 1 : 0;
+    const mciBonus = (char._mci_dot3_skills?.has(sk) && baseDots < 5) ? 1 : 0;
+    const skD = Math.min(baseDots + skBonus(char, sk) + ptBonus + mciBonus, 5);
     if (!skD) continue;
     const attr  = SKILL_ATTR[sk];
     const attrV = getAttrEffective(char, attr) + getAttrBonus(char, attr);
     const total = attrV + skD;
+    // Check 9-Again from any source
+    const na = skNineAgain(char, sk)
+      || char._pt_nine_again_skills?.has(sk)
+      || char._mci_dot3_skills?.has(sk)
+      || char._ohm_nine_again_skills?.has(sk);
+    // Check PT dot-5 Rote eligibility: asset skill + PT rating >= 5
+    const ptMerit = (char.merits || []).find(m => m.name === 'Professional Training' && (m.rating || 0) >= 5);
+    const roteEligible = !!(ptMerit && (ptMerit.asset_skills || []).includes(sk));
+    // Check Air of Menace: adds Nightmare dots to Intimidation
+    let meritBonus = 0, meritLabel = '';
+    if (sk === 'Intimidation' && (char.merits || []).some(m => m.name === 'Air of Menace')) {
+      meritBonus = char.disciplines?.Nightmare?.dots || 0;
+      if (meritBonus > 0) meritLabel = 'AoM';
+    }
+    const poolTotal = total + meritBonus;
     const idx   = _pools.length;
-    _pools.push({ total, label: sk, attr, attrV, skill: sk, skillV: skD, resistance: null, pi: null });
-    skillHtml += poolBtn(sk, total, ab(attr) + '+' + ab(sk), idx);
+    _pools.push({ total: poolTotal, label: sk, attr, attrV, skill: sk, skillV: skD, nineAgain: !!na, roteEligible, meritBonus, meritLabel, resistance: null, pi: null });
+    const sub = ab(attr) + '+' + ab(sk) + (meritBonus ? '+' + meritLabel + '(' + meritBonus + ')' : '');
+    skillHtml += poolBtn(sk, poolTotal, sub, idx, na, roteEligible);
   }
   if (skillHtml) {
     h += '<div class="gcp-section-hd">Skill Pools</div>';
@@ -118,6 +138,9 @@ function statChip(label, value) {
   return `<div class="gcp-stat"><span class="gcp-stat-v">${value}</span><span class="gcp-stat-l">${esc(label)}</span></div>`;
 }
 
-function poolBtn(label, total, sub, idx) {
-  return `<button class="gcp-pool-btn" data-idx="${idx}"><span class="gcp-pool-n">${total}</span><span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">${esc(sub)}</span></button>`;
+function poolBtn(label, total, sub, idx, nineAgain, roteEligible) {
+  const badges = (nineAgain ? '<span class="gcp-9a-badge">9</span>' : '')
+               + (roteEligible ? '<span class="gcp-rote-badge">R</span>' : '');
+  const cls = 'gcp-pool-btn' + (nineAgain ? ' gcp-9a' : '') + (roteEligible ? ' gcp-rote' : '');
+  return `<button class="${cls}" data-idx="${idx}"><span class="gcp-pool-n">${total}</span>${badges}<span class="gcp-pool-lbl">${esc(label)}</span><span class="gcp-pool-sub">${esc(sub)}</span></button>`;
 }

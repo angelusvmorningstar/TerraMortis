@@ -63,6 +63,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi } from './data/loader.js';
+import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
@@ -246,6 +247,9 @@ async function loadAllData() {
     // Player with no API — show nothing rather than leak all characters
     editorState.chars = [];
   }
+
+  // 1b. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
+  editorState.chars.forEach(c => applyDerivedMerits(c));
 
   // 2. Copy to suite state
   const sortedChars = editorState.chars.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
