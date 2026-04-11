@@ -253,7 +253,7 @@ export function applyDerivedMerits(c) {
     let fhpM = (c.merits || []).find(m => m.name === 'Friends in High Places' && m.granted_by === 'OHM');
     if (!fhpM) {
       if (!c.merits) c.merits = [];
-      fhpM = { name: 'Friends in High Places', category: 'general', granted_by: 'OHM' };
+      fhpM = { name: 'Friends in High Places', category: 'general', granted_by: 'OHM', rating: 0 };
       c.merits.push(fhpM);
     }
     fhpM.free_ohm = 1;
@@ -429,11 +429,13 @@ export function getPoolUsed(c, meritName) {
     if (p.names) p.names.forEach(n => allNames.add(n));
     else if (p.name) allNames.add(p.name);
   });
-  // Sum free across all covered merits
+  // Sum all named grant fields across all covered merits
   let total = 0;
   (c.merits || []).forEach(m => {
     if (!allNames.has(m.name)) return;
-    total += (m.free || 0);
+    for (const [k, v] of Object.entries(m)) {
+      if (k.startsWith('free_') && typeof v === 'number') total += v;
+    }
   });
   return total;
 }
