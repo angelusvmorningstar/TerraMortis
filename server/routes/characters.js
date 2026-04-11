@@ -38,6 +38,50 @@ router.get('/', async (req, res) => {
     id instanceof ObjectId ? id : new ObjectId(id)
   );
   const chars = await col().find({ _id: { $in: ids } }).toArray();
+
+  // Enrich shared domain merits with partner contributions so the
+  // player portal can render filled/hollow dots without needing the
+  // full partner character objects (which it can't access).
+  const partnerNames = new Set();
+  for (const c of chars) {
+    for (const m of (c.merits || [])) {
+      if (m.category === 'domain' && m.shared_with) {
+        for (const pn of m.shared_with) partnerNames.add(pn);
+      }
+    }
+  }
+  if (partnerNames.size > 0) {
+    const partners = await col()
+      .find(
+        { name: { $in: [...partnerNames] } },
+        { projection: { name: 1, merits: 1 } }
+      )
+      .toArray();
+    // Build map: partner name → { meritName → shareable dots }
+    const partnerMap = new Map();
+    for (const p of partners) {
+      const meritDots = {};
+      for (const m of (p.merits || [])) {
+        if (m.category !== 'domain') continue;
+        meritDots[m.name] = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
+                          + (m.free_retainer || 0) + (m.xp || 0);
+      }
+      partnerMap.set(p.name, meritDots);
+    }
+    // Attach _partner_dots on each shared domain merit
+    for (const c of chars) {
+      for (const m of (c.merits || [])) {
+        if (m.category !== 'domain' || !m.shared_with || !m.shared_with.length) continue;
+        let pd = 0;
+        for (const pn of m.shared_with) {
+          const pm = partnerMap.get(pn);
+          if (pm && pm[m.name]) pd += pm[m.name];
+        }
+        if (pd > 0) m._partner_dots = pd;
+      }
+    }
+  }
+
   res.json(chars);
 });
 
