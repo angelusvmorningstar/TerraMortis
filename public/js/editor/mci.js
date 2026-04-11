@@ -229,14 +229,12 @@ export function applyDerivedMerits(c) {
   }
 
 
-  // ── OHM: auto-apply 1 free dot each to Contacts and Resources; 1 to chosen Allies sphere ──
+  // ── OHM: auto-apply 1 free dot each to Contacts and Resources; 1 to chosen Allies sphere;
+  //        also grant Friends in High Places for free ──
   const ohmPact = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the hard motherfucker');
+  // Clear stale OHM free dots on all merits before re-applying
+  (c.merits || []).forEach(m => { m.free_ohm = 0; });
   if (ohmPact) {
-    // Clear stale OHM free dots before re-applying
-    (c.merits || []).forEach(m => {
-      if (m.category !== 'influence') return;
-      if (m.name === 'Contacts' || m.name === 'Resources' || m.name === 'Allies') m.free_ohm = 0;
-    });
     // Auto-apply 1 free_ohm to Contacts and Resources (if they exist)
     ['Contacts', 'Resources'].forEach(mName => {
       const m = (c.merits || []).find(m => m.category === 'influence' && m.name === mName);
@@ -251,6 +249,14 @@ export function applyDerivedMerits(c) {
       );
       if (m) m.free_ohm = 1;
     }
+    // Auto-grant Friends in High Places (general merit) for free
+    let fhpM = (c.merits || []).find(m => m.name === 'Friends in High Places' && m.granted_by === 'OHM');
+    if (!fhpM) {
+      if (!c.merits) c.merits = [];
+      fhpM = { name: 'Friends in High Places', category: 'general', granted_by: 'OHM', rating: 0 };
+      c.merits.push(fhpM);
+    }
+    fhpM.free_ohm = 1;
     // Grant pool for tracking display
     c._grant_pools.push({
       source: 'Oath of the Hard Motherfucker',
@@ -263,6 +269,10 @@ export function applyDerivedMerits(c) {
     if (skills.length) {
       c._ohm_nine_again_skills = new Set(skills.filter(Boolean));
     }
+  } else {
+    // No OHM — remove auto-granted FHP if present
+    const fhpIdx = (c.merits || []).findIndex(m => m.name === 'Friends in High Places' && m.granted_by === 'OHM');
+    if (fhpIdx !== -1) c.merits.splice(fhpIdx, 1);
   }
 
   // ── Invested grant pool (Herd/Mentor/Resources/Retainer = Invictus Status dots) ──
@@ -419,11 +429,13 @@ export function getPoolUsed(c, meritName) {
     if (p.names) p.names.forEach(n => allNames.add(n));
     else if (p.name) allNames.add(p.name);
   });
-  // Sum free across all covered merits
+  // Sum all named grant fields across all covered merits
   let total = 0;
   (c.merits || []).forEach(m => {
     if (!allNames.has(m.name)) return;
-    total += (m.free || 0);
+    for (const [k, v] of Object.entries(m)) {
+      if (k.startsWith('free_') && typeof v === 'number') total += v;
+    }
   });
   return total;
 }

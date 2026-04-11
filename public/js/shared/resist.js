@@ -2,7 +2,7 @@
 
 import state from '../suite/data.js';
 import { getPool } from './pools.js';
-import { getAttrVal, skDots } from '../data/accessors.js';
+import { getAttrEffective, skDots } from '../data/accessors.js';
 
 const ATTRS = [
   'Intelligence', 'Wits', 'Resolve',
@@ -49,7 +49,7 @@ export function getResistTokenVal(c, tok) {
   if (!c) return 0;
   if (tok.type === 'bp') return c.blood_potency || 0;
   if (tok.type === 'humanity') return c.humanity || 0;
-  if (tok.type === 'attr') return getAttrVal(c, tok.key);
+  if (tok.type === 'attr') return getAttrEffective(c, tok.key);
   if (tok.type === 'skill') return skDots(c, tok.key);
   if (tok.type === 'disc') return c.disciplines?.[tok.key]?.dots || 0;
   return 0;

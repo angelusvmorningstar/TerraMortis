@@ -380,17 +380,20 @@ export function renderSheet() {
       const hasPartners = (m.shared_with || []).length > 0;
       if (hasPartners) {
         // Own dots from all purchase sources
-        const own = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0)
-                  + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
-        // Partner contributions (look up each partner in the chars array)
+        const own = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
+                  + (m.free_retainer || 0) + (m.free_vm || 0) + (m.free_lk || 0)
+                  + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
+        // Partner contributions — try state.chars first, fall back to
+        // server-enriched _partner_dots (player portal ?mine=1 path)
         let partnerDots = 0;
         for (const pName of m.shared_with) {
           const p = (state.chars || []).find(ch => ch.name === pName);
           if (p) {
             const pm = (p.merits || []).find(pm => pm.category === 'domain' && pm.name === m.name);
-            if (pm) partnerDots += (pm.cp || 0) + (pm.free || 0) + (pm.free_mci || 0) + (pm.xp || 0);
+            if (pm) partnerDots += (pm.cp || 0) + (pm.free_mci || 0) + (pm.free_bloodline || 0) + (pm.xp || 0);
           }
         }
+        if (partnerDots === 0 && m._partner_dots > 0) partnerDots = m._partner_dots;
         const total = Math.min(5, own + partnerDots);
         const ownCapped = Math.min(own, total);
         const hollow = Math.max(0, total - ownCapped);

@@ -64,10 +64,13 @@ export function initDiceEngine(allChars) {
 
 // ── Pool calculation ──
 
+const _DISC_ATTR = { Dexterity: 'Celerity', Strength: 'Vigour', Stamina: 'Resilience' };
 function getAttrVal(name) {
   if (!selectedChar || !name) return 0;
   const a = selectedChar.attributes?.[name];
-  return a ? (a.dots || 0) + (a.bonus || 0) : 0;
+  const base = a ? (a.dots || 0) + (a.bonus || 0) : 0;
+  const disc = _DISC_ATTR[name] ? (selectedChar.disciplines?.[_DISC_ATTR[name]]?.dots || 0) : 0;
+  return base + disc;
 }
 function getSkillVal(name) {
   if (!selectedChar || !name) return 0;

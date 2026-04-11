@@ -2,7 +2,7 @@
    Three roll types with pre-loaded character pools and auto-logging. */
 
 import suiteState from '../suite/data.js';
-import { getAttrVal, getAttrBonus, skDots, skBonus } from '../data/accessors.js';
+import { getAttrEffective, getAttrBonus, skDots, skBonus } from '../data/accessors.js';
 import { displayName, esc } from '../data/helpers.js';
 import { apiPost } from '../data/api.js';
 import { mkDieEl, mkColsEl } from '../suite/roll.js';
@@ -33,7 +33,7 @@ const TYPES = {
   },
 };
 
-function aval(c, attr) { return getAttrVal(c, attr) + getAttrBonus(c, attr); }
+function aval(c, attr) { return getAttrEffective(c, attr) + getAttrBonus(c, attr); }
 function sk(c, skill)  { return skDots(c, skill) + skBonus(c, skill); }
 
 // ── Module state ──

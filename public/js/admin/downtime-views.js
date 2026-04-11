@@ -8,7 +8,7 @@ import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
-import { getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';

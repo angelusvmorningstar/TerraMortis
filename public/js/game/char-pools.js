@@ -3,7 +3,7 @@
    above the read-only character sheet in t-editor. */
 
 import {
-  getAttrVal, getAttrBonus, skDots, skBonus,
+  getAttrEffective, getAttrBonus, skDots, skBonus,
   calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, calcSpeed,
 } from '../data/accessors.js';
 import { getPool } from '../shared/pools.js';
@@ -78,7 +78,7 @@ export function renderCharPools(el, char, onTap) {
     const skD = skDots(char, sk) + skBonus(char, sk);
     if (!skD) continue;
     const attr  = SKILL_ATTR[sk];
-    const attrV = getAttrVal(char, attr) + getAttrBonus(char, attr);
+    const attrV = getAttrEffective(char, attr) + getAttrBonus(char, attr);
     const total = attrV + skD;
     const idx   = _pools.length;
     _pools.push({ total, label: sk, attr, attrV, skill: sk, skillV: skD, resistance: null, pi: null });

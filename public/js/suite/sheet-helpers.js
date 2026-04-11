@@ -6,7 +6,7 @@ import state from './data.js';
 import {
   RITUAL_DISCS
 } from './data.js';
-import { getAttrVal, getAttrBonus as _getAttrBonus, skDots, skSpecs, skSpecStr } from '../data/accessors.js';
+import { getAttrVal, getAttrBonus as _getAttrBonus, discAttrBonus, skDots, skSpecs, skSpecStr } from '../data/accessors.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { prereqLabel } from '../data/prereq.js';
 
@@ -27,7 +27,7 @@ export function getAttrDots(c, a) {
 }
 
 export function getAttrBonus(c, a) {
-  return _getAttrBonus(c, a);
+  return _getAttrBonus(c, a) + discAttrBonus(c, a);
 }
 
 export function skillDots(v) {
