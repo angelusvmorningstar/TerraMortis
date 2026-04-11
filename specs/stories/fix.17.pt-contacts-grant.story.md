@@ -1,6 +1,6 @@
 # Story Fix.17: Professional Training — Contacts Bonus Not Applying
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
