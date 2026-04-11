@@ -5,7 +5,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
-import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission } from '../downtime/db.js';
+import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
@@ -13,6 +13,7 @@ import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
+import { getUser } from '../auth/discord.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
 function isoToLocalInput(iso) {
@@ -26,8 +27,160 @@ let characters = [];
 let charMap = new Map();
 let allCycles = [];
 let activeCycle = null;
+let currentCycle = null;
 let selectedCycleId = null;
 let expandedId = null;
+let processingMode = false;
+let procExpandedKey = null; // tracks which action row is expanded in processing mode
+
+// ── Processing Mode constants ────────────────────────────────────────────────
+
+const PHASE_ORDER = {
+  resolve_first: 0,
+  feeding: 1,
+  ambience_increase: 2, ambience_decrease: 2,
+  hide_protect: 3,
+  investigate: 4,
+  attack: 5,
+  patrol_scout: 6, support: 6,
+  misc: 7, xp_spend: 7,
+  block: 8, rumour: 8, grow: 8, acquisition: 8,
+  allies: 9,
+  contacts: 10,
+  resources_retainers: 11,
+};
+
+const PHASE_LABELS = {
+  resolve_first: 'Resolve First — Sorcery & Rituals',
+  feeding: 'Phase 1 — Feeding',
+  ambience: 'Phase 2 — Ambience',
+  hide_protect: 'Phase 3 — Defensive',
+  investigate: 'Phase 4 — Investigative',
+  attack: 'Phase 5 — Hostile',
+  support_patrol: 'Phase 6 — Support & Patrol',
+  misc: 'Phase 7 — Miscellaneous',
+  sphere: 'Sphere Actions',
+  allies: 'Allies & Status',
+  contacts: 'Contacts',
+  resources_retainers: 'Resources & Retainers',
+};
+
+// Maps phase numeric key back to display label key
+const PHASE_NUM_TO_LABEL = {
+  0: 'resolve_first',
+  1: 'feeding',
+  2: 'ambience',
+  3: 'hide_protect',
+  4: 'investigate',
+  5: 'attack',
+  6: 'support_patrol',
+  7: 'misc',
+  8: 'sphere',
+  9: 'allies',
+  10: 'contacts',
+  11: 'resources_retainers',
+};
+
+const ACTION_TYPE_LABELS = {
+  ambience_increase: 'Ambience Increase',
+  ambience_decrease: 'Ambience Decrease',
+  attack: 'Attack',
+  hide_protect: 'Hide / Protect',
+  investigate: 'Investigate',
+  patrol_scout: 'Patrol / Scout',
+  support: 'Support',
+  misc: 'Miscellaneous',
+  xp_spend: 'XP Spend',
+  block: 'Block',
+  rumour: 'Rumour',
+  grow: 'Grow',
+  acquisition: 'Acquisition',
+};
+
+const ALL_ACTION_TYPES = [
+  'ambience_increase', 'ambience_decrease', 'attack', 'hide_protect',
+  'investigate', 'patrol_scout', 'support', 'misc', 'xp_spend',
+  'block', 'rumour', 'grow', 'acquisition',
+];
+
+// ── Cycle Phase Ribbon ───────────────────────────────────────────────────────
+
+function getCyclePhase(cycle, subs) {
+  if (!cycle) return null;
+  if (cycle.status === 'game')   return 0;
+  if (cycle.status === 'active') return 1;
+  // closed
+  const hasPending = (subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
+  return hasPending ? 2 : 3;
+}
+
+function getSubPhases(phase, cycle, subs) {
+  switch (phase) {
+    case 0:
+      return [
+        { label: 'Regent Confirmed', done: !!cycle.regency_character_id },
+        { label: 'Ambience Applied', done: !!cycle.ambience_applied },
+      ];
+    case 1: {
+      const hasSubs = (subs || []).length > 0;
+      const deadlinePast = !!(cycle.deadline_at && new Date(cycle.deadline_at) < new Date());
+      return [
+        { label: 'Deadline Set',         done: !!cycle.deadline_at },
+        { label: 'Submissions Received', done: hasSubs },
+        { label: 'Deadline Passed',      done: deadlinePast },
+      ];
+    }
+    case 2: {
+      const allResolved = !(subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
+      return [
+        { label: 'Reviewing',    done: allResolved, inProgress: !allResolved },
+        { label: 'All Resolved', done: allResolved },
+      ];
+    }
+    case 3:
+    default:
+      return [];
+  }
+}
+
+function renderPhaseRibbon(cycle, subs) {
+  const mainEl = document.getElementById('dt-phase-ribbon');
+  const subEl  = document.getElementById('dt-sub-ribbon');
+  if (!mainEl || !subEl) return;
+
+  const phase = getCyclePhase(cycle, subs);
+  if (phase === null) {
+    mainEl.style.display = 'none';
+    subEl.style.display  = 'none';
+    return;
+  }
+
+  // Main ribbon
+  const mainSteps = ['Game \u0026 Feeding', 'Downtimes', 'Processing', 'Push Ready'];
+  mainEl.style.display = '';
+  mainEl.innerHTML = mainSteps.map((label, i) => {
+    const done   = i < phase;
+    const active = i === phase;
+    const cls    = done ? 'pr-step pr-done' : active ? 'pr-step pr-active' : 'pr-step pr-future';
+    const numContent = done ? '\u2713' : String(i + 1);
+    const connector = i < mainSteps.length - 1 ? '<span class="pr-connector"></span>' : '';
+    return `<span class="${cls}"><span class="pr-step-num">${numContent}</span>${label}</span>${connector}`;
+  }).join('');
+
+  // Sub ribbon
+  const subSteps = getSubPhases(phase, cycle, subs);
+  if (!subSteps.length) {
+    subEl.style.display = 'none';
+    return;
+  }
+  subEl.style.display = '';
+  subEl.innerHTML = subSteps.map((s, i) => {
+    const cls = s.done ? 'pr-sub pr-done' : s.inProgress ? 'pr-sub pr-active' : 'pr-sub pr-future';
+    const icon = s.done ? '\u2713 ' : '';
+    const connector = i < subSteps.length - 1 ? '<span class="pr-sub-connector"></span>' : '';
+    return `<span class="${cls}">${icon}${s.label}</span>${connector}`;
+  }).join('');
+}
 
 export async function initDowntimeView() {
   const container = document.getElementById('downtime-content');
@@ -43,12 +196,45 @@ export async function initDowntimeView() {
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
   document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
+  document.getElementById('dt-processing-btn').addEventListener('click', () => {
+    processingMode = !processingMode;
+    procExpandedKey = null;
+    document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
+    if (processingMode) {
+      renderProcessingMode(document.getElementById('dt-submissions'));
+    } else {
+      renderSubmissions();
+    }
+  });
   document.getElementById('dt-cycle-sel').addEventListener('change', e => {
     selectedCycleId = e.target.value;
     loadCycleById(selectedCycleId);
   });
   await loadCharacters();
   await loadAllCycles();
+
+  // Dev-only: preview CSV button (no MongoDB writes)
+  if (location.hostname === 'localhost') {
+    const toolbar = document.querySelector('.dt-toolbar');
+    if (toolbar) {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = '.csv';
+      inp.style.display = 'none';
+      inp.id = 'dt-preview-input';
+      inp.addEventListener('change', e => { if (e.target.files[0]) processFilePreview(e.target.files[0]); });
+
+      const btn = document.createElement('button');
+      btn.className = 'dt-btn';
+      btn.textContent = 'Preview CSV';
+      btn.title = 'Load CSV for local preview — not saved to MongoDB';
+      btn.style.cssText = 'border-color:var(--gold2);color:var(--gold2)';
+      btn.addEventListener('click', () => inp.click());
+
+      toolbar.appendChild(inp);
+      toolbar.appendChild(btn);
+    }
+  }
 }
 
 function buildShell() {
@@ -64,11 +250,14 @@ function buildShell() {
       <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
       <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
       <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export All</button>
+      <button class="dt-btn proc-mode-btn" id="dt-processing-btn">Processing</button>
     </div>
     <div id="dt-cycle-bar" class="dt-cycle-bar">
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
       <span id="dt-cycle-status" class="dt-cycle-status"></span>
     </div>
+    <div id="dt-phase-ribbon" style="display:none"></div>
+    <div id="dt-sub-ribbon" style="display:none"></div>
     <div id="dt-snapshot"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
@@ -80,7 +269,9 @@ function buildShell() {
     <div id="dt-submissions" class="dt-submissions"></div>`;
 }
 
-// ── Character data bridge ───────────────────────────────────────────────────
+// ── Character + player data bridge ──────────────────────────────────────────
+
+let players = [];
 
 async function loadCharacters() {
   try {
@@ -94,25 +285,117 @@ async function loadCharacters() {
     characters = [];
     charMap = new Map();
   }
+  try { players = await apiGet('/api/players'); } catch { players = []; }
 }
 
-export function findCharacter(submissionName) {
-  if (!submissionName) return null;
-  const key = submissionName.toLowerCase().trim();
+// ── Fuzzy matching utilities ────────────────────────────────────────────────
 
-  // Exact match on name or moniker
-  const exact = charMap.get(key);
-  if (exact) return exact;
+function _norm(s) { return (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
-  // Fallback: check if any character name/moniker appears as a word within the submission name
-  for (const c of characters) {
-    const cName = (c.name || '').toLowerCase().trim();
-    const cMoniker = (c.moniker || '').toLowerCase().trim();
-    if (cName && key.includes(cName)) return c;
-    if (cMoniker && key.includes(cMoniker)) return c;
+function _wordSet(s) { return new Set(_norm(s).split(/[\s'']+/).filter(Boolean)); }
+
+/** Word-overlap score: fraction of query words found in target (0-1). */
+function _wordOverlap(query, target) {
+  const qw = _wordSet(query);
+  const tw = _wordSet(target);
+  if (!qw.size) return 0;
+  let hits = 0;
+  for (const w of qw) { if (tw.has(w)) hits++; }
+  return hits / qw.size;
+}
+
+/** Substring containment score: 1 if target contains query or vice versa, 0.5 for partial word overlap. */
+function _containsScore(query, target) {
+  const q = _norm(query), t = _norm(target);
+  if (q === t) return 1;
+  if (t.includes(q) || q.includes(t)) return 0.9;
+  return 0;
+}
+
+/**
+ * Find the best matching character for a CSV submission row.
+ * Combines character name matching and player name matching for a combined score.
+ *
+ * Character name is compared against: c.name, c.moniker, displayName(c)
+ * Player name is compared against: player.display_name, player.discord_username, player.discord_global_name, c.player
+ *
+ * Returns { character, score, warnings[] } or { character: null, score: 0, warnings[] }
+ */
+export function findCharacter(submissionCharName, submissionPlayerName) {
+  if (!submissionCharName && !submissionPlayerName) return null;
+
+  // Build player → character_ids lookup
+  const playerCharIds = new Map(); // character_id string → player doc
+  for (const p of players) {
+    for (const cid of (p.character_ids || [])) playerCharIds.set(String(cid), p);
   }
 
-  return null;
+  let bestChar = null, bestScore = 0;
+
+  for (const c of characters) {
+    // Character name score (weight: 0.7)
+    const cNames = [c.name, c.moniker, c.honorific ? (c.honorific + ' ' + (c.moniker || c.name)) : null].filter(Boolean);
+    let charScore = 0;
+    if (submissionCharName) {
+      for (const cn of cNames) {
+        const exact = _containsScore(submissionCharName, cn);
+        const overlap = _wordOverlap(submissionCharName, cn);
+        charScore = Math.max(charScore, exact, overlap);
+      }
+    }
+
+    // Player name score (weight: 0.3)
+    let playerScore = 0;
+    if (submissionPlayerName) {
+      const p = playerCharIds.get(String(c._id));
+      const pNames = [
+        c.player,
+        p?.display_name,
+        p?.discord_username,
+        p?.discord_global_name,
+      ].filter(Boolean);
+      for (const pn of pNames) {
+        const exact = _containsScore(submissionPlayerName, pn);
+        const overlap = _wordOverlap(submissionPlayerName, pn);
+        playerScore = Math.max(playerScore, exact, overlap);
+      }
+    }
+
+    const combined = (submissionCharName && submissionPlayerName)
+      ? charScore * 0.7 + playerScore * 0.3
+      : submissionCharName ? charScore : playerScore;
+
+    if (combined > bestScore) {
+      bestScore = combined;
+      bestChar = c;
+    }
+  }
+
+  // Require a minimum confidence threshold
+  if (bestScore < 0.4) return null;
+  return bestChar;
+}
+
+/**
+ * Match a CSV submission and return match details with warnings.
+ * Used by the import flow to surface unmatched/low-confidence matches.
+ */
+export function matchSubmission(sub) {
+  const charName = sub.submission.character_name;
+  const playerName = sub.submission.player_name;
+  const char = findCharacter(charName, playerName);
+  const warnings = [];
+
+  if (!char) {
+    warnings.push(`No match found for character "${charName}" (player: ${playerName})`);
+  } else {
+    const matchedName = char.moniker || char.name;
+    if (_norm(charName) !== _norm(matchedName) && _norm(charName) !== _norm(char.name)) {
+      warnings.push(`Fuzzy match: "${charName}" → ${matchedName} (${char.name})`);
+    }
+  }
+
+  return { character: char, warnings };
 }
 
 const FEED_METHODS = [
@@ -332,6 +615,7 @@ async function loadCycleById(cycleId) {
     subEl.innerHTML = '<p class="placeholder">Cycle not found.</p>';
     return;
   }
+  currentCycle = cycle;
 
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
@@ -381,6 +665,9 @@ async function loadCycleById(cycleId) {
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
 
+  // ── Phase ribbon (initial render — submissions not yet loaded) ──
+  renderPhaseRibbon(cycle, []);
+
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
     const val = e.target.value; // datetime-local string or empty
@@ -412,8 +699,12 @@ async function loadCycleById(cycleId) {
   });
 
   expandedId = null;
+  procExpandedKey = null;
   submissions = await getSubmissionsForCycle(cycleId);
+  renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
+  // Keep processing mode on across cycle switches — just re-render appropriately
+  document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
   renderFeedingScene();
   renderFeedingMatrix();
@@ -431,8 +722,8 @@ function renderMatchSummary() {
   const el = document.getElementById('dt-match-summary');
   if (!submissions.length) { el.innerHTML = ''; return; }
 
-  const matched = submissions.filter(s => findCharacter(s.character_name));
-  const unmatched = submissions.filter(s => !findCharacter(s.character_name));
+  const matched = submissions.filter(s => findCharacter(s.character_name, s.player_name));
+  const unmatched = submissions.filter(s => !findCharacter(s.character_name, s.player_name));
   const rolled = submissions.filter(s => s.feeding_roll);
 
   const approved = submissions.filter(s => s.approval_status === 'approved').length;
@@ -459,6 +750,10 @@ function renderMatchSummary() {
 // ── Submission rendering ────────────────────────────────────────────────────
 
 function renderSubmissions() {
+  if (processingMode) {
+    renderProcessingMode(document.getElementById('dt-submissions'));
+    return;
+  }
   const el = document.getElementById('dt-submissions');
   if (!submissions.length) {
     el.innerHTML = '<p class="placeholder">No submissions in this cycle.</p>';
@@ -476,7 +771,7 @@ function renderSubmissions() {
     const attended = sub.attended_last_game ? '\u2713' : '\u2717';
     const attendedClass = sub.attended_last_game ? 'dt-attended' : 'dt-absent';
 
-    const char = findCharacter(s.character_name);
+    const char = findCharacter(s.character_name, s.player_name);
     const matchIcon = char ? '<span class="dt-match-icon">\u2713</span>' : '<span class="dt-unmatch-icon">\u26A0</span>';
     const clan = char ? esc(char.clan || '') : '';
     const isExpanded = expandedId === s._id;
@@ -707,7 +1002,7 @@ function renderSubmissions() {
       const subId = btn.dataset.subId;
       const idx = +btn.dataset.projIdx;
       const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name) : null;
+      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
       const pen = (sub?._proj_pending || [])[idx] || {};
       const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
       showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
@@ -768,7 +1063,7 @@ function renderSubmissions() {
       const subId = btn.dataset.subId;
       const idx = +btn.dataset.meritIdx;
       const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name) : null;
+      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
       const pen = (sub?._merit_pending || [])[idx] || {};
       const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
       showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
@@ -846,7 +1141,7 @@ function renderSubmissions() {
       e.stopPropagation();
       const id = btn.dataset.subId;
       const sub = submissions.find(s => s._id === id);
-      const char = sub ? findCharacter(sub.character_name) : null;
+      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
 
       let poolSize = 1, expression = '';
       if (char && sub._feed_method) {
@@ -1252,20 +1547,113 @@ async function processFile(file) {
     return;
   }
 
-  // Enrich each parsed submission with character_id (needed for player-side filtering)
+  // Enrich each parsed submission with character_id via combined fuzzy matching
+  const matchWarnings = [];
   for (const sub of parsed) {
-    const char = findCharacter(sub.submission.character_name);
-    if (char) sub._character_id = char._id;
+    const { character, warnings: mw } = matchSubmission(sub);
+    if (character) sub._character_id = character._id;
+    matchWarnings.push(...mw);
+  }
+  if (matchWarnings.length) {
+    warnEl.innerHTML += matchWarnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('');
   }
 
   try {
-    const result = await upsertCycle(parsed);
-    warnEl.innerHTML = `<div class="dt-success">Loaded ${result.created} new, ${result.updated} updated submissions.</div>`;
+    const result = await upsertCycle(parsed, characters);
+    const matched = parsed.filter(s => s._character_id).length;
+    const unmatched = parsed.length - matched;
+    let msg = `Loaded ${result.created} new, ${result.updated} updated submissions.`;
+    if (unmatched) msg += ` ${unmatched} submission${unmatched > 1 ? 's' : ''} could not be linked to a character.`;
+    warnEl.innerHTML = (matchWarnings.length ? matchWarnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('') : '')
+      + `<div class="dt-success">${esc(msg)}</div>`;
     await loadAllCycles();
   } catch (err) {
     warnEl.innerHTML += `<div class="dt-warn">Import failed: ${esc(err.message)}</div>`;
     console.error('Downtime CSV import failed:', err);
   }
+}
+
+// ── Dev CSV Preview (localhost only — no MongoDB writes) ─────────────────────
+
+async function processFilePreview(file) {
+  const warnEl = document.getElementById('dt-warnings');
+  warnEl.innerHTML = '<div class="dt-warn" style="background:rgba(224,196,122,.08);border-color:var(--gold2);color:var(--gold2)">&#9888; Preview mode — data is not saved to MongoDB.</div>';
+
+  const text = await file.text();
+  const { submissions: parsed, warnings } = parseDowntimeCSV(text);
+
+  if (warnings.length) {
+    warnEl.innerHTML += warnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('');
+  }
+  if (!parsed.length) {
+    warnEl.innerHTML += '<div class="dt-warn">No submissions found in CSV.</div>';
+    return;
+  }
+
+  // Match to characters
+  for (const sub of parsed) {
+    const { character } = matchSubmission(sub);
+    if (character) sub._character_id = character._id;
+  }
+
+  // Build synthetic submission documents (same shape as MongoDB docs)
+  const devCycleId = 'dev-preview-cycle';
+  const devSubs = parsed.map((sub, i) => ({
+    _id: `dev-preview-${i}`,
+    cycle_id: devCycleId,
+    character_id: sub._character_id ? String(sub._character_id) : null,
+    character_name: sub.submission.character_name,
+    player_name: sub.submission.player_name,
+    approval_status: 'pending',
+    status: 'submitted',
+    timestamp: sub.submission.timestamp,
+    attended: sub.submission.attended_last_game,
+    responses: mapRawToResponses(sub, characters),
+    projects_resolved: [],
+    merit_actions_resolved: [],
+    updated_at: new Date().toISOString(),
+  }));
+
+  // Build synthetic cycle
+  const devCycle = {
+    _id: devCycleId,
+    label: `Preview \u2014 ${file.name}`,
+    game_number: 0,
+    status: 'closed',
+    submission_count: devSubs.length,
+    loaded_at: new Date().toISOString(),
+  };
+
+  // Inject into module state (prepend so it appears first in selector)
+  allCycles = [devCycle, ...allCycles.filter(c => c._id !== devCycleId)];
+  activeCycle = null;
+  currentCycle = devCycle;
+  selectedCycleId = devCycleId;
+  submissions = devSubs;
+
+  // Rebuild cycle selector
+  const sel = document.getElementById('dt-cycle-sel');
+  if (sel) {
+    sel.innerHTML = allCycles.map(c =>
+      `<option value="${esc(c._id)}"${c._id === devCycleId ? ' selected' : ''}>${esc(c.label)}${c.status === 'active' ? ' (active)' : ''}</option>`
+    ).join('');
+  }
+
+  // Render with dev data
+  renderPhaseRibbon(devCycle, devSubs);
+  document.getElementById('dt-export-all').style.display = devSubs.length ? '' : 'none';
+  document.getElementById('dt-close-cycle').style.display = 'none';
+  document.getElementById('dt-open-game').style.display = 'none';
+  document.getElementById('dt-cycle-status').innerHTML =
+    `<span class="dt-status-badge dt-status-approved">preview</span><span class="domain-count">${devSubs.length} submissions</span>`;
+  renderSnapshotPanel(devCycle);
+  renderMatchSummary();
+  renderFeedingScene();
+  renderFeedingMatrix();
+  renderConflicts();
+  renderInvestigations();
+  renderNpcs();
+  renderSubmissions();
 }
 
 // ── Cycle Reset Wizard (GC-5) ────────────────────────────────────────────────
@@ -1457,7 +1845,7 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   for (const sub of approvedSubs) {
     const char = sub.character_id
       ? characters.find(c => String(c._id) === String(sub.character_id))
-      : findCharacter(sub.character_name);
+      : findCharacter(sub.character_name, sub.player_name);
     if (!char) continue;
     const vitaeSpent    = sub.st_review?.vitae_spent    || 0;
     const wpSpent       = sub.st_review?.willpower_spent || 0;
@@ -1599,6 +1987,468 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// ── Processing Mode (feature.43) ────────────────────────────────────────────
+
+/**
+ * Aggregate all actions from all submissions into a flat, phase-tagged queue.
+ * Each entry: { key, subId, charName, phase, phaseNum, actionType, label, description, source, actionIdx, poolPlayer }
+ */
+function buildProcessingQueue(subs) {
+  const queue = [];
+
+  for (const sub of subs) {
+    const raw = sub._raw || {};
+    const resp = sub.responses || {};
+    const charName = sub.character_name || '?';
+
+    // ── Sorcery (resolve_first) ──
+    const sorcCount = parseInt(resp['sorcery_slot_count'] || '1', 10);
+    for (let n = 1; n <= sorcCount; n++) {
+      const rite = resp[`sorcery_${n}_rite`];
+      if (!rite) continue;
+      const targets = resp[`sorcery_${n}_targets`] || '';
+      const notes   = resp[`sorcery_${n}_notes`]   || '';
+      let desc = rite;
+      if (targets) desc += ` — targets: ${targets}`;
+      if (notes)   desc += ` — ${notes}`;
+      queue.push({
+        key: `${sub._id}:sorcery:${n}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[0],
+        phaseNum: 0,
+        actionType: 'resolve_first',
+        label: `Sorcery: ${rite}`,
+        description: desc,
+        source: 'sorcery',
+        actionIdx: n,
+        poolPlayer: resp[`sorcery_${n}_pool_expr`] || '',
+      });
+    }
+
+    // ── Feeding ──
+    const feedMethod = resp['_feed_method'];
+    if (feedMethod) {
+      const feedDisc  = resp['_feed_disc'] || '';
+      const feedDesc  = resp['feeding_description'] || '';
+      const poolLabel = [feedMethod, feedDisc].filter(Boolean).join(' + ');
+      queue.push({
+        key: `${sub._id}:feeding`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[1],
+        phaseNum: 1,
+        actionType: 'feeding',
+        label: 'Feeding',
+        description: feedDesc || poolLabel,
+        source: 'feeding',
+        actionIdx: 0,
+        poolPlayer: poolLabel,
+      });
+    }
+
+    // ── Projects ──
+    let projects = raw.projects || [];
+    if (!projects.length) {
+      for (let n = 1; n <= 4; n++) {
+        const action = resp[`project_${n}_action`];
+        if (!action) continue;
+        projects.push({
+          action_type: action,
+          desired_outcome: resp[`project_${n}_outcome`] || '',
+          detail: resp[`project_${n}_description`] || '',
+          primary_pool: resp[`project_${n}_pool_expr`] ? { expression: resp[`project_${n}_pool_expr`] } : null,
+        });
+      }
+    }
+    projects.forEach((proj, idx) => {
+      const actionType = proj.action_type || 'misc';
+      const phaseNum = PHASE_ORDER[actionType] ?? 7;
+      const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      queue.push({
+        key: `${sub._id}:proj:${idx}`,
+        subId: sub._id,
+        charName,
+        phase: phaseKey,
+        phaseNum,
+        actionType,
+        label: ACTION_TYPE_LABELS[actionType] || actionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        description: proj.detail || proj.desired_outcome || '',
+        source: 'project',
+        actionIdx: idx,
+        poolPlayer: proj.primary_pool?.expression || '',
+      });
+    });
+
+    // ── Merit/Sphere actions ──
+    const spheres  = raw.sphere_actions || [];
+    const contacts = raw.contact_actions?.requests || [];
+    const retainers = raw.retainer_actions?.actions || [];
+
+    // merit_actions_resolved uses a flat index: spheres, then contacts, then retainers
+    let meritFlatIdx = 0;
+
+    spheres.forEach((action, idx) => {
+      const actionType = action.action_type || 'misc';
+      const meritType  = (action.merit_type || '').toLowerCase();
+      let phaseNum;
+      if (/allies|status/.test(meritType)) {
+        phaseNum = 9;
+      } else if (/contact/.test(meritType)) {
+        phaseNum = 10;
+      } else if (/retainer|resource/.test(meritType)) {
+        phaseNum = 11;
+      } else {
+        phaseNum = PHASE_ORDER[actionType] ?? 8;
+      }
+      const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: phaseKey,
+        phaseNum,
+        actionType,
+        label: `${action.merit_type || 'Merit'}: ${ACTION_TYPE_LABELS[actionType] || actionType}`,
+        description: action.description || action.desired_outcome || '',
+        source: 'merit',
+        actionIdx: meritFlatIdx,
+        poolPlayer: action.primary_pool?.expression || '',
+      });
+      meritFlatIdx++;
+    });
+
+    contacts.forEach((req, idx) => {
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[10],
+        phaseNum: 10,
+        actionType: 'contacts',
+        label: 'Contacts: Gather Info',
+        description: req,
+        source: 'merit',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    });
+
+    retainers.forEach((task, idx) => {
+      queue.push({
+        key: `${sub._id}:merit:${meritFlatIdx}`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[11],
+        phaseNum: 11,
+        actionType: 'resources_retainers',
+        label: 'Retainer: Directed Action',
+        description: task,
+        source: 'merit',
+        actionIdx: meritFlatIdx,
+        poolPlayer: '',
+      });
+      meritFlatIdx++;
+    });
+  }
+
+  // Sort: phase first, then character name
+  queue.sort((a, b) => {
+    if (a.phaseNum !== b.phaseNum) return a.phaseNum - b.phaseNum;
+    return a.charName.localeCompare(b.charName);
+  });
+
+  return queue;
+}
+
+/** Get the review object for a queue entry from its submission. */
+function getEntryReview(entry) {
+  const sub = submissions.find(s => s._id === entry.subId);
+  if (!sub) return null;
+  if (entry.source === 'feeding') return sub.feeding_review || null;
+  if (entry.source === 'project') return (sub.projects_resolved || [])[entry.actionIdx] || null;
+  if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
+  if (entry.source === 'sorcery') return null; // future feature.44
+  return null;
+}
+
+/** Save a partial update to a queue entry's review object. */
+async function saveEntryReview(entry, patch) {
+  const sub = submissions.find(s => s._id === entry.subId);
+  if (!sub) return;
+
+  if (entry.source === 'feeding') {
+    const current = sub.feeding_review || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const updated = { ...current, ...patch };
+    await updateSubmission(entry.subId, { feeding_review: updated });
+    sub.feeding_review = updated;
+  } else if (entry.source === 'project') {
+    const resolved = [...(sub.projects_resolved || [])];
+    while (resolved.length <= entry.actionIdx) resolved.push(null);
+    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    resolved[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { projects_resolved: resolved });
+    sub.projects_resolved = resolved;
+  } else if (entry.source === 'merit') {
+    const resolved = [...(sub.merit_actions_resolved || [])];
+    while (resolved.length <= entry.actionIdx) resolved.push(null);
+    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    resolved[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { merit_actions_resolved: resolved });
+    sub.merit_actions_resolved = resolved;
+  }
+  // sorcery: review data covered by feature.44
+}
+
+/** Render the phase-ordered processing queue into the given container. */
+function renderProcessingMode(container) {
+  if (!submissions.length) {
+    container.innerHTML = '<p class="placeholder">No submissions in this cycle.</p>';
+    return;
+  }
+
+  const queue = buildProcessingQueue(submissions);
+  if (!queue.length) {
+    container.innerHTML = '<p class="placeholder">No actions found in this cycle.</p>';
+    return;
+  }
+
+  // Group by phase
+  const byPhase = new Map();
+  for (const entry of queue) {
+    if (!byPhase.has(entry.phase)) byPhase.set(entry.phase, []);
+    byPhase.get(entry.phase).push(entry);
+  }
+
+  let h = '<div class="proc-queue">';
+
+  for (const [phaseKey, entries] of byPhase) {
+    const label = PHASE_LABELS[phaseKey] || phaseKey;
+    h += `<div class="proc-phase-section">`;
+    h += `<div class="proc-phase-header">${esc(label)} <span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span></div>`;
+
+    for (const entry of entries) {
+      const isExpanded = procExpandedKey === entry.key;
+      const review = getEntryReview(entry);
+      const status = review?.pool_status || 'pending';
+      const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
+
+      h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+      h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
+      h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
+      h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+      h += `<span class="proc-row-status ${status}">${status === 'no_roll' ? 'No Roll' : status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+      h += '</div>';
+
+      if (isExpanded) {
+        h += renderActionPanel(entry, review);
+      }
+    }
+
+    h += '</div>'; // proc-phase-section
+  }
+
+  h += '</div>'; // proc-queue
+  container.innerHTML = h;
+
+  // Wire row clicks
+  container.querySelectorAll('.proc-action-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const key = row.dataset.procKey;
+      procExpandedKey = procExpandedKey === key ? null : key;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire validation status buttons (stop propagation so row click doesn't fire)
+  container.querySelectorAll('.proc-val-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const status = btn.dataset.status;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_status: status });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire pool_validated input (save on blur)
+  container.querySelectorAll('.proc-pool-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', async e => {
+      const key = inp.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_validated: inp.value.trim() });
+    });
+  });
+
+  // Wire player_feedback input (save on blur)
+  container.querySelectorAll('.proc-feedback-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', async e => {
+      const key = inp.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { player_feedback: inp.value.trim() });
+    });
+  });
+
+  // Wire add-note buttons
+  container.querySelectorAll('.proc-add-note-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const ta = container.querySelector(`.proc-note-textarea[data-proc-key="${key}"]`);
+      const text = ta ? ta.value.trim() : '';
+      if (!text) return;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const user = getUser();
+      const note = {
+        author_id: user?.id || '',
+        author_name: user?.global_name || user?.username || 'ST',
+        text,
+        created_at: new Date().toISOString(),
+      };
+      const review = getEntryReview(entry) || {};
+      const thread = [...(review.notes_thread || []), note];
+      await saveEntryReview(entry, { notes_thread: thread });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire re-tag selects
+  container.querySelectorAll('.proc-retag-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key = sel.dataset.procKey;
+      const newType = sel.value;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      // Save the new action_type on the appropriate resolved object
+      if (entry.source === 'project') {
+        const sub = submissions.find(s => s._id === entry.subId);
+        if (!sub) return;
+        const resolved = [...(sub.projects_resolved || [])];
+        while (resolved.length <= entry.actionIdx) resolved.push(null);
+        resolved[entry.actionIdx] = { ...(resolved[entry.actionIdx] || {}), action_type: newType };
+        await updateSubmission(entry.subId, { projects_resolved: resolved });
+        sub.projects_resolved = resolved;
+      }
+      procExpandedKey = null;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire open-sub links
+  container.querySelectorAll('.proc-open-sub-link').forEach(link => {
+    link.addEventListener('click', e => {
+      e.stopPropagation();
+      const subId = link.dataset.subId;
+      // Switch to per-character view and expand the relevant submission
+      processingMode = false;
+      procExpandedKey = null;
+      document.getElementById('dt-processing-btn').classList.remove('active');
+      expandedId = subId;
+      renderSubmissions();
+      // Scroll to submission card
+      setTimeout(() => {
+        const card = document.querySelector(`.dt-sub-card[data-id="${subId}"]`);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    });
+  });
+}
+
+/** Render the expanded detail panel for a single action row. */
+function renderActionPanel(entry, review) {
+  const rev = review || {};
+  const poolPlayer    = rev.pool_player    || entry.poolPlayer || '';
+  const poolValidated = rev.pool_validated || '';
+  const poolStatus    = rev.pool_status    || 'pending';
+  const thread        = rev.notes_thread   || [];
+  const feedback      = rev.player_feedback || '';
+
+  let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
+
+  // Full description if it was truncated
+  if (entry.description && entry.description.length > 80) {
+    h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
+  }
+
+  // Pool row
+  h += '<div class="proc-detail-grid">';
+  h += '<div class="proc-detail-col">';
+  h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+  h += `<div class="proc-detail-value">${esc(poolPlayer || '—')}</div>`;
+  h += '</div>';
+  h += '<div class="proc-detail-col">';
+  h += `<div class="proc-detail-label">ST Validated Pool</div>`;
+  h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
+  h += '</div>';
+  h += '</div>'; // proc-detail-grid
+
+  // Validation status
+  h += '<div style="margin-bottom:12px">';
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
+  h += '<div class="proc-val-status">';
+  for (const [val, label] of [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']]) {
+    h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
+  }
+  h += '</div>';
+  h += '</div>';
+
+  // Player feedback
+  h += '<div style="margin-bottom:12px">';
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Player Feedback</div>';
+  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Visible to player (pool correction reason, etc.)...">`;
+  h += '</div>';
+
+  // ST Notes thread
+  h += '<div style="margin-bottom:12px">';
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">ST Notes (ST only)</div>';
+  if (thread.length) {
+    h += '<div class="proc-notes-thread">';
+    for (const note of thread) {
+      const time = note.created_at
+        ? new Date(note.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '';
+      h += '<div class="proc-note-entry">';
+      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  \u00B7  ' + esc(time) : ''}</div>`;
+      h += `<div class="proc-note-text">${esc(note.text)}</div>`;
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+  h += '<div class="proc-note-add">';
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="2"></textarea>`;
+  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
+  h += '</div>';
+  h += '</div>';
+
+  // Re-tag action type (for project actions only)
+  if (entry.source === 'project') {
+    h += '<div class="proc-retag-row">';
+    h += '<span class="proc-detail-label" style="text-transform:none;letter-spacing:0">Re-tag action type:</span>';
+    h += `<select class="proc-retag-sel" data-proc-key="${esc(entry.key)}">`;
+    for (const type of ALL_ACTION_TYPES) {
+      h += `<option value="${type}"${type === entry.actionType ? ' selected' : ''}>${ACTION_TYPE_LABELS[type] || type}</option>`;
+    }
+    h += '</select>';
+    h += '</div>';
+  }
+
+  // Open full submission link
+  h += `<div style="margin-top:10px"><a class="proc-open-sub-link" data-sub-id="${esc(entry.subId)}">Open full submission for ${esc(entry.charName)}</a></div>`;
+
+  h += '</div>'; // proc-action-detail
+  return h;
 }
 
 // ── Narrative Output Authoring (Story 1.7) ───────────────────────────────────
@@ -1841,7 +2691,7 @@ async function buildExportMd(sub, char, questResp) {
 async function handleExportSingle(subId) {
   const sub = submissions.find(s => s._id === subId);
   if (!sub) return;
-  const char = findCharacter(sub.character_name);
+  const char = findCharacter(sub.character_name, sub.player_name);
   let questResp = null;
   if (char) {
     try { questResp = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
@@ -1857,14 +2707,14 @@ async function handleExportAll() {
   // Load all questionnaire responses in parallel
   const questMap = {};
   await Promise.all(sorted.map(async sub => {
-    const char = findCharacter(sub.character_name);
+    const char = findCharacter(sub.character_name, sub.player_name);
     if (char) {
       try { questMap[sub._id] = await apiGet(`/api/questionnaire?character_id=${char._id}`); } catch { /* none */ }
     }
   }));
   const parts = [];
   for (const sub of sorted) {
-    const char = findCharacter(sub.character_name);
+    const char = findCharacter(sub.character_name, sub.player_name);
     parts.push(await buildExportMd(sub, char, questMap[sub._id] || null));
   }
   const cycleLabel = allCycles.find(c => c._id === selectedCycleId)?.label || 'downtime';
@@ -2364,7 +3214,7 @@ function renderFeedingScene() {
   // Build a map from character _id → submission for quick lookup
   const subByCharId = new Map();
   for (const s of submissions) {
-    const char = findCharacter(s.character_name);
+    const char = findCharacter(s.character_name, s.player_name);
     if (char) subByCharId.set(String(char._id), s);
   }
 
@@ -2881,7 +3731,27 @@ function renderResolveBadge(roll) {
 // ── Project Resolution Panel (Story 1.2) ────────────────────────────────────
 
 function renderProjectsPanel(s, raw, char) {
-  const projects = raw.projects || [];
+  let projects = raw.projects || [];
+  // Fallback: construct project list from responses when _raw.projects is absent
+  // (happens when CSV data was mapped to responses but _raw wasn't restructured)
+  if (!projects.length && s.responses) {
+    for (let n = 1; n <= 4; n++) {
+      const action = s.responses[`project_${n}_action`];
+      if (!action) continue;
+      projects.push({
+        action_type: action,
+        action_type_raw: action,
+        project_name: s.responses[`project_${n}_title`] || null,
+        desired_outcome: s.responses[`project_${n}_outcome`] || '',
+        primary_pool: s.responses[`project_${n}_pool_expr`] ? { expression: s.responses[`project_${n}_pool_expr`] } : null,
+        secondary_pool: s.responses[`project_${n}_pool2_expr`] ? { expression: s.responses[`project_${n}_pool2_expr`] } : null,
+        characters: s.responses[`project_${n}_cast`] || null,
+        merits: s.responses[`project_${n}_merits`] || null,
+        xp_spend: s.responses[`project_${n}_xp`] || null,
+        detail: s.responses[`project_${n}_description`] || null,
+      });
+    }
+  }
   if (!projects.length) return '';
 
   const resolved = s.projects_resolved || [];
@@ -2898,14 +3768,22 @@ function renderProjectsPanel(s, raw, char) {
 
     h += `<div class="dt-proj-slot${isResolved ? ' dt-proj-resolved' : ' dt-proj-unresolved'}">`;
     h += `<div class="dt-proj-header">`;
-    h += `<span class="dt-proj-type">${esc(proj.action_type)}</span>`;
+    h += `<span class="dt-proj-type">${esc(proj.action_type_raw || proj.action_type)}</span>`;
     h += isResolved
       ? ` <span class="dt-proj-done-badge">\u2713 Resolved</span>`
       : ` <span class="dt-proj-pending-badge">\u26A0 Unresolved</span>`;
     h += '</div>';
 
-    if (proj.desired_outcome) h += `<div class="dt-proj-outcome"><em>Desired:</em> ${esc(proj.desired_outcome)}</div>`;
-    if (proj.description) h += `<div class="dt-proj-desc">${esc(proj.description)}</div>`;
+    // Structured fields extracted from description
+    if (proj.project_name) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Name:</span> ${esc(proj.project_name)}</div>`;
+    if (proj.desired_outcome) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Desired:</span> ${esc(proj.desired_outcome)}</div>`;
+    if (proj.characters) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Characters:</span> ${esc(proj.characters)}</div>`;
+    if (proj.primary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Primary Pool:</span> ${esc(proj.primary_pool.expression)}</div>`;
+    if (proj.secondary_pool?.expression) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Secondary Pool:</span> ${esc(proj.secondary_pool.expression)}</div>`;
+    if (proj.xp_spend != null) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">XP Spend:</span> ${esc(String(proj.xp_spend))}</div>`;
+    if (proj.merits) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Merits:</span> ${esc(proj.merits)}</div>`;
+    if (proj.bonuses) h += `<div class="dt-proj-field"><span class="dt-proj-lbl">Bonuses:</span> ${esc(proj.bonuses)}</div>`;
+    if (proj.detail) h += `<div class="dt-proj-desc">${esc(proj.detail)}</div>`;
 
     // Pool builder
     if (char) {

@@ -1,6 +1,6 @@
 # Story Fix.14: Remove Generic Free Dot Bucket
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

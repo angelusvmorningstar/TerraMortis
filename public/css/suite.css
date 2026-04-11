@@ -106,7 +106,7 @@ body{min-height:auto;}
 @keyframes dp{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
 .die.sd{background:var(--green6-a40);border:1px solid var(--green6-a70);color:var(--green4);}
 .die.fd{background:var(--surf2-a8);border:1px solid var(--bdr);color:var(--txt3);}
-.die.ed{background:var(--info4-a30);border:1px solid var(--info4-a60);color:var(--info2);}
+.die.ed{font-size:11px;}
 .die.xd{border-color:var(--gdim);}
 .die.cd{background:var(--crim3-a30);border:1px solid var(--crim3-a60);color:var(--err);}
 .dcol{display:flex;flex-direction:column;align-items:center;gap:2px;}

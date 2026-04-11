@@ -1,6 +1,6 @@
 # Story Fix.15: Bloodline Grant Refactor
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

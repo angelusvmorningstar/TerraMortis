@@ -62,7 +62,7 @@ function renderCity(container) {
 
 function renderCourt() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
-  const titled = active.filter(c => c.court_title).sort((a, b) => {
+  const titled = active.filter(c => c.court_title && c.court_title !== 'Regent').sort((a, b) => {
     const ai = TITLE_ORDER.indexOf(a.court_title);
     const bi = TITLE_ORDER.indexOf(b.court_title);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || sortName(a).localeCompare(sortName(b));
@@ -295,7 +295,39 @@ function renderTerritories() {
     h += `</button>`;
 
     if (open) {
+      const regentId = td?.regent_id || '';
+      const ltId = td?.lieutenant_id || '';
       h += `<div class="terr-expand">`;
+
+      // Regent / Lieutenant inline edit
+      h += `<div class="terr-rl-section">`;
+      h += `<div class="terr-edit-row">`;
+      h += `<label class="terr-edit-lbl">Regent</label>`;
+      h += `<select class="terr-edit-sel" data-terr-role="regent" data-terr-id="${esc(t.id)}">`;
+      h += '<option value="">— Vacant —</option>';
+      for (const c of active) {
+        const sel = regentId === String(c._id) ? ' selected' : '';
+        h += `<option value="${esc(String(c._id))}"${sel}>${esc(displayNameRaw(c))}</option>`;
+      }
+      h += '</select>';
+      h += `</div>`;
+      h += `<div class="terr-edit-row">`;
+      h += `<label class="terr-edit-lbl">Lieutenant</label>`;
+      h += `<select class="terr-edit-sel" data-terr-role="lieutenant" data-terr-id="${esc(t.id)}">`;
+      h += '<option value="">— None —</option>';
+      for (const c of active) {
+        const sel = ltId === String(c._id) ? ' selected' : '';
+        h += `<option value="${esc(String(c._id))}"${sel}>${esc(displayNameRaw(c))}</option>`;
+      }
+      h += '</select>';
+      h += `</div>`;
+      h += `<div class="terr-rl-actions">`;
+      h += `<button class="city-save-btn" data-terr-rl-save="${esc(t.id)}">Save</button>`;
+      h += `<span class="city-save-status" id="terr-rl-status-${esc(t.id)}"></span>`;
+      h += `</div>`;
+      h += `</div>`;
+
+      // Feeding Rights
       h += `<div class="terr-feed-section">`;
       h += `<div class="terr-feed-label">Feeding Rights</div>`;
       h += `<div class="terr-feed-list" id="terr-feed-list-${esc(t.id)}">${renderFeedingChips(t.id)}</div>`;
@@ -314,39 +346,6 @@ function renderTerritories() {
     h += `</div>`;
   }
 
-  // Edit section
-  h += '<button class="city-edit-toggle" id="terr-edit-toggle">Edit Regents &amp; Lieutenants</button>';
-  h += '<div class="terr-edit-panel" id="terr-edit-panel" style="display:none">';
-  for (const t of TERRITORIES) {
-    const td = _terrDoc(t.id);
-    const regentId = td?.regent_id || '';
-    const ltId = td?.lieutenant_id || '';
-    h += `<div class="terr-edit-block" data-territory="${esc(t.id)}">`;
-    h += `<div class="terr-edit-name">${esc(t.name)}</div>`;
-    h += '<div class="terr-edit-row">';
-    h += '<label>Regent:</label>';
-    h += `<select class="terr-edit-sel" data-terr-role="regent" data-terr-id="${esc(t.id)}">`;
-    h += '<option value="">— Vacant —</option>';
-    for (const c of active) {
-      const sel = regentId === String(c._id) ? ' selected' : '';
-      h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
-    }
-    h += '</select></div>';
-
-    h += '<div class="terr-edit-row">';
-    h += '<label>Lieutenant:</label>';
-    h += `<select class="terr-edit-sel" data-terr-role="lieutenant" data-terr-id="${esc(t.id)}">`;
-    h += '<option value="">— None —</option>';
-    for (const c of active) {
-      const sel = ltId === String(c._id) ? ' selected' : '';
-      h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
-    }
-    h += '</select></div>';
-    h += '</div>';
-  }
-  h += '<button class="city-save-btn" id="terr-save">Save Territories</button>';
-  h += '<span class="city-save-status" id="terr-save-status"></span>';
-  h += '</div>';
 
   return h;
 }
@@ -365,14 +364,6 @@ function wireEvents(container) {
   // Court save
   container.querySelector('#court-save')?.addEventListener('click', saveCourt);
 
-  // Territory edit toggle
-  container.querySelector('#terr-edit-toggle')?.addEventListener('click', () => {
-    const panel = document.getElementById('terr-edit-panel');
-    panel.style.display = panel.style.display === 'none' ? '' : 'none';
-  });
-
-  // Territory save
-  container.querySelector('#terr-save')?.addEventListener('click', saveTerritories);
 
   // Prestige view switcher
   container.querySelectorAll('[data-prestige-view]').forEach(btn => {
@@ -434,6 +425,13 @@ function wireEvents(container) {
     const saveBtn = e.target.closest('[data-terr-feed-save]');
     if (saveBtn) {
       saveFeedingRights(saveBtn.dataset.terrFeedSave);
+      return;
+    }
+
+    // Save regent / lieutenant for a single territory
+    const rlSaveBtn = e.target.closest('[data-terr-rl-save]');
+    if (rlSaveBtn) {
+      saveTerritory(rlSaveBtn.dataset.terrRlSave);
       return;
     }
   });
@@ -512,33 +510,25 @@ async function saveCourt() {
   }
 }
 
-async function saveTerritories() {
-  const status = document.getElementById('terr-save-status');
+async function saveTerritory(terrId) {
+  const status = document.getElementById('terr-rl-status-' + terrId);
+  const regSel = document.querySelector(`[data-terr-role="regent"][data-terr-id="${terrId}"]`);
+  const ltSel = document.querySelector(`[data-terr-role="lieutenant"][data-terr-id="${terrId}"]`);
+  const regentId = regSel?.value || null;
+  const lieutenantId = ltSel?.value || null;
 
   try {
-    // Write regent_id / lieutenant_id to each territory document
-    for (const t of TERRITORIES) {
-      const regSel = document.querySelector(`[data-terr-role="regent"][data-terr-id="${t.id}"]`);
-      const ltSel = document.querySelector(`[data-terr-role="lieutenant"][data-terr-id="${t.id}"]`);
-      const regentId = regSel?.value || null;
-      const lieutenantId = ltSel?.value || null;
+    await apiPost('/api/territories', { id: terrId, regent_id: regentId, lieutenant_id: lieutenantId });
 
-      await apiPost('/api/territories', {
-        id: t.id,
-        regent_id: regentId,
-        lieutenant_id: lieutenantId,
-      });
+    // Update local cache
+    const idx = terrDocs.findIndex(d => d.id === terrId);
+    const patch = { id: terrId, regent_id: regentId, lieutenant_id: lieutenantId };
+    if (idx >= 0) Object.assign(terrDocs[idx], patch);
+    else terrDocs.push(patch);
 
-      // Update local cache
-      const idx = terrDocs.findIndex(d => d.id === t.id);
-      const patch = { id: t.id, regent_id: regentId, lieutenant_id: lieutenantId };
-      if (idx >= 0) Object.assign(terrDocs[idx], patch);
-      else terrDocs.push(patch);
-    }
-
-    if (status) status.textContent = 'Saved';
-    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
-    renderCity(document.getElementById('city-content'));
+    if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+    // Refresh card header to show updated name
+    patchTerritories(document.getElementById('city-content'));
   } catch (err) {
     if (status) status.textContent = 'Failed: ' + err.message;
   }

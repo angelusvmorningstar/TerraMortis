@@ -523,13 +523,21 @@ export function shRenderDisciplines(c, editMode) {
         const tradSel = trads.length > 1
           ? '<select id="rite-add-trad" class="gen-qual-input" style="width:90px" onchange="shRefreshRiteDropdown(this.value)">' + trads.map(t => '<option>' + t + '</option>').join('') + '</select>'
           : '<span style="font-size:11px;color:rgba(220,160,120,.9);padding:0 4px">' + trads[0] + '</span><input type="hidden" id="rite-add-trad" value="' + trads[0] + '">';
-        const nameSel = '<select id="rite-add-name" class="gen-qual-input" style="flex:1;min-width:140px">'
-          + (availRites.length
-            ? '<option value="" data-rank="" disabled selected>\u2014 select rite \u2014</option>'
-              + availRites.map(r => '<option value="' + esc(r.name) + '" data-rank="' + r.rank + '">' + '\u25CF'.repeat(r.rank) + ' ' + esc(r.name) + '</option>').join('')
-            : '<option value="" disabled selected>\u2014 loading\u2026 \u2014</option>')
-          + '</select>';
-        const addOnclick = '(function(){var s=document.getElementById(\'rite-add-name\');var n=s.value;var lv=+(s.options[s.selectedIndex]?.dataset?.rank||1);if(n)shAddRite(document.getElementById(\'rite-add-trad\').value,n,lv);})()';
+        let nameSel, addOnclick;
+        if (availRites.length) {
+          nameSel = '<select id="rite-add-name" class="gen-qual-input" style="flex:1;min-width:140px">'
+            + '<option value="" data-rank="" disabled selected>\u2014 select rite \u2014</option>'
+            + availRites.map(r => '<option value="' + esc(r.name) + '" data-rank="' + r.rank + '">' + '\u25CF'.repeat(r.rank) + ' ' + esc(r.name) + '</option>').join('')
+            + '</select>';
+          addOnclick = '(function(){var s=document.getElementById(\'rite-add-name\');var n=s.value;var lv=+(s.options[s.selectedIndex]?.dataset?.rank||1);if(n)shAddRite(document.getElementById(\'rite-add-trad\').value,n,lv);})()';
+        } else {
+          // Rites DB not loaded or empty — fall back to free-text + level selector
+          nameSel = '<input type="text" id="rite-add-name" class="gen-qual-input" style="flex:1;min-width:140px" placeholder="Rite name">'
+            + '<select id="rite-add-level" class="gen-qual-input" style="width:50px">'
+            + [1,2,3,4,5].map(n => '<option value="' + n + '">' + n + '</option>').join('')
+            + '</select>';
+          addOnclick = '(function(){var n=document.getElementById(\'rite-add-name\').value.trim();var lv=+document.getElementById(\'rite-add-level\').value;if(n)shAddRite(document.getElementById(\'rite-add-trad\').value,n,lv);})()';
+        }
         h += '<div class="dev-add-row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' + nameSel + tradSel + '<button class="dev-add-btn" onclick="' + addOnclick + '">+ Add</button></div>';
       }
     }
@@ -1446,7 +1454,7 @@ export function renderSheet(c, target = null) {
   state.openExpId = null;
   const el = target || document.getElementById('sh-content');
   if (!c) { el.innerHTML = ''; return; }
-  applyDerivedMerits(c); ensureMeritSync(c);
+  applyDerivedMerits(c, chars); ensureMeritSync(c);
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '', st = c.status || {}, wp = getWillpower(c);
   const clanImg = ICONS[CLAN_ICON_KEY[c.clan] || ''] || '', covImg = ICONS[COV_ICON_KEY[c.covenant] || ''] || '';
   const allB = c.banes || [], curseIdx = allB.findIndex(b => b.name.toLowerCase().includes('curse')), curse = curseIdx >= 0 ? allB[curseIdx] : null, regB = allB.filter((_, i) => i !== curseIdx);

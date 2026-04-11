@@ -48,7 +48,7 @@ import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool,
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
-import { printSheet } from './editor/print.js';
+import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
 // ══════════════════════════════════════════════
@@ -62,7 +62,8 @@ import {
   handleDtImport as _handleDtImport,
   setImportCallbacks,
 } from './suite/import.js';
-import { loadCharsFromApi, sanitiseChar, loadRulesFromApi } from './data/loader.js';
+import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
+import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
@@ -248,7 +249,10 @@ async function loadAllData() {
     editorState.chars = [];
   }
 
-  // 1b. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
+  // 1b. Load game session XP (attendance-based) — same as admin/player portal
+  await loadGameXP(editorState.chars).catch(() => {});
+
+  // 1c. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
   editorState.chars.forEach(c => applyDerivedMerits(c));
 
   // 2. Copy to suite state
@@ -366,25 +370,34 @@ function openPanel(mode) {
     if (!suiteState.rollChar) {
       body.innerHTML = '<div class="hempty" style="padding:24px 16px;">Select a character first</div>';
     } else {
-      const powers = suiteState.rollChar.powers || [];
-      const groups = {};
-      powers.forEach(p => {
-        const lookupKey = p.name || '';
-        const pi = getPool(suiteState.rollChar, lookupKey);
-        const disc = p.discipline || p.category || 'Other';
-        if (!groups[disc]) groups[disc] = [];
-        const dispName = p.name || '';
-        groups[disc].push({ raw: lookupKey, disp: dispName, pi });
-      });
+      const c = suiteState.rollChar;
+      const allRules = getRulesByCategory('discipline');
 
-      Object.entries(groups).forEach(([disc, items]) => {
+      // Derive discipline powers from the rules cache (same as the editor sheet).
+      // For each discipline the character has dots in, show powers up to that rank.
+      const discEntries = Object.entries(c.disciplines || {})
+        .filter(([, v]) => (v?.dots || 0) > 0)
+        .sort(([a], [b]) => a.localeCompare(b));
+
+      for (const [disc, v] of discEntries) {
+        const dots = v.dots || 0;
+        const ruledPowers = allRules
+          .filter(r => r.parent === disc && r.rank != null && r.rank <= dots)
+          .sort((a, b) => a.rank - b.rank);
+        // Fall back to stored c.powers if no rules exist for this discipline
+        const powers = ruledPowers.length
+          ? ruledPowers.map(r => ({ name: r.name, discipline: disc }))
+          : (c.powers || []).filter(p => p.category === 'discipline' && p.discipline === disc);
+
+        if (!powers.length) continue;
         const sec = document.createElement('div');
         sec.className = 'panel-section';
-        sec.textContent = disc;
+        sec.textContent = disc + ' (' + dots + ')';
         body.appendChild(sec);
-        items.forEach(({ raw, disp, pi }) => {
-          const el = document.createElement('div');
-          el.className = 'panel-item';
+
+        for (const p of powers) {
+          const lookupKey = p.name || '';
+          const pi = getPool(c, lookupKey);
           const hasRoll = pi && !pi.noRoll && pi.total !== undefined;
           let poolEl = '<div class="pi-pool nr">\u2014</div>';
           if (hasRoll) poolEl = '<div class="pi-pool">' + pi.total + '</div>';
@@ -392,14 +405,43 @@ function openPanel(mode) {
           if (hasRoll) subStr = pi.attr + ' + ' + pi.skill + (pi.resistance ? ' \u00B7 vs ' + pi.resistance : '');
           else if (pi && pi.noRoll && pi.info && pi.info.c) subStr = 'Cost: ' + pi.info.c;
           else if (pi && pi.info && pi.info.c) subStr = 'Cost: ' + pi.info.c;
-          el.innerHTML = '<div><div class="pi-main">' + disp + '</div>' + (subStr ? '<div class="pi-sub">' + subStr + '</div>' : '') + '</div>' + poolEl;
+          const el = document.createElement('div');
+          el.className = 'panel-item';
+          el.innerHTML = '<div><div class="pi-main">' + lookupKey + '</div>' + (subStr ? '<div class="pi-sub">' + subStr + '</div>' : '') + '</div>' + poolEl;
           el.addEventListener('click', () => {
-            if (hasRoll) { loadPool(pi.total, disp, pi); }
-            else { toast(disp + ' \u2014 no roll'); closePanel(); }
+            if (hasRoll) { loadPool(pi.total, lookupKey, pi); }
+            else { toast(lookupKey + ' \u2014 no roll'); closePanel(); }
           });
           body.appendChild(el);
-        });
-      });
+        }
+      }
+
+      // Also show devotions and rites from c.powers (these are character-specific picks)
+      const otherPowers = (c.powers || []).filter(p => p.category === 'devotion' || p.category === 'rite');
+      if (otherPowers.length) {
+        const sec = document.createElement('div');
+        sec.className = 'panel-section';
+        sec.textContent = 'Devotions & Rites';
+        body.appendChild(sec);
+        for (const p of otherPowers) {
+          const lookupKey = p.name || '';
+          const pi = getPool(c, lookupKey);
+          const hasRoll = pi && !pi.noRoll && pi.total !== undefined;
+          let poolEl = '<div class="pi-pool nr">\u2014</div>';
+          if (hasRoll) poolEl = '<div class="pi-pool">' + pi.total + '</div>';
+          let subStr = '';
+          if (hasRoll) subStr = pi.attr + ' + ' + pi.skill + (pi.resistance ? ' \u00B7 vs ' + pi.resistance : '');
+          else if (pi && pi.noRoll && pi.info && pi.info.c) subStr = 'Cost: ' + pi.info.c;
+          const el = document.createElement('div');
+          el.className = 'panel-item';
+          el.innerHTML = '<div><div class="pi-main">' + lookupKey + '</div>' + (subStr ? '<div class="pi-sub">' + subStr + '</div>' : '') + '</div>' + poolEl;
+          el.addEventListener('click', () => {
+            if (hasRoll) { loadPool(pi.total, lookupKey, pi); }
+            else { toast(lookupKey + ' \u2014 no roll'); closePanel(); }
+          });
+          body.appendChild(el);
+        }
+      }
     }
   } else if (mode === 'common') {
     title.textContent = 'Common Actions';
@@ -504,6 +546,8 @@ Object.assign(window, {
   // Editor sheet view (prefixed where needed)
   editFromSheet,
   printSheet,
+  printPDF,
+  exportJSON,
   renderSheet: editorRenderSheet,
   toggleExp: editorToggleExp,
   toggleDisc: editorToggleDisc,

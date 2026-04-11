@@ -97,15 +97,95 @@ function feedingStatus(v) {
   return s || null;
 }
 
+/**
+ * Extract the canonical action type from the composite Google Forms value.
+ * e.g. "XP Spend: Grow your character 🌱" → "xp_spend"
+ *      "Ambience Change (Increase): Make a Territory delicious 😄" → "ambience_increase"
+ */
+function normaliseActionType(raw) {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (/^xp spend/i.test(s))                    return 'xp_spend';
+  if (/^ambience.*increase/i.test(s))           return 'ambience_increase';
+  if (/^ambience.*decrease/i.test(s))           return 'ambience_decrease';
+  if (/^attack/i.test(s))                       return 'attack';
+  if (/^feed/i.test(s))                         return 'feed';
+  if (/^hide|^protect/i.test(s))                return 'hide_protect';
+  if (/^investigate/i.test(s))                   return 'investigate';
+  if (/^patrol|^scout/i.test(s))                return 'patrol_scout';
+  if (/^support/i.test(s))                       return 'support';
+  if (/^misc/i.test(s))                          return 'misc';
+  if (/^no action/i.test(s))                     return null;
+  return s.split(':')[0].trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+/**
+ * Parse structured Key: Value pairs from a project description field.
+ * Players use a semi-structured format with lines like:
+ *   Project Name: Very Very Sneaky
+ *   Characters: ME
+ *   XP SPEND: 3
+ *   Merits: Safe Place 1
+ *   Description: ...
+ *
+ * Keys are normalised to lowercase. Unkeyed trailing text becomes 'detail'.
+ */
+function parseDescriptionFields(raw) {
+  if (!raw) return {};
+  const result = {};
+  const lines = raw.split('\n');
+  let lastKey = null;
+
+  for (const line of lines) {
+    const kv = line.match(/^\s*(project name|name|characters?|cast|xp\s*spend|xp|merits?|bonuses?|desc(?:ription)?)\s*:\s*(.*)/i);
+    if (kv) {
+      let key = kv[1].trim().toLowerCase()
+        .replace(/^project name$/, 'project_name')
+        .replace(/^characters?$/, 'characters')
+        .replace(/^cast$/, 'characters')
+        .replace(/^xp\s*spend$/, 'xp_spend')
+        .replace(/^merits?$/, 'merits')
+        .replace(/^bonuses?$/, 'bonuses')
+        .replace(/^desc(ription)?$/, 'detail');
+      result[key] = (kv[2] || '').trim();
+      lastKey = key;
+    } else if (lastKey === 'detail') {
+      // Continuation of the detail/description block
+      result.detail = (result.detail || '') + '\n' + line;
+    } else if (line.trim()) {
+      // Unkeyed text — append to detail
+      result.detail = (result.detail || '') + '\n' + line;
+    }
+  }
+
+  // Clean up
+  if (result.detail) result.detail = result.detail.trim();
+  if (result.xp_spend) {
+    const n = parseInt(result.xp_spend, 10);
+    result.xp_spend = isNaN(n) ? result.xp_spend : n;
+  }
+  return result;
+}
+
 function parseProject(cols, offset) {
-  const actionType = str(cols[offset]);
-  if (!actionType || /no action taken/i.test(actionType)) return null;
+  const actionTypeRaw = str(cols[offset]);
+  if (!actionTypeRaw || /no action taken/i.test(actionTypeRaw)) return null;
+  const descRaw = str(cols[offset + 4]) || '';
+  const parsed = parseDescriptionFields(descRaw);
   return {
-    action_type: actionType,
+    action_type: normaliseActionType(actionTypeRaw),
+    action_type_raw: actionTypeRaw,
     primary_pool: parseDicePool(cols[offset + 1]),
     secondary_pool: parseDicePool(cols[offset + 2]),
     desired_outcome: str(cols[offset + 3]) || '',
-    description: str(cols[offset + 4]) || '',
+    description: descRaw,
+    // Extracted structured fields from description
+    project_name: parsed.project_name || parsed.name || null,
+    characters: parsed.characters || null,
+    xp_spend: parsed.xp_spend || null,
+    merits: parsed.merits || null,
+    bonuses: parsed.bonuses || null,
+    detail: parsed.detail || null,
   };
 }
 

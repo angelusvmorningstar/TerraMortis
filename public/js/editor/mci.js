@@ -15,7 +15,7 @@ import { BLOODLINE_GRANTS } from '../data/constants.js';
  */
 const MCI_TIER_BUDGETS = [0, 1, 1, 2, 3, 3]; // index = tier number (1-5), 0 unused
 
-export function applyDerivedMerits(c) {
+export function applyDerivedMerits(c, allChars = []) {
   if (!c) return;
 
   // Strip any legacy derived merits (migration cleanup)
@@ -289,6 +289,57 @@ export function applyDerivedMerits(c) {
     // No OHM — remove auto-granted FHP if present
     const fhpIdx = (c.merits || []).findIndex(m => m.name === 'Friends in High Places' && m.granted_by === 'OHM');
     if (fhpIdx !== -1) c.merits.splice(fhpIdx, 1);
+  }
+
+  // ── Safe Word: grant partner's shared_merit as free_sw dots ──
+  (c.merits || []).forEach(m => { m.free_sw = 0; });
+  const _swPact = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the safe word');
+  if (_swPact && _swPact.partner) {
+    const _swPartner = allChars.find(ch => ch.name === _swPact.partner);
+    const _swActive = _swPartner && (_swPartner.powers || []).some(p =>
+      p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the safe word' && p.partner === c.name
+    );
+    if (_swActive) {
+      const _partnerPact = (_swPartner.powers || []).find(p =>
+        p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the safe word'
+      );
+      const _smStr = (_partnerPact && _partnerPact.shared_merit ? _partnerPact.shared_merit : '').trim();
+      if (_smStr) {
+        const _parenM = _smStr.match(/^(.+?)\s*\((.+)\)$/);
+        const _mName = _parenM ? _parenM[1].trim() : _smStr;
+        const _mArea = _parenM ? _parenM[2].trim() : '';
+        const _pm = (_swPartner.merits || []).find(m =>
+          m.name === _mName &&
+          (!_mArea || (m.area || '').toLowerCase() === _mArea.toLowerCase() ||
+                      (m.qualifier || '').toLowerCase() === _mArea.toLowerCase())
+        );
+        // Grant = partner's own dots only (cp + xp + free_* excluding free_sw to prevent circular)
+        const _gr = _pm ? ((_pm.cp||0)+(_pm.free_bloodline||0)+(_pm.free_pet||0)+(_pm.free_mci||0)+
+          (_pm.free_vm||0)+(_pm.free_lk||0)+(_pm.free_ohm||0)+(_pm.free_inv||0)+
+          (_pm.free_pt||0)+(_pm.free_mdb||0)+(_pm.xp||0)) : 0;
+        if (_gr > 0) {
+          let _rm = (c.merits || []).find(m =>
+            m.name === _mName && m.granted_by === 'Safe Word' &&
+            (!_mArea || (m.area || '').toLowerCase() === _mArea.toLowerCase())
+          );
+          if (!_rm) {
+            if (!c.merits) c.merits = [];
+            _rm = { name: _mName, category: 'influence', granted_by: 'Safe Word', cp: 0, xp: 0, free_sw: 0 };
+            if (_mArea) _rm.area = _mArea;
+            c.merits.push(_rm);
+          }
+          _rm.free_sw = _gr;
+        }
+      }
+    } else {
+      // Oath no longer active — remove auto-created SW merit if it has no own dots
+      const _swIdx = (c.merits || []).findIndex(m =>
+        m.granted_by === 'Safe Word' &&
+        !(m.cp) && !(m.xp) && !(m.free_mci) && !(m.free_vm) && !(m.free_bloodline) &&
+        !(m.free_pet) && !(m.free_lk) && !(m.free_ohm) && !(m.free_inv) && !(m.free_pt) && !(m.free_mdb)
+      );
+      if (_swIdx !== -1) c.merits.splice(_swIdx, 1);
+    }
   }
 
   // ── Invested grant pool (Herd/Mentor/Resources/Retainer = Invictus Status dots) ──

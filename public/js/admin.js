@@ -7,12 +7,12 @@ import { auditCharacter } from './data/audit.js';
 import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
-import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
+import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo } from './auth/discord.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, devLogin } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
@@ -59,7 +59,7 @@ import {
   clickSkillDot, toggleNineAgain, adjSkillBonus, updSkillSpec,
   registerCallbacks as registerAttrsCallbacks
 } from './editor/attrs-tab.js';
-import { printSheet } from './editor/print.js';
+import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import editorState from './data/state.js';
 
 const CLANS = ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue'];
@@ -128,6 +128,14 @@ async function boot() {
 
   loginScreen.style.display = '';
   document.getElementById('login-btn').addEventListener('click', login);
+
+  if (location.hostname === 'localhost') {
+    const devBtn = document.createElement('button');
+    devBtn.textContent = 'Dev Preview (local only)';
+    devBtn.style.cssText = 'margin-top:12px;padding:8px 16px;background:#333;color:#aaa;border:1px solid #555;border-radius:4px;cursor:pointer;font-size:12px;width:100%';
+    devBtn.addEventListener('click', () => { devLogin(); location.reload(); });
+    document.querySelector('.login-box').appendChild(devBtn);
+  }
 }
 
 function renderSidebarUser() {
@@ -211,6 +219,12 @@ document.getElementById('sidebar').addEventListener('click', e => {
   });
 }
 
+// ── Dev-mode: hide sensitive admin panels ──
+if (isRedactMode()) {
+  document.querySelector('.sidebar-btn[data-domain="downtime"]')?.remove();
+  document.getElementById('d-downtime')?.remove();
+}
+
 // ── Audit badges: error + warning icons with counts and hover breakdown ──
 
 function _auditBadges(audit) {
@@ -233,7 +247,7 @@ function _auditBadges(audit) {
 // ── Character alert checks ──
 
 function charAlerts(c) {
-  applyDerivedMerits(c);
+  applyDerivedMerits(c, chars);
   let red = false, yellow = false;
 
   // XP overspend
@@ -377,7 +391,8 @@ function openCharDetail(c) {
       <div class="cd-header-actions">
         <span class="cd-dirty-badge" id="cd-dirty-badge" style="display:none">Unsaved</span>
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
-        <button class="dt-btn" id="cd-print">Print</button>
+        <button class="dt-btn" id="cd-print">PDF</button>
+        <button class="dt-btn" id="cd-export-json">JSON</button>
         <button class="dt-btn" id="cd-save-api" style="display:none">Save to DB</button>
         <a class="dt-btn cd-player-view" href="player.html" id="cd-player-view">Player View</a>
         <button class="dt-btn" id="cd-archive">Archive</button>
@@ -392,7 +407,8 @@ function openCharDetail(c) {
   renderSheet(c);
 
   document.getElementById('cd-close').addEventListener('click', closeCharDetail);
-  document.getElementById('cd-print').addEventListener('click', () => printSheet());
+  document.getElementById('cd-print').addEventListener('click', () => printPDF());
+  document.getElementById('cd-export-json').addEventListener('click', () => exportJSON());
   document.getElementById('cd-edit-toggle').addEventListener('click', () => {
     editorState.editMode = !editorState.editMode;
     const btn = document.getElementById('cd-edit-toggle');
@@ -797,8 +813,11 @@ async function init() {
   // Load rules data (purchasable powers) — non-blocking, cached.
   // After load completes, refresh the rite name dropdown if the editor is open.
   loadRulesFromApi().then(() => {
-    const tradEl = document.getElementById('rite-add-trad');
-    if (tradEl) shRefreshRiteDropdown(tradEl.value || (tradEl.options && tradEl.options[0] ? tradEl.options[0].value : ''));
+    // If a character is open in edit mode, re-render to replace the fallback rite input
+    // with the proper dropdown now that rules are available.
+    if (editorState.editIdx >= 0 && editorState.editMode) {
+      renderSheet(chars[editorState.editIdx]);
+    }
   }).catch(() => {});
 
   try {
