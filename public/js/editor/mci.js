@@ -182,6 +182,11 @@ export function applyDerivedMerits(c) {
 
   // ── PT grant pools ──
   const pts = (c.merits || []).filter(m => m.name === 'Professional Training');
+  // Sync PT rating from inline creation fields before applying grants (mirrors MCI early sync)
+  for (const pt of pts) {
+    const _ptInlineTotal = (pt.cp || 0) + (pt.xp || 0) + (pt.free || 0);
+    if (_ptInlineTotal > 0) pt.rating = _ptInlineTotal;
+  }
   for (const pt of pts) {
     const dots = pt.rating || 0;
     const role = pt.role || '';
