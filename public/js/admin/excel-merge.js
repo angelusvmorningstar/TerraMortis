@@ -60,12 +60,12 @@ export function mergeExcelOntoCharacter(existing, excel) {
   if (!c.attributes) c.attributes = {};
   for (const [attr, pts] of Object.entries(excel.attributes)) {
     const ao = c.attributes[attr] || { dots: 1, bonus: 0 };
-    const oldCp = ao.cp || 0, oldXp = ao.xp || 0, oldFree = ao.free || 0;
-    ao.cp = pts.cp; ao.xp = pts.xp; ao.free = pts.free;
+    const oldCp = ao.cp || 0, oldXp = ao.xp || 0;
+    ao.cp = pts.cp; ao.xp = pts.xp;
     ao.rule_key = ao.rule_key || ruleKey('attribute', attr);
     c.attributes[attr] = ao;
-    if (oldCp !== pts.cp || oldXp !== pts.xp || oldFree !== pts.free) {
-      changes.push({ section: 'Attributes', field: attr, old: `${oldCp}/${oldFree}/${oldXp}`, new: `${pts.cp}/${pts.free}/${pts.xp}` });
+    if (oldCp !== pts.cp || oldXp !== pts.xp) {
+      changes.push({ section: 'Attributes', field: attr, old: `${oldCp}/${oldXp}`, new: `${pts.cp}/${pts.xp}` });
     }
   }
 
@@ -73,12 +73,12 @@ export function mergeExcelOntoCharacter(existing, excel) {
   if (!c.skills) c.skills = {};
   for (const [skill, pts] of Object.entries(excel.skills)) {
     const so = c.skills[skill] || { dots: 0, bonus: 0, specs: [], nine_again: false };
-    const oldCp = so.cp || 0, oldXp = so.xp || 0, oldFree = so.free || 0;
-    so.cp = pts.cp; so.xp = pts.xp; so.free = pts.free;
+    const oldCp = so.cp || 0, oldXp = so.xp || 0;
+    so.cp = pts.cp + (pts.free || 0); so.xp = pts.xp;
     so.rule_key = so.rule_key || ruleKey('skill', skill);
     c.skills[skill] = so;
-    if (oldCp !== pts.cp || oldXp !== pts.xp || oldFree !== pts.free) {
-      changes.push({ section: 'Skills', field: skill, old: `${oldCp}/${oldFree}/${oldXp}`, new: `${pts.cp}/${pts.free}/${pts.xp}` });
+    if (oldCp !== so.cp || oldXp !== pts.xp) {
+      changes.push({ section: 'Skills', field: skill, old: `${oldCp}/${oldXp}`, new: `${so.cp}/${pts.xp}` });
     }
   }
 
@@ -87,7 +87,7 @@ export function mergeExcelOntoCharacter(existing, excel) {
   for (const [disc, pts] of Object.entries(excel.disciplines)) {
     const dObj = typeof c.disciplines[disc] === 'object' ? c.disciplines[disc] : { dots: c.disciplines[disc] || 0 };
     const oldCp = dObj.cp || 0, oldXp = dObj.xp || 0, oldFree = dObj.free || 0;
-    dObj.cp = pts.cp; dObj.xp = pts.xp; dObj.free = pts.free;
+    dObj.cp = pts.cp + (pts.free || 0); dObj.xp = pts.xp;
     dObj.rule_key = dObj.rule_key ?? null;
     c.disciplines[disc] = dObj;
     if (oldCp !== pts.cp || oldXp !== pts.xp || oldFree !== pts.free) {
@@ -179,7 +179,7 @@ export function mergeExcelOntoCharacter(existing, excel) {
 
 function applyMeritPoints(merit, pts, changes, label) {
   const oldCp = merit.cp || 0, oldXp = merit.xp || 0, oldFree = merit.free || 0;
-  merit.cp = pts.cp; merit.xp = pts.xp; merit.free = pts.free;
+  merit.cp = pts.cp + (pts.free || 0); merit.xp = pts.xp;
   if (oldCp !== pts.cp || oldXp !== pts.xp || oldFree !== pts.free) {
     changes.push({ section: 'Merits', field: label, old: `${oldCp}/${oldFree}/${oldXp}`, new: `${pts.cp}/${pts.free}/${pts.xp}` });
   }

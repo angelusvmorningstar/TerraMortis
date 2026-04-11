@@ -148,23 +148,20 @@ export function auditCharacter(c) {
   if (!c.dirge) warnings.push({ gate: 'no_dirge', message: 'Dirge not set' });
 
   // ── MCI allocation ──
-  // Each MCI has 5 tiers (capped at the merit's rating). Tiers 2 and 4 always
-  // grant merits; tiers 1, 3 and 5 grant either merits or an alternative
-  // (specialisation, skill dot, advantage) depending on dotN_choice. Every
-  // grant tier needs a fully-specified entry: a tier_grants record (with
-  // qualifier where required) for merit grants, or the dotN_skill / dotN_text
-  // fields for the alternates. Anything missing is a hard error.
+  // MCI is pool-based: applyDerivedMerits computes a total dot pool from the
+  // MCI's rating and dotN_choice values. tier_grants is optional metadata and
+  // is not required for the pool to function. Only validate: tier_grants entries
+  // that exist do not exceed their budget, and dotN_choice fields are set for
+  // tiers that require a choice.
   const MCI_TIER_BUDGET = [0, 1, 1, 2, 3, 3];
   for (const m of (c.merits || [])) {
     if (m.name !== 'Mystery Cult Initiation' || m.active === false) continue;
     const rating = m.rating || 0;
     if (rating === 0) continue;
-    const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
     const tg = m.tier_grants || [];
-    const tgByTier = new Map(tg.map(g => [g.tier, g]));
     const cultLbl = m.cult_name ? ` (${m.cult_name})` : '';
 
-    // Tier over-budget (existing check)
+    // Tier over-budget
     for (const g of tg) {
       const budget = MCI_TIER_BUDGET[g.tier] || 0;
       if (g.rating > budget) {
@@ -172,37 +169,10 @@ export function auditCharacter(c) {
       }
     }
 
-    // Per-tier completeness
-    const missingTiers = [];
-    const checkMeritTier = (tier) => {
-      const g = tgByTier.get(tier);
-      if (!g || !g.name) { missingTiers.push(tier); return; }
-      if ((g.name === 'Allies' || g.name === 'Status') && !g.qualifier) missingTiers.push(tier);
-    };
-    if (rating >= 1) {
-      if (d1c === 'speciality') {
-        if (!m.dot1_spec_skill || !m.dot1_spec) missingTiers.push(1);
-      } else checkMeritTier(1);
-    }
-    if (rating >= 2) checkMeritTier(2);
-    if (rating >= 3) {
-      if (d3c === 'skill') {
-        if (!m.dot3_skill) missingTiers.push(3);
-      } else checkMeritTier(3);
-    }
-    if (rating >= 4) checkMeritTier(4);
-    if (rating >= 5) {
-      if (d5c === 'advantage') {
-        if (!m.dot5_text) missingTiers.push(5);
-      } else checkMeritTier(5);
-    }
-    if (missingTiers.length) {
-      errors.push({
-        gate: 'mci_unallocated',
-        message: `MCI${cultLbl} not properly allocated (tier${missingTiers.length > 1 ? 's' : ''} ${missingTiers.join(', ')})`,
-        detail: { tiers: missingTiers },
-      });
-    }
+    // Warn if dotN_choice tiers are reached but the choice field is blank
+    if (rating >= 1 && !m.dot1_choice) warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 1 choice not set` });
+    if (rating >= 3 && !m.dot3_choice) warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 3 choice not set` });
+    if (rating >= 5 && !m.dot5_choice) warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 5 choice not set` });
   }
 
   // ── Professional Training allocation ──
@@ -227,49 +197,6 @@ export function auditCharacter(c) {
         detail: { missing },
       });
     }
-  }
-
-  // ── Free dots used in character ──
-  // Flag any item (attribute, skill, discipline, merit, fighting style)
-  // that was paid for with the unsourced `free` bucket. These dots bypass
-  // CP/XP accounting and usually come from legacy imports or manual ST
-  // grants that weren't properly tracked.
-  //
-  // Exemptions:
-  //   * Every attribute carries 1 base dot in `free`, plus 1 more on the
-  //     clan-favoured attribute (base + favoured = 2 in `free`). Anything
-  //     beyond that baseline is the genuinely-suspect "free" allocation.
-  const freeItems = [];
-  for (const [a, v] of Object.entries(c.attributes || {})) {
-    const isClan = c.clan_attribute === a;
-    const expected = 1 + (isClan ? 1 : 0);
-    const suspect = (v?.free || 0) - expected;
-    if (suspect > 0) freeItems.push(`${a} (attr) +${suspect}`);
-  }
-  for (const [s, v] of Object.entries(c.skills || {})) {
-    const f = v?.free || 0;
-    if (f > 0) freeItems.push(`${s} (skill) +${f}`);
-  }
-  for (const [d, v] of Object.entries(c.disciplines || {})) {
-    if (!_validDiscs.has(d)) continue; // ignore removed/theme disciplines
-    const f = v?.free || 0;
-    if (f > 0) freeItems.push(`${d} (disc) +${f}`);
-  }
-  for (const m of (c.merits || [])) {
-    if (m.granted_by) continue; // system-managed (applyDerivedMerits sets free on these)
-    const f = m?.free || 0;
-    if (f > 0) freeItems.push(`${m.name} (merit) +${f}`);
-  }
-  for (const fs of (c.fighting_styles || [])) {
-    const f = fs?.free || 0;
-    if (f > 0) freeItems.push(`${fs.name} (style) +${f}`);
-  }
-  if (freeItems.length) {
-    warnings.push({
-      gate: 'free_dots_used',
-      message: `Free dots used in character! (${freeItems.length} item${freeItems.length === 1 ? '' : 's'})`,
-      detail: { items: freeItems },
-    });
   }
 
   // ── Merit prereqs ──

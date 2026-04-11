@@ -45,6 +45,8 @@ export function applyDerivedMerits(c) {
     const stolenIdx = (c.merits || []).findIndex(m => m.name === ftMerit.qualifier && m.category === 'general' && !m.granted_by);
     if (stolenIdx >= 0) c.merits[stolenIdx].granted_by = 'Fucking Thief';
   }
+  // Clear legacy free dot on Fucking Thief stolen merits (never legitimate)
+  (c.merits || []).forEach(m => { if (m.granted_by === 'Fucking Thief') m.free = 0; });
 
   // Migrate legacy benefit_grants → tier_grants on MCI merits
   (c.merits || []).forEach(m => {
@@ -123,6 +125,7 @@ export function applyDerivedMerits(c) {
   delete c._ohm_nine_again_skills;
   c._grant_pools = [];
   c._mci_free_specs = [];
+  c._bloodline_free_specs = [];
 
   // ── MCI grant pools ──
   const mcis = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation');
@@ -160,7 +163,7 @@ export function applyDerivedMerits(c) {
   // ── K-9 / Falconry: clear then auto-apply 1 free dot to their granted Retainers ──
   const _STYLE_RETAINER_GRANTS = ['K-9', 'Falconry'];
   (c.merits || []).forEach(m => {
-    if (m.name === 'Retainer' && _STYLE_RETAINER_GRANTS.includes(m.granted_by)) m.free = 0;
+    if (m.name === 'Retainer' && _STYLE_RETAINER_GRANTS.includes(m.granted_by)) { m.free = 0; m.free_retainer = 0; }
   });
   _STYLE_RETAINER_GRANTS.forEach(styleName => {
     const hasStyle = (c.fighting_styles || []).some(fs =>
@@ -175,11 +178,16 @@ export function applyDerivedMerits(c) {
       m = { name: 'Retainer', category: 'influence', rating: 0, area, granted_by: styleName };
       c.merits.push(m);
     }
-    m.free = 1;
+    m.free_retainer = 1;
   });
 
   // ── PT grant pools ──
   const pts = (c.merits || []).filter(m => m.name === 'Professional Training');
+  // Sync PT rating from inline creation fields before applying grants (mirrors MCI early sync)
+  for (const pt of pts) {
+    const _ptInlineTotal = (pt.cp || 0) + (pt.xp || 0) + (pt.free || 0);
+    if (_ptInlineTotal > 0) pt.rating = _ptInlineTotal;
+  }
   for (const pt of pts) {
     const dots = pt.rating || 0;
     const role = pt.role || '';
@@ -309,6 +317,9 @@ export function applyDerivedMerits(c) {
   }
 
   // ── Bloodline grants (specs and merits) ──
+  // Clear stale free/free_bloodline on bloodline merits before re-applying so
+  // ex-bloodline characters don't carry orphaned grant dots indefinitely.
+  (c.merits || []).forEach(m => { if (m.granted_by === 'Bloodline') { m.free = 0; m.free_bloodline = 0; } });
   const bloodlineGrants = BLOODLINE_GRANTS[c.bloodline];
   if (bloodlineGrants) {
     for (const { skill, spec } of (bloodlineGrants.skill_specs || [])) {
@@ -316,6 +327,7 @@ export function applyDerivedMerits(c) {
       if (!c.skills[skill]) c.skills[skill] = { dots: 0, bonus: 0, specs: [], nine_again: false };
       if (!c.skills[skill].specs) c.skills[skill].specs = [];
       if (!c.skills[skill].specs.includes(spec)) c.skills[skill].specs.push(spec);
+      c._bloodline_free_specs.push({ skill, spec });
     }
     for (const grant of (bloodlineGrants.merits || [])) {
       const exists = (c.merits || []).some(m =>
@@ -324,7 +336,14 @@ export function applyDerivedMerits(c) {
       );
       if (!exists) {
         if (!c.merits) c.merits = [];
-        c.merits.push({ name: grant.name, category: grant.category, qualifier: grant.qualifier || null, free: 1, granted_by: 'Bloodline' });
+        c.merits.push({ name: grant.name, category: grant.category, qualifier: grant.qualifier || null, free_bloodline: 1, granted_by: 'Bloodline' });
+      } else {
+        // Re-apply free_bloodline on existing entry (cleared above)
+        const existing = (c.merits || []).find(m =>
+          m.name === grant.name && m.granted_by === 'Bloodline' &&
+          (m.qualifier || null) === (grant.qualifier || null)
+        );
+        if (existing) existing.free_bloodline = 1;
       }
     }
   }
@@ -334,7 +353,7 @@ export function applyDerivedMerits(c) {
   (c.merits || []).forEach(m => {
     // MCI and PT have their own render logic; MG's total includes partner contributions
     if (m.name === 'Mystery Cult Initiation' || m.name === 'Professional Training' || m.name === 'Mandragora Garden') return;
-    const total = (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.cp || 0) + (m.xp || 0);
+    const total = (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.cp || 0) + (m.xp || 0);
     if (total > 0) m.rating = total;
   });
 }

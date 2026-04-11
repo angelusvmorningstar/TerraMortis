@@ -93,10 +93,10 @@ export const BLOODLINE_CLANS = {
 /** Permanent per-bloodline grants applied at render time by applyDerivedMerits. */
 export const BLOODLINE_GRANTS = {
   Gorgons: {
-    skill_specs: [{ skill: 'Animal Ken', spec: 'Snakes' }],
+    skill_specs: [{ skill: 'Animal Ken', spec: 'snakes' }],
     merits: [
-      { name: 'Area of Expertise', category: 'general', qualifier: 'Snakes' },
-      { name: 'Interdisciplinary Specialty', category: 'general', qualifier: 'Snakes' },
+      { name: 'Area of Expertise', category: 'general', qualifier: 'snakes' },
+      { name: 'Interdisciplinary Specialty', category: 'general', qualifier: 'snakes' },
     ],
   },
 };
