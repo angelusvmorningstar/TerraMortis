@@ -1,6 +1,6 @@
 # Story fix.35: Court Section — Remove Regents and Fix Sort Order
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -78,3 +78,4 @@ This ordering maps to the user-facing display order: Head of State (Premier), Pr
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-11 | 1.0 | Story authored | Claude (SM) |
+| 2026-04-11 | 1.1 | Implemented: one-line filter `c.court_title !== 'Regent'` in `renderCourt()`. TITLE_ORDER was already correct. saveCourt() naturally clears stale Regent assignments on next save. | Claude (SM) |
