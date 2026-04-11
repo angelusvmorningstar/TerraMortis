@@ -199,49 +199,6 @@ export function auditCharacter(c) {
     }
   }
 
-  // ── Free dots used in character ──
-  // Flag any item (attribute, skill, discipline, merit, fighting style)
-  // that was paid for with the unsourced `free` bucket. These dots bypass
-  // CP/XP accounting and usually come from legacy imports or manual ST
-  // grants that weren't properly tracked.
-  //
-  // Exemptions:
-  //   * Every attribute carries 1 base dot in `free`, plus 1 more on the
-  //     clan-favoured attribute (base + favoured = 2 in `free`). Anything
-  //     beyond that baseline is the genuinely-suspect "free" allocation.
-  const freeItems = [];
-  for (const [a, v] of Object.entries(c.attributes || {})) {
-    const isClan = c.clan_attribute === a;
-    const expected = 1 + (isClan ? 1 : 0);
-    const suspect = (v?.free || 0) - expected;
-    if (suspect > 0) freeItems.push(`${a} (attr) +${suspect}`);
-  }
-  for (const [s, v] of Object.entries(c.skills || {})) {
-    const f = v?.free || 0;
-    if (f > 0) freeItems.push(`${s} (skill) +${f}`);
-  }
-  for (const [d, v] of Object.entries(c.disciplines || {})) {
-    if (!_validDiscs.has(d)) continue; // ignore removed/theme disciplines
-    const f = v?.free || 0;
-    if (f > 0) freeItems.push(`${d} (disc) +${f}`);
-  }
-  for (const m of (c.merits || [])) {
-    if (m.granted_by) continue; // system-managed (applyDerivedMerits sets free on these)
-    const f = m?.free || 0;
-    if (f > 0) freeItems.push(`${m.name} (merit) +${f}`);
-  }
-  for (const fs of (c.fighting_styles || [])) {
-    const f = fs?.free || 0;
-    if (f > 0) freeItems.push(`${fs.name} (style) +${f}`);
-  }
-  if (freeItems.length) {
-    warnings.push({
-      gate: 'free_dots_used',
-      message: `Free dots used in character! (${freeItems.length} item${freeItems.length === 1 ? '' : 's'})`,
-      detail: { items: freeItems },
-    });
-  }
-
   // ── Merit prereqs ──
   for (const m of (c.merits || [])) {
     if (m.granted_by) continue; // granted merits bypass prereqs

@@ -17,6 +17,12 @@ export function registerCallbacks(markDirty, renderSheet) {
   _renderSheet = renderSheet;
 }
 
+/* ── Partner dirty tracking — populated by domain sharing edits ── */
+const _dirtyPartners = new Set(); // character _id strings
+function _markPartnerDirty(ch) { if (ch && ch._id) _dirtyPartners.add(String(ch._id)); }
+export function getDirtyPartners() { return new Set(_dirtyPartners); }
+export function clearDirtyPartners() { _dirtyPartners.clear(); }
+
 /* ══════════════════════════════════════════════════════════
    INFLUENCE MERITS
 ══════════════════════════════════════════════════════════ */
@@ -324,6 +330,7 @@ export function shAddDomainPartner(domIdx, partnerName) {
     const mm = (member.merits || []).find(x => x.category === 'domain' && x.name === meritName);
     if (mm) {
       mm.shared_with = fullGroup.filter(n => n !== memberName);
+      if (memberName !== c.name) _markPartnerDirty(member);
     }
   }
 
@@ -337,6 +344,7 @@ export function shAddDomainPartner(domIdx, partnerName) {
     } else {
       pm.shared_with = fullGroup.filter(n => n !== partnerName);
     }
+    _markPartnerDirty(partner);
   }
 
   _markDirty();
@@ -356,7 +364,10 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
     const member = state.chars.find(ch => ch.name === memberName);
     if (!member) continue;
     const mm = (member.merits || []).find(x => x.category === 'domain' && x.name === meritName);
-    if (mm) mm.shared_with = remainingGroup.filter(n => n !== memberName);
+    if (mm) {
+      mm.shared_with = remainingGroup.filter(n => n !== memberName);
+      if (memberName !== c.name) _markPartnerDirty(member);
+    }
   }
 
   // On the partner: remove this char from their shared_with
@@ -367,11 +378,12 @@ export function shRemoveDomainPartner(domIdx, partnerName) {
       pm.shared_with = (pm.shared_with || []).filter(n => n !== c.name && n !== partnerName);
       // If partner has 0 contribution and no remaining partners, remove the merit
       const pRealIdx = partner.merits.indexOf(pm);
-      const pContrib = (pm.cp || 0) + (pm.free || 0) + (pm.xp || 0);
+      const pContrib = (pm.cp || 0) + (pm.xp || 0);
       if (pContrib === 0 && pm.shared_with.length === 0) {
         removeMerit(partner, pRealIdx);
       }
     }
+    _markPartnerDirty(partner);
   }
 
   _markDirty();
@@ -387,7 +399,7 @@ export function shAddStyle(styleName, type = 'style') {
   const c = state.chars[state.editIdx];
   if (!c.fighting_styles) c.fighting_styles = [];
   if (c.fighting_styles.some(fs => fs.name === styleName)) return;
-  c.fighting_styles.push({ name: styleName, type, cp: 0, free: 0, free_mci: 0, xp: 0 });
+  c.fighting_styles.push({ name: styleName, type, cp: 0, free_mci: 0, xp: 0 });
   _markDirty();
   _renderSheet(c);
 }
@@ -434,7 +446,7 @@ export function shAddPick(manName) {
   const c = state.chars[state.editIdx];
   if (!c.fighting_picks) c.fighting_picks = [];
   const totalDots = (c.fighting_styles || [])
-    .reduce((s, fs) => s + (fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0), 0);
+    .reduce((s, fs) => s + (fs.cp||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0), 0);
   const maxPicks = totalDots;
   if (c.fighting_picks.length >= maxPicks) return;
   const already = c.fighting_picks.some(pk =>

@@ -86,8 +86,9 @@ function _prereqWarn(c, meritName, m) {
 /** Render grant pool counters for a merit category. Handles single and multi-target pools. */
 function _renderPoolCounters(c, category) {
   const pools = getPoolsForCategory(c, category);
-  // Include 'any' category pools (MCI pool) in all merit sections
-  const anyPools = (c._grant_pools || []).filter(p => p.category === 'any');
+  // Include 'any' category pools (MCI pool) only in the general section — it applies everywhere
+  // but repeating it in every category is redundant noise
+  const anyPools = category === 'general' ? (c._grant_pools || []).filter(p => p.category === 'any') : [];
   // Also include 'vm' category pools (VM Allies bonus) in the influence section
   const vmPools = category === 'influence' ? (c._grant_pools || []).filter(p => p.category === 'vm') : [];
   // Also include 'ohm' category pools (OHM grants) in the influence section
@@ -247,13 +248,9 @@ export function shRenderAttributes(c, editMode) {
       h += '<div>'; col.forEach(a => {
         const base = getAttrVal(c, a), bonus = getAttrBonus(c, a), isClan = c.clan_attribute === a;
         const autoBonus = (c.disciplines?.[BONUS_SOURCE[a]]?.dots || 0);
-        const ao = c.attributes[a] || {}, cr = { cp: ao.cp || 0, free: ao.free || 0, xp: ao.xp || 0 }, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (cr.cp || 0), xd = xpToDots(cr.xp || 0, ab, 4), tot = ab + xd;
-        // Every attribute stores its base 1 dot in .free, and the clan-favoured
-        // attribute stores 2 (base + favoured). Only flag the genuinely-suspect
-        // surplus above that baseline.
-        const aFreeMark = ((cr.free || 0) - baseDots > 0) ? ' has-free-dots' : '';
-        h += '<div><div class="attr-cell attr-cell-edit' + aFreeMark + '"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
-        h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + tot + '</span></div></div>';
+        const ao = c.attributes[a] || {}, aE = a.replace(/'/g, "\\'"), baseDots = 1 + (isClan ? 1 : 0), ab = baseDots + (ao.cp || 0), xd = xpToDots(ao.xp || 0, ab, 4), tot = ab + xd;
+        h += '<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
+        h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + tot + '</span></div></div>';
         { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || '', effTotal = tot + autoBonus + bonus;
           if (autoBonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">' + src + '</span><span class="bd-src" style="color:rgba(220,160,120,.8)">+' + autoBonus + '</span></div>';
           h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button>' + (autoBonus > 0 || bonus > 0 ? '<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">' + effTotal + '</span></div>' : '') + '</div>'; }
@@ -299,10 +296,9 @@ export function shRenderSkills(c, editMode) {
       SKILL_COLS.forEach(col => {
         const s = col[ri];
         const sk = getSkillObj(c, s), d = sk.dots, bn = sk.bonus, sp = (sk.specs || []).join(', '), na = sk.nine_again, ptNa = c._pt_nine_again_skills && c._pt_nine_again_skills.has(s), ohmNa = c._ohm_nine_again_skills && c._ohm_nine_again_skills.has(s), ptBn = c._pt_dot4_bonus_skills && c._pt_dot4_bonus_skills.has(s) ? 1 : 0, mciBn = c._mci_dot3_skills && c._mci_dot3_skills.has(s) ? 1 : 0, hasDots = d > 0 || bn > 0 || ptBn > 0 || mciBn > 0, dotStr = hasDots ? shDotsWithBonus(d, bn + ptBn + mciBn) : '\u2013';
-        const skFreeMark = ((c.skills?.[s]?.free || 0) > 0) ? ' has-free-dots' : '';
-        h += '<div class="sk-edit-cell' + skFreeMark + '"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
-        const so2 = (c.skills || {})[s] || {}, cr = { cp: so2.cp || 0, free: so2.free || 0, xp: so2.xp || 0 }, sE = s.replace(/'/g, "\\'"), sb = (cr.cp || 0) + (cr.free || 0), sxd = xpToDots(cr.xp || 0, sb, 2), st2 = sb + sxd;
-        h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + st2 + '</span></div></div>';
+        h += '<div class="sk-edit-cell"><div class="sh-skill-row sk-edit' + (hasDots ? ' has-dots' : '') + '"><div class="skill-name-wrap"><span class="sh-skill-name">' + s + '</span>' + (sp ? '<span class="sh-skill-spec">' + formatSpecs(c, sk.specs) + '</span>' : '') + '</div><div class="skill-dots-wrap"><span class="' + (hasDots ? 'sh-skill-dots' : 'sh-skill-zero') + '">' + dotStr + '</span>' + (na ? '<span class="sh-skill-na">9-Again</span>' : ptNa ? '<span class="sh-skill-na pt-na">9-Again (PT)</span>' : ohmNa ? '<span class="sh-skill-na pt-na">9-Again (OHM)</span>' : '') + '</div></div>';
+        const so2 = (c.skills || {})[s] || {}, sE = s.replace(/'/g, "\\'"), sb = so2.cp || 0, sxd = xpToDots(so2.xp || 0, sb, 2), st2 = sb + sxd;
+        h += '<div class="sk-bd-panel"><div class="sk-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.cp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (so2.xp || 0) + '" onchange="shEditSkillPt(\'' + sE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + st2 + '</span></div></div>';
         const specs = sk.specs || [];
         h += '<div class="sk-spec-list">';
         specs.forEach((sp2, si) => { h += '<div class="sk-spec-row"><input class="sk-spec-input" value="' + esc(sp2) + '" onchange="shEditSpec(\'' + sE + '\',' + si + ',this.value)" placeholder="Specialisation">' + (hasAoE(c, sp2) ? '<span style="color:rgba(140,200,140,.8);font-size:8px;font-family:var(--fh);white-space:nowrap">+2</span>' : '') + '<button class="sk-spec-rm" onclick="shRemoveSpec(\'' + sE + '\',' + si + ')" title="Remove">&times;</button></div>'; });
@@ -365,17 +361,16 @@ export function shRenderDisciplines(c, editMode) {
     return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"><div class="disc-tap-left">' + nTag + dTag + '</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
   }
   function renderDiscEditRow(d, r, isIC, style) {
-    const dObj = (c.disciplines || {})[d] || {}, cr = { cp: dObj.cp || 0, free: dObj.free || 0, xp: dObj.xp || 0 }, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = (cr.cp || 0) + (cr.free || 0), xd = xpToDots(cr.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
-    const freeMark = cr.free > 0 ? ' has-free-dots' : '';
+    const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = dObj.cp || 0, xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
     const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     // Derive powers from rules cache (same as view mode)
     const dp = _discPowers(d, dt);
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    let h2 = '<div class="disc-tap-row disc-edit' + freeMark + '"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
+    let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
     if (r > 0) h2 += '<span class="disc-tap-dots">' + shDots(r) + '</span>';
     if (dp.length) h2 += '</div><span class="disc-tap-arr">\u203A</span></div>';
     else h2 += '</div></div>';
-    h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (cr.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
+    h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
     if (dp.length) h2 += '<div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
     return h2;
   }
@@ -607,7 +602,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     const nonContacts = inflM.filter(m => m.name !== 'Contacts');
     const _inflHWV = hasHoneyWithVinegar(c);
     nonContacts.forEach(m => {
-      const idx = inflM.indexOf(m), inf = calcMeritInfluence(m, _inflHWV), tOpts = INFLUENCE_MERIT_TYPES.map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + t + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
+      const idx = inflM.indexOf(m), inf = calcMeritInfluence(m, _inflHWV), tOpts = INFLUENCE_MERIT_TYPES.map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + t + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
       h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _inflArea(m, idx, false) + '<span class="infl-dots-derived">' + shDots(dd) + '</span><span class="infl-inf">' + (inf ? '<span class="inf-val">' + inf + '</span> inf' : '') + '</span>';
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
@@ -617,7 +612,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     const contactsEntry = inflM.find(m => m.name === 'Contacts');
     const cInf = calcContactsInfluence(c);
     if (contactsEntry) {
-      const cIdx = c.merits.indexOf(contactsEntry), rating = contactsEntry.rating || 0, spheres = contactsEntry.spheres || [], frDots = contactsEntry.free || 0, baseDots = (contactsEntry.cp || 0) + (contactsEntry.xp || 0), spOpts = s => INFLUENCE_SPHERES.map(sp => '<option' + (s === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
+      const cIdx = c.merits.indexOf(contactsEntry), rating = contactsEntry.rating || 0, spheres = contactsEntry.spheres || [], baseDots = (contactsEntry.cp || 0) + (contactsEntry.xp || 0), spOpts = s => INFLUENCE_SPHERES.map(sp => '<option' + (s === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
       h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + shDots(rating) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
       h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0 });
       if (contactsEntry.free_pt) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">PT Bonus: +' + contactsEntry.free_pt + ' dots (auto) \u2014 removed if PT is removed</div>';
@@ -636,7 +631,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0);
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free_mci || 0) + (m.free_vm || 0);
       h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + (m.rating ? ' ' + shDots(m.rating) : '') + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
@@ -671,7 +666,7 @@ export function shRenderDomainMerits(c, editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c);
     domM.forEach((m, di) => {
-      const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di), tOpts = DOMAIN_MERIT_TYPES.filter(t => t !== 'Herd' || !hTk || m.name === 'Herd').map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + esc(t) + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.xp || 0), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => ch.name !== c.name && !parts.includes(ch.name)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di), tOpts = DOMAIN_MERIT_TYPES.filter(t => t !== 'Herd' || !hTk || m.name === 'Herd').map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + esc(t) + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.xp || 0), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => ch.name !== c.name && !parts.includes(ch.name)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
       // Total display: own dots filled + partner contribution hollow.
       // Cap own at the total so a single character can't double-paint dots
       // beyond the merit's effective rating.
@@ -691,7 +686,7 @@ export function shRenderDomainMerits(c, editMode) {
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
-      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, dPurch = (ssjB > 0 || flockB > 0) ? _dRaw : Math.min(5, _dRaw);
+      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, dPurch = (ssjB > 0 || flockB > 0) ? _dRaw : Math.min(5, _dRaw);
       const dotHtml = (ssjB > 0 || flockB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="merit-dots-sh">' + shDots(de) + '</span>';
       // Shared display: own dots filled + partner contribution hollow.
       const _shOwn = Math.min(dO, de);
@@ -710,7 +705,7 @@ export function shRenderStandingMerits(c, editMode) {
   const _standMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
   const _standSorted = editMode ? standM : standM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   _standSorted.forEach((m, si) => {
-    const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0);
+    const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0);
     if (m.name === 'Mystery Cult Initiation') h += _renderMCI(c, m, si, rIdx, m, dd, editMode);
     else if (m.name === 'Professional Training') h += _renderPT(c, m, si, rIdx, m, dd, editMode, _standMciPool);
     else if (editMode) { h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + shDots(dd) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _standMciPool > 0 }); h += _prereqWarn(c, m.name); }
@@ -870,9 +865,9 @@ export function shRenderGeneralMerits(c, editMode) {
     const _CRUAC_STYLES = ['Opening the Void', 'Primal Creation', 'Unbridled Chaos'];
     const _mdbMerit = oM.find(m => m.name === 'The Mother-Daughter Bond');
     const _mdbChosenStyle = _mdbMerit && _mdbMerit.qualifier;
-    const _mdbMentorRating = (() => { const mentorM = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Mentor'); if (!mentorM) return 0; return (mentorM.cp || 0) + (mentorM.free || 0) + (mentorM.free_mci || 0) + (mentorM.xp || 0); })();
+    const _mdbMentorRating = (() => { const mentorM = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Mentor'); if (!mentorM) return 0; return (mentorM.cp || 0) + (mentorM.free_mci || 0) + (mentorM.xp || 0); })();
     oM.forEach((m, gi) => {
-      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0), isAoE = m.name === 'Area of Expertise', isIS = m.name === 'Interdisciplinary Specialty', isFT = m.name === 'Fucking Thief', isKerberos = m.name === 'Three Heads of Kerberos', isDC = m.name === 'Defensive Combat', isFF = m.name === 'Fighting Finesse', isMDB = m.name === 'The Mother-Daughter Bond', nSp = isAoE || isIS, cSp = Object.values(c.skills || {}).flatMap(sk => sk.specs || []);
+      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0), isAoE = m.name === 'Area of Expertise', isIS = m.name === 'Interdisciplinary Specialty', isFT = m.name === 'Fucking Thief', isKerberos = m.name === 'Three Heads of Kerberos', isDC = m.name === 'Defensive Combat', isFF = m.name === 'Fighting Finesse', isMDB = m.name === 'The Mother-Daughter Bond', nSp = isAoE || isIS, cSp = Object.values(c.skills || {}).flatMap(sk => sk.specs || []);
       if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + shDots(dd) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 }); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + '</select>';
@@ -880,8 +875,13 @@ export function shRenderGeneralMerits(c, editMode) {
         else if (isDC || isFF) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 skill \u2014') + '</option>' + ['Brawl', 'Weaponry'].map(s => '<option' + (m.qualifier === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>';
         else if (isMDB) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 Cr\u00FAac Style \u2014') + '</option>' + _CRUAC_STYLES.map(s => '<option' + (m.qualifier === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>';
         else if (isKerberos) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 Aspect \u2014') + '</option>' + _KERBEROS_ASPECTS.map(a => '<option' + (m.qualifier === a ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>';
-        else if (nSp && cSp.length) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">' + (m.qualifier || '\u2014 spec \u2014') + '</option>' + cSp.map(sp => '<option' + (m.qualifier === sp ? ' selected' : '') + '>' + esc(sp) + '</option>').join('') + '</select>';
-        else h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
+        else if (nSp) {
+          if (cSp.length) {
+            h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)"><option value="">\u2014 spec \u2014</option>' + cSp.map(sp => '<option value="' + esc(sp) + '"' + (m.qualifier === sp ? ' selected' : '') + '>' + esc(sp) + '</option>').join('') + '</select>';
+          } else {
+            h += '<select class="gen-qual-input" disabled><option value="">\u2014 add a specialisation first \u2014</option></select>';
+          }
+        } else h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
         h += '<span class="infl-dots-derived">' + shDots(dd) + '</span><button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
         if (_mdbChosenStyle && m.name === _mdbChosenStyle && _mdbMentorRating > 0) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">MDB Bonus: +' + _mdbMentorRating + ' dots (auto) \u2014 equals Mentor rating</div>';
         h += _prereqWarn(c, m.name, m);
@@ -892,7 +892,7 @@ export function shRenderGeneralMerits(c, editMode) {
     oM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, i) => {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
       const pw = _prereqWarn(c, m.name, m);
-      const purch = (m.cp || 0) + (m.xp || 0), bon = (m.free || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0);
+      const purch = (m.cp || 0) + (m.xp || 0), bon = (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0);
       const dotH = shDotsMixed(purch, bon);
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
@@ -909,7 +909,7 @@ export function shRenderGeneralMerits(c, editMode) {
 function _tagCounts(c) {
   const counts = {};
   (c.fighting_styles || []).forEach(fs => {
-    const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+    const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0);
     const tags = STYLE_TAGS[fs.name] || [];
     tags.forEach(t => { counts[t] = (counts[t] || 0) + dots; });
   });
@@ -993,7 +993,7 @@ function _checkSingleTerm(c, term) {
     if ((c.fighting_styles || []).some(fs => fs.name === name)) {
       return (c.fighting_styles || [])
         .filter(fs => fs.name === name)
-        .reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0) >= req;
+        .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0) >= req;
     }
 
     // Discipline
@@ -1069,12 +1069,12 @@ function _qualifiesForManoeuvre(c, man, tc) {
   if (man.style === 'Regular') {
     const fmDots = (c.fighting_styles || [])
       .filter(fs => fs.type === 'merit' && fs.name === 'Fighting Merit')
-      .reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+      .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
     return fmDots >= rank;
   }
   const styleDots = (c.fighting_styles || [])
     .filter(fs => fs.type !== 'merit' && fs.name === man.style)
-    .reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+    .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
   if (styleDots >= rank) return true;
   const manTags = STYLE_TAGS[man.style] || [];
   return manTags.some(t => (tc[t] || 0) >= rank);
@@ -1125,7 +1125,7 @@ export function shRenderManoeuvres(c, editMode) {
     const tc = _tagCounts(c);
     const fStyles = styles.filter(fs => fs.type !== 'merit');
     const fMerits = styles.filter(fs => fs.type === 'merit');
-    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
+    const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
     const otsFreeDots = c._ots_free_dots || 0;
     const otsUsed = (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
@@ -1155,7 +1155,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '<div class="man-list">';
     fStyles.forEach(fs => {
       const si = styles.indexOf(fs);
-      const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
+      const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
       const tags = STYLE_TAGS[fs.name] || [];
       const fsUp = fs.up || 0;
 
@@ -1163,10 +1163,9 @@ export function shRenderManoeuvres(c, editMode) {
       if (tags.length) h += '<span style="font-size:9px;color:var(--txt3);margin-left:6px">' + tags.map(t => esc(t)).join(', ') + '</span>';
       h += '</div><span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
 
-      h += '<div class="merit-bd-row' + ((fs.free || 0) > 0 ? ' has-free-dots' : '') + '">'
+      h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
         + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
@@ -1191,14 +1190,13 @@ export function shRenderManoeuvres(c, editMode) {
     const fmEntry = fMerits.find(fs => fs.name === 'Fighting Merit');
     if (fmEntry) {
       const si = styles.indexOf(fmEntry);
-      const dots = (fmEntry.cp || 0) + (fmEntry.free || 0) + (fmEntry.free_mci || 0) + (fmEntry.xp || 0);
+      const dots = (fmEntry.cp || 0) + (fmEntry.free_mci || 0) + (fmEntry.xp || 0);
       const fsUp = fmEntry.up || 0;
       h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">Fighting Merit</span></div>'
         + '<span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
       h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">Fr</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free || 0) + '" onchange="shEditStyle(' + si + ',\'free\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
@@ -1267,7 +1265,7 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:2px 0 2px">FIGHTING STYLES</div>';
       h += '<div class="man-list">';
       fStyles.forEach(fs => {
-        const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+        const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0);
         const tags = STYLE_TAGS[fs.name] || [];
         h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
           + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
@@ -1280,7 +1278,7 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:6px 0 2px">FIGHTING MERITS</div>';
       h += '<div class="man-list">';
       fMerits.forEach(fs => {
-        const dots = (fs.cp || 0) + (fs.free || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+        const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0);
         const tags = STYLE_TAGS[fs.name] || [];
         h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
           + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
