@@ -63,11 +63,18 @@ export function domMeritTotal(c, name) {
   if (!m) return 0;
   const own = domMeritContrib(c, name);
   const partners = m.shared_with || [];
-  let total = own;
+  let partnerTotal = 0;
   for (const pName of partners) {
     const p = (state.chars || []).find(ch => ch.name === pName);
-    if (p) total += domMeritShareable(p, name);
+    if (p) partnerTotal += domMeritShareable(p, name);
   }
+  // Fallback: if no partner chars were found in state.chars (player portal
+  // only has the player's own characters), use _partner_dots which the
+  // server pre-computed on the ?mine=1 fetch path.
+  if (partners.length > 0 && partnerTotal === 0 && m._partner_dots > 0) {
+    partnerTotal = m._partner_dots;
+  }
+  const total = own + partnerTotal;
   // Herd can exceed 5 when Flock is present
   const cap = (name === 'Herd' && flockHerdBonus(c) > 0) ? Infinity : 5;
   return Math.min(cap, total);
