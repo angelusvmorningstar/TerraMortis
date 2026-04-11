@@ -797,8 +797,11 @@ async function init() {
   // Load rules data (purchasable powers) — non-blocking, cached.
   // After load completes, refresh the rite name dropdown if the editor is open.
   loadRulesFromApi().then(() => {
-    const tradEl = document.getElementById('rite-add-trad');
-    if (tradEl) shRefreshRiteDropdown(tradEl.value || (tradEl.options && tradEl.options[0] ? tradEl.options[0].value : ''));
+    // If a character is open in edit mode, re-render to replace the fallback rite input
+    // with the proper dropdown now that rules are available.
+    if (editorState.editIdx >= 0 && editorState.editMode) {
+      renderSheet(chars[editorState.editIdx]);
+    }
   }).catch(() => {});
 
   try {
