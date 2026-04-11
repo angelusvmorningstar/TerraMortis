@@ -953,61 +953,130 @@ body {
   flex-wrap: wrap;
 }
 /* ── Cycle Phase Ribbon ── */
-#dt-phase-ribbon,
+#dt-phase-ribbon {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: var(--surf2);
+  border-bottom: 2px solid var(--gold2);
+  overflow-x: auto;
+  min-height: 52px;
+  gap: 0;
+  padding: 0;
+}
 #dt-sub-ribbon {
   display: flex;
   align-items: center;
-  padding: 5px 16px;
   background: var(--surf1);
+  border-bottom: 1px solid rgba(224, 196, 122, 0.2);
   overflow-x: auto;
+  min-height: 34px;
   gap: 0;
+  padding: 0 16px;
 }
-#dt-phase-ribbon {
-  border-bottom: 1px solid var(--surf2);
-  font-size: 12px;
-  font-weight: 500;
-}
-#dt-sub-ribbon {
-  border-bottom: 1px solid var(--surf3);
-  font-size: 11px;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  background: var(--bg);
-}
-.pr-step, .pr-sub {
+
+/* Main ribbon steps */
+.pr-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
-  padding: 3px 10px;
-  border-radius: 12px;
+  padding: 0 28px;
+  font-family: var(--fh, 'Cinzel', serif);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  position: relative;
+  cursor: default;
+}
+.pr-step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-family: var(--fh, 'Cinzel', serif);
+  flex-shrink: 0;
 }
 .pr-done {
-  color: var(--gold2);
-  opacity: 0.55;
+  color: rgba(224, 196, 122, 0.45);
+}
+.pr-done .pr-step-num {
+  background: rgba(224, 196, 122, 0.15);
+  color: rgba(224, 196, 122, 0.6);
+  border: 1px solid rgba(224, 196, 122, 0.25);
 }
 .pr-active {
-  color: var(--gold2);
-  background: rgba(224, 196, 122, 0.12);
-  font-weight: 600;
-  border: 1px solid rgba(224, 196, 122, 0.28);
+  color: #0D0B09;
+  background: var(--gold2);
+}
+.pr-active .pr-step-num {
+  background: rgba(0,0,0,0.25);
+  color: #0D0B09;
+  border: none;
 }
 .pr-future {
-  color: #555;
+  color: #444;
 }
-.pr-connector {
-  display: inline-block;
-  width: 28px;
-  height: 1px;
+.pr-future .pr-step-num {
   background: var(--surf3);
-  vertical-align: middle;
+  color: #555;
+  border: 1px solid #333;
+}
+
+/* Arrow connectors between main steps */
+.pr-connector {
+  width: 0;
+  height: 0;
+  border-top: 26px solid transparent;
+  border-bottom: 26px solid transparent;
+  border-left: 14px solid var(--surf2);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.pr-connector::before {
+  content: '';
+  position: absolute;
+  top: -24px;
+  left: -16px;
+  width: 0;
+  height: 0;
+  border-top: 24px solid transparent;
+  border-bottom: 24px solid transparent;
+  border-left: 12px solid var(--surf3);
+}
+
+/* Sub-ribbon steps */
+.pr-sub {
+  white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+.pr-sub.pr-done {
+  color: rgba(224, 196, 122, 0.6);
+  opacity: 1;
+}
+.pr-sub.pr-active {
+  color: var(--gold2);
+  background: rgba(224, 196, 122, 0.12);
+  border: 1px solid rgba(224, 196, 122, 0.3);
+  font-weight: 600;
+}
+.pr-sub.pr-future {
+  color: #444;
 }
 .pr-sub-connector {
   display: inline-block;
   width: 20px;
   height: 1px;
-  background: var(--surf3);
+  background: #333;
   vertical-align: middle;
   flex-shrink: 0;
-  opacity: 0.6;
 }
 
 /* ── Cycle Snapshot (GC-4) ── */

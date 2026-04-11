@@ -162,9 +162,9 @@ function renderPhaseRibbon(cycle, subs) {
     const done   = i < phase;
     const active = i === phase;
     const cls    = done ? 'pr-step pr-done' : active ? 'pr-step pr-active' : 'pr-step pr-future';
-    const icon   = done ? '\u2713 ' : '';
+    const numContent = done ? '\u2713' : String(i + 1);
     const connector = i < mainSteps.length - 1 ? '<span class="pr-connector"></span>' : '';
-    return `<span class="${cls}">${icon}${label}</span>${connector}`;
+    return `<span class="${cls}"><span class="pr-step-num">${numContent}</span>${label}</span>${connector}`;
   }).join('');
 
   // Sub ribbon
