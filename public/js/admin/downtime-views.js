@@ -2447,20 +2447,16 @@ function buildAmbienceData(terrs) {
   // ── Influence: count characters spending influence per territory from _raw.influence ──
   // Form columns are checkbox selections: non-empty cell = player selected that territory = 1.
   // Values are always positive (no negative influence column in the form).
+  // Influence: read from responses.influence_territories (JSON array of territory names)
+  // Stored by mapRawToResponses; one entry per territory the character spends influence on.
   const influenceCount = {};
-  submissions.slice(0, 1).forEach(s =>
-    console.log('[AmbDash]', s.character_name,
-      '| _raw exists:', !!s._raw,
-      '| _raw keys:', s._raw ? Object.keys(s._raw).join(', ') : 'NONE',
-      '| influence:', JSON.stringify(s._raw?.influence))
-  );
   for (const sub of submissions) {
-    const inf = sub._raw?.influence || {};
-    for (const [k, v] of Object.entries(inf)) {
-      if (!v) continue;
+    let infTerrs = [];
+    try { infTerrs = JSON.parse(sub.responses?.influence_territories || '[]'); } catch { infTerrs = []; }
+    for (const k of infTerrs) {
       const tid = resolveTerrId(k);
       if (!tid) continue;
-      influenceCount[tid] = (influenceCount[tid] || 0) + v;
+      influenceCount[tid] = (influenceCount[tid] || 0) + 1;
     }
   }
 
