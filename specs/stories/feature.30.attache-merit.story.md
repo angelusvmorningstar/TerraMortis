@@ -1,6 +1,6 @@
 # Story feature.30: Attaché Merit — Per-Retainer Invictus Status Grant Pools
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -364,3 +364,4 @@ René St. Dominique does not currently have Attaché in the DB. Once implemented
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-11 | 1.0 | Story authored | Claude (SM) |
+| 2026-04-11 | 1.1 | Implemented: domain.js helpers, mci.js attache_key assignment, xp.js meritBdRow, edit-domain.js shEditMeritAttache, sheet.js derivedNotes + Retainer pool counter + Att input groups (influence/general/domain), audit.js per-retainer validation. Also: shTogglePT added (PT mirrors MCI toggle/remove). | Claude (SM) |
