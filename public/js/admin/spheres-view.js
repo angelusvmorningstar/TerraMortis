@@ -1,8 +1,8 @@
 /**
- * Spheres domain view — aggregates Allies, Status, Mortal Status, and
- * Contacts influence merits across all active characters, grouped by sphere.
+ * Spheres domain view — aggregates Allies, Status, and Contacts influence
+ * merits across all active characters, grouped by sphere.
  *
- * Allies + Status + Mortal Status dots are summed as the "rank score".
+ * Allies + Status dots are summed as the "rank score".
  * Contacts is presence-only (one contact per listed sphere, not the rating).
  */
 
@@ -40,7 +40,7 @@ function normaliseSphere(raw) {
  * Merit names that contribute dots to a sphere's rank score.
  * Contacts is presence-only and is tracked separately.
  */
-const DOTTED_MERITS = new Set(['Allies', 'Status', 'Mortal Status']);
+const DOTTED_MERITS = new Set(['Allies', 'Status']);
 
 function getSpheresData() {
   const active = chars.filter(c => !c.retired);
@@ -54,7 +54,6 @@ function getSpheresData() {
         name: displayName(c),
         allies: 0,
         status: 0,
-        mortalStatus: 0,
         hasContacts: false,
       };
     }
@@ -82,7 +81,6 @@ function getSpheresData() {
           const row = ensureRow(key, c);
           if (m.name === 'Allies') row.allies += dots;
           else if (m.name === 'Status') row.status += dots;
-          else if (m.name === 'Mortal Status') row.mortalStatus += dots;
         }
       }
     }
@@ -93,7 +91,7 @@ function getSpheresData() {
   for (const sphere of Object.keys(spheres)) {
     const rows = Object.values(spheres[sphere]).map(r => ({
       ...r,
-      total: r.allies + r.status + r.mortalStatus,
+      total: r.allies + r.status,
     }));
     rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
     const sphereTotal = rows.reduce((s, r) => s + r.total, 0);
@@ -118,13 +116,12 @@ function renderSpheres() {
   for (const { sphere, rows, total } of data) {
     h += '<div class="sphere-block">';
     h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} dots</span></div>`;
-    h += '<table class="infl-table">'
+    h += '<table class="infl-table sphere-table">'
       + '<thead><tr>'
       + '<th>#</th>'
       + '<th>Character</th>'
       + '<th>Allies</th>'
       + '<th>Status</th>'
-      + '<th>Mortal</th>'
       + '<th>Total</th>'
       + '<th>Contact</th>'
       + '</tr></thead><tbody>';
@@ -134,7 +131,6 @@ function renderSpheres() {
         <td class="infl-name">${esc(r.name)}</td>
         <td class="infl-num">${r.allies || '\u2014'}</td>
         <td class="infl-num">${r.status || '\u2014'}</td>
-        <td class="infl-num">${r.mortalStatus || '\u2014'}</td>
         <td class="infl-num infl-total">${r.total || '\u2014'}</td>
         <td class="infl-num">${r.hasContacts ? '\u2713' : ''}</td>
       </tr>`;
