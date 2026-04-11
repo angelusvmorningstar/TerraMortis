@@ -1,6 +1,6 @@
 # Story Fix.16: Area of Expertise — Always Show Spec Dropdown
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

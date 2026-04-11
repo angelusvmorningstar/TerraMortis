@@ -1,6 +1,6 @@
 # Story Fix.18: Shared Merits — Mutual Sync on Save
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
