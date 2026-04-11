@@ -2372,9 +2372,11 @@ const TERRITORY_SLUG_MAP = {
   // MATRIX_TERRS display-name keys (from _raw.feeding.territories)
   'The Academy':            'academy',
   'The City Harbour':       'harbour',
+  'The Harbour':            'harbour',   // short form used in _raw.influence
   'The Docklands':          'dockyards',
   'The Second City':        'secondcity',
   'The Northern Shore':     'northshore',
+  'The Shore':              'northshore', // short form used in _raw.influence
   'The Barrens':            null,
   // TERRITORY_DATA ids (pass-through)
   academy:    'academy',
@@ -2440,20 +2442,19 @@ function buildAmbienceData(terrs) {
     }
   }
 
-  // ── Influence: count resolved ally/merit ambience actions per territory ──
-  const influenceDelta = {};
+  // ── Influence: sum influence spend per territory from _raw.influence ──
+  // _raw.influence keys are display names: 'The Academy', 'The Harbour', 'The Shore', etc.
+  // Values are integers (positive = ambience increase spend, negative = decrease spend).
+  const influencePos = {}; // sum of positive spends
+  const influenceNeg = {}; // sum of negative spends (stored as negative numbers)
   for (const sub of submissions) {
-    for (const [idx, ma] of (sub.merit_actions_resolved || []).entries()) {
-      if (!ma) continue;
-      if (ma.action_type !== 'ambience_increase' && ma.action_type !== 'ambience_decrease') continue;
-      if (ma.pool_status !== 'validated' && ma.pool_status !== 'no_roll') continue;
-      // Territory: from matching merit action data
-      const slot = idx + 1;
-      const terrRaw = sub.responses?.[`merit_${slot}_territory`] || sub.responses?.[`sphere_${slot}_territory`] || '';
-      const tid = resolveTerrId(terrRaw);
+    const inf = sub._raw?.influence || {};
+    for (const [k, v] of Object.entries(inf)) {
+      if (!v) continue;
+      const tid = resolveTerrId(k);
       if (!tid) continue;
-      const delta = ma.action_type === 'ambience_increase' ? 1 : -1;
-      influenceDelta[tid] = (influenceDelta[tid] || 0) + delta;
+      if (v > 0) influencePos[tid] = (influencePos[tid] || 0) + v;
+      else if (v < 0) influenceNeg[tid] = (influenceNeg[tid] || 0) + v;
     }
   }
 
@@ -2481,9 +2482,11 @@ function buildAmbienceData(terrs) {
     const feeders = feederCounts[id] || 0;
     const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
     const entropy = -1;
-    const influence = influenceDelta[id] || 0;
+    const infPos = influencePos[id] || 0;
+    const infNeg = influenceNeg[id] || 0;
+    const infNet = infPos + infNeg;
     const projects = projectDelta[id] || 0;
-    const net = entropy + overfeedVal + influence + projects;
+    const net = entropy + overfeedVal + infNet + projects;
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
     let projStep = ambience;
     if (startIdx >= 0) {
@@ -2494,7 +2497,7 @@ function buildAmbienceData(terrs) {
       const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
       projStep = AMBIENCE_STEPS_LIST[newIdx];
     }
-    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, influence, projects, net, projStep };
+    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, infPos, infNeg, infNet, projects, net, projStep };
   });
 }
 
@@ -2521,7 +2524,7 @@ function renderAmbienceDashboard() {
       <th title="Current ambience step">Starting</th>
       <th title="Fixed -1 entropy per cycle">Entropy</th>
       <th title="Feeders vs cap">Overfeeding</th>
-      <th title="Resolved influence/ally ambience actions">Influence</th>
+      <th title="Influence spend from CSV: +positive / -negative / net">Influence</th>
       <th title="Ambience project roll successes">Projects</th>
       <th title="Sum of all columns">Net Change</th>
       <th title="Projected new ambience step (preview only)">Projected</th>
@@ -2533,13 +2536,23 @@ function renderAmbienceDashboard() {
       const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
       const gap = r.cap - r.feeders;
       const gapStr = gap >= 0 ? `+${gap}` : String(gap);
-      const overfeedClass = gap < 0 ? 'proc-amb-neg' : 'proc-amb-neutral';
+      const gapClass = gap < 0 ? 'proc-amb-neg' : '';
+      // Influence: show +pos / -neg / net, only show parts that are non-zero
+      let infParts = [];
+      if (r.infPos) infParts.push(`<span class="proc-amb-pos">+${r.infPos}</span>`);
+      if (r.infNeg) infParts.push(`<span class="proc-amb-neg">${r.infNeg}</span>`);
+      if (r.infPos || r.infNeg) {
+        const netInfStr = r.infNet > 0 ? `+${r.infNet}` : String(r.infNet);
+        const netInfClass = r.infNet > 0 ? 'proc-amb-pos' : r.infNet < 0 ? 'proc-amb-neg' : '';
+        infParts.push(`<span class="${netInfClass}">${netInfStr}</span>`);
+      }
+      const infDisplay = infParts.length ? infParts.join(' / ') : '0';
       h += `<tr>`;
       h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
       h += `<td>${esc(r.ambience)}</td>`;
       h += `<td class="proc-amb-neg">${r.entropy}</td>`;
-      h += `<td class="${overfeedClass}">${r.feeders}/${r.cap} | ${gapStr}</td>`;
-      h += `<td class="${r.influence > 0 ? 'proc-amb-pos' : r.influence < 0 ? 'proc-amb-neg' : ''}">${r.influence > 0 ? '+' + r.influence : r.influence}</td>`;
+      h += `<td>${r.feeders}/${r.cap} | <span class="${gapClass}">${gapStr}</span></td>`;
+      h += `<td>${infDisplay}</td>`;
       h += `<td class="${r.projects > 0 ? 'proc-amb-pos' : r.projects < 0 ? 'proc-amb-neg' : ''}">${r.projects > 0 ? '+' + r.projects : r.projects}</td>`;
       h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
       h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
