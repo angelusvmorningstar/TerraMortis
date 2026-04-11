@@ -340,21 +340,27 @@ export function applyDerivedMerits(c) {
       c._bloodline_free_specs.push({ skill, spec });
     }
     for (const grant of (bloodlineGrants.merits || [])) {
-      const exists = (c.merits || []).some(m =>
+      const gq = (grant.qualifier || '').toLowerCase().trim();
+      // Case-insensitive qualifier match to avoid duplicates from capitalisation drift
+      const existing = (c.merits || []).find(m =>
         m.name === grant.name && m.granted_by === 'Bloodline' &&
-        (m.qualifier || null) === (grant.qualifier || null)
+        (m.qualifier || '').toLowerCase().trim() === gq
       );
-      if (!exists) {
+      if (existing) {
+        // Normalise qualifier case to canonical form from grant definition
+        if (grant.qualifier != null) existing.qualifier = grant.qualifier;
+        existing.free_bloodline = 1;
+      } else {
         if (!c.merits) c.merits = [];
         c.merits.push({ name: grant.name, category: grant.category, qualifier: grant.qualifier || null, free_bloodline: 1, granted_by: 'Bloodline' });
-      } else {
-        // Re-apply free_bloodline on existing entry (cleared above)
-        const existing = (c.merits || []).find(m =>
-          m.name === grant.name && m.granted_by === 'Bloodline' &&
-          (m.qualifier || null) === (grant.qualifier || null)
-        );
-        if (existing) existing.free_bloodline = 1;
       }
+      // Remove any extra duplicates (stale case-mismatch entries already in DB)
+      const canonical = existing || c.merits[c.merits.length - 1];
+      const dupes = (c.merits || []).filter(m =>
+        m !== canonical && m.name === grant.name && m.granted_by === 'Bloodline' &&
+        (m.qualifier || '').toLowerCase().trim() === gq
+      );
+      dupes.forEach(d => c.merits.splice(c.merits.indexOf(d), 1));
     }
   }
 

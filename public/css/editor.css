@@ -336,6 +336,8 @@
 
 /* ── Status track + edit buttons ── */
 .sh-status-track{display:flex;gap:3px;justify-content:center;margin-top:3px;}
+.sh-status-track-rows{flex-direction:column;gap:2px;}
+.sh-track-row{display:flex;gap:3px;justify-content:center;}
 .sh-track-dot{font-size:13px;line-height:1;}
 .sh-track-base{color:var(--txt);}
 .sh-track-empty{color:var(--txt3);opacity:.4;}

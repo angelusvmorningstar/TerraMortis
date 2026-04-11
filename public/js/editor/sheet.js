@@ -129,13 +129,22 @@ function shDotsMixed(purchased, bonus) {
   return '<span class="merit-dots-sh">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
 function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
-  let h = '<div class="sh-status-track">';
-  for (let i = 1; i <= maxDots; i++) {
-    if (i <= base) h += '<span class="sh-track-dot sh-track-base">\u25CF</span>';
-    else if (i <= base + bonus) h += '<span class="sh-track-dot" style="color:' + bonusColor + '">\u25CB</span>';
-    else h += '<span class="sh-track-dot sh-track-empty">\u25CB</span>';
-    if (maxDots > 5 && i === 5) h += '<br>';
+  const dot = i => {
+    if (i <= base) return '<span class="sh-track-dot sh-track-base">\u25CF</span>';
+    if (i <= base + bonus) return '<span class="sh-track-dot" style="color:' + bonusColor + '">\u25CB</span>';
+    return '<span class="sh-track-dot sh-track-empty">\u25CB</span>';
+  };
+  if (maxDots > 5) {
+    let row1 = '', row2 = '';
+    for (let i = 1; i <= 5; i++) row1 += dot(i);
+    for (let i = 6; i <= maxDots; i++) row2 += dot(i);
+    return '<div class="sh-status-track sh-status-track-rows">'
+      + '<div class="sh-track-row">' + row1 + '</div>'
+      + '<div class="sh-track-row">' + row2 + '</div>'
+      + '</div>';
   }
+  let h = '<div class="sh-status-track">';
+  for (let i = 1; i <= maxDots; i++) h += dot(i);
   return h + '</div>';
 }
 function _statusEditBtns(downFn, upFn) {
@@ -293,11 +302,28 @@ export function shRenderSkills(c, editMode) {
     const ptMSpec = (c.merits || []).find(m => m.name === 'Professional Training');
     const ptFreeSpec = (ptMSpec && ptMSpec.rating >= 3) ? 2 : 0;
     const ptAssetSet = new Set((ptMSpec && ptMSpec.rating >= 3 && ptMSpec.asset_skills) ? (ptMSpec.asset_skills || []).filter(Boolean) : []);
+    // Bloodline free specs — excluded from paid count
+    const blFreeSpecs = c._bloodline_free_specs || [];
+    const blBySkill = {};
+    blFreeSpecs.forEach(({ skill }) => { blBySkill[skill] = (blBySkill[skill] || 0) + 1; });
+    const blTotal = blFreeSpecs.length;
     let _assetSp = 0, _nonAssetSp = 0;
-    Object.entries(c.skills || {}).forEach(([sk, skillObj]) => { const cnt = (skillObj && skillObj.specs) ? skillObj.specs.length : 0; if (ptAssetSet.has(sk)) _assetSp += cnt; else _nonAssetSp += cnt; });
+    Object.entries(c.skills || {}).forEach(([sk, skillObj]) => {
+      const allCnt = (skillObj && skillObj.specs) ? skillObj.specs.length : 0;
+      const paid = Math.max(0, allCnt - (blBySkill[sk] || 0));
+      if (ptAssetSet.has(sk)) _assetSp += paid; else _nonAssetSp += paid;
+    });
     const ptFreeCov = Math.min(ptFreeSpec, _assetSp), paidSp = _nonAssetSp + Math.max(0, _assetSp - ptFreeCov);
     const specXP = Math.max(0, paidSp - 3), cpSp = Math.min(paidSp, 3), cpCls = cpSp === 3 ? 'sc-full' : 'sc-val';
-    h += '<div class="sh-spec-counter">Specialisations <span class="' + cpCls + '">' + cpSp + ' / 3 CP</span>' + (specXP ? ' + <span style="font-size:10px;color:var(--crim)">' + specXP + ' XP</span>' : '') + (ptFreeSpec ? ' + <span style="font-size:10px;color:var(--gold2)">' + ptFreeCov + ' / ' + ptFreeSpec + ' PT (asset skills)</span>' : '') + '</div>';
+    const bonusTotal = ptFreeSpec + blTotal, bonusUsed = ptFreeCov + blTotal;
+    const bonusParts = [];
+    if (ptFreeSpec) bonusParts.push('PT: ' + ptFreeCov + '/' + ptFreeSpec + ' (asset skills)');
+    if (blTotal) bonusParts.push('Bloodline: ' + blTotal);
+    h += '<div class="sh-spec-counter">Specialisations <span class="' + cpCls + '">' + cpSp + ' / 3 CP</span>'
+      + (specXP ? ' + <span style="font-size:10px;color:var(--crim)">' + specXP + ' XP</span>' : '')
+      + (bonusTotal ? ' + <span style="font-size:10px;color:var(--gold2)">Bonus: ' + bonusUsed + '/' + bonusTotal + '</span>' : '')
+      + (bonusParts.length ? '<div style="font-size:10px;color:var(--txt3);margin-top:1px">' + bonusParts.join(' \u00B7 ') + '</div>' : '')
+      + '</div>';
   }
   h += '<div class="skills-3col">';
   if (editMode) {
@@ -772,7 +798,8 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
         h += '<button class="mci-choice-btn' + (d3c === 'merits' ? ' mci-choice-active' : '') + '" onclick="shEditMCIDot(' + si + ',\'dot3_choice\',\'merits\')">2 Merits</button>';
         if (d3c === 'skill') {
           const _d3Missing = !m.dot3_skill;
-          h += '<span class="mci-spec-pick' + (_d3Missing ? ' has-unfilled' : '') + '"><select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot3_skill\',this.value)"><option value="">' + (m.dot3_skill || '\u2014 skill \u2014') + '</option>' + ALL_SKILLS.map(sk => '<option' + (m.dot3_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></span>';
+          const _d3Skills = ALL_SKILLS.filter(sk => { const s = c.skills?.[sk]; return (s?.dots || 0) < 5; });
+          h += '<span class="mci-spec-pick' + (_d3Missing ? ' has-unfilled' : '') + '"><select class="pt-skill-sel" onchange="shEditMCIDot(' + si + ',\'dot3_skill\',this.value)"><option value="">' + (m.dot3_skill || '\u2014 skill \u2014') + '</option>' + _d3Skills.map(sk => '<option' + (m.dot3_skill === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select></span>';
         }
       } else if (d === 3) {
         h += '<span class="mci-benefit-text">3 merit dots</span>';
