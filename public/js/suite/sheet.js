@@ -377,7 +377,28 @@ export function renderSheet() {
   if (domMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">`;
     domMerits.forEach(m => {
-      html += `<div class="merit-plain"><span class="merit-name">${m.name}</span><span class="merit-dots">${dots(m.rating || 0)}</span></div>`;
+      const hasPartners = (m.shared_with || []).length > 0;
+      if (hasPartners) {
+        // Own dots from all purchase sources
+        const own = (m.cp || 0) + (m.free || 0) + (m.free_mci || 0) + (m.free_vm || 0)
+                  + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
+        // Partner contributions (look up each partner in the chars array)
+        let partnerDots = 0;
+        for (const pName of m.shared_with) {
+          const p = (state.chars || []).find(ch => ch.name === pName);
+          if (p) {
+            const pm = (p.merits || []).find(pm => pm.category === 'domain' && pm.name === m.name);
+            if (pm) partnerDots += (pm.cp || 0) + (pm.free || 0) + (pm.free_mci || 0) + (pm.xp || 0);
+          }
+        }
+        const total = Math.min(5, own + partnerDots);
+        const ownCapped = Math.min(own, total);
+        const hollow = Math.max(0, total - ownCapped);
+        const label = m.name + ' <span style="font-size:10px;color:var(--txt3)">Shared</span>';
+        html += `<div class="merit-plain"><span class="merit-name">${label}</span><span class="merit-dots">${dotsWithBonus(ownCapped, hollow)}</span></div>`;
+      } else {
+        html += `<div class="merit-plain"><span class="merit-name">${m.name}</span><span class="merit-dots">${dots(m.rating || 0)}</span></div>`;
+      }
     });
     html += `</div></div>`;
   }
