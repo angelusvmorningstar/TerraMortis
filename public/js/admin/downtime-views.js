@@ -2122,8 +2122,10 @@ function buildProcessingQueue(subs) {
     }
     projects.forEach((proj, idx) => {
       const actionType = proj.action_type || 'misc';
+      if (actionType === 'feed') return; // AC10: feeding rote projects shown in feeding phase
       const phaseNum = PHASE_ORDER[actionType] ?? 7;
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      const slot = idx + 1; // 1-indexed response key
       queue.push({
         key: `${sub._id}:proj:${idx}`,
         subId: sub._id,
@@ -2135,7 +2137,13 @@ function buildProcessingQueue(subs) {
         description: proj.detail || proj.desired_outcome || '',
         source: 'project',
         actionIdx: idx,
-        poolPlayer: proj.primary_pool?.expression || '',
+        projSlot: slot,
+        poolPlayer: proj.primary_pool?.expression || resp[`project_${slot}_pool_expr`] || '',
+        projTitle:     resp[`project_${slot}_title`]    || '',
+        projOutcome:   proj.desired_outcome || resp[`project_${slot}_outcome`] || '',
+        projCast:      resp[`project_${slot}_cast`]     || '',
+        projMerits:    resp[`project_${slot}_merits`]   || '',
+        projTerritory: resp[`project_${slot}_territory`] || '',
       });
     });
 
@@ -2151,7 +2159,8 @@ function buildProcessingQueue(subs) {
       const actionType = action.action_type || 'misc';
       const meritType  = (action.merit_type || '').toLowerCase();
       let phaseNum;
-      if (/allies|status/.test(meritType)) {
+      const isAlliesAction = /allies|status/.test(meritType);
+      if (isAlliesAction) {
         phaseNum = 9;
       } else if (/contact/.test(meritType)) {
         phaseNum = 10;
@@ -2173,6 +2182,7 @@ function buildProcessingQueue(subs) {
         source: 'merit',
         actionIdx: meritFlatIdx,
         poolPlayer: action.primary_pool?.expression || '',
+        isAlliesAction,
       });
       meritFlatIdx++;
     });
@@ -2242,6 +2252,23 @@ async function recomputeDisciplineProfile() {
       }
     }
   }
+  // Also scan ambience project actions
+  for (const sub of submissions) {
+    for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
+      if (!proj?.pool_validated) continue;
+      if (proj.pool_status !== 'validated') continue;
+      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
+      const territory = sub.responses?.[`project_${pIdx + 1}_territory`] || '';
+      if (!territory) continue;
+      const foundDiscs = KNOWN_DISCIPLINES.filter(d => proj.pool_validated.includes(d));
+      if (!foundDiscs.length) continue;
+      if (!profile[territory]) profile[territory] = {};
+      for (const disc of foundDiscs) {
+        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+      }
+    }
+  }
+
   try {
     await updateCycle(selectedCycleId, { discipline_profile: profile });
     const idx = allCycles.findIndex(c => c._id === selectedCycleId);
@@ -2280,10 +2307,15 @@ async function saveEntryReview(entry, patch) {
   } else if (entry.source === 'project') {
     const resolved = [...(sub.projects_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
-    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = resolved[entry.actionIdx] || { action_type: entry.actionType, pool: null, roll: null, st_note: '', pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '', resolved_at: null };
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { projects_resolved: resolved });
     sub.projects_resolved = resolved;
+    // Recompute discipline profile when ambience actions are validated
+    if (('pool_status' in patch || 'pool_validated' in patch) &&
+        (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')) {
+      recomputeDisciplineProfile(); // fire-and-forget
+    }
   } else if (entry.source === 'merit') {
     const resolved = [...(sub.merit_actions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
@@ -2442,6 +2474,25 @@ function renderProcessingMode(container) {
         sub.projects_resolved = resolved;
       }
       procExpandedKey = null;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire project / merit roll buttons
+  container.querySelectorAll('.proc-action-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      const poolValidated = review?.pool_validated || '';
+      if (!poolValidated) return;
+      const match = poolValidated.match(/(\d+)\s*$/);
+      const diceCount = match ? parseInt(match[1], 10) : 0;
+      if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      const result = rollPool(diceCount, 10, 8, 5, false);
+      await saveEntryReview(entry, { roll: result });
       renderProcessingMode(container);
     });
   });
@@ -2650,6 +2701,38 @@ function renderActionPanel(entry, review) {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
   }
 
+  // ── Project-specific detail display ──
+  if (entry.source === 'project') {
+    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory;
+    if (hasExtra) {
+      h += '<div class="proc-proj-detail">';
+      if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
+      if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
+      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
+      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits Used</span> ${esc(entry.projMerits)}</div>`;
+      h += '</div>';
+    }
+    // Previous roll result
+    const projSub = submissions.find(s => s._id === entry.subId);
+    const projRoll = projSub?.projects_resolved?.[entry.actionIdx]?.roll;
+    if (projRoll) {
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(projRoll.successes))} success${projRoll.successes !== 1 ? 'es' : ''}${projRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
+    }
+  }
+
+  // ── Merit action previous roll result ──
+  if (entry.source === 'merit') {
+    const meritSub  = submissions.find(s => s._id === entry.subId);
+    const meritRoll = meritSub?.merit_actions_resolved?.[entry.actionIdx]?.roll;
+    if (meritRoll) {
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(meritRoll.successes))} success${meritRoll.successes !== 1 ? 'es' : ''}${meritRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
+    }
+    if (entry.isAlliesAction && poolStatus === 'pending') {
+      h += `<div class="proc-allies-hint">Allies actions within favour rating are typically automatic \u2014 consider "No Roll Needed".</div>`;
+    }
+  }
+
   // ── Feeding-specific detail display ──
   if (entry.source === 'feeding') {
     if (entry.noMethod) {
@@ -2726,6 +2809,13 @@ function renderActionPanel(entry, review) {
     } else if (reminderCount) {
       h += `<div class="proc-attach-count" style="margin-bottom:12px">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
     }
+  }
+
+  // Roll button for validated project / merit entries
+  if ((entry.source === 'project' || entry.source === 'merit') && poolStatus === 'validated') {
+    h += '<div style="margin-bottom:12px">';
+    h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
+    h += '</div>';
   }
 
   // Roll button for validated feeding entries

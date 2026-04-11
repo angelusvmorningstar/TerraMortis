@@ -3908,3 +3908,29 @@ body {
   background: rgba(224, 196, 122, 0.08);
   border-radius: 4px;
 }
+
+/* ── feature.46: Project detail and allies hint ── */
+.proc-proj-detail {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+
+.proc-proj-field {
+  font-size: 12px;
+  color: var(--txt2);
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+.proc-proj-field:last-child { margin-bottom: 0; }
+
+.proc-allies-hint {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  margin-bottom: 12px;
+  padding: 4px 8px;
+  border-left: 2px solid var(--surf3);
+}
