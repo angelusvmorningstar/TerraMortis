@@ -144,7 +144,7 @@ export function formatSpecs(c, specs) {
 
 export function hasAoE(c, specName) {
   return (c.merits || []).some(m =>
-    m.name === 'Area of Expertise' && m.qualifier && m.qualifier.toLowerCase() === specName.toLowerCase()
+    m.name?.toLowerCase() === 'area of expertise' && m.qualifier && m.qualifier.toLowerCase() === specName.toLowerCase()
   );
 }
 
