@@ -4025,6 +4025,7 @@ body {
 
 .proc-amb-pos { color: #90d090; }
 .proc-amb-neg { color: #ff9090; }
+.proc-amb-neutral { color: var(--txt2); }
 
 .proc-amb-note {
   font-size: 11px;

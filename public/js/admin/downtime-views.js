@@ -2357,15 +2357,42 @@ async function ensureTerritories() {
   return cachedTerritories;
 }
 
-/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found. */
+/**
+ * Explicit slug-to-id map for territory keys produced by normaliseTerritoryGrid in db.js.
+ * Also covers display-name variants from _raw.feeding.territories.
+ */
+const TERRITORY_SLUG_MAP = {
+  // normaliseTerritoryGrid slugs
+  the_academy:              'academy',
+  the_city_harbour:         'harbour',
+  the_docklands:            'dockyards',
+  the_second_city:          'secondcity',
+  the_northern_shore:       'northshore',
+  the_barrens__no_territory_: null,  // no territory
+  // MATRIX_TERRS display-name keys (from _raw.feeding.territories)
+  'The Academy':            'academy',
+  'The City Harbour':       'harbour',
+  'The Docklands':          'dockyards',
+  'The Second City':        'secondcity',
+  'The Northern Shore':     'northshore',
+  'The Barrens':            null,
+  // TERRITORY_DATA ids (pass-through)
+  academy:    'academy',
+  harbour:    'harbour',
+  dockyards:  'dockyards',
+  secondcity: 'secondcity',
+  northshore: 'northshore',
+};
+
+/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found or barrens. */
 function resolveTerrId(raw) {
   if (!raw) return null;
-  const lower = raw.toLowerCase().replace(/^the\s+/i, '');
+  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
+  // Fallback: strip leading "the_" or "The ", convert underscores to spaces, fuzzy match
+  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
   for (const td of TERRITORY_DATA) {
-    const tdName = td.name.toLowerCase().replace(/^the\s+/i, '');
-    if (td.id === raw || td.name === raw || tdName === lower || lower.includes(tdName) || tdName.includes(lower)) {
-      return td.id;
-    }
+    const tdNorm = td.name.toLowerCase().replace(/^the\s+/, '');
+    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.id;
   }
   return null;
 }
@@ -2393,13 +2420,22 @@ function buildAmbienceData(terrs) {
   }
 
   // ── Overfeeding: count feeders per territory ──
+  // Reads from responses.feeding_territories (slug keys) with fallback to _raw.feeding.territories
+  // (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
   const feederCounts = {};
   for (const sub of submissions) {
     let grid = {};
-    try { grid = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { grid = {}; }
+    const respStr = sub.responses?.feeding_territories;
+    if (respStr) {
+      try { grid = JSON.parse(respStr); } catch { grid = {}; }
+    } else {
+      // Fallback: _raw feeding territories use display-name keys ('The Academy': 'Resident')
+      grid = sub._raw?.feeding?.territories || {};
+    }
     for (const [k, v] of Object.entries(grid)) {
-      if (!v || v === 'none') continue;
-      const tid = resolveTerrId(k) || k;
+      if (!v || v === 'none' || v === 'Not feeding here') continue;
+      const tid = resolveTerrId(k);
+      if (!tid) continue; // skip barrens / unrecognised
       feederCounts[tid] = (feederCounts[tid] || 0) + 1;
     }
   }
@@ -2495,12 +2531,15 @@ function renderAmbienceDashboard() {
       const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
       const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
       const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
-      const feedTip = `${r.feeders} feeders / cap ${r.cap}`;
+      // Overfeeding cell: always show "feeders / cap" so data visibility is clear
+      const overfeedDisplay = r.overfeed < 0
+        ? `${r.overfeed} (${r.feeders}/${r.cap})`
+        : `${r.feeders}/${r.cap}`;
       h += `<tr>`;
       h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
       h += `<td>${esc(r.ambience)}</td>`;
       h += `<td class="proc-amb-neg">${r.entropy}</td>`;
-      h += `<td class="${r.overfeed < 0 ? 'proc-amb-neg' : ''}" title="${esc(feedTip)}">${r.overfeed === 0 ? '0' : r.overfeed}</td>`;
+      h += `<td class="${r.overfeed < 0 ? 'proc-amb-neg' : 'proc-amb-neutral'}">${esc(overfeedDisplay)}</td>`;
       h += `<td class="${r.influence > 0 ? 'proc-amb-pos' : r.influence < 0 ? 'proc-amb-neg' : ''}">${r.influence > 0 ? '+' + r.influence : r.influence}</td>`;
       h += `<td class="${r.projects > 0 ? 'proc-amb-pos' : r.projects < 0 ? 'proc-amb-neg' : ''}">${r.projects > 0 ? '+' + r.projects : r.projects}</td>`;
       h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
