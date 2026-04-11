@@ -365,8 +365,12 @@ export const characterSchema = {
         free_inv:       { type: 'integer', minimum: 0 },
         free_pt:        { type: 'integer', minimum: 0 },
         free_mdb:       { type: 'integer', minimum: 0 },
+        free_sw:        { type: 'integer', minimum: 0 },
         free_bloodline: { type: 'integer', minimum: 0 },
-        free_retainer:  { type: 'integer', minimum: 0 },
+        free_pet:       { type: 'integer', minimum: 0 },
+        free_attache:   { type: 'integer', minimum: 0 },
+        attache_key:    { type: 'string' },
+        retainer_source:{ type: 'string' },
         rule_key: { type: ['string', 'null'] }
       },
       additionalProperties: false

@@ -220,12 +220,15 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
     const _aKeys = opts.showAttache.keys;
     const _aCurKey = mc.retainer_source || '';
     const _aCurDots = fatt;
-    h += '<div class="bd-grp bd-attache-grp">'
+    h += '<div class="bd-grp">'
       + '<span class="bd-lbl bd-bonus-lbl">Att</span>'
-      + '<select class="merit-bd-select" onchange="shEditMeritAttache(' + realIdx + ',this.value,' + _aCurDots + ')">'
+      + '<select class="merit-bd-input bd-bonus-input" style="padding:1px 2px" onchange="shEditMeritAttache(' + realIdx + ',this.value,' + _aCurDots + ')">'
       + '<option value="">\u2014</option>'
       + _aKeys.map(k => '<option value="' + k + '"' + (_aCurKey === k ? ' selected' : '') + '>' + k + '</option>').join('')
       + '</select>'
+      + '</div>'
+      + '<div class="bd-grp">'
+      + '<span class="bd-lbl bd-bonus-lbl">dots</span>'
       + '<input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + _aCurDots + '" onchange="shEditMeritAttache(' + realIdx + ',\'' + _aCurKey + '\',+this.value)">'
       + '</div>';
   }
