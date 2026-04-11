@@ -2531,15 +2531,14 @@ function renderAmbienceDashboard() {
       const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
       const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
       const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
-      // Overfeeding cell: always show "feeders / cap" so data visibility is clear
-      const overfeedDisplay = r.overfeed < 0
-        ? `${r.overfeed} (${r.feeders}/${r.cap})`
-        : `${r.feeders}/${r.cap}`;
+      const gap = r.cap - r.feeders;
+      const gapStr = gap >= 0 ? `+${gap}` : String(gap);
+      const overfeedClass = gap < 0 ? 'proc-amb-neg' : 'proc-amb-neutral';
       h += `<tr>`;
       h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
       h += `<td>${esc(r.ambience)}</td>`;
       h += `<td class="proc-amb-neg">${r.entropy}</td>`;
-      h += `<td class="${r.overfeed < 0 ? 'proc-amb-neg' : 'proc-amb-neutral'}">${esc(overfeedDisplay)}</td>`;
+      h += `<td class="${overfeedClass}">${r.feeders}/${r.cap} | ${gapStr}</td>`;
       h += `<td class="${r.influence > 0 ? 'proc-amb-pos' : r.influence < 0 ? 'proc-amb-neg' : ''}">${r.influence > 0 ? '+' + r.influence : r.influence}</td>`;
       h += `<td class="${r.projects > 0 ? 'proc-amb-pos' : r.projects < 0 ? 'proc-amb-neg' : ''}">${r.projects > 0 ? '+' + r.projects : r.projects}</td>`;
       h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
