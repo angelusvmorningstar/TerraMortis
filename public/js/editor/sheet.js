@@ -1454,7 +1454,7 @@ export function renderSheet(c, target = null) {
   state.openExpId = null;
   const el = target || document.getElementById('sh-content');
   if (!c) { el.innerHTML = ''; return; }
-  applyDerivedMerits(c); ensureMeritSync(c);
+  applyDerivedMerits(c, chars); ensureMeritSync(c);
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '', st = c.status || {}, wp = getWillpower(c);
   const clanImg = ICONS[CLAN_ICON_KEY[c.clan] || ''] || '', covImg = ICONS[COV_ICON_KEY[c.covenant] || ''] || '';
   const allB = c.banes || [], curseIdx = allB.findIndex(b => b.name.toLowerCase().includes('curse')), curse = curseIdx >= 0 ? allB[curseIdx] : null, regB = allB.filter((_, i) => i !== curseIdx);
