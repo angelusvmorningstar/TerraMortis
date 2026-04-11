@@ -521,7 +521,7 @@ export function shRenderDisciplines(c, editMode) {
   // Pacts
   const pctP = (c.powers || []).filter(p => p.category === 'pact');
   if (pctP.length || editMode) {
-    const _oathDB = Object.fromEntries(Object.entries(MERITS_DB || {}).filter(([, v]) => v.type === 'Invictus Oath'));
+    const _oathDB = Object.fromEntries(Object.entries(MERITS_DB || {}).filter(([, v]) => v.type === 'Invictus Oath' || v.type === 'Carthian Law'));
     const _toTitle = s => s.replace(/\b\w/g, ch => ch.toUpperCase());
     const _allSkillOpts = ALL_SKILLS.map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
     const _charNames = [...(state.chars || [])].filter(ch => ch.name && ch.name !== c.name).sort((a, b) => sortName(a).localeCompare(sortName(b))).map(ch => '<option value="' + esc(ch.name) + '">' + esc(displayNameRaw(ch)) + '</option>').join('');
@@ -580,7 +580,7 @@ export function shRenderDisciplines(c, editMode) {
             + (partner && !partnerHasSW ? '<span style="font-size:10px;color:var(--txt3);font-style:italic;margin-left:4px">partner must also take this oath</span>' : '')
             + (partnerHasSW ? '<span style="font-size:10px;color:var(--gold2);margin-left:4px">\u2713 mutually linked</span>' : '')
             + '</div>'
-            + (() => { const _sm = (c.merits || []).filter(m => { const _db = (MERITS_DB || {})[(m.name || '').toLowerCase()]; return _db && _db.type === 'Social'; }); const _smOpts = _sm.map(m => { const _lbl = m.name + (m.qualifier ? ' (' + m.qualifier + ')' : m.area ? ' (' + m.area + ')' : ''); return '<option value="' + esc(_lbl) + '"' + (sharedMerit === _lbl ? ' selected' : '') + '>' + esc(_lbl) + '</option>'; }).join(''); return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>' + (_sm.length ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>' + _smOpts + '</select>' : '<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>') + '</div>'; })()
+            + (() => { const _sm = (c.merits || []).filter(m => m.category === 'influence'); const _smOpts = _sm.map(m => { const _lbl = m.name + (m.qualifier ? ' (' + m.qualifier + ')' : m.area ? ' (' + m.area + ')' : ''); return '<option value="' + esc(_lbl) + '"' + (sharedMerit === _lbl ? ' selected' : '') + '>' + esc(_lbl) + '</option>'; }).join(''); return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>' + (_sm.length ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>' + _smOpts + '</select>' : '<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>') + '</div>'; })()
 
             + '</div>';
         }
@@ -604,7 +604,7 @@ export function shRenderDisciplines(c, editMode) {
       h += '<div class="dev-add-row" style="display:flex;gap:6px;align-items:center">'
         + '<select id="pact-add-sel" class="gen-qual-input" style="flex:1;min-width:200px">'
         + '<option value="">-- select oath or law to add --</option>'
-        + _addableOaths.map(k => { const db = _oathDB[k]; const dots = db && db.rating ? parseInt(db.rating) || 0 : 0; return '<option value="' + esc(k) + '">' + esc(_toTitle(k)) + (dots ? ' (\u25CF'.repeat(dots) + ')' : '') + '</option>'; }).join('')
+        + _addableOaths.map(k => { const db = _oathDB[k]; const dots = db && db.rating ? parseInt(db.rating) || 0 : 0; return '<option value="' + esc(k) + '">' + esc(_toTitle(k)) + (dots ? ' (' + '\u25CF'.repeat(dots) + ')' : '') + '</option>'; }).join('')
         + '</select>'
         + '<button class="dev-add-btn" onclick="shAddPact(document.getElementById(\'pact-add-sel\').value)">+ Add Pact</button>'
         + '</div>';
