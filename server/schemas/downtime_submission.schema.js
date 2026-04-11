@@ -129,7 +129,7 @@ export const downtimeSubmissionSchema = {
   properties: {
 
     // ── Document wrapper ─────────────────────────────────────
-    character_id:    { type: 'string', minLength: 1 },
+    character_id:    { type: ['string', 'null'], minLength: 1 },
     character_name:  { type: 'string' },
     cycle_id:        { type: ['string', 'null'] },
     status:          { type: 'string', enum: ['draft', 'submitted'] },
