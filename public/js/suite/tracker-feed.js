@@ -11,7 +11,7 @@ import { rollPool, cntSuc } from '../shared/dice.js';
 import {
   stGetTracker, stSetTracker, stMaxVitae, toast
 } from './tracker.js';
-import { getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 
 // ══════════════════════════════════════════════
 //  FEEDING CONSTANTS

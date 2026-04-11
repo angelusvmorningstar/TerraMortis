@@ -6,7 +6,7 @@
 
 import state from '../data/state.js';
 import { esc } from '../data/helpers.js';
-import { getAttrVal, getAttrBonus, getSkillObj } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getAttrBonus, getSkillObj } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpEarned, xpLeft } from './xp.js';
 

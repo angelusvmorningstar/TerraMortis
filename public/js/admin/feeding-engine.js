@@ -4,7 +4,7 @@
  */
 
 import { esc, displayName, displayNameRaw } from '../data/helpers.js';
-import { getAttrVal, skDots, calcVitaeMax } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, calcVitaeMax } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 
 // ── Dice math (10-again, no state coupling) ──

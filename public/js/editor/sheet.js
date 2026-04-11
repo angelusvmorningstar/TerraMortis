@@ -128,9 +128,9 @@ function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
   return '<span class="merit-dots-sh">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
-function _statusTrack(base, bonus, bonusColor) {
+function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
   let h = '<div class="sh-status-track">';
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= maxDots; i++) {
     if (i <= base) h += '<span class="sh-track-dot sh-track-base">\u25CF</span>';
     else if (i <= base + bonus) h += '<span class="sh-track-dot" style="color:' + bonusColor + '">\u25CB</span>';
     else h += '<span class="sh-track-dot sh-track-empty">\u25CB</span>';
@@ -142,13 +142,21 @@ function _statusEditBtns(downFn, upFn) {
 }
 function _cityStatusDots(base, titleBonus) {
   if (!base && !titleBonus) return '';
-  return '<div class="sh-city-dots">' + '<span class="sh-city-dot crim">\u25CF</span>'.repeat(base) + '<span class="sh-city-dot gold">\u25CF</span>'.repeat(titleBonus) + '</div>';
+  const total = base + titleBonus;
+  let h = '<div class="sh-city-dots">';
+  for (let i = 1; i <= 10; i++) {
+    if (i <= base) h += '<span class="sh-city-dot crim">\u25CF</span>';
+    else if (i <= total) h += '<span class="sh-city-dot gold">\u25CF</span>';
+    else h += '<span class="sh-city-dot empty">\u25CB</span>';
+    if (i === 5) h += '<br>';
+  }
+  return h + '</div>';
 }
 function _cityStatusPip(editMode, base, total, titleBonus) {
   if (editMode) return '<div class="sh-stat-pip">'
     + '<div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div>'
     + '<div class="sh-status-lbl">City</div>'
-    + _statusTrack(base, titleBonus, 'var(--gold2)')
+    + _statusTrack(base, titleBonus, 'var(--gold2)', 10)
     + _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')')
     + '</div>';
   return '<div class="sh-stat-pip"><div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div><div class="sh-status-lbl">City</div></div>';
@@ -224,7 +232,7 @@ export function shRenderStatsStrip(c) {
 
 export function shRenderAttributes(c, editMode) {
   const ATTR_ROWS = [['Intelligence', 'Strength', 'Presence'], ['Wits', 'Dexterity', 'Manipulation'], ['Resolve', 'Stamina', 'Composure']];
-  const catOrder = ['Mental', 'Physical', 'Social'], BONUS_SOURCE = { Strength: 'Vigour', Stamina: 'Resilience' };
+  const catOrder = ['Mental', 'Physical', 'Social'], BONUS_SOURCE = { Strength: 'Vigour', Dexterity: 'Celerity', Stamina: 'Resilience' };
   // Normalise clan_attribute from attribute free field if missing
   if (!c.clan_attribute && c.attributes) { const ca = Object.entries(c.attributes).find(([, ao]) => (ao.free || 0) === 2); if (ca) c.clan_attribute = ca[0]; }
   const _attrAlert = editMode ? (catOrder.some(cat => { const budget = PRI_BUDGETS[(c.attribute_priorities || {})[cat] || 'Tertiary'] || 3, usedCP = (ATTR_CATS[cat] || []).reduce((s, a) => s + ((c.attributes?.[a]?.cp) || 0), 0); return budget - usedCP < 0; }) ? 'red' : null) : null;
@@ -607,6 +615,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && m.name === 'Allies', showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && _invMerits.has(m.name) }); h += _prereqWarn(c, m.name);
+      if (m.free_ohm) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OHM: +' + m.free_ohm + ' dot' + (m.free_ohm !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
     });
     // Contacts: single entry with sphere-per-dot
     const contactsEntry = inflM.find(m => m.name === 'Contacts');
@@ -616,6 +625,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + shDots(rating) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
       h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0 });
       if (contactsEntry.free_pt) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">PT Bonus: +' + contactsEntry.free_pt + ' dots (auto) \u2014 removed if PT is removed</div>';
+      if (contactsEntry.free_ohm) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OHM: +' + contactsEntry.free_ohm + ' dot (auto) \u2014 removed if oath is removed</div>';
       for (let d = 0; d < rating; d++) {
         const sp = spheres[d] || '';
         let src = '';
@@ -708,7 +718,15 @@ export function shRenderStandingMerits(c, editMode) {
     const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0);
     if (m.name === 'Mystery Cult Initiation') h += _renderMCI(c, m, si, rIdx, m, dd, editMode);
     else if (m.name === 'Professional Training') h += _renderPT(c, m, si, rIdx, m, dd, editMode, _standMciPool);
-    else if (editMode) { h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + shDots(dd) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _standMciPool > 0 }); h += _prereqWarn(c, m.name); }
+    else if (editMode) {
+      h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + shDots(dd) + '</span></div>';
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _standMciPool > 0 });
+      h += _prereqWarn(c, m.name);
+      if (m.name === 'Oath of the Scapegoat' && dd > 0) {
+        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:#9E7AE0;padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
+        h += '<div style="font-size:10px;color:#9E7AE0;padding:2px 8px">OTS: +' + (dd * 2) + ' free Fighting Merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
+      }
+    }
     else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (sub ? '<div class="merit-sub-sh">' + esc(sub) + '</div>' : '') + (assets ? '<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: ' + esc(assets) + '</div>' : '') + '</div><span class="merit-dots-sh">' + shDots(m.rating) + '</span></div>'; }
   });
   if (editMode) {

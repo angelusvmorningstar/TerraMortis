@@ -67,7 +67,7 @@ import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
 import { getPool } from './shared/pools.js';
-import { getAttrVal, skDots } from './data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
 import { SKILLS_MENTAL } from './data/constants.js';
 import { toast as _toast } from './suite/tracker.js';
 import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';

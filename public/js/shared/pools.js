@@ -1,7 +1,7 @@
 /* Shared pool string parser — resolves discipline keys to dice pools */
 
 import { RITUAL_DISCS } from '../suite/data.js';
-import { getAttrVal, skDots } from '../data/accessors.js';
+import { getAttrEffective, skDots } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { getRuleByKey } from '../data/loader.js';
 
@@ -35,7 +35,7 @@ export function getPool(char, raw) {
   if (rule) {
     const p = rule.pool;
     if (!p || (!p.attr && !p.skill)) return { noRoll: true, info: { d: rule.parent, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } };
-    const attrV = p.attr ? getAttrVal(char, p.attr) : 0;
+    const attrV = p.attr ? getAttrEffective(char, p.attr) : 0;
     const baseDots = p.skill ? skDots(char, p.skill) : 0;
     const ptBonus = (p.skill && char._pt_dot4_bonus_skills instanceof Set && char._pt_dot4_bonus_skills.has(p.skill)) ? 1 : 0;
     const mciBonus = (p.skill && char._mci_dot3_skills instanceof Set && char._mci_dot3_skills.has(p.skill)) ? 1 : 0;
