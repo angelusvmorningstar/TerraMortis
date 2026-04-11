@@ -1,6 +1,6 @@
 # Story fix.39: Feeding Rights Sync — Player Portal ↔ City Tab
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -94,3 +94,4 @@ The regency tab shows 10 feeding right slots. The ST City tab shows a simple lis
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-11 | 1.0 | Story authored | Claude (SM) |
+| 2026-04-11 | 1.1 | Implemented Option A: territories collection is canonical. Removed territory-residency GET/PUT from regency-tab.js. Feeding rights now read from territory doc in _territories array; saved via POST /api/territories. Regent/Lieutenant rows are display-only. Local cache updated on save. | Claude (SM) |
