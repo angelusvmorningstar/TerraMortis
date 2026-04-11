@@ -2328,10 +2328,7 @@ async function saveEntryReview(entry, patch) {
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { merit_actions_resolved: resolved });
     sub.merit_actions_resolved = resolved;
-  }
   } else if (entry.source === 'sorcery') {
-    const sub = submissions.find(s => s._id === entry.subId);
-    if (!sub) return;
     const sorcReview = { ...(sub.sorcery_review || {}) };
     const current = sorcReview[entry.actionIdx] || { pool_status: 'pending', notes_thread: [], player_feedback: '' };
     sorcReview[entry.actionIdx] = { ...current, ...patch };
