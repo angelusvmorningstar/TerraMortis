@@ -27,6 +27,7 @@ let characters = [];
 let charMap = new Map();
 let allCycles = [];
 let activeCycle = null;
+let currentCycle = null;
 let selectedCycleId = null;
 let expandedId = null;
 let processingMode = false;
@@ -102,6 +103,85 @@ const ALL_ACTION_TYPES = [
   'block', 'rumour', 'grow', 'acquisition',
 ];
 
+// ── Cycle Phase Ribbon ───────────────────────────────────────────────────────
+
+function getCyclePhase(cycle, subs) {
+  if (!cycle) return null;
+  if (cycle.status === 'game')   return 0;
+  if (cycle.status === 'active') return 1;
+  // closed
+  const hasPending = (subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
+  return hasPending ? 2 : 3;
+}
+
+function getSubPhases(phase, cycle, subs) {
+  switch (phase) {
+    case 0:
+      return [
+        { label: 'Regent Confirmed', done: !!cycle.regency_character_id },
+        { label: 'Ambience Applied', done: !!cycle.ambience_applied },
+      ];
+    case 1: {
+      const hasSubs = (subs || []).length > 0;
+      const deadlinePast = !!(cycle.deadline_at && new Date(cycle.deadline_at) < new Date());
+      return [
+        { label: 'Deadline Set',         done: !!cycle.deadline_at },
+        { label: 'Submissions Received', done: hasSubs },
+        { label: 'Deadline Passed',      done: deadlinePast },
+      ];
+    }
+    case 2: {
+      const allResolved = !(subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
+      return [
+        { label: 'Reviewing',    done: allResolved, inProgress: !allResolved },
+        { label: 'All Resolved', done: allResolved },
+      ];
+    }
+    case 3:
+    default:
+      return [];
+  }
+}
+
+function renderPhaseRibbon(cycle, subs) {
+  const mainEl = document.getElementById('dt-phase-ribbon');
+  const subEl  = document.getElementById('dt-sub-ribbon');
+  if (!mainEl || !subEl) return;
+
+  const phase = getCyclePhase(cycle, subs);
+  if (phase === null) {
+    mainEl.style.display = 'none';
+    subEl.style.display  = 'none';
+    return;
+  }
+
+  // Main ribbon
+  const mainSteps = ['Game \u0026 Feeding', 'Downtimes', 'Processing', 'Push Ready'];
+  mainEl.style.display = '';
+  mainEl.innerHTML = mainSteps.map((label, i) => {
+    const done   = i < phase;
+    const active = i === phase;
+    const cls    = done ? 'pr-step pr-done' : active ? 'pr-step pr-active' : 'pr-step pr-future';
+    const icon   = done ? '\u2713 ' : '';
+    const connector = i < mainSteps.length - 1 ? '<span class="pr-connector"></span>' : '';
+    return `<span class="${cls}">${icon}${label}</span>${connector}`;
+  }).join('');
+
+  // Sub ribbon
+  const subSteps = getSubPhases(phase, cycle, subs);
+  if (!subSteps.length) {
+    subEl.style.display = 'none';
+    return;
+  }
+  subEl.style.display = '';
+  subEl.innerHTML = subSteps.map((s, i) => {
+    const cls = s.done ? 'pr-sub pr-done' : s.inProgress ? 'pr-sub pr-active' : 'pr-sub pr-future';
+    const icon = s.done ? '\u2713 ' : '';
+    const connector = i < subSteps.length - 1 ? '<span class="pr-sub-connector"></span>' : '';
+    return `<span class="${cls}">${icon}${s.label}</span>${connector}`;
+  }).join('');
+}
+
 export async function initDowntimeView() {
   const container = document.getElementById('downtime-content');
   if (!container) return;
@@ -153,6 +233,8 @@ function buildShell() {
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
       <span id="dt-cycle-status" class="dt-cycle-status"></span>
     </div>
+    <div id="dt-phase-ribbon" style="display:none"></div>
+    <div id="dt-sub-ribbon" style="display:none"></div>
     <div id="dt-snapshot"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
@@ -510,6 +592,7 @@ async function loadCycleById(cycleId) {
     subEl.innerHTML = '<p class="placeholder">Cycle not found.</p>';
     return;
   }
+  currentCycle = cycle;
 
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
@@ -559,6 +642,9 @@ async function loadCycleById(cycleId) {
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
 
+  // ── Phase ribbon (initial render — submissions not yet loaded) ──
+  renderPhaseRibbon(cycle, []);
+
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
     const val = e.target.value; // datetime-local string or empty
@@ -592,6 +678,7 @@ async function loadCycleById(cycleId) {
   expandedId = null;
   procExpandedKey = null;
   submissions = await getSubmissionsForCycle(cycleId);
+  renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
   // Keep processing mode on across cycle switches — just re-render appropriately
   document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
