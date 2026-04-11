@@ -1,0 +1,16 @@
+schema: 1
+story: "fix.21"
+story_title: "Regent Assignment — Single Source of Truth"
+gate: PASS
+status_reason: "All 14 ACs met. regent_territory/regent_lieutenant removed from character schema. Territories store regent_id/lieutenant_id. All UI derives regent status via findRegentTerritory() at runtime. Zero direct character field references remain."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-04-11"
+
+waiver: { active: false }
+top_issues: []
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 0 }
+  recommendations:
+    must_fix: []
+    monitor: []

@@ -208,6 +208,16 @@ export function shToggleMCI(standIdx) {
   _renderSheet(c);
 }
 
+export function shTogglePT(standIdx) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const { merit: m } = meritByCategory(c, 'standing', standIdx);
+  if (!m || m.name !== 'Professional Training') return;
+  m.active = m.active === false ? true : false;
+  _markDirty();
+  _renderSheet(c);
+}
+
 export function shRemoveStandMerit(idx) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
