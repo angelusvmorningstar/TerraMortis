@@ -15,7 +15,10 @@ import { getRole } from '../auth/discord.js';
 const REDACT_BLOCK = '\u2588';
 
 export function isRedactMode() {
-  return getRole() === 'dev';
+  if (getRole() !== 'dev') return false;
+  // Don't redact on the player portal — dev users see their own characters there
+  if (location.pathname.startsWith('/player')) return false;
+  return true;
 }
 
 /** Replace a name-like string with a block-character placeholder.
@@ -117,6 +120,21 @@ export function displayNameRaw(c) {
  *  internal sort order, never rendered to the DOM. */
 export function sortName(c) {
   return (c.moniker || c.name).toLowerCase();
+}
+
+/**
+ * Find a character's regent territory from the territories array.
+ * Returns { territory, territoryId, lieutenantId } or null.
+ * Caches result on c._regentTerritory (ephemeral, not persisted).
+ */
+export function findRegentTerritory(territories, c) {
+  if (!territories || !c) return null;
+  if (c._regentTerritory !== undefined) return c._regentTerritory;
+  const cid = String(c._id);
+  const t = territories.find(t => t.regent_id === cid);
+  const result = t ? { territory: t.name || t.id, territoryId: t.id, lieutenantId: t.lieutenant_id || null } : null;
+  c._regentTerritory = result;
+  return result;
 }
 
 export function esc(s) {

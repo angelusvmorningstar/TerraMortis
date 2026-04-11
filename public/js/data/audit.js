@@ -20,6 +20,7 @@ import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS, CORE_DISCS, RITU
 import { isInClanDisc } from './accessors.js';
 import { meetsPrereq } from './prereq.js';
 import { getRuleByKey } from './loader.js';
+import { domMeritAccess } from '../editor/domain.js';
 
 /**
  * Run all audit gates on a character.
@@ -204,7 +205,7 @@ export function auditCharacter(c) {
     if (m.granted_by) continue; // granted merits bypass prereqs
     const slug = (m.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const rule = getRuleByKey(slug);
-    if (rule?.prereq && !meetsPrereq(c, rule.prereq)) {
+    if (rule?.prereq && !meetsPrereq(c, rule.prereq, { domTotal: (name) => domMeritAccess(c, name) })) {
       warnings.push({ gate: 'merit_prereq', message: `${m.name}: prerequisites not met`, detail: { merit: m.name } });
     }
   }

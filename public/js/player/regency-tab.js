@@ -5,18 +5,23 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
-import { esc, displayName } from '../data/helpers.js';
+import { esc, displayName, findRegentTerritory } from '../data/helpers.js';
 import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
 
 const RESIDENCY_SLOTS = 12; // Regent + Lieutenant + 10 feeding rights
 
 let currentChar = null;
+let _territories = [];
 let allCharNames = [];
 let persistedResidency = [];
 
-export async function renderRegencyTab(container, char) {
+function _regInfo() { return findRegentTerritory(_territories, currentChar); }
+
+export async function renderRegencyTab(container, char, territories) {
   currentChar = char;
-  if (!container || !char?.regent_territory) {
+  _territories = territories || [];
+  const ri = _regInfo();
+  if (!container || !ri) {
     if (container) container.innerHTML = '';
     return;
   }
@@ -28,7 +33,7 @@ export async function renderRegencyTab(container, char) {
 
   // Load persisted residency
   try {
-    const res = await apiGet(`/api/territory-residency?territory=${encodeURIComponent(char.regent_territory)}`);
+    const res = await apiGet(`/api/territory-residency?territory=${encodeURIComponent(ri.territory)}`);
     persistedResidency = res?.residents || [];
   } catch { persistedResidency = []; }
 
@@ -36,13 +41,15 @@ export async function renderRegencyTab(container, char) {
 }
 
 function getRegentCap() {
-  const terr = TERRITORY_DATA.find(t => t.name === currentChar.regent_territory);
+  const ri = _regInfo();
+  const terr = ri ? TERRITORY_DATA.find(t => t.name === ri.territory) : null;
   return terr ? (AMBIENCE_CAP[terr.ambience] || 5) : 5;
 }
 
 function render(container) {
   const cap = getRegentCap();
-  const terrName = currentChar.regent_territory;
+  const ri = _regInfo();
+  const terrName = ri?.territory || '';
   const terr = TERRITORY_DATA.find(t => t.name === terrName);
   const ambience = terr ? terr.ambience : 'Unknown';
   const regentName = displayName(currentChar);
@@ -65,7 +72,7 @@ function render(container) {
       label = 'Lieutenant';
       locked = true;
       // Lieutenant is set on the character record, not selectable
-      value = currentChar.regent_lieutenant || '';
+      value = _regInfo()?.lieutenantId || '';
     }
     else { label = `Feeding Right ${i - 2}`; }
 
@@ -148,7 +155,7 @@ async function saveRegency() {
 
   try {
     await apiPut('/api/territory-residency', {
-      territory: currentChar.regent_territory,
+      territory: _regInfo()?.territory || '',
       residents: residents.filter(Boolean),
     });
     persistedResidency = residents;

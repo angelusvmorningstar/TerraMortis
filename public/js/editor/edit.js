@@ -65,8 +65,8 @@ export function shEdit(field, val) {
   if (state.editIdx < 0) return;
   state.chars[state.editIdx][field] = val || null;
   _markDirty();
-  // Re-render for fields that affect derived display (title bonus, regent territory, clan bane)
-  if (field === 'court_title' || field === 'regent_territory') {
+  // Re-render for fields that affect derived display (title bonus, clan bane)
+  if (field === 'court_title') {
     _renderSheet(state.chars[state.editIdx]);
     return;
   }

@@ -3,7 +3,7 @@
  * Extracted from tm_editor.html lines 315–1310.
  */
 import state from '../data/state.js';
-import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, REGENT_TERRITORIES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
+import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
 import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, displayNameRaw, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, isInClanDisc } from '../data/accessors.js';
@@ -521,7 +521,7 @@ export function shRenderDisciplines(c, editMode) {
   // Pacts
   const pctP = (c.powers || []).filter(p => p.category === 'pact');
   if (pctP.length || editMode) {
-    const _oathDB = Object.fromEntries(Object.entries(MERITS_DB || {}).filter(([, v]) => v.type === 'Invictus Oath'));
+    const _oathDB = Object.fromEntries(Object.entries(MERITS_DB || {}).filter(([, v]) => v.type === 'Invictus Oath' || v.type === 'Carthian Law'));
     const _toTitle = s => s.replace(/\b\w/g, ch => ch.toUpperCase());
     const _allSkillOpts = ALL_SKILLS.map(s => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
     const _charNames = [...(state.chars || [])].filter(ch => ch.name && ch.name !== c.name).sort((a, b) => sortName(a).localeCompare(sortName(b))).map(ch => '<option value="' + esc(ch.name) + '">' + esc(displayNameRaw(ch)) + '</option>').join('');
@@ -580,7 +580,7 @@ export function shRenderDisciplines(c, editMode) {
             + (partner && !partnerHasSW ? '<span style="font-size:10px;color:var(--txt3);font-style:italic;margin-left:4px">partner must also take this oath</span>' : '')
             + (partnerHasSW ? '<span style="font-size:10px;color:var(--gold2);margin-left:4px">\u2713 mutually linked</span>' : '')
             + '</div>'
-            + (() => { const _sm = (c.merits || []).filter(m => { const _db = (MERITS_DB || {})[(m.name || '').toLowerCase()]; return _db && _db.type === 'Social'; }); const _smOpts = _sm.map(m => { const _lbl = m.name + (m.qualifier ? ' (' + m.qualifier + ')' : m.area ? ' (' + m.area + ')' : ''); return '<option value="' + esc(_lbl) + '"' + (sharedMerit === _lbl ? ' selected' : '') + '>' + esc(_lbl) + '</option>'; }).join(''); return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>' + (_sm.length ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>' + _smOpts + '</select>' : '<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>') + '</div>'; })()
+            + (() => { const _sm = (c.merits || []).filter(m => m.category === 'influence'); const _smOpts = _sm.map(m => { const _lbl = m.name + (m.qualifier ? ' (' + m.qualifier + ')' : m.area ? ' (' + m.area + ')' : ''); return '<option value="' + esc(_lbl) + '"' + (sharedMerit === _lbl ? ' selected' : '') + '>' + esc(_lbl) + '</option>'; }).join(''); return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>' + (_sm.length ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>' + _smOpts + '</select>' : '<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>') + '</div>'; })()
 
             + '</div>';
         }
@@ -604,7 +604,7 @@ export function shRenderDisciplines(c, editMode) {
       h += '<div class="dev-add-row" style="display:flex;gap:6px;align-items:center">'
         + '<select id="pact-add-sel" class="gen-qual-input" style="flex:1;min-width:200px">'
         + '<option value="">-- select oath or law to add --</option>'
-        + _addableOaths.map(k => { const db = _oathDB[k]; const dots = db && db.rating ? parseInt(db.rating) || 0 : 0; return '<option value="' + esc(k) + '">' + esc(_toTitle(k)) + (dots ? ' (\u25CF'.repeat(dots) + ')' : '') + '</option>'; }).join('')
+        + _addableOaths.map(k => { const db = _oathDB[k]; const dots = db && db.rating ? parseInt(db.rating) || 0 : 0; return '<option value="' + esc(k) + '">' + esc(_toTitle(k)) + (dots ? ' (' + '\u25CF'.repeat(dots) + ')' : '') + '</option>'; }).join('')
         + '</select>'
         + '<button class="dev-add-btn" onclick="shAddPact(document.getElementById(\'pact-add-sel\').value)">+ Add Pact</button>'
         + '</div>';
@@ -817,13 +817,25 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
     if (pool > 0) h += '<div class="mci-pool-row"><span class="mci-pool-lbl">Merit Pool</span><span class="mci-pool-val">' + pool + ' dot' + (pool === 1 ? '' : 's') + ' \u2014 allocate via MCI field on each merit</span></div>';
   } else if (!inactive) {
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
+    const tg = m.tier_grants || [];
+    const tierGrant = (tier) => { const g = tg.find(t => t.tier === tier); return g ? esc(g.name) + (g.qualifier ? ' (' + esc(g.qualifier) + ')' : '') + ' ' + shDots(g.rating) : null; };
     for (let d = 0; d < 5 && d < m.rating; d++) {
       let txt;
-      if (d === 0) txt = d1c === 'speciality' ? 'Specialisation' + (m.dot1_spec_skill ? ' \u2014 ' + m.dot1_spec_skill + (m.dot1_spec ? ' (' + m.dot1_spec + ')' : '') : '') : '1 merit dot';
-      else if (d === 1) txt = '1 merit dot';
-      else if (d === 2) txt = d3c === 'skill' ? 'Skill Dot' + (m.dot3_skill ? ' (' + m.dot3_skill + ')' : '') : '2 merit dots';
-      else if (d === 3) txt = '3 merit dots';
-      else if (d === 4) txt = d5c === 'advantage' ? 'Advantage' + (m.dot5_text ? ' \u2014 ' + m.dot5_text : '') : '3 merit dots';
+      const tier = d + 1;
+      if (d === 0) {
+        if (d1c === 'speciality') txt = 'Spec: ' + (m.dot1_spec_skill ? esc(m.dot1_spec_skill) + (m.dot1_spec ? ' (' + esc(m.dot1_spec) + ')' : '') : '<span class="mci-unset">(unset)</span>');
+        else txt = tierGrant(tier) || '1 merit dot <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 1) {
+        txt = tierGrant(tier) || '1 merit dot <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 2) {
+        if (d3c === 'skill') txt = 'Skill: ' + (m.dot3_skill ? esc(m.dot3_skill) + ' +1' : '<span class="mci-unset">(unset)</span>');
+        else txt = tierGrant(tier) || '2 merit dots <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 3) {
+        txt = tierGrant(tier) || '3 merit dots <span class="mci-unset">(unassigned)</span>';
+      } else if (d === 4) {
+        if (d5c === 'advantage') txt = 'Advantage: ' + (m.dot5_text ? esc(m.dot5_text) : '<span class="mci-unset">(unset)</span>');
+        else txt = tierGrant(tier) || '3 merit dots <span class="mci-unset">(unassigned)</span>';
+      }
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><span class="mci-benefit-text">' + (txt || '') + '</span></div>';
     }
   }
@@ -1439,10 +1451,12 @@ export function renderSheet(c, target = null) {
   h += '</div>'; // end left
   // Right panel
   h += '<div class="sh-hdr-right">';
-  const tOpts = COURT_TITLES.map(t => '<option' + (c.court_title === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join(''), trOpts = REGENT_TERRITORIES.map(t => '<option' + (c.regent_territory === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+  const tOpts = COURT_TITLES.map(t => '<option' + (c.court_title === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join('');
+  // Regent territory is derived from territories collection, not stored on character
+  const _regTerrName = c._regentTerritory?.territory || null;
   h += '<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
-  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; h += '<select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'regent_territory\',this.value||null)"><option value="">(no territory)</option>' + trOpts + '</select>'; }
-  else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (c.regent_territory) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(c.regent_territory) + '</div>'; }
+  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--gold2)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
+  else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), cityTotal = cityBase + titleBonus;
   h += '<div class="sh-faction-sub">Title</div>' + _cityStatusDots(cityBase, titleBonus) + '</div>' + _cityStatusPip(editMode, cityBase, cityTotal, titleBonus) + '</div>';
   const covRow = (img, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) => { h += '<div class="sh-hdr-row">' + (img ? '<div class="sh-faction-icon"><img src="' + img + '"></div>' : '<div class="sh-icon-slot"></div>') + '<div class="sh-faction-text">' + (editMode ? editH : viewH) + '<div class="sh-faction-sub">' + sub + '</div></div>' + _statusPip(editMode, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) + '</div>'; };

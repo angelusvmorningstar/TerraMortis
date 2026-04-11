@@ -7,7 +7,7 @@ import { auditCharacter } from './data/audit.js';
 import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
-import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer, discordAvatarUrl } from './data/helpers.js';
+import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
@@ -805,6 +805,11 @@ async function init() {
     chars.forEach(sanitiseChar);
     await loadGameXP(chars);
     try { _players = await apiGet('/api/players'); } catch { _players = []; }
+    // Derive regent status from territories (single source of truth)
+    try {
+      const terrs = await apiGet('/api/territories');
+      chars.forEach(c => findRegentTerritory(terrs, c));
+    } catch { /* territories not available — regent display will be blank */ }
     renderCharGrid();
   } catch (err) {
     console.error('Failed to load characters:', err.message);
