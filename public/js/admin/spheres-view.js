@@ -117,7 +117,6 @@ function renderSpheres() {
     h += '<div class="sphere-block">';
     h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} dots</span></div>`;
     h += '<table class="infl-table sphere-table">'
-      + '<colgroup><col style="width:32px"><col><col style="width:60px"><col style="width:60px"><col style="width:60px"><col style="width:60px"></colgroup>'
       + '<thead><tr>'
       + '<th>#</th>'
       + '<th>Character</th>'
