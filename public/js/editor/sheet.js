@@ -12,7 +12,7 @@ import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrde
 import { meritBase, meritDotCount, meritLookup, meritFixedRating, buildMeritOptions, buildMCIGrantOptions, buildFThiefOptions, ensureMeritSync, meetsDevPrereqs, devPrereqStr, meetsPrereq, prereqLabel } from './merits.js';
 import { getRulesByCategory, getRuleByKey } from '../data/loader.js';
 import { applyDerivedMerits, getPoolTotal, getPoolUsed, getPoolsForCategory, mciPoolTotal, getMCIPoolUsed } from './mci.js';
-import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
+import { domMeritTotal, domMeritAccess, domMeritContrib, domMeritShareable, calcTotalInfluence, influenceBreakdown, calcContactsInfluence, calcMeritInfluence, hasHoneyWithVinegar, hasViralMythology, vmHerdPool, vmAlliesUsed, ssjHerdBonus, flockHerdBonus, hasLorekeeper, lorekeeperPool, lorekeeperUsed, hasOHM, ohmUsed, hasInvested, investedPool, investedUsed } from './domain.js';
 import { auditCharacter } from '../data/audit.js';
 
 // Build legacy-format shims from rules cache for remaining deep consumers.
@@ -618,6 +618,7 @@ export function shRenderInfluenceMerits(c, editMode) {
   const inflM = (c.merits || []).filter(m => m.category === 'influence');
   if (!editMode && !inflM.length) return '';
   const totalInfl = calcTotalInfluence(c);
+  const _inflTip = influenceBreakdown(c).map(l => esc(l)).join('\n');
   const _inflVmPools = (c._grant_pools || []).filter(p => p.category === 'vm');
   const _inflOhmPools = (c._grant_pools || []).filter(p => p.category === 'ohm');
   const _inflInvPools = (c._grant_pools || []).filter(p => p.category === 'inv');
@@ -663,7 +664,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       h += '</div>';
     }
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddInflMerit(\'Allies\')">+ Add Allies / Other</button></div>';
-    h += '<div class="infl-total">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
+    h += '<div class="infl-total" title="' + _inflTip + '">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
   } else {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
@@ -673,7 +674,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) { const td = Math.min(5, ce.reduce((s, m) => s + (m.rating || 0), 0)); const allSp = []; ce.forEach(m => { if (m.spheres && m.spheres.length) allSp.push(...m.spheres); else if (m.area) allSp.push(m.area.trim()); else if (m.qualifier) allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean)); }); const sp = [...new Set(allSp)].join(', '); h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : '') + (td ? ' ' + shDots(td) : ''), 'infl', 'contacts'); }
-    h += '<div class="infl-total">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
+    h += '<div class="infl-total" title="' + _inflTip + '">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
   }
   h += '</div></div>'; return h;
 }
