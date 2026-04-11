@@ -128,6 +128,22 @@ function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
   return '<span class="merit-dots-sh">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
+
+/** Gold log of all derived dot sources on a merit. Only emits lines where the field > 0. */
+const _DN = 'font-size:10px;color:var(--gold2);padding:2px 8px';
+function _derivedNotes(m) {
+  const _n = (v, lbl, why) => v ? '<div style="' + _DN + '">' + lbl + ': +' + v + ' dot' + (v !== 1 ? 's' : '') + ' (auto) \u2014 ' + why + '</div>' : '';
+  return _n(m.free_mci,       'MCI',        'removed if MCI drops')
+       + _n(m.free_vm,        'VM',         'removed if VM removed')
+       + _n(m.free_ohm,       'OHM',        'removed if oath is removed')
+       + _n(m.free_lk,        'Lorekeeper', 'removed if Lorekeeper removed')
+       + _n(m.free_inv,       'Invested',   'removed if Invested removed')
+       + _n(m.free_bloodline, 'Bloodline',  'removed if bloodline changes')
+       + _n(m.free_retainer,  'Retainer',   'removed if Retainer removed')
+       + _n(m.free_pt,        'PT Bonus',   'removed if PT is removed')
+       + _n(m.free_mdb,       'MDB Bonus',  'equals Mentor rating')
+       + _n(m.free_sw,        'Safe Word',  'removed if oath is removed');
+}
 function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
   const dot = i => {
     if (i <= base) return '<span class="sh-track-dot sh-track-base">\u25CF</span>';
@@ -639,21 +655,21 @@ export function shRenderInfluenceMerits(c, editMode) {
     const _inflHWV = hasHoneyWithVinegar(c);
     nonContacts.forEach(m => {
       const idx = inflM.indexOf(m), inf = calcMeritInfluence(m, _inflHWV), tOpts = INFLUENCE_MERIT_TYPES.map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + t + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
-      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _inflArea(m, idx, false) + '<span class="infl-dots-derived">' + shDots(dd) + '</span><span class="infl-inf">' + (inf ? '<span class="inf-val">' + inf + '</span> inf' : '') + '</span>';
+      const _iPurch = (m.cp || 0) + (m.xp || 0);
+      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _inflArea(m, idx, false) + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="inf-val">' + inf + '</span> inf' : '') + '</span>';
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && m.name === 'Allies', showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && _invMerits.has(m.name) }); h += _prereqWarn(c, m.name);
-      if (m.free_ohm) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OHM: +' + m.free_ohm + ' dot' + (m.free_ohm !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
+      h += _derivedNotes(m);
     });
     // Contacts: single entry with sphere-per-dot
     const contactsEntry = inflM.find(m => m.name === 'Contacts');
     const cInf = calcContactsInfluence(c);
     if (contactsEntry) {
       const cIdx = c.merits.indexOf(contactsEntry), rating = contactsEntry.rating || 0, spheres = contactsEntry.spheres || [], baseDots = (contactsEntry.cp || 0) + (contactsEntry.xp || 0), spOpts = s => INFLUENCE_SPHERES.map(sp => '<option' + (s === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
-      h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + shDots(rating) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
+      h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + '\u25CF'.repeat(baseDots) + '\u25CB'.repeat(Math.max(0, rating - baseDots)) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
       h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0 });
-      if (contactsEntry.free_pt) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">PT Bonus: +' + contactsEntry.free_pt + ' dots (auto) \u2014 removed if PT is removed</div>';
-      if (contactsEntry.free_ohm) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OHM: +' + contactsEntry.free_ohm + ' dot (auto) \u2014 removed if oath is removed</div>';
+      h += _derivedNotes(contactsEntry);
       for (let d = 0; d < rating; d++) {
         const sp = spheres[d] || '';
         let src = '';
@@ -669,7 +685,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free_mci || 0) + (m.free_vm || 0);
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_pt || 0) + (m.free_sw || 0);
       h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + (m.rating ? ' ' + shDots(m.rating) : '') + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
@@ -711,9 +727,11 @@ export function shRenderDomainMerits(c, editMode) {
       const _ownCapped = Math.min(dd, eT);
       const _partnerDots = Math.max(0, eT - _ownCapped);
       const _totalDots = _partnerDots > 0 ? shDotsMixed(_ownCapped, _partnerDots) : shDots(eT);
-      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + shDots(dd) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
+      const _dPurch = (m.cp || 0) + (m.xp || 0);
+      h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit }); h += _prereqWarn(c, m.name);
+      h += _derivedNotes(m);
       if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div style="font-size:10px;color:var(--gdim);padding:2px 8px">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div style="font-size:10px;color:var(--gdim);padding:2px 8px">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
@@ -744,18 +762,20 @@ export function shRenderStandingMerits(c, editMode) {
   const _standSorted = editMode ? standM : standM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   _standSorted.forEach((m, si) => {
     const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0);
+    const _stPurch = (m.cp || 0) + (m.xp || 0);
     if (m.name === 'Mystery Cult Initiation') h += _renderMCI(c, m, si, rIdx, m, dd, editMode);
     else if (m.name === 'Professional Training') h += _renderPT(c, m, si, rIdx, m, dd, editMode, _standMciPool);
     else if (editMode) {
-      h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + shDots(dd) + '</span></div>';
+      h += '<div class="infl-edit-row"><input type="text" class="gen-name-input" value="' + esc(m.name) + '" placeholder="Merit name" onchange="shEditStandMerit(' + si + ',\'name\',this.value)"><span class="infl-dots-derived">' + '\u25CF'.repeat(_stPurch) + '\u25CB'.repeat(Math.max(0, dd - _stPurch)) + '</span></div>';
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _standMciPool > 0 });
       h += _prereqWarn(c, m.name);
+      h += _derivedNotes(m);
       if (m.name === 'Oath of the Scapegoat' && dd > 0) {
-        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:#9E7AE0;padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
-        h += '<div style="font-size:10px;color:#9E7AE0;padding:2px 8px">OTS: +' + (dd * 2) + ' free Fighting Merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
+        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
+        h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
-    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (sub ? '<div class="merit-sub-sh">' + esc(sub) + '</div>' : '') + (assets ? '<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: ' + esc(assets) + '</div>' : '') + '</div><span class="merit-dots-sh">' + shDots(m.rating) + '</span></div>'; }
+    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (sub ? '<div class="merit-sub-sh">' + esc(sub) + '</div>' : '') + (assets ? '<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: ' + esc(assets) + '</div>' : '') + '</div>' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div>'; }
   });
   if (editMode) {
     const hasMCI = standM.some(m => m.name === 'Mystery Cult Initiation');
@@ -928,10 +948,11 @@ export function shRenderGeneralMerits(c, editMode) {
     const _mdbChosenStyle = _mdbMerit && _mdbMerit.qualifier;
     const _mdbMentorRating = (() => { const mentorM = (c.merits || []).find(m => m.category === 'influence' && m.name === 'Mentor'); if (!mentorM) return 0; return (mentorM.cp || 0) + (mentorM.free_mci || 0) + (mentorM.xp || 0); })();
     oM.forEach((m, gi) => {
-      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.xp || 0), isAoE = m.name?.toLowerCase() === 'area of expertise', isIS = m.name?.toLowerCase() === 'interdisciplinary specialty', isFT = m.name === 'Fucking Thief', isKerberos = m.name === 'Three Heads of Kerberos', isDC = m.name === 'Defensive Combat', isFF = m.name === 'Fighting Finesse', isMDB = m.name === 'The Mother-Daughter Bond', nSp = isAoE || isIS, cSp = Object.values(c.skills || {}).flatMap(sk => sk.specs || []);
+      const rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.xp || 0), isAoE = m.name?.toLowerCase() === 'area of expertise', isIS = m.name?.toLowerCase() === 'interdisciplinary specialty', isFT = m.name === 'Fucking Thief', isKerberos = m.name === 'Three Heads of Kerberos', isDC = m.name === 'Defensive Combat', isFF = m.name === 'Fighting Finesse', isMDB = m.name === 'The Mother-Daughter Bond', nSp = isAoE || isIS, cSp = Object.values(c.skills || {}).flatMap(sk => sk.specs || []);
       // Merits that accept a free-text qualifier (all others show no qualifier input unless one is already set)
       const _FREE_TEXT_QUAL = new Set(['Language','Multilingual','Library','Quick Draw','Mandragora Garden']);
-      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + shDots(dd) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 }); h += _prereqWarn(c, m.name, m); }
+      const _gPurch = (m.cp || 0) + (m.xp || 0);
+      if (m.granted_by) { h += '<div class="gen-edit-row gen-granted-row"><span class="gen-granted-name">' + esc(m.name) + (m.qualifier ? ' (' + esc(m.qualifier) + ')' : '') + '</span><span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><span class="gen-granted-tag" title="Granted by ' + esc(m.granted_by) + '">' + esc(m.granted_by) + '</span></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 }); h += _derivedNotes(m); h += _prereqWarn(c, m.name, m); }
       else {
         h += '<div class="gen-edit-row"><select class="gen-name-select" onchange="shEditGenMerit(' + gi + ',\'name\',this.value)">' + buildMeritOptions(c, m.name || '') + '</select>';
         if (isFT) h += '<select class="gen-qual-input" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">' + buildFThiefOptions(m.qualifier || '') + '</select>';
@@ -945,8 +966,8 @@ export function shRenderGeneralMerits(c, editMode) {
             h += '<select class="gen-qual-input" disabled><option value="">\u2014 add a specialisation first \u2014</option></select>';
           }
         } else if (_FREE_TEXT_QUAL.has(m.name) || m.qualifier) h += '<input type="text" class="gen-qual-input" value="' + esc(m.qualifier || '') + '" placeholder="Qualifier" onchange="shEditGenMerit(' + gi + ',\'qualifier\',this.value)">';
-        h += '<span class="infl-dots-derived">' + shDots(dd) + '</span><button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
-        if (_mdbChosenStyle && m.name === _mdbChosenStyle && _mdbMentorRating > 0) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">MDB Bonus: +' + _mdbMentorRating + ' dots (auto) \u2014 equals Mentor rating</div>';
+        h += '<span class="infl-dots-derived">' + '\u25CF'.repeat(_gPurch) + '\u25CB'.repeat(Math.max(0, dd - _gPurch)) + '</span><button class="dev-rm-btn" onclick="shRemoveGenMerit(' + gi + ')" title="Remove">&times;</button></div>'; h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _genMciPool > 0 });
+        h += _derivedNotes(m);
         h += _prereqWarn(c, m.name, m);
       }
     });
@@ -955,7 +976,7 @@ export function shRenderGeneralMerits(c, editMode) {
     oM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, i) => {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
       const pw = _prereqWarn(c, m.name, m);
-      const purch = (m.cp || 0) + (m.xp || 0), bon = (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0);
+      const purch = (m.cp || 0) + (m.xp || 0), bon = (m.free_bloodline || 0) + (m.free_retainer || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0);
       const dotH = shDotsMixed(purch, bon);
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
@@ -972,7 +993,7 @@ export function shRenderGeneralMerits(c, editMode) {
 function _tagCounts(c) {
   const counts = {};
   (c.fighting_styles || []).forEach(fs => {
-    const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+    const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
     const tags = STYLE_TAGS[fs.name] || [];
     tags.forEach(t => { counts[t] = (counts[t] || 0) + dots; });
   });
@@ -1132,12 +1153,12 @@ function _qualifiesForManoeuvre(c, man, tc) {
   if (man.style === 'Regular') {
     const fmDots = (c.fighting_styles || [])
       .filter(fs => fs.type === 'merit' && fs.name === 'Fighting Merit')
-      .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+      .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
     return fmDots >= rank;
   }
   const styleDots = (c.fighting_styles || [])
     .filter(fs => fs.type !== 'merit' && fs.name === man.style)
-    .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+    .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
   if (styleDots >= rank) return true;
   const manTags = STYLE_TAGS[man.style] || [];
   return manTags.some(t => (tc[t] || 0) >= rank);
@@ -1191,13 +1212,15 @@ export function shRenderManoeuvres(c, editMode) {
     const totalDots = styles.reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
     const totalPicks = allPicks.length;
     const otsFreeDots = c._ots_free_dots || 0;
-    const otsUsed = (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0);
+    const fmEntry0 = styles.find(fs => fs.type === 'merit' && fs.name === 'Fighting Merit');
+    const otsUsed = (c.fighting_styles || []).reduce((s, fs) => s + (fs.free_ots || 0), 0)
+                  + (fmEntry0 ? (fmEntry0.free_ots || 0) : 0);
 
     const maxPicks = totalDots;
     h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
     if (otsFreeDots > 0) {
       const otsCls = otsUsed > otsFreeDots ? ' sc-over' : otsUsed === otsFreeDots ? ' sc-full' : ' sc-val';
-      h += '<div class="grant-pool-row"><span style="color:#9E7AE0">Oath of the Scapegoat</span> free style dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
+      h += '<div class="grant-pool-row"><span style="color:var(--gold2)">Oath of the Scapegoat</span> free style/merit dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
     }
 
     // Style Points — tag totals for unorthodox access
@@ -1219,21 +1242,25 @@ export function shRenderManoeuvres(c, editMode) {
     fStyles.forEach(fs => {
       const si = styles.indexOf(fs);
       const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
+      const _fsPurch = (fs.cp || 0) + (fs.xp || 0);
+      const _fsDerived = (fs.free_mci || 0) + (fs.free_ots || 0);
       const tags = STYLE_TAGS[fs.name] || [];
       const fsUp = fs.up || 0;
 
       h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">' + esc(fs.name) + '</span>';
       if (tags.length) h += '<span style="font-size:9px;color:var(--txt3);margin-left:6px">' + tags.map(t => esc(t)).join(', ') + '</span>';
-      h += '</div><span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
+      h += '</div><span class="merit-dots-sh">' + '\u25CF'.repeat(_fsPurch) + '\u25CB'.repeat(_fsDerived) + '</span></div>';
 
       h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
-        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
+        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">MCI</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">OTS</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
+      if (fs.free_mci) h += '<div style="' + _DN + '">MCI: +' + fs.free_mci + ' dot' + (fs.free_mci !== 1 ? 's' : '') + ' (auto) \u2014 removed if MCI drops</div>';
+      if (fs.free_ots) h += '<div style="' + _DN + '">OTS: +' + fs.free_ots + ' dot' + (fs.free_ots !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
 
       h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove">&times; Remove</button>';
       h += '<div style="clear:both"></div></div>';
@@ -1253,17 +1280,22 @@ export function shRenderManoeuvres(c, editMode) {
     const fmEntry = fMerits.find(fs => fs.name === 'Fighting Merit');
     if (fmEntry) {
       const si = styles.indexOf(fmEntry);
-      const dots = (fmEntry.cp || 0) + (fmEntry.free_mci || 0) + (fmEntry.xp || 0);
+      const dots = (fmEntry.cp || 0) + (fmEntry.free_mci || 0) + (fmEntry.free_ots || 0) + (fmEntry.xp || 0);
+      const _fmPurch = (fmEntry.cp || 0) + (fmEntry.xp || 0);
+      const _fmDerived = (fmEntry.free_mci || 0) + (fmEntry.free_ots || 0);
       const fsUp = fmEntry.up || 0;
       h += '<div class="mci-block"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">Fighting Merit</span></div>'
-        + '<span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
+        + '<span class="merit-dots-sh">' + '\u25CF'.repeat(_fmPurch) + '\u25CB'.repeat(_fmDerived) + '</span></div>';
       h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">MCI</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">OTS</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
+      if (fmEntry.free_mci) h += '<div style="' + _DN + '">MCI: +' + fmEntry.free_mci + ' dot' + (fmEntry.free_mci !== 1 ? 's' : '') + ' (auto) \u2014 removed if MCI drops</div>';
+      if (fmEntry.free_ots) h += '<div style="' + _DN + '">OTS: +' + fmEntry.free_ots + ' dot' + (fmEntry.free_ots !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
       h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove">&times; Remove</button>';
       h += '<div style="clear:both"></div></div>';
     } else {
@@ -1328,11 +1360,11 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:2px 0 2px">FIGHTING STYLES</div>';
       h += '<div class="man-list">';
       fStyles.forEach(fs => {
-        const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+        const _vPurch = (fs.cp || 0) + (fs.xp || 0), _vDerived = (fs.free_mci || 0) + (fs.free_ots || 0);
         const tags = STYLE_TAGS[fs.name] || [];
         h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
           + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
-          + '<span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
+          + shDotsMixed(_vPurch, _vDerived) + '</div>';
       });
       h += '</div>';
     }
@@ -1341,11 +1373,11 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:6px 0 2px">FIGHTING MERITS</div>';
       h += '<div class="man-list">';
       fMerits.forEach(fs => {
-        const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+        const _vPurch = (fs.cp || 0) + (fs.xp || 0), _vDerived = (fs.free_mci || 0) + (fs.free_ots || 0);
         const tags = STYLE_TAGS[fs.name] || [];
         h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
           + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
-          + '<span class="merit-dots-sh">' + shDots(dots) + '</span></div>';
+          + shDotsMixed(_vPurch, _vDerived) + '</div>';
       });
       h += '</div>';
     }
