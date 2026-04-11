@@ -287,3 +287,28 @@ export function calcTotalInfluence(c) {
   if (mci && mci.rating >= 5) total += 1;
   return total;
 }
+
+/**
+ * Return a line-by-line breakdown of influence sources for tooltip display.
+ * Each entry: "Label: N" — only includes sources that contribute > 0.
+ */
+export function influenceBreakdown(c) {
+  const lines = [];
+  const st = c.status || {};
+  const hwv = hasHoneyWithVinegar(c);
+  if (st.clan) lines.push('Clan Status: ' + st.clan);
+  if (st.covenant) lines.push('Covenant Status: ' + st.covenant);
+  const inflM = (c.merits || []).filter(m => m.category === 'influence' && m.name !== 'Contacts');
+  for (const m of inflM) {
+    const inf = calcMeritInfluence(m, hwv);
+    if (!inf) continue;
+    const area = (m.area || m.qualifier || '').trim();
+    const label = m.name + (area ? ' (' + area + ')' : '');
+    lines.push(label + ': ' + inf + (hwv && m.name === 'Allies' ? ' (HWV)' : ''));
+  }
+  const cInf = calcContactsInfluence(c);
+  if (cInf) lines.push('Contacts: ' + cInf + (hwv ? ' (HWV)' : ''));
+  const mci = (c.merits || []).find(m => m.name === 'Mystery Cult Initiation');
+  if (mci && mci.rating >= 5) lines.push('MCI 5: 1');
+  return lines;
+}
