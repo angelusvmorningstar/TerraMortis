@@ -154,7 +154,10 @@ export function togMod(m) {
 
 export function mkDieEl(d, delay, isX) {
   const el = document.createElement('div');
-  let cls = isX ? 'die ed' : (d.s ? 'die sd' : 'die fd');
+  // Exploding re-roll dice use the same success/fail colour as initial dice,
+  // plus an 'ed' marker class for the chain connector styling.
+  let cls = d.s ? 'die sd' : 'die fd';
+  if (isX) cls += ' ed';
   if (d.x) cls += ' xd';
   el.className = cls;
   el.textContent = d.v;
