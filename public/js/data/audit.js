@@ -170,10 +170,13 @@ export function auditCharacter(c) {
       }
     }
 
-    // Warn if dotN_choice tiers are reached but the choice field is blank
-    if (rating >= 1 && !m.dot1_choice) warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 1 choice not set` });
-    if (rating >= 3 && !m.dot3_choice) warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 3 choice not set` });
-    if (rating >= 5 && !m.dot5_choice) warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 5 choice not set` });
+    // Warn if dotN_choice tiers are reached but the choice field is explicitly
+    // blank (not just absent — absent defaults to 'merits' in the render code,
+    // which is the most common selection for legacy data imported without the field).
+    const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
+    if (rating >= 1 && d1c !== 'merits' && d1c !== 'speciality') warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 1 choice not set` });
+    if (rating >= 3 && d3c !== 'merits' && d3c !== 'skill') warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 3 choice not set` });
+    if (rating >= 5 && d5c !== 'merits' && d5c !== 'advantage') warnings.push({ gate: 'mci_choice', message: `MCI${cultLbl}: dot 5 choice not set` });
   }
 
   // ── Professional Training allocation ──
