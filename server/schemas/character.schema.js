@@ -313,7 +313,7 @@ export const characterSchema = {
       properties: {
         category:      { type: 'string', enum: ['general', 'influence', 'domain', 'standing', 'manoeuvre'] },
         name:          { type: 'string', minLength: 1 },
-        rating:        { type: 'integer', minimum: 0, maximum: 5 },
+        rating:        { type: 'integer', minimum: 0 },
         qualifier:     { type: 'string' },
         area:          { type: ['string', 'null'] },
         cult_name:     { type: ['string', 'null'] },
