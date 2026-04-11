@@ -7,7 +7,7 @@ import { auditCharacter } from './data/audit.js';
 import { initAdminArchive } from './admin/archive-admin.js';
 import { sanitiseChar, loadRulesFromApi } from './data/loader.js';
 import { downloadCSV } from './editor/export.js';
-import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
+import { esc, clanIcon, covIcon, shortCov, displayName, sortName, redactPlayer, discordAvatarUrl, findRegentTerritory, isRedactMode } from './data/helpers.js';
 import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
@@ -209,6 +209,12 @@ document.getElementById('sidebar').addEventListener('click', e => {
     appEl.classList.remove('sb-collapsed');
     localStorage.setItem(SB_KEY, '0');
   });
+}
+
+// ── Dev-mode: hide sensitive admin panels ──
+if (isRedactMode()) {
+  document.querySelector('.sidebar-btn[data-domain="downtime"]')?.remove();
+  document.getElementById('d-downtime')?.remove();
 }
 
 // ── Audit badges: error + warning icons with counts and hover breakdown ──
