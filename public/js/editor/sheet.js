@@ -129,13 +129,22 @@ function shDotsMixed(purchased, bonus) {
   return '<span class="merit-dots-sh">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
 function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
-  let h = '<div class="sh-status-track">';
-  for (let i = 1; i <= maxDots; i++) {
-    if (i <= base) h += '<span class="sh-track-dot sh-track-base">\u25CF</span>';
-    else if (i <= base + bonus) h += '<span class="sh-track-dot" style="color:' + bonusColor + '">\u25CB</span>';
-    else h += '<span class="sh-track-dot sh-track-empty">\u25CB</span>';
-    if (maxDots > 5 && i === 5) h += '<br>';
+  const dot = i => {
+    if (i <= base) return '<span class="sh-track-dot sh-track-base">\u25CF</span>';
+    if (i <= base + bonus) return '<span class="sh-track-dot" style="color:' + bonusColor + '">\u25CB</span>';
+    return '<span class="sh-track-dot sh-track-empty">\u25CB</span>';
+  };
+  if (maxDots > 5) {
+    let row1 = '', row2 = '';
+    for (let i = 1; i <= 5; i++) row1 += dot(i);
+    for (let i = 6; i <= maxDots; i++) row2 += dot(i);
+    return '<div class="sh-status-track sh-status-track-rows">'
+      + '<div class="sh-track-row">' + row1 + '</div>'
+      + '<div class="sh-track-row">' + row2 + '</div>'
+      + '</div>';
   }
+  let h = '<div class="sh-status-track">';
+  for (let i = 1; i <= maxDots; i++) h += dot(i);
   return h + '</div>';
 }
 function _statusEditBtns(downFn, upFn) {
