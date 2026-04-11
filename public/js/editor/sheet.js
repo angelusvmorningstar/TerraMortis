@@ -751,8 +751,8 @@ export function shRenderStandingMerits(c, editMode) {
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _standMciPool > 0 });
       h += _prereqWarn(c, m.name);
       if (m.name === 'Oath of the Scapegoat' && dd > 0) {
-        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:#9E7AE0;padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
-        h += '<div style="font-size:10px;color:#9E7AE0;padding:2px 8px">OTS: +' + (dd * 2) + ' free Fighting Merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
+        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
+        h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
     else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (sub ? '<div class="merit-sub-sh">' + esc(sub) + '</div>' : '') + (assets ? '<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: ' + esc(assets) + '</div>' : '') + '</div><span class="merit-dots-sh">' + shDots(m.rating) + '</span></div>'; }
@@ -972,7 +972,7 @@ export function shRenderGeneralMerits(c, editMode) {
 function _tagCounts(c) {
   const counts = {};
   (c.fighting_styles || []).forEach(fs => {
-    const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0);
+    const dots = (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0);
     const tags = STYLE_TAGS[fs.name] || [];
     tags.forEach(t => { counts[t] = (counts[t] || 0) + dots; });
   });
@@ -1132,12 +1132,12 @@ function _qualifiesForManoeuvre(c, man, tc) {
   if (man.style === 'Regular') {
     const fmDots = (c.fighting_styles || [])
       .filter(fs => fs.type === 'merit' && fs.name === 'Fighting Merit')
-      .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+      .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
     return fmDots >= rank;
   }
   const styleDots = (c.fighting_styles || [])
     .filter(fs => fs.type !== 'merit' && fs.name === man.style)
-    .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.xp || 0), 0);
+    .reduce((s, fs) => s + (fs.cp || 0) + (fs.free_mci || 0) + (fs.free_ots || 0) + (fs.xp || 0), 0);
   if (styleDots >= rank) return true;
   const manTags = STYLE_TAGS[man.style] || [];
   return manTags.some(t => (tc[t] || 0) >= rank);
@@ -1199,7 +1199,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
     if (otsFreeDots > 0) {
       const otsCls = otsUsed > otsFreeDots ? ' sc-over' : otsUsed === otsFreeDots ? ' sc-full' : ' sc-val';
-      h += '<div class="grant-pool-row"><span style="color:#9E7AE0">Oath of the Scapegoat</span> free style dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
+      h += '<div class="grant-pool-row"><span style="color:var(--gold2)">Oath of the Scapegoat</span> free style/merit dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
     }
 
     // Style Points — tag totals for unorthodox access
@@ -1231,8 +1231,8 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--crim)">MCI</span><input class="merit-bd-input" style="color:var(--crim)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
-        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
+        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">MCI</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">OTS</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
@@ -1263,7 +1263,7 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
         + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">MCI</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
-        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:#9E7AE0">OTS</span><input class="merit-bd-input" style="color:#9E7AE0" type="number" min="0" value="' + (fmEntry.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">OTS</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
