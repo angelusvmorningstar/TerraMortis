@@ -95,11 +95,16 @@ export async function handleCallback() {
   window.history.replaceState({}, '', url.pathname);
 
   // Exchange code for token via our server
-  const res = await fetch(`${API_BASE}/api/auth/discord/callback`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/auth/discord/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+  } catch {
+    return false;
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -111,6 +116,16 @@ export async function handleCallback() {
   return true;
 }
 
+// ── Local test bypass (localhost only — NOT Peter's 'dev' role) ──
+
+export function localTestLogin() {
+  localStorage.setItem('tm_auth_token', 'local-test-token');
+  localStorage.setItem('tm_auth_expires', String(Date.now() + 86400000));
+  localStorage.setItem('tm_auth_user', JSON.stringify({
+    role: 'st', username: 'Local Test', global_name: 'Local Test', _localTest: true,
+  }));
+}
+
 // ── Token validation ──
 // Checks if the stored token is still valid with the server
 
@@ -118,9 +133,17 @@ export async function validateToken() {
   const token = getToken();
   if (!token) return false;
 
-  const res = await fetch(`${API_BASE}/api/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Local test bypass: skip server validation on localhost
+  if (location.hostname === 'localhost' && token === 'local-test-token') return true;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    return false;
+  }
 
   if (!res.ok) {
     clearAuth();

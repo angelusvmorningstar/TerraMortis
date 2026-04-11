@@ -12,7 +12,7 @@ import { xpLeft, xpEarned } from './editor/xp.js';
 import { applyDerivedMerits, getPoolUsed, getMCIPoolUsed } from './editor/mci.js';
 import { ATTR_CATS, SKILL_CATS, PRI_BUDGETS, SKILL_PRI_BUDGETS } from './data/constants.js';
 import { vmAlliesUsed, lorekeeperUsed, ohmUsed, investedUsed } from './editor/domain.js';
-import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, devLogin } from './auth/discord.js';
+import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, localTestLogin } from './auth/discord.js';
 import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
@@ -133,7 +133,7 @@ async function boot() {
     const devBtn = document.createElement('button');
     devBtn.textContent = 'Dev Preview (local only)';
     devBtn.style.cssText = 'margin-top:12px;padding:8px 16px;background:#333;color:#aaa;border:1px solid #555;border-radius:4px;cursor:pointer;font-size:12px;width:100%';
-    devBtn.addEventListener('click', () => { devLogin(); location.reload(); });
+    devBtn.addEventListener('click', () => { localTestLogin(); location.reload(); });
     document.querySelector('.login-box').appendChild(devBtn);
   }
 }

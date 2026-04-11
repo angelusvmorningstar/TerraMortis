@@ -15,12 +15,14 @@ export async function requireAuth(req, res, next) {
 
   const token = authHeader.slice(7);
 
-  // Dev bypass: accept the local dev token in non-production environments only
-  if (process.env.NODE_ENV !== 'production' && token === 'dev-local-token') {
+  // Local test bypass — only active when NODE_ENV !== 'production'.
+  // 'local-test-token' is the localhost-only test bypass; unrelated to
+  // Peter's real 'dev' role (set in MongoDB, validated via Discord OAuth).
+  if (process.env.NODE_ENV !== 'production' && token === 'local-test-token') {
     req.user = {
-      id: 'dev-preview',
-      username: 'dev-preview',
-      global_name: 'Dev Preview',
+      id: 'local-test',
+      username: 'local-test',
+      global_name: 'Local Test',
       avatar: null,
       role: 'st',
       player_id: null,
