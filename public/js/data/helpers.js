@@ -15,7 +15,10 @@ import { getRole } from '../auth/discord.js';
 const REDACT_BLOCK = '\u2588';
 
 export function isRedactMode() {
-  return getRole() === 'dev';
+  if (getRole() !== 'dev') return false;
+  // Don't redact on the player portal — dev users see their own characters there
+  if (location.pathname.startsWith('/player')) return false;
+  return true;
 }
 
 /** Replace a name-like string with a block-character placeholder.
