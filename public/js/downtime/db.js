@@ -164,7 +164,8 @@ function normaliseTerritoryGrid(rawTerrs) {
   const nameToSlug = {
     'The Academy': 'the_academy',
     'The City Harbour': 'the_city_harbour',
-    'The Docklands': 'the_docklands',
+    'The Dockyards': 'the_dockyards',
+    'The Docklands': 'the_dockyards',   // legacy key from older uploads
     'The Second City': 'the_second_city',
     'The Northern Shore': 'the_northern_shore',
     'The Barrens': 'the_barrens__no_territory_',

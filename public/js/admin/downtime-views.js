@@ -2365,7 +2365,8 @@ const TERRITORY_SLUG_MAP = {
   // normaliseTerritoryGrid slugs
   the_academy:              'academy',
   the_city_harbour:         'harbour',
-  the_docklands:            'dockyards',
+  the_dockyards:            'dockyards',
+  the_docklands:            'dockyards',   // legacy
   the_second_city:          'secondcity',
   the_northern_shore:       'northshore',
   the_barrens__no_territory_: null,  // no territory
@@ -2373,7 +2374,8 @@ const TERRITORY_SLUG_MAP = {
   'The Academy':            'academy',
   'The City Harbour':       'harbour',
   'The Harbour':            'harbour',   // short form used in _raw.influence
-  'The Docklands':          'dockyards',
+  'The Dockyards':          'dockyards',
+  'The Docklands':          'dockyards',   // legacy
   'The Second City':        'secondcity',
   'The Northern Shore':     'northshore',
   'The Shore':              'northshore', // short form used in _raw.influence
@@ -2442,19 +2444,17 @@ function buildAmbienceData(terrs) {
     }
   }
 
-  // ── Influence: sum influence spend per territory from _raw.influence ──
-  // _raw.influence keys are display names: 'The Academy', 'The Harbour', 'The Shore', etc.
-  // Values are integers (positive = ambience increase spend, negative = decrease spend).
-  const influencePos = {}; // sum of positive spends
-  const influenceNeg = {}; // sum of negative spends (stored as negative numbers)
+  // ── Influence: count characters spending influence per territory from _raw.influence ──
+  // Form columns are checkbox selections: non-empty cell = player selected that territory = 1.
+  // Values are always positive (no negative influence column in the form).
+  const influenceCount = {};
   for (const sub of submissions) {
     const inf = sub._raw?.influence || {};
     for (const [k, v] of Object.entries(inf)) {
       if (!v) continue;
       const tid = resolveTerrId(k);
       if (!tid) continue;
-      if (v > 0) influencePos[tid] = (influencePos[tid] || 0) + v;
-      else if (v < 0) influenceNeg[tid] = (influenceNeg[tid] || 0) + v;
+      influenceCount[tid] = (influenceCount[tid] || 0) + v;
     }
   }
 
@@ -2482,11 +2482,9 @@ function buildAmbienceData(terrs) {
     const feeders = feederCounts[id] || 0;
     const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
     const entropy = -1;
-    const infPos = influencePos[id] || 0;
-    const infNeg = influenceNeg[id] || 0;
-    const infNet = infPos + infNeg;
+    const influence = influenceCount[id] || 0;
     const projects = projectDelta[id] || 0;
-    const net = entropy + overfeedVal + infNet + projects;
+    const net = entropy + overfeedVal + influence + projects;
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
     let projStep = ambience;
     if (startIdx >= 0) {
@@ -2497,7 +2495,7 @@ function buildAmbienceData(terrs) {
       const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
       projStep = AMBIENCE_STEPS_LIST[newIdx];
     }
-    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, infPos, infNeg, infNet, projects, net, projStep };
+    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, influence, projects, net, projStep };
   });
 }
 
@@ -2537,16 +2535,9 @@ function renderAmbienceDashboard() {
       const gap = r.cap - r.feeders;
       const gapStr = gap >= 0 ? `+${gap}` : String(gap);
       const gapClass = gap < 0 ? 'proc-amb-neg' : '';
-      // Influence: show +pos / -neg / net, only show parts that are non-zero
-      let infParts = [];
-      if (r.infPos) infParts.push(`<span class="proc-amb-pos">+${r.infPos}</span>`);
-      if (r.infNeg) infParts.push(`<span class="proc-amb-neg">${r.infNeg}</span>`);
-      if (r.infPos || r.infNeg) {
-        const netInfStr = r.infNet > 0 ? `+${r.infNet}` : String(r.infNet);
-        const netInfClass = r.infNet > 0 ? 'proc-amb-pos' : r.infNet < 0 ? 'proc-amb-neg' : '';
-        infParts.push(`<span class="${netInfClass}">${netInfStr}</span>`);
-      }
-      const infDisplay = infParts.length ? infParts.join(' / ') : '0';
+      const infDisplay = r.influence > 0
+        ? `<span class="proc-amb-pos">+${r.influence}</span>`
+        : '0';
       h += `<tr>`;
       h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
       h += `<td>${esc(r.ambience)}</td>`;
