@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import { generateToStream } from '../lib/pdf-gen/generate.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { generateToStream } = require('../lib/pdf-gen/generate.cjs');
 
 const router = Router();
 
@@ -21,9 +23,14 @@ router.post('/character', async (req, res) => {
   try {
     await generateToStream(data, res);
   } catch (err) {
-    // If headers already sent, can't send JSON error — just end
+    console.error('PDF generation error:', err.message, err.stack);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'PDF_ERROR', message: err.message });
+      // Remove PDF headers so the browser gets JSON
+      res.removeHeader('Content-Type');
+      res.removeHeader('Content-Disposition');
+      res.status(500).json({ error: 'PDF_ERROR', message: err.message, stack: err.stack });
+    } else {
+      res.end();
     }
   }
 });
