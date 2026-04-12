@@ -3948,7 +3948,22 @@ body {
   font-size: 11px;
   margin-bottom: 3px;
   font-family: var(--fh);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+.proc-note-delete-btn {
+  background: none;
+  border: none;
+  color: var(--txt3);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  margin-left: auto;
+  opacity: 0.6;
+}
+.proc-note-delete-btn:hover { color: var(--crim); opacity: 1; }
 
 .proc-note-text {
   color: var(--txt1);
@@ -4291,6 +4306,17 @@ body {
   gap: 6px;
   flex-wrap: wrap;
   margin-top: 8px;
+}
+.proc-feed-committed-pool {
+  margin-top: 10px;
+  padding: 6px 8px;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--gold2);
+  font-family: monospace;
+  word-break: break-word;
 }
 
 /* ── feature.46: Project detail and allies hint ── */
