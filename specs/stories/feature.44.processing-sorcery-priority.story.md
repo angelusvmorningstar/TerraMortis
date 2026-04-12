@@ -1,6 +1,6 @@
 # Story feature.44: Processing Mode — Phase 0: Sorcery/Ritual Priority
 
-## Status: Approved
+## Status: review
 
 ## Story
 
@@ -83,31 +83,30 @@ sorcery_review: {
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Build Resolve First section (AC: 1, 2, 3, 4)
-  - [ ] In `buildProcessingQueue()`, scan each submission for non-empty `responses.sorcery_N_rite` (N = 1, 2, 3)
-  - [ ] For each, create a queue entry tagged `phase: 'resolve_first'` with: `{ subId, charName, riteN, riteName, tradition, targets, playerNotes }`
-  - [ ] Tradition detection: if the character's disciplines include `Cruac` → 'Cruac'; if `Theban` → 'Theban' (matched via `characters` array by `sub.character_id`)
-  - [ ] Render each entry using the standard processing mode panel (notes thread, validation state from feature.43)
-  - [ ] Validation state labels for sorcery: `Pending` / `Resolved` / `No Effect` (instead of the generic `Pending / Validated / No Roll Needed`)
+- [x] Task 1: Build Resolve First section (AC: 1, 2, 3, 4)
+  - [x] In `buildProcessingQueue()`, scan each submission for non-empty `responses.sorcery_N_rite` (N = 1, 2, 3)
+  - [x] For each, create a queue entry tagged `phase: 'resolve_first'` with: `{ subId, charName, riteN, riteName, tradition, targets, playerNotes }`
+  - [x] Tradition detection: if the character's disciplines include `Cruac` → 'Cruac'; if `Theban` → 'Theban' (matched via `charMap` by lowercased char name)
+  - [x] Render each entry using the standard processing mode panel (notes thread, validation state from feature.43)
+  - [x] Validation state labels for sorcery: `Pending` / `Resolved` / `No Effect` (instead of the generic `Pending / Validated / No Roll Needed`)
 
-- [ ] Task 2: Cycle-level reminder storage (AC: 10)
-  - [ ] Add `processing_reminders: []` to the cycle document schema (`server/schemas/downtime_cycle.schema.js` or equivalent)
-  - [ ] Add a PATCH/PUT handler on `/api/downtime_cycles/:id` that accepts `processing_reminders` updates
-  - [ ] On the client, load `processing_reminders` from the cycle doc when entering processing mode; cache locally as `cycleReminders`
+- [x] Task 2: Cycle-level reminder storage (AC: 10)
+  - [x] `downtimeCycleSchema` has `additionalProperties: true` — no schema changes needed
+  - [x] `PUT /api/downtime_cycles/:id` already accepts any fields via `$set` — no server changes needed
+  - [x] `let cycleReminders = []` added as module-level var; loaded from `cycle.processing_reminders || []` in `loadCycleById()`
 
-- [ ] Task 3: Attach Reminder panel (AC: 5, 6, 7, 8, 9)
-  - [ ] When ritual status is set to `Resolved`: show "Attach Reminder" button
-  - [ ] Attach Reminder panel: a modal or inline expandable
-    - Text input for reminder text
-    - Grouped list of all actions in the cycle (per character): feeding, project 1–4, merit actions (with character names as group headers)
-    - Pre-check any actions whose character is named in `sorcery_N_targets` (fuzzy name match)
-    - "Attach" button: builds a reminder object, pushes to `cycleReminders`, saves cycle via `apiPut('/api/downtime_cycles/' + selectedCycleId, { processing_reminders: cycleReminders })`
-  - [ ] After saving: close panel, show "Reminders attached to N actions" on the ritual entry
-  - [ ] Re-render affected action entries to show their reminder badges
+- [x] Task 3: Attach Reminder panel (AC: 5, 6, 7, 8, 9)
+  - [x] When ritual status is `resolved`: show "Attach Reminder" button (`proc-attach-open-btn`)
+  - [x] Clicking sets `attachReminderKey = entry.key`; re-render shows `_renderAttachPanel()` inline
+  - [x] Panel contains: text input, scrollable grouped action list (by char), pre-checked for targets via word-overlap match
+  - [x] "Attach": builds reminder object, pushes to `cycleReminders`, saves cycle via `updateCycle()`
+  - [x] After saving: closes panel, shows "Reminders attached to N actions" count
+  - [x] "Cancel": closes panel without saving
 
-- [ ] Task 4: Reminder badge display on target actions (AC: 7)
-  - [ ] In the action expanded panel render (from feature.43), before other content, check `cycleReminders` for any reminder where `targets` includes this action's `{ sub_id, action_key }`
-  - [ ] If found: render `<div class="proc-reminder-badge">⚑ [source_rite] — [text]</div>` at the top of the panel
+- [x] Task 4: Reminder badge display on target actions (AC: 7)
+  - [x] `entryActionKey(entry)` helper returns `'feeding'`, `'project_N'`, or `'merit_N'`
+  - [x] In `renderActionPanel`, badges rendered at top for matching `cycleReminders` entries
+  - [x] Format: `⚑ [rite] ([tradition]) — [text]` with gold left-border styling
 
 ---
 
@@ -152,8 +151,22 @@ for (let n = 1; n <= slotCount; n++) {
 
 ### Agent Model Used
 
-### Debug Log References
+claude-sonnet-4-6
 
-### Completion Notes List
+### Completion Notes
+
+- Tradition detection uses `charMap` (keyed by lowercase name/moniker); falls back to 'Unknown' if char not found.
+- Sorcery queue entries carry `riteName`, `tradition`, `targetsText` as dedicated fields.
+- `POOL_STATUS_LABELS` constant added to handle `resolved`/`no_effect` display in row status column.
+- `entryActionKey(entry)` returns null for sorcery (sources, not targets) — badge logic skips them cleanly.
+- Sorcery review stored in `sub.sorcery_review[n]` on the submission document (consistent with story spec).
+- `cycleReminders` loaded from `cycle.processing_reminders` on every `loadCycleById()` call.
+- `attachReminderKey` cleared on cancel, confirm, and cycle switch.
+- Word-overlap pre-selection splits targets text on whitespace/commas/semicolons; requires 3+ char word match to avoid false positives from short words.
+- No server changes needed — `PUT /api/downtime_cycles/:id` uses `$set` on any fields; cycle schema has `additionalProperties: true`.
+- Task 5 (manual verify) requires live API with sorcery submissions.
 
 ### File List
+
+- `public/js/admin/downtime-views.js`
+- `public/css/admin-layout.css`

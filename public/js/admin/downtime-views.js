@@ -31,7 +31,12 @@ let currentCycle = null;
 let selectedCycleId = null;
 let expandedId = null;
 let processingMode = false;
-let procExpandedKey = null; // tracks which action row is expanded in processing mode
+let procExpandedKey = null;    // tracks which action row is expanded in processing mode
+let cycleReminders = [];       // processing_reminders from the current cycle document
+let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
+let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
+let ambDashCollapsed = false;  // collapse state for the Ambience Dashboard panel
+let discDashCollapsed = false; // collapse state for the Discipline Profile Matrix panel
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -102,6 +107,34 @@ const ALL_ACTION_TYPES = [
   'investigate', 'patrol_scout', 'support', 'misc', 'xp_spend',
   'block', 'rumour', 'grow', 'acquisition',
 ];
+
+const FEED_METHOD_LABELS_MAP = {
+  seduction: 'Seduction', stalking: 'Stalking', force: 'By Force',
+  familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other',
+};
+
+// Discipline names to detect in validated pool expressions for discipline × territory recording
+const KNOWN_DISCIPLINES = [
+  'Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare',
+  'Obfuscate', 'Resilience', 'Vigor', 'Vigour', 'Protean', 'Cruac', 'Theban',
+];
+
+// Human-readable labels for pool_status values across all action types
+const POOL_STATUS_LABELS = {
+  pending:   'Pending',
+  validated: 'Validated',
+  no_roll:   'No Roll',
+  resolved:  'Resolved',
+  no_effect: 'No Effect',
+};
+
+/** Returns a stable action_key string for reminder targeting. Returns null for sorcery entries. */
+function entryActionKey(entry) {
+  if (entry.source === 'feeding') return 'feeding';
+  if (entry.source === 'project') return `project_${entry.actionIdx}`;
+  if (entry.source === 'merit')   return `merit_${entry.actionIdx}`;
+  return null; // sorcery entries are sources, not targets
+}
 
 // ── Cycle Phase Ribbon ───────────────────────────────────────────────────────
 
@@ -196,11 +229,12 @@ export async function initDowntimeView() {
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
   document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
-  document.getElementById('dt-processing-btn').addEventListener('click', () => {
+  document.getElementById('dt-processing-btn').addEventListener('click', async () => {
     processingMode = !processingMode;
     procExpandedKey = null;
     document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
     if (processingMode) {
+      await ensureTerritories();
       renderProcessingMode(document.getElementById('dt-submissions'));
     } else {
       renderSubmissions();
@@ -616,6 +650,8 @@ async function loadCycleById(cycleId) {
     return;
   }
   currentCycle = cycle;
+  cycleReminders = cycle.processing_reminders || [];
+  cachedTerritories = null; // refresh territory ambience on next processing render
 
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
@@ -2005,14 +2041,21 @@ function buildProcessingQueue(subs) {
 
     // ── Sorcery (resolve_first) ──
     const sorcCount = parseInt(resp['sorcery_slot_count'] || '1', 10);
+    // Tradition detection: check character disciplines for Cruac or Theban
+    const sorcChar = charMap.get((charName || '').toLowerCase().trim());
+    const discs = sorcChar?.disciplines || {};
+    let tradition = 'Unknown';
+    if (discs.Cruac) tradition = 'Cruac';
+    else if (discs.Theban) tradition = 'Theban';
+
     for (let n = 1; n <= sorcCount; n++) {
       const rite = resp[`sorcery_${n}_rite`];
       if (!rite) continue;
-      const targets = resp[`sorcery_${n}_targets`] || '';
-      const notes   = resp[`sorcery_${n}_notes`]   || '';
+      const targetsText = resp[`sorcery_${n}_targets`] || '';
+      const notes       = resp[`sorcery_${n}_notes`]   || '';
       let desc = rite;
-      if (targets) desc += ` — targets: ${targets}`;
-      if (notes)   desc += ` — ${notes}`;
+      if (targetsText) desc += ` — targets: ${targetsText}`;
+      if (notes)       desc += ` — ${notes}`;
       queue.push({
         key: `${sub._id}:sorcery:${n}`,
         subId: sub._id,
@@ -2020,20 +2063,31 @@ function buildProcessingQueue(subs) {
         phase: PHASE_NUM_TO_LABEL[0],
         phaseNum: 0,
         actionType: 'resolve_first',
-        label: `Sorcery: ${rite}`,
+        label: `${tradition}: ${rite}`,
         description: desc,
         source: 'sorcery',
         actionIdx: n,
         poolPlayer: resp[`sorcery_${n}_pool_expr`] || '',
+        riteName: rite,
+        tradition,
+        targetsText,
       });
     }
 
-    // ── Feeding ──
-    const feedMethod = resp['_feed_method'];
-    if (feedMethod) {
-      const feedDisc  = resp['_feed_disc'] || '';
-      const feedDesc  = resp['feeding_description'] || '';
-      const poolLabel = [feedMethod, feedDisc].filter(Boolean).join(' + ');
+    // ── Feeding (all submissions get an entry; no-method submissions show as undeclared) ──
+    {
+      const feedMethod  = resp['_feed_method'] || '';
+      const feedDisc    = resp['_feed_disc']   || '';
+      const feedDesc    = resp['feeding_description'] || '';
+      const feedSpec    = resp['_feed_spec']   || '';
+      const feedRote    = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
+      let   feedTerrs   = {};
+      try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
+      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
+                       || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
+                       || '';
+      const methodLabel = feedMethod ? (FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod) : '';
+      const poolLabel   = [methodLabel, feedDisc].filter(Boolean).join(' + ');
       queue.push({
         key: `${sub._id}:feeding`,
         subId: sub._id,
@@ -2042,10 +2096,18 @@ function buildProcessingQueue(subs) {
         phaseNum: 1,
         actionType: 'feeding',
         label: 'Feeding',
-        description: feedDesc || poolLabel,
+        description: feedDesc || poolLabel || 'No feeding method declared',
         source: 'feeding',
         actionIdx: 0,
         poolPlayer: poolLabel,
+        feedMethod,
+        feedMethodLabel: methodLabel,
+        feedDisc,
+        feedSpec,
+        feedRote,
+        feedTerrs,
+        primaryTerr,
+        noMethod: !feedMethod,
       });
     }
 
@@ -2065,8 +2127,10 @@ function buildProcessingQueue(subs) {
     }
     projects.forEach((proj, idx) => {
       const actionType = proj.action_type || 'misc';
+      if (actionType === 'feed') return; // AC10: feeding rote projects shown in feeding phase
       const phaseNum = PHASE_ORDER[actionType] ?? 7;
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      const slot = idx + 1; // 1-indexed response key
       queue.push({
         key: `${sub._id}:proj:${idx}`,
         subId: sub._id,
@@ -2078,7 +2142,13 @@ function buildProcessingQueue(subs) {
         description: proj.detail || proj.desired_outcome || '',
         source: 'project',
         actionIdx: idx,
-        poolPlayer: proj.primary_pool?.expression || '',
+        projSlot: slot,
+        poolPlayer: proj.primary_pool?.expression || resp[`project_${slot}_pool_expr`] || '',
+        projTitle:     resp[`project_${slot}_title`]    || '',
+        projOutcome:   proj.desired_outcome || resp[`project_${slot}_outcome`] || '',
+        projCast:      resp[`project_${slot}_cast`]     || '',
+        projMerits:    resp[`project_${slot}_merits`]   || '',
+        projTerritory: resp[`project_${slot}_territory`] || '',
       });
     });
 
@@ -2094,7 +2164,8 @@ function buildProcessingQueue(subs) {
       const actionType = action.action_type || 'misc';
       const meritType  = (action.merit_type || '').toLowerCase();
       let phaseNum;
-      if (/allies|status/.test(meritType)) {
+      const isAlliesAction = /allies|status/.test(meritType);
+      if (isAlliesAction) {
         phaseNum = 9;
       } else if (/contact/.test(meritType)) {
         phaseNum = 10;
@@ -2116,6 +2187,7 @@ function buildProcessingQueue(subs) {
         source: 'merit',
         actionIdx: meritFlatIdx,
         poolPlayer: action.primary_pool?.expression || '',
+        isAlliesAction,
       });
       meritFlatIdx++;
     });
@@ -2164,6 +2236,54 @@ function buildProcessingQueue(subs) {
   return queue;
 }
 
+/**
+ * Recompute discipline × territory profile from all currently-validated feeding reviews.
+ * Called after any feeding pool_status or pool_validated change. Saves to cycle document.
+ */
+async function recomputeDisciplineProfile() {
+  const profile = {};
+  for (const sub of submissions) {
+    const rev = sub.feeding_review || {};
+    if (rev.pool_status !== 'validated' || !rev.pool_validated) continue;
+    let feedTerrs = {};
+    try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
+    const active = Object.entries(feedTerrs).filter(([, v]) => v && v !== 'none').map(([k]) => k);
+    if (!active.length) continue;
+    const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
+    for (const territory of active) {
+      if (!profile[territory]) profile[territory] = {};
+      for (const disc of foundDiscs) {
+        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+      }
+    }
+  }
+  // Also scan ambience project actions
+  for (const sub of submissions) {
+    for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
+      if (!proj?.pool_validated) continue;
+      if (proj.pool_status !== 'validated') continue;
+      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
+      const territory = sub.responses?.[`project_${pIdx + 1}_territory`] || '';
+      if (!territory) continue;
+      const foundDiscs = KNOWN_DISCIPLINES.filter(d => proj.pool_validated.includes(d));
+      if (!foundDiscs.length) continue;
+      if (!profile[territory]) profile[territory] = {};
+      for (const disc of foundDiscs) {
+        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+      }
+    }
+  }
+
+  try {
+    await updateCycle(selectedCycleId, { discipline_profile: profile });
+    const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+    if (idx >= 0) allCycles[idx].discipline_profile = profile;
+    if (currentCycle) currentCycle.discipline_profile = profile;
+  } catch (err) {
+    console.error('Failed to save discipline profile:', err.message);
+  }
+}
+
 /** Get the review object for a queue entry from its submission. */
 function getEntryReview(entry) {
   const sub = submissions.find(s => s._id === entry.subId);
@@ -2171,7 +2291,7 @@ function getEntryReview(entry) {
   if (entry.source === 'feeding') return sub.feeding_review || null;
   if (entry.source === 'project') return (sub.projects_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
-  if (entry.source === 'sorcery') return null; // future feature.44
+  if (entry.source === 'sorcery') return (sub.sorcery_review || {})[entry.actionIdx] || null;
   return null;
 }
 
@@ -2185,13 +2305,22 @@ async function saveEntryReview(entry, patch) {
     const updated = { ...current, ...patch };
     await updateSubmission(entry.subId, { feeding_review: updated });
     sub.feeding_review = updated;
+    // Recompute discipline × territory profile when pool or status changes
+    if ('pool_status' in patch || 'pool_validated' in patch) {
+      recomputeDisciplineProfile(); // async, fire-and-forget
+    }
   } else if (entry.source === 'project') {
     const resolved = [...(sub.projects_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
-    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = resolved[entry.actionIdx] || { action_type: entry.actionType, pool: null, roll: null, st_note: '', pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '', resolved_at: null };
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { projects_resolved: resolved });
     sub.projects_resolved = resolved;
+    // Recompute discipline profile when ambience actions are validated
+    if (('pool_status' in patch || 'pool_validated' in patch) &&
+        (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')) {
+      recomputeDisciplineProfile(); // fire-and-forget
+    }
   } else if (entry.source === 'merit') {
     const resolved = [...(sub.merit_actions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
@@ -2199,8 +2328,330 @@ async function saveEntryReview(entry, patch) {
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { merit_actions_resolved: resolved });
     sub.merit_actions_resolved = resolved;
+  } else if (entry.source === 'sorcery') {
+    const sorcReview = { ...(sub.sorcery_review || {}) };
+    const current = sorcReview[entry.actionIdx] || { pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    sorcReview[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { sorcery_review: sorcReview });
+    sub.sorcery_review = sorcReview;
   }
-  // sorcery: review data covered by feature.44
+}
+
+// ── Ambience Dashboard (feature.47) ─────────────────────────────────────────
+
+const AMBIENCE_STEPS_LIST = [
+  'Hostile', 'Barrens', 'Neglected', 'Untended',
+  'Settled', 'Tended', 'Curated', 'Verdant', 'The Rack',
+];
+
+/** Load (or reuse) territories from the DB, falling back to TERRITORY_DATA. */
+async function ensureTerritories() {
+  if (cachedTerritories) return cachedTerritories;
+  let db = [];
+  try { db = await apiGet('/api/territories'); } catch { /* ignore */ }
+  if (db.length) {
+    cachedTerritories = db;
+  } else {
+    cachedTerritories = TERRITORY_DATA.map(t => ({ ...t }));
+  }
+  return cachedTerritories;
+}
+
+/**
+ * Explicit slug-to-id map for territory keys produced by normaliseTerritoryGrid in db.js.
+ * Also covers display-name variants from _raw.feeding.territories.
+ */
+const TERRITORY_SLUG_MAP = {
+  // normaliseTerritoryGrid slugs
+  the_academy:              'academy',
+  the_city_harbour:         'harbour',
+  the_dockyards:            'dockyards',
+  the_docklands:            'dockyards',   // legacy
+  the_second_city:          'secondcity',
+  the_northern_shore:       'northshore',
+  the_barrens__no_territory_: null,  // no territory
+  // MATRIX_TERRS display-name keys (from _raw.feeding.territories)
+  'The Academy':            'academy',
+  'The City Harbour':       'harbour',
+  'The Harbour':            'harbour',   // short form used in _raw.influence
+  'The Dockyards':          'dockyards',
+  'The Docklands':          'dockyards',   // legacy
+  'The Second City':        'secondcity',
+  'The Northern Shore':     'northshore',
+  'The Shore':              'northshore', // short form used in _raw.influence
+  'The Barrens':            null,
+  // TERRITORY_DATA ids (pass-through)
+  academy:    'academy',
+  harbour:    'harbour',
+  dockyards:  'dockyards',
+  secondcity: 'secondcity',
+  northshore: 'northshore',
+};
+
+/** Scan free text for a territory mention; returns TERRITORY_DATA id or null. */
+function extractTerritoryFromText(text) {
+  if (!text) return null;
+  if (/\bacademy\b/i.test(text)) return 'academy';
+  if (/\bharbou?r\b/i.test(text)) return 'harbour';
+  if (/\bdockyards?\b/i.test(text)) return 'dockyards';
+  if (/\bsecond\s+city\b/i.test(text)) return 'secondcity';
+  if (/\bnorth(?:ern)?\s*shore\b/i.test(text)) return 'northshore';
+  return null;
+}
+
+/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found or barrens. */
+function resolveTerrId(raw) {
+  if (!raw) return null;
+  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
+  // Fallback: strip leading "the_" or "The ", convert underscores to spaces, fuzzy match
+  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
+  for (const td of TERRITORY_DATA) {
+    const tdNorm = td.name.toLowerCase().replace(/^the\s+/, '');
+    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.id;
+  }
+  return null;
+}
+
+/**
+ * Build the per-territory aggregation data for the ambience dashboard.
+ * Returns an array of row objects (one per territory).
+ */
+function buildAmbienceData(terrs) {
+  // terrs: array from cachedTerritories / TERRITORY_DATA, keyed by .id
+  const terrById = {};
+  for (const t of TERRITORY_DATA) terrById[t.id] = t;
+
+  // Find current ambience from DB records (which may differ from TERRITORY_DATA defaults)
+  const startingAmbience = {};
+  if (terrs && terrs.length) {
+    for (const t of terrs) {
+      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
+      if (td) startingAmbience[td.id] = t.ambience || td.ambience;
+    }
+  }
+  // Fallback to TERRITORY_DATA
+  for (const td of TERRITORY_DATA) {
+    if (!startingAmbience[td.id]) startingAmbience[td.id] = td.ambience;
+  }
+
+  // ── Overfeeding: count feeders per territory ──
+  // Reads from responses.feeding_territories (slug keys) with fallback to _raw.feeding.territories
+  // (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
+  const feederCounts = {};
+  for (const sub of submissions) {
+    let grid = {};
+    const respStr = sub.responses?.feeding_territories;
+    if (respStr) {
+      try { grid = JSON.parse(respStr); } catch { grid = {}; }
+    } else {
+      // Fallback: _raw feeding territories use display-name keys ('The Academy': 'Resident')
+      grid = sub._raw?.feeding?.territories || {};
+    }
+    for (const [k, v] of Object.entries(grid)) {
+      if (!v || v === 'none' || v === 'Not feeding here') continue;
+      const tid = resolveTerrId(k);
+      if (!tid) continue; // skip barrens / unrecognised
+      feederCounts[tid] = (feederCounts[tid] || 0) + 1;
+    }
+  }
+
+  // ── Influence: sum numeric amounts per territory ──
+  // influence_territories stores { "The Academy": 3, "The Dockyards": -2, ... }
+  // Positive values = ambience increase; negative = decrease.
+  const infPos = {}, infNeg = {};
+  for (const sub of submissions) {
+    let infObj = {};
+    try { infObj = JSON.parse(sub.responses?.influence_territories || '{}'); } catch { infObj = {}; }
+    // Handle legacy format (array of names from old uploads) — treat each as +1
+    if (Array.isArray(infObj)) {
+      for (const k of infObj) {
+        const tid = resolveTerrId(k);
+        if (tid) infPos[tid] = (infPos[tid] || 0) + 1;
+      }
+    } else {
+      for (const [k, v] of Object.entries(infObj)) {
+        const tid = resolveTerrId(k);
+        if (!tid) continue;
+        const val = Number(v) || 0;
+        if (val > 0) infPos[tid] = (infPos[tid] || 0) + val;
+        else if (val < 0) infNeg[tid] = (infNeg[tid] || 0) + Math.abs(val);
+      }
+    }
+    // Resolved merit actions (ST-tagged post-processing)
+    for (const act of (sub.merit_actions_resolved || [])) {
+      if (!['validated', 'no_roll'].includes(act.status)) continue;
+      const tid = resolveTerrId(act.territory || '');
+      if (!tid) continue;
+      if (act.action_type === 'ambience_increase') infPos[tid] = (infPos[tid] || 0) + 1;
+      else if (act.action_type === 'ambience_decrease') infNeg[tid] = (infNeg[tid] || 0) + 1;
+    }
+  }
+
+  // ── Projects: sum roll successes from ambience project actions ──
+  const projPos = {}, projNeg = {};
+  let pendingAmbienceCount = 0;
+  for (const sub of submissions) {
+    // Count pending: ambience project actions in form responses with no resolved roll
+    for (let n = 1; n <= 4; n++) {
+      const action = sub.responses?.[`project_${n}_action`];
+      if (action !== 'ambience_increase' && action !== 'ambience_decrease') continue;
+      const resolved = (sub.projects_resolved || [])[n - 1];
+      if (!resolved?.roll) pendingAmbienceCount++;
+    }
+    // Sum resolved roll successes
+    for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
+      if (!proj) continue;
+      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
+      if (!proj.roll) continue;
+      const n = idx + 1;
+      const terrRaw = sub.responses?.[`project_${n}_territory`] || '';
+      const desc = sub.responses?.[`project_${n}_description`] || '';
+      const outcome = sub.responses?.[`project_${n}_outcome`] || '';
+      const tid = resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
+      if (!tid) continue;
+      const successes = proj.roll.successes ?? 0;
+      if (proj.action_type === 'ambience_increase') projPos[tid] = (projPos[tid] || 0) + successes;
+      else projNeg[tid] = (projNeg[tid] || 0) + successes;
+    }
+  }
+
+  // ── Assemble rows ──
+  const rows = TERRITORY_DATA.map(td => {
+    const id = td.id;
+    const ambience = startingAmbience[id] || td.ambience;
+    const cap = AMBIENCE_CAP[ambience] ?? 6;
+    const feeders = feederCounts[id] || 0;
+    const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
+    const entropy = -1;
+    const inf_pos = infPos[id] || 0;
+    const inf_neg = infNeg[id] || 0;
+    const influence = inf_pos - inf_neg;
+    const proj_pos = projPos[id] || 0;
+    const proj_neg = projNeg[id] || 0;
+    const projects = proj_pos - proj_neg;
+    const net = entropy + overfeedVal + influence + projects;
+    const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
+    let projStep = ambience;
+    if (startIdx >= 0) {
+      let delta = 0;
+      if (net > 0) delta = 1;
+      else if (net < -5) delta = -2;
+      else if (net < 0) delta = -1;
+      const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
+      projStep = AMBIENCE_STEPS_LIST[newIdx];
+    }
+    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
+  });
+  return { rows, pendingAmbienceCount };
+}
+
+/** Render the Ambience Dashboard panel (collapsible). Returns HTML string. */
+function renderAmbienceDashboard() {
+  const terrs = cachedTerritories || TERRITORY_DATA;
+  const { rows, pendingAmbienceCount } = buildAmbienceData(terrs);
+  const profile = currentCycle?.discipline_profile || {};
+  const notes = currentCycle?.ambience_notes || '';
+
+  let h = `<div class="proc-amb-dashboard">`;
+  h += `<div class="proc-amb-header" data-toggle="amb-dash">`;
+  h += `<span class="proc-amb-title">Ambience Dashboard</span>`;
+  if (pendingAmbienceCount > 0) h += `<span class="proc-amb-pending-chip">${pendingAmbienceCount} ambience action${pendingAmbienceCount > 1 ? 's' : ''} pending</span>`;
+  h += `<span class="proc-amb-toggle">${ambDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+  h += `</div>`;
+
+  if (!ambDashCollapsed) {
+    h += `<div class="proc-amb-body">`;
+
+    // ── Territory Ambience Table ──
+    h += `<table class="proc-amb-table">`;
+    h += `<thead><tr>
+      <th>Territory</th>
+      <th title="Current ambience step">Starting</th>
+      <th title="Fixed -1 entropy per cycle">Entropy</th>
+      <th title="Feeders vs cap">Overfeeding</th>
+      <th title="Influence spend from CSV: +positive / -negative / net">Influence</th>
+      <th title="Ambience project roll successes">Projects</th>
+      <th title="Sum of all columns">Net Change</th>
+      <th title="Projected new ambience step (preview only)">Projected</th>
+    </tr></thead>`;
+    h += `<tbody>`;
+    for (const r of rows) {
+      const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
+      const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
+      const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
+      const gap = r.cap - r.feeders;
+      const gapStr = gap >= 0 ? `+${gap}` : String(gap);
+      const gapClass = gap < 0 ? 'proc-amb-neg' : '';
+      const infNet = r.inf_pos - r.inf_neg;
+      const infNetStr = infNet > 0 ? `+${infNet}` : String(infNet);
+      const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
+      const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span> | <span class="proc-amb-neg">-${r.inf_neg}</span> | <span class="${infNetClass}">${infNetStr}</span>`;
+      h += `<tr>`;
+      h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
+      h += `<td>${esc(r.ambience)}</td>`;
+      h += `<td class="proc-amb-neg">${r.entropy}</td>`;
+      h += `<td>${r.feeders}/${r.cap} | <span class="${gapClass}">${gapStr}</span></td>`;
+      h += `<td>${infDisplay}</td>`;
+      const projNet = r.proj_pos - r.proj_neg;
+      const projNetStr = projNet > 0 ? `+${projNet}` : String(projNet);
+      const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
+      const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
+      h += `<td>${projDisplay}</td>`;
+      h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
+      h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
+      h += `</tr>`;
+    }
+    h += `</tbody></table>`;
+    h += `<p class="proc-amb-note">Net change is informational. Positive net = +1 step. Negative net = -1 step. Net below -5 = -2 steps.</p>`;
+
+    // ── Discipline Profile Matrix ──
+    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
+    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
+    h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+
+    if (!discDashCollapsed) {
+      // Find disciplines and territories with any count > 0
+      const discSet = new Set();
+      const terrSet = new Set();
+      for (const [terrId, discs] of Object.entries(profile)) {
+        for (const [disc, count] of Object.entries(discs)) {
+          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
+        }
+      }
+      const discList = [...discSet].sort();
+      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
+
+      if (!discList.length) {
+        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
+      } else {
+        h += `<table class="proc-disc-table">`;
+        h += `<thead><tr><th>Discipline</th>`;
+        for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
+        h += `</tr></thead><tbody>`;
+        for (const disc of discList) {
+          h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
+          for (const t of terrList) {
+            const count = profile[t.id]?.[disc] || 0;
+            h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
+          }
+          h += `</tr>`;
+        }
+        h += `</tbody></table>`;
+      }
+    }
+
+    // ── ST Notes ──
+    h += `<div class="proc-amb-notes-block">`;
+    h += `<label class="proc-amb-notes-lbl">ST Ambience Notes</label>`;
+    h += `<textarea class="proc-amb-notes" placeholder="Working notes about the territory picture this cycle...">${esc(notes)}</textarea>`;
+    h += `</div>`;
+
+    h += `</div>`; // proc-amb-body
+  }
+
+  h += `</div>`; // proc-amb-dashboard
+  return h;
 }
 
 /** Render the phase-ordered processing queue into the given container. */
@@ -2225,6 +2676,9 @@ function renderProcessingMode(container) {
 
   let h = '<div class="proc-queue">';
 
+  // Ambience Dashboard — always shown at top of Processing Mode
+  h += renderAmbienceDashboard();
+
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
     h += `<div class="proc-phase-section">`;
@@ -2240,7 +2694,7 @@ function renderProcessingMode(container) {
       h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
       h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
       h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
-      h += `<span class="proc-row-status ${status}">${status === 'no_roll' ? 'No Roll' : status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+      h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
       h += '</div>';
 
       if (isExpanded) {
@@ -2346,6 +2800,147 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire project / merit roll buttons
+  container.querySelectorAll('.proc-action-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      const poolValidated = review?.pool_validated || '';
+      if (!poolValidated) return;
+      const match = poolValidated.match(/(\d+)\s*$/);
+      const diceCount = match ? parseInt(match[1], 10) : 0;
+      if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      const result = rollPool(diceCount, 10, 8, 5, false);
+      await saveEntryReview(entry, { roll: result });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire feeding roll buttons
+  container.querySelectorAll('.proc-feed-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const subId = btn.dataset.subId;
+      const isRote = btn.dataset.rote === 'true';
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      const poolValidated = review?.pool_validated || '';
+      if (!poolValidated) return;
+      const match = poolValidated.match(/(\d+)\s*$/);
+      const diceCount = match ? parseInt(match[1], 10) : 0;
+      if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      const sub = submissions.find(s => s._id === subId);
+      showRollModal(
+        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll, rote: isRote },
+        async result => {
+          await updateSubmission(subId, { feeding_roll: result });
+          if (sub) sub.feeding_roll = result;
+          renderProcessingMode(container);
+        }
+      );
+    });
+  });
+
+  // Wire "Attach Reminder" open button
+  container.querySelectorAll('.proc-attach-open-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      attachReminderKey = btn.dataset.procKey;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire "Cancel" on attach panel
+  container.querySelectorAll('.proc-attach-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      attachReminderKey = null;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire "Attach" confirm
+  container.querySelectorAll('.proc-attach-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const panel = container.querySelector(`.proc-attach-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+
+      const textInput = panel.querySelector('.proc-attach-text');
+      const reminderText = textInput ? textInput.value.trim() : '';
+
+      // Gather checked targets
+      const targets = [];
+      panel.querySelectorAll('.proc-attach-target:checked').forEach(cb => {
+        targets.push({
+          sub_id:    cb.dataset.subId,
+          char_name: cb.dataset.charName,
+          action_key: cb.dataset.actionKey,
+        });
+      });
+
+      if (!reminderText) { textInput?.focus(); return; }
+
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+
+      const user = getUser();
+      const reminder = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+        source_sub_id:    entry.subId,
+        source_char_name: entry.charName,
+        source_rite:      entry.riteName,
+        source_tradition: entry.tradition,
+        text:             reminderText,
+        created_by:       user?.global_name || user?.username || 'ST',
+        created_at:       new Date().toISOString(),
+        targets,
+      };
+
+      cycleReminders = [...cycleReminders, reminder];
+      attachReminderKey = null;
+
+      try {
+        const updated = await updateCycle(selectedCycleId, { processing_reminders: cycleReminders });
+        // Sync back to allCycles
+        const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+        if (idx >= 0) allCycles[idx].processing_reminders = cycleReminders;
+      } catch (err) {
+        cycleReminders = cycleReminders.filter(r => r.id !== reminder.id); // rollback
+        alert('Failed to save reminder: ' + err.message);
+      }
+
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire Ambience Dashboard collapse toggles
+  container.querySelector('[data-toggle="amb-dash"]')?.addEventListener('click', () => {
+    ambDashCollapsed = !ambDashCollapsed;
+    renderProcessingMode(container);
+  });
+  container.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
+    discDashCollapsed = !discDashCollapsed;
+    renderProcessingMode(container);
+  });
+
+  // Wire ST ambience notes textarea (save on blur)
+  container.querySelector('.proc-amb-notes')?.addEventListener('blur', async e => {
+    const val = e.target.value;
+    try {
+      await updateCycle(selectedCycleId, { ambience_notes: val });
+      const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+      if (idx >= 0) allCycles[idx].ambience_notes = val;
+      if (currentCycle) currentCycle.ambience_notes = val;
+    } catch (err) { console.error('Failed to save ambience notes:', err.message); }
+  });
+
   // Wire open-sub links
   container.querySelectorAll('.proc-open-sub-link').forEach(link => {
     link.addEventListener('click', e => {
@@ -2366,6 +2961,61 @@ function renderProcessingMode(container) {
   });
 }
 
+/** Render the inline Attach Reminder panel for a resolved sorcery entry. */
+function _renderAttachPanel(entry) {
+  // Build the list of all non-sorcery actions, grouped by character
+  const allActions = buildProcessingQueue(submissions).filter(e => e.source !== 'sorcery');
+
+  // Pre-selection: word-overlap match against entry.targetsText
+  const targetWords = (entry.targetsText || '').toLowerCase().split(/[\s,;]+/).filter(Boolean);
+  function isPreSelected(charName) {
+    if (!targetWords.length) return false;
+    const nameWords = charName.toLowerCase().split(/\s+/);
+    return nameWords.some(w => w.length > 2 && targetWords.some(t => t.includes(w) || w.includes(t)));
+  }
+
+  // Group by char
+  const byChar = new Map();
+  for (const a of allActions) {
+    if (!byChar.has(a.charName)) byChar.set(a.charName, []);
+    byChar.get(a.charName).push(a);
+  }
+
+  let h = `<div class="proc-attach-panel" data-proc-key="${esc(entry.key)}">`;
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Reminder Text</div>';
+  h += `<input class="proc-attach-text" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae" style="width:100%;margin-bottom:12px">`;
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Attach to Actions:</div>';
+  h += '<div class="proc-attach-actions">';
+
+  for (const [charName, actions] of byChar) {
+    const preSel = isPreSelected(charName);
+    h += `<div class="proc-attach-char-group">`;
+    h += `<div class="proc-attach-char-header">${esc(charName)}</div>`;
+    for (const a of actions) {
+      const ak = entryActionKey(a);
+      if (!ak) continue;
+      const checked = preSel ? ' checked' : '';
+      h += `<label class="proc-attach-target-row">`;
+      h += `<input type="checkbox" class="proc-attach-target"${checked} data-sub-id="${esc(a.subId)}" data-char-name="${esc(a.charName)}" data-action-key="${esc(ak)}" data-proc-key="${esc(entry.key)}">`;
+      h += ` ${esc(a.label)}${a.description ? ' — ' + esc(a.description.slice(0, 50)) : ''}`;
+      h += `</label>`;
+    }
+    h += `</div>`;
+  }
+
+  if (!allActions.length) {
+    h += '<p style="color:var(--txt3);font-size:12px">No other actions in this cycle.</p>';
+  }
+
+  h += '</div>'; // proc-attach-actions
+  h += '<div class="proc-attach-btn-row">';
+  h += `<button class="dt-btn proc-attach-confirm-btn" data-proc-key="${esc(entry.key)}">Attach</button>`;
+  h += `<button class="dt-btn proc-attach-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button>`;
+  h += '</div>';
+  h += '</div>'; // proc-attach-panel
+  return h;
+}
+
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
@@ -2374,12 +3024,85 @@ function renderActionPanel(entry, review) {
   const poolStatus    = rev.pool_status    || 'pending';
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
+  const isSorcery     = entry.source === 'sorcery';
 
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
+
+  // ── Reminder badges (non-sorcery target actions) ──
+  const actionKey = entryActionKey(entry);
+  if (actionKey) {
+    const badges = cycleReminders.filter(r =>
+      r.targets && r.targets.some(t => t.sub_id === entry.subId && t.action_key === actionKey)
+    );
+    for (const r of badges) {
+      h += `<div class="proc-reminder-badge">\u2691 ${esc(r.source_rite)} (${esc(r.source_tradition)}) \u2014 ${esc(r.text)}</div>`;
+    }
+  }
 
   // Full description if it was truncated
   if (entry.description && entry.description.length > 80) {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
+  }
+
+  // ── Project-specific detail display ──
+  if (entry.source === 'project') {
+    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory;
+    if (hasExtra) {
+      h += '<div class="proc-proj-detail">';
+      if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
+      if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
+      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
+      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits Used</span> ${esc(entry.projMerits)}</div>`;
+      h += '</div>';
+    }
+    // Previous roll result
+    const projSub = submissions.find(s => s._id === entry.subId);
+    const projRoll = projSub?.projects_resolved?.[entry.actionIdx]?.roll;
+    if (projRoll) {
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(projRoll.successes))} success${projRoll.successes !== 1 ? 'es' : ''}${projRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
+    }
+  }
+
+  // ── Merit action previous roll result ──
+  if (entry.source === 'merit') {
+    const meritSub  = submissions.find(s => s._id === entry.subId);
+    const meritRoll = meritSub?.merit_actions_resolved?.[entry.actionIdx]?.roll;
+    if (meritRoll) {
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(meritRoll.successes))} success${meritRoll.successes !== 1 ? 'es' : ''}${meritRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
+    }
+    if (entry.isAlliesAction && poolStatus === 'pending') {
+      h += `<div class="proc-allies-hint">Allies actions within favour rating are typically automatic \u2014 consider "No Roll Needed".</div>`;
+    }
+  }
+
+  // ── Feeding-specific detail display ──
+  if (entry.source === 'feeding') {
+    if (entry.noMethod) {
+      h += `<div class="proc-feed-no-method">No feeding method declared by player.</div>`;
+    } else {
+      h += '<div class="proc-feed-info">';
+      h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Method</span> ${esc(entry.feedMethodLabel || entry.feedMethod)}</span>`;
+      if (entry.feedDisc) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Discipline</span> ${esc(entry.feedDisc)}</span>`;
+      if (entry.feedSpec) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Specialisation</span> ${esc(entry.feedSpec)}</span>`;
+      if (entry.feedRote) h += `<span class="proc-feed-field proc-feed-rote-badge">Rote</span>`;
+      const activeTerms = Object.entries(entry.feedTerrs || {}).filter(([, v]) => v && v !== 'none')
+        .map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
+      if (activeTerms) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Territory</span> ${esc(activeTerms)}</span>`;
+      if (entry.primaryTerr) {
+        const terrRec = TERRITORY_DATA.find(t => t.id === entry.primaryTerr || t.name === entry.primaryTerr || t.name?.toLowerCase() === entry.primaryTerr.replace(/_/g, ' ').toLowerCase());
+        const amb = terrRec?.ambienceMod ?? 0;
+        if (amb !== 0) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Ambience</span> ${amb > 0 ? '+' : ''}${amb}</span>`;
+      }
+      h += '</div>';
+    }
+    // Previous roll result
+    const feedSub = submissions.find(s => s._id === entry.subId);
+    const feedRoll = feedSub?.feeding_roll;
+    if (feedRoll) {
+      const roteTag = feedRoll.params?.rote ? ' (rote)' : '';
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(feedRoll.successes))} success${feedRoll.successes !== 1 ? 'es' : ''}${feedRoll.exceptional ? ' \u2014 exceptional' : ''}${roteTag}</div>`;
+    }
   }
 
   // Pool row
@@ -2394,15 +3117,58 @@ function renderActionPanel(entry, review) {
   h += '</div>';
   h += '</div>'; // proc-detail-grid
 
-  // Validation status
+  // Validation status — sorcery uses Resolved/No Effect labels
+  const statusOptions = isSorcery
+    ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
+    : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
+
   h += '<div style="margin-bottom:12px">';
   h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
   h += '<div class="proc-val-status">';
-  for (const [val, label] of [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']]) {
+  for (const [val, label] of statusOptions) {
     h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
   }
   h += '</div>';
   h += '</div>';
+
+  // ── Attach Reminder (sorcery resolved) ──
+  if (isSorcery) {
+    const reminderCount = cycleReminders.filter(r =>
+      r.source_sub_id === entry.subId && r.source_rite === entry.riteName
+    ).length;
+
+    if (poolStatus === 'resolved') {
+      if (attachReminderKey === entry.key) {
+        // Render the inline attach panel
+        h += _renderAttachPanel(entry);
+      } else {
+        h += `<div style="margin-bottom:12px">`;
+        h += `<button class="dt-btn proc-attach-open-btn" data-proc-key="${esc(entry.key)}">Attach Reminder</button>`;
+        if (reminderCount) {
+          h += ` <span class="proc-attach-count">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</span>`;
+        }
+        h += `</div>`;
+      }
+    } else if (reminderCount) {
+      h += `<div class="proc-attach-count" style="margin-bottom:12px">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
+    }
+  }
+
+  // Roll button for validated project / merit entries
+  if ((entry.source === 'project' || entry.source === 'merit') && poolStatus === 'validated') {
+    h += '<div style="margin-bottom:12px">';
+    h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
+    h += '</div>';
+  }
+
+  // Roll button for validated feeding entries
+  if (entry.source === 'feeding' && poolStatus === 'validated') {
+    const feedSub  = submissions.find(s => s._id === entry.subId);
+    const isRote   = entry.feedRote || feedSub?.st_review?.feeding_rote || false;
+    h += '<div style="margin-bottom:12px">';
+    h += `<button class="dt-btn proc-feed-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-rote="${isRote}">Roll Feeding</button>`;
+    h += '</div>';
+  }
 
   // Player feedback
   h += '<div style="margin-bottom:12px">';

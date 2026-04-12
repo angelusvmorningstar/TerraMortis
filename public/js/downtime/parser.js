@@ -264,18 +264,20 @@ export function parseDowntimeCSV(csvText) {
           territories: {
             'The Academy': feedingStatus(c[COL.FEED_ACADEMY]),
             'The City Harbour': feedingStatus(c[COL.FEED_HARBOUR]),
-            'The Docklands': feedingStatus(c[COL.FEED_DOCKLANDS]),
+            'The Dockyards': feedingStatus(c[COL.FEED_DOCKLANDS]),
             'The Second City': feedingStatus(c[COL.FEED_SECOND_CITY]),
             'The Northern Shore': feedingStatus(c[COL.FEED_SHORE]),
             'The Barrens': feedingStatus(c[COL.FEED_BARRENS]),
           }
         },
         influence: {
-          'The Academy': int(c[COL.INF_ACADEMY]) || 0,
-          'The Harbour': int(c[COL.INF_HARBOUR]) || 0,
-          'The Docklands': int(c[COL.INF_DOCKLANDS]) || 0,
+          // Form stores numeric influence amounts (positive = increase, negative = decrease).
+          // Use int() to get the actual value.
+          'The Academy':    int(c[COL.INF_ACADEMY])    || 0,
+          'The Harbour':    int(c[COL.INF_HARBOUR])    || 0,
+          'The Dockyards':  int(c[COL.INF_DOCKLANDS])  || 0,
           'The Second City': int(c[COL.INF_SECOND_CITY]) || 0,
-          'The Shore': int(c[COL.INF_SHORE]) || 0,
+          'The Shore':      int(c[COL.INF_SHORE])      || 0,
         },
         projects: [
           parseProject(c, COL.PROJ1), parseProject(c, COL.PROJ2),
