@@ -84,13 +84,20 @@ export function ensurePdfKitLoaded() {
 }
 
 /**
- * Fetch a URL as an ArrayBuffer. pdfkit accepts ArrayBuffer/Uint8Array for
- * both registerFont and image().
+ * Fetch a URL as an ArrayBuffer.
+ *
+ * Must return ArrayBuffer, NOT Uint8Array. In pdfkit's browser standalone
+ * build, PDFImage.open checks `Buffer.isBuffer(src)` then
+ * `src instanceof ArrayBuffer` then a data:URI regex — and if none match it
+ * falls through to `fs.readFileSync(src)` which crashes. A Uint8Array fails
+ * all three checks (it's not an ArrayBuffer — it's a view onto one via
+ * .buffer), so we must hand the raw ArrayBuffer in. Fonts accept either via
+ * PDFFontFactory.open, so returning ArrayBuffer works for both call sites.
  */
 async function fetchBuf(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`fetch ${url} failed: ${r.status}`);
-  return new Uint8Array(await r.arrayBuffer());
+  return await r.arrayBuffer();
 }
 
 /** Load and cache all fonts from /assets/pdf/fonts/ */
