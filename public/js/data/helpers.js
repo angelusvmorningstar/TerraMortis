@@ -166,6 +166,24 @@ export function hasAoE(c, specName) {
   );
 }
 
+export function isSpecs(c) {
+  const results = [];
+  for (const m of (c.merits || [])) {
+    if (m.name?.toLowerCase() !== 'interdisciplinary specialty') continue;
+    const q = m.qualifier || '';
+    if (!q) continue;
+    let fromSkill = null;
+    for (const [skillName, so] of Object.entries(c.skills || {})) {
+      if ((so.specs || []).some(s => s.toLowerCase() === q.toLowerCase())) {
+        fromSkill = skillName;
+        break;
+      }
+    }
+    if (fromSkill) results.push({ spec: q, fromSkill });
+  }
+  return results;
+}
+
 /**
  * Derive willpower recovery conditions from a character's Mask and Dirge.
  * Never reads c.willpower — always computed from ARCHETYPES_DB.
