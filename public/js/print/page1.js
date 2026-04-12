@@ -222,14 +222,14 @@ function renderInfluenceColumn(doc, data, assets) {
 
   // Influence merits list — inline name with sphere qualifier.
   // Examples: "Allies (Politics)", "Contacts (Police, Media, Street)".
-  // The qualifier is truncated mid-row if the sphere list is too long
-  // for the column; the full text is preserved on a wrap line underneath
-  // for Contacts which often lists several spheres.
+  //
+  // The sphere lives in different schema fields for different merit types:
+  // Allies / Status use `qualifier`, Contacts uses `area` (see
+  // schemas/print-character.schema.json). Fall through both.
   const influenceMerits = (data.merits || []).filter(m => m.category === 'influence');
   influenceMerits.forEach(m => {
-    const headline = m.qualifier
-      ? `${m.name} (${m.qualifier})`
-      : m.name;
+    const sphere = m.qualifier || m.area || null;
+    const headline = sphere ? `${m.name} (${sphere})` : m.name;
     doc.font(F.caslon).fontSize(8.5).fillColor(C.INK);
     // Reserve the right edge for the rating dots
     const labelMaxW = w - (m.effective_rating * 5) - 8;
