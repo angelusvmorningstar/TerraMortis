@@ -9,7 +9,7 @@ import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGa
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skNineAgain, skSpecs } from '../data/accessors.js';
-import { displayName, displayNameRaw, sortName, hasAoE } from '../data/helpers.js';
+import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
@@ -3858,6 +3858,11 @@ function _updateFeedBuilderMeta(container, key) {
       const aoe = hasAoE(char, sp);
       h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
     }
+    for (const { spec: isSp, fromSkill } of isSpecs(char)) {
+      const checked = activeSpecs.includes(isSp);
+      const aoe = hasAoE(char, isSp);
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+    }
     metaEl.innerHTML = h;
     metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
       cb.addEventListener('change', async e => {
@@ -3889,6 +3894,11 @@ function _updateFeedBuilderMeta(container, key) {
     const checked = activeSpecs.includes(sp);
     const aoe = hasAoE(char, sp);
     h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+  }
+  for (const { spec: isSp, fromSkill } of isSpecs(char)) {
+    const checked = activeSpecs.includes(isSp);
+    const aoe = hasAoE(char, isSp);
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
   }
   metaEl.innerHTML = h;
   // Wire spec toggles injected after renderProcessingMode ran
@@ -4504,6 +4514,11 @@ function renderActionPanel(entry, review) {
         const aoe = hasAoE(char, sp);
         h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
       }
+      for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
+        const checked = _fbAct.includes(isSp);
+        const aoe = hasAoE(char, isSp);
+        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+      }
       h += '</div>';
       h += '</div>'; // proc-pool-builder
     }
@@ -4591,6 +4606,11 @@ function renderActionPanel(entry, review) {
       const checked = _pAct.includes(sp);
       const aoe = hasAoE(char, sp);
       h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+    }
+    for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
+      const checked = _pAct.includes(isSp);
+      const aoe = hasAoE(char, isSp);
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
     }
     h += '</div>';
     h += '</div>'; // proc-pool-builder

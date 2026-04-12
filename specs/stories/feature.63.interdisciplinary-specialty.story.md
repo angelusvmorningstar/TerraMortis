@@ -1,6 +1,6 @@
 # Story feature.63: Interdisciplinary Specialty — Cross-Skill Spec in Pool Builder
 
-## Status: draft
+## Status: done
 
 ## Story
 
@@ -31,22 +31,22 @@ As of today no code checks for IS anywhere in pool-building logic — it is a co
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `isSpecs(char)` helper in `helpers.js`
-  - [ ] Iterate `(c.merits || [])` for entries where `m.name?.toLowerCase() === 'interdisciplinary specialty'`
-  - [ ] For each, find `fromSkill` by searching `Object.entries(c.skills || {})` for the skill whose `specs` array contains the qualifier (case-insensitive)
-  - [ ] Return `[{ spec: m.qualifier, fromSkill }, ...]`; skip entries where qualifier is empty or no matching skill found
-  - [ ] Export from `helpers.js`
+- [x] Task 1: Add `isSpecs(char)` helper in `helpers.js`
+  - [x] Iterate `(c.merits || [])` for entries where `m.name?.toLowerCase() === 'interdisciplinary specialty'`
+  - [x] For each, find `fromSkill` by searching `Object.entries(c.skills || {})` for the skill whose `specs` array contains the qualifier (case-insensitive)
+  - [x] Return `[{ spec: m.qualifier, fromSkill }, ...]`; skip entries where qualifier is empty or no matching skill found
+  - [x] Export from `helpers.js`
 
-- [ ] Task 2: Import `isSpecs` in `downtime-views.js`
-  - [ ] Add to existing `helpers.js` import line
+- [x] Task 2: Import `isSpecs` in `downtime-views.js`
+  - [x] Add to existing `helpers.js` import line
 
-- [ ] Task 3: Append IS toggles in `_updateFeedBuilderMeta`
-  - [ ] After the existing spec loop, call `isSpecs(char)` and loop over results
-  - [ ] For each IS spec, render an additional `dt-feed-spec-toggle` label: `"${spec} (${fromSkill}) +1/+2"`
-  - [ ] Check `active_feed_specs` for existing checked state same as native specs
+- [x] Task 3: Append IS toggles in `_updateFeedBuilderMeta`
+  - [x] After the existing spec loop, call `isSpecs(char)` and loop over results
+  - [x] For each IS spec, render an additional `dt-feed-spec-toggle` label: `"${spec} (${fromSkill}) +1/+2"`
+  - [x] Check `active_feed_specs` for existing checked state same as native specs
 
-- [ ] Task 4: Append IS toggles at initial project entry render
-  - [ ] After the `_pSp` loop in the project builder block, add the same IS spec loop using `projChar`
+- [x] Task 4: Append IS toggles at initial project entry render
+  - [x] After the `_pSp` loop in the project builder block, add the same IS spec loop using `projChar`
 
 ## Dev Notes
 
@@ -91,14 +91,20 @@ IS specs participate in the AoE bonus check unchanged — `hasAoE(char, 'Coward 
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-13 | 1.0 | Initial draft | Angelus |
+| 2026-04-13 | 1.1 | Implemented — isSpecs helper + IS toggles at all four render sites | Claude Sonnet 4.6 |
 
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
 
 ### Completion Notes List
+- `isSpecs(c)` added to `helpers.js` after `hasAoE` — resolves qualifier back to its source skill via case-insensitive spec search; returns `[]` cleanly if char is null/empty
+- IS toggles appended at all four render sites: `_updateFeedBuilderMeta` project path, `_updateFeedBuilderMeta` feeding path, feeding initial render in `renderActionPanel`, project initial render in `renderActionPanel`
+- IS labels show "Spec (SourceSkill) +1/+2" — `data-spec` stores raw spec name only so existing change handler and AoE bonus calc (`hasAoE`) work without modification
+- `char || {}` guard used in the two initial-render sites where `char` may be null; the two `_updateFeedBuilderMeta` paths already guard `char` before calling the function
 
 ### File List
 - `public/js/data/helpers.js`
