@@ -37,6 +37,7 @@ let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder 
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let ambDashCollapsed = false;  // collapse state for the Ambience Dashboard panel
 let discDashCollapsed = false; // collapse state for the Discipline Profile Matrix panel
+let matrixCollapsed = false;   // collapse state for the Feeding Matrix section in the dashboard
 const collapsedPhases = new Set(); // phaseKeys currently collapsed in Processing Mode
 
 // ── Processing Mode constants ────────────────────────────────────────────────
@@ -753,8 +754,6 @@ async function loadCycleById(cycleId) {
   document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
   renderSubmissionChecklist();
-  await ensureTerritories();
-  renderFeedingMatrix();
   renderConflicts();
   await loadInvestigations(cycleId);
   renderInvestigations();
@@ -1768,8 +1767,6 @@ async function processFilePreview(file) {
   renderSnapshotPanel(devCycle);
   renderMatchSummary();
   renderSubmissionChecklist();
-  await ensureTerritories();
-  renderFeedingMatrix();
   renderConflicts();
   renderInvestigations();
   renderNpcs();
@@ -2845,6 +2842,81 @@ function renderAmbienceDashboard() {
       }
     }
 
+    // ── Feeding Matrix ──
+    h += `<div class="proc-disc-header" data-toggle="feed-matrix">`;
+    h += `<span class="proc-amb-title">Feeding Matrix</span>`;
+    h += `<span class="proc-amb-toggle">${matrixCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+
+    if (!matrixCollapsed) {
+      const _mCols = MATRIX_TERRS;
+      const _mResidents = {};
+      for (const mt of _mCols) {
+        const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
+        const td = (cachedTerritories || []).find(t => t.id === tid);
+        const residents = new Set(td?.feeding_rights || []);
+        if (td?.regent_id) residents.add(String(td.regent_id));
+        if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
+        _mResidents[mt.csvKey] = residents;
+      }
+      const _mSubByCharId = new Map();
+      for (const s of submissions) {
+        const c = findCharacter(s.character_name, s.player_name);
+        if (c) _mSubByCharId.set(String(c._id), s);
+      }
+      const _mChars = (typeof chars !== 'undefined' ? chars : []).filter(c => !c.retired)
+        .sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const _mFeederCounts = {};
+      for (const mt of _mCols) _mFeederCounts[mt.csvKey] = 0;
+
+      h += `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
+      h += '<thead><tr><th>Character</th>';
+      for (const t of _mCols) {
+        const amb = getTerritoryAmbience(t.ambienceKey);
+        h += `<th title="${esc(amb || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(amb || 'N/A')}</span></th>`;
+      }
+      h += '</tr></thead><tbody>';
+      for (const char of _mChars) {
+        const charId = String(char._id);
+        const sub = _mSubByCharId.get(charId) || null;
+        const hasSub = !!sub;
+        const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
+        h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}">`;
+        h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+        for (const t of _mCols) {
+          const isBarrens = t.ambienceKey === null;
+          const fed = fedTerrs.has(t.csvKey);
+          if (!fed) {
+            h += '<td class="dt-matrix-empty">\u2014</td>';
+          } else {
+            _mFeederCounts[t.csvKey]++;
+            if (!isBarrens && _mResidents[t.csvKey].has(charId)) {
+              h += '<td class="dt-matrix-resident">O</td>';
+            } else {
+              h += '<td class="dt-matrix-poach">X</td>';
+            }
+          }
+        }
+        h += '</tr>';
+      }
+      h += '</tbody>';
+      h += '<tfoot><tr><td><strong>Feeders</strong></td>';
+      for (const t of _mCols) {
+        if (t.ambienceKey === null) {
+          h += '<td class="dt-matrix-empty">\u2014</td>';
+        } else {
+          const amb = getTerritoryAmbience(t.ambienceKey);
+          const cap = amb ? (AMBIENCE_CAP[amb] ?? null) : null;
+          const count = _mFeederCounts[t.csvKey];
+          const overCap = cap !== null && count > cap;
+          h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
+        }
+      }
+      h += '</tr></tfoot></table>';
+      h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Feeders / cap from City ambience. Residents set via City tab.</p>';
+      h += '</div>';
+    }
+
     // ── ST Notes ──
     h += `<div class="proc-amb-notes-block">`;
     h += `<label class="proc-amb-notes-lbl">ST Ambience Notes</label>`;
@@ -3328,6 +3400,10 @@ function renderProcessingMode(container) {
   });
   container.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
     discDashCollapsed = !discDashCollapsed;
+    renderProcessingMode(container);
+  });
+  container.querySelector('[data-toggle="feed-matrix"]')?.addEventListener('click', () => {
+    matrixCollapsed = !matrixCollapsed;
     renderProcessingMode(container);
   });
 
