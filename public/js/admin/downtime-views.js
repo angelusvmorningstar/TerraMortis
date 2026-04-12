@@ -230,6 +230,7 @@ export async function initDowntimeView(passedChars) {
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
   document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
+  document.getElementById('dt-export-json').addEventListener('click', handleExportJson);
   document.getElementById('dt-processing-btn').addEventListener('click', async () => {
     processingMode = !processingMode;
     procExpandedKey = null;
@@ -293,7 +294,8 @@ function buildShell() {
       <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
       <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
       <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
-      <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export All</button>
+      <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export MD</button>
+      <button class="dt-btn dt-btn-export" id="dt-export-json" style="display:none">Export JSON</button>
       <button class="dt-btn proc-mode-btn" id="dt-processing-btn">Processing</button>
     </div>
     <div id="dt-cycle-bar" class="dt-cycle-bar">
@@ -646,6 +648,7 @@ async function loadAllCycles() {
     document.getElementById('dt-close-cycle').style.display = 'none';
     document.getElementById('dt-open-game').style.display = 'none';
     document.getElementById('dt-export-all').style.display = 'none';
+    document.getElementById('dt-export-json').style.display = 'none';
   }
 }
 
@@ -715,6 +718,7 @@ async function loadCycleById(cycleId) {
   submissions = await getSubmissionsForCycle(cycleId);
   renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
+  document.getElementById('dt-export-json').style.display = submissions.length ? '' : 'none';
   // Keep processing mode on across cycle switches — just re-render appropriately
   document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
@@ -1725,6 +1729,7 @@ async function processFilePreview(file) {
   // Render with dev data
   renderPhaseRibbon(devCycle, devSubs);
   document.getElementById('dt-export-all').style.display = devSubs.length ? '' : 'none';
+  document.getElementById('dt-export-json').style.display = devSubs.length ? '' : 'none';
   document.getElementById('dt-close-cycle').style.display = 'none';
   document.getElementById('dt-open-game').style.display = 'none';
   document.getElementById('dt-cycle-status').innerHTML =
@@ -5002,6 +5007,20 @@ async function handleExportAll() {
   const cycleLabel = allCycles.find(c => c._id === selectedCycleId)?.label || 'downtime';
   const safeLabel = cycleLabel.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   downloadMd(`export_${safeLabel}_all.md`, parts.join('\n\n---\n\n'));
+}
+
+async function handleExportJson() {
+  if (!submissions.length) return;
+  const cycleLabel = allCycles.find(c => c._id === selectedCycleId)?.label || 'downtime';
+  const safeLabel = cycleLabel.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const json = JSON.stringify(submissions, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup_${safeLabel}_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Mechanical Summary (Story 1.8) ───────────────────────────────────────────
