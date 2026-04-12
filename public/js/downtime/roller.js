@@ -184,7 +184,7 @@ export function showRollModal(pool, onSave) {
     }
   }
 
-  const initialRote = pool.existingRoll?.params?.rote ?? false;
+  const initialRote = pool.existingRoll?.params?.rote ?? pool.initialRote ?? false;
   const initial = pool.existingRoll
     ? { ...pool.existingRoll, exceptional: pool.existingRoll.successes >= params.exc }
     : rollPool(pool.size, params.again, params.success, params.exc, initialRote);

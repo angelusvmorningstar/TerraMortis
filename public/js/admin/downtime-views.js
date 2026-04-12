@@ -1041,6 +1041,20 @@ function renderSubmissions() {
     });
   });
 
+  // Project rote toggle delegation
+  el.querySelectorAll('.dt-proj-rote').forEach(cb => {
+    cb.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = cb.dataset.subId;
+      const idx = +cb.dataset.projIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._proj_pending) sub._proj_pending = [];
+      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
+      sub._proj_pending[idx].rote = cb.checked;
+    });
+  });
+
   // Project roll button delegation
   el.querySelectorAll('.dt-proj-roll-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1051,7 +1065,11 @@ function renderSubmissions() {
       const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
       const pen = (sub?._proj_pending || [])[idx] || {};
       const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-      showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
+      const existingRoll = sub?.projects_resolved?.[idx]?.roll || null;
+      showRollModal({
+        size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10,
+        existingRoll, initialRote: pen.rote || false,
+      }, result => {
         handleProjectRollSave(subId, idx, pool, result);
       });
     });
@@ -1068,6 +1086,25 @@ function renderSubmissions() {
       if (!sub._proj_pending) sub._proj_pending = [];
       if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
       sub._proj_pending[idx].st_note = ta.value;
+    });
+  });
+
+  // Project writeup delegation (save on blur)
+  el.querySelectorAll('.dt-proj-writeup').forEach(ta => {
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const subId = ta.dataset.subId;
+      const idx = +ta.dataset.projIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const resolved = [...(sub.projects_resolved || [])];
+      while (resolved.length <= idx) resolved.push(null);
+      if (!resolved[idx]) resolved[idx] = {};
+      resolved[idx] = { ...resolved[idx], writeup: ta.value };
+      try {
+        await updateSubmission(subId, { projects_resolved: resolved });
+        sub.projects_resolved = resolved;
+      } catch (err) { console.error('Writeup save error:', err.message); }
     });
   });
 
@@ -5550,6 +5587,7 @@ function renderProjectsPanel(s, raw, char) {
   projects.forEach((proj, i) => {
     const res = resolved[i];
     const pen = pending[i] || {};
+    const rote = pen.rote ?? res?.roll?.params?.rote ?? false;
     const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
     const isResolved = !!res?.roll;
 
@@ -5575,15 +5613,20 @@ function renderProjectsPanel(s, raw, char) {
     // Pool builder
     if (char) {
       h += poolBuilderUI(s._id, 'proj-idx', i, char, pen, pool);
+      h += `<label class="dt-proj-rote-lbl"><input type="checkbox" class="dt-proj-rote" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" ${rote ? 'checked' : ''}>Rote</label>`;
       h += `<button class="dt-btn dt-proj-roll-btn" data-sub-id="${esc(s._id)}" data-proj-idx="${i}"
         ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
     }
 
     if (isResolved) h += renderResolveBadge(res.roll);
 
-    // ST note
+    // ST note (internal only)
     const note = res?.st_note || pen.st_note || '';
-    h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project...">${esc(note)}</textarea>`;
+    h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project (internal)...">${esc(note)}</textarea>`;
+
+    // Player-visible writeup
+    const writeup = res?.writeup || '';
+    h += `<textarea class="dt-proj-writeup" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="Player-visible writeup for this project...">${esc(writeup)}</textarea>`;
 
     h += '</div>';
   });
