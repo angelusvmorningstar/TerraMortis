@@ -40,6 +40,37 @@ function squares(doc, x, y, filled, max, opts = {}) {
   }
 }
 
+/**
+ * Capacity + cap-overflow square row.
+ *
+ * Renders `total` squares. The first `capacity` are outlined empty (these are
+ * the character's available slots — vitae pool, health boxes, willpower).
+ * The remaining `total - capacity` are rendered as solid black (these slots
+ * are above the character's current cap and unavailable).
+ *
+ * Used for:
+ *   VITAE      — capacity=vitae_max, total=20
+ *   HEALTH     — capacity=health,    total=15
+ *   WILLPOWER  — capacity=willpower, total=10
+ */
+function capacityRow(doc, x, y, capacity, total, opts = {}) {
+  const sz = opts.size || SQ_SIZE;
+  const gap = opts.gap || SQ_GAP;
+  const strokeC = opts.stroke || C.INK;
+  const blackC = opts.black || '#1a1a1a';
+  const lineW = opts.lineWidth || 0.9;
+  for (let i = 0; i < total; i++) {
+    const sx = x + i * gap;
+    if (i < capacity) {
+      // Character has this slot — outlined empty square
+      doc.save().rect(sx, y, sz, sz).lineWidth(lineW).stroke(strokeC).restore();
+    } else {
+      // Above cap — solid black square
+      doc.save().rect(sx, y, sz, sz).fill(blackC).restore();
+    }
+  }
+}
+
 /** Labelled underline field: "Name: ________value" */
 function field(doc, x, y, label, value, totalW, opts = {}) {
   const fontSize = opts.fontSize || 8.5;
@@ -90,29 +121,67 @@ function sectionBanner(doc, x, y, w, h, text, assetBuf, fontSize = 13) {
   doc.fillColor(C.INK);
 }
 
-/** Skill name (optional italic spec) + trailing dots */
+/**
+ * Skill name (right-aligned, flush against the dots) + italic spec below +
+ * trailing dots.
+ *
+ * - Label right-aligned against the dot column with a 1em gap.
+ * - Specialisation centred under the label (NOT right-aligned), forced
+ *   onto one line with ellipsis if multiple specs are supplied.
+ */
 function skillRow(doc, x, y, name, filled, w, specs, opts = {}) {
   const size = opts.fontSize || 8;
-  doc.font(F.caslon).fontSize(size).fillColor(C.INK);
-  doc.text(name, x, y, { lineBreak: false });
+  const specSize = opts.specFontSize != null ? opts.specFontSize : size;
+  // 1em gap between label and dots (user feedback).
+  const labelGap = opts.labelGap != null ? opts.labelGap : size;
 
+  const dotsX = x + w - 5 * DOT_GAP;
+  const labelEndX = dotsX - labelGap;
+
+  // Right-aligned skill label
+  doc.font(F.caslon).fontSize(size).fillColor(C.INK);
+  doc.text(name, x, y, {
+    width: labelEndX - x,
+    align: 'right',
+    lineBreak: false,
+    ellipsis: true,
+  });
+
+  // Specialisations: centre-aligned under the label, single line, ellipsis
+  // if they overflow the label width.
   if (specs && specs.length) {
-    const nw = doc.widthOfString(name);
-    doc.font(F.bodyIt).fontSize(size - 1.5).fillColor(C.GREY);
-    doc.text(specs.join(', '), x, y + size + 0.5, { lineBreak: false });
+    doc.font(F.bodyIt).fontSize(specSize).fillColor(C.GREY);
+    doc.text(specs.join(', '), x, y + size + 1, {
+      width: labelEndX - x,
+      align: 'center',
+      lineBreak: false,
+      ellipsis: true,
+    });
     doc.fillColor(C.INK);
   }
 
-  const dotsX = x + w - 5 * DOT_GAP;
   dots(doc, dotsX, y + size / 2 + 0.5, filled, 5);
 }
 
-/** Small-caps trait name + dots aligned right in given width */
+/**
+ * Small-caps trait name + dots, label right-aligned flush against the dots
+ * with a 1em gap before the dot column.
+ */
 function traitRow(doc, x, y, name, filled, max, w, opts = {}) {
   const size = opts.fontSize || 8;
-  doc.font(F.caslon).fontSize(size).fillColor(C.INK);
-  doc.text(name, x, y, { lineBreak: false });
+  // 1em gap between label and dots (user feedback).
+  const labelGap = opts.labelGap != null ? opts.labelGap : size;
   const dotsX = x + w - max * DOT_GAP;
+  const labelEndX = dotsX - labelGap;
+
+  doc.font(F.caslon).fontSize(size).fillColor(C.INK);
+  doc.text(name, x, y, {
+    width: labelEndX - x,
+    align: 'right',
+    lineBreak: false,
+    ellipsis: true,
+  });
+
   dots(doc, dotsX, y + size / 2 + 0.5, filled, max);
 }
 
@@ -130,6 +199,6 @@ function paragraph(doc, x, y, w, text, opts = {}) {
 }
 
 export {
-  dots, squares, field, miniHeader, sectionBanner,
+  dots, squares, capacityRow, field, miniHeader, sectionBanner,
   skillRow, traitRow, paragraph,
 };

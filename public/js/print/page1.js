@@ -24,7 +24,7 @@ import {
 } from './layout.js';
 
 import {
-  dots, squares, field, miniHeader, sectionBanner,
+  dots, squares, capacityRow, field, miniHeader, sectionBanner,
   skillRow, traitRow, paragraph,
 } from './helpers.js';
 
@@ -95,18 +95,15 @@ function renderLeftColumn(doc, data, assets) {
   y += 16;
 
   // ── Vitae ────────────────────────────────────────────────────────────────
+  // Always 20 boxes in 2 rows of 10. First vitae_max outlined empty, rest solid black.
   miniHeader(doc, x, y, w, 'VITAE', { fontSize: 10 });
   y += 14;
   const vmax = data.stats.vitae_max || 0;
-  const vrow1 = Math.min(vmax, 10);
-  const vrow2 = Math.max(0, vmax - 10);
-  if (vrow1 > 0) {
-    squares(doc, x + (w - vrow1 * SQ_GAP) / 2, y, 0, vrow1);
-  }
-  if (vrow2 > 0) {
-    squares(doc, x + (w - vrow2 * SQ_GAP) / 2, y + 12, 0, vrow2);
-  }
-  y += vrow2 > 0 ? 26 : 14;
+  const vRowX = x + (w - 10 * SQ_GAP) / 2;
+  capacityRow(doc, vRowX, y, Math.min(vmax, 10), 10);
+  y += 12;
+  capacityRow(doc, vRowX, y, Math.max(0, vmax - 10), 10);
+  y += 14;
 
   // Vitae per turn + feed sources (derived)
   if (data.print_meta) {
@@ -124,28 +121,39 @@ function renderLeftColumn(doc, data, assets) {
   y += 6;
 
   // ── Health ───────────────────────────────────────────────────────────────
+  // Always 15 boxes in 10 + 5. First `health` outlined, rest solid black.
   miniHeader(doc, x, y, w, 'HEALTH', { fontSize: 10 });
   y += 14;
   const h = data.stats.health || 0;
-  squares(doc, x + (w - h * SQ_GAP) / 2, y, 0, h);
-  y += 20;
+  const hRow1X = x + (w - 10 * SQ_GAP) / 2;
+  const hRow2X = x + (w - 5 * SQ_GAP) / 2;
+  capacityRow(doc, hRow1X, y, Math.min(h, 10), 10);
+  y += 12;
+  capacityRow(doc, hRow2X, y, Math.max(0, h - 10), 5);
+  y += 16;
 
   // ── Willpower ────────────────────────────────────────────────────────────
+  // Always 10 boxes in a row. First `willpower` outlined, rest solid black.
   miniHeader(doc, x, y, w, 'WILLPOWER', { fontSize: 10 });
   y += 14;
   const wp = data.stats.willpower || 0;
-  squares(doc, x + (w - wp * SQ_GAP) / 2, y, 0, wp);
-  y += 24;
+  capacityRow(doc, x + (w - 10 * SQ_GAP) / 2, y, Math.min(wp, 10), 10);
 
-  // ── Size / Speed / Defence diamonds ──────────────────────────────────────
-  renderStatDiamonds(doc, data, assets, x, y, w);
+  // ── Size / Speed / Defence diamonds — PINNED to bottom of the page ──────
+  const diamondH = 42;
+  const labelH = 10;
+  const sdY = PAGE_H - M_BOTTOM - diamondH - labelH - 4;
+  renderStatDiamonds(doc, data, assets, x, sdY, w);
 }
 
 function renderStatDiamonds(doc, data, assets, x, y, w) {
-  // Three diamonds across the column width using the painterly stat-diamond.png
-  // (single black diamond shape) with the value number + label text drawn over.
-  const dW = 48, dH = 54;
-  const gap = (w - 3 * dW) / 4;
+  // Three diamonds using the painterly stat-diamond.png. Packed tight with
+  // ~0.8em horizontal gap between them, sized to fit inside the disciplines
+  // column width (~125pt).
+  const dW = 36, dH = 42;
+  const glyphGap = 6;   // ~0.8em at the label fontSize 7
+  const clusterW = 3 * dW + 2 * glyphGap;
+  const clusterX = x + (w - clusterW) / 2;
 
   const diamonds = [
     { label: 'SIZE',    value: data.stats.size },
@@ -154,7 +162,7 @@ function renderStatDiamonds(doc, data, assets, x, y, w) {
   ];
 
   diamonds.forEach((d, i) => {
-    const dx = x + gap * (i + 1) + dW * i;
+    const dx = clusterX + i * (dW + glyphGap);
     if (assets['stat-diamond.png']) {
       doc.image(assets['stat-diamond.png'], dx, y, { width: dW, height: dH });
     } else {
@@ -167,12 +175,12 @@ function renderStatDiamonds(doc, data, assets, x, y, w) {
       ).fill(C.ACCENT).restore();
     }
     // Value number centred on diamond body
-    doc.font(F.goudyBold).fontSize(17).fillColor(C.BANNER_C);
-    doc.text(String(d.value || 0), dx, y + (dH - 17) / 2 - 2, {
+    doc.font(F.goudyBold).fontSize(14).fillColor(C.BANNER_C);
+    doc.text(String(d.value || 0), dx, y + (dH - 14) / 2 - 1, {
       width: dW, align: 'center', lineBreak: false,
     });
     // Label below the diamond
-    doc.font(F.caslon).fontSize(7).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(6.5).fillColor(C.INK);
     doc.text(d.label, dx, y + dH + 1, { width: dW, align: 'center', lineBreak: false });
   });
 }
@@ -182,45 +190,90 @@ function renderInfluenceColumn(doc, data, assets) {
   const { x, w } = COL.influence;
   let y = M_TOP + 20;
 
-  // INFLUENCE header with empty-box tally row
+  // INFLUENCE header + 16-box tally (always 2 rows of 8).
+  // Same pattern as Vitae/Health/Willpower: first `influence_total` boxes
+  // outlined (character's capacity), remainder solid black (above cap /
+  // unavailable). data.stats.influence_total is computed by serialiseForPrint.
   miniHeader(doc, x, y, w, 'INFLUENCE', { fontSize: 11 });
   y += 16;
-  const infN = Math.min(data.stats.influence_total || 0, 10);
-  squares(doc, x + (w - infN * SQ_GAP) / 2, y, 0, infN);
+  const infTotal = data.stats.influence_total || 0;
+  const infRowX = x + (w - 8 * SQ_GAP) / 2;
+  capacityRow(doc, infRowX, y, Math.min(infTotal, 8), 8);
   y += 12;
-  squares(doc, x + (w - infN * SQ_GAP) / 2, y, 0, infN);
+  capacityRow(doc, infRowX, y, Math.max(0, infTotal - 8), 8);
   y += 18;
 
-  // Influence merits list
+  // Small helper: draw the rating on the right edge of the column as real
+  // circles (via dots() primitive). A zero rating renders as an em-dash so
+  // missing merits are still visible. Avoids the U+25CF glyph which the body
+  // font has no character for.
+  const dotR = 1.9;
+  const dotG = 5;
+  function ratingGlyphs(rating, rowY) {
+    if (rating > 0) {
+      const dotsW = rating * dotG;
+      dots(doc, x + w - dotsW, rowY + 4, rating, rating, { r: dotR, gap: dotG });
+    } else {
+      doc.font(F.body).fontSize(8).fillColor(C.GREY);
+      doc.text('–', x + w - 5, rowY, { lineBreak: false });
+      doc.fillColor(C.INK);
+    }
+  }
+
+  // Influence merits list — inline name with sphere qualifier.
+  // Real character data for influence merits:
+  //   Allies  — each sphere is a separate entry with m.area = "Politics"
+  //   Contacts — aggregated by serialiseForPrint into one entry with
+  //              m.spheres = ["Police", "Media", "Street"]
+  //   Others  — m.area is the free-text scope (Mentor name, Retainer desc, ...)
+  // Fall through spheres[] → area → qualifier so every merit type renders
+  // a sensible label.
+  function sphereLabel(m) {
+    if (Array.isArray(m.spheres) && m.spheres.length) return m.spheres.join(', ');
+    if (m.area)      return m.area;
+    if (m.qualifier) return m.qualifier;
+    return null;
+  }
   const influenceMerits = (data.merits || []).filter(m => m.category === 'influence');
   influenceMerits.forEach(m => {
+    const sphere = sphereLabel(m);
+    const headline = sphere ? `${m.name} (${sphere})` : m.name;
     doc.font(F.caslon).fontSize(8.5).fillColor(C.INK);
-    doc.text(`${m.name} ${'●'.repeat(m.effective_rating)}`, x, y, { lineBreak: false });
-    y += 10;
-    if (m.qualifier) {
-      doc.font(F.body).fontSize(7.5).fillColor(C.INK);
-      doc.text(m.qualifier, x + 4, y, { width: w - 4, lineBreak: true });
-      y = doc.y + 3;
-    }
+    // Reserve the right edge for the rating dots
+    const labelMaxW = w - (m.effective_rating * 5) - 8;
+    doc.text(headline, x, y, {
+      width: labelMaxW, lineBreak: true, lineGap: 0,
+    });
+    ratingGlyphs(m.effective_rating, y);
+    y = doc.y + 4;
   });
 
-  y += 6;
+  y += 10;
 
-  // KINDRED STATUS
+  // KINDRED STATUS — NOT a merit. Derived from top-level character data:
+  //   data.stats.status.covenant = score in the character's OWN covenant
+  //   data.identity.covenant     = which covenant that is
+  // Characters don't track status in covenants they don't belong to, so
+  // all non-own covenants render as "–".
   miniHeader(doc, x, y, w, 'KINDRED STATUS', { fontSize: 10 });
   y += 14;
-  const ksMerits = (data.merits || []).filter(m =>
-    m.category === 'standing' && /Kindred Status/i.test(m.name)
-  );
-  ksMerits.forEach(m => {
+  const charCov = data.identity.covenant;
+  const covStatus = (data.stats.status && data.stats.status.covenant) || 0;
+  const COVENANT_LABELS = [
+    { full: 'Carthian Movement',   short: 'Carthian' },
+    { full: 'Circle of the Crone', short: 'Crone' },
+    { full: 'Invictus',            short: 'Invictus' },
+    { full: 'Lancea et Sanctum',   short: 'Lance' },
+    { full: 'Ordo Dracul',         short: 'Dracul' },
+  ];
+  COVENANT_LABELS.forEach(cov => {
     doc.font(F.body).fontSize(8.5).fillColor(C.INK);
-    const label = m.qualifier || m.name.replace(/Kindred Status\s*\(?/, '').replace(/\)$/, '');
-    doc.text(label, x, y, { lineBreak: false });
-    const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
-    doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
+    doc.text(cov.short, x, y, { lineBreak: false });
+    const rating = (cov.full === charCov) ? covStatus : 0;
+    ratingGlyphs(rating, y);
     y += 11;
   });
-  y += 6;
+  y += 10;
 
   // DOMAIN
   miniHeader(doc, x, y, w, 'DOMAIN', { fontSize: 10 });
@@ -229,11 +282,10 @@ function renderInfluenceColumn(doc, data, assets) {
   domainMerits.forEach(m => {
     doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     doc.text(m.name, x, y, { lineBreak: false });
-    const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
-    doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
+    ratingGlyphs(m.effective_rating, y);
     y += 11;
   });
-  y += 6;
+  y += 10;
 
   // STANDING (Mystery Cult Initiation, Professional Training, etc.)
   miniHeader(doc, x, y, w, 'STANDING', { fontSize: 10 });
@@ -244,8 +296,7 @@ function renderInfluenceColumn(doc, data, assets) {
   standingMerits.forEach(m => {
     doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     doc.text(m.name, x, y, { lineBreak: false });
-    const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
-    doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
+    ratingGlyphs(m.effective_rating, y);
     y += 11;
     if (m.description) {
       doc.font(F.bodyIt).fontSize(7).fillColor(C.GREY);
@@ -280,9 +331,10 @@ function renderHumanityColumn(doc, data, assets) {
     doc.font(F.caslon).fontSize(10).fillColor(C.INK);
     doc.text(`${rating}:`, x, y, { lineBreak: false });
 
-    // Filled circle for current humanity
+    // Filled circle for current humanity — nudge down a tad so it sits
+    // vertically centred in the rating row text baseline.
     if (rating === hum) {
-      doc.circle(x + 15, y + 5, 3).fill(C.INK);
+      doc.circle(x + 15, y + 7, 3).fill(C.INK);
     }
 
     // Touchstones at this rating
@@ -297,22 +349,29 @@ function renderHumanityColumn(doc, data, assets) {
 
   y += 10;
 
+  // Mask / Dirge text blocks are inset by 1em on both edges from the
+  // column so the body text isn't flush with the fold line or the
+  // adjacent column gutter.
+  const inset = 8;
+  const innerX = x + inset;
+  const innerW = w - 2 * inset;
+
   // Mask
   if (data.identity.mask) {
     doc.font(F.caslon).fontSize(10).fillColor(C.INK);
-    doc.text(`MASK: ${data.identity.mask.toUpperCase()}`, x, y, { lineBreak: false });
+    doc.text(`MASK: ${data.identity.mask.toUpperCase()}`, innerX, y, { lineBreak: false });
     y += 13;
     const wpc = data.willpower_conditions || {};
     if (wpc.mask_1wp) {
       doc.font(F.bold).fontSize(7.5).fillColor(C.INK);
-      doc.text('1 WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_1wp, { width: w });
+      doc.text('1 WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_1wp, { width: innerW });
       y = doc.y + 2;
     }
     if (wpc.mask_all) {
       doc.font(F.bold).fontSize(7.5);
-      doc.text('All WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_all, { width: w });
+      doc.text('All WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_all, { width: innerW });
       y = doc.y + 5;
     }
   }
@@ -320,19 +379,19 @@ function renderHumanityColumn(doc, data, assets) {
   // Dirge
   if (data.identity.dirge) {
     doc.font(F.caslon).fontSize(10).fillColor(C.INK);
-    doc.text(`DIRGE: ${data.identity.dirge.toUpperCase()}`, x, y, { lineBreak: false });
+    doc.text(`DIRGE: ${data.identity.dirge.toUpperCase()}`, innerX, y, { lineBreak: false });
     y += 13;
     const wpc = data.willpower_conditions || {};
     if (wpc.dirge_1wp) {
       doc.font(F.bold).fontSize(7.5).fillColor(C.INK);
-      doc.text('1 WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_1wp, { width: w });
+      doc.text('1 WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_1wp, { width: innerW });
       y = doc.y + 2;
     }
     if (wpc.dirge_all) {
       doc.font(F.bold).fontSize(7.5);
-      doc.text('All WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_all, { width: w });
+      doc.text('All WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_all, { width: innerW });
       y = doc.y + 5;
     }
   }
@@ -351,72 +410,80 @@ function renderHumanityColumn(doc, data, assets) {
   });
 }
 
-// ─── Masthead (RIGHT PANEL TOP): logo + name banner, 3 columns below ──────
+// ─── Masthead (RIGHT PANEL TOP) ─────────────────────────────────────────────
+// Three internal columns:
+//   Col A: logo → name → tagline → identity fields (Player/Concept/XP/Printed)
+//   Col B: Carthian/clan icons + names
+//   Col C: status diamonds — start near the TOP of the page, not aligned with
+//          the identity block. The space freed by moving the diamonds up is
+//          reclaimed by the ATTRIBUTES and SKILLS sections below.
 function renderMasthead(doc, data, assets) {
   const { x, w } = COL.masthead;
 
-  // Reserve right edge for the vertically-stacked status diamonds
+  // Narrower identity column (user feedback: "too spread out width")
+  const colAW = 132;
+  const colBX = x + colAW + 10;
   const diamondColW = 58;
-  const mastheadInnerW = w - diamondColW - 4;
+  const colBW = w - colAW - 10 - diamondColW - 6;
 
-  // ── Row 1: logo + character name + Terra Mortis tagline ────────────────
-  // Logo sits at the top-left of the right panel. To its right we draw the
-  // ornate name-banner.png plate with the character's name centred over it,
-  // and "Terra Mortis" underneath.
-  // Prefer the transparent PNG version over the JPG fallback — the JPG has
-  // an opaque white rectangle that looks bad on the cream parchment.
-  const lw = 110, lh = 64;
+  // ── Logo + character name + tagline (col A, top) ──────────────────────
+  const lw = 108, lh = 62;
   const logoAsset = assets['logo-vampire.png'] || assets['logo-vampire.jpg'];
   if (logoAsset) {
     doc.image(logoAsset, x - 4, M_TOP - 2, { width: lw, height: lh });
   }
 
-  const nameAreaX = x + lw + 6;
-  const nameAreaW = mastheadInnerW - lw - 6;
+  // Terra Mortis tagline UNDER the logo (not next to the name). Bold and
+  // positioned 1em higher than the natural logo bottom — overlapping the
+  // logo glow is fine, it makes the tagline visually attached to the logo.
+  doc.font(F.bold).fontSize(11).fillColor(C.INK);
+  doc.text('Terra Mortis', x - 4, M_TOP + lh - 10, {
+    width: lw, align: 'center', lineBreak: false,
+  });
 
-  // Character name — large red small-caps, shrink-to-fit.
-  // Mammon target draws this as plain accent-coloured text with no banner
-  // plate — name-banner.png has a transparent interior so cream text
-  // would disappear against the cream parchment.
+  // Name to the right of the logo, occupying the full vertical span.
+  // Allowed to wrap to a second line if needed; shrink-to-fit only kicks
+  // in at extreme lengths.
+  const nameAreaX = x + lw + 6;
+  const nameAreaW = w - lw - 6 - diamondColW - 6;
   const nameText = data.identity.displayName.toUpperCase();
   let nameSize = 22;
   doc.font(F.caslon).fontSize(nameSize);
-  while (doc.widthOfString(nameText) > nameAreaW - 8 && nameSize > 10) {
+  // Allow the name two lines of room: 2 × (nameSize * 1.2) vertical capacity.
+  // Only shrink if a single word is wider than the column.
+  const longestWord = nameText.split(/\s+/).reduce((a, b) =>
+    doc.widthOfString(a) > doc.widthOfString(b) ? a : b, '');
+  while (doc.widthOfString(longestWord) > nameAreaW - 8 && nameSize > 10) {
     nameSize -= 0.5;
     doc.fontSize(nameSize);
   }
   doc.fillColor(C.ACCENT);
-  doc.text(nameText, nameAreaX, M_TOP + 8, {
-    width: nameAreaW, lineBreak: false,
+  doc.text(nameText, nameAreaX, M_TOP + 6, {
+    width: nameAreaW,
+    lineGap: -2,       // tight line spacing for the 2-line wrap case
   });
 
-  // Terra Mortis tagline beneath the name
-  doc.font(F.caslon).fontSize(12).fillColor(C.INK);
-  doc.text('Terra Mortis', nameAreaX, M_TOP + 34, {
-    width: nameAreaW, lineBreak: false,
-  });
-
-  // ── Row 2: identity fields (col A) + cov/clan blocks (col B) ───────────
-  let y = M_TOP + lh + 14;
-  const colAW = 172;
-  const colBX = x + colAW + 12;
-  const colBW = mastheadInnerW - colAW - 12;
-
-  field(doc, x, y,      'Player',  data.identity.player,  colAW); y += 14;
-  field(doc, x, y,      'Concept', data.identity.concept, colAW); y += 14;
+  // ── Identity fields (col A) — pushed down 1em below the logo/tagline ─
+  const fieldsY = M_TOP + lh + 22;
+  let y = fieldsY;
+  field(doc, x, y,      'Player',  data.identity.player,  colAW); y += 13;
+  field(doc, x, y,      'Concept', data.identity.concept, colAW); y += 13;
   const xpDisplay = (data.print_meta && data.print_meta.xp_display)
     || `${data.xp.remaining} / ${data.xp.earned}`;
-  field(doc, x, y,      'XP',      xpDisplay,              colAW); y += 14;
+  field(doc, x, y,      'XP',      xpDisplay,              colAW); y += 13;
   const printDate = (data.print_meta && data.print_meta.printed_date)
     || todayDDMMMYY();
   field(doc, x, y,      'Printed', printDate,              colAW);
 
-  // Covenant + Clan block (col B) aligned with identity fields
-  renderCovClanBlocks(doc, data, assets, colBX, M_TOP + lh + 14, colBW);
+  // ── Covenant + Clan block (col B) — aligned with identity fields ─────
+  renderCovClanBlocks(doc, data, assets, colBX, fieldsY, colBW);
 
-  // Status diamonds stacked vertically on the far right
+  // ── Status diamonds (col C) — START AT TOP OF PAGE ───────────────────
+  // Previously aligned with the identity block; user feedback wants them
+  // starting near the top of the page to free vertical space for the
+  // ATTRIBUTES / SKILLS sections below.
   renderStatusDiamondsVertical(doc, data, assets,
-    x + mastheadInnerW + 6, M_TOP + lh + 10, diamondColW - 6);
+    x + w - diamondColW + 2, M_TOP + 2, diamondColW - 4);
 }
 
 function renderCovClanBlocks(doc, data, assets, x, y, w) {
@@ -442,9 +509,12 @@ function renderCovClanBlocks(doc, data, assets, x, y, w) {
     return size;
   }
 
-  // Covenant row — icon left, shrink-to-fit name right
+  // Covenant row — icon left, shrink-to-fit name right.
+  // Use `fit: [w, h]` to preserve aspect ratio; the icons are not square
+  // (Carthian is wide, Crone is ornate tall) so forcing width=height=32
+  // stretched them.
   if (covIconFile && assets[covIconFile]) {
-    doc.image(assets[covIconFile], x, y, { width: iconSize, height: iconSize });
+    doc.image(assets[covIconFile], x, y, { fit: [iconSize, iconSize], align: 'center', valign: 'center' });
   }
   const covText = covName ? covName.toUpperCase() : '';
   const covSize = fitOneLine(covText, textW, 12, 7);
@@ -454,7 +524,7 @@ function renderCovClanBlocks(doc, data, assets, x, y, w) {
   // Clan row
   const y2 = y + rowH;
   if (clanIconFile && assets[clanIconFile]) {
-    doc.image(assets[clanIconFile], x, y2, { width: iconSize, height: iconSize });
+    doc.image(assets[clanIconFile], x, y2, { fit: [iconSize, iconSize], align: 'center', valign: 'center' });
   }
   const clanText = clanName ? clanName.toUpperCase() : '';
   const clanSize = fitOneLine(clanText, textW, 12, 7);
@@ -494,11 +564,13 @@ function renderStatusDiamondsVertical(doc, data, assets, x, y, w) {
 // ─── Attributes section (right panel middle) ──────────────────────────────
 function renderAttributes(doc, data, assets) {
   const { x, w } = RIGHT_PANEL;
-  const y0 = M_TOP + 230;    // below masthead (logo 58 + id fields 56 + cov/clan 90 + padding)
+  const y0 = M_TOP + 170;     // moved up — status diamonds no longer push this down
   const bannerH = 26;
 
+  // Prefer the simple ink-brush banner_large.png over the scrollwork plates
+  // (closer to Mammon target aesthetic).
   sectionBanner(doc, x, y0, w, bannerH, 'ATTRIBUTES',
-    assets['short-banner.png'] || assets['banner-section.png'], 15);
+    assets['banner-large.png'] || assets['short-banner.png'], 15);
 
   // Three column sub-headers: Mental / Physical / Social
   const colW = w / 3;
@@ -509,18 +581,21 @@ function renderAttributes(doc, data, assets) {
   });
   doc.fillColor(C.INK);
 
-  // Three rows (Power, Finesse, Resistance) × three columns
-  const yRow = ySub + 20;
-  const rowGap = 18;
+  // Three rows (Power, Finesse, Resistance) × three columns.
+  // Attribute labels rendered UPPERCASE and right-aligned. Inset reduced
+  // from 12 to 6 so long labels like MANIPULATION (~56pt at 7.5) have
+  // enough horizontal room before the dot column.
+  const yRow = ySub + 22;
+  const rowGap = 20;
   ATTR_GRID.forEach((row, ri) => {
     ['Mental', 'Physical', 'Social'].forEach((cat, ci) => {
       const name = row[cat];
       const val = data.attributes[name];
       if (!val) return;
-      const rowX = x + ci * colW + 12;
-      const rowW = colW - 24;
-      traitRow(doc, rowX, yRow + ri * rowGap, name, val.effective, 5, rowW,
-        { fontSize: 9 });
+      const rowX = x + ci * colW + 6;
+      const rowW = colW - 12;
+      traitRow(doc, rowX, yRow + ri * rowGap, name.toUpperCase(), val.effective, 5, rowW,
+        { fontSize: 7.5 });
     });
   });
 }
@@ -528,11 +603,11 @@ function renderAttributes(doc, data, assets) {
 // ─── Skills section (right panel bottom) ──────────────────────────────────
 function renderSkills(doc, data, assets) {
   const { x, w } = RIGHT_PANEL;
-  const y0 = M_TOP + 340;    // below attributes (banner 26 + subheader 20 + 3 rows 18)
+  const y0 = M_TOP + 290;     // below attributes (banner 26 + sub 22 + 3 rows × 20 = 108 → 170+108=278 + gap)
   const bannerH = 26;
 
   sectionBanner(doc, x, y0, w, bannerH, 'SKILLS',
-    assets['short-banner.png'] || assets['banner-section.png'], 15);
+    assets['banner-large.png'] || assets['short-banner.png'], 15);
 
   const colW = w / 3;
   const subtitles = {
@@ -544,16 +619,17 @@ function renderSkills(doc, data, assets) {
   const skillMap = {};
   (data.skills || []).forEach(s => { skillMap[s.name] = s; });
 
+  // User feedback: Mental/Physical/Social column headers are redundant with
+  // the ATTRIBUTES row above. Keep only the "(−N unskilled)" penalty
+  // subtitle so players know the default.
   const ySub = y0 + bannerH + 6;
-  const yRow = ySub + 22;
-  const rowGap = 18;
+  const yRow = ySub + 16;
+  const rowGap = 26;
 
   ['Mental', 'Physical', 'Social'].forEach((cat, ci) => {
-    // Category label + unskilled penalty subtitle
-    doc.font(F.caslon).fontSize(11).fillColor(C.ACCENT);
-    doc.text(cat.toUpperCase(), x + ci * colW, ySub, { width: colW, align: 'center', lineBreak: false });
+    // Unskilled penalty subtitle only — category name dropped.
     doc.font(F.bodyIt).fontSize(7).fillColor(C.GREY);
-    doc.text(subtitles[cat], x + ci * colW, ySub + 13, { width: colW, align: 'center', lineBreak: false });
+    doc.text(subtitles[cat], x + ci * colW, ySub, { width: colW, align: 'center', lineBreak: false });
     doc.fillColor(C.INK);
 
     ALL_SKILLS[cat].forEach((sname, si) => {
@@ -562,7 +638,7 @@ function renderSkills(doc, data, assets) {
       const rowX = x + ci * colW + 12;
       const rowW = colW - 24;
       skillRow(doc, rowX, yRow + si * rowGap, sname.toUpperCase(), dotsN, rowW,
-        s && s.specialisations, { fontSize: 8.5 });
+        s && s.specialisations, { fontSize: 7.5, specFontSize: 7.5 });
     });
   });
 }

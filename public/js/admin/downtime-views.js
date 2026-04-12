@@ -153,7 +153,6 @@ function getSubPhases(phase, cycle, subs) {
   switch (phase) {
     case 0:
       return [
-        { label: 'Regent Confirmed', done: !!cycle.regency_character_id },
         { label: 'Ambience Applied', done: !!cycle.ambience_applied },
       ];
     case 1: {
@@ -688,22 +687,6 @@ async function loadCycleById(cycleId) {
     </button>`;
   }
 
-  // ── GC-1: Regency Lock-In ──
-  if (isActive || isGame) {
-    const activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
-    const currentRegId = cycle.regency_character_id ? String(cycle.regency_character_id) : '';
-    const opts = activeChars.map(c =>
-      `<option value="${esc(String(c._id))}"${String(c._id) === currentRegId ? ' selected' : ''}>${esc(displayNameRaw(c))}</option>`
-    ).join('');
-    statusHtml += `<label class="dt-regency-edit"><span>Regent</span>
-      <select id="dt-regency-sel" class="dt-regency-sel">
-        <option value="">-- None --</option>${opts}
-      </select>
-    </label>`;
-  } else if (isClosed && cycle.regency_character_name) {
-    statusHtml += `<span class="dt-regency-badge">\u265D Regent: ${esc(cycle.regency_character_name)}</span>`;
-  }
-
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
   document.getElementById('dt-open-game').style.display = isClosed ? '' : 'none';
@@ -725,24 +708,6 @@ async function loadCycleById(cycleId) {
 
   // Wire ambience apply button
   document.getElementById('dt-apply-ambience')?.addEventListener('click', () => handleApplyAmbience(cycleId, cycle));
-
-  // Wire regency selector (GC-1)
-  document.getElementById('dt-regency-sel')?.addEventListener('change', async e => {
-    const charId = e.target.value;
-    const char = charId ? characters.find(c => String(c._id) === charId) : null;
-    await updateCycle(cycleId, {
-      regency_character_id:   charId || null,
-      regency_character_name: char ? displayName(char) : null,
-    });
-    const idx = allCycles.findIndex(c => c._id === cycleId);
-    if (idx >= 0) {
-      allCycles[idx].regency_character_id   = charId || null;
-      allCycles[idx].regency_character_name = char ? displayName(char) : null;
-    }
-    // Show confirmation flash on the select
-    const sel = document.getElementById('dt-regency-sel');
-    if (sel) { sel.style.outline = '2px solid var(--gold2)'; setTimeout(() => { sel.style.outline = ''; }, 1500); }
-  });
 
   expandedId = null;
   procExpandedKey = null;
@@ -2427,7 +2392,7 @@ async function recomputeDisciplineProfile() {
     if (rev.pool_status !== 'validated' || !rev.pool_validated) continue;
     let feedTerrs = {};
     try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
-    const active = Object.entries(feedTerrs).filter(([, v]) => v && v !== 'none').map(([k]) => k);
+    const active = Object.entries(feedTerrs).filter(([, v]) => v && v !== 'none').map(([k]) => resolveTerrId(k)).filter(Boolean);
     if (!active.length) continue;
     const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
     for (const territory of active) {
@@ -2443,7 +2408,7 @@ async function recomputeDisciplineProfile() {
       if (!proj?.pool_validated) continue;
       if (proj.pool_status !== 'validated') continue;
       if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
-      const territory = sub.responses?.[`project_${pIdx + 1}_territory`] || '';
+      const territory = resolveTerrId(sub.responses?.[`project_${pIdx + 1}_territory`] || '');
       if (!territory) continue;
       const foundDiscs = KNOWN_DISCIPLINES.filter(d => proj.pool_validated.includes(d));
       if (!foundDiscs.length) continue;
@@ -2804,43 +2769,6 @@ function renderAmbienceDashboard() {
     h += `</tbody></table>`;
     h += `<p class="proc-amb-note">Net change is informational. Positive net = +1 step. Negative net = -1 step. Net below -5 = -2 steps.</p>`;
 
-    // ── Discipline Profile Matrix ──
-    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
-    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
-    h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
-    h += `</div>`;
-
-    if (!discDashCollapsed) {
-      // Find disciplines and territories with any count > 0
-      const discSet = new Set();
-      const terrSet = new Set();
-      for (const [terrId, discs] of Object.entries(profile)) {
-        for (const [disc, count] of Object.entries(discs)) {
-          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
-        }
-      }
-      const discList = [...discSet].sort();
-      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
-
-      if (!discList.length) {
-        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
-      } else {
-        h += `<table class="proc-disc-table">`;
-        h += `<thead><tr><th>Discipline</th>`;
-        for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
-        h += `</tr></thead><tbody>`;
-        for (const disc of discList) {
-          h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
-          for (const t of terrList) {
-            const count = profile[t.id]?.[disc] || 0;
-            h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
-          }
-          h += `</tr>`;
-        }
-        h += `</tbody></table>`;
-      }
-    }
-
     // ── Feeding Matrix ──
     h += `<div class="proc-disc-header" data-toggle="feed-matrix">`;
     h += `<span class="proc-amb-title">Feeding Matrix</span>`;
@@ -2916,6 +2844,44 @@ function renderAmbienceDashboard() {
       h += '</div>';
     }
 
+    // ── Discipline Profile Matrix ──
+    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
+    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
+    h += `<button class="dt-btn proc-disc-retally" id="disc-retally-btn">Retally</button>`;
+    h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+
+    if (!discDashCollapsed) {
+      // Find disciplines and territories with any count > 0
+      const discSet = new Set();
+      const terrSet = new Set();
+      for (const [terrId, discs] of Object.entries(profile)) {
+        for (const [disc, count] of Object.entries(discs)) {
+          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
+        }
+      }
+      const discList = [...discSet].sort();
+      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
+
+      if (!discList.length) {
+        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
+      } else {
+        h += `<table class="proc-disc-table">`;
+        h += `<thead><tr><th>Discipline</th>`;
+        for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
+        h += `</tr></thead><tbody>`;
+        for (const disc of discList) {
+          h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
+          for (const t of terrList) {
+            const count = profile[t.id]?.[disc] || 0;
+            h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
+          }
+          h += `</tr>`;
+        }
+        h += `</tbody></table>`;
+      }
+    }
+
     // ── ST Notes ──
     h += `<div class="proc-amb-notes-block">`;
     h += `<label class="proc-amb-notes-lbl">ST Ambience Notes</label>`;
@@ -2971,10 +2937,20 @@ function renderProcessingMode(container) {
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
 
-        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+        const hasStructured = entry.source === 'project' && (entry.projCast || entry.projMerits || entry.description || entry.poolPlayer);
+        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}${hasStructured ? ' multiline' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
-        h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+        if (hasStructured) {
+          h += `<div class="proc-row-desc-multi">`;
+          if (entry.projCast)    h += `<div><span class="proc-row-desc-lbl">Characters involved:</span> ${esc(entry.projCast)}</div>`;
+          if (entry.projMerits)  h += `<div><span class="proc-row-desc-lbl">Merits &amp; Bonuses:</span> ${esc(entry.projMerits)}</div>`;
+          if (entry.description) h += `<div><span class="proc-row-desc-lbl">Description:</span> ${esc(entry.description)}</div>`;
+          if (entry.poolPlayer)  h += `<div><span class="proc-row-desc-lbl">Pool:</span> ${esc(entry.poolPlayer)}</div>`;
+          h += `</div>`;
+        } else {
+          h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+        }
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
         h += '</div>';
 
@@ -3007,20 +2983,19 @@ function renderProcessingMode(container) {
       const status = btn.dataset.status;
       const entry  = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
-      // For feeding entries: read builder state and save pool_validated before status
-      if (entry.source === 'feeding') {
+      // For feeding + project entries: read builder state and save pool_validated before status
+      if (entry.source === 'feeding' || entry.source === 'project') {
         const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
         if (builder) {
           const expr = _readBuilderExpr(builder);
           if (expr) {
-            // Auto-detect nine_again from skill in validated pool
-            const feedSub2 = submissions.find(s => s._id === entry.subId);
-            const feedChar2 = feedSub2 ? findCharacter(feedSub2.character_name, feedSub2.player_name) : null;
+            const sub2  = submissions.find(s => s._id === entry.subId);
+            const char2 = sub2 ? findCharacter(sub2.character_name, sub2.player_name) : null;
             let nineAgainAuto = false;
-            if (feedChar2) {
-              const charDiscsArr2 = Object.keys(feedChar2.disciplines || {});
+            if (char2) {
+              const charDiscsArr2 = _charDiscsArray(char2).map(d => d.name);
               const parsed2 = _parsePoolExpr(expr, ALL_ATTRS, ALL_SKILLS, charDiscsArr2);
-              if (parsed2?.skill) nineAgainAuto = skNineAgain(feedChar2, parsed2.skill);
+              if (parsed2?.skill) nineAgainAuto = skNineAgain(char2, parsed2.skill);
             }
             await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainAuto });
           }
@@ -3054,7 +3029,7 @@ function renderProcessingMode(container) {
         _updateFeedBuilderMeta(container, sel.dataset.procKey);
         // Reset spec selection when skill changes — specs from old skill no longer apply
         const skillChgEntry = buildProcessingQueue(submissions).find(q => q.key === sel.dataset.procKey);
-        if (skillChgEntry && skillChgEntry.source === 'feeding') {
+        if (skillChgEntry && (skillChgEntry.source === 'feeding' || skillChgEntry.source === 'project')) {
           saveEntryReview(skillChgEntry, { active_feed_specs: [], pool_mod_spec: 0 });
         }
       }
@@ -3148,6 +3123,28 @@ function renderProcessingMode(container) {
       _updateVitaeTotal(container, key);
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (entry) await saveEntryReview(entry, { vitae_mod_manual: val });
+    });
+  });
+
+  // ── feature.59: Success modifier ticker (project right panel) ──
+  container.querySelectorAll('.proc-succmod-dec, .proc-succmod-inc').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const panel = container.querySelector(`.proc-proj-succ-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+      const valInp = panel.querySelector('.proc-succmod-val');
+      const disp   = panel.querySelector(`.proc-succmod-disp[data-proc-key="${key}"]`);
+      const total  = panel.querySelector(`.proc-proj-succ-total-val[data-proc-key="${key}"]`);
+      let val = parseInt(valInp?.value || '0', 10);
+      if (btn.classList.contains('proc-succmod-dec')) val--;
+      else                                             val++;
+      if (valInp) valInp.value = val;
+      const str = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      if (disp)  disp.textContent  = str;
+      if (total) total.textContent = str;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (entry) await saveEntryReview(entry, { succ_mod_manual: val });
     });
   });
 
@@ -3416,6 +3413,14 @@ function renderProcessingMode(container) {
   });
   container.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
     discDashCollapsed = !discDashCollapsed;
+    renderProcessingMode(container);
+  });
+  container.querySelector('#disc-retally-btn')?.addEventListener('click', async e => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    btn.textContent = 'Tallying…';
+    btn.disabled = true;
+    await recomputeDisciplineProfile();
     renderProcessingMode(container);
   });
   container.querySelector('[data-toggle="feed-matrix"]')?.addEventListener('click', () => {
@@ -3804,6 +3809,87 @@ function _updatePoolTotal(container, key) {
 }
 
 /**
+ * Render the right-side sidebar for a project/ambience entry (feature.59).
+ * Dice Pool Modifiers (equipment only) + Success Modifier + Rote + Validation Status.
+ */
+function _renderProjRightPanel(entry, char, rev) {
+  const key = entry.key;
+  const poolValidated = rev.pool_validated || '';
+  const poolStatus    = rev.pool_status    || 'pending';
+
+  const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+  const eqStr = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const poolModTotalStr = eqStr;
+
+  const succMod = rev.succ_mod_manual !== undefined ? rev.succ_mod_manual : 0;
+  const succStr = succMod === 0 ? '\u00B10' : succMod > 0 ? `+${succMod}` : String(succMod);
+
+  let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+
+  // ── Dice Pool Modifiers (equipment only) ──
+  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="">`;
+  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
+  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
+  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
+  h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
+  h += `</div>`;
+  h += `</div>`; // proc-feed-mod-panel
+
+  // ── Success Modifier ──
+  h += `<div class="proc-proj-succ-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Success Modifier</div>`;
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Manual adj.</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="proc-succmod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="proc-succmod-disp" data-proc-key="${esc(key)}">${succStr}</span>`;
+  h += `<input type="hidden" class="proc-succmod-val" data-proc-key="${esc(key)}" value="${succMod}">`;
+  h += `<button class="proc-succmod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Net modifier</span>`;
+  h += `<span class="proc-proj-succ-total-val" data-proc-key="${esc(key)}">${succStr}</span>`;
+  h += `</div>`;
+  h += `</div>`; // proc-proj-succ-panel
+
+  // ── Rote toggle ──
+  const projSubR = submissions.find(s => s._id === entry.subId);
+  const isRote   = projSubR?.projects_resolved?.[entry.actionIdx]?.rote || false;
+  h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
+  h += `</div>`;
+
+  // ── Validation Status ──
+  h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
+  h += `<div class="proc-mod-panel-title">Validation Status</div>`;
+  h += `<div class="proc-val-status">`;
+  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'validated' ? ' active validated' : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'no_roll'   ? ' active no_roll'   : ''}" data-proc-key="${esc(key)}" data-status="no_roll">No Roll Needed</button>`;
+  h += `</div>`;
+  // Committed pool expression with active specs
+  const _activeProjSpecs = rev.active_feed_specs || [];
+  let displayPool = poolValidated;
+  if (poolValidated && _activeProjSpecs.length > 0) {
+    const _eqIdx = poolValidated.lastIndexOf('=');
+    if (_eqIdx !== -1) {
+      const _base = poolValidated.slice(0, _eqIdx).trim();
+      const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
+      displayPool = `${_base} + ${_activeProjSpecs.map(sp => `${sp} 1`).join(' + ')} = ${_tot + _activeProjSpecs.length}`;
+    }
+  }
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
+  h += `</div>`;
+
+  h += `</div>`; // proc-feed-right
+  return h;
+}
+
+/**
  * Render the right-side modifier panel for a feeding entry (Tasks 2 & 3, feature.51).
  * @param {object} entry - Processing queue entry
  * @param {object|null} char - Character document (may be null)
@@ -4039,6 +4125,19 @@ function renderActionPanel(entry, review) {
       null;
   }
 
+  // Hoist char lookup for project entries
+  let projSub = null;
+  let projChar = null;
+  if (entry.source === 'project') {
+    projSub = submissions.find(s => s._id === entry.subId) || null;
+    const charIdStr   = projSub?.character_id ? String(projSub.character_id) : null;
+    const charNameKey = (projSub?.character_name || '').toLowerCase().trim();
+    projChar =
+      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+      charMap.get(charNameKey) ||
+      null;
+  }
+
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
 
   // ── Reminder badges (non-sorcery target actions) ──
@@ -4057,26 +4156,6 @@ function renderActionPanel(entry, review) {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
   }
 
-  // ── Project-specific detail display ──
-  if (entry.source === 'project') {
-    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory;
-    if (hasExtra) {
-      h += '<div class="proc-proj-detail">';
-      if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
-      if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
-      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
-      if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
-      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits Used</span> ${esc(entry.projMerits)}</div>`;
-      h += '</div>';
-    }
-    // Previous roll result
-    const projSub = submissions.find(s => s._id === entry.subId);
-    const projRoll = projSub?.projects_resolved?.[entry.actionIdx]?.roll;
-    if (projRoll) {
-      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(projRoll.successes))} success${projRoll.successes !== 1 ? 'es' : ''}${projRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
-    }
-  }
-
   // ── Merit action previous roll result ──
   if (entry.source === 'merit') {
     const meritSub  = submissions.find(s => s._id === entry.subId);
@@ -4089,8 +4168,27 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // ── Feeding two-column layout wrapper ──
-  if (entry.source === 'feeding') h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+  // ── Two-column layout wrapper (feeding + project) ──
+  if (entry.source === 'feeding' || entry.source === 'project') h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+
+  // ── Project-specific detail display (inside left column) ──
+  if (entry.source === 'project') {
+    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory;
+    if (hasExtra) {
+      h += '<div class="proc-proj-detail">';
+      if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
+      if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
+      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
+      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits Used</span> ${esc(entry.projMerits)}</div>`;
+      h += '</div>';
+    }
+    // Previous roll result
+    const projRoll = projSub?.projects_resolved?.[entry.actionIdx]?.roll;
+    if (projRoll) {
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(projRoll.successes))} success${projRoll.successes !== 1 ? 'es' : ''}${projRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
+    }
+  }
 
   // ── Feeding-specific detail display ──
   if (entry.source === 'feeding') {
@@ -4240,8 +4338,101 @@ function renderActionPanel(entry, review) {
       h += '</div>';
       h += '</div>'; // proc-pool-builder
     }
+  } else if (entry.source === 'project') {
+    // Project: structured pool builder (mirrors feeding)
+    const char = projChar;
+    const charDiscs = _charDiscsArray(char).filter(d => d.dots > 0);
+    const allDiscNames = char ? charDiscs.map(d => d.name) : KNOWN_DISCIPLINES;
+
+    let preAttr = '', preSkill = '', preDisc = 'none', showParseRef = false;
+    if (poolValidated) {
+      const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, allDiscNames);
+      if (parsed) {
+        preAttr  = parsed.attr  || '';
+        preSkill = parsed.skill || '';
+        preDisc  = parsed.disc  || 'none';
+      } else {
+        showParseRef = true;
+      }
+    }
+
+    const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
+      ...ALL_ATTRS.map(a => {
+        const dots = char ? (getAttrVal(char, a) || 0) : null;
+        const sel  = a === preAttr ? ' selected' : '';
+        const label = dots !== null ? `${esc(a)} (${dots})` : esc(a);
+        return `<option value="${esc(a)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
+      })
+    ].join('');
+
+    const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
+      ...ALL_SKILLS.map(s => {
+        const dots = char ? (getSkillObj(char, s).dots || 0) : null;
+        const sel  = s === preSkill ? ' selected' : '';
+        const label = dots !== null ? `${esc(s)} (${dots})` : esc(s);
+        return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
+      })
+    ].join('');
+
+    const discOptHtml = ['<option value="none" data-dots="0">None</option>',
+      ...allDiscNames.map(name => {
+        const d    = charDiscs.find(cd => cd.name === name);
+        const dots = d ? d.dots : null;
+        const sel  = name === preDisc ? ' selected' : '';
+        const label = dots !== null ? `${esc(name)} (${dots})` : esc(name);
+        return `<option value="${esc(name)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
+      })
+    ].join('');
+
+    const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+    const initModForDisplay = eqMod0;
+
+    const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
+    const initSkillDots = preSkill ? (char ? (getSkillObj(char, preSkill).dots || 0) : 0) : 0;
+    const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
+    const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
+
+    // Player's submitted pool (read-only)
+    h += '<div class="proc-pool-player-row">';
+    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+    h += `<div class="proc-detail-value proc-pool-player-csv">${esc(poolPlayer || '\u2014')}</div>`;
+    h += '</div>';
+
+    h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
+    h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder${!char ? ' <span style="color:var(--txt3);font-size:10px">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+    if (showParseRef) {
+      h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
+    }
+    h += '<div class="proc-pool-builder-selects">';
+    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}">${attrOptHtml}</select>`;
+    h += `<span class="proc-pool-plus">+</span>`;
+    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}">${skillOptHtml}</select>`;
+    h += `<span class="proc-pool-plus">+</span>`;
+    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
+    h += '</div>';
+    h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
+    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
+    // 9-again + spec toggles
+    const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
+    const _pSp  = char && preSkill ? skSpecs(char, preSkill) : [];
+    const _pAct = rev.active_feed_specs || [];
+    const _p9Ov = rev.nine_again || false;
+    h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
+    if (preSkill) {
+      if (_pnA) {
+        h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
+      } else {
+        h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${esc(entry.key)}"${_p9Ov ? ' checked' : ''}> 9-Again</label>`;
+      }
+    }
+    for (const sp of _pSp) {
+      const checked = _pAct.includes(sp);
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+    }
+    h += '</div>';
+    h += '</div>'; // proc-pool-builder
   } else {
-    // Non-feeding: standard 2-column layout
+    // Non-feeding, non-project: standard 2-column layout
     h += '<div class="proc-detail-grid">';
     h += '<div class="proc-detail-col">';
     h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
@@ -4254,8 +4445,8 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-detail-grid
   }
 
-  // Validation status — feeding moves to right panel; non-feeding rendered here
-  if (entry.source !== 'feeding') {
+  // Validation status — feeding + project move to right panel; others rendered here
+  if (entry.source !== 'feeding' && entry.source !== 'project') {
     const statusOptions = isSorcery
       ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
       : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
@@ -4329,10 +4520,14 @@ function renderActionPanel(entry, review) {
   h += '</div>';
   h += '</div>';
 
-  // ── Close left column; render right panel for feeding entries ──
+  // ── Close left column; render right panel for feeding + project entries ──
   if (entry.source === 'feeding') {
     h += '</div>'; // proc-feed-left
     h += _renderFeedRightPanel(entry, feedChar, rev);
+    h += '</div>'; // proc-feed-layout
+  } else if (entry.source === 'project') {
+    h += '</div>'; // proc-feed-left
+    h += _renderProjRightPanel(entry, projChar, rev);
     h += '</div>'; // proc-feed-layout
   }
 

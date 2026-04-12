@@ -39,10 +39,14 @@ const ASSET_FILES = [
   'background.jpg',
   'logo-vampire.png',   // transparent PNG — preferred
   'logo-vampire.jpg',   // opaque JPG fallback
-  // Decorative plates from pdf_assets pack
+  // Section banners (preferred: simple ink-brush from json_to_pdf assets)
+  'banner-large.png',
+  'banner-medium.png',
+  'banner-small.png',
+  // Decorative plates from pdf_assets pack (fallbacks)
   'name-banner.png',
   'short-banner.png',
-  'banner-section.png',   // legacy fallback
+  'banner-section.png',
   // Status diamonds (masthead)
   'diamond-city-status.png',
   'diamond-cov-status.png',
