@@ -164,7 +164,8 @@ function normaliseTerritoryGrid(rawTerrs) {
   const nameToSlug = {
     'The Academy': 'the_academy',
     'The City Harbour': 'the_city_harbour',
-    'The Docklands': 'the_docklands',
+    'The Dockyards': 'the_dockyards',
+    'The Docklands': 'the_dockyards',   // legacy key from older uploads
     'The Second City': 'the_second_city',
     'The Northern Shore': 'the_northern_shore',
     'The Barrens': 'the_barrens__no_territory_',
@@ -222,6 +223,11 @@ export function mapRawToResponses(parsed, characters) {
     if (r._feed_method === 'other') r.feeding_description = f.method;
   }
   if (f.territories) r.feeding_territories = normaliseTerritoryGrid(f.territories);
+
+  // Influence territory amounts — numeric values (positive = increase, negative = decrease)
+  const inf = parsed.influence || {};
+  const infNonZero = Object.fromEntries(Object.entries(inf).filter(([, v]) => v !== 0));
+  if (Object.keys(infNonZero).length) r.influence_territories = JSON.stringify(infNonZero);
 
   // Projects (up to 4)
   const projects = parsed.projects || [];

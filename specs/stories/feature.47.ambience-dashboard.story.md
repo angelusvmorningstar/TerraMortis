@@ -1,6 +1,6 @@
 # Story feature.47: Processing Mode — Ambience Dashboard
 
-## Status: Approved
+## Status: Done
 
 ## Story
 
@@ -66,34 +66,31 @@ So: display the net total as informational. The ST uses it to judge step movemen
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Ambience dashboard panel (AC: 1, 2)
-  - [ ] Add a collapsible "Ambience Dashboard" section to the Processing Mode view, above the phase sections (always visible)
-  - [ ] Render a table: Territory | Starting | Entropy | Overfeeding | Influence | Projects | Net Change | Projected Step
+- [x] Task 1: Ambience dashboard panel (AC: 1, 2)
+  - [x] Add a collapsible "Ambience Dashboard" section to the Processing Mode view, above the phase sections (always visible)
+  - [x] Render a table: Territory | Starting | Entropy | Overfeeding | Influence | Projects | Net Change | Projected Step
 
-- [ ] Task 2: Data aggregation for each column (AC: 3–9)
-  - [ ] **Starting**: read territory `ambience` field from the `territories` collection (loaded at startup in `admin.js`)
-  - [ ] **Entropy**: hardcode −1 per territory
-  - [ ] **Overfeeding**: count characters with `resident` or `poach` status per territory from all `responses.feeding_territories` in the cycle; compare to `AMBIENCE_CAP[startingAmbience]`; overfeeding penalty = max(0, feederCount − cap)
-  - [ ] **Influence**: scan all `merit_actions_resolved` and `projects_resolved` where `action_type === 'ambience_increase'` or `ambience_decrease` AND the action is tagged to a territory AND `pool_status === 'validated'` or `pool_status === 'no_roll'`; count resolved ally/influence actions (+1 each)
-  - [ ] **Projects**: scan all `projects_resolved` where `action_type === 'ambience_increase'` or `ambience_decrease` AND tagged to a territory AND `roll` is present; sum `roll.successes` (positive for increase, negative for decrease)
-  - [ ] **Net**: sum all columns
-  - [ ] **Projected step**: current step ± (net > 0 ? min(1, positive steps) : max(-2, negative steps)); display new step name
+- [x] Task 2: Data aggregation for each column (AC: 3–9)
+  - [x] **Starting**: read territory `ambience` field from DB via `ensureTerritories()`; falls back to `TERRITORY_DATA`
+  - [x] **Entropy**: hardcoded −1 per territory
+  - [x] **Overfeeding**: count characters with `resident` or `poach` status per territory from all `responses.feeding_territories`; penalty = max(0, feeders − cap) expressed as negative
+  - [x] **Influence**: scan `merit_actions_resolved` with `ambience_increase`/`ambience_decrease` type, `validated` or `no_roll` status, territory identified via `resolveTerrId()`
+  - [x] **Projects**: scan `projects_resolved` with ambience type, roll present; sum `roll.successes` (signed by increase/decrease)
+  - [x] **Net**: sum of all columns
+  - [x] **Projected step**: net > 0 → +1 step max; net < 0 → clamped to −2 steps; displayed with arrow indicator
 
-- [ ] Task 3: Live updates (AC: 10)
-  - [ ] Ambience dashboard reads from the in-memory `submissions` array and `cycle.discipline_profile`
-  - [ ] It re-renders whenever a project or merit action is saved (validation state change, roll result saved)
-  - [ ] No separate "recalculate" trigger — the same save callbacks that update `submissions[i]` also trigger a dashboard re-render
+- [x] Task 3: Live updates (AC: 10)
+  - [x] Dashboard re-renders on every `renderProcessingMode()` call; reads live `submissions` array and `currentCycle.discipline_profile`
+  - [x] No separate recalculate trigger needed — save callbacks already call `renderProcessingMode()`
 
-- [ ] Task 4: Discipline Profile Matrix (AC: 11, 12)
-  - [ ] Read from `cycle.discipline_profile` (written by features 45 and 46)
-  - [ ] Render as a matrix: disciplines as rows, territories as columns
-  - [ ] Only include disciplines and territories with count > 0
-  - [ ] Cells show the count; highlight cells with count ≥ 3 (high discipline presence)
+- [x] Task 4: Discipline Profile Matrix (AC: 11, 12)
+  - [x] Reads from `currentCycle.discipline_profile` (written by features 45 and 46)
+  - [x] Disciplines as rows, territories as columns; only shows entries with count > 0
+  - [x] Count ≥ 3 highlighted with gold colour and bold; separately collapsible
 
-- [ ] Task 5: Dashboard notes field (AC: 13)
-  - [ ] A textarea below the discipline profile, saved to `cycle.ambience_notes` (new field)
-  - [ ] Saved on blur via `apiPut('/api/downtime_cycles/' + selectedCycleId, { ambience_notes: value })`
-  - [ ] ST-only, never shown to players
+- [x] Task 5: Dashboard notes field (AC: 13)
+  - [x] Textarea saved to `cycle.ambience_notes` on blur via `updateCycle()`
+  - [x] `currentCycle.ambience_notes` and `allCycles[idx].ambience_notes` kept in sync after save
 
 ---
 
@@ -125,13 +122,24 @@ Actions are tagged to a territory via `responses.project_N_territory` (set in th
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-11 | 1.0 | Initial draft | Claude (SM) |
+| 2026-04-12 | 1.1 | Implemented | Claude (Dev) |
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-### Debug Log References
+claude-sonnet-4-6
 
-### Completion Notes List
+### Completion Notes
+
+- `ensureTerritories()` fetches territories from `/api/territories` and caches in `cachedTerritories`; falls back to `TERRITORY_DATA` if DB is empty. Cache is cleared (`null`) on each `loadCycleById()` so starting ambience stays current.
+- `resolveTerrId(raw)` normalises territory strings (territory IDs like `'academy'`, display names like `'The Academy'`, or partial matches) to TERRITORY_DATA ids.
+- `buildAmbienceData()` aggregates overfeeding (from `responses.feeding_territories`), influence (from `merit_actions_resolved`), and projects (from `projects_resolved[].roll.successes`) per territory.
+- Dashboard collapses independently from the Discipline Profile Matrix sub-section (`ambDashCollapsed`, `discDashCollapsed` module-level booleans).
+- `ambience_notes` saved to cycle on textarea blur; `currentCycle` and `allCycles[idx]` synced in memory.
+- No server schema changes needed — cycle has `additionalProperties: true`.
 
 ### File List
+
+- `public/js/admin/downtime-views.js`
+- `public/css/admin-layout.css`

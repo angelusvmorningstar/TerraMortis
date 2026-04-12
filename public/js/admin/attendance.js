@@ -40,6 +40,81 @@ export async function initAttendance(charList) {
   }
 }
 
+function getEligibleChars() {
+  if (!activeSession) return [];
+  const presentIds = new Set(activeSession.attendance.map(a => a.character_id));
+  return chars
+    .filter(c => !presentIds.has(c._id))
+    .sort((a, b) => displayName(a).localeCompare(displayName(b)));
+}
+
+function showAddForm() {
+  const eligible = getEligibleChars();
+  if (!eligible.length) {
+    alert('All active characters are already in this session.');
+    return;
+  }
+
+  const form = document.getElementById('att-add-form');
+  const addBtn = document.getElementById('att-add-btn');
+  if (!form) return;
+
+  form.innerHTML = `
+    <select id="att-add-sel">
+      <option value="">— select character —</option>
+      ${eligible.map(c => `<option value="${esc(c._id)}">${esc(displayName(c))}${c.player ? ' (' + esc(c.player) + ')' : ''}</option>`).join('')}
+    </select>
+    <button class="att-btn" id="att-add-confirm">Add</button>
+    <button class="att-btn" id="att-add-cancel">Cancel</button>
+  `;
+  form.style.display = 'flex';
+  if (addBtn) addBtn.disabled = true;
+
+  document.getElementById('att-add-confirm').addEventListener('click', confirmAddCharacter);
+  document.getElementById('att-add-cancel').addEventListener('click', hideAddForm);
+}
+
+function hideAddForm() {
+  const form = document.getElementById('att-add-form');
+  const addBtn = document.getElementById('att-add-btn');
+  if (form) { form.style.display = 'none'; form.innerHTML = ''; }
+  if (addBtn) addBtn.disabled = false;
+}
+
+async function confirmAddCharacter() {
+  const sel = document.getElementById('att-add-sel');
+  if (!sel || !sel.value) return;
+  const c = chars.find(ch => ch._id === sel.value);
+  if (!c) return;
+
+  const entry = {
+    character_id:      c._id,
+    character_name:    c.name,
+    character_display: displayName(c),
+    player:            c.player || '',
+    attended:          false,
+    costuming:         false,
+    downtime:          false,
+    extra:             0,
+    paid:              false,
+    payment_method:    ''
+  };
+
+  activeSession.attendance.push(entry);
+  hideAddForm();
+
+  try {
+    const { _id, ...body } = activeSession;
+    const updated = await apiPut('/api/game_sessions/' + _id, body);
+    Object.assign(activeSession, updated);
+  } catch (err) {
+    activeSession.attendance.pop(); // rollback
+    alert('Failed to add character: ' + err.message);
+  }
+
+  renderGrid();
+}
+
 function renderToolbar(el) {
   let html = `<div class="att-toolbar">
     <div class="att-toolbar-left">
@@ -51,10 +126,12 @@ function renderToolbar(el) {
       <button class="att-btn" id="att-new-btn">+ New Session</button>
     </div>
     <div class="att-toolbar-right">
+      <button class="att-btn" id="att-add-btn">+ Add Character</button>
       <button class="att-btn att-delete-btn" id="att-delete-btn" style="display:none">Delete Session</button>
       <button class="att-btn att-save-btn" id="att-save-btn" style="display:none">Save Changes</button>
     </div>
   </div>
+  <div id="att-add-form" class="att-add-form" style="display:none"></div>
   <div id="att-grid-wrap"></div>`;
 
   el.innerHTML = html;
@@ -69,6 +146,7 @@ function renderToolbar(el) {
   });
 
   document.getElementById('att-new-btn').addEventListener('click', createNewSession);
+  document.getElementById('att-add-btn').addEventListener('click', showAddForm);
   document.getElementById('att-save-btn').addEventListener('click', saveSession);
   document.getElementById('att-delete-btn').addEventListener('click', deleteSession);
 }
@@ -81,6 +159,7 @@ function renderEmpty(el) {
 function selectSession(session) {
   activeSession = session;
   dirty = false;
+  hideAddForm();
   document.getElementById('att-save-btn').style.display = 'none';
   document.getElementById('att-delete-btn').style.display = sessions.length > 1 ? '' : 'none';
   renderGrid();

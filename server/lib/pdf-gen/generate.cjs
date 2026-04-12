@@ -5,9 +5,12 @@
 //  Page size: A4 (595.28 × 841.89 pt)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const PDFDocument = require('pdfkit');
-const fs = require('fs');
-const path = require('path');
+import PDFDocument from 'pdfkit/js/pdfkit.es.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ── Page geometry ────────────────────────────────────────────────────────────
 const PAGE_W  = 595.28;
@@ -762,7 +765,7 @@ function _renderPages(doc, data) {
 
 
 // ── CLI entry point ──────────────────────────────────────────────────────────
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const inputFile = process.argv[2] || path.join(__dirname, 'sample-data.json');
   const outputFile = process.argv[3] || path.join(__dirname, 'output.pdf');
 
@@ -772,4 +775,4 @@ if (require.main === module) {
     .catch(e => { console.error(e); process.exit(1); });
 }
 
-module.exports = { generate, generateToStream };
+export { generate, generateToStream };
