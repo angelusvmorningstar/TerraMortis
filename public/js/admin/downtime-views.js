@@ -3315,11 +3315,12 @@ function renderActionPanel(entry, review) {
     const feedSub2 = submissions.find(s => s._id === entry.subId);
     const resp = feedSub2?.responses || {};
     const isAppForm = !!(resp.feed_attr);
-    const char = characters.find(ch =>
-      String(ch._id) === feedSub2?.character_id ||
-      ch.name === feedSub2?.character_name ||
-      ch.moniker === feedSub2?.character_name
-    );
+    const charIdStr    = feedSub2?.character_id ? String(feedSub2.character_id) : null;
+    const charNameKey  = (feedSub2?.character_name || '').toLowerCase().trim();
+    const char =
+      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+      charMap.get(charNameKey) ||
+      null;
 
     // Player's submitted pool (source-aware, read-only)
     h += '<div class="proc-pool-player-row">';
@@ -3337,7 +3338,10 @@ function renderActionPanel(entry, review) {
 
     // ST Pool Builder
     if (!char) {
-      h += '<div class="proc-pool-nochar-warn">Character not found \u2014 manual entry</div>';
+      const warnMsg = characters.length === 0
+        ? 'Characters not loaded (local server may be down) \u2014 manual entry'
+        : `Character not found for "${esc(feedSub2?.character_name || '?')}" \u2014 manual entry`;
+      h += `<div class="proc-pool-nochar-warn">${warnMsg}</div>`;
       h += `<div class="proc-detail-label" style="margin-bottom:4px">ST Validated Pool</div>`;
       h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
     } else {
