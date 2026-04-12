@@ -85,7 +85,7 @@
     { "name": "Allies",   "category": "influence", "effective_rating": 3, "qualifier": "Finance",    "bonuses": [] },
     { "name": "Allies",   "category": "influence", "effective_rating": 2, "qualifier": "Politics",   "bonuses": [] },
     { "name": "Allies",   "category": "influence", "effective_rating": 2, "qualifier": "Underworld", "bonuses": [] },
-    { "name": "Contacts", "category": "influence", "effective_rating": 4, "qualifier": "Police, High Society, Occult, Media, Street", "bonuses": [] },
+    { "name": "Contacts", "category": "influence", "effective_rating": 4, "qualifier": null, "area": "Police, High Society, Occult, Media, Street", "bonuses": [] },
     { "name": "Resources","category": "influence", "effective_rating": 3, "qualifier": null,         "bonuses": [] },
 
     { "name": "Kindred Status (Carthian)", "category": "standing", "effective_rating": 1, "qualifier": "Carthian", "bonuses": [] },
