@@ -125,16 +125,15 @@ function sectionBanner(doc, x, y, w, h, text, assetBuf, fontSize = 13) {
  * Skill name (right-aligned, flush against the dots) + italic spec below +
  * trailing dots.
  *
- * User feedback: long skill labels like "INVESTIGATION" were touching the
- * dots. Right-aligning the label with a consistent gap (`labelGap`) before
- * the dot column fixes that AND gives the whole grid a cleaner vertical
- * rhythm — every dot column starts at the same x and every label ends at
- * the same x regardless of label length.
+ * - Label right-aligned against the dot column with a 1em gap.
+ * - Specialisation centred under the label (NOT right-aligned), forced
+ *   onto one line with ellipsis if multiple specs are supplied.
  */
 function skillRow(doc, x, y, name, filled, w, specs, opts = {}) {
   const size = opts.fontSize || 8;
   const specSize = opts.specFontSize != null ? opts.specFontSize : size;
-  const labelGap = opts.labelGap != null ? opts.labelGap : 4;
+  // 1em gap between label and dots (user feedback).
+  const labelGap = opts.labelGap != null ? opts.labelGap : size;
 
   const dotsX = x + w - 5 * DOT_GAP;
   const labelEndX = dotsX - labelGap;
@@ -148,12 +147,13 @@ function skillRow(doc, x, y, name, filled, w, specs, opts = {}) {
     ellipsis: true,
   });
 
-  // Specialisation in italics, one line under the label, also right-aligned
+  // Specialisations: centre-aligned under the label, single line, ellipsis
+  // if they overflow the label width.
   if (specs && specs.length) {
     doc.font(F.bodyIt).fontSize(specSize).fillColor(C.GREY);
     doc.text(specs.join(', '), x, y + size + 1, {
       width: labelEndX - x,
-      align: 'right',
+      align: 'center',
       lineBreak: false,
       ellipsis: true,
     });
@@ -164,13 +164,13 @@ function skillRow(doc, x, y, name, filled, w, specs, opts = {}) {
 }
 
 /**
- * Small-caps trait name + dots, label right-aligned flush against the dots.
- * Right-alignment prevents long labels like "MANIPULATION" or "INTELLIGENCE"
- * from overlapping the dot array regardless of their length.
+ * Small-caps trait name + dots, label right-aligned flush against the dots
+ * with a 1em gap before the dot column.
  */
 function traitRow(doc, x, y, name, filled, max, w, opts = {}) {
   const size = opts.fontSize || 8;
-  const labelGap = opts.labelGap != null ? opts.labelGap : 4;
+  // 1em gap between label and dots (user feedback).
+  const labelGap = opts.labelGap != null ? opts.labelGap : size;
   const dotsX = x + w - max * DOT_GAP;
   const labelEndX = dotsX - labelGap;
 

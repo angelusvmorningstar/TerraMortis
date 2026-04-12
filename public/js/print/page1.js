@@ -138,17 +138,22 @@ function renderLeftColumn(doc, data, assets) {
   y += 14;
   const wp = data.stats.willpower || 0;
   capacityRow(doc, x + (w - 10 * SQ_GAP) / 2, y, Math.min(wp, 10), 10);
-  y += 22;
 
-  // ── Size / Speed / Defence diamonds ──────────────────────────────────────
-  renderStatDiamonds(doc, data, assets, x, y, w);
+  // ── Size / Speed / Defence diamonds — PINNED to bottom of the page ──────
+  const diamondH = 42;
+  const labelH = 10;
+  const sdY = PAGE_H - M_BOTTOM - diamondH - labelH - 4;
+  renderStatDiamonds(doc, data, assets, x, sdY, w);
 }
 
 function renderStatDiamonds(doc, data, assets, x, y, w) {
-  // Three diamonds across the column width using the painterly stat-diamond.png
-  // (single black diamond shape) with the value number + label text drawn over.
-  const dW = 48, dH = 54;
-  const gap = (w - 3 * dW) / 4;
+  // Three diamonds using the painterly stat-diamond.png. Packed tight with
+  // ~0.8em horizontal gap between them, sized to fit inside the disciplines
+  // column width (~125pt).
+  const dW = 36, dH = 42;
+  const glyphGap = 6;   // ~0.8em at the label fontSize 7
+  const clusterW = 3 * dW + 2 * glyphGap;
+  const clusterX = x + (w - clusterW) / 2;
 
   const diamonds = [
     { label: 'SIZE',    value: data.stats.size },
@@ -157,7 +162,7 @@ function renderStatDiamonds(doc, data, assets, x, y, w) {
   ];
 
   diamonds.forEach((d, i) => {
-    const dx = x + gap * (i + 1) + dW * i;
+    const dx = clusterX + i * (dW + glyphGap);
     if (assets['stat-diamond.png']) {
       doc.image(assets['stat-diamond.png'], dx, y, { width: dW, height: dH });
     } else {
@@ -170,12 +175,12 @@ function renderStatDiamonds(doc, data, assets, x, y, w) {
       ).fill(C.ACCENT).restore();
     }
     // Value number centred on diamond body
-    doc.font(F.goudyBold).fontSize(17).fillColor(C.BANNER_C);
-    doc.text(String(d.value || 0), dx, y + (dH - 17) / 2 - 2, {
+    doc.font(F.goudyBold).fontSize(14).fillColor(C.BANNER_C);
+    doc.text(String(d.value || 0), dx, y + (dH - 14) / 2 - 1, {
       width: dW, align: 'center', lineBreak: false,
     });
     // Label below the diamond
-    doc.font(F.caslon).fontSize(7).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(6.5).fillColor(C.INK);
     doc.text(d.label, dx, y + dH + 1, { width: dW, align: 'center', lineBreak: false });
   });
 }
@@ -185,13 +190,16 @@ function renderInfluenceColumn(doc, data, assets) {
   const { x, w } = COL.influence;
   let y = M_TOP + 20;
 
-  // INFLUENCE header with empty-box tally row
+  // INFLUENCE header + 16-box tally (always 2 rows of 8). First
+  // `influence_total` boxes filled, rest outlined empty. data.stats.influence_total
+  // is computed by serialiseForPrint.
   miniHeader(doc, x, y, w, 'INFLUENCE', { fontSize: 11 });
   y += 16;
-  const infN = Math.min(data.stats.influence_total || 0, 10);
-  squares(doc, x + (w - infN * SQ_GAP) / 2, y, 0, infN);
+  const infTotal = data.stats.influence_total || 0;
+  const infRowX = x + (w - 8 * SQ_GAP) / 2;
+  squares(doc, infRowX, y, Math.min(infTotal, 8), 8);
   y += 12;
-  squares(doc, x + (w - infN * SQ_GAP) / 2, y, 0, infN);
+  squares(doc, infRowX, y, Math.max(0, infTotal - 8), 8);
   y += 18;
 
   // Small helper: draw the rating on the right edge of the column as real
@@ -298,9 +306,10 @@ function renderHumanityColumn(doc, data, assets) {
     doc.font(F.caslon).fontSize(10).fillColor(C.INK);
     doc.text(`${rating}:`, x, y, { lineBreak: false });
 
-    // Filled circle for current humanity
+    // Filled circle for current humanity — nudge down a tad so it sits
+    // vertically centred in the rating row text baseline.
     if (rating === hum) {
-      doc.circle(x + 15, y + 5, 3).fill(C.INK);
+      doc.circle(x + 15, y + 7, 3).fill(C.INK);
     }
 
     // Touchstones at this rating
@@ -315,22 +324,29 @@ function renderHumanityColumn(doc, data, assets) {
 
   y += 10;
 
+  // Mask / Dirge text blocks are inset by 1em on both edges from the
+  // column so the body text isn't flush with the fold line or the
+  // adjacent column gutter.
+  const inset = 8;
+  const innerX = x + inset;
+  const innerW = w - 2 * inset;
+
   // Mask
   if (data.identity.mask) {
     doc.font(F.caslon).fontSize(10).fillColor(C.INK);
-    doc.text(`MASK: ${data.identity.mask.toUpperCase()}`, x, y, { lineBreak: false });
+    doc.text(`MASK: ${data.identity.mask.toUpperCase()}`, innerX, y, { lineBreak: false });
     y += 13;
     const wpc = data.willpower_conditions || {};
     if (wpc.mask_1wp) {
       doc.font(F.bold).fontSize(7.5).fillColor(C.INK);
-      doc.text('1 WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_1wp, { width: w });
+      doc.text('1 WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_1wp, { width: innerW });
       y = doc.y + 2;
     }
     if (wpc.mask_all) {
       doc.font(F.bold).fontSize(7.5);
-      doc.text('All WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_all, { width: w });
+      doc.text('All WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_all, { width: innerW });
       y = doc.y + 5;
     }
   }
@@ -338,19 +354,19 @@ function renderHumanityColumn(doc, data, assets) {
   // Dirge
   if (data.identity.dirge) {
     doc.font(F.caslon).fontSize(10).fillColor(C.INK);
-    doc.text(`DIRGE: ${data.identity.dirge.toUpperCase()}`, x, y, { lineBreak: false });
+    doc.text(`DIRGE: ${data.identity.dirge.toUpperCase()}`, innerX, y, { lineBreak: false });
     y += 13;
     const wpc = data.willpower_conditions || {};
     if (wpc.dirge_1wp) {
       doc.font(F.bold).fontSize(7.5).fillColor(C.INK);
-      doc.text('1 WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_1wp, { width: w });
+      doc.text('1 WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_1wp, { width: innerW });
       y = doc.y + 2;
     }
     if (wpc.dirge_all) {
       doc.font(F.bold).fontSize(7.5);
-      doc.text('All WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_all, { width: w });
+      doc.text('All WP:', innerX, y, { lineBreak: false, continued: true });
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_all, { width: innerW });
       y = doc.y + 5;
     }
   }
@@ -392,11 +408,11 @@ function renderMasthead(doc, data, assets) {
     doc.image(logoAsset, x - 4, M_TOP - 2, { width: lw, height: lh });
   }
 
-  // Terra Mortis tagline UNDER the logo (not next to the name). Frees the
-  // whole vertical span beside the logo for the character name to wrap to
-  // a second line if it's very long.
-  doc.font(F.caslon).fontSize(11).fillColor(C.INK);
-  doc.text('Terra Mortis', x - 4, M_TOP + lh + 1, {
+  // Terra Mortis tagline UNDER the logo (not next to the name). Bold and
+  // positioned 1em higher than the natural logo bottom — overlapping the
+  // logo glow is fine, it makes the tagline visually attached to the logo.
+  doc.font(F.bold).fontSize(11).fillColor(C.INK);
+  doc.text('Terra Mortis', x - 4, M_TOP + lh - 10, {
     width: lw, align: 'center', lineBreak: false,
   });
 
@@ -422,8 +438,9 @@ function renderMasthead(doc, data, assets) {
     lineGap: -2,       // tight line spacing for the 2-line wrap case
   });
 
-  // ── Identity fields (col A) ──────────────────────────────────────────
-  let y = M_TOP + lh + 10;
+  // ── Identity fields (col A) — pushed down 1em below the logo/tagline ─
+  const fieldsY = M_TOP + lh + 22;
+  let y = fieldsY;
   field(doc, x, y,      'Player',  data.identity.player,  colAW); y += 13;
   field(doc, x, y,      'Concept', data.identity.concept, colAW); y += 13;
   const xpDisplay = (data.print_meta && data.print_meta.xp_display)
@@ -433,8 +450,8 @@ function renderMasthead(doc, data, assets) {
     || todayDDMMMYY();
   field(doc, x, y,      'Printed', printDate,              colAW);
 
-  // ── Covenant + Clan block (col B) ────────────────────────────────────
-  renderCovClanBlocks(doc, data, assets, colBX, M_TOP + lh + 10, colBW);
+  // ── Covenant + Clan block (col B) — aligned with identity fields ─────
+  renderCovClanBlocks(doc, data, assets, colBX, fieldsY, colBW);
 
   // ── Status diamonds (col C) — START AT TOP OF PAGE ───────────────────
   // Previously aligned with the identity block; user feedback wants them
@@ -540,9 +557,9 @@ function renderAttributes(doc, data, assets) {
   doc.fillColor(C.INK);
 
   // Three rows (Power, Finesse, Resistance) × three columns.
-  // Attribute labels rendered UPPERCASE (small caps via the Caslon font
-  // applied by traitRow) and right-aligned against the dot column so
-  // long labels like "MANIPULATION" can't overlap the dots.
+  // Attribute labels rendered UPPERCASE and right-aligned. Inset reduced
+  // from 12 to 6 so long labels like MANIPULATION (~56pt at 7.5) have
+  // enough horizontal room before the dot column.
   const yRow = ySub + 22;
   const rowGap = 20;
   ATTR_GRID.forEach((row, ri) => {
@@ -550,10 +567,10 @@ function renderAttributes(doc, data, assets) {
       const name = row[cat];
       const val = data.attributes[name];
       if (!val) return;
-      const rowX = x + ci * colW + 12;
-      const rowW = colW - 24;
+      const rowX = x + ci * colW + 6;
+      const rowW = colW - 12;
       traitRow(doc, rowX, yRow + ri * rowGap, name.toUpperCase(), val.effective, 5, rowW,
-        { fontSize: 8 });
+        { fontSize: 7.5 });
     });
   });
 }
@@ -577,16 +594,17 @@ function renderSkills(doc, data, assets) {
   const skillMap = {};
   (data.skills || []).forEach(s => { skillMap[s.name] = s; });
 
+  // User feedback: Mental/Physical/Social column headers are redundant with
+  // the ATTRIBUTES row above. Keep only the "(−N unskilled)" penalty
+  // subtitle so players know the default.
   const ySub = y0 + bannerH + 6;
-  const yRow = ySub + 24;
-  const rowGap = 26;     // spread out — user feedback: more gap between skills
+  const yRow = ySub + 16;
+  const rowGap = 26;
 
   ['Mental', 'Physical', 'Social'].forEach((cat, ci) => {
-    // Category label + unskilled penalty subtitle
-    doc.font(F.caslon).fontSize(11).fillColor(C.ACCENT);
-    doc.text(cat.toUpperCase(), x + ci * colW, ySub, { width: colW, align: 'center', lineBreak: false });
+    // Unskilled penalty subtitle only — category name dropped.
     doc.font(F.bodyIt).fontSize(7).fillColor(C.GREY);
-    doc.text(subtitles[cat], x + ci * colW, ySub + 13, { width: colW, align: 'center', lineBreak: false });
+    doc.text(subtitles[cat], x + ci * colW, ySub, { width: colW, align: 'center', lineBreak: false });
     doc.fillColor(C.INK);
 
     ALL_SKILLS[cat].forEach((sname, si) => {
@@ -594,7 +612,6 @@ function renderSkills(doc, data, assets) {
       const dotsN = s ? s.effective : 0;
       const rowX = x + ci * colW + 12;
       const rowW = colW - 24;
-      // Smaller skill label, bigger spec label — user feedback
       skillRow(doc, rowX, yRow + si * rowGap, sname.toUpperCase(), dotsN, rowW,
         s && s.specialisations, { fontSize: 7.5, specFontSize: 7.5 });
     });
