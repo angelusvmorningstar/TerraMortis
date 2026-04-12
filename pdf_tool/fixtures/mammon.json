@@ -1,0 +1,146 @@
+{
+  "_comment": "Hand-transcribed from Mammon.pdf target image. Shape matches schemas/print-character.schema.json plus the print_meta extension documented in specs/guidance/pdf-target/RENDER-INPUT.md. Used by bin/render.js and bin/verify.js to visually verify the pdf_tool renderer.",
+
+  "identity": {
+    "name": "Yusuf Kalusicj",
+    "displayName": "Yusuf 'Mammon' Kalusicj",
+    "player": "Peter K",
+    "honorific": null,
+    "moniker": "Mammon",
+    "concept": "Nightmate Shadow Broker",
+    "pronouns": null,
+    "apparent_age": null,
+    "clan": "Nosferatu",
+    "bloodline": null,
+    "covenant": "Carthian Movement",
+    "mask": "Cult Leader",
+    "dirge": "Penitent",
+    "court_title": null,
+    "regent_territory": null
+  },
+
+  "stats": {
+    "blood_potency": 2,
+    "humanity": 5,
+    "health": 7,
+    "willpower": 5,
+    "defence": 4,
+    "speed": 9,
+    "size": 5,
+    "vitae_max": 11,
+    "status": { "city": 2, "clan": 2, "covenant": 1 },
+    "influence_total": 5
+  },
+
+  "willpower_conditions": {
+    "mask_1wp":  "Convince someone to deny logic because of your word.",
+    "mask_all":  "Risk exile or death to defend your cult's belief system.",
+    "dirge_1wp": "Punish yourself for a mistake.",
+    "dirge_all": "Risk death to correct an egregious error in judgement."
+  },
+
+  "attributes": {
+    "Intelligence": { "dots": 3, "bonus": 0, "effective": 3 },
+    "Wits":         { "dots": 2, "bonus": 0, "effective": 2 },
+    "Resolve":      { "dots": 2, "bonus": 0, "effective": 2 },
+    "Strength":     { "dots": 1, "bonus": 0, "effective": 1 },
+    "Dexterity":    { "dots": 3, "bonus": 0, "effective": 3 },
+    "Stamina":      { "dots": 2, "bonus": 0, "effective": 2 },
+    "Presence":     { "dots": 3, "bonus": 0, "effective": 3 },
+    "Manipulation": { "dots": 3, "bonus": 0, "effective": 3 },
+    "Composure":    { "dots": 3, "bonus": 0, "effective": 3 }
+  },
+
+  "skills": [
+    { "name": "Investigation", "category": "Mental",   "effective": 3, "specialisations": ["Forensic Accounting"] },
+    { "name": "Empathy",       "category": "Social",   "effective": 4, "specialisations": ["Motives"] },
+    { "name": "Intimidation",  "category": "Social",   "effective": 4, "specialisations": ["Veiled Threats"] }
+  ],
+
+  "disciplines": [
+    { "name": "Auspex", "dots": 1, "in_clan": false, "powers": [
+      { "rank": 1, "name": "Beast's Hackles", "cost": "Free (1V for Insight)", "pool": "— (Composure & Closed Book)", "action": "Instant", "duration": "Scene", "effect": "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions." }
+    ] },
+    { "name": "Nightmare",  "dots": 4, "in_clan": true, "powers": [
+      { "rank": 1, "name": "Dread Presence",    "cost": "—",   "pool": "—",                      "action": "Instant",    "duration": "Scene",  "effect": "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower." },
+      { "rank": 2, "name": "Face of the Beast", "cost": "1V",  "pool": "12 v Composure + BP",    "action": "Contested", "duration": "Instant","effect": "Impose Frightened Condition. Cause fleeing." },
+      { "rank": 3, "name": "Grand Delusion",    "cost": "2V",  "pool": "11 v Composure + BP",    "action": "Contested", "duration": "1 night","effect": "Impose Delusional Condition." },
+      { "rank": 4, "name": "Waking Nightmare",  "cost": "1V",  "pool": "12 v highest Composure + BP", "action": "Contested", "duration": "Scene", "effect": "Create and control hallucinations." }
+    ] },
+    { "name": "Obfuscate", "dots": 4, "in_clan": true, "powers": [
+      { "rank": 1, "name": "Face in the Crowd",     "cost": "—",  "pool": "—",                  "action": "Instant", "duration": "Scene", "effect": "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex." },
+      { "rank": 2, "name": "Touch of Shadow",       "cost": "1V", "pool": "5",                  "action": "Instant", "duration": "Scene", "effect": "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention." },
+      { "rank": 3, "name": "Cloak of Night",        "cost": "1V", "pool": "—",                  "action": "None",    "duration": "—",     "effect": "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2." },
+      { "rank": 4, "name": "The Familiar Stranger", "cost": "2V", "pool": "—",                  "action": "None",    "duration": "—",     "effect": "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae." }
+    ] }
+  ],
+
+  "merits": [
+    { "name": "Air of Menace",      "category": "general",   "effective_rating": 2, "own_dots": 2, "qualifier": null, "bonuses": [], "description": "+2 to menace; others spend Willpower to pick fights. Social manoeuvring harder." },
+    { "name": "Fucking Thief",      "category": "general",   "effective_rating": 1, "own_dots": 1, "qualifier": null, "bonuses": [], "description": "Steal flawed knowledge of a single one-dot advantage restricted to another covenant." },
+    { "name": "Honey With Vinegar", "category": "general",   "effective_rating": 1, "own_dots": 1, "qualifier": null, "bonuses": [], "description": "You earn influence from Allies, Contacts, and wide Mortal Status one step lower than normal. 1 point of influence at 2 dots or 4 dots respectively." },
+    { "name": "Indomitable",        "category": "general",   "effective_rating": 2, "own_dots": 2, "qualifier": null, "bonuses": [], "description": "+2 to contest or resist supernatural mental influence." },
+    { "name": "Secret Society Junkie", "category": "general","effective_rating": 1, "own_dots": 1, "qualifier": null, "bonuses": [], "description": "Dots in Status or Mystery Cult Initiation representing human secret societies also count as dots of Herd." },
+
+    { "name": "Allies",   "category": "influence", "effective_rating": 3, "qualifier": "Finance",    "bonuses": [] },
+    { "name": "Allies",   "category": "influence", "effective_rating": 2, "qualifier": "Politics",   "bonuses": [] },
+    { "name": "Allies",   "category": "influence", "effective_rating": 2, "qualifier": "Underworld", "bonuses": [] },
+    { "name": "Contacts", "category": "influence", "effective_rating": 4, "qualifier": "Police, High Society, Occult, Media, Street", "bonuses": [] },
+    { "name": "Resources","category": "influence", "effective_rating": 3, "qualifier": null,         "bonuses": [] },
+
+    { "name": "Kindred Status (Carthian)", "category": "standing", "effective_rating": 1, "qualifier": "Carthian", "bonuses": [] },
+    { "name": "Kindred Status (Crone)",    "category": "standing", "effective_rating": 0, "qualifier": "Crone",    "bonuses": [] },
+    { "name": "Kindred Status (Invictus)", "category": "standing", "effective_rating": 0, "qualifier": "Invictus", "bonuses": [] },
+    { "name": "Kindred Status (Lance)",    "category": "standing", "effective_rating": 0, "qualifier": "Lance",    "bonuses": [] },
+
+    { "name": "Safe Place",       "category": "domain",   "effective_rating": 2, "qualifier": null, "bonuses": [] },
+    { "name": "Haven",            "category": "domain",   "effective_rating": 0, "qualifier": null, "bonuses": [] },
+    { "name": "Feeding Grounds",  "category": "domain",   "effective_rating": 0, "qualifier": null, "bonuses": [] },
+    { "name": "Herd",             "category": "domain",   "effective_rating": 3, "qualifier": null, "bonuses": [] },
+
+    { "name": "Mystery Cult Initiation", "category": "standing", "effective_rating": 0, "qualifier": null, "bonuses": [], "description": "NB: Both of these require a downtime action once a story to maintain." },
+    { "name": "Professional Training",   "category": "standing", "effective_rating": 0, "qualifier": null, "bonuses": [] }
+  ],
+
+  "devotions": [],
+  "rites": [],
+  "fighting_styles": [],
+
+  "touchstones": [
+    { "humanity": 5, "name": "Portrait of my Wife",       "desc": null },
+    { "humanity": 5, "name": "Turkish Laundrette Woman",  "desc": null }
+  ],
+
+  "banes": [
+    { "name": "Lonely Curse", "effect": "With mortals, Humanity counts −2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected.", "is_curse": true },
+    { "name": "Plague of Purity", "effect": "Touch by Integrity 8+ mortal causes (10 − Humanity) bashing damage.", "is_curse": false }
+  ],
+
+  "xp": {
+    "earned": 54,
+    "spent": 54,
+    "remaining": 0,
+    "breakdown": {
+      "starting": 10, "humanity_drops": 4, "ordeals": 0, "game": 40,
+      "spent_attributes": 0, "spent_skills": 0, "spent_disciplines": 0,
+      "spent_merits": 0, "spent_devotions": 0, "spent_special": 0
+    }
+  },
+
+  "influence_breakdown": [
+    "Allies (Finance) 3 → 1",
+    "Allies (Politics) 2 → 1",
+    "Allies (Underworld) 2 → 1",
+    "Contacts × 5 → 1",
+    "Resources 3 → 1"
+  ],
+
+  "print_meta": {
+    "printed_date": "19-Mar-26",
+    "xp_display": "0 / 54",
+    "clan_key": "Nosferatu",
+    "covenant_key": "Carthian Movement",
+    "feed_sources": ["Animals"],
+    "vitae_per_turn": 2
+  }
+}

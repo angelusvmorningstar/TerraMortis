@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>TM PDF Renderer — Local Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #1a1612;
+      color: #e8d8b8;
+      margin: 0;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    h1 { margin-top: 0; color: #e0c47a; font-family: Georgia, serif; }
+    .note {
+      background: #2a1614;
+      border-left: 3px solid #8b1a1a;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #d8c8a8;
+    }
+    .controls { margin: 20px 0; display: flex; gap: 12px; flex-wrap: wrap; }
+    button {
+      background: #8b1a1a;
+      color: #f8e8c8;
+      border: 1px solid #c0a060;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    button:hover { background: #a83030; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #2a2018; color: #c0a060; }
+    button.secondary:hover { background: #3a2820; }
+    #status {
+      margin: 20px 0;
+      padding: 12px 16px;
+      border-radius: 3px;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      min-height: 40px;
+      background: #0d0b09;
+      border: 1px solid #4a3020;
+    }
+    #status.ok { border-color: #3a6a3a; color: #a8d8a8; }
+    #status.err { border-color: #8b1a1a; color: #ffa8a8; }
+    textarea {
+      width: 100%;
+      height: 280px;
+      background: #0d0b09;
+      color: #d8c8a8;
+      border: 1px solid #4a3020;
+      padding: 12px;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    details { margin: 20px 0; }
+    summary { cursor: pointer; color: #c0a060; user-select: none; }
+  </style>
+</head>
+<body>
+  <h1>Terra Mortis — PDF Renderer Local Test</h1>
+
+  <div class="note">
+    <strong>Purpose.</strong> Exercise the client-side PDF renderer without
+    logging into the admin app. Loads the shared render pipeline
+    (<code>public/js/print/*</code>), fetches fonts and icons from
+    <code>/assets/pdf/</code>, and calls the same <code>downloadCharacterPdf()</code>
+    the Print button uses in production.
+    <br><br>
+    Run <code>npx http-server public -p 8080 -c-1</code> and open
+    <code>http://localhost:8080/pdf-test.html</code>. No auth required.
+  </div>
+
+  <div class="controls">
+    <button id="btn-render">Render &amp; Download PDF</button>
+    <button id="btn-open" class="secondary">Render &amp; Open in New Tab</button>
+    <button id="btn-reset" class="secondary">Reset to Mammon fixture</button>
+  </div>
+
+  <div id="status">Ready. Press a button to render.</div>
+
+  <details>
+    <summary>Character data (editable — paste any serialiseForPrint output here)</summary>
+    <textarea id="data-json" spellcheck="false"></textarea>
+  </details>
+
+  <script type="module">
+    import {
+      renderCharacterPdf,
+      downloadCharacterPdf,
+      openCharacterPdf,
+    } from './js/print/pdf-client.js';
+
+    const statusEl = document.getElementById('status');
+    const dataEl = document.getElementById('data-json');
+    const btnRender = document.getElementById('btn-render');
+    const btnOpen = document.getElementById('btn-open');
+    const btnReset = document.getElementById('btn-reset');
+
+    // Hard-coded Mammon fixture — same shape as pdf_tool/fixtures/mammon.json
+    const MAMMON = {
+      identity: {
+        name: "Yusuf Kalusicj",
+        displayName: "Yusuf 'Mammon' Kalusicj",
+        player: "Peter K",
+        honorific: null, moniker: "Mammon",
+        concept: "Nightmate Shadow Broker",
+        pronouns: null, apparent_age: null,
+        clan: "Nosferatu", bloodline: null,
+        covenant: "Carthian Movement",
+        mask: "Cult Leader", dirge: "Penitent",
+        court_title: null, regent_territory: null,
+      },
+      stats: {
+        blood_potency: 2, humanity: 5, health: 7, willpower: 5,
+        defence: 4, speed: 9, size: 5, vitae_max: 11,
+        status: { city: 2, clan: 2, covenant: 1 },
+        influence_total: 5,
+      },
+      willpower_conditions: {
+        mask_1wp:  "Convince someone to deny logic because of your word.",
+        mask_all:  "Risk exile or death to defend your cult's belief system.",
+        dirge_1wp: "Punish yourself for a mistake.",
+        dirge_all: "Risk death to correct an egregious error in judgement.",
+      },
+      attributes: {
+        Intelligence: { dots: 3, bonus: 0, effective: 3 },
+        Wits:         { dots: 2, bonus: 0, effective: 2 },
+        Resolve:      { dots: 2, bonus: 0, effective: 2 },
+        Strength:     { dots: 1, bonus: 0, effective: 1 },
+        Dexterity:    { dots: 3, bonus: 0, effective: 3 },
+        Stamina:      { dots: 2, bonus: 0, effective: 2 },
+        Presence:     { dots: 3, bonus: 0, effective: 3 },
+        Manipulation: { dots: 3, bonus: 0, effective: 3 },
+        Composure:    { dots: 3, bonus: 0, effective: 3 },
+      },
+      skills: [
+        { name: "Investigation", category: "Mental", effective: 3, specialisations: ["Forensic Accounting"] },
+        { name: "Empathy",       category: "Social", effective: 4, specialisations: ["Motives"] },
+        { name: "Intimidation",  category: "Social", effective: 4, specialisations: ["Veiled Threats"] },
+      ],
+      disciplines: [
+        { name: "Auspex", dots: 1, in_clan: false, powers: [
+          { rank: 1, name: "Beast's Hackles", cost: "Free (1V for Insight)", pool: "— (Composure & Closed Book)", action: "Instant", duration: "Scene", effect: "Add Auspex dots to any rolls to resist surprise. Access to Tier 1 Auspex Insight questions." },
+        ]},
+        { name: "Nightmare", dots: 4, in_clan: true, powers: [
+          { rank: 1, name: "Dread Presence",    cost: "—",  pool: "—",                   action: "Instant",   duration: "Scene",   effect: "Conjure brief illusions. Improve Intimidation. Prevent foes spending Willpower." },
+          { rank: 2, name: "Face of the Beast", cost: "1V", pool: "12 v Composure + BP", action: "Contested", duration: "Instant", effect: "Impose Frightened Condition. Cause fleeing." },
+          { rank: 3, name: "Grand Delusion",    cost: "2V", pool: "11 v Composure + BP", action: "Contested", duration: "1 night", effect: "Impose Delusional Condition." },
+          { rank: 4, name: "Waking Nightmare",  cost: "1V", pool: "12 v highest Composure + BP", action: "Contested", duration: "Scene", effect: "Create and control hallucinations." },
+        ]},
+        { name: "Obfuscate", dots: 4, in_clan: true, powers: [
+          { rank: 1, name: "Face in the Crowd",     cost: "—",  pool: "—", action: "Instant", duration: "Scene", effect: "Blend into surroundings, visible but unnoticeable. Predatory aura fully on or off. Leaving combat: Wits + Composure - Obfuscate to notice; auto Clash of Wills vs Auspex." },
+          { rank: 2, name: "Touch of Shadow",       cost: "1V", pool: "5", action: "Instant", duration: "Scene", effect: "Cast Face in the Crowd on object or person. Free and unlimited duration on carried/worn objects if not drawing attention." },
+          { rank: 3, name: "Cloak of Night",        cost: "1V", pool: "—", action: "None",    duration: "—",     effect: "Become invisible. Leaving combat: auto Clash of Wills vs Auspex 2." },
+          { rank: 4, name: "The Familiar Stranger", cost: "2V", pool: "—", action: "None",    duration: "—",     effect: "Disguise self or other as a desired person. Free unlimited duration to reskin carried/worn objects, but no equipment bonus without Vitae." },
+        ]},
+      ],
+      merits: [
+        { name: "Air of Menace",          category: "general", effective_rating: 2, description: "+2 to menace; others spend Willpower to pick fights. Social manoeuvring harder." },
+        { name: "Fucking Thief",          category: "general", effective_rating: 1, description: "Steal flawed knowledge of a single one-dot advantage restricted to another covenant." },
+        { name: "Honey With Vinegar",     category: "general", effective_rating: 1, description: "You earn influence from Allies, Contacts, and wide Mortal Status one step lower than normal. 1 point of influence at 2 dots or 4 dots respectively." },
+        { name: "Indomitable",            category: "general", effective_rating: 2, description: "+2 to contest or resist supernatural mental influence." },
+        { name: "Secret Society Junkie",  category: "general", effective_rating: 1, description: "Dots in Status or Mystery Cult Initiation representing human secret societies also count as dots of Herd." },
+        { name: "Allies",   category: "influence", effective_rating: 3, qualifier: "Finance" },
+        { name: "Allies",   category: "influence", effective_rating: 2, qualifier: "Politics" },
+        { name: "Allies",   category: "influence", effective_rating: 2, qualifier: "Underworld" },
+        { name: "Contacts", category: "influence", effective_rating: 4, qualifier: "Police, High Society, Occult, Media, Street" },
+        { name: "Resources",category: "influence", effective_rating: 3 },
+        { name: "Safe Place",      category: "domain", effective_rating: 2 },
+        { name: "Haven",           category: "domain", effective_rating: 0 },
+        { name: "Feeding Grounds", category: "domain", effective_rating: 0 },
+        { name: "Herd",            category: "domain", effective_rating: 3 },
+        { name: "Kindred Status (Carthian)", category: "standing", effective_rating: 1, qualifier: "Carthian" },
+        { name: "Kindred Status (Crone)",    category: "standing", effective_rating: 0, qualifier: "Crone" },
+        { name: "Kindred Status (Invictus)", category: "standing", effective_rating: 0, qualifier: "Invictus" },
+        { name: "Kindred Status (Lance)",    category: "standing", effective_rating: 0, qualifier: "Lance" },
+        { name: "Mystery Cult Initiation",   category: "standing", effective_rating: 0, description: "NB: Both of these require a downtime action once a story to maintain." },
+        { name: "Professional Training",     category: "standing", effective_rating: 0 },
+      ],
+      devotions: [], rites: [], fighting_styles: [],
+      touchstones: [
+        { humanity: 5, name: "Portrait of my Wife" },
+        { humanity: 5, name: "Turkish Laundrette Woman" },
+      ],
+      banes: [
+        { name: "Lonely Curse",  effect: "With mortals, Humanity counts −2; Presence/Manipulation failures become dramatic failures. Intimidation and Subterfuge unaffected.", is_curse: true },
+        { name: "Plague of Purity", effect: "Touch by Integrity 8+ mortal causes (10 − Humanity) bashing damage.", is_curse: false },
+      ],
+      xp: {
+        earned: 54, spent: 54, remaining: 0,
+        breakdown: { starting: 10, humanity_drops: 4, ordeals: 0, game: 40,
+                     spent_attributes: 0, spent_skills: 0, spent_disciplines: 0,
+                     spent_merits: 0, spent_devotions: 0, spent_special: 0 }
+      },
+      influence_breakdown: [],
+      print_meta: {
+        printed_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-'),
+        xp_display: "0 / 54",
+        clan_key: "Nosferatu",
+        covenant_key: "Carthian Movement",
+        feed_sources: ["Animals"],
+        vitae_per_turn: 2,
+      },
+    };
+
+    function setStatus(msg, cls) {
+      statusEl.textContent = msg;
+      statusEl.className = cls || '';
+    }
+
+    function loadFixture() {
+      dataEl.value = JSON.stringify(MAMMON, null, 2);
+    }
+    loadFixture();
+
+    function getData() {
+      try {
+        return JSON.parse(dataEl.value);
+      } catch (e) {
+        throw new Error('JSON parse error: ' + e.message);
+      }
+    }
+
+    async function withBusy(label, fn) {
+      btnRender.disabled = btnOpen.disabled = true;
+      setStatus(label + '...', '');
+      const t0 = performance.now();
+      try {
+        await fn();
+        const ms = Math.round(performance.now() - t0);
+        setStatus(`Done in ${ms}ms.`, 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus('ERROR: ' + (err.stack || err.message || err), 'err');
+      } finally {
+        btnRender.disabled = btnOpen.disabled = false;
+      }
+    }
+
+    btnRender.onclick = () => withBusy('Rendering', async () => {
+      const data = getData();
+      await downloadCharacterPdf(data);
+    });
+
+    btnOpen.onclick = () => withBusy('Rendering', async () => {
+      const data = getData();
+      await openCharacterPdf(data);
+    });
+
+    btnReset.onclick = () => {
+      loadFixture();
+      setStatus('Fixture reset to Mammon.', 'ok');
+    };
+  </script>
+</body>
+</html>

@@ -5,7 +5,8 @@
 
 import state from '../data/state.js';
 import { esc } from '../data/helpers.js';
-import { serialiseForPrint, exportCharacterJSON } from './export-character.js';
+import { serialiseForPrint, exportCharacterJSON, buildPrintMeta } from './export-character.js';
+import { downloadCharacterPdf } from '../print/pdf-client.js';
 
 function dots(n) { return '\u25CF'.repeat(Math.max(0, n)); }
 
@@ -139,36 +140,25 @@ ${d.influence_breakdown.map(l => '<div>' + esc(l) + '</div>').join('')}
   win.print();
 }
 
-/** Generate a PDF via the server API and open in a new tab. */
+/**
+ * Render a styled PDF in the browser and download it.
+ *
+ * Uses the client-side renderer in public/js/print/ (shared with the
+ * standalone pdf_tool CLI). No server round-trip — the previous server-side
+ * attempt failed on Render with invisible errors, see
+ * specs/guidance/pdf-target/PRIOR-ART.md.
+ */
 export async function printPDF() {
   const c = state.chars[state.editIdx];
   if (!c) return;
-  const data = serialiseForPrint(c);
-  const token = localStorage.getItem('tm_auth_token');
-  const apiBase = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
   try {
-    const res = await fetch(`${apiBase}/api/pdf/character`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      // Try to read the error details from the server
-      let detail = res.status;
-      try { const body = await res.json(); detail = body.message + '\n' + (body.stack || ''); } catch {}
-      console.error('PDF server error:', detail);
-      alert('PDF generation failed on server:\n\n' + detail);
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    const data = serialiseForPrint(c);
+    data.print_meta = buildPrintMeta(c, data);
+    await downloadCharacterPdf(data);
   } catch (err) {
     console.error('PDF generation failed:', err);
-    // Fallback to HTML print
+    alert('PDF generation failed:\n\n' + (err.message || err));
+    // Fallback to the HTML print-preview path
     printSheet();
   }
 }

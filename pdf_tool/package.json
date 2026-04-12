@@ -1,0 +1,18 @@
+{
+  "name": "tm-pdf-tool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Terra Mortis — VtR 2e character sheet PDF renderer. Standalone CLI for verification, shared render function for browser use.",
+  "main": "src/render.js",
+  "scripts": {
+    "render": "node bin/render.js",
+    "verify": "node bin/verify.js"
+  },
+  "dependencies": {
+    "pdfkit": "^0.18.0"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
+  }
+}

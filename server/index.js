@@ -23,7 +23,10 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
-import pdfRouter from './routes/pdf.js';
+// NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
+// rendered client-side via public/js/print/. See
+// specs/guidance/pdf-target/PRIOR-ART.md for the post-mortem on why the
+// server-side pdfkit approach failed on Render.
 
 const app = express();
 
@@ -68,7 +71,15 @@ app.use('/api/attendance', requireAuth, attendanceRouter);
 app.use('/api/archive_documents', requireAuth, archiveDocumentsRouter);
 app.use('/api/tickets', requireAuth, ticketsRouter);
 app.use('/api/rules', requireAuth, rulesRouter);
-app.use('/api/pdf', requireAuth, pdfRouter);
+
+// /api/pdf removed — PDF generation moved client-side to public/js/print/.
+// Stale browsers calling the old endpoint get a 410 Gone with a refresh hint.
+app.all('/api/pdf/*', (req, res) => {
+  res.status(410).json({
+    error: 'GONE',
+    message: 'PDF generation has moved client-side. Hard-refresh the page (Ctrl+Shift+R / Cmd+Shift+R) to load the new renderer.',
+  });
+});
 
 // Public game session endpoint — used by website banner (no auth)
 app.get('/api/game_sessions/next', getNextSession);
