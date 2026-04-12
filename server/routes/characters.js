@@ -99,6 +99,31 @@ router.get('/public', async (req, res) => {
   res.json(chars);
 });
 
+// GET /api/characters/game-xp — attendance XP summary for all characters.
+// Any authenticated user can access this (players need it for XP display).
+// Returns per-session attendance data without sensitive ST notes.
+router.get('/game-xp', async (req, res) => {
+  const sessions = await getCollection('game_sessions')
+    .find({}, { projection: { session_date: 1, title: 1, session_number: 1, attendance: 1 } })
+    .sort({ session_date: -1 })
+    .toArray();
+  // Strip sensitive fields from attendance — only keep XP-relevant data
+  for (const s of sessions) {
+    s.attendance = (s.attendance || []).map(a => ({
+      character_id: a.character_id,
+      character_name: a.character_name,
+      name: a.name,
+      display_name: a.display_name,
+      character_display: a.character_display,
+      attended: !!a.attended,
+      costuming: !!a.costuming,
+      downtime: !!a.downtime,
+      extra: a.extra || 0,
+    }));
+  }
+  res.json(sessions);
+});
+
 // GET /api/characters/combat — lightweight resistance data for all active characters.
 // Used by the game app dice roller to populate the opponent target dropdown
 // when a player needs to select a resistance target. Returns only the fields
