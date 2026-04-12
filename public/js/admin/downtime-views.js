@@ -3981,8 +3981,14 @@ function _renderProjRightPanel(entry, char, rev) {
 
   // ── Roll toggles: Rote, 9-Again, 8-Again ──
   const isRote        = rev.rote        || false;
-  const nineAgainState = rev.nine_again || false;
   const eightAgainState = rev.eight_again || false;
+  // Auto-detect nine_again from the character's validated skill if not yet explicitly saved
+  let nineAgainState = rev.nine_again || false;
+  if (!nineAgainState && char && poolValidated) {
+    const _rppDiscs = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+    const _rppParsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, _rppDiscs);
+    if (_rppParsed?.skill) nineAgainState = skNineAgain(char, _rppParsed.skill);
+  }
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainState ? ' checked' : ''}> 9-Again</label>`;
