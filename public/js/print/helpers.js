@@ -40,6 +40,37 @@ function squares(doc, x, y, filled, max, opts = {}) {
   }
 }
 
+/**
+ * Capacity + cap-overflow square row.
+ *
+ * Renders `total` squares. The first `capacity` are outlined empty (these are
+ * the character's available slots — vitae pool, health boxes, willpower).
+ * The remaining `total - capacity` are rendered as solid black (these slots
+ * are above the character's current cap and unavailable).
+ *
+ * Used for:
+ *   VITAE      — capacity=vitae_max, total=20
+ *   HEALTH     — capacity=health,    total=15
+ *   WILLPOWER  — capacity=willpower, total=10
+ */
+function capacityRow(doc, x, y, capacity, total, opts = {}) {
+  const sz = opts.size || SQ_SIZE;
+  const gap = opts.gap || SQ_GAP;
+  const strokeC = opts.stroke || C.INK;
+  const blackC = opts.black || '#1a1a1a';
+  const lineW = opts.lineWidth || 0.9;
+  for (let i = 0; i < total; i++) {
+    const sx = x + i * gap;
+    if (i < capacity) {
+      // Character has this slot — outlined empty square
+      doc.save().rect(sx, y, sz, sz).lineWidth(lineW).stroke(strokeC).restore();
+    } else {
+      // Above cap — solid black square
+      doc.save().rect(sx, y, sz, sz).fill(blackC).restore();
+    }
+  }
+}
+
 /** Labelled underline field: "Name: ________value" */
 function field(doc, x, y, label, value, totalW, opts = {}) {
   const fontSize = opts.fontSize || 8.5;
@@ -93,13 +124,16 @@ function sectionBanner(doc, x, y, w, h, text, assetBuf, fontSize = 13) {
 /** Skill name (optional italic spec) + trailing dots */
 function skillRow(doc, x, y, name, filled, w, specs, opts = {}) {
   const size = opts.fontSize || 8;
+  // User feedback: specialisations should be slightly LARGER than the skill
+  // label, not smaller. Default spec size = skill size (instead of size - 1.5).
+  const specSize = opts.specFontSize != null ? opts.specFontSize : size;
+
   doc.font(F.caslon).fontSize(size).fillColor(C.INK);
   doc.text(name, x, y, { lineBreak: false });
 
   if (specs && specs.length) {
-    const nw = doc.widthOfString(name);
-    doc.font(F.bodyIt).fontSize(size - 1.5).fillColor(C.GREY);
-    doc.text(specs.join(', '), x, y + size + 0.5, { lineBreak: false });
+    doc.font(F.bodyIt).fontSize(specSize).fillColor(C.GREY);
+    doc.text(specs.join(', '), x, y + size + 1, { lineBreak: false });
     doc.fillColor(C.INK);
   }
 
@@ -130,6 +164,6 @@ function paragraph(doc, x, y, w, text, opts = {}) {
 }
 
 export {
-  dots, squares, field, miniHeader, sectionBanner,
+  dots, squares, capacityRow, field, miniHeader, sectionBanner,
   skillRow, traitRow, paragraph,
 };

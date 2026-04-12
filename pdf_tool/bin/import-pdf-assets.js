@@ -27,6 +27,7 @@ const ICON_H = 256;
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SRC_DIR   = path.join(REPO_ROOT, 'pdf_assets');
+const JSON_TOOL_ASSETS = path.join(REPO_ROOT, 'json_to_pdf', 'vtr-pdf-gen', 'assets');
 const TARGETS = [
   path.join(REPO_ROOT, 'pdf_tool', 'assets'),
   path.join(REPO_ROOT, 'public', 'assets', 'pdf', 'icons'),
@@ -71,6 +72,15 @@ const COPY_PNGS = {
   // Vampire: The Requiem masthead logo with alpha channel — replaces the
   // JPG version extracted from Mammon.pdf that had an opaque white edge.
   'logo_header.png':      'logo-vampire.png',
+};
+
+// Additional banners from json_to_pdf/vtr-pdf-gen/assets/ — simple black
+// ink-brush horizontal strokes in 3 sizes. Cleaner than the scrollwork
+// plates in pdf_assets for the ATTRIBUTES / SKILLS section headers.
+const JSON_TOOL_COPIES = {
+  'banner_large.png':  'banner-large.png',
+  'banner_medium.png': 'banner-medium.png',
+  'banner_small.png':  'banner-small.png',
 };
 
 function recolourSvg(svgStr) {
@@ -126,6 +136,26 @@ function processCopyPngs() {
   }
 }
 
+function processJsonToolCopies() {
+  if (!fs.existsSync(JSON_TOOL_ASSETS)) {
+    console.warn(`  skipped — ${JSON_TOOL_ASSETS} not present`);
+    return;
+  }
+  for (const [srcName, targetName] of Object.entries(JSON_TOOL_COPIES)) {
+    const srcPath = path.join(JSON_TOOL_ASSETS, srcName);
+    if (!fs.existsSync(srcPath)) {
+      console.warn(`  ✗ ${srcName} not found in json_to_pdf/vtr-pdf-gen/assets/`);
+      continue;
+    }
+    const buf = fs.readFileSync(srcPath);
+    for (const dir of TARGETS) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, targetName), buf);
+    }
+    console.log(`  ✓ ${srcName} → ${targetName}  (${buf.length} B)`);
+  }
+}
+
 async function main() {
   if (!fs.existsSync(SRC_DIR)) {
     console.error(`pdf_assets not found at ${SRC_DIR}`);
@@ -139,6 +169,9 @@ async function main() {
 
   console.log('\nCopy PNGs verbatim:');
   processCopyPngs();
+
+  console.log('\nJSON-tool assets (banners):');
+  processJsonToolCopies();
 
   console.log('\nDone.');
 }
