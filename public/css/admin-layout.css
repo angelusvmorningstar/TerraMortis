@@ -3666,6 +3666,136 @@ body {
 }
 .proc-pool-input:focus { border-color: var(--gold2); outline: none; }
 
+/* ── Pool Builder (feature.50) ─────────────────────────────── */
+.proc-pool-player-row {
+  margin-bottom: 12px;
+}
+.proc-pool-player-structured {
+  font-style: italic;
+  color: var(--txt2);
+}
+.proc-pool-player-csv {
+  color: var(--txt2);
+}
+
+.proc-pool-builder {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.proc-pool-builder-selects {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.proc-pool-builder-selects select {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--fb);
+  flex: 1;
+  min-width: 120px;
+}
+.proc-pool-builder-selects select:focus { border-color: var(--gold2); outline: none; }
+.proc-pool-plus {
+  color: var(--txt3);
+  font-size: 14px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.proc-pool-builder-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.proc-pool-mod-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.proc-pool-mod-label {
+  font-size: 12px;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.proc-pool-mod-dec,
+.proc-pool-mod-inc {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.proc-pool-mod-dec:hover,
+.proc-pool-mod-inc:hover { border-color: var(--gold2); color: var(--gold2); }
+.proc-pool-mod-disp {
+  font-size: 14px;
+  font-family: var(--fm);
+  color: var(--txt1);
+  min-width: 30px;
+  text-align: center;
+}
+.proc-pool-rote-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--txt2);
+  cursor: pointer;
+}
+.proc-pool-rote-label input[type="checkbox"] {
+  accent-color: var(--gold2);
+}
+
+.proc-pool-total {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--gold2);
+  font-family: var(--fm);
+  padding-top: 6px;
+  border-top: 1px solid var(--bdr);
+}
+
+.proc-pool-parse-ref {
+  font-size: 12px;
+  color: var(--txt3);
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+.proc-pool-nochar-warn {
+  font-size: 12px;
+  color: #ffb870;
+  background: #5a3010;
+  border: 1px solid #c07030;
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-bottom: 6px;
+}
+
 .proc-feedback-input {
   background: var(--surf2);
   border: 1px solid var(--bdr);
