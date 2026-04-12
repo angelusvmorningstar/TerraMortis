@@ -1564,13 +1564,15 @@ body {
 .dt-matrix-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
 .dt-matrix-char { text-align: left; font-size: 12px; white-space: nowrap; }
 .dt-matrix-amb { font-size: 10px; color: var(--txt-dim); font-family: var(--fb, sans-serif); }
-.dt-matrix-resident { background: rgba(58,138,58,.12); color: #3a8a3a; font-weight: 600; }
-.dt-matrix-poach { background: rgba(224,196,122,.1); color: var(--gold2); }
+.dt-matrix-resident { background: rgba(58,138,58,.15); color: #3a8a3a; font-weight: 700; }
+.dt-matrix-poach { background: rgba(224,164,60,.12); color: #d4902a; font-weight: 700; }
 .dt-matrix-other { color: var(--txt-dim); }
 .dt-matrix-empty { color: var(--txt-dim); opacity: .4; }
 .dt-matrix-overcap { background: rgba(139,0,0,.15); color: var(--crim); font-weight: 700; }
 .dt-matrix-row { cursor: pointer; }
 .dt-matrix-row:hover td { background: var(--surf2); }
+.dt-matrix-nosub td { opacity: .45; }
+.dt-matrix-nosub-badge { font-size: 10px; color: var(--txt-dim); font-style: italic; margin-left: 4px; }
 .dt-matrix-note { font-size: 11px; color: var(--txt-dim); padding: 6px 12px; margin: 0; }
 .dt-conflict-list { padding: 8px 12px; }
 .dt-conflict-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--bdr); }

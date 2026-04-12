@@ -4926,75 +4926,120 @@ function _normTerrKeys(rawTerrs) {
   return out;
 }
 
+/** Return a Set of MATRIX_TERRS csvKeys where this submission's character actually fed. */
+function _getSubFedTerrs(sub) {
+  const fed = new Set();
+  let grid = null;
+
+  // Prefer responses.feeding_territories (slug keys — new form format)
+  if (sub.responses?.feeding_territories) {
+    try { grid = JSON.parse(sub.responses.feeding_territories); } catch { grid = null; }
+  }
+
+  if (grid) {
+    for (const [slug, status] of Object.entries(grid)) {
+      if (!status || status === 'none' || status === 'Not feeding here') continue;
+      const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
+        ? TERRITORY_SLUG_MAP[slug] : undefined;
+      if (tid === undefined) continue;
+      const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
+      if (mt) fed.add(mt.csvKey);
+    }
+  } else {
+    // Fallback: _raw.feeding.territories (display-name keys, legacy)
+    const rawTerrs = _normTerrKeys(sub._raw?.feeding?.territories);
+    for (const [csvKey, status] of Object.entries(rawTerrs)) {
+      if (!status || status === 'Not feeding here' || status === 'none') continue;
+      fed.add(csvKey);
+    }
+  }
+
+  return fed;
+}
+
 function renderFeedingMatrix() {
   const el = document.getElementById('dt-matrix');
   if (!el) return;
-  if (!submissions.length) { el.innerHTML = ''; return; }
 
-  // Determine which territory columns actually have any data
-  const activeCols = MATRIX_TERRS.filter(t =>
-    submissions.some(s => {
-      const terrs = _normTerrKeys((s._raw || {}).feeding?.territories);
-      const v = terrs[t.csvKey];
-      return v && v !== 'Not feeding here';
-    })
-  );
+  const activeChars = (typeof chars !== 'undefined' ? chars : []).filter(c => !c.retired)
+    .sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
-  if (!activeCols.length) { el.innerHTML = ''; return; }
+  if (!submissions.length && !activeChars.length) { el.innerHTML = ''; return; }
 
-  // Count residents per territory (residents only, not poachers — poachers don't count toward cap)
-  const residentCounts = {};
-  for (const t of activeCols) {
-    residentCounts[t.csvKey] = submissions.filter(s => {
-      const v = _normTerrKeys((s._raw || {}).feeding?.territories)[t.csvKey];
-      return v === 'Resident';
-    }).length;
+  // All 6 columns always shown
+  const cols = MATRIX_TERRS;
+
+  // Build residency lookup from cachedTerritories (authoritative feeding_rights list)
+  const residentsByTerrKey = {};
+  for (const mt of cols) {
+    const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
+    const td = (cachedTerritories || []).find(t => t.id === tid);
+    residentsByTerrKey[mt.csvKey] = new Set(td?.feeding_rights || []);
   }
 
-  const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
+  // Map submission by character id for quick lookup
+  const subByCharId = new Map();
+  for (const s of submissions) {
+    const char = findCharacter(s.character_name, s.player_name);
+    if (char) subByCharId.set(String(char._id), s);
+  }
 
-  // Collapsible state via data attr
   const isOpen = el.dataset.open !== 'false';
+  const totalChars = activeChars.length + (submissions.filter(s => !findCharacter(s.character_name, s.player_name)).length);
 
   let h = `<div class="dt-matrix-panel">`;
-  h += `<div class="dt-matrix-toggle" id="dt-matrix-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Matrix <span class="domain-count">${sorted.length} characters</span></div>`;
+  h += `<div class="dt-matrix-toggle" id="dt-matrix-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Matrix <span class="domain-count">${activeChars.length} characters</span></div>`;
 
   if (isOpen) {
     h += `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
     h += '<thead><tr><th>Character</th>';
-    for (const t of activeCols) {
+    for (const t of cols) {
       const ambience = getTerritoryAmbience(t.ambienceKey);
       h += `<th title="${esc(ambience || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(ambience || 'N/A')}</span></th>`;
     }
     h += '</tr></thead><tbody>';
 
-    for (const s of sorted) {
-      const terrs = _normTerrKeys((s._raw || {}).feeding?.territories);
-      h += `<tr class="dt-matrix-row" data-sub-id="${esc(s._id)}"><td class="dt-matrix-char">${esc(s.character_name || '?')}</td>`;
-      for (const t of activeCols) {
-        const status = terrs[t.csvKey];
-        if (!status || status === 'Not feeding here') {
-          h += '<td class="dt-matrix-empty">—</td>';
+    for (const char of activeChars) {
+      const charId = String(char._id);
+      const sub = subByCharId.get(charId) || null;
+      const hasSub = !!sub;
+      const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
+
+      h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}" ${hasSub ? `data-sub-id="${esc(sub._id)}"` : ''}>`;
+      h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+
+      for (const t of cols) {
+        const isBarrens = t.ambienceKey === null;
+        const fed = fedTerrs.has(t.csvKey);
+        if (!fed) {
+          h += '<td class="dt-matrix-empty">\u2014</td>';
+        } else if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
+          h += '<td class="dt-matrix-resident">O</td>';
         } else {
-          const cls = status === 'Resident' ? 'dt-matrix-resident' : status === 'Poaching' ? 'dt-matrix-poach' : 'dt-matrix-other';
-          h += `<td class="${cls}">${esc(status)}</td>`;
+          h += '<td class="dt-matrix-poach">X</td>';
         }
       }
       h += '</tr>';
     }
 
-    // Footer: counts vs caps
+    h += '</tbody>';
+
+    // Footer: authoritative resident count from feeding_rights, cap from ambience
     h += '<tfoot><tr><td><strong>Residents</strong></td>';
-    for (const t of activeCols) {
-      const ambience = getTerritoryAmbience(t.ambienceKey);
-      const cap = ambience ? (AMBIENCE_CAP[ambience] ?? null) : null;
-      const count = residentCounts[t.csvKey] || 0;
-      const overCap = cap !== null && count > cap;
-      h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
+    for (const t of cols) {
+      if (t.ambienceKey === null) {
+        h += '<td class="dt-matrix-empty">\u2014</td>';
+      } else {
+        const ambience = getTerritoryAmbience(t.ambienceKey);
+        const cap = ambience ? (AMBIENCE_CAP[ambience] ?? null) : null;
+        const count = residentsByTerrKey[t.csvKey].size;
+        const overCap = cap !== null && count > cap;
+        h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
+      }
     }
     h += '</tr></tfoot>';
     h += '</table>';
-    h += '<p class="dt-matrix-note">Cap = Resident PCs only. Herds, cults, and animal feeding do not count toward territory cap.</p>';
+    h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Resident count from City feeding rights list.</p>';
     h += '</div>';
   }
 
@@ -5006,7 +5051,7 @@ function renderFeedingMatrix() {
     renderFeedingMatrix();
   });
 
-  el.querySelectorAll('.dt-matrix-row').forEach(row => {
+  el.querySelectorAll('.dt-matrix-row[data-sub-id]').forEach(row => {
     row.addEventListener('click', () => {
       const id = row.dataset.subId;
       expandedId = expandedId === id ? null : id;
