@@ -752,7 +752,7 @@ async function loadCycleById(cycleId) {
   // Keep processing mode on across cycle switches — just re-render appropriately
   document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
-  renderFeedingScene();
+  renderSubmissionChecklist();
   renderFeedingMatrix();
   renderConflicts();
   await loadInvestigations(cycleId);
@@ -1694,7 +1694,7 @@ async function processFilePreview(file) {
     `<span class="dt-status-badge dt-status-approved">preview</span><span class="domain-count">${devSubs.length} submissions</span>`;
   renderSnapshotPanel(devCycle);
   renderMatchSummary();
-  renderFeedingScene();
+  renderSubmissionChecklist();
   renderFeedingMatrix();
   renderConflicts();
   renderInvestigations();
@@ -4745,6 +4745,140 @@ function renderNpcForm(npc) {
   h += `<textarea class="dt-narr-textarea" id="dt-npc-notes-${id}" placeholder="Notes (ST only)" style="min-height:36px;margin-top:6px">${v('notes')}</textarea>`;
   h += '</div>';
   return h;
+}
+
+// ── Submission Checklist (feature.55) ───────────────────────────────────────
+
+const CHK_SECTIONS = [
+  { key: 'travel',            label: 'Travel' },
+  { key: 'feeding',           label: 'Feeding' },
+  { key: 'project_1',         label: 'P1' },
+  { key: 'project_2',         label: 'P2' },
+  { key: 'project_3',         label: 'P3' },
+  { key: 'project_4',         label: 'P4' },
+  { key: 'influence_allies',  label: 'Infl/Allies' },
+  { key: 'contacts',          label: 'Contacts' },
+  { key: 'resources',         label: 'Resources' },
+  { key: 'xp',                label: 'XP' },
+];
+
+function _chkHasContent(sub, key) {
+  if (!sub) return false;
+  const raw = sub._raw || {};
+  switch (key) {
+    case 'travel':           return !!(raw.submission?.narrative?.travel_description);
+    case 'feeding':          return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
+    case 'project_1':        return !!(sub.responses?.project_1_action || raw.projects?.[0]);
+    case 'project_2':        return !!(sub.responses?.project_2_action || raw.projects?.[1]);
+    case 'project_3':        return !!(sub.responses?.project_3_action || raw.projects?.[2]);
+    case 'project_4':        return !!(sub.responses?.project_4_action || raw.projects?.[3]);
+    case 'influence_allies': return !!(raw.sphere_actions?.length);
+    case 'contacts':         return !!(raw.contact_actions?.requests?.length);
+    case 'resources':        return !!(raw.retainer_actions?.actions?.length);
+    case 'xp':               return !!(raw.meta?.xp_spend);
+    default:                 return false;
+  }
+}
+
+function _chkState(sub, key) {
+  if (!_chkHasContent(sub, key)) return 'empty';
+  if (key === 'feeding' && sub?.feeding_roll) return 'validated';
+  if (sub?.st_review?.sighted?.[key]) return 'sighted';
+  return 'unsighted';
+}
+
+function renderSubmissionChecklist() {
+  const el = document.getElementById('dt-feeding-scene');
+  if (!el) return;
+
+  const activeChars = characters.filter(c => !c.retired);
+  if (!activeChars.length) { el.innerHTML = ''; return; }
+
+  const subByCharId = new Map();
+  for (const s of submissions) {
+    const char = findCharacter(s.character_name, s.player_name);
+    if (char) subByCharId.set(String(char._id), s);
+  }
+
+  const isOpen = el.dataset.open !== 'false';
+  const sorted = [...activeChars].sort((a, b) => sortName(a).localeCompare(sortName(b)));
+
+  // Count how many chars have all present sections sighted/validated
+  let fullySighted = 0;
+  for (const char of sorted) {
+    const sub = subByCharId.get(String(char._id)) || null;
+    if (!sub) continue;
+    const allDone = CHK_SECTIONS.every(sec => {
+      const st = _chkState(sub, sec.key);
+      return st === 'empty' || st === 'sighted' || st === 'validated';
+    });
+    if (allDone) fullySighted++;
+  }
+
+  let h = '<div class="dt-chk-panel">';
+  h += `<div class="dt-chk-toggle" id="dt-chk-toggle">${isOpen ? '\u25BC' : '\u25BA'} Submission Checklist`;
+  h += ` <span class="domain-count">${fullySighted} / ${sorted.length} processed</span></div>`;
+
+  if (isOpen) {
+    h += '<div class="dt-chk-wrap"><table class="dt-chk-table"><thead><tr>';
+    h += '<th class="dt-chk-name-col">Character</th>';
+    for (const sec of CHK_SECTIONS) h += `<th title="${esc(sec.key)}">${esc(sec.label)}</th>`;
+    h += '</tr></thead><tbody>';
+
+    for (const char of sorted) {
+      const charId = String(char._id);
+      const sub = subByCharId.get(charId) || null;
+      const hasSub = !!sub;
+      const rowCls = hasSub ? '' : ' dt-chk-nosub';
+
+      h += `<tr class="${rowCls}">`;
+      h += `<td class="dt-chk-name">${esc(displayName(char))}`;
+      if (!hasSub) h += ' <span class="dt-chk-nosub-badge">No submission</span>';
+      h += '</td>';
+
+      for (const sec of CHK_SECTIONS) {
+        const state = _chkState(sub, sec.key);
+        if (state === 'empty') {
+          h += '<td class="dt-chk-empty">\u2014</td>';
+        } else if (state === 'validated') {
+          h += `<td class="dt-chk-validated" title="Validated">\u2605</td>`;
+        } else if (state === 'sighted') {
+          h += `<td class="dt-chk-sighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="Sighted \u2014 click to unsight">\u2713</td>`;
+        } else {
+          h += `<td class="dt-chk-unsighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="Has content \u2014 click to mark sighted">?</td>`;
+        }
+      }
+
+      h += '</tr>';
+    }
+
+    h += '</tbody></table></div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-chk-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderSubmissionChecklist();
+  });
+
+  el.querySelectorAll('.dt-chk-cell').forEach(cell => {
+    cell.addEventListener('click', async () => {
+      const subId  = cell.dataset.subId;
+      const section = cell.dataset.section;
+      if (!subId || !section) return;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const current = sub?.st_review?.sighted?.[section] || false;
+      const next = !current;
+      await updateSubmission(subId, { [`st_review.sighted.${section}`]: next });
+      if (!sub.st_review) sub.st_review = {};
+      if (!sub.st_review.sighted) sub.st_review.sighted = {};
+      sub.st_review.sighted[section] = next;
+      renderSubmissionChecklist();
+    });
+  });
 }
 
 // ── Feeding Scene Summary (GC-2) ────────────────────────────────────────────

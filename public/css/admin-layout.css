@@ -1574,6 +1574,25 @@ body {
 .dt-matrix-nosub td { opacity: .45; }
 .dt-matrix-nosub-badge { font-size: 10px; color: var(--txt-dim); font-style: italic; margin-left: 4px; }
 .dt-matrix-note { font-size: 11px; color: var(--txt-dim); padding: 6px 12px; margin: 0; }
+/* ── Submission Checklist (feature.55) ── */
+.dt-chk-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 4px; overflow: hidden; }
+.dt-chk-toggle { padding: 8px 12px; background: var(--surf2); cursor: pointer; font-family: var(--fh); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.dt-chk-toggle:hover { background: var(--surf3); }
+.dt-chk-wrap { overflow-x: auto; }
+.dt-chk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dt-chk-table th, .dt-chk-table td { padding: 4px 6px; border: 1px solid var(--bdr); text-align: center; }
+.dt-chk-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
+.dt-chk-name-col { text-align: left; }
+.dt-chk-name { text-align: left; white-space: nowrap; font-size: 12px; }
+.dt-chk-nosub td { opacity: .45; }
+.dt-chk-nosub-badge { font-size: 10px; color: var(--txt-dim); font-style: italic; margin-left: 4px; }
+.dt-chk-empty { color: var(--txt-dim); opacity: .4; }
+.dt-chk-unsighted { color: #d4902a; cursor: pointer; font-weight: 700; }
+.dt-chk-unsighted:hover { background: rgba(212,144,42,.15); }
+.dt-chk-sighted { color: #3a8a3a; cursor: pointer; font-weight: 600; }
+.dt-chk-sighted:hover { background: rgba(58,138,58,.1); }
+.dt-chk-validated { color: #3a8a3a; font-weight: 700; }
+
 .dt-conflict-list { padding: 8px 12px; }
 .dt-conflict-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--bdr); }
 .dt-conflict-item:last-child { border-bottom: none; }
