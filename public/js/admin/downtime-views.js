@@ -10,7 +10,7 @@ import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED
 import { rollPool } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
-import { calcTotalInfluence } from '../editor/domain.js';
+import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { showRollModal } from '../downtime/roller.js';
 import { getUser } from '../auth/discord.js';
@@ -3398,6 +3398,13 @@ function _updatePoolModTotal(container, key) {
   const total = fgDice + unskilledVal + eqVal;
   const totalEl = modPanel.querySelector('.proc-mod-total-val');
   if (totalEl) totalEl.textContent = total === 0 ? '\u00B10' : total > 0 ? `+${total}` : String(total);
+
+  // Sync total to pool builder hidden modifier input so the pool total display updates
+  const builderModInp = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-mod-val`);
+  if (builderModInp) {
+    builderModInp.value = String(total);
+    _updatePoolTotal(container, key);
+  }
 }
 
 /**
@@ -3530,7 +3537,10 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   // ── Vitae Tally ──
   const herd = (char?.merits || []).find(m => m.name === 'Herd');
-  const herdVitae = herd ? (herd.rating || 0) : null;
+  // Include SSJ and Flock bonuses; fall back to stored rating for old-schema chars
+  const herdVitae = char
+    ? (domMeritContrib(char, 'Herd') || (herd ? (herd.rating || 0) : 0))
+    : null;
 
   const hasOoF = (char?.powers || []).some(p => p.category === 'pact' && p.name === 'Oath of Fealty');
   const oofVitae = hasOoF ? Math.max(char.status?.covenant || 0, char._ots_covenant_bonus || 0) : 0;
@@ -3624,6 +3634,9 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<button class="proc-val-btn${poolStatus === 'pending'    ? ' active pending'    : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
   h += `<button class="proc-val-btn${poolStatus === 'validated'  ? ' active validated'  : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
   h += `</div>`;
+  // Committed pool expression display — updated when pool is validated
+  const committedPool = poolValidated;
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${committedPool ? esc(committedPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -3803,11 +3816,21 @@ function renderActionPanel(entry, review) {
         })
       ].join('');
 
+      // Compute initial pool modifier total from right-panel values (FG + equipment)
+      // This mirrors what _renderFeedRightPanel computes so the pool total reflects modifiers on open
+      const fg0 = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
+      const fgDice0 = fg0 ? (fg0.rating || 0) : 0;
+      const eqMod0 = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+      const initFeedPoolMod = fgDice0 + eqMod0;
+      // Use right-panel total as the modifier (overrides parsed preMod for display; preMod still used
+      // for expression string restoration but display uses live panel total)
+      const initModForDisplay = initFeedPoolMod;
+
       // Initial total display (AC 12: pass skillName for unskilled penalty)
       const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
       const initSkillDots = preSkill ? (char ? (getSkillObj(char, preSkill).dots || 0) : 0) : 0;
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
-      const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, preMod, preSkill);
+      const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
 
       h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
       h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder${!char ? ' <span style="color:var(--txt3);font-size:10px">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
@@ -3821,6 +3844,8 @@ function renderActionPanel(entry, review) {
       h += `<span class="proc-pool-plus">+</span>`;
       h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
       h += '</div>'; // proc-pool-builder-selects
+      // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
+      h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
       h += '</div>'; // proc-pool-builder
     }
@@ -3881,14 +3906,6 @@ function renderActionPanel(entry, review) {
   if ((entry.source === 'project' || entry.source === 'merit') && poolStatus === 'validated') {
     h += '<div style="margin-bottom:12px">';
     h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
-    h += '</div>';
-  }
-
-  // Roll button for validated feeding entries
-  if (entry.source === 'feeding' && poolStatus === 'validated') {
-    const isRote   = entry.feedRote || feedSub?.st_review?.feeding_rote || false;
-    h += '<div style="margin-bottom:12px">';
-    h += `<button class="dt-btn proc-feed-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-rote="${isRote}">Roll Feeding</button>`;
     h += '</div>';
   }
 
