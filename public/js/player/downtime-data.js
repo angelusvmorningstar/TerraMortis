@@ -40,10 +40,10 @@ export const SPHERE_ACTIONS = [
 
 export const FEEDING_TERRITORIES = [
   'The Academy',
-  'The City Harbour',
-  'The Docklands',
+  'The Harbour',
+  'The Dockyards',
   'The Second City',
-  'The Northern Shore',
+  'The North Shore',
   'The Barrens (No Territory)',
 ];
 

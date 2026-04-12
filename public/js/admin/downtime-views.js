@@ -2456,12 +2456,14 @@ async function ensureTerritories() {
 const TERRITORY_SLUG_MAP = {
   // normaliseTerritoryGrid slugs
   the_academy:              'academy',
-  the_city_harbour:         'harbour',
+  the_harbour:              'harbour',
+  the_city_harbour:         'harbour',     // legacy
   the_dockyards:            'dockyards',
   the_docklands:            'dockyards',   // legacy
   the_second_city:          'secondcity',
-  the_northern_shore:       'northshore',
-  the_barrens__no_territory_: null,  // no territory
+  the_north_shore:          'northshore',
+  the_northern_shore:       'northshore',  // legacy
+  the_barrens__no_territory_: null,        // no territory
   // MATRIX_TERRS display-name keys (from _raw.feeding.territories)
   'The Academy':            'academy',
   'The City Harbour':       'harbour',
@@ -2469,9 +2471,11 @@ const TERRITORY_SLUG_MAP = {
   'The Dockyards':          'dockyards',
   'The Docklands':          'dockyards',   // legacy
   'The Second City':        'secondcity',
-  'The Northern Shore':     'northshore',
-  'The Shore':              'northshore', // short form used in _raw.influence
+  'The Northern Shore':     'northshore',  // legacy
+  'The North Shore':        'northshore',
+  'The Shore':              'northshore',  // short form used in _raw.influence
   'The Barrens':            null,
+  'The Barrens (No Territory)': null,
   // TERRITORY_DATA ids (pass-through)
   academy:    'academy',
   harbour:    'harbour',
@@ -4835,18 +4839,37 @@ const AMBIENCE_STEPS = ['Hostile', 'Barrens', 'Neglected', 'Untended', 'Settled'
 
 // Canonical territory columns for the matrix (CSV keys in feeding.territories)
 const MATRIX_TERRS = [
-  { csvKey: 'The Academy',      label: 'Academy',     ambienceKey: 'The Academy' },
-  { csvKey: 'The City Harbour', label: 'Harbour',     ambienceKey: 'The Harbour' },
-  { csvKey: 'The Docklands',    label: 'Docklands',   ambienceKey: 'The Dockyards' },
-  { csvKey: 'The Second City',  label: 'Second City', ambienceKey: 'The Second City' },
-  { csvKey: 'The Northern Shore', label: 'North Shore', ambienceKey: 'The North Shore' },
-  { csvKey: 'The Barrens',      label: 'Barrens',     ambienceKey: null },
+  { csvKey: 'The Academy',              label: 'Academy',     ambienceKey: 'The Academy' },
+  { csvKey: 'The Harbour',              label: 'Harbour',     ambienceKey: 'The Harbour' },
+  { csvKey: 'The Dockyards',            label: 'Dockyards',   ambienceKey: 'The Dockyards' },
+  { csvKey: 'The Second City',          label: 'Second City', ambienceKey: 'The Second City' },
+  { csvKey: 'The North Shore',          label: 'North Shore', ambienceKey: 'The North Shore' },
+  { csvKey: 'The Barrens (No Territory)', label: 'Barrens',   ambienceKey: null },
 ];
+
+// Legacy territory name keys from old submissions stored in MongoDB
+const LEGACY_TERR_KEY_MAP = {
+  'The City Harbour':   'The Harbour',
+  'The Docklands':      'The Dockyards',
+  'The Northern Shore': 'The North Shore',
+  'The Barrens':        'The Barrens (No Territory)',
+};
 
 function getTerritoryAmbience(ambienceKey) {
   if (!ambienceKey) return null;
   const td = TERRITORY_DATA.find(t => t.name === ambienceKey);
   return td?.ambience || null;
+}
+
+/** Translate legacy territory keys in a raw territories object to canonical names. */
+function _normTerrKeys(rawTerrs) {
+  if (!rawTerrs) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(rawTerrs)) {
+    const canonical = LEGACY_TERR_KEY_MAP[k] ?? k;
+    out[canonical] = v;
+  }
+  return out;
 }
 
 function renderFeedingMatrix() {
@@ -4857,7 +4880,7 @@ function renderFeedingMatrix() {
   // Determine which territory columns actually have any data
   const activeCols = MATRIX_TERRS.filter(t =>
     submissions.some(s => {
-      const terrs = (s._raw || {}).feeding?.territories || {};
+      const terrs = _normTerrKeys((s._raw || {}).feeding?.territories);
       const v = terrs[t.csvKey];
       return v && v !== 'Not feeding here';
     })
@@ -4869,7 +4892,7 @@ function renderFeedingMatrix() {
   const residentCounts = {};
   for (const t of activeCols) {
     residentCounts[t.csvKey] = submissions.filter(s => {
-      const v = ((s._raw || {}).feeding?.territories || {})[t.csvKey];
+      const v = _normTerrKeys((s._raw || {}).feeding?.territories)[t.csvKey];
       return v === 'Resident';
     }).length;
   }
@@ -4892,7 +4915,7 @@ function renderFeedingMatrix() {
     h += '</tr></thead><tbody>';
 
     for (const s of sorted) {
-      const terrs = (s._raw || {}).feeding?.territories || {};
+      const terrs = _normTerrKeys((s._raw || {}).feeding?.territories);
       h += `<tr class="dt-matrix-row" data-sub-id="${esc(s._id)}"><td class="dt-matrix-char">${esc(s.character_name || '?')}</td>`;
       for (const t of activeCols) {
         const status = terrs[t.csvKey];
@@ -4960,7 +4983,7 @@ function renderConflicts() {
       const lc = proj.action_type.toLowerCase();
       const isCompeting = COMPETING_ACTIONS.some(a => lc.includes(a));
       if (!isCompeting) continue;
-      const territory = proj.description?.match(/The (Academy|Harbour|Docklands|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
+      const territory = proj.description?.match(/The (Academy|Harbour|Dockyards|Docklands|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
       const key = lc + '::' + territory.toLowerCase();
       if (!byTerritory[key]) byTerritory[key] = [];
       byTerritory[key].push({ subId: s._id, name: s.character_name, action: proj.action_type, territory });
