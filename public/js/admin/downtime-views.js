@@ -2937,20 +2937,10 @@ function renderProcessingMode(container) {
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
 
-        const hasStructured = entry.source === 'project' && (entry.projCast || entry.projMerits || entry.description || entry.poolPlayer);
-        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}${hasStructured ? ' multiline' : ''}" data-proc-key="${esc(entry.key)}">`;
+        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
-        if (hasStructured) {
-          h += `<div class="proc-row-desc-multi">`;
-          if (entry.projCast)    h += `<div><span class="proc-row-desc-lbl">Characters involved:</span> ${esc(entry.projCast)}</div>`;
-          if (entry.projMerits)  h += `<div><span class="proc-row-desc-lbl">Merits &amp; Bonuses:</span> ${esc(entry.projMerits)}</div>`;
-          if (entry.description) h += `<div><span class="proc-row-desc-lbl">Description:</span> ${esc(entry.description)}</div>`;
-          if (entry.poolPlayer)  h += `<div><span class="proc-row-desc-lbl">Pool:</span> ${esc(entry.poolPlayer)}</div>`;
-          h += `</div>`;
-        } else {
-          h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
-        }
+        h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
         h += '</div>';
 
@@ -4151,8 +4141,8 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Full description if it was truncated
-  if (entry.description && entry.description.length > 80) {
+  // Full description if it was truncated (suppressed for project — shown inside detail block)
+  if (entry.description && entry.description.length > 80 && entry.source !== 'project') {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
   }
 
@@ -4173,14 +4163,15 @@ function renderActionPanel(entry, review) {
 
   // ── Project-specific detail display (inside left column) ──
   if (entry.source === 'project') {
-    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory;
+    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory || entry.description;
     if (hasExtra) {
       h += '<div class="proc-proj-detail">';
       if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
       if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
       if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
       if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
-      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits Used</span> ${esc(entry.projMerits)}</div>`;
+      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(entry.projMerits)}</div>`;
+      if (entry.description)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Project Description</span> ${esc(entry.description)}</div>`;
       h += '</div>';
     }
     // Previous roll result
