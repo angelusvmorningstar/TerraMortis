@@ -121,32 +121,67 @@ function sectionBanner(doc, x, y, w, h, text, assetBuf, fontSize = 13) {
   doc.fillColor(C.INK);
 }
 
-/** Skill name (optional italic spec) + trailing dots */
+/**
+ * Skill name (right-aligned, flush against the dots) + italic spec below +
+ * trailing dots.
+ *
+ * User feedback: long skill labels like "INVESTIGATION" were touching the
+ * dots. Right-aligning the label with a consistent gap (`labelGap`) before
+ * the dot column fixes that AND gives the whole grid a cleaner vertical
+ * rhythm — every dot column starts at the same x and every label ends at
+ * the same x regardless of label length.
+ */
 function skillRow(doc, x, y, name, filled, w, specs, opts = {}) {
   const size = opts.fontSize || 8;
-  // User feedback: specialisations should be slightly LARGER than the skill
-  // label, not smaller. Default spec size = skill size (instead of size - 1.5).
   const specSize = opts.specFontSize != null ? opts.specFontSize : size;
+  const labelGap = opts.labelGap != null ? opts.labelGap : 4;
 
+  const dotsX = x + w - 5 * DOT_GAP;
+  const labelEndX = dotsX - labelGap;
+
+  // Right-aligned skill label
   doc.font(F.caslon).fontSize(size).fillColor(C.INK);
-  doc.text(name, x, y, { lineBreak: false });
+  doc.text(name, x, y, {
+    width: labelEndX - x,
+    align: 'right',
+    lineBreak: false,
+    ellipsis: true,
+  });
 
+  // Specialisation in italics, one line under the label, also right-aligned
   if (specs && specs.length) {
     doc.font(F.bodyIt).fontSize(specSize).fillColor(C.GREY);
-    doc.text(specs.join(', '), x, y + size + 1, { lineBreak: false });
+    doc.text(specs.join(', '), x, y + size + 1, {
+      width: labelEndX - x,
+      align: 'right',
+      lineBreak: false,
+      ellipsis: true,
+    });
     doc.fillColor(C.INK);
   }
 
-  const dotsX = x + w - 5 * DOT_GAP;
   dots(doc, dotsX, y + size / 2 + 0.5, filled, 5);
 }
 
-/** Small-caps trait name + dots aligned right in given width */
+/**
+ * Small-caps trait name + dots, label right-aligned flush against the dots.
+ * Right-alignment prevents long labels like "MANIPULATION" or "INTELLIGENCE"
+ * from overlapping the dot array regardless of their length.
+ */
 function traitRow(doc, x, y, name, filled, max, w, opts = {}) {
   const size = opts.fontSize || 8;
-  doc.font(F.caslon).fontSize(size).fillColor(C.INK);
-  doc.text(name, x, y, { lineBreak: false });
+  const labelGap = opts.labelGap != null ? opts.labelGap : 4;
   const dotsX = x + w - max * DOT_GAP;
+  const labelEndX = dotsX - labelGap;
+
+  doc.font(F.caslon).fontSize(size).fillColor(C.INK);
+  doc.text(name, x, y, {
+    width: labelEndX - x,
+    align: 'right',
+    lineBreak: false,
+    ellipsis: true,
+  });
+
   dots(doc, dotsX, y + size / 2 + 0.5, filled, max);
 }
 

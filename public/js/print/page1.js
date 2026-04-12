@@ -194,11 +194,29 @@ function renderInfluenceColumn(doc, data, assets) {
   squares(doc, x + (w - infN * SQ_GAP) / 2, y, 0, infN);
   y += 18;
 
-  // Influence merits list
+  // Small helper: draw the rating on the right edge of the column as real
+  // circles (via dots() primitive). A zero rating renders as an em-dash so
+  // missing merits are still visible. Avoids the U+25CF glyph which the body
+  // font has no character for.
+  const dotR = 1.9;
+  const dotG = 5;
+  function ratingGlyphs(rating, rowY) {
+    if (rating > 0) {
+      const dotsW = rating * dotG;
+      dots(doc, x + w - dotsW, rowY + 4, rating, rating, { r: dotR, gap: dotG });
+    } else {
+      doc.font(F.body).fontSize(8).fillColor(C.GREY);
+      doc.text('–', x + w - 5, rowY, { lineBreak: false });
+      doc.fillColor(C.INK);
+    }
+  }
+
+  // Influence merits list — name on the left, real dots on the right.
   const influenceMerits = (data.merits || []).filter(m => m.category === 'influence');
   influenceMerits.forEach(m => {
     doc.font(F.caslon).fontSize(8.5).fillColor(C.INK);
-    doc.text(`${m.name} ${'●'.repeat(m.effective_rating)}`, x, y, { lineBreak: false });
+    doc.text(m.name, x, y, { lineBreak: false });
+    ratingGlyphs(m.effective_rating, y);
     y += 10;
     if (m.qualifier) {
       doc.font(F.body).fontSize(7.5).fillColor(C.INK);
@@ -207,7 +225,7 @@ function renderInfluenceColumn(doc, data, assets) {
     }
   });
 
-  y += 6;
+  y += 10;
 
   // KINDRED STATUS
   miniHeader(doc, x, y, w, 'KINDRED STATUS', { fontSize: 10 });
@@ -219,11 +237,10 @@ function renderInfluenceColumn(doc, data, assets) {
     doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     const label = m.qualifier || m.name.replace(/Kindred Status\s*\(?/, '').replace(/\)$/, '');
     doc.text(label, x, y, { lineBreak: false });
-    const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
-    doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
+    ratingGlyphs(m.effective_rating, y);
     y += 11;
   });
-  y += 6;
+  y += 10;
 
   // DOMAIN
   miniHeader(doc, x, y, w, 'DOMAIN', { fontSize: 10 });
@@ -232,11 +249,10 @@ function renderInfluenceColumn(doc, data, assets) {
   domainMerits.forEach(m => {
     doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     doc.text(m.name, x, y, { lineBreak: false });
-    const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
-    doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
+    ratingGlyphs(m.effective_rating, y);
     y += 11;
   });
-  y += 6;
+  y += 10;
 
   // STANDING (Mystery Cult Initiation, Professional Training, etc.)
   miniHeader(doc, x, y, w, 'STANDING', { fontSize: 10 });
@@ -247,8 +263,7 @@ function renderInfluenceColumn(doc, data, assets) {
   standingMerits.forEach(m => {
     doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     doc.text(m.name, x, y, { lineBreak: false });
-    const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
-    doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
+    ratingGlyphs(m.effective_rating, y);
     y += 11;
     if (m.description) {
       doc.font(F.bodyIt).fontSize(7).fillColor(C.GREY);
@@ -518,7 +533,8 @@ function renderAttributes(doc, data, assets) {
 
   // Three rows (Power, Finesse, Resistance) × three columns.
   // Attribute labels rendered UPPERCASE (small caps via the Caslon font
-  // applied by traitRow).
+  // applied by traitRow) and right-aligned against the dot column so
+  // long labels like "MANIPULATION" can't overlap the dots.
   const yRow = ySub + 22;
   const rowGap = 20;
   ATTR_GRID.forEach((row, ri) => {
@@ -529,7 +545,7 @@ function renderAttributes(doc, data, assets) {
       const rowX = x + ci * colW + 12;
       const rowW = colW - 24;
       traitRow(doc, rowX, yRow + ri * rowGap, name.toUpperCase(), val.effective, 5, rowW,
-        { fontSize: 9 });
+        { fontSize: 8 });
     });
   });
 }
