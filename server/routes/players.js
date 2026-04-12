@@ -33,8 +33,12 @@ router.put('/me', async (req, res) => {
   if (!Object.keys(filtered).length) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'No editable fields provided' });
   }
+  // player_id can be ObjectId (from fresh DB lookup) or string (from cache/serialisation)
+  let pid;
+  try { pid = req.user.player_id instanceof ObjectId ? req.user.player_id : new ObjectId(String(req.user.player_id)); }
+  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot resolve player ID' }); }
   const result = await col().findOneAndUpdate(
-    { _id: req.user.player_id instanceof ObjectId ? req.user.player_id : new ObjectId(req.user.player_id) },
+    { _id: pid },
     { $set: filtered },
     { returnDocument: 'after' }
   );

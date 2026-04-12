@@ -11,7 +11,13 @@ import { displayName } from './helpers.js';
 
 export async function loadGameXP(chars) {
   try {
-    const gameSessions = await apiGet('/api/game_sessions');
+    // Try ST endpoint first, fall back to public character-scoped endpoint
+    let gameSessions;
+    try {
+      gameSessions = await apiGet('/api/game_sessions');
+    } catch {
+      gameSessions = await apiGet('/api/characters/game-xp');
+    }
     for (const c of chars) { c._gameXP = 0; c._gameXPDetail = []; }
 
     // Sort sessions by date ascending for consistent display
