@@ -102,21 +102,25 @@ function calcPool() {
 function getCharPowers() {
   if (!selectedChar) return [];
   const charDiscs = selectedChar.disciplines || {};
-  const charPowers = (selectedChar.powers || []).map(p => p.name);
+  // Devotion/rite/pact names from c.powers (character-specific picks, NOT discipline powers)
+  const ownedPowerNames = new Set((selectedChar.powers || [])
+    .filter(p => p.category === 'devotion' || p.category === 'rite' || p.category === 'pact')
+    .map(p => p.name));
   const results = [];
 
-  // Try rules cache
+  // Discipline powers: derive from rules cache, capped to character's dots
   const discRules = getRulesByCategory('discipline');
   const devRules = getRulesByCategory('devotion');
   const riteRules = getRulesByCategory('rite');
   if (discRules.length) {
     for (const rule of [...discRules, ...riteRules]) {
-      if (rule.parent && charDiscs[rule.parent]) {
+      const dots = charDiscs[rule.parent]?.dots || 0;
+      if (rule.parent && dots > 0 && (rule.rank == null || rule.rank <= dots)) {
         results.push({ name: rule.name, info: { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } });
       }
     }
     for (const rule of devRules) {
-      if (charPowers.includes(rule.name)) {
+      if (ownedPowerNames.has(rule.name)) {
         results.push({ name: rule.name, info: { d: rule.parent, a: rule.pool?.attr, s: rule.pool?.skill, r: rule.resistance, c: rule.cost, ac: rule.action, du: rule.duration, ef: rule.description } });
       }
     }
