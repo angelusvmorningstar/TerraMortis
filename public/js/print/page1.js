@@ -18,6 +18,7 @@
 
 import {
   PAGE_W, PAGE_H, M_LEFT, M_RIGHT, M_TOP, M_BOTTOM, CW, CH,
+  PAGE_MID, LEFT_PANEL, RIGHT_PANEL,
   COL, C, F, DOT_GAP, SQ_GAP,
   ALL_SKILLS, ATTR_GRID, DISCIPLINE_ORDER, RITUAL_ORDER,
 } from './layout.js';
@@ -43,58 +44,59 @@ function renderPage1(doc, data, assets) {
   renderSkills(doc, data, assets);
 }
 
-// ─── Left column: disciplines + ritual tracks + vitals ───────────────────────
+// ─── Left column 1: disciplines + ritual tracks + vitals ───────────────────
 function renderLeftColumn(doc, data, assets) {
   const { x, w } = COL.disciplines;
-  let y = M_TOP + 18;
+  let y = M_TOP + 20;
 
   // DISCIPLINES mini-header
-  miniHeader(doc, x, y, w, 'DISCIPLINES', { fontSize: 10 });
-  y += 14;
+  miniHeader(doc, x, y, w, 'DISCIPLINES', { fontSize: 11 });
+  y += 16;
 
   const discMap = {};
   (data.disciplines || []).forEach(d => { discMap[d.name] = d.dots; });
 
+  const DISC_ROW = 13;
+
   DISCIPLINE_ORDER.forEach(name => {
     const val = discMap[name];
-    doc.font(F.caslon).fontSize(8).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(9).fillColor(C.INK);
     doc.text(name.toUpperCase(), x, y, { lineBreak: false });
     if (val && val > 0) {
-      dots(doc, x + w - 5 * DOT_GAP, y + 3, val, 5);
+      dots(doc, x + w - 5 * DOT_GAP, y + 4, val, 5);
     } else {
       // em-dash placeholder to match Mammon's blank lines
-      doc.font(F.body).fontSize(8).fillColor(C.GREY);
+      doc.font(F.body).fontSize(9).fillColor(C.GREY);
       doc.text('–', x + w - 6, y, { lineBreak: false });
     }
-    y += 11;
-  });
-
-  y += 4;
-  RITUAL_ORDER.forEach(name => {
-    const val = discMap[name] || discMap[name + ' Ritual'];
-    doc.font(F.caslon).fontSize(8).fillColor(C.INK);
-    doc.text(name.toUpperCase(), x, y, { lineBreak: false });
-    if (val && val > 0) {
-      dots(doc, x + w - 5 * DOT_GAP, y + 3, val, 5);
-    } else {
-      doc.font(F.body).fontSize(8).fillColor(C.GREY);
-      doc.text('–', x + w - 6, y, { lineBreak: false });
-    }
-    y += 11;
+    y += DISC_ROW;
   });
 
   y += 6;
+  RITUAL_ORDER.forEach(name => {
+    const val = discMap[name] || discMap[name + ' Ritual'];
+    doc.font(F.caslon).fontSize(9).fillColor(C.INK);
+    doc.text(name.toUpperCase(), x, y, { lineBreak: false });
+    if (val && val > 0) {
+      dots(doc, x + w - 5 * DOT_GAP, y + 4, val, 5);
+    } else {
+      doc.font(F.body).fontSize(9).fillColor(C.GREY);
+      doc.text('–', x + w - 6, y, { lineBreak: false });
+    }
+    y += DISC_ROW;
+  });
+
+  y += 10;
 
   // ── Blood Potency ────────────────────────────────────────────────────────
-  miniHeader(doc, x, y, w, 'BLOOD POTENCY');
-  y += 11;
-  dots(doc, x + (w - 10 * DOT_GAP) / 2, y + 2, data.stats.blood_potency || 0, 10);
-  y += 12;
+  miniHeader(doc, x, y, w, 'BLOOD POTENCY', { fontSize: 10 });
+  y += 14;
+  dots(doc, x + (w - 10 * DOT_GAP) / 2, y + 3, data.stats.blood_potency || 0, 10);
+  y += 16;
 
   // ── Vitae ────────────────────────────────────────────────────────────────
-  miniHeader(doc, x, y, w, 'VITAE');
-  y += 11;
-  // Two rows of squares (11 max for BP2), wrap at 10 per row
+  miniHeader(doc, x, y, w, 'VITAE', { fontSize: 10 });
+  y += 14;
   const vmax = data.stats.vitae_max || 0;
   const vrow1 = Math.min(vmax, 10);
   const vrow2 = Math.max(0, vmax - 10);
@@ -102,168 +104,165 @@ function renderLeftColumn(doc, data, assets) {
     squares(doc, x + (w - vrow1 * SQ_GAP) / 2, y, 0, vrow1);
   }
   if (vrow2 > 0) {
-    squares(doc, x + (w - vrow2 * SQ_GAP) / 2, y + 10, 0, vrow2);
+    squares(doc, x + (w - vrow2 * SQ_GAP) / 2, y + 12, 0, vrow2);
   }
-  y += vrow2 > 0 ? 22 : 14;
+  y += vrow2 > 0 ? 26 : 14;
 
   // Vitae per turn + feed sources (derived)
   if (data.print_meta) {
-    doc.font(F.bodyIt).fontSize(6.5).fillColor(C.GREY);
+    doc.font(F.bodyIt).fontSize(7.5).fillColor(C.GREY);
     if (data.print_meta.vitae_per_turn) {
       doc.text(`Vitae per turn: ${data.print_meta.vitae_per_turn}`, x, y, { width: w, align: 'center', lineBreak: false });
-      y += 7;
+      y += 9;
     }
     if (data.print_meta.feed_sources && data.print_meta.feed_sources.length) {
       doc.text(`Can feed from: ${data.print_meta.feed_sources.join(', ')}`, x, y, { width: w, align: 'center', lineBreak: false });
-      y += 7;
+      y += 9;
     }
     doc.fillColor(C.INK);
   }
-  y += 4;
+  y += 6;
 
   // ── Health ───────────────────────────────────────────────────────────────
-  miniHeader(doc, x, y, w, 'HEALTH');
-  y += 11;
+  miniHeader(doc, x, y, w, 'HEALTH', { fontSize: 10 });
+  y += 14;
   const h = data.stats.health || 0;
   squares(doc, x + (w - h * SQ_GAP) / 2, y, 0, h);
-  y += 14;
+  y += 20;
 
   // ── Willpower ────────────────────────────────────────────────────────────
-  miniHeader(doc, x, y, w, 'WILLPOWER');
-  y += 11;
+  miniHeader(doc, x, y, w, 'WILLPOWER', { fontSize: 10 });
+  y += 14;
   const wp = data.stats.willpower || 0;
   squares(doc, x + (w - wp * SQ_GAP) / 2, y, 0, wp);
-  y += 18;
+  y += 24;
 
   // ── Size / Speed / Defence diamonds ──────────────────────────────────────
   renderStatDiamonds(doc, data, assets, x, y, w);
 }
 
 function renderStatDiamonds(doc, data, assets, x, y, w) {
-  // Three diamonds across the column width. Each diamond PNG is ~147-157 × 172.
-  // Display width target: ~35pt each.
-  const dW = 38, dH = 42;
+  // Three diamonds across the column width using the painterly stat-diamond.png
+  // (single black diamond shape) with the value number + label text drawn over.
+  const dW = 48, dH = 54;
   const gap = (w - 3 * dW) / 4;
-  const yx = [
-    x + gap,
-    x + gap * 2 + dW,
-    x + gap * 3 + dW * 2,
-  ];
 
   const diamonds = [
-    { img: 'diamond-size.png',    value: data.stats.size },
-    { img: 'diamond-speed.png',   value: data.stats.speed },
-    { img: 'diamond-defence.png', value: data.stats.defence },
+    { label: 'SIZE',    value: data.stats.size },
+    { label: 'SPEED',   value: data.stats.speed },
+    { label: 'DEFENCE', value: data.stats.defence },
   ];
 
   diamonds.forEach((d, i) => {
-    const dx = yx[i];
-    if (assets[d.img]) {
-      doc.image(assets[d.img], dx, y, { width: dW, height: dH });
+    const dx = x + gap * (i + 1) + dW * i;
+    if (assets['stat-diamond.png']) {
+      doc.image(assets['stat-diamond.png'], dx, y, { width: dW, height: dH });
     } else {
-      // Fallback: empty diamond outline
+      // Fallback: a red diamond polygon
       doc.save().polygon(
         [dx + dW/2, y],
-        [dx + dW,   y + dH*0.45],
-        [dx + dW/2, y + dH*0.6],
-        [dx,        y + dH*0.45]
+        [dx + dW,   y + dH*0.5],
+        [dx + dW/2, y + dH],
+        [dx,        y + dH*0.5]
       ).fill(C.ACCENT).restore();
     }
-    // Large value number centred on diamond body
-    doc.font(F.goudyBold).fontSize(14).fillColor(C.BANNER_C);
-    doc.text(String(d.value || 0), dx, y + 10, { width: dW, align: 'center', lineBreak: false });
-    doc.fillColor(C.INK);
+    // Value number centred on diamond body
+    doc.font(F.goudyBold).fontSize(17).fillColor(C.BANNER_C);
+    doc.text(String(d.value || 0), dx, y + (dH - 17) / 2 - 2, {
+      width: dW, align: 'center', lineBreak: false,
+    });
+    // Label below the diamond
+    doc.font(F.caslon).fontSize(7).fillColor(C.INK);
+    doc.text(d.label, dx, y + dH + 1, { width: dW, align: 'center', lineBreak: false });
   });
 }
 
-// ─── Influence / Kindred Status / Domain / Standing column ──────────────────
+// ─── Left column 2: Influence / Kindred Status / Domain / Standing ────────
 function renderInfluenceColumn(doc, data, assets) {
   const { x, w } = COL.influence;
-  let y = M_TOP + 18;
+  let y = M_TOP + 20;
 
   // INFLUENCE header with empty-box tally row
-  miniHeader(doc, x, y, w, 'INFLUENCE');
-  y += 11;
-  // Two rows of empty squares (visual tally; total count = stats.influence_total * 2)
+  miniHeader(doc, x, y, w, 'INFLUENCE', { fontSize: 11 });
+  y += 16;
   const infN = Math.min(data.stats.influence_total || 0, 10);
   squares(doc, x + (w - infN * SQ_GAP) / 2, y, 0, infN);
-  y += 10;
+  y += 12;
   squares(doc, x + (w - infN * SQ_GAP) / 2, y, 0, infN);
-  y += 14;
+  y += 18;
 
   // Influence merits list
   const influenceMerits = (data.merits || []).filter(m => m.category === 'influence');
   influenceMerits.forEach(m => {
-    const label = m.qualifier ? `${m.name} ${'●'.repeat(m.effective_rating)}` : `${m.name} ${'●'.repeat(m.effective_rating)}`;
-    doc.font(F.caslon).fontSize(7.5).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(8.5).fillColor(C.INK);
     doc.text(`${m.name} ${'●'.repeat(m.effective_rating)}`, x, y, { lineBreak: false });
-    y += 8;
+    y += 10;
     if (m.qualifier) {
-      doc.font(F.body).fontSize(7).fillColor(C.INK);
+      doc.font(F.body).fontSize(7.5).fillColor(C.INK);
       doc.text(m.qualifier, x + 4, y, { width: w - 4, lineBreak: true });
-      y = doc.y + 2;
+      y = doc.y + 3;
     }
   });
 
-  y += 4;
+  y += 6;
 
   // KINDRED STATUS
-  miniHeader(doc, x, y, w, 'KINDRED STATUS');
-  y += 11;
+  miniHeader(doc, x, y, w, 'KINDRED STATUS', { fontSize: 10 });
+  y += 14;
   const ksMerits = (data.merits || []).filter(m =>
     m.category === 'standing' && /Kindred Status/i.test(m.name)
   );
   ksMerits.forEach(m => {
-    doc.font(F.body).fontSize(7.5).fillColor(C.INK);
+    doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     const label = m.qualifier || m.name.replace(/Kindred Status\s*\(?/, '').replace(/\)$/, '');
     doc.text(label, x, y, { lineBreak: false });
     const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
     doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
-    y += 9;
+    y += 11;
   });
-  y += 4;
+  y += 6;
 
   // DOMAIN
-  miniHeader(doc, x, y, w, 'DOMAIN');
-  y += 11;
+  miniHeader(doc, x, y, w, 'DOMAIN', { fontSize: 10 });
+  y += 14;
   const domainMerits = (data.merits || []).filter(m => m.category === 'domain');
   domainMerits.forEach(m => {
-    doc.font(F.body).fontSize(7.5).fillColor(C.INK);
+    doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     doc.text(m.name, x, y, { lineBreak: false });
     const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
     doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
-    y += 9;
+    y += 11;
   });
-  y += 4;
+  y += 6;
 
   // STANDING (Mystery Cult Initiation, Professional Training, etc.)
-  miniHeader(doc, x, y, w, 'STANDING');
-  y += 11;
+  miniHeader(doc, x, y, w, 'STANDING', { fontSize: 10 });
+  y += 14;
   const standingMerits = (data.merits || []).filter(m =>
     m.category === 'standing' && !/Kindred Status/i.test(m.name)
   );
   standingMerits.forEach(m => {
-    doc.font(F.body).fontSize(7.5).fillColor(C.INK);
+    doc.font(F.body).fontSize(8.5).fillColor(C.INK);
     doc.text(m.name, x, y, { lineBreak: false });
     const val = m.effective_rating > 0 ? '●'.repeat(m.effective_rating) : '–';
     doc.text(val, x + w - doc.widthOfString(val), y, { lineBreak: false });
-    y += 9;
+    y += 11;
     if (m.description) {
-      doc.font(F.bodyIt).fontSize(6.5).fillColor(C.GREY);
+      doc.font(F.bodyIt).fontSize(7).fillColor(C.GREY);
       doc.text(m.description, x, y, { width: w });
-      y = doc.y + 2;
+      y = doc.y + 3;
       doc.fillColor(C.INK);
     }
   });
 }
 
-// ─── Humanity ladder + Mask/Dirge/Banes ─────────────────────────────────────
+// ─── Left column 3: Humanity ladder + Mask/Dirge/Banes ─────────────────────
 function renderHumanityColumn(doc, data, assets) {
   const { x, w } = COL.humanity;
-  let y = M_TOP + 18;
+  let y = M_TOP + 20;
 
-  miniHeader(doc, x, y, w, 'HUMANITY');
-  y += 12;
+  miniHeader(doc, x, y, w, 'HUMANITY', { fontSize: 11 });
+  y += 16;
 
   // Bucket touchstones by humanity rating
   const touchByHum = {};
@@ -275,135 +274,149 @@ function renderHumanityColumn(doc, data, assets) {
 
   // Ladder 10 down to 1
   const hum = data.stats.humanity || 0;
+  const LADDER_ROW = 12;
   for (let rating = 10; rating >= 1; rating--) {
     // Rating number
-    doc.font(F.caslon).fontSize(9).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(10).fillColor(C.INK);
     doc.text(`${rating}:`, x, y, { lineBreak: false });
 
     // Filled circle for current humanity
     if (rating === hum) {
-      doc.circle(x + 13, y + 4, 2.5).fill(C.INK);
+      doc.circle(x + 15, y + 5, 3).fill(C.INK);
     }
 
     // Touchstones at this rating
     const ts = touchByHum[rating];
     if (ts && ts.length) {
-      doc.font(F.bodyIt).fontSize(7).fillColor(C.INK);
+      doc.font(F.bodyIt).fontSize(7.5).fillColor(C.INK);
       const label = ts.map(n => `(${n})`).join(', ');
-      doc.text(label, x + 20, y, { width: w - 20, lineBreak: false, ellipsis: true });
+      doc.text(label, x + 22, y, { width: w - 22, lineBreak: false, ellipsis: true });
     }
-    y += 10;
+    y += LADDER_ROW;
   }
 
-  y += 6;
+  y += 10;
 
   // Mask
   if (data.identity.mask) {
-    doc.font(F.caslon).fontSize(9).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(10).fillColor(C.INK);
     doc.text(`MASK: ${data.identity.mask.toUpperCase()}`, x, y, { lineBreak: false });
-    y += 11;
+    y += 13;
     const wpc = data.willpower_conditions || {};
     if (wpc.mask_1wp) {
-      doc.font(F.bold).fontSize(7).fillColor(C.INK);
+      doc.font(F.bold).fontSize(7.5).fillColor(C.INK);
       doc.text('1 WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7).text(' ' + wpc.mask_1wp, { width: w });
-      y = doc.y + 1;
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_1wp, { width: w });
+      y = doc.y + 2;
     }
     if (wpc.mask_all) {
-      doc.font(F.bold).fontSize(7);
+      doc.font(F.bold).fontSize(7.5);
       doc.text('All WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7).text(' ' + wpc.mask_all, { width: w });
-      y = doc.y + 3;
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.mask_all, { width: w });
+      y = doc.y + 5;
     }
   }
 
   // Dirge
   if (data.identity.dirge) {
-    doc.font(F.caslon).fontSize(9).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(10).fillColor(C.INK);
     doc.text(`DIRGE: ${data.identity.dirge.toUpperCase()}`, x, y, { lineBreak: false });
-    y += 11;
+    y += 13;
     const wpc = data.willpower_conditions || {};
     if (wpc.dirge_1wp) {
-      doc.font(F.bold).fontSize(7).fillColor(C.INK);
+      doc.font(F.bold).fontSize(7.5).fillColor(C.INK);
       doc.text('1 WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7).text(' ' + wpc.dirge_1wp, { width: w });
-      y = doc.y + 1;
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_1wp, { width: w });
+      y = doc.y + 2;
     }
     if (wpc.dirge_all) {
-      doc.font(F.bold).fontSize(7);
+      doc.font(F.bold).fontSize(7.5);
       doc.text('All WP:', x, y, { lineBreak: false, continued: true });
-      doc.font(F.body).fontSize(7).text(' ' + wpc.dirge_all, { width: w });
-      y = doc.y + 3;
+      doc.font(F.body).fontSize(7.5).text(' ' + wpc.dirge_all, { width: w });
+      y = doc.y + 5;
     }
   }
 
   // Banes & Curses
-  y += 3;
-  miniHeader(doc, x, y, w, 'BANES & CURSES');
-  y += 11;
+  y += 4;
+  miniHeader(doc, x, y, w, 'BANES & CURSES', { fontSize: 10 });
+  y += 14;
   (data.banes || []).forEach(b => {
-    doc.font(F.caslon).fontSize(8).fillColor(C.INK);
+    doc.font(F.caslon).fontSize(9).fillColor(C.INK);
     doc.text(b.name.toUpperCase(), x, y, { lineBreak: false });
-    y += 9;
-    doc.font(F.body).fontSize(7).fillColor(C.INK);
+    y += 11;
+    doc.font(F.body).fontSize(7.5).fillColor(C.INK);
     doc.text(b.effect, x, y, { width: w });
-    y = doc.y + 3;
+    y = doc.y + 5;
   });
 }
 
-// ─── Masthead: logo + name, 3 columns (identity / cov+clan / status diamonds) ─
+// ─── Masthead (RIGHT PANEL TOP): logo + name banner, 3 columns below ──────
 function renderMasthead(doc, data, assets) {
   const { x, w } = COL.masthead;
 
   // Reserve right edge for the vertically-stacked status diamonds
-  const diamondColW = 54;
-  const mastheadInnerW = w - diamondColW;
+  const diamondColW = 58;
+  const mastheadInnerW = w - diamondColW - 4;
 
-  // ── Row 1: logo + name + tagline ─────────────────────────────────────────
-  const lw = 95, lh = 55;
-  if (assets['logo-vampire.jpg']) {
-    doc.image(assets['logo-vampire.jpg'], x, M_TOP, { width: lw, height: lh });
+  // ── Row 1: logo + character name + Terra Mortis tagline ────────────────
+  // Logo sits at the top-left of the right panel. To its right we draw the
+  // ornate name-banner.png plate with the character's name centred over it,
+  // and "Terra Mortis" underneath.
+  // Prefer the transparent PNG version over the JPG fallback — the JPG has
+  // an opaque white rectangle that looks bad on the cream parchment.
+  const lw = 110, lh = 64;
+  const logoAsset = assets['logo-vampire.png'] || assets['logo-vampire.jpg'];
+  if (logoAsset) {
+    doc.image(logoAsset, x - 4, M_TOP - 2, { width: lw, height: lh });
   }
 
-  const nameX = x + lw + 8;
-  const nameW = mastheadInnerW - lw - 8;
+  const nameAreaX = x + lw + 6;
+  const nameAreaW = mastheadInnerW - lw - 6;
 
-  // Fit character name on a single line by shrinking if it would overflow
+  // Character name — large red small-caps, shrink-to-fit.
+  // Mammon target draws this as plain accent-coloured text with no banner
+  // plate — name-banner.png has a transparent interior so cream text
+  // would disappear against the cream parchment.
   const nameText = data.identity.displayName.toUpperCase();
-  let nameSize = 19;
+  let nameSize = 22;
   doc.font(F.caslon).fontSize(nameSize);
-  while (doc.widthOfString(nameText) > nameW && nameSize > 10) {
+  while (doc.widthOfString(nameText) > nameAreaW - 8 && nameSize > 10) {
     nameSize -= 0.5;
     doc.fontSize(nameSize);
   }
   doc.fillColor(C.ACCENT);
-  doc.text(nameText, nameX, M_TOP + 5, { width: nameW, lineBreak: false });
+  doc.text(nameText, nameAreaX, M_TOP + 8, {
+    width: nameAreaW, lineBreak: false,
+  });
 
   // Terra Mortis tagline beneath the name
-  doc.font(F.caslon).fontSize(11).fillColor(C.INK);
-  doc.text('Terra Mortis', nameX, M_TOP + 30, { width: nameW, lineBreak: false });
+  doc.font(F.caslon).fontSize(12).fillColor(C.INK);
+  doc.text('Terra Mortis', nameAreaX, M_TOP + 34, {
+    width: nameAreaW, lineBreak: false,
+  });
 
-  // ── Row 2: identity fields (col A)  +  cov/clan blocks (col B) ──────────
-  let y = M_TOP + lh + 6;
-  const colAW = 170;
-  const colBX = x + colAW + 10;
-  const colBW = mastheadInnerW - colAW - 10;
+  // ── Row 2: identity fields (col A) + cov/clan blocks (col B) ───────────
+  let y = M_TOP + lh + 14;
+  const colAW = 172;
+  const colBX = x + colAW + 12;
+  const colBW = mastheadInnerW - colAW - 12;
 
-  field(doc, x, y,      'Player',  data.identity.player,  colAW); y += 12;
-  field(doc, x, y,      'Concept', data.identity.concept, colAW); y += 12;
+  field(doc, x, y,      'Player',  data.identity.player,  colAW); y += 14;
+  field(doc, x, y,      'Concept', data.identity.concept, colAW); y += 14;
   const xpDisplay = (data.print_meta && data.print_meta.xp_display)
     || `${data.xp.remaining} / ${data.xp.earned}`;
-  field(doc, x, y,      'XP',      xpDisplay,              colAW); y += 12;
+  field(doc, x, y,      'XP',      xpDisplay,              colAW); y += 14;
   const printDate = (data.print_meta && data.print_meta.printed_date)
     || todayDDMMMYY();
   field(doc, x, y,      'Printed', printDate,              colAW);
 
-  // Covenant + Clan block (col B) starts aligned with the first identity field
-  renderCovClanBlocks(doc, data, assets, colBX, M_TOP + lh + 6, colBW);
+  // Covenant + Clan block (col B) aligned with identity fields
+  renderCovClanBlocks(doc, data, assets, colBX, M_TOP + lh + 14, colBW);
 
-  // ── Col C: three status diamonds stacked vertically on the far right ────
+  // Status diamonds stacked vertically on the far right
   renderStatusDiamondsVertical(doc, data, assets,
-    x + mastheadInnerW + 4, M_TOP + lh + 2, diamondColW - 4);
+    x + mastheadInnerW + 6, M_TOP + lh + 10, diamondColW - 6);
 }
 
 function renderCovClanBlocks(doc, data, assets, x, y, w) {
@@ -453,14 +466,14 @@ function renderCovClanBlocks(doc, data, assets, x, y, w) {
 /** Three status diamonds stacked vertically on the far right of the masthead */
 function renderStatusDiamondsVertical(doc, data, assets, x, y, w) {
   const status = (data.stats && data.stats.status) || {};
-  const dW = Math.min(w, 48);
-  const dH = 40;
-  const rowGap = 4;
+  const dW = Math.min(w, 52);
+  const dH = 48;
+  const rowGap = 6;
 
   const entries = [
-    { img: 'diamond-city-status.png', value: status.city     || 0 },
-    { img: 'diamond-cov-status.png',  value: status.covenant || 0 },
-    { img: 'diamond-clan-status.png', value: status.clan     || 0 },
+    { img: 'diamond-city-status.png', value: status.city     || 0, label: 'CITY' },
+    { img: 'diamond-cov-status.png',  value: status.covenant || 0, label: 'COV' },
+    { img: 'diamond-clan-status.png', value: status.clan     || 0, label: 'CLAN' },
   ];
 
   entries.forEach((d, i) => {
@@ -468,50 +481,58 @@ function renderStatusDiamondsVertical(doc, data, assets, x, y, w) {
     if (assets[d.img]) {
       doc.image(assets[d.img], x, dy, { width: dW, height: dH });
     }
-    doc.font(F.goudyBold).fontSize(14).fillColor(C.BANNER_C);
-    doc.text(String(d.value), x, dy + 8, { width: dW, align: 'center', lineBreak: false });
+    // Value centred in the upper portion of the diamond
+    doc.font(F.goudyBold).fontSize(16).fillColor(C.BANNER_C);
+    doc.text(String(d.value), x, dy + 10, { width: dW, align: 'center', lineBreak: false });
+    // Label below in small caps
+    doc.font(F.caslon).fontSize(6.5).fillColor(C.BANNER_C);
+    doc.text(d.label, x, dy + 30, { width: dW, align: 'center', lineBreak: false });
     doc.fillColor(C.INK);
   });
 }
 
-// ─── Attributes section ──────────────────────────────────────────────────────
+// ─── Attributes section (right panel middle) ──────────────────────────────
 function renderAttributes(doc, data, assets) {
-  const { x, w } = COL.masthead;
-  const y0 = M_TOP + 160;
-  const bannerH = 20;
+  const { x, w } = RIGHT_PANEL;
+  const y0 = M_TOP + 230;    // below masthead (logo 58 + id fields 56 + cov/clan 90 + padding)
+  const bannerH = 26;
 
-  sectionBanner(doc, x, y0, w, bannerH, 'ATTRIBUTES', assets['banner-section.png'], 13);
+  sectionBanner(doc, x, y0, w, bannerH, 'ATTRIBUTES',
+    assets['short-banner.png'] || assets['banner-section.png'], 15);
 
   // Three column sub-headers: Mental / Physical / Social
   const colW = w / 3;
-  const ySub = y0 + bannerH + 4;
+  const ySub = y0 + bannerH + 6;
   ['MENTAL', 'PHYSICAL', 'SOCIAL'].forEach((label, i) => {
-    doc.font(F.caslon).fontSize(10).fillColor(C.ACCENT);
+    doc.font(F.caslon).fontSize(11).fillColor(C.ACCENT);
     doc.text(label, x + i * colW, ySub, { width: colW, align: 'center', lineBreak: false });
   });
   doc.fillColor(C.INK);
 
   // Three rows (Power, Finesse, Resistance) × three columns
-  const yRow = ySub + 15;
+  const yRow = ySub + 20;
+  const rowGap = 18;
   ATTR_GRID.forEach((row, ri) => {
     ['Mental', 'Physical', 'Social'].forEach((cat, ci) => {
       const name = row[cat];
       const val = data.attributes[name];
       if (!val) return;
-      const rowX = x + ci * colW + 10;
-      const rowW = colW - 20;
-      traitRow(doc, rowX, yRow + ri * 13, name, val.effective, 5, rowW);
+      const rowX = x + ci * colW + 12;
+      const rowW = colW - 24;
+      traitRow(doc, rowX, yRow + ri * rowGap, name, val.effective, 5, rowW,
+        { fontSize: 9 });
     });
   });
 }
 
-// ─── Skills section ──────────────────────────────────────────────────────────
+// ─── Skills section (right panel bottom) ──────────────────────────────────
 function renderSkills(doc, data, assets) {
-  const { x, w } = COL.masthead;
-  const y0 = M_TOP + 240;
-  const bannerH = 20;
+  const { x, w } = RIGHT_PANEL;
+  const y0 = M_TOP + 340;    // below attributes (banner 26 + subheader 20 + 3 rows 18)
+  const bannerH = 26;
 
-  sectionBanner(doc, x, y0, w, bannerH, 'SKILLS', assets['banner-section.png'], 13);
+  sectionBanner(doc, x, y0, w, bannerH, 'SKILLS',
+    assets['short-banner.png'] || assets['banner-section.png'], 15);
 
   const colW = w / 3;
   const subtitles = {
@@ -523,24 +544,25 @@ function renderSkills(doc, data, assets) {
   const skillMap = {};
   (data.skills || []).forEach(s => { skillMap[s.name] = s; });
 
-  const ySub = y0 + bannerH + 4;
-  const yRow = ySub + 16;
-  const rowGap = 13;
+  const ySub = y0 + bannerH + 6;
+  const yRow = ySub + 22;
+  const rowGap = 18;
 
   ['Mental', 'Physical', 'Social'].forEach((cat, ci) => {
     // Category label + unskilled penalty subtitle
-    doc.font(F.caslon).fontSize(10).fillColor(C.ACCENT);
+    doc.font(F.caslon).fontSize(11).fillColor(C.ACCENT);
     doc.text(cat.toUpperCase(), x + ci * colW, ySub, { width: colW, align: 'center', lineBreak: false });
-    doc.font(F.bodyIt).fontSize(6.5).fillColor(C.GREY);
-    doc.text(subtitles[cat], x + ci * colW, ySub + 11, { width: colW, align: 'center', lineBreak: false });
+    doc.font(F.bodyIt).fontSize(7).fillColor(C.GREY);
+    doc.text(subtitles[cat], x + ci * colW, ySub + 13, { width: colW, align: 'center', lineBreak: false });
     doc.fillColor(C.INK);
 
     ALL_SKILLS[cat].forEach((sname, si) => {
       const s = skillMap[sname];
       const dotsN = s ? s.effective : 0;
-      const rowX = x + ci * colW + 10;
-      const rowW = colW - 20;
-      skillRow(doc, rowX, yRow + si * rowGap, sname.toUpperCase(), dotsN, rowW, s && s.specialisations);
+      const rowX = x + ci * colW + 12;
+      const rowW = colW - 24;
+      skillRow(doc, rowX, yRow + si * rowGap, sname.toUpperCase(), dotsN, rowW,
+        s && s.specialisations, { fontSize: 8.5 });
     });
   });
 }

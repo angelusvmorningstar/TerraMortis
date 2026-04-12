@@ -35,19 +35,29 @@ const FONT_FILES = {
 };
 
 const ASSET_FILES = [
+  // Page background and logo
   'background.jpg',
-  'logo-vampire.jpg',
-  'banner-section.png',
+  'logo-vampire.png',   // transparent PNG — preferred
+  'logo-vampire.jpg',   // opaque JPG fallback
+  // Decorative plates from pdf_assets pack
+  'name-banner.png',
+  'short-banner.png',
+  'banner-section.png',   // legacy fallback
+  // Status diamonds (masthead)
   'diamond-city-status.png',
   'diamond-cov-status.png',
   'diamond-clan-status.png',
-  'diamond-size.png',
+  // Stat diamond shape (Size / Speed / Defence)
+  'stat-diamond.png',
+  'diamond-size.png',     // legacy fallbacks
   'diamond-speed.png',
   'diamond-defence.png',
+  // Clan + covenant icons (all 5/5 now including Ordo Dracul)
   'clan-daeva.png', 'clan-gangrel.png', 'clan-mekhet.png',
   'clan-nosferatu.png', 'clan-ventrue.png',
   'covenant-carthian.png', 'covenant-crone.png',
   'covenant-invictus.png', 'covenant-lancea.png',
+  'covenant-dracul.png',
 ];
 
 // ── CDN fallback for pdfkit standalone bundle ────────────────────────────────

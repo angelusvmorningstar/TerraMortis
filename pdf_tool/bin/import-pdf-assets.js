@@ -68,6 +68,9 @@ const COPY_PNGS = {
   'stat.png':             'stat-diamond.png',
   'TM logo.png':          'tm-logo.png',
   'TM logo-gold.png':     'tm-logo-gold.png',
+  // Vampire: The Requiem masthead logo with alpha channel — replaces the
+  // JPG version extracted from Mammon.pdf that had an opaque white edge.
+  'logo_header.png':      'logo-vampire.png',
 };
 
 function recolourSvg(svgStr) {
