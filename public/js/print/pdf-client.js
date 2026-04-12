@@ -164,8 +164,20 @@ export async function openCharacterPdf(data) {
 }
 
 function safeName(identity) {
-  const base = (identity && (identity.displayName || identity.name)) || 'character';
-  return base.replace(/[^a-zA-Z0-9]+/g, '_');
+  // Belt and braces: try displayName, then name, then fall back to 'character'.
+  // Also strip leading/trailing underscores so a result like "____" (from an
+  // all-non-alnum source e.g. dev-mode redaction block characters U+2588) falls
+  // through to 'character' instead of producing a filename like "_sheet.pdf".
+  const candidates = [
+    identity && identity.displayName,
+    identity && identity.name,
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const clean = String(raw).replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (clean) return clean;
+  }
+  return 'character';
 }
 
 function triggerDownload(blob, filename) {

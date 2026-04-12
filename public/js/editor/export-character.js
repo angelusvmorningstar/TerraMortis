@@ -7,7 +7,7 @@
  * already run on the character.
  */
 
-import { displayName, getWillpower, findRegentTerritory } from '../data/helpers.js';
+import { displayName, displayNameRaw, getWillpower, findRegentTerritory } from '../data/helpers.js';
 import {
   getAttrEffective, getAttrBonus, skDots, skBonus, skSpecs, skNineAgain,
   calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence, calcVitaeMax,
@@ -61,9 +61,15 @@ export function serialiseForPrint(c, territories) {
   const allRules = getRulesByCategory('discipline');
 
   // ── Identity ──
+  // Use displayNameRaw() here, not displayName(). This function is called
+  // only by explicit user-initiated exports (Print, PDF, JSON download) and
+  // the output is either rendered into a file or serialised to disk. The
+  // screen-privacy redaction in displayName() exists to hide names from
+  // bystanders looking at the admin UI — it has no place in a file the user
+  // is actively exporting for themselves.
   const identity = {
     name: c.name,
-    displayName: displayName(c),
+    displayName: displayNameRaw(c),
     player: c.player || null,
     honorific: c.honorific || null,
     moniker: c.moniker || null,
