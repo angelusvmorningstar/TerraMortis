@@ -20,16 +20,42 @@ const M_BOTTOM = 20;
 const CW = PAGE_W - M_LEFT - M_RIGHT;   // content width
 const CH = PAGE_H - M_TOP  - M_BOTTOM;  // content height
 
-// ── Page 1 columns (measured from mammon-1.png) ──────────────────────────────
-// The page is divided into four main zones. Values are x-offsets and widths
-// in PDF points. Fine-tuned during page 1 render iteration.
+// ── Page 1 layout: two A5 portrait halves split at the fold line ────────────
+// Mammon.pdf page 1 is designed to be folded down the middle at x=PAGE_W/2.
+// Each half is a self-contained A5 portrait page.
+//
+//   Left A5  (x = M_LEFT .. PAGE_MID - 4):  three sub-columns for reference
+//                                            data — disciplines + vitals,
+//                                            influence/domain/standing,
+//                                            humanity/mask/dirge/banes.
+//   Right A5 (x = PAGE_MID + 4 .. PAGE_W - M_RIGHT):  masthead at top
+//                                            (logo + name + identity fields +
+//                                            covenant/clan + status diamonds),
+//                                            then ATTRIBUTES and SKILLS
+//                                            sections. Banners span only the
+//                                            right half width, never across
+//                                            the fold.
+const PAGE_MID = PAGE_W / 2;
+const FOLD_GAP = 4;   // visual breathing room around the fold line
+
+const LEFT_PANEL = {
+  x: M_LEFT,
+  w: PAGE_MID - FOLD_GAP - M_LEFT,    // ~391
+};
+const RIGHT_PANEL = {
+  x: PAGE_MID + FOLD_GAP,
+  w: PAGE_W - M_RIGHT - PAGE_MID - FOLD_GAP,  // ~391
+};
+
+// Left panel: three sub-columns with small internal gaps
+const LEFT_COL_GAP = 8;
+const LEFT_COL_W = (LEFT_PANEL.w - 2 * LEFT_COL_GAP) / 3;  // ~125 each
+
 const COL = {
-  disciplines: { x: M_LEFT,           w: 130 },  // Animalism…Transmutation, then rituals
-  influence:   { x: M_LEFT + 138,     w: 135 },  // Influence/Kindred Status/Domain/Standing
-  humanity:    { x: M_LEFT + 282,     w: 150 },  // Humanity ladder + Mask/Dirge/Banes
-  masthead:    { x: M_LEFT + 442,     w: PAGE_W - M_RIGHT - (M_LEFT + 442) },
-  // Attributes + Skills live inside the masthead column width, below the
-  // identity block.
+  disciplines: { x: LEFT_PANEL.x,                                       w: LEFT_COL_W },
+  influence:   { x: LEFT_PANEL.x + LEFT_COL_W + LEFT_COL_GAP,           w: LEFT_COL_W },
+  humanity:    { x: LEFT_PANEL.x + 2 * (LEFT_COL_W + LEFT_COL_GAP),     w: LEFT_COL_W },
+  masthead:    { x: RIGHT_PANEL.x, w: RIGHT_PANEL.w },
 };
 
 // ── Colours ──────────────────────────────────────────────────────────────────
@@ -42,10 +68,12 @@ const C = {
 };
 
 // ── Dot & square sizes ───────────────────────────────────────────────────────
-const DOT_R   = 2.6;
-const DOT_GAP = 7.5;
-const SQ_SIZE = 7.0;
-const SQ_GAP  = 8.5;
+// Sized to match the Mammon target at this column width. Bumped from the
+// original tiny version so the page visibly uses its vertical space.
+const DOT_R   = 3.0;
+const DOT_GAP = 8.5;
+const SQ_SIZE = 8.5;
+const SQ_GAP  = 10.5;
 
 // ── Font keys (registered by render.js) ──────────────────────────────────────
 const F = {
@@ -84,6 +112,7 @@ const RITUAL_ORDER = [
 
 export {
   PAGE_W, PAGE_H, M_LEFT, M_RIGHT, M_TOP, M_BOTTOM, CW, CH,
+  PAGE_MID, FOLD_GAP, LEFT_PANEL, RIGHT_PANEL,
   COL, C, DOT_R, DOT_GAP, SQ_SIZE, SQ_GAP, F,
   ALL_SKILLS, ATTR_GRID, DISCIPLINE_ORDER, RITUAL_ORDER,
 };
