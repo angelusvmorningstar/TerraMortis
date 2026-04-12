@@ -753,6 +753,7 @@ async function loadCycleById(cycleId) {
   document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
   renderSubmissionChecklist();
+  await ensureTerritories();
   renderFeedingMatrix();
   renderConflicts();
   await loadInvestigations(cycleId);
@@ -1767,6 +1768,7 @@ async function processFilePreview(file) {
   renderSnapshotPanel(devCycle);
   renderMatchSummary();
   renderSubmissionChecklist();
+  await ensureTerritories();
   renderFeedingMatrix();
   renderConflicts();
   renderInvestigations();
@@ -5267,6 +5269,10 @@ function renderFeedingMatrix() {
     }
     h += '</tr></thead><tbody>';
 
+    // Track how many characters fed in each territory this cycle
+    const feederCounts = {};
+    for (const t of cols) feederCounts[t.csvKey] = 0;
+
     for (const char of activeChars) {
       const charId = String(char._id);
       const sub = subByCharId.get(charId) || null;
@@ -5281,10 +5287,13 @@ function renderFeedingMatrix() {
         const fed = fedTerrs.has(t.csvKey);
         if (!fed) {
           h += '<td class="dt-matrix-empty">\u2014</td>';
-        } else if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
-          h += '<td class="dt-matrix-resident">O</td>';
         } else {
-          h += '<td class="dt-matrix-poach">X</td>';
+          feederCounts[t.csvKey]++;
+          if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
+            h += '<td class="dt-matrix-resident">O</td>';
+          } else {
+            h += '<td class="dt-matrix-poach">X</td>';
+          }
         }
       }
       h += '</tr>';
@@ -5292,22 +5301,22 @@ function renderFeedingMatrix() {
 
     h += '</tbody>';
 
-    // Footer: authoritative resident count from feeding_rights, cap from ambience
-    h += '<tfoot><tr><td><strong>Residents</strong></td>';
+    // Footer: feeders this cycle vs ambience cap
+    h += '<tfoot><tr><td><strong>Feeders</strong></td>';
     for (const t of cols) {
       if (t.ambienceKey === null) {
         h += '<td class="dt-matrix-empty">\u2014</td>';
       } else {
         const ambience = getTerritoryAmbience(t.ambienceKey);
         const cap = ambience ? (AMBIENCE_CAP[ambience] ?? null) : null;
-        const count = residentsByTerrKey[t.csvKey].size;
+        const count = feederCounts[t.csvKey];
         const overCap = cap !== null && count > cap;
         h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
       }
     }
     h += '</tr></tfoot>';
     h += '</table>';
-    h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Resident count from City feeding rights list.</p>';
+    h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Feeders / cap from City ambience. Residents set via City tab.</p>';
     h += '</div>';
   }
 
