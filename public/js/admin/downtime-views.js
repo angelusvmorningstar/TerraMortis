@@ -4947,7 +4947,7 @@ function _chkHasContent(sub, key) {
 
 function _chkState(sub, key) {
   if (!_chkHasContent(sub, key)) return 'empty';
-  if (key === 'feeding' && sub?.feeding_roll) return 'validated';
+  if (key === 'feeding' && (sub?.feeding_roll || sub?.feeding_review?.pool_status === 'validated')) return 'validated';
   if (sub?.st_review?.sighted?.[key]) return 'sighted';
   return 'unsighted';
 }
