@@ -273,7 +273,7 @@ async function loadAllData() {
         if (!ownIds.has(String(cc._id))) suiteState.chars.push(cc);
       }
     }
-  } catch { /* combat endpoint unavailable — resist dropdown will only show own chars */ }
+  } catch (e) { console.warn('Combat chars load failed:', e.message); }
 
   window._charNames = suiteState.chars.map(c => c.name);
   window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
