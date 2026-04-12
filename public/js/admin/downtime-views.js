@@ -3280,6 +3280,18 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire 9-Again override toggle → save rev.nine_again
+  container.querySelectorAll('.proc-feed-9a-toggle').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key = cb.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { nine_again: cb.checked });
+      renderProcessingMode(container);
+    });
+  });
+
   container.querySelectorAll('.proc-feed-roll-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
@@ -3722,10 +3734,30 @@ function _updateFeedBuilderMeta(container, key) {
   if (!char) { metaEl.innerHTML = ''; return; }
   const nineA = skNineAgain(char, skillName);
   const specs = skSpecs(char, skillName);
+  const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+  const review = entry ? (getEntryReview(entry) || {}) : {};
+  const activeSpecs = review.active_feed_specs || [];
   let h = '';
   if (nineA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
-  for (const sp of specs) h += `<span class="dt-skill-meta-spec">${esc(sp)}</span>`;
+  for (const sp of specs) {
+    const checked = activeSpecs.includes(sp);
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+  }
   metaEl.innerHTML = h;
+  // Wire spec toggles injected after renderProcessingMode ran
+  metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const entry2 = buildProcessingQueue(submissions).find(q => q.key === cb.dataset.procKey);
+      if (!entry2 || !cb.dataset.spec) return;
+      const rev2 = getEntryReview(entry2) || {};
+      const activeSpecs2 = [...(rev2.active_feed_specs || [])];
+      if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
+      else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
+      await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: activeSpecs2.length });
+      renderProcessingMode(container);
+    });
+  });
 }
 
 /**
@@ -3822,22 +3854,44 @@ function _renderFeedRightPanel(entry, char, rev) {
   const hasOoF = (char?.powers || []).some(p => p.category === 'pact' && p.name === 'Oath of Fealty');
   const oofVitae = hasOoF ? Math.max(char.status?.covenant || 0, char._ots_covenant_bonus || 0) : 0;
 
-  // Ambience: check cachedTerritories then TERRITORY_DATA
-  // Normalise primaryTerr slug through TERRITORY_SLUG_MAP first (e.g. the_northern_shore → northshore)
+  // Ambience: use best (highest ambienceMod) territory the character actually fed in
   const terrList = (cachedTerritories && cachedTerritories.length) ? cachedTerritories : TERRITORY_DATA;
-  const normalizedTerrId = entry.primaryTerr ? (TERRITORY_SLUG_MAP[entry.primaryTerr] ?? entry.primaryTerr) : null;
-  const terrRec = normalizedTerrId
-    ? terrList.find(t =>
-        t.id === normalizedTerrId ||
-        t.name === entry.primaryTerr ||
-        t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
-      )
-    : null;
-  // Prefer confirmed ambience from cycle (post-downtime value used for next-game feeding)
-  const confirmedAmb  = currentCycle?.confirmed_ambience?.[normalizedTerrId];
-  const ambienceVitae = confirmedAmb != null
-    ? (confirmedAmb.ambienceMod ?? 0)
-    : (terrRec?.ambienceMod ?? null);
+  const feedSub = submissions.find(s => s._id === entry.subId);
+  const fedTerrKeys = feedSub ? _getSubFedTerrs(feedSub) : new Set();
+
+  let bestTerrLabel = null;
+  let ambienceVitae = null;
+  for (const csvKey of fedTerrKeys) {
+    const mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
+    if (!mt || !mt.ambienceKey) continue;
+    const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
+    const confirmedAmb = tid ? currentCycle?.confirmed_ambience?.[tid] : null;
+    let mod = null;
+    if (confirmedAmb != null) {
+      mod = confirmedAmb.ambienceMod ?? 0;
+    } else {
+      const tr = terrList.find(t =>
+        t.id === tid || t.name === mt.ambienceKey
+      );
+      mod = tr?.ambienceMod ?? null;
+    }
+    if (mod !== null && (ambienceVitae === null || mod > ambienceVitae)) {
+      ambienceVitae = mod;
+      bestTerrLabel = mt.label;
+    }
+  }
+  // Fallback: if no fed territories resolved, use primaryTerr as before
+  if (ambienceVitae === null && entry.primaryTerr) {
+    const normalizedTerrId = TERRITORY_SLUG_MAP[entry.primaryTerr] ?? entry.primaryTerr;
+    const terrRec = terrList.find(t =>
+      t.id === normalizedTerrId ||
+      t.name === entry.primaryTerr ||
+      t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
+    );
+    const confirmedAmb = currentCycle?.confirmed_ambience?.[normalizedTerrId];
+    ambienceVitae = confirmedAmb != null ? (confirmedAmb.ambienceMod ?? 0) : (terrRec?.ambienceMod ?? null);
+    bestTerrLabel = entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null;
+  }
 
   const ghoulCount = (char?.merits || []).filter(m =>
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
@@ -3869,10 +3923,15 @@ function _renderFeedRightPanel(entry, char, rev) {
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Oath of Fealty</span><span class="proc-mod-val proc-mod-pos">+${oofVitae}</span></div>`;
   }
 
-  // Ambience (only if non-zero and known)
-  if (ambienceVitae !== null && ambienceVitae !== 0) {
-    const ambSign = ambienceVitae > 0 ? '+' : '';
-    h += `<div class="proc-mod-row"><span class="proc-mod-label">Ambience</span><span class="proc-mod-val ${ambienceVitae > 0 ? 'proc-mod-pos' : 'proc-mod-neg'}">${ambSign}${ambienceVitae}</span></div>`;
+  // Territory ambience — always show, labelled with best fed territory name
+  {
+    const ambLabel = bestTerrLabel ? `Ambience (${bestTerrLabel})` : 'Ambience';
+    if (ambienceVitae === null) {
+      h += `<div class="proc-mod-row"><span class="proc-mod-label">${esc(ambLabel)}</span><span class="proc-mod-val proc-mod-muted">\u2014</span></div>`;
+    } else {
+      const ambSign = ambienceVitae > 0 ? '+' : '';
+      h += `<div class="proc-mod-row"><span class="proc-mod-label">${esc(ambLabel)}</span><span class="proc-mod-val ${ambienceVitae > 0 ? 'proc-mod-pos' : ambienceVitae < 0 ? 'proc-mod-neg' : ''}">${ambSign}${ambienceVitae}</span></div>`;
+    }
   }
 
   // Ghoul retainers (only if > 0)
@@ -3902,11 +3961,13 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`; // proc-feed-vitae-panel
 
-  // ── Rote toggle ──
+  // ── Rote + 9-Again override toggles ──
   const feedSubR = submissions.find(s => s._id === entry.subId);
   const isRote   = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
-  h += `<div class="proc-feed-right-section">`;
+  const nineAgainOverride = rev.nine_again || false;
+  h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
+  h += `<label class="proc-pool-rote-label proc-feed-9a-lbl"><input type="checkbox" class="proc-feed-9a-toggle" data-proc-key="${esc(key)}"${nineAgainOverride ? ' checked' : ''}> 9-Again</label>`;
   h += `</div>`;
 
   // ── Validation Status ──
@@ -3917,35 +3978,18 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<button class="proc-val-btn${poolStatus === 'pending'    ? ' active pending'    : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
   h += `<button class="proc-val-btn${poolStatus === 'validated'  ? ' active validated'  : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
   h += `</div>`;
-  // Committed pool expression display — updated when pool is validated
-  const committedPool = poolValidated;
-  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${committedPool ? esc(committedPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
-
-  // Skill metadata: 9-again badge + spec toggles (feature.57)
-  if (poolValidated && char) {
-    const charDiscsArr = Object.keys(char.disciplines || {});
-    const parsedSkill = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscsArr);
-    const feedSkill = parsedSkill?.skill || null;
-    if (feedSkill) {
-      const nineA = skNineAgain(char, feedSkill);
-      const feedSpecs = skSpecs(char, feedSkill);
-      if (nineA || feedSpecs.length) {
-        const activeSpecMod = rev.pool_mod_spec || 0;
-        h += '<div class="dt-skill-meta">';
-        if (nineA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
-        for (const sp of feedSpecs) {
-          // We track spec bonus as a count, not by name — show all as toggleable
-          // First spec checked if activeSpecMod >= 1, second if >= 2, etc.
-          // Simple approach: read from rev.active_feed_specs (array)
-          const activeFeedSpecs = rev.active_feed_specs || [];
-          const checked = activeFeedSpecs.includes(sp);
-          h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle"
-            data-proc-key="${esc(key)}" data-spec="${esc(sp)}" ${checked ? 'checked' : ''}>${esc(sp)} +1</label>`;
-        }
-        h += '</div>';
-      }
+  // Committed pool expression display — augmented with active spec names if any
+  const _activeFeedSpecs = rev.active_feed_specs || [];
+  let displayPool = poolValidated;
+  if (poolValidated && _activeFeedSpecs.length > 0) {
+    const _eqIdx = poolValidated.lastIndexOf('=');
+    if (_eqIdx !== -1) {
+      const _base = poolValidated.slice(0, _eqIdx).trim();
+      const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
+      displayPool = `${_base} + ${_activeFeedSpecs.map(sp => `${sp} 1`).join(' + ')} = ${_tot + _activeFeedSpecs.length}`;
     }
   }
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
 
   h += `</div>`;
 
@@ -4157,12 +4201,16 @@ function renderActionPanel(entry, review) {
       // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
-      // Skill metadata: 9-again badge + spec info labels (live; updates on skill change)
-      const _fbnA = char && preSkill ? skNineAgain(char, preSkill) : false;
-      const _fbSp = char && preSkill ? skSpecs(char, preSkill) : [];
+      // Skill metadata: 9-again badge + spec toggles (live; updates on skill change)
+      const _fbnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
+      const _fbSp  = char && preSkill ? skSpecs(char, preSkill) : [];
+      const _fbAct = rev.active_feed_specs || [];
       h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
       if (_fbnA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
-      for (const sp of _fbSp) h += `<span class="dt-skill-meta-spec">${esc(sp)}</span>`;
+      for (const sp of _fbSp) {
+        const checked = _fbAct.includes(sp);
+        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+      }
       h += '</div>';
       h += '</div>'; // proc-pool-builder
     }
@@ -5327,6 +5375,11 @@ function _getSubFedTerrs(sub) {
       if (!status || status === 'Not feeding here' || status === 'none') continue;
       fed.add(csvKey);
     }
+  }
+
+  // Default: if feeding method declared but no territory selected, character feeds from Barrens
+  if (fed.size === 0 && (sub._raw?.feeding?.method || sub.responses?.['_feed_method'] || (grid && Object.keys(grid).length > 0))) {
+    fed.add('The Barrens (No Territory)');
   }
 
   return fed;
