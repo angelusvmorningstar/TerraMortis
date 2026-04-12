@@ -23,9 +23,11 @@ router.post('/character', async (req, res) => {
   try {
     await generateToStream(data, res);
   } catch (err) {
-    // If headers already sent, can't send JSON error — just end
+    console.error('PDF generation error:', err.message, err.stack);
     if (!res.headersSent) {
       res.status(500).json({ error: 'PDF_ERROR', message: err.message });
+    } else {
+      res.end();
     }
   }
 });
