@@ -2258,7 +2258,7 @@ function buildProcessingQueue(subs) {
     {
       const feedMethod  = resp['_feed_method'] || '';
       const feedDisc    = resp['_feed_disc']   || '';
-      const feedDesc    = resp['feeding_description'] || '';
+      const feedDesc    = sub._raw?.feeding?.method || resp['feeding_description'] || '';
       const feedSpec    = resp['_feed_spec']   || '';
       const feedRote    = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
       let   feedTerrs   = {};
