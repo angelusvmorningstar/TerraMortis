@@ -9,7 +9,7 @@ import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGa
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skNineAgain, skSpecs } from '../data/accessors.js';
-import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
+import { displayName, displayNameRaw, sortName, hasAoE } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
@@ -3282,7 +3282,12 @@ function renderProcessingMode(container) {
         const i = activeFeedSpecs.indexOf(spec);
         if (i !== -1) activeFeedSpecs.splice(i, 1);
       }
-      await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: activeFeedSpecs.length });
+      const sub = submissions.find(s => s._id === entry.subId);
+      const char = sub
+        ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
+        : null;
+      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
+      await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
       renderProcessingMode(container);
     });
   });
@@ -3850,7 +3855,8 @@ function _updateFeedBuilderMeta(container, key) {
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+      const aoe = hasAoE(char, sp);
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
     }
     metaEl.innerHTML = h;
     metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
@@ -3862,7 +3868,8 @@ function _updateFeedBuilderMeta(container, key) {
         const activeSpecs2 = [...(rev2.active_feed_specs || [])];
         if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
         else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-        await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: activeSpecs2.length });
+        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
+        await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
         renderProcessingMode(container);
       });
     });
@@ -3880,7 +3887,8 @@ function _updateFeedBuilderMeta(container, key) {
   }
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+    const aoe = hasAoE(char, sp);
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
   }
   metaEl.innerHTML = h;
   // Wire spec toggles injected after renderProcessingMode ran
@@ -3893,7 +3901,8 @@ function _updateFeedBuilderMeta(container, key) {
       const activeSpecs2 = [...(rev2.active_feed_specs || [])];
       if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
       else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-      await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: activeSpecs2.length });
+      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
+      await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
       renderProcessingMode(container);
     });
   });
@@ -4492,7 +4501,8 @@ function renderActionPanel(entry, review) {
       }
       for (const sp of _fbSp) {
         const checked = _fbAct.includes(sp);
-        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+        const aoe = hasAoE(char, sp);
+        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
       }
       h += '</div>';
       h += '</div>'; // proc-pool-builder
@@ -4579,7 +4589,8 @@ function renderActionPanel(entry, review) {
     h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
     for (const sp of _pSp) {
       const checked = _pAct.includes(sp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+      const aoe = hasAoE(char, sp);
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
     }
     h += '</div>';
     h += '</div>'; // proc-pool-builder

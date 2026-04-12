@@ -1,6 +1,6 @@
 # Story feature.62: Area of Expertise — Correct Spec Bonus in Pool Builder
 
-## Status: draft
+## Status: done
 
 ## Story
 
@@ -29,19 +29,19 @@ The player downtime form and the suite roll calculator already compute AoE corre
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Import `hasAoE` in `downtime-views.js`
-  - [ ] Add `hasAoE` to the import from `../data/helpers.js`
+- [x] Task 1: Import `hasAoE` in `downtime-views.js`
+  - [x] Add `hasAoE` to the import from `../data/helpers.js`
 
-- [ ] Task 2: Fix spec toggle label render in `_updateFeedBuilderMeta`
-  - [ ] For each spec in the loop, compute `const aoe = hasAoE(char, sp)` and render `+2` or `+1` in the label text
+- [x] Task 2: Fix spec toggle label render in `_updateFeedBuilderMeta`
+  - [x] For each spec in the loop, compute `const aoe = hasAoE(char, sp)` and render `+2` or `+1` in the label text
 
-- [ ] Task 3: Fix spec toggle label render at initial project entry render
-  - [ ] In the project builder block (`else if (entry.source === 'project')`), same label fix using `projChar`
+- [x] Task 3: Fix spec toggle label render at initial project entry render
+  - [x] In the project builder block (`else if (entry.source === 'project')`), same label fix using `projChar`
 
-- [ ] Task 4: Fix `pool_mod_spec` calculation in `dt-feed-spec-toggle` change handler
-  - [ ] After updating `activeFeedSpecs`, look up `char` for the entry (via `submissions` + `characters`)
-  - [ ] Compute `const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0)`
-  - [ ] Save `pool_mod_spec: specBonus` instead of `activeFeedSpecs.length`
+- [x] Task 4: Fix `pool_mod_spec` calculation in `dt-feed-spec-toggle` change handler
+  - [x] After updating `activeFeedSpecs`, look up `char` for the entry (via `submissions` + `characters`)
+  - [x] Compute `const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0)`
+  - [x] Save `pool_mod_spec: specBonus` instead of `activeFeedSpecs.length`
 
 ## Dev Notes
 
@@ -88,14 +88,20 @@ const char = sub
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-13 | 1.0 | Initial draft | Angelus |
+| 2026-04-13 | 1.1 | Implemented — AoE labels and summed spec bonus | Claude Sonnet 4.6 |
 
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
 
 ### Completion Notes List
+- Fixed four label render sites (two in `_updateFeedBuilderMeta` project + feeding paths, one in feeding initial render, one in project initial render) to show "+2" when `hasAoE` matches
+- Fixed three `pool_mod_spec` saves to use summed bonus via `reduce` instead of `activeFeedSpecs.length`
+- Main handler gets `char` via `submissions` + `characters` lookup; inner handlers use `char` already in closure scope
+- Story task count extended: story spec said 2 label sites but the feeding initial render in `renderActionPanel` is a third label site that also needed fixing
 
 ### File List
 - `public/js/admin/downtime-views.js`
