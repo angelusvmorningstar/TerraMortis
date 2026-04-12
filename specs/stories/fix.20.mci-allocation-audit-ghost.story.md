@@ -1,6 +1,6 @@
 # Story Fix.20: MCI Allocation Audit — Remove Ghost Hard Error
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

@@ -23,6 +23,29 @@ router.get('/me', async (req, res) => {
   res.json(player);
 });
 
+// PUT /api/players/me — player self-update (contact fields only)
+const SELF_EDITABLE = new Set(['email', 'mobile', 'medical_info', 'emergency_contact_name', 'emergency_contact_mobile']);
+router.put('/me', async (req, res) => {
+  const filtered = {};
+  for (const [k, v] of Object.entries(req.body || {})) {
+    if (SELF_EDITABLE.has(k)) filtered[k] = v ?? null;
+  }
+  if (!Object.keys(filtered).length) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'No editable fields provided' });
+  }
+  // player_id can be ObjectId (from fresh DB lookup) or string (from cache/serialisation)
+  let pid;
+  try { pid = req.user.player_id instanceof ObjectId ? req.user.player_id : new ObjectId(String(req.user.player_id)); }
+  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot resolve player ID' }); }
+  const result = await col().findOneAndUpdate(
+    { _id: pid },
+    { $set: filtered },
+    { returnDocument: 'after' }
+  );
+  if (!result) return res.status(404).json({ error: 'NOT_FOUND', message: 'Player not found' });
+  res.json(result);
+});
+
 // GET /api/players — list all players (ST only)
 router.get('/', requireRole('st'), async (req, res) => {
   const players = await col().find().toArray();

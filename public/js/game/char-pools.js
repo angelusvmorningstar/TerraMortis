@@ -7,6 +7,7 @@ import {
   calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, calcSpeed,
 } from '../data/accessors.js';
 import { getPool } from '../shared/pools.js';
+import { getRulesByCategory } from '../data/loader.js';
 import { esc } from '../data/helpers.js';
 
 // Primary attribute for each skill (most common pool pairing)
@@ -110,9 +111,25 @@ export function renderCharPools(el, char, onTap) {
   }
 
   // ── Discipline power pools (rollable only) ──
-  const powers = (char.powers || []).filter(p => p.name);
+  // Derive from rules cache (same as the discipline selector panel in app.js).
+  // c.powers with category=discipline is stale legacy data — ignore it.
+  const allRules = getRulesByCategory('discipline');
+  const discEntries = Object.entries(char.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
+  const derivedPowers = [];
+  for (const [disc, v] of discEntries) {
+    const ruledPowers = allRules
+      .filter(r => r.parent === disc && r.rank != null && r.rank <= v.dots)
+      .sort((a, b) => a.rank - b.rank);
+    if (ruledPowers.length) {
+      ruledPowers.forEach(r => derivedPowers.push({ name: r.name, discipline: disc }));
+    }
+  }
+  // Also include devotions, rites, pacts (character-specific picks — NOT discipline powers)
+  (char.powers || []).filter(p => p.category === 'devotion' || p.category === 'rite' || p.category === 'pact')
+    .forEach(p => derivedPowers.push(p));
+
   let discHtml = '';
-  for (const pw of powers) {
+  for (const pw of derivedPowers) {
     const pi = getPool(char, pw.name);
     if (!pi || pi.noRoll || pi.total === undefined) continue;
     const idx = _pools.length;

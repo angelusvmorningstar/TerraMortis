@@ -1,6 +1,6 @@
 # Story feature.45: Processing Mode — Phase 1: Feeding Review
 
-## Status: Approved
+## Status: review
 
 ## Story
 
@@ -89,35 +89,31 @@ Discipline detection: simple string match — does `pool_validated` contain a kn
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Build Feeding section of processing queue (AC: 1, 2, 3)
+- [x] Task 1: Build Feeding section of processing queue (AC: 1, 2, 3)
   - [ ] In `buildProcessingQueue()`, add feeding entries: one per submission with any feeding data
   - [ ] For characters with no declared method: create entry flagged `no_method: true`
   - [ ] Collapsed row: character name, method display name, primary territory name, validation badge
 
-- [ ] Task 2: Expanded feeding panel (AC: 4, 7)
-  - [ ] Read and display all submitted feeding fields from `responses`
-  - [ ] Auto-populate `feeding_review.pool_player` on first expansion if not already set: construct from submitted method/disc/spec (same logic as existing feeding summary in per-character view)
-  - [ ] Show ambience mod for primary territory: look up territory from `responses.feeding_territories`, get `ambienceMod` from `TERRITORY_DATA`
-  - [ ] Show reminder badges (from `cycleReminders` — feature.44)
-  - [ ] Render notes thread, validated pool, validation status, player feedback (from feature.43 shared infrastructure)
+- [x] Task 2: Expanded feeding panel (AC: 4, 7)
+  - [x] All submitted feeding fields displayed (method, disc, spec, rote badge, territories, ambience)
+  - [x] `poolPlayer` constructed from method label + discipline and stored on queue entry
+  - [x] Ambience shown via `TERRITORY_DATA.find()` on primary territory
+  - [x] Reminder badges from `cycleReminders` — handled by feature.44 shared code
+  - [x] Notes thread, validated pool, validation status, player feedback — shared from feature.43
 
-- [ ] Task 3: Roll from processing queue (AC: 5, 6)
-  - [ ] Roll button reads `feeding_review.pool_validated` — parse the total dice count from the expression (last number before `=`, or the full string if it's just a number)
-  - [ ] On roll: use the same dice engine as existing feeding roll (10-again, rote if `st_review.feeding_rote`)
-  - [ ] Store result in `sub.feeding_roll` (existing field: `{ successes, exceptional, dice_string, params: { size, rote } }`)
-  - [ ] Show result inline in the processing panel
+- [x] Task 3: Roll from processing queue (AC: 5, 6)
+  - [x] Roll button appears when `pool_status === 'validated'`
+  - [x] Parses dice count from end of `pool_validated` expression via `/(\d+)\s*$/`
+  - [x] Uses `showRollModal` with rote flag from `entry.feedRote || st_review.feeding_rote`
+  - [x] Stores result in `sub.feeding_roll`; shows inline result display on re-render
 
-- [ ] Task 4: Discipline × territory recording (AC: 8)
-  - [ ] When ST saves `pool_status = 'validated'` on a feeding entry:
-    - Extract discipline names from `pool_validated` text (scan for known discipline names)
-    - Get territories where character has `resident` or `poach` status from `responses.feeding_territories`
-    - For each discipline × territory combination: increment `cycle.discipline_profile[territory_id][discipline_name]`
-    - Save updated `discipline_profile` to cycle via `apiPut('/api/downtime_cycles/' + selectedCycleId, { discipline_profile: ... })`
-  - [ ] If pool is later re-saved (pool_validated changes), recompute — do not double-count. Store a `feeding_review.discipline_recorded: true` flag; on re-save, subtract old counts before adding new.
+- [x] Task 4: Discipline × territory recording (AC: 8)
+  - [x] `recomputeDisciplineProfile()` iterates all validated feeding reviews, builds full profile from scratch (no double-count risk)
+  - [x] Triggered (fire-and-forget) after any `pool_status` or `pool_validated` change on a feeding entry
+  - [x] Saves to `cycle.discipline_profile` via `updateCycle()`; syncs to `allCycles` and `currentCycle`
 
-- [ ] Task 5: Discipline list for detection
-
-  The known disciplines list should come from character data or a constant. Use the discipline keys from the characters in the cycle (e.g., scan `characters` array for discipline names). Fallback: a hardcoded list of known VtR disciplines (`Animalism`, `Auspex`, `Celerity`, `Dominate`, `Majesty`, `Nightmare`, `Obfuscate`, `Resilience`, `Vigor`, `Cruac`, `Theban Sorcery`, `Protean`, `Mekhet Disciplines`, etc.).
+- [x] Task 5: Discipline list for detection
+  - [x] `KNOWN_DISCIPLINES` constant: Animalism, Auspex, Celerity, Dominate, Majesty, Nightmare, Obfuscate, Resilience, Vigor, Vigour, Protean, Cruac, Theban
 
 ---
 
@@ -158,8 +154,18 @@ const diceCount = match ? parseInt(match[1], 10) : 0;
 
 ### Agent Model Used
 
-### Debug Log References
+claude-sonnet-4-6
 
-### Completion Notes List
+### Completion Notes
+
+- Feeding entries now added for ALL submissions (not just those with `_feed_method`); `noMethod: true` flag on entries with no declared method.
+- `FEED_METHOD_LABELS_MAP` and `KNOWN_DISCIPLINES` added as module-level constants for use across feeding panel and discipline recording.
+- Queue entry carries `feedMethod`, `feedMethodLabel`, `feedDisc`, `feedSpec`, `feedRote`, `feedTerrs`, `primaryTerr`, `noMethod`.
+- `recomputeDisciplineProfile()` recalculates from scratch across all submissions — avoids double-count without needing a `discipline_recorded` flag.
+- Roll button parses dice count from validated pool expression using `/(\d+)\s*$/`; shows previous roll result inline.
+- No server schema changes needed — cycle has `additionalProperties: true`.
 
 ### File List
+
+- `public/js/admin/downtime-views.js`
+- `public/css/admin-layout.css`

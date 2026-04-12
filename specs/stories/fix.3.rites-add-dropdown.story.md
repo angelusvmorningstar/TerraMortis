@@ -1,6 +1,6 @@
 # Story Fix.3: Rites Add — Replace Text Input with Dropdown
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

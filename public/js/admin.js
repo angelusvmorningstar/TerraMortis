@@ -182,7 +182,7 @@ function switchDomain(domain) {
   if (domain === 'engine') { initNextSession(); initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
-  if (domain === 'downtime') initDowntimeView();
+  if (domain === 'downtime') initDowntimeView(chars);
   if (domain === 'attendance') initAttendance(chars);
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);

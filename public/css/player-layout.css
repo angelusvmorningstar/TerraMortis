@@ -242,6 +242,17 @@ body {
   overflow-y: auto;
 }
 
+/* ── Profile modal ── */
+.sidebar-avatar-click { cursor: pointer; transition: opacity 0.15s; }
+.sidebar-avatar-click:hover { opacity: 0.8; }
+.prof-readonly { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--bdr); }
+.prof-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+.prof-wide { grid-column: 1 / -1; }
+.prof-field { display: flex; flex-direction: column; gap: 3px; }
+.prof-label { font-family: var(--fh); font-size: 11px; color: var(--txt3); letter-spacing: 0.04em; text-transform: uppercase; }
+.prof-privacy { font-size: 11px; font-style: italic; color: var(--txt3); margin: 12px 0 4px; }
+.prof-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+
 /* ── Tab panels ── */
 
 .tab-panel { display: none; }

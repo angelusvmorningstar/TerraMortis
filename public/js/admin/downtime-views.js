@@ -31,7 +31,13 @@ let currentCycle = null;
 let selectedCycleId = null;
 let expandedId = null;
 let processingMode = false;
-let procExpandedKey = null; // tracks which action row is expanded in processing mode
+let procExpandedKey = null;    // tracks which action row is expanded in processing mode
+let cycleReminders = [];       // processing_reminders from the current cycle document
+let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
+let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
+let ambDashCollapsed = false;  // collapse state for the Ambience Dashboard panel
+let discDashCollapsed = false; // collapse state for the Discipline Profile Matrix panel
+const collapsedPhases = new Set(); // phaseKeys currently collapsed in Processing Mode
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -51,14 +57,14 @@ const PHASE_ORDER = {
 };
 
 const PHASE_LABELS = {
-  resolve_first: 'Resolve First — Sorcery & Rituals',
-  feeding: 'Phase 1 — Feeding',
-  ambience: 'Phase 2 — Ambience',
-  hide_protect: 'Phase 3 — Defensive',
-  investigate: 'Phase 4 — Investigative',
-  attack: 'Phase 5 — Hostile',
-  support_patrol: 'Phase 6 — Support & Patrol',
-  misc: 'Phase 7 — Miscellaneous',
+  resolve_first: 'Step 1 — Blood Sorcery & Rituals',
+  feeding: 'Step 2 — Feeding',
+  ambience: 'Step 3 — Ambience',
+  hide_protect: 'Step 4 — Defensive',
+  investigate: 'Step 5 — Investigative',
+  attack: 'Step 6 — Hostile',
+  support_patrol: 'Step 7 — Support & Patrol',
+  misc: 'Step 8 — Miscellaneous',
   sphere: 'Sphere Actions',
   allies: 'Allies & Status',
   contacts: 'Contacts',
@@ -102,6 +108,34 @@ const ALL_ACTION_TYPES = [
   'investigate', 'patrol_scout', 'support', 'misc', 'xp_spend',
   'block', 'rumour', 'grow', 'acquisition',
 ];
+
+const FEED_METHOD_LABELS_MAP = {
+  seduction: 'Seduction', stalking: 'Stalking', force: 'By Force',
+  familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other',
+};
+
+// Discipline names to detect in validated pool expressions for discipline × territory recording
+const KNOWN_DISCIPLINES = [
+  'Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare',
+  'Obfuscate', 'Resilience', 'Vigor', 'Vigour', 'Protean', 'Cruac', 'Theban',
+];
+
+// Human-readable labels for pool_status values across all action types
+const POOL_STATUS_LABELS = {
+  pending:   'Pending',
+  validated: 'Validated',
+  no_roll:   'No Roll',
+  resolved:  'Resolved',
+  no_effect: 'No Effect',
+};
+
+/** Returns a stable action_key string for reminder targeting. Returns null for sorcery entries. */
+function entryActionKey(entry) {
+  if (entry.source === 'feeding') return 'feeding';
+  if (entry.source === 'project') return `project_${entry.actionIdx}`;
+  if (entry.source === 'merit')   return `merit_${entry.actionIdx}`;
+  return null; // sorcery entries are sources, not targets
+}
 
 // ── Cycle Phase Ribbon ───────────────────────────────────────────────────────
 
@@ -182,7 +216,7 @@ function renderPhaseRibbon(cycle, subs) {
   }).join('');
 }
 
-export async function initDowntimeView() {
+export async function initDowntimeView(passedChars) {
   const container = document.getElementById('downtime-content');
   if (!container) return;
 
@@ -196,11 +230,12 @@ export async function initDowntimeView() {
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
   document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
-  document.getElementById('dt-processing-btn').addEventListener('click', () => {
+  document.getElementById('dt-processing-btn').addEventListener('click', async () => {
     processingMode = !processingMode;
     procExpandedKey = null;
     document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
     if (processingMode) {
+      await ensureTerritories();
       renderProcessingMode(document.getElementById('dt-submissions'));
     } else {
       renderSubmissions();
@@ -210,10 +245,7 @@ export async function initDowntimeView() {
     selectedCycleId = e.target.value;
     loadCycleById(selectedCycleId);
   });
-  await loadCharacters();
-  await loadAllCycles();
-
-  // Dev-only: preview CSV button (no MongoDB writes)
+  // Dev-only: preview CSV button (no MongoDB writes) — must be wired before API calls
   if (location.hostname === 'localhost') {
     const toolbar = document.querySelector('.dt-toolbar');
     if (toolbar) {
@@ -235,6 +267,18 @@ export async function initDowntimeView() {
       toolbar.appendChild(btn);
     }
   }
+
+  if (passedChars && passedChars.length) {
+    characters = passedChars;
+    charMap = new Map();
+    for (const c of characters) {
+      if (c.name) charMap.set(c.name.toLowerCase().trim(), c);
+      if (c.moniker) charMap.set(c.moniker.toLowerCase().trim(), c);
+    }
+  } else {
+    try { await loadCharacters(); } catch (e) { console.warn('loadCharacters failed (no API?):', e.message); }
+  }
+  try { await loadAllCycles(); } catch (e) { console.warn('loadAllCycles failed (no API?):', e.message); }
 }
 
 function buildShell() {
@@ -616,6 +660,8 @@ async function loadCycleById(cycleId) {
     return;
   }
   currentCycle = cycle;
+  cycleReminders = cycle.processing_reminders || [];
+  cachedTerritories = null; // refresh territory ambience on next processing render
 
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
@@ -1685,7 +1731,21 @@ async function openResetWizard() {
   document.body.appendChild(overlay);
 
   overlay.querySelector('#gc-cancel').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#gc-begin').addEventListener('click', () => {
+
+  const beginBtn = overlay.querySelector('#gc-begin');
+  // AC 2: Enable Begin Reset only when all dismiss checkboxes are ticked
+  overlay.addEventListener('change', e => {
+    if (!e.target.classList.contains('gc-dismiss-check')) return;
+    const all = [...overlay.querySelectorAll('.gc-dismiss-check')];
+    beginBtn.disabled = !all.every(cb => cb.checked);
+  });
+  // AC 3: Dismiss-all shortcut
+  overlay.querySelector('#gc-dismiss-all')?.addEventListener('click', () => {
+    overlay.querySelectorAll('.gc-dismiss-check').forEach(cb => { cb.checked = true; });
+    beginBtn.disabled = false;
+  });
+
+  beginBtn.addEventListener('click', () => {
     switchToPhaseView(overlay, cycle, nextNum);
   });
 }
@@ -1706,25 +1766,36 @@ function buildWizardChecklistHtml(cycle, nextNum) {
 
   let items = '';
   if (readySubs.length) items += `<li class="gc-chk-ok">&#10003; ${readySubs.length} submission${readySubs.length !== 1 ? 's' : ''} ready to publish</li>`;
-  if (pendingSubs.length) items += `<li class="gc-chk-warn">&#9651; ${pendingSubs.length} submission${pendingSubs.length !== 1 ? 's' : ''} not yet reviewed</li>`;
+
+  // AC 1–3: Unresolved submissions are blocking — each must be acknowledged
+  if (pendingSubs.length) {
+    items += `<li class="gc-chk-block-header">&#9651; ${pendingSubs.length} unresolved \u2014 acknowledge each before proceeding:</li>`;
+    for (const sub of pendingSubs) {
+      const name = esc(`${sub.character_name || '\u2014'} \u2014 ${sub.player_name || '\u2014'}`);
+      items += `<li class="gc-chk-block"><label><input type="checkbox" class="gc-dismiss-check" data-sub-id="${esc(String(sub._id))}"> <span class="gc-chk-name">${name}</span></label></li>`;
+    }
+  }
+
   if (missingExp.length) items += `<li class="gc-chk-warn">&#9651; ${missingExp.length} approved submission${missingExp.length !== 1 ? 's' : ''} missing expenditure data</li>`;
   if (noFeed.length) items += `<li class="gc-chk-warn">&#9651; ${noFeed.length} submission${noFeed.length !== 1 ? 's' : ''} with no feeding roll</li>`;
   if (!items) items = '<li class="gc-chk-ok">&#10003; All checks passed</li>';
 
-  const hasWarnings = pendingSubs.length || missingExp.length || noFeed.length;
+  const hasAdvisoryWarnings = missingExp.length || noFeed.length;
+  const blocking = pendingSubs.length > 0;
 
   return `<div class="gc-wizard-box">
     <div class="gc-wizard-title">Cycle Reset Wizard</div>
     <div class="gc-wizard-sub">Closing: <strong>${esc(cycle.label || 'Unnamed')}</strong></div>
     <ul class="gc-checklist">${items}</ul>
-    ${hasWarnings ? '<p class="gc-chk-note">Warnings are advisory. You may still proceed.</p>' : ''}
+    ${hasAdvisoryWarnings ? '<p class="gc-chk-note">Other warnings are advisory. You may still proceed.</p>' : ''}
     <div class="gc-label-row">
       <span class="gc-label-lbl">New cycle</span>
       <span class="gc-next-cycle-name">Downtime ${nextNum}</span>
     </div>
     <div class="gc-wizard-actions">
       <button id="gc-cancel" class="dt-btn">Cancel</button>
-      <button id="gc-begin" class="dt-btn dt-btn-gold">Begin Reset</button>
+      ${pendingSubs.length > 1 ? '<button id="gc-dismiss-all" class="dt-btn">Dismiss all</button>' : ''}
+      <button id="gc-begin" class="dt-btn dt-btn-gold"${blocking ? ' disabled' : ''}>Begin Reset</button>
     </div>
   </div>`;
 }
@@ -1735,6 +1806,7 @@ const RESET_PHASES = [
   { id: 'mutations', label: 'Confirm XP mutations' },
   { id: 'publish',   label: 'Publish outcomes to players' },
   { id: 'tracks',    label: 'Reset character tracks' },
+  { id: 'open-game', label: 'Open game phase (feeding)' },
   { id: 'new-cycle', label: 'Close cycle and create next' },
 ];
 
@@ -1878,11 +1950,67 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   if (trackErrors.length) { fail('tracks', `Failed: ${trackErrors.join(', ')}`); return; }
   setPhaseState(overlay, 'tracks', 'done');
 
-  // Phase 6: Close old cycle + create new
+  // Phase: Open game phase (feeding) — AC 5 manual gate
+  setPhaseState(overlay, 'open-game', 'paused', 'Awaiting confirmation');
+  await new Promise(resolve => {
+    const prompt = document.createElement('p');
+    prompt.className = 'gc-prompt';
+    prompt.textContent = 'Open feeding for this game phase?';
+    const openBtn = document.createElement('button');
+    openBtn.className = 'dt-btn dt-btn-gold';
+    openBtn.textContent = 'Open Feeding';
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'dt-btn';
+    skipBtn.textContent = 'Skip';
+    openBtn.addEventListener('click', async () => {
+      openBtn.disabled = true;
+      skipBtn.disabled = true;
+      try {
+        await openGamePhase(cycleId);
+        setPhaseState(overlay, 'open-game', 'done');
+      } catch (err) {
+        setPhaseState(overlay, 'open-game', 'failed', err.message);
+      }
+      footer.innerHTML = '';
+      resolve();
+    }, { once: true });
+    skipBtn.addEventListener('click', () => {
+      setPhaseState(overlay, 'open-game', 'done', 'Skipped');
+      footer.innerHTML = '';
+      resolve();
+    }, { once: true });
+    footer.append(prompt, openBtn, skipBtn);
+  });
+
+  // Phase: New cycle — AC 6 deadline prompt then create
+  setPhaseState(overlay, 'new-cycle', 'paused', 'Set deadline');
+  const deadlineAt = await new Promise(resolve => {
+    const today = new Date().toISOString().split('T')[0];
+    const wrapper = document.createElement('div');
+    wrapper.className = 'gc-deadline-wrapper';
+    const label = document.createElement('label');
+    label.className = 'gc-deadline-label';
+    label.textContent = `Set deadline for Downtime ${nextNum}`;
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.id = 'gc-deadline-input';
+    dateInput.className = 'gc-deadline-input';
+    dateInput.value = today;
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'dt-btn dt-btn-gold';
+    confirmBtn.textContent = 'Create Cycle';
+    confirmBtn.addEventListener('click', () => {
+      const val = dateInput.value;
+      footer.innerHTML = '';
+      resolve(val ? `${val}T00:00:00.000Z` : null);
+    }, { once: true });
+    wrapper.append(label, dateInput);
+    footer.append(wrapper, confirmBtn);
+  });
   setPhaseState(overlay, 'new-cycle', 'running');
   try {
     await closeCycle(cycleId);
-    await createCycle(nextNum);
+    await createCycle(nextNum, deadlineAt);
     setPhaseState(overlay, 'new-cycle', 'done');
   } catch (err) { fail('new-cycle', err.message); return; }
 
@@ -2005,14 +2133,21 @@ function buildProcessingQueue(subs) {
 
     // ── Sorcery (resolve_first) ──
     const sorcCount = parseInt(resp['sorcery_slot_count'] || '1', 10);
+    // Tradition detection: check character disciplines for Cruac or Theban
+    const sorcChar = charMap.get((charName || '').toLowerCase().trim());
+    const discs = sorcChar?.disciplines || {};
+    let tradition = 'Unknown';
+    if (discs.Cruac) tradition = 'Cruac';
+    else if (discs.Theban) tradition = 'Theban';
+
     for (let n = 1; n <= sorcCount; n++) {
       const rite = resp[`sorcery_${n}_rite`];
       if (!rite) continue;
-      const targets = resp[`sorcery_${n}_targets`] || '';
-      const notes   = resp[`sorcery_${n}_notes`]   || '';
+      const targetsText = resp[`sorcery_${n}_targets`] || '';
+      const notes       = resp[`sorcery_${n}_notes`]   || '';
       let desc = rite;
-      if (targets) desc += ` — targets: ${targets}`;
-      if (notes)   desc += ` — ${notes}`;
+      if (targetsText) desc += ` — targets: ${targetsText}`;
+      if (notes)       desc += ` — ${notes}`;
       queue.push({
         key: `${sub._id}:sorcery:${n}`,
         subId: sub._id,
@@ -2020,20 +2155,31 @@ function buildProcessingQueue(subs) {
         phase: PHASE_NUM_TO_LABEL[0],
         phaseNum: 0,
         actionType: 'resolve_first',
-        label: `Sorcery: ${rite}`,
+        label: `${tradition}: ${rite}`,
         description: desc,
         source: 'sorcery',
         actionIdx: n,
         poolPlayer: resp[`sorcery_${n}_pool_expr`] || '',
+        riteName: rite,
+        tradition,
+        targetsText,
       });
     }
 
-    // ── Feeding ──
-    const feedMethod = resp['_feed_method'];
-    if (feedMethod) {
-      const feedDisc  = resp['_feed_disc'] || '';
-      const feedDesc  = resp['feeding_description'] || '';
-      const poolLabel = [feedMethod, feedDisc].filter(Boolean).join(' + ');
+    // ── Feeding (all submissions get an entry; no-method submissions show as undeclared) ──
+    {
+      const feedMethod  = resp['_feed_method'] || '';
+      const feedDisc    = resp['_feed_disc']   || '';
+      const feedDesc    = resp['feeding_description'] || '';
+      const feedSpec    = resp['_feed_spec']   || '';
+      const feedRote    = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
+      let   feedTerrs   = {};
+      try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
+      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
+                       || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
+                       || '';
+      const methodLabel = feedMethod ? (FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod) : '';
+      const poolLabel   = [methodLabel, feedDisc].filter(Boolean).join(' + ');
       queue.push({
         key: `${sub._id}:feeding`,
         subId: sub._id,
@@ -2042,10 +2188,18 @@ function buildProcessingQueue(subs) {
         phaseNum: 1,
         actionType: 'feeding',
         label: 'Feeding',
-        description: feedDesc || poolLabel,
+        description: feedDesc || poolLabel || 'No feeding method declared',
         source: 'feeding',
         actionIdx: 0,
         poolPlayer: poolLabel,
+        feedMethod,
+        feedMethodLabel: methodLabel,
+        feedDisc,
+        feedSpec,
+        feedRote,
+        feedTerrs,
+        primaryTerr,
+        noMethod: !feedMethod,
       });
     }
 
@@ -2065,8 +2219,10 @@ function buildProcessingQueue(subs) {
     }
     projects.forEach((proj, idx) => {
       const actionType = proj.action_type || 'misc';
+      if (actionType === 'feed') return; // AC10: feeding rote projects shown in feeding phase
       const phaseNum = PHASE_ORDER[actionType] ?? 7;
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
+      const slot = idx + 1; // 1-indexed response key
       queue.push({
         key: `${sub._id}:proj:${idx}`,
         subId: sub._id,
@@ -2078,7 +2234,13 @@ function buildProcessingQueue(subs) {
         description: proj.detail || proj.desired_outcome || '',
         source: 'project',
         actionIdx: idx,
-        poolPlayer: proj.primary_pool?.expression || '',
+        projSlot: slot,
+        poolPlayer: proj.primary_pool?.expression || resp[`project_${slot}_pool_expr`] || '',
+        projTitle:     resp[`project_${slot}_title`]    || '',
+        projOutcome:   proj.desired_outcome || resp[`project_${slot}_outcome`] || '',
+        projCast:      resp[`project_${slot}_cast`]     || '',
+        projMerits:    resp[`project_${slot}_merits`]   || '',
+        projTerritory: resp[`project_${slot}_territory`] || '',
       });
     });
 
@@ -2094,7 +2256,8 @@ function buildProcessingQueue(subs) {
       const actionType = action.action_type || 'misc';
       const meritType  = (action.merit_type || '').toLowerCase();
       let phaseNum;
-      if (/allies|status/.test(meritType)) {
+      const isAlliesAction = /allies|status/.test(meritType);
+      if (isAlliesAction) {
         phaseNum = 9;
       } else if (/contact/.test(meritType)) {
         phaseNum = 10;
@@ -2116,6 +2279,7 @@ function buildProcessingQueue(subs) {
         source: 'merit',
         actionIdx: meritFlatIdx,
         poolPlayer: action.primary_pool?.expression || '',
+        isAlliesAction,
       });
       meritFlatIdx++;
     });
@@ -2164,6 +2328,54 @@ function buildProcessingQueue(subs) {
   return queue;
 }
 
+/**
+ * Recompute discipline × territory profile from all currently-validated feeding reviews.
+ * Called after any feeding pool_status or pool_validated change. Saves to cycle document.
+ */
+async function recomputeDisciplineProfile() {
+  const profile = {};
+  for (const sub of submissions) {
+    const rev = sub.feeding_review || {};
+    if (rev.pool_status !== 'validated' || !rev.pool_validated) continue;
+    let feedTerrs = {};
+    try { feedTerrs = JSON.parse(sub.responses?.feeding_territories || '{}'); } catch { feedTerrs = {}; }
+    const active = Object.entries(feedTerrs).filter(([, v]) => v && v !== 'none').map(([k]) => k);
+    if (!active.length) continue;
+    const foundDiscs = KNOWN_DISCIPLINES.filter(d => rev.pool_validated.includes(d));
+    for (const territory of active) {
+      if (!profile[territory]) profile[territory] = {};
+      for (const disc of foundDiscs) {
+        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+      }
+    }
+  }
+  // Also scan ambience project actions
+  for (const sub of submissions) {
+    for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
+      if (!proj?.pool_validated) continue;
+      if (proj.pool_status !== 'validated') continue;
+      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
+      const territory = sub.responses?.[`project_${pIdx + 1}_territory`] || '';
+      if (!territory) continue;
+      const foundDiscs = KNOWN_DISCIPLINES.filter(d => proj.pool_validated.includes(d));
+      if (!foundDiscs.length) continue;
+      if (!profile[territory]) profile[territory] = {};
+      for (const disc of foundDiscs) {
+        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+      }
+    }
+  }
+
+  try {
+    await updateCycle(selectedCycleId, { discipline_profile: profile });
+    const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+    if (idx >= 0) allCycles[idx].discipline_profile = profile;
+    if (currentCycle) currentCycle.discipline_profile = profile;
+  } catch (err) {
+    console.error('Failed to save discipline profile:', err.message);
+  }
+}
+
 /** Get the review object for a queue entry from its submission. */
 function getEntryReview(entry) {
   const sub = submissions.find(s => s._id === entry.subId);
@@ -2171,7 +2383,7 @@ function getEntryReview(entry) {
   if (entry.source === 'feeding') return sub.feeding_review || null;
   if (entry.source === 'project') return (sub.projects_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
-  if (entry.source === 'sorcery') return null; // future feature.44
+  if (entry.source === 'sorcery') return (sub.sorcery_review || {})[entry.actionIdx] || null;
   return null;
 }
 
@@ -2185,13 +2397,22 @@ async function saveEntryReview(entry, patch) {
     const updated = { ...current, ...patch };
     await updateSubmission(entry.subId, { feeding_review: updated });
     sub.feeding_review = updated;
+    // Recompute discipline × territory profile when pool or status changes
+    if ('pool_status' in patch || 'pool_validated' in patch) {
+      recomputeDisciplineProfile(); // async, fire-and-forget
+    }
   } else if (entry.source === 'project') {
     const resolved = [...(sub.projects_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
-    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    const current = resolved[entry.actionIdx] || { action_type: entry.actionType, pool: null, roll: null, st_note: '', pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '', resolved_at: null };
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { projects_resolved: resolved });
     sub.projects_resolved = resolved;
+    // Recompute discipline profile when ambience actions are validated
+    if (('pool_status' in patch || 'pool_validated' in patch) &&
+        (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')) {
+      recomputeDisciplineProfile(); // fire-and-forget
+    }
   } else if (entry.source === 'merit') {
     const resolved = [...(sub.merit_actions_resolved || [])];
     while (resolved.length <= entry.actionIdx) resolved.push(null);
@@ -2199,8 +2420,330 @@ async function saveEntryReview(entry, patch) {
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { merit_actions_resolved: resolved });
     sub.merit_actions_resolved = resolved;
+  } else if (entry.source === 'sorcery') {
+    const sorcReview = { ...(sub.sorcery_review || {}) };
+    const current = sorcReview[entry.actionIdx] || { pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    sorcReview[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { sorcery_review: sorcReview });
+    sub.sorcery_review = sorcReview;
   }
-  // sorcery: review data covered by feature.44
+}
+
+// ── Ambience Dashboard (feature.47) ─────────────────────────────────────────
+
+const AMBIENCE_STEPS_LIST = [
+  'Hostile', 'Barrens', 'Neglected', 'Untended',
+  'Settled', 'Tended', 'Curated', 'Verdant', 'The Rack',
+];
+
+/** Load (or reuse) territories from the DB, falling back to TERRITORY_DATA. */
+async function ensureTerritories() {
+  if (cachedTerritories) return cachedTerritories;
+  let db = [];
+  try { db = await apiGet('/api/territories'); } catch { /* ignore */ }
+  if (db.length) {
+    cachedTerritories = db;
+  } else {
+    cachedTerritories = TERRITORY_DATA.map(t => ({ ...t }));
+  }
+  return cachedTerritories;
+}
+
+/**
+ * Explicit slug-to-id map for territory keys produced by normaliseTerritoryGrid in db.js.
+ * Also covers display-name variants from _raw.feeding.territories.
+ */
+const TERRITORY_SLUG_MAP = {
+  // normaliseTerritoryGrid slugs
+  the_academy:              'academy',
+  the_city_harbour:         'harbour',
+  the_dockyards:            'dockyards',
+  the_docklands:            'dockyards',   // legacy
+  the_second_city:          'secondcity',
+  the_northern_shore:       'northshore',
+  the_barrens__no_territory_: null,  // no territory
+  // MATRIX_TERRS display-name keys (from _raw.feeding.territories)
+  'The Academy':            'academy',
+  'The City Harbour':       'harbour',
+  'The Harbour':            'harbour',   // short form used in _raw.influence
+  'The Dockyards':          'dockyards',
+  'The Docklands':          'dockyards',   // legacy
+  'The Second City':        'secondcity',
+  'The Northern Shore':     'northshore',
+  'The Shore':              'northshore', // short form used in _raw.influence
+  'The Barrens':            null,
+  // TERRITORY_DATA ids (pass-through)
+  academy:    'academy',
+  harbour:    'harbour',
+  dockyards:  'dockyards',
+  secondcity: 'secondcity',
+  northshore: 'northshore',
+};
+
+/** Scan free text for a territory mention; returns TERRITORY_DATA id or null. */
+function extractTerritoryFromText(text) {
+  if (!text) return null;
+  if (/\bacademy\b/i.test(text)) return 'academy';
+  if (/\bharbou?r\b/i.test(text)) return 'harbour';
+  if (/\bdockyards?\b/i.test(text)) return 'dockyards';
+  if (/\bsecond\s+city\b/i.test(text)) return 'secondcity';
+  if (/\bnorth(?:ern)?\s*shore\b/i.test(text)) return 'northshore';
+  return null;
+}
+
+/** Normalise a territory string to a TERRITORY_DATA id. Returns null if not found or barrens. */
+function resolveTerrId(raw) {
+  if (!raw) return null;
+  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
+  // Fallback: strip leading "the_" or "The ", convert underscores to spaces, fuzzy match
+  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ');
+  for (const td of TERRITORY_DATA) {
+    const tdNorm = td.name.toLowerCase().replace(/^the\s+/, '');
+    if (normalised === tdNorm || normalised.includes(tdNorm) || tdNorm.includes(normalised)) return td.id;
+  }
+  return null;
+}
+
+/**
+ * Build the per-territory aggregation data for the ambience dashboard.
+ * Returns an array of row objects (one per territory).
+ */
+function buildAmbienceData(terrs) {
+  // terrs: array from cachedTerritories / TERRITORY_DATA, keyed by .id
+  const terrById = {};
+  for (const t of TERRITORY_DATA) terrById[t.id] = t;
+
+  // Find current ambience from DB records (which may differ from TERRITORY_DATA defaults)
+  const startingAmbience = {};
+  if (terrs && terrs.length) {
+    for (const t of terrs) {
+      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
+      if (td) startingAmbience[td.id] = t.ambience || td.ambience;
+    }
+  }
+  // Fallback to TERRITORY_DATA
+  for (const td of TERRITORY_DATA) {
+    if (!startingAmbience[td.id]) startingAmbience[td.id] = td.ambience;
+  }
+
+  // ── Overfeeding: count feeders per territory ──
+  // Reads from responses.feeding_territories (slug keys) with fallback to _raw.feeding.territories
+  // (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
+  const feederCounts = {};
+  for (const sub of submissions) {
+    let grid = {};
+    const respStr = sub.responses?.feeding_territories;
+    if (respStr) {
+      try { grid = JSON.parse(respStr); } catch { grid = {}; }
+    } else {
+      // Fallback: _raw feeding territories use display-name keys ('The Academy': 'Resident')
+      grid = sub._raw?.feeding?.territories || {};
+    }
+    for (const [k, v] of Object.entries(grid)) {
+      if (!v || v === 'none' || v === 'Not feeding here') continue;
+      const tid = resolveTerrId(k);
+      if (!tid) continue; // skip barrens / unrecognised
+      feederCounts[tid] = (feederCounts[tid] || 0) + 1;
+    }
+  }
+
+  // ── Influence: sum numeric amounts per territory ──
+  // influence_territories stores { "The Academy": 3, "The Dockyards": -2, ... }
+  // Positive values = ambience increase; negative = decrease.
+  const infPos = {}, infNeg = {};
+  for (const sub of submissions) {
+    let infObj = {};
+    try { infObj = JSON.parse(sub.responses?.influence_territories || '{}'); } catch { infObj = {}; }
+    // Handle legacy format (array of names from old uploads) — treat each as +1
+    if (Array.isArray(infObj)) {
+      for (const k of infObj) {
+        const tid = resolveTerrId(k);
+        if (tid) infPos[tid] = (infPos[tid] || 0) + 1;
+      }
+    } else {
+      for (const [k, v] of Object.entries(infObj)) {
+        const tid = resolveTerrId(k);
+        if (!tid) continue;
+        const val = Number(v) || 0;
+        if (val > 0) infPos[tid] = (infPos[tid] || 0) + val;
+        else if (val < 0) infNeg[tid] = (infNeg[tid] || 0) + Math.abs(val);
+      }
+    }
+    // Resolved merit actions (ST-tagged post-processing)
+    for (const act of (sub.merit_actions_resolved || [])) {
+      if (!['validated', 'no_roll'].includes(act.status)) continue;
+      const tid = resolveTerrId(act.territory || '');
+      if (!tid) continue;
+      if (act.action_type === 'ambience_increase') infPos[tid] = (infPos[tid] || 0) + 1;
+      else if (act.action_type === 'ambience_decrease') infNeg[tid] = (infNeg[tid] || 0) + 1;
+    }
+  }
+
+  // ── Projects: sum roll successes from ambience project actions ──
+  const projPos = {}, projNeg = {};
+  let pendingAmbienceCount = 0;
+  for (const sub of submissions) {
+    // Count pending: ambience project actions in form responses with no resolved roll
+    for (let n = 1; n <= 4; n++) {
+      const action = sub.responses?.[`project_${n}_action`];
+      if (action !== 'ambience_increase' && action !== 'ambience_decrease') continue;
+      const resolved = (sub.projects_resolved || [])[n - 1];
+      if (!resolved?.roll) pendingAmbienceCount++;
+    }
+    // Sum resolved roll successes
+    for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
+      if (!proj) continue;
+      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
+      if (!proj.roll) continue;
+      const n = idx + 1;
+      const terrRaw = sub.responses?.[`project_${n}_territory`] || '';
+      const desc = sub.responses?.[`project_${n}_description`] || '';
+      const outcome = sub.responses?.[`project_${n}_outcome`] || '';
+      const tid = resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
+      if (!tid) continue;
+      const successes = proj.roll.successes ?? 0;
+      if (proj.action_type === 'ambience_increase') projPos[tid] = (projPos[tid] || 0) + successes;
+      else projNeg[tid] = (projNeg[tid] || 0) + successes;
+    }
+  }
+
+  // ── Assemble rows ──
+  const rows = TERRITORY_DATA.map(td => {
+    const id = td.id;
+    const ambience = startingAmbience[id] || td.ambience;
+    const cap = AMBIENCE_CAP[ambience] ?? 6;
+    const feeders = feederCounts[id] || 0;
+    const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
+    const entropy = -1;
+    const inf_pos = infPos[id] || 0;
+    const inf_neg = infNeg[id] || 0;
+    const influence = inf_pos - inf_neg;
+    const proj_pos = projPos[id] || 0;
+    const proj_neg = projNeg[id] || 0;
+    const projects = proj_pos - proj_neg;
+    const net = entropy + overfeedVal + influence + projects;
+    const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
+    let projStep = ambience;
+    if (startIdx >= 0) {
+      let delta = 0;
+      if (net > 0) delta = 1;
+      else if (net < -5) delta = -2;
+      else if (net < 0) delta = -1;
+      const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
+      projStep = AMBIENCE_STEPS_LIST[newIdx];
+    }
+    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
+  });
+  return { rows, pendingAmbienceCount };
+}
+
+/** Render the Ambience Dashboard panel (collapsible). Returns HTML string. */
+function renderAmbienceDashboard() {
+  const terrs = cachedTerritories || TERRITORY_DATA;
+  const { rows, pendingAmbienceCount } = buildAmbienceData(terrs);
+  const profile = currentCycle?.discipline_profile || {};
+  const notes = currentCycle?.ambience_notes || '';
+
+  let h = `<div class="proc-amb-dashboard">`;
+  h += `<div class="proc-amb-header" data-toggle="amb-dash">`;
+  h += `<span class="proc-amb-title">Ambience Dashboard</span>`;
+  if (pendingAmbienceCount > 0) h += `<span class="proc-amb-pending-chip">${pendingAmbienceCount} ambience action${pendingAmbienceCount > 1 ? 's' : ''} pending</span>`;
+  h += `<span class="proc-amb-toggle">${ambDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+  h += `</div>`;
+
+  if (!ambDashCollapsed) {
+    h += `<div class="proc-amb-body">`;
+
+    // ── Territory Ambience Table ──
+    h += `<table class="proc-amb-table">`;
+    h += `<thead><tr>
+      <th>Territory</th>
+      <th title="Current ambience step">Starting</th>
+      <th title="Fixed -1 entropy per cycle">Entropy</th>
+      <th title="Feeders vs cap">Overfeeding</th>
+      <th title="Influence spend from CSV: +positive / -negative / net">Influence</th>
+      <th title="Ambience project roll successes">Projects</th>
+      <th title="Sum of all columns">Net Change</th>
+      <th title="Projected new ambience step (preview only)">Projected</th>
+    </tr></thead>`;
+    h += `<tbody>`;
+    for (const r of rows) {
+      const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
+      const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
+      const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
+      const gap = r.cap - r.feeders;
+      const gapStr = gap >= 0 ? `+${gap}` : String(gap);
+      const gapClass = gap < 0 ? 'proc-amb-neg' : '';
+      const infNet = r.inf_pos - r.inf_neg;
+      const infNetStr = infNet > 0 ? `+${infNet}` : String(infNet);
+      const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
+      const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span> | <span class="proc-amb-neg">-${r.inf_neg}</span> | <span class="${infNetClass}">${infNetStr}</span>`;
+      h += `<tr>`;
+      h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
+      h += `<td>${esc(r.ambience)}</td>`;
+      h += `<td class="proc-amb-neg">${r.entropy}</td>`;
+      h += `<td>${r.feeders}/${r.cap} | <span class="${gapClass}">${gapStr}</span></td>`;
+      h += `<td>${infDisplay}</td>`;
+      const projNet = r.proj_pos - r.proj_neg;
+      const projNetStr = projNet > 0 ? `+${projNet}` : String(projNet);
+      const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
+      const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
+      h += `<td>${projDisplay}</td>`;
+      h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
+      h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
+      h += `</tr>`;
+    }
+    h += `</tbody></table>`;
+    h += `<p class="proc-amb-note">Net change is informational. Positive net = +1 step. Negative net = -1 step. Net below -5 = -2 steps.</p>`;
+
+    // ── Discipline Profile Matrix ──
+    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
+    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
+    h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+
+    if (!discDashCollapsed) {
+      // Find disciplines and territories with any count > 0
+      const discSet = new Set();
+      const terrSet = new Set();
+      for (const [terrId, discs] of Object.entries(profile)) {
+        for (const [disc, count] of Object.entries(discs)) {
+          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
+        }
+      }
+      const discList = [...discSet].sort();
+      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
+
+      if (!discList.length) {
+        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
+      } else {
+        h += `<table class="proc-disc-table">`;
+        h += `<thead><tr><th>Discipline</th>`;
+        for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
+        h += `</tr></thead><tbody>`;
+        for (const disc of discList) {
+          h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
+          for (const t of terrList) {
+            const count = profile[t.id]?.[disc] || 0;
+            h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
+          }
+          h += `</tr>`;
+        }
+        h += `</tbody></table>`;
+      }
+    }
+
+    // ── ST Notes ──
+    h += `<div class="proc-amb-notes-block">`;
+    h += `<label class="proc-amb-notes-lbl">ST Ambience Notes</label>`;
+    h += `<textarea class="proc-amb-notes" placeholder="Working notes about the territory picture this cycle...">${esc(notes)}</textarea>`;
+    h += `</div>`;
+
+    h += `</div>`; // proc-amb-body
+  }
+
+  h += `</div>`; // proc-amb-dashboard
+  return h;
 }
 
 /** Render the phase-ordered processing queue into the given container. */
@@ -2225,26 +2768,36 @@ function renderProcessingMode(container) {
 
   let h = '<div class="proc-queue">';
 
+  // Ambience Dashboard — always shown at top of Processing Mode
+  h += renderAmbienceDashboard();
+
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
+    const isCollapsed = collapsedPhases.has(phaseKey);
     h += `<div class="proc-phase-section">`;
-    h += `<div class="proc-phase-header">${esc(label)} <span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span></div>`;
+    h += `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
+    h += `<span class="proc-phase-label">${esc(label)}</span>`;
+    h += `<span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span>`;
+    h += `<span class="proc-phase-toggle">${isCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
 
-    for (const entry of entries) {
-      const isExpanded = procExpandedKey === entry.key;
-      const review = getEntryReview(entry);
-      const status = review?.pool_status || 'pending';
-      const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
+    if (!isCollapsed) {
+      for (const entry of entries) {
+        const isExpanded = procExpandedKey === entry.key;
+        const review = getEntryReview(entry);
+        const status = review?.pool_status || 'pending';
+        const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
 
-      h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
-      h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
-      h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
-      h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
-      h += `<span class="proc-row-status ${status}">${status === 'no_roll' ? 'No Roll' : status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
-      h += '</div>';
+        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+        h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
+        h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
+        h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+        h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+        h += '</div>';
 
-      if (isExpanded) {
-        h += renderActionPanel(entry, review);
+        if (isExpanded) {
+          h += renderActionPanel(entry, review);
+        }
       }
     }
 
@@ -2267,23 +2820,151 @@ function renderProcessingMode(container) {
   container.querySelectorAll('.proc-val-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
-      const key = btn.dataset.procKey;
+      const key    = btn.dataset.procKey;
       const status = btn.dataset.status;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry  = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
+      // For feeding entries: read builder state and save pool_validated before status
+      if (entry.source === 'feeding') {
+        const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+        if (builder) {
+          const expr = _readBuilderExpr(builder);
+          if (expr) await saveEntryReview(entry, { pool_validated: expr });
+        }
+      }
       await saveEntryReview(entry, { pool_status: status });
       renderProcessingMode(container);
     });
   });
 
-  // Wire pool_validated input (save on blur)
+  // Wire pool_validated free-text input (non-feeding fallback — save on blur)
   container.querySelectorAll('.proc-pool-input').forEach(inp => {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
-      const key = inp.dataset.procKey;
+      const key   = inp.dataset.procKey;
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
       await saveEntryReview(entry, { pool_validated: inp.value.trim() });
+    });
+  });
+
+  // Wire pool builder dropdowns → live total update
+  container.querySelectorAll('.proc-pool-attr, .proc-pool-skill, .proc-pool-disc').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', e => {
+      e.stopPropagation();
+      _updatePoolTotal(container, sel.dataset.procKey);
+      // AC 3 / Task 5: also update unskilled row in right panel when skill changes
+      if (sel.classList.contains('proc-pool-skill')) {
+        _updateUnskilledRow(container, sel.dataset.procKey);
+      }
+    });
+  });
+
+  // Wire modifier decrement button
+  container.querySelectorAll('.proc-pool-mod-dec').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const key     = btn.dataset.procKey;
+      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      if (!builder) return;
+      const modInput = builder.querySelector('.proc-pool-mod-val');
+      const modDisp  = builder.querySelector(`.proc-pool-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(modInput.value || '0', 10);
+      if (val > -5) val--;
+      modInput.value = val;
+      if (modDisp) modDisp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updatePoolTotal(container, key);
+    });
+  });
+
+  // Wire modifier increment button
+  container.querySelectorAll('.proc-pool-mod-inc').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const key     = btn.dataset.procKey;
+      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      if (!builder) return;
+      const modInput = builder.querySelector('.proc-pool-mod-val');
+      const modDisp  = builder.querySelector(`.proc-pool-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(modInput.value || '0', 10);
+      if (val < 5) val++;
+      modInput.value = val;
+      if (modDisp) modDisp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updatePoolTotal(container, key);
+    });
+  });
+
+  // Wire rote checkbox → save immediately to st_review.feeding_rote
+  container.querySelectorAll('.proc-pool-rote').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = cb.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const sub = submissions.find(s => s._id === entry.subId);
+      if (!sub) return;
+      const stReview = { ...(sub.st_review || {}), feeding_rote: cb.checked };
+      await updateSubmission(entry.subId, { st_review: stReview });
+      sub.st_review = stReview;
+    });
+  });
+
+  // ── feature.51: Equipment modifier ticker (pool mod panel) ──
+  container.querySelectorAll('.proc-equip-mod-dec, .proc-equip-mod-inc').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key    = btn.dataset.procKey;
+      const panel  = container.querySelector(`.proc-feed-mod-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+      const valInp = panel.querySelector('.proc-equip-mod-val');
+      const disp   = panel.querySelector(`.proc-equip-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(valInp?.value || '0', 10);
+      if (btn.classList.contains('proc-equip-mod-dec')) { if (val > -5) val--; }
+      else                                               { if (val < 5)  val++; }
+      if (valInp) valInp.value = val;
+      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updatePoolModTotal(container, key);
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (entry) await saveEntryReview(entry, { pool_mod_equipment: val });
+    });
+  });
+
+  // ── feature.51: Manual vitae adjustment ticker (vitae panel) ──
+  container.querySelectorAll('.proc-vitae-mod-dec, .proc-vitae-mod-inc').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const panel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+      const valInp = panel.querySelector('.proc-vitae-mod-val');
+      const disp   = panel.querySelector(`.proc-vitae-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(valInp?.value || '0', 10);
+      if (btn.classList.contains('proc-vitae-mod-dec')) val--;
+      else                                               val++;
+      if (valInp) valInp.value = val;
+      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updateVitaeTotal(container, key);
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (entry) await saveEntryReview(entry, { vitae_mod_manual: val });
+    });
+  });
+
+  // ── feature.51: Rite cost input (vitae panel) ──
+  container.querySelectorAll('.proc-rite-cost-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', e => {
+      e.stopPropagation();
+      _updateVitaeTotal(container, inp.dataset.procKey);
+    });
+    inp.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key  = inp.dataset.procKey;
+      const val  = Math.max(0, parseInt(inp.value || '0', 10));
+      inp.value  = val;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (entry) await saveEntryReview(entry, { vitae_rite_cost: val });
     });
   });
 
@@ -2346,6 +3027,157 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire project / merit roll buttons
+  container.querySelectorAll('.proc-action-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      const poolValidated = review?.pool_validated || '';
+      if (!poolValidated) return;
+      const match = poolValidated.match(/(\d+)\s*$/);
+      const diceCount = match ? parseInt(match[1], 10) : 0;
+      if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      const result = rollPool(diceCount, 10, 8, 5, false);
+      await saveEntryReview(entry, { roll: result });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire feeding roll buttons
+  container.querySelectorAll('.proc-feed-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const subId = btn.dataset.subId;
+      const isRote = btn.dataset.rote === 'true';
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      const poolValidated = review?.pool_validated || '';
+      if (!poolValidated) return;
+      const match = poolValidated.match(/(\d+)\s*$/);
+      const diceCount = match ? parseInt(match[1], 10) : 0;
+      if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      const sub = submissions.find(s => s._id === subId);
+      showRollModal(
+        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll, rote: isRote },
+        async result => {
+          await updateSubmission(subId, { feeding_roll: result });
+          if (sub) sub.feeding_roll = result;
+          renderProcessingMode(container);
+        }
+      );
+    });
+  });
+
+  // Wire "Attach Reminder" open button
+  container.querySelectorAll('.proc-attach-open-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      attachReminderKey = btn.dataset.procKey;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire "Cancel" on attach panel
+  container.querySelectorAll('.proc-attach-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      attachReminderKey = null;
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire "Attach" confirm
+  container.querySelectorAll('.proc-attach-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const panel = container.querySelector(`.proc-attach-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+
+      const textInput = panel.querySelector('.proc-attach-text');
+      const reminderText = textInput ? textInput.value.trim() : '';
+
+      // Gather checked targets
+      const targets = [];
+      panel.querySelectorAll('.proc-attach-target:checked').forEach(cb => {
+        targets.push({
+          sub_id:    cb.dataset.subId,
+          char_name: cb.dataset.charName,
+          action_key: cb.dataset.actionKey,
+        });
+      });
+
+      if (!reminderText) { textInput?.focus(); return; }
+
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+
+      const user = getUser();
+      const reminder = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+        source_sub_id:    entry.subId,
+        source_char_name: entry.charName,
+        source_rite:      entry.riteName,
+        source_tradition: entry.tradition,
+        text:             reminderText,
+        created_by:       user?.global_name || user?.username || 'ST',
+        created_at:       new Date().toISOString(),
+        targets,
+      };
+
+      cycleReminders = [...cycleReminders, reminder];
+      attachReminderKey = null;
+
+      try {
+        const updated = await updateCycle(selectedCycleId, { processing_reminders: cycleReminders });
+        // Sync back to allCycles
+        const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+        if (idx >= 0) allCycles[idx].processing_reminders = cycleReminders;
+      } catch (err) {
+        cycleReminders = cycleReminders.filter(r => r.id !== reminder.id); // rollback
+        alert('Failed to save reminder: ' + err.message);
+      }
+
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire phase section collapse toggles
+  container.querySelectorAll('[data-toggle-phase]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.togglePhase;
+      if (collapsedPhases.has(key)) collapsedPhases.delete(key);
+      else collapsedPhases.add(key);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire Ambience Dashboard collapse toggles
+  container.querySelector('[data-toggle="amb-dash"]')?.addEventListener('click', () => {
+    ambDashCollapsed = !ambDashCollapsed;
+    renderProcessingMode(container);
+  });
+  container.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
+    discDashCollapsed = !discDashCollapsed;
+    renderProcessingMode(container);
+  });
+
+  // Wire ST ambience notes textarea (save on blur)
+  container.querySelector('.proc-amb-notes')?.addEventListener('blur', async e => {
+    const val = e.target.value;
+    try {
+      await updateCycle(selectedCycleId, { ambience_notes: val });
+      const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+      if (idx >= 0) allCycles[idx].ambience_notes = val;
+      if (currentCycle) currentCycle.ambience_notes = val;
+    } catch (err) { console.error('Failed to save ambience notes:', err.message); }
+  });
+
   // Wire open-sub links
   container.querySelectorAll('.proc-open-sub-link').forEach(link => {
     link.addEventListener('click', e => {
@@ -2366,6 +3198,425 @@ function renderProcessingMode(container) {
   });
 }
 
+/** Render the inline Attach Reminder panel for a resolved sorcery entry. */
+function _renderAttachPanel(entry) {
+  // Build the list of all non-sorcery actions, grouped by character
+  const allActions = buildProcessingQueue(submissions).filter(e => e.source !== 'sorcery');
+
+  // Pre-selection: word-overlap match against entry.targetsText
+  const targetWords = (entry.targetsText || '').toLowerCase().split(/[\s,;]+/).filter(Boolean);
+  function isPreSelected(charName) {
+    if (!targetWords.length) return false;
+    const nameWords = charName.toLowerCase().split(/\s+/);
+    return nameWords.some(w => w.length > 2 && targetWords.some(t => t.includes(w) || w.includes(t)));
+  }
+
+  // Group by char
+  const byChar = new Map();
+  for (const a of allActions) {
+    if (!byChar.has(a.charName)) byChar.set(a.charName, []);
+    byChar.get(a.charName).push(a);
+  }
+
+  let h = `<div class="proc-attach-panel" data-proc-key="${esc(entry.key)}">`;
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Reminder Text</div>';
+  h += `<input class="proc-attach-text" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae" style="width:100%;margin-bottom:12px">`;
+  h += '<div class="proc-detail-label" style="margin-bottom:6px">Attach to Actions:</div>';
+  h += '<div class="proc-attach-actions">';
+
+  for (const [charName, actions] of byChar) {
+    const preSel = isPreSelected(charName);
+    h += `<div class="proc-attach-char-group">`;
+    h += `<div class="proc-attach-char-header">${esc(charName)}</div>`;
+    for (const a of actions) {
+      const ak = entryActionKey(a);
+      if (!ak) continue;
+      const checked = preSel ? ' checked' : '';
+      h += `<label class="proc-attach-target-row">`;
+      h += `<input type="checkbox" class="proc-attach-target"${checked} data-sub-id="${esc(a.subId)}" data-char-name="${esc(a.charName)}" data-action-key="${esc(ak)}" data-proc-key="${esc(entry.key)}">`;
+      h += ` ${esc(a.label)}${a.description ? ' — ' + esc(a.description.slice(0, 50)) : ''}`;
+      h += `</label>`;
+    }
+    h += `</div>`;
+  }
+
+  if (!allActions.length) {
+    h += '<p style="color:var(--txt3);font-size:12px">No other actions in this cycle.</p>';
+  }
+
+  h += '</div>'; // proc-attach-actions
+  h += '<div class="proc-attach-btn-row">';
+  h += `<button class="dt-btn proc-attach-confirm-btn" data-proc-key="${esc(entry.key)}">Attach</button>`;
+  h += `<button class="dt-btn proc-attach-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button>`;
+  h += '</div>';
+  h += '</div>'; // proc-attach-panel
+  return h;
+}
+
+// ── Pool Builder helpers (feature.50) ───────────────────────────────────────
+
+/**
+ * Parse a pool_validated expression back into its components.
+ * Format: "{Attr} {n} + {Skill} {n}[ + {Disc} {n}][± modifier] = {total}"
+ * Returns { attr, skill, disc, modifier } or null on failure.
+ */
+function _parsePoolExpr(str, attrList, skillList, discNames) {
+  if (!str) return null;
+  const eqIdx = str.lastIndexOf('=');
+  if (eqIdx === -1) return null;
+  let lhs = str.slice(0, eqIdx).trim();
+
+  // Extract negative modifier: ends with ' − N' (U+2212)
+  let modifier = 0;
+  const negModMatch = lhs.match(/\s+\u2212\s*(\d+)\s*$/);
+  if (negModMatch) {
+    modifier = -parseInt(negModMatch[1], 10);
+    lhs = lhs.slice(0, negModMatch.index).trim();
+  }
+
+  // Split remaining by ' + '
+  const parts = lhs.split(/\s+\+\s+/);
+
+  // If last part is a lone number, it's a positive modifier
+  if (!negModMatch && parts.length > 1) {
+    const last = parts[parts.length - 1].trim();
+    if (/^\d+$/.test(last)) {
+      modifier = parseInt(last, 10);
+      parts.pop();
+    }
+  }
+
+  if (parts.length < 2) return null;
+
+  function parsePart(p) {
+    const m = p.trim().match(/^(.+?)\s+(\d+)$/);
+    return m ? { name: m[1].trim(), dots: parseInt(m[2], 10) } : null;
+  }
+
+  const t0 = parsePart(parts[0]);
+  const t1 = parsePart(parts[1]);
+  const t2 = parts[2] ? parsePart(parts[2]) : null;
+  if (!t0 || !t1) return null;
+
+  const attr  = attrList.find(a => a.toLowerCase() === t0.name.toLowerCase()) || null;
+  const skill = skillList.find(s => s.toLowerCase() === t1.name.toLowerCase()) || null;
+  if (!attr || !skill) return null;
+
+  let disc = 'none';
+  if (t2 && discNames) {
+    disc = discNames.find(d => d.toLowerCase() === t2.name.toLowerCase()) || 'none';
+  }
+  return { attr, skill, disc, modifier };
+}
+
+/**
+ * Return the unskilled penalty for a skill with 0 dots (-3 mental, -1 otherwise).
+ */
+function _unskilledPenalty(skillName, skillDots) {
+  if (!skillName || skillDots > 0) return 0;
+  return SKILLS_MENTAL.includes(skillName) ? -3 : -1;
+}
+
+/**
+ * Build the human-readable pool expression string for pool_validated.
+ */
+function _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier) {
+  if (!attr || !skill) return '';
+  let expr = `${attr} ${attrDots} + ${skill} ${skillDots}`;
+  if (disc && disc !== 'none') expr += ` + ${disc} ${discDots}`;
+  if (modifier !== 0) expr += ` ${modifier > 0 ? '+' : '\u2212'} ${Math.abs(modifier)}`;
+  const total = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
+  expr += ` = ${total}`;
+  return expr;
+}
+
+/**
+ * Build the live display string for the pool total element.
+ * skillName is optional; when provided and skillDots === 0, appends unskilled penalty note.
+ */
+function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skillName) {
+  if (!attr || !skill) return '\u2014 + \u2014 = 0';
+  const base = _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+  const penalty = _unskilledPenalty(skillName, skillDots);
+  if (!penalty) return base;
+  const rawTotal = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
+  const corrected = rawTotal + penalty;
+  return base.replace(`= ${rawTotal}`, `= ${corrected} (\u2212${Math.abs(penalty)} unskilled)`);
+}
+
+/**
+ * Read the current builder state from the DOM and return the pool expression string.
+ * Returns null if attr or skill are not selected.
+ */
+function _readBuilderExpr(builder) {
+  const attrSel  = builder.querySelector('.proc-pool-attr');
+  const skillSel = builder.querySelector('.proc-pool-skill');
+  const discSel  = builder.querySelector('.proc-pool-disc');
+  const modInput = builder.querySelector('.proc-pool-mod-val');
+  if (!attrSel || !skillSel) return null;
+  const attr  = attrSel.value;
+  const skill = skillSel.value;
+  if (!attr || !skill) return null;
+  const disc     = discSel ? discSel.value : 'none';
+  const modifier = parseInt(modInput ? modInput.value : '0', 10);
+  const attrDots  = parseInt(attrSel.selectedOptions[0]?.dataset.dots  || '0', 10);
+  const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
+  const discDots  = (discSel && disc !== 'none') ? parseInt(discSel.selectedOptions[0]?.dataset.dots || '0', 10) : 0;
+  return _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+}
+
+/**
+ * Recompute pool modifier total in the right panel for a feeding entry.
+ */
+function _updatePoolModTotal(container, key) {
+  const modPanel = container.querySelector(`.proc-feed-mod-panel[data-proc-key="${key}"]`);
+  if (!modPanel) return;
+  const fgData = modPanel.dataset.fg;
+  const fgDice = fgData !== '' ? parseInt(fgData || '0', 10) : 0;
+
+  const unskilledRow = modPanel.querySelector('.proc-feed-unskilled-row');
+  const unskilledVal = (unskilledRow && unskilledRow.style.display !== 'none')
+    ? parseInt(modPanel.querySelector('.proc-mod-unskilled-val')?.textContent || '0', 10)
+    : 0;
+
+  const eqInput = modPanel.querySelector('.proc-equip-mod-val');
+  const eqVal = parseInt(eqInput?.value || '0', 10);
+
+  const total = fgDice + unskilledVal + eqVal;
+  const totalEl = modPanel.querySelector('.proc-mod-total-val');
+  if (totalEl) totalEl.textContent = total === 0 ? '\u00B10' : total > 0 ? `+${total}` : String(total);
+}
+
+/**
+ * Recompute final vitae total in the vitae panel for a feeding entry.
+ */
+function _updateVitaeTotal(container, key) {
+  const panel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
+  if (!panel) return;
+  const herd    = panel.dataset.herd     !== '' ? parseInt(panel.dataset.herd     || '0', 10) : 0;
+  const oof     = parseInt(panel.dataset.oof      || '0', 10);
+  const amb     = panel.dataset.ambience !== '' ? parseInt(panel.dataset.ambience || '0', 10) : 0;
+  const ghouls  = parseInt(panel.dataset.ghouls   || '0', 10);
+  const manVal  = parseInt(panel.querySelector('.proc-vitae-mod-val')?.value  || '0', 10);
+  const riteVal = parseInt(panel.querySelector('.proc-rite-cost-input')?.value || '0', 10);
+  const total   = Math.max(0, herd + oof + amb - ghouls + manVal - riteVal);
+  const totalEl = panel.querySelector('.proc-vitae-total-val');
+  if (totalEl) totalEl.textContent = String(total);
+}
+
+/**
+ * Update the unskilled row in the right panel when the skill dropdown changes.
+ */
+function _updateUnskilledRow(container, key) {
+  const right = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+  if (!right) return;
+  const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+  if (!builder) return;
+  const skillSel  = builder.querySelector('.proc-pool-skill');
+  if (!skillSel) return;
+  const skillName = skillSel.value;
+  const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
+  const penalty   = _unskilledPenalty(skillName, skillDots);
+
+  const row = right.querySelector('.proc-feed-unskilled-row');
+  if (row) {
+    if (penalty === 0) {
+      row.style.display = 'none';
+    } else {
+      row.style.display = '';
+      const valEl = row.querySelector('.proc-mod-unskilled-val');
+      if (valEl) valEl.textContent = String(penalty);
+    }
+  }
+  _updatePoolModTotal(container, key);
+}
+
+/**
+ * Recompute and update the total display for a pool builder in the container.
+ */
+function _updatePoolTotal(container, key) {
+  const builder  = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+  if (!builder) return;
+  const attrSel  = builder.querySelector('.proc-pool-attr');
+  const skillSel = builder.querySelector('.proc-pool-skill');
+  const discSel  = builder.querySelector('.proc-pool-disc');
+  const modInput = builder.querySelector('.proc-pool-mod-val');
+  const totalEl  = builder.querySelector('.proc-pool-total');
+  if (!attrSel || !skillSel || !totalEl) return;
+  const attr     = attrSel.value;
+  const skill    = skillSel.value;
+  const disc     = discSel ? discSel.value : 'none';
+  const modifier = parseInt(modInput ? modInput.value : '0', 10);
+  const attrDots  = parseInt(attrSel.selectedOptions[0]?.dataset.dots  || '0', 10);
+  const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
+  const discDots  = (discSel && disc !== 'none') ? parseInt(discSel.selectedOptions[0]?.dataset.dots || '0', 10) : 0;
+  totalEl.textContent = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skill);
+}
+
+/**
+ * Render the right-side modifier panel for a feeding entry (Tasks 2 & 3, feature.51).
+ * @param {object} entry - Processing queue entry
+ * @param {object|null} char - Character document (may be null)
+ * @param {object} rev - feeding_review fields
+ */
+function _renderFeedRightPanel(entry, char, rev) {
+  const key = entry.key;
+
+  // ── Pool modifier panel data ──
+  const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
+  const fgDice = fg ? (fg.rating || 0) : null; // null = char not loaded
+
+  // Initial unskilled from pool_validated (may be '' if nothing saved yet)
+  const poolValidated = rev.pool_validated || '';
+  let initSkillName = '', initSkillDots = 0;
+  if (poolValidated && char) {
+    const charDiscs0 = (char.disciplines || []).filter(d => d.dots > 0).map(d => d.name);
+    const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
+    if (parsed0?.skill) {
+      initSkillName = parsed0.skill;
+      initSkillDots = skDots(getSkillObj(char, initSkillName)) || 0;
+    }
+  }
+  const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
+
+  const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+  const eqStr = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const poolModTotal = (fgDice ?? 0) + initUnskilled + eqMod;
+  const poolModTotalStr = poolModTotal === 0 ? '\u00B10' : poolModTotal > 0 ? `+${poolModTotal}` : String(poolModTotal);
+
+  // fgDice data attr: '' when char null (so live update can detect "unknown")
+  const fgDataAttr = fgDice !== null ? String(fgDice) : '';
+  const fgDisplay  = fgDice !== null ? (fgDice > 0 ? `+${fgDice}` : String(fgDice)) : '\u2014';
+
+  let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+
+  // ── Dice Pool Modifiers ──
+  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
+  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+  // Feeding Grounds row
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val${fgDice !== null && fgDice > 0 ? ' proc-mod-pos' : ''}">${fgDisplay}</span></div>`;
+  // Unskilled penalty row (hidden when 0)
+  const unskilledDisplay = initUnskilled !== 0 ? String(initUnskilled) : '0';
+  h += `<div class="proc-feed-unskilled-row proc-mod-row" data-proc-key="${esc(key)}" style="${initUnskilled === 0 ? 'display:none' : ''}">`;
+  h += `<span class="proc-mod-label">Unskilled penalty</span>`;
+  h += `<span class="proc-mod-val proc-mod-neg proc-mod-unskilled-val">${unskilledDisplay}</span>`;
+  h += `</div>`;
+  // Equipment ticker
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
+  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
+  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+  // Total
+  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
+  h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
+  h += `</div>`;
+  h += `</div>`; // proc-feed-mod-panel
+
+  // ── Vitae Tally ──
+  const herd = (char?.merits || []).find(m => m.name === 'Herd');
+  const herdVitae = herd ? (herd.rating || 0) : null;
+
+  const hasOoF = (char?.powers || []).some(p => p.category === 'pact' && p.name === 'Oath of Fealty');
+  const oofVitae = hasOoF ? Math.max(char.status?.covenant || 0, char._ots_covenant_bonus || 0) : 0;
+
+  // Ambience: check cachedTerritories then TERRITORY_DATA
+  const terrList = (cachedTerritories && cachedTerritories.length) ? cachedTerritories : TERRITORY_DATA;
+  const terrRec = entry.primaryTerr
+    ? terrList.find(t =>
+        t.id === entry.primaryTerr ||
+        t.name === entry.primaryTerr ||
+        t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
+      )
+    : null;
+  const ambienceVitae = terrRec?.ambienceMod ?? null;
+
+  const ghoulCount = (char?.merits || []).filter(m =>
+    m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
+  ).length;
+
+  const vitaeMod  = rev.vitae_mod_manual !== undefined ? rev.vitae_mod_manual : 0;
+  const vitaeRite = rev.vitae_rite_cost  !== undefined ? rev.vitae_rite_cost  : 0;
+  const manStr    = vitaeMod === 0 ? '\u00B10' : vitaeMod > 0 ? `+${vitaeMod}` : String(vitaeMod);
+
+  const autoSum = (herdVitae ?? 0) + oofVitae + (ambienceVitae ?? 0) - ghoulCount;
+  const finalVitae = Math.max(0, autoSum + vitaeMod - vitaeRite);
+
+  // data attrs for live recalculation
+  const herdData      = herdVitae     !== null ? String(herdVitae)    : '';
+  const ambienceData  = ambienceVitae !== null ? String(ambienceVitae): '';
+
+  h += `<div class="proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
+  h += `<div class="proc-mod-panel-title">Vitae Tally</div>`;
+
+  // Herd
+  const herdDisplay = herdVitae !== null ? `+${herdVitae}` : '\u2014';
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Herd</span><span class="proc-mod-val${herdVitae !== null && herdVitae > 0 ? ' proc-mod-pos' : ''}">${herdDisplay}</span></div>`;
+
+  // Feeding Grounds — does not contribute vitae
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val proc-mod-muted">\u2014</span></div>`;
+
+  // Oath of Fealty (only if character has it)
+  if (hasOoF) {
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Oath of Fealty</span><span class="proc-mod-val proc-mod-pos">+${oofVitae}</span></div>`;
+  }
+
+  // Ambience (only if non-zero and known)
+  if (ambienceVitae !== null && ambienceVitae !== 0) {
+    const ambSign = ambienceVitae > 0 ? '+' : '';
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Ambience</span><span class="proc-mod-val ${ambienceVitae > 0 ? 'proc-mod-pos' : 'proc-mod-neg'}">${ambSign}${ambienceVitae}</span></div>`;
+  }
+
+  // Ghoul retainers (only if > 0)
+  if (ghoulCount > 0) {
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Ghoul retainers</span><span class="proc-mod-val proc-mod-neg">\u2212${ghoulCount}</span></div>`;
+  }
+
+  // Rite costs row (always shown with manual input)
+  h += `<div class="proc-mod-row proc-mod-rite-row">`;
+  h += `<span class="proc-mod-label">Rite costs</span>`;
+  h += `<input type="number" class="proc-rite-cost-input" min="0" data-proc-key="${esc(key)}" value="${vitaeRite}" style="width:52px">`;
+  h += `</div>`;
+
+  // Manual adjustment ticker
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Manual adj.</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="proc-vitae-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="proc-vitae-mod-disp" data-proc-key="${esc(key)}">${manStr}</span>`;
+  h += `<input type="hidden" class="proc-vitae-mod-val" data-proc-key="${esc(key)}" value="${vitaeMod}">`;
+  h += `<button class="proc-vitae-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+
+  // Final vitae total
+  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Final Vitae</span>`;
+  h += `<span class="proc-vitae-total-val" data-proc-key="${esc(key)}">${finalVitae}</span>`;
+  h += `</div>`;
+
+  h += `</div>`; // proc-feed-vitae-panel
+
+  // ── Rote toggle ──
+  const feedSubR = submissions.find(s => s._id === entry.subId);
+  const isRote   = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
+  h += `<div class="proc-feed-right-section">`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
+  h += `</div>`;
+
+  // ── Validation Status ──
+  const poolStatus = rev.pool_status || 'pending';
+  h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
+  h += `<div class="proc-mod-panel-title">Validation Status</div>`;
+  h += `<div class="proc-val-status">`;
+  h += `<button class="proc-val-btn${poolStatus === 'pending'    ? ' active pending'    : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'validated'  ? ' active validated'  : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  h += `</div>`; // proc-feed-right
+  return h;
+}
+
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
@@ -2374,35 +3625,259 @@ function renderActionPanel(entry, review) {
   const poolStatus    = rev.pool_status    || 'pending';
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
+  const isSorcery     = entry.source === 'sorcery';
+
+  // Hoist char lookup for feeding entries (needed by right panel and pool builder)
+  let feedSub = null;
+  let feedChar = null;
+  if (entry.source === 'feeding') {
+    feedSub = submissions.find(s => s._id === entry.subId) || null;
+    const charIdStr   = feedSub?.character_id ? String(feedSub.character_id) : null;
+    const charNameKey = (feedSub?.character_name || '').toLowerCase().trim();
+    feedChar =
+      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+      charMap.get(charNameKey) ||
+      null;
+  }
 
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
+
+  // ── Reminder badges (non-sorcery target actions) ──
+  const actionKey = entryActionKey(entry);
+  if (actionKey) {
+    const badges = cycleReminders.filter(r =>
+      r.targets && r.targets.some(t => t.sub_id === entry.subId && t.action_key === actionKey)
+    );
+    for (const r of badges) {
+      h += `<div class="proc-reminder-badge">\u2691 ${esc(r.source_rite)} (${esc(r.source_tradition)}) \u2014 ${esc(r.text)}</div>`;
+    }
+  }
 
   // Full description if it was truncated
   if (entry.description && entry.description.length > 80) {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
   }
 
-  // Pool row
-  h += '<div class="proc-detail-grid">';
-  h += '<div class="proc-detail-col">';
-  h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
-  h += `<div class="proc-detail-value">${esc(poolPlayer || '—')}</div>`;
-  h += '</div>';
-  h += '<div class="proc-detail-col">';
-  h += `<div class="proc-detail-label">ST Validated Pool</div>`;
-  h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
-  h += '</div>';
-  h += '</div>'; // proc-detail-grid
-
-  // Validation status
-  h += '<div style="margin-bottom:12px">';
-  h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
-  h += '<div class="proc-val-status">';
-  for (const [val, label] of [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']]) {
-    h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
+  // ── Project-specific detail display ──
+  if (entry.source === 'project') {
+    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory;
+    if (hasExtra) {
+      h += '<div class="proc-proj-detail">';
+      if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
+      if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
+      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
+      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits Used</span> ${esc(entry.projMerits)}</div>`;
+      h += '</div>';
+    }
+    // Previous roll result
+    const projSub = submissions.find(s => s._id === entry.subId);
+    const projRoll = projSub?.projects_resolved?.[entry.actionIdx]?.roll;
+    if (projRoll) {
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(projRoll.successes))} success${projRoll.successes !== 1 ? 'es' : ''}${projRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
+    }
   }
-  h += '</div>';
-  h += '</div>';
+
+  // ── Merit action previous roll result ──
+  if (entry.source === 'merit') {
+    const meritSub  = submissions.find(s => s._id === entry.subId);
+    const meritRoll = meritSub?.merit_actions_resolved?.[entry.actionIdx]?.roll;
+    if (meritRoll) {
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(meritRoll.successes))} success${meritRoll.successes !== 1 ? 'es' : ''}${meritRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
+    }
+    if (entry.isAlliesAction && poolStatus === 'pending') {
+      h += `<div class="proc-allies-hint">Allies actions within favour rating are typically automatic \u2014 consider "No Roll Needed".</div>`;
+    }
+  }
+
+  // ── Feeding two-column layout wrapper ──
+  if (entry.source === 'feeding') h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+
+  // ── Feeding-specific detail display ──
+  if (entry.source === 'feeding') {
+    if (entry.noMethod) {
+      h += `<div class="proc-feed-no-method">No feeding method declared by player.</div>`;
+    } else {
+      h += '<div class="proc-feed-info">';
+      h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Method</span> ${esc(entry.feedMethodLabel || entry.feedMethod)}</span>`;
+      if (entry.feedDisc) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Discipline</span> ${esc(entry.feedDisc)}</span>`;
+      if (entry.feedSpec) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Specialisation</span> ${esc(entry.feedSpec)}</span>`;
+      if (entry.feedRote) h += `<span class="proc-feed-field proc-feed-rote-badge">Rote</span>`;
+      const activeTerms = Object.entries(entry.feedTerrs || {}).filter(([, v]) => v && v !== 'none')
+        .map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
+      if (activeTerms) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Territory</span> ${esc(activeTerms)}</span>`;
+      if (entry.primaryTerr) {
+        const terrRec = TERRITORY_DATA.find(t => t.id === entry.primaryTerr || t.name === entry.primaryTerr || t.name?.toLowerCase() === entry.primaryTerr.replace(/_/g, ' ').toLowerCase());
+        const amb = terrRec?.ambienceMod ?? 0;
+        if (amb !== 0) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Ambience</span> ${amb > 0 ? '+' : ''}${amb}</span>`;
+      }
+      h += '</div>';
+    }
+    // Previous roll result (use hoisted feedSub from top of function)
+    const feedRoll = feedSub?.feeding_roll;
+    if (feedRoll) {
+      const roteTag = feedRoll.params?.rote ? ' (rote)' : '';
+      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(feedRoll.successes))} success${feedRoll.successes !== 1 ? 'es' : ''}${feedRoll.exceptional ? ' \u2014 exceptional' : ''}${roteTag}</div>`;
+    }
+  }
+
+  // Pool row — feeding gets structured pool builder; others get free-text input
+  if (entry.source === 'feeding') {
+    // Use hoisted feedSub / feedChar from top of function
+    const resp = feedSub?.responses || {};
+    const isAppForm = !!(resp.feed_attr);
+    const char = feedChar;
+
+    // Player's submitted pool (source-aware, read-only)
+    h += '<div class="proc-pool-player-row">';
+    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+    if (isAppForm) {
+      const pAttr  = resp.feed_attr || '';
+      const pSkill = resp.feed_skill || '';
+      const pDisc  = resp.feed_discipline || '';
+      const pStr   = pAttr + (pSkill ? ' + ' + pSkill : '') + (pDisc ? ' + ' + pDisc : '');
+      h += `<div class="proc-detail-value proc-pool-player-structured">${esc(pStr || '\u2014')}</div>`;
+    } else {
+      h += `<div class="proc-detail-value proc-pool-player-csv">${esc(poolPlayer || '\u2014')}</div>`;
+    }
+    h += '</div>';
+
+    // ST Pool Builder — always rendered; dot values filled from char data when available
+    {
+      const charDiscs = char ? (char.disciplines || []).filter(d => d.dots > 0) : [];
+      const discNames = charDiscs.map(d => d.name);
+      const allDiscNames = char ? discNames : KNOWN_DISCIPLINES;
+
+      // Pre-populate from existing pool_validated
+      let preAttr = '', preSkill = '', preDisc = 'none', preMod = 0, showParseRef = false;
+      if (poolValidated) {
+        const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, allDiscNames);
+        if (parsed) {
+          preAttr  = parsed.attr  || '';
+          preSkill = parsed.skill || '';
+          preDisc  = parsed.disc  || 'none';
+          preMod   = parsed.modifier || 0;
+        } else {
+          showParseRef = true;
+        }
+      }
+
+      const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
+        ...ALL_ATTRS.map(a => {
+          const dots = char ? (getAttrVal(char, a) || 0) : null;
+          const sel  = a === preAttr ? ' selected' : '';
+          const label = dots !== null ? `${esc(a)} (${dots})` : esc(a);
+          return `<option value="${esc(a)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
+        })
+      ].join('');
+
+      const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
+        ...ALL_SKILLS.map(s => {
+          const dots = char ? (skDots(getSkillObj(char, s)) || 0) : null;
+          const sel  = s === preSkill ? ' selected' : '';
+          const label = dots !== null ? `${esc(s)} (${dots})` : esc(s);
+          return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
+        })
+      ].join('');
+
+      const discOptHtml = ['<option value="none" data-dots="0">None</option>',
+        ...allDiscNames.map(name => {
+          const d    = charDiscs.find(cd => cd.name === name);
+          const dots = d ? d.dots : null;
+          const sel  = name === preDisc ? ' selected' : '';
+          const label = dots !== null ? `${esc(name)} (${dots})` : esc(name);
+          return `<option value="${esc(name)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
+        })
+      ].join('');
+
+      // Initial total display (AC 12: pass skillName for unskilled penalty)
+      const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
+      const initSkillDots = preSkill ? (char ? (skDots(getSkillObj(char, preSkill)) || 0) : 0) : 0;
+      const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
+      const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, preMod, preSkill);
+
+      h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
+      h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder${!char ? ' <span style="color:var(--txt3);font-size:10px">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+      if (showParseRef) {
+        h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
+      }
+      h += '<div class="proc-pool-builder-selects">';
+      h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}">${attrOptHtml}</select>`;
+      h += `<span class="proc-pool-plus">+</span>`;
+      h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}">${skillOptHtml}</select>`;
+      h += `<span class="proc-pool-plus">+</span>`;
+      h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
+      h += '</div>'; // proc-pool-builder-selects
+      h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
+      h += '</div>'; // proc-pool-builder
+    }
+  } else {
+    // Non-feeding: standard 2-column layout
+    h += '<div class="proc-detail-grid">';
+    h += '<div class="proc-detail-col">';
+    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+    h += `<div class="proc-detail-value">${esc(poolPlayer || '\u2014')}</div>`;
+    h += '</div>';
+    h += '<div class="proc-detail-col">';
+    h += `<div class="proc-detail-label">ST Validated Pool</div>`;
+    h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
+    h += '</div>';
+    h += '</div>'; // proc-detail-grid
+  }
+
+  // Validation status — feeding moves to right panel; non-feeding rendered here
+  if (entry.source !== 'feeding') {
+    const statusOptions = isSorcery
+      ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
+      : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
+
+    h += '<div style="margin-bottom:12px">';
+    h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
+    h += '<div class="proc-val-status">';
+    for (const [val, label] of statusOptions) {
+      h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
+    }
+    h += '</div>';
+    h += '</div>';
+  }
+
+  // ── Attach Reminder (sorcery resolved) ──
+  if (isSorcery) {
+    const reminderCount = cycleReminders.filter(r =>
+      r.source_sub_id === entry.subId && r.source_rite === entry.riteName
+    ).length;
+
+    if (poolStatus === 'resolved') {
+      if (attachReminderKey === entry.key) {
+        // Render the inline attach panel
+        h += _renderAttachPanel(entry);
+      } else {
+        h += `<div style="margin-bottom:12px">`;
+        h += `<button class="dt-btn proc-attach-open-btn" data-proc-key="${esc(entry.key)}">Attach Reminder</button>`;
+        if (reminderCount) {
+          h += ` <span class="proc-attach-count">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</span>`;
+        }
+        h += `</div>`;
+      }
+    } else if (reminderCount) {
+      h += `<div class="proc-attach-count" style="margin-bottom:12px">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
+    }
+  }
+
+  // Roll button for validated project / merit entries
+  if ((entry.source === 'project' || entry.source === 'merit') && poolStatus === 'validated') {
+    h += '<div style="margin-bottom:12px">';
+    h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
+    h += '</div>';
+  }
+
+  // Roll button for validated feeding entries
+  if (entry.source === 'feeding' && poolStatus === 'validated') {
+    const isRote   = entry.feedRote || feedSub?.st_review?.feeding_rote || false;
+    h += '<div style="margin-bottom:12px">';
+    h += `<button class="dt-btn proc-feed-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-rote="${isRote}">Roll Feeding</button>`;
+    h += '</div>';
+  }
 
   // Player feedback
   h += '<div style="margin-bottom:12px">';
@@ -2431,6 +3906,13 @@ function renderActionPanel(entry, review) {
   h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
   h += '</div>';
   h += '</div>';
+
+  // ── Close left column; render right panel for feeding entries ──
+  if (entry.source === 'feeding') {
+    h += '</div>'; // proc-feed-left
+    h += _renderFeedRightPanel(entry, feedChar, rev);
+    h += '</div>'; // proc-feed-layout
+  }
 
   // Re-tag action type (for project actions only)
   if (entry.source === 'project') {

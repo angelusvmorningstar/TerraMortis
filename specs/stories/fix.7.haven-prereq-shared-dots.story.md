@@ -1,6 +1,6 @@
 # Story Fix.7: Haven Prerequisite — Count Shared Dots
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

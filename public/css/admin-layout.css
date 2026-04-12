@@ -2440,14 +2440,57 @@ body {
 }
 
 .pv-card {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.pv-card-header {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
-  background: var(--surf1);
-  border: 1px solid var(--bdr);
-  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
+.pv-card-header:hover { background: var(--surf2); }
+.pv-card-expanded { border-color: var(--gold-a30); }
+.pv-row-actions { flex-shrink: 0; }
+.pv-icon-btn {
+  background: none;
+  border: none;
+  color: var(--txt3);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.pv-icon-btn:hover { color: var(--gold2); background: rgba(224,196,122,0.1); }
+.pv-remove-btn:hover { color: var(--crim2, #B22222); background: rgba(180,40,40,0.1); }
+.pv-detail {
+  padding: 12px 16px;
+  border-top: 1px solid var(--bdr);
+  background: var(--surf);
+}
+.pv-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-bottom: 10px;
+}
+.pv-detail-wide { grid-column: 1 / -1; }
+.pv-detail-field { font-size: 13px; color: var(--txt); }
+.pv-detail-label {
+  display: block;
+  font-family: var(--fh);
+  font-size: 10px;
+  color: var(--txt3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.pv-detail-actions { display: flex; gap: 8px; }
 
 .pv-avatar {
   width: 40px;
@@ -2745,6 +2788,58 @@ body {
 }
 .gc-wizard-footer .dt-btn { align-self: auto; }
 .gc-wizard-footer .dt-btn + .dt-btn { margin-left: 8px; }
+
+/* AC 1–3: Blocking unresolved submission rows */
+.gc-chk-block-header {
+  color: #c8a84b;
+  margin-bottom: 4px;
+}
+.gc-chk-block {
+  font-size: 12px;
+  color: var(--txt2);
+  padding: 2px 0 2px 8px;
+}
+.gc-chk-block label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.gc-dismiss-check { cursor: pointer; }
+.gc-chk-name { color: var(--txt1); }
+
+/* AC 5: Feeding gate prompt */
+.gc-prompt {
+  font-size: 13px;
+  color: var(--txt1);
+  margin: 0;
+  align-self: center;
+}
+
+/* AC 6: Deadline input */
+.gc-deadline-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.gc-deadline-label {
+  font-size: 12px;
+  color: var(--txt3);
+  font-family: var(--fh);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.gc-deadline-input {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt1);
+  font-size: 13px;
+  padding: 4px 8px;
+  width: 150px;
+}
+.gc-deadline-input:focus { border-color: var(--gold2); outline: none; }
 
 .gc-result-ok {
   font-size: 13px;
@@ -3547,13 +3642,25 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+  user-select: none;
 }
+.proc-phase-header:hover { background: var(--surf3); }
+
+.proc-phase-label { flex: 1; }
 
 .proc-phase-count {
   font-size: 11px;
   font-weight: 400;
   color: var(--txt3);
   font-family: var(--fb);
+}
+
+.proc-phase-toggle {
+  font-size: 11px;
+  color: var(--txt3);
+  font-family: var(--fb);
+  font-weight: 400;
 }
 
 .proc-action-row {
@@ -3653,6 +3760,136 @@ body {
   box-sizing: border-box;
 }
 .proc-pool-input:focus { border-color: var(--gold2); outline: none; }
+
+/* ── Pool Builder (feature.50) ─────────────────────────────── */
+.proc-pool-player-row {
+  margin-bottom: 12px;
+}
+.proc-pool-player-structured {
+  font-style: italic;
+  color: var(--txt2);
+}
+.proc-pool-player-csv {
+  color: var(--txt2);
+}
+
+.proc-pool-builder {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.proc-pool-builder-selects {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.proc-pool-builder-selects select {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--fb);
+  flex: 1;
+  min-width: 120px;
+}
+.proc-pool-builder-selects select:focus { border-color: var(--gold2); outline: none; }
+.proc-pool-plus {
+  color: var(--txt3);
+  font-size: 14px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.proc-pool-builder-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.proc-pool-mod-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.proc-pool-mod-label {
+  font-size: 12px;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.proc-pool-mod-dec,
+.proc-pool-mod-inc {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.proc-pool-mod-dec:hover,
+.proc-pool-mod-inc:hover { border-color: var(--gold2); color: var(--gold2); }
+.proc-pool-mod-disp {
+  font-size: 14px;
+  font-family: var(--fm);
+  color: var(--txt1);
+  min-width: 30px;
+  text-align: center;
+}
+.proc-pool-rote-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--txt2);
+  cursor: pointer;
+}
+.proc-pool-rote-label input[type="checkbox"] {
+  accent-color: var(--gold2);
+}
+
+.proc-pool-total {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--gold2);
+  font-family: var(--fm);
+  padding-top: 6px;
+  border-top: 1px solid var(--bdr);
+}
+
+.proc-pool-parse-ref {
+  font-size: 12px;
+  color: var(--txt3);
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+.proc-pool-nochar-warn {
+  font-size: 12px;
+  color: #ffb870;
+  background: #5a3010;
+  border: 1px solid #c07030;
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-bottom: 6px;
+}
 
 .proc-feedback-input {
   background: var(--surf2);
@@ -3775,3 +4012,471 @@ body {
   font-family: var(--fh);
   margin-bottom: 6px;
 }
+
+/* ── feature.44: Sorcery reminder badge ── */
+.proc-reminder-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  background: rgba(224, 196, 122, 0.08);
+  border-left: 3px solid var(--gold2);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--gold2);
+  font-family: var(--fh);
+}
+
+/* ── feature.44: Attach Reminder panel ── */
+.proc-attach-panel {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.proc-attach-actions {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  background: var(--surf0, var(--bg));
+}
+
+.proc-attach-char-group {
+  border-bottom: 1px solid var(--bdr);
+  padding: 6px 10px;
+}
+.proc-attach-char-group:last-child { border-bottom: none; }
+
+.proc-attach-char-header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold2);
+  font-family: var(--fh);
+  margin-bottom: 4px;
+}
+
+.proc-attach-target-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--txt2);
+  margin-bottom: 3px;
+  cursor: pointer;
+}
+.proc-attach-target-row:hover { color: var(--txt1); }
+
+.proc-attach-text {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.proc-attach-text:focus { outline: none; border-color: var(--gold2); }
+
+.proc-attach-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.proc-attach-count {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
+
+/* ── feature.45: Feeding info in processing panel ── */
+.proc-feed-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--surf1);
+  border-radius: 4px;
+  border: 1px solid var(--bdr);
+}
+
+.proc-feed-field {
+  font-size: 12px;
+  color: var(--txt2);
+  white-space: nowrap;
+}
+
+.proc-feed-lbl {
+  font-family: var(--fh);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--txt3);
+  margin-right: 4px;
+}
+
+.proc-feed-rote-badge {
+  background: rgba(224, 196, 122, 0.15);
+  color: var(--gold2);
+  border: 1px solid rgba(224, 196, 122, 0.3);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-family: var(--fh);
+}
+
+.proc-feed-no-method {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  margin-bottom: 12px;
+}
+
+.proc-feed-roll-result {
+  font-size: 12px;
+  color: var(--gold2);
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  background: rgba(224, 196, 122, 0.08);
+  border-radius: 4px;
+}
+
+/* ── feature.51: Feeding panel two-column layout ── */
+.proc-feed-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.proc-feed-left {
+  flex: 3;
+  min-width: 0;
+}
+.proc-feed-right {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Panel containers */
+.proc-feed-mod-panel,
+.proc-feed-vitae-panel {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.proc-mod-panel-title {
+  font-family: var(--fh);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold2);
+  margin-bottom: 8px;
+}
+
+/* Modifier rows */
+.proc-mod-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--txt2);
+  margin-bottom: 5px;
+}
+.proc-mod-row:last-child { margin-bottom: 0; }
+
+.proc-mod-label {
+  color: var(--txt3);
+  font-size: 11px;
+}
+
+.proc-mod-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt2);
+  min-width: 28px;
+  text-align: right;
+}
+.proc-mod-pos  { color: #5dbb6a; }
+.proc-mod-neg  { color: var(--crim); }
+.proc-mod-muted { color: var(--txt3); font-weight: 400; }
+
+/* Total row */
+.proc-mod-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--bdr);
+}
+.proc-mod-total-val,
+.proc-vitae-total-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold2);
+  min-width: 28px;
+  text-align: right;
+}
+
+/* Ticker controls (shared by equipment and manual vitae) */
+.proc-mod-ticker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.proc-mod-ticker button {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proc-mod-ticker button:hover { border-color: var(--gold2); }
+.proc-equip-mod-disp,
+.proc-vitae-mod-disp {
+  min-width: 28px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt1);
+}
+
+/* Rite cost input */
+.proc-rite-cost-input {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  color: var(--txt1);
+  font-size: 12px;
+  padding: 2px 4px;
+  width: 52px;
+  text-align: center;
+}
+.proc-rite-cost-input:focus { border-color: var(--gold2); outline: none; }
+
+/* Right panel sections (rote, validation) */
+.proc-feed-right-section {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.proc-feed-rote-right {
+  font-size: 13px;
+  color: var(--txt2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.proc-feed-right-validation .proc-val-status {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* ── feature.46: Project detail and allies hint ── */
+.proc-proj-detail {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+
+.proc-proj-field {
+  font-size: 12px;
+  color: var(--txt2);
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+.proc-proj-field:last-child { margin-bottom: 0; }
+
+.proc-allies-hint {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  margin-bottom: 12px;
+  padding: 4px 8px;
+  border-left: 2px solid var(--surf3);
+}
+
+/* ── Ambience Dashboard (feature.47) ─────────────────────────────────────── */
+
+.proc-amb-dashboard {
+  background: var(--surf1);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.proc-amb-header,
+.proc-disc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surf2);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--bdr);
+}
+.proc-amb-header:hover,
+.proc-disc-header:hover { background: var(--surf3); }
+
+.proc-disc-header {
+  background: var(--surf1);
+  border-bottom: none;
+  border-top: 1px solid var(--bdr);
+  margin-top: 16px;
+}
+
+.proc-amb-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: .5px;
+  color: var(--gold2);
+}
+
+.proc-amb-toggle {
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.proc-amb-pending-chip {
+  font-size: 11px;
+  font-family: 'Lora', serif;
+  background: #5a3010;
+  color: #ffb870;
+  border: 1px solid #c07030;
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin-left: 10px;
+}
+
+.proc-amb-body {
+  padding: 14px;
+}
+
+.proc-amb-table,
+.proc-disc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.proc-amb-table th,
+.proc-disc-table th {
+  text-align: left;
+  padding: 5px 8px;
+  background: var(--surf2);
+  color: var(--txt2);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: .3px;
+  border-bottom: 1px solid var(--bdr);
+  white-space: nowrap;
+}
+
+.proc-amb-table td,
+.proc-disc-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  color: var(--txt1);
+  white-space: nowrap;
+}
+
+.proc-amb-table tr:last-child td,
+.proc-disc-table tr:last-child td { border-bottom: none; }
+
+.proc-amb-terr {
+  font-weight: 500;
+}
+
+.proc-amb-net {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.proc-amb-pos,
+.proc-amb-table td.proc-amb-pos { color: #90d090; }
+.proc-amb-neg,
+.proc-amb-table td.proc-amb-neg { color: #ff9090; }
+.proc-amb-neutral,
+.proc-amb-table td.proc-amb-neutral { color: var(--txt2); }
+
+.proc-amb-note {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+  margin: 4px 0 12px;
+}
+
+.proc-amb-empty {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.proc-disc-name {
+  font-weight: 500;
+  color: var(--txt2);
+}
+
+.proc-disc-used { color: var(--txt1); }
+.proc-disc-high {
+  color: var(--gold2);
+  font-weight: 700;
+  background: rgba(224, 196, 122, .06);
+}
+
+.proc-amb-notes-block {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bdr);
+}
+
+.proc-amb-notes-lbl {
+  display: block;
+  font-size: 11px;
+  color: var(--txt3);
+  font-family: 'Cinzel', serif;
+  letter-spacing: .3px;
+  margin-bottom: 6px;
+}
+
+.proc-amb-notes {
+  width: 100%;
+  min-height: 60px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt1);
+  font-size: 12px;
+  font-family: 'Lora', serif;
+  padding: 8px 10px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.proc-amb-notes:focus { border-color: var(--gold2); outline: none; }

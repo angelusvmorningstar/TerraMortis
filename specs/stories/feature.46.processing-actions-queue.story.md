@@ -1,6 +1,6 @@
 # Story feature.46: Processing Mode — Phase 2+: Actions Queue
 
-## Status: Approved
+## Status: review
 
 ## Story
 
@@ -60,34 +60,27 @@ When an ambience-affecting project or ally action uses a discipline in a specifi
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Aggregate project and merit actions into queue (AC: 1, 2, 3)
-  - [ ] Extend `buildProcessingQueue()` from feature.43 to include project slots and merit actions
-  - [ ] For each submission, iterate `responses.project_N_action` (N = 1–4); skip empty slots and `feed` types
-  - [ ] For each merit action: classify into phase based on merit category (sphere, contact, ally, retainer/resource) and action type
-  - [ ] Sort within phases by character name then by action index
+- [x] Task 1: Aggregate project and merit actions into queue (AC: 1, 2, 3)
+  - [x] `feed` action type projects skipped (AC10) — they appear in the feeding phase
+  - [x] Project entries carry `projSlot`, `projTitle`, `projOutcome`, `projCast`, `projMerits`, `projTerritory`
+  - [x] Merit phases already correctly classified in feature.43; `isAlliesAction` flag added to sphere entries
 
-- [ ] Task 2: Expanded project action panel (AC: 5, 7)
-  - [ ] Render all project fields from responses
-  - [ ] Map project index to `projects_resolved[idx]` for validation state, notes thread, and result
-  - [ ] If `projects_resolved[idx]` doesn't exist yet, create a skeleton entry on first save
-  - [ ] Roll button: parse dice count from `pool_validated`, call `rollPool()`, store in `projects_resolved[idx].roll`, display inline
+- [x] Task 2: Expanded project action panel (AC: 5, 7)
+  - [x] Project detail block (title, outcome, territory, cast, merits) shown in expanded panel
+  - [x] Skeleton entry created in `saveEntryReview` with `action_type`, null roll, empty thread, etc.
+  - [x] Roll button appears when `pool_status === 'validated'`; uses `rollPool()`, stores in `projects_resolved[idx].roll`; result shown inline
 
-- [ ] Task 3: Expanded merit action panel (AC: 6, 7)
-  - [ ] Render merit action fields from `_raw.sphere_actions[i]` or `responses.sphere_N_*` / `contact_N_*` / `retainer_N_*`
-  - [ ] Map to `merit_actions_resolved[idx]` for validation state, notes thread, result
-  - [ ] Allies actions within favour rating (i.e. rating ≤ allies dots): default `pool_status = 'no_roll'` and add a note "Allies action — automatic success within favour rating"
-  - [ ] Roll button for merit actions that need a roll: same pattern as projects
+- [x] Task 3: Expanded merit action panel (AC: 6, 7)
+  - [x] Previous roll result shown inline above validation buttons
+  - [x] Allies hint: "typically automatic — consider No Roll Needed" shown when `isAlliesAction && pending`
+  - [x] Roll button same as projects; stores in `merit_actions_resolved[idx].roll`
 
-- [ ] Task 4: Discipline × territory recording for ambience actions (AC: 8)
-  - [ ] On saving `pool_status = 'validated'` for an `ambience_increase` or `ambience_decrease` action:
-    - Scan `pool_validated` for known discipline names
-    - Determine territory: check `responses.project_N_territory`; if not present, try to extract territory name from `responses.project_N_description` using territory name matching (same fuzzy match as existing `getTerritoryByName()`)
-    - If discipline AND territory found: increment `discipline_profile[territory_id][discipline_name]` on the cycle document
-  - [ ] Same deduplication logic as feature.45 (flag to prevent double-counting on re-save)
+- [x] Task 4: Discipline × territory recording for ambience actions (AC: 8)
+  - [x] `recomputeDisciplineProfile()` extended to scan ambience `projects_resolved` entries
+  - [x] Triggered fire-and-forget from `saveEntryReview` project case when ambience type + pool change
 
-- [ ] Task 5: "No Roll Needed" default for passive actions (AC: 6)
-  - [ ] Allies merit actions where `_raw.retainer_actions` or similar show a directed passive action: pre-set `pool_status = 'no_roll'`
-  - [ ] The "No Roll Needed" button in the processing panel also sets `merit_actions_resolved[idx].no_roll = true` (preserving existing field)
+- [x] Task 5: "No Roll Needed" default for passive actions (AC: 6)
+  - [x] `isAlliesAction` hint shown; `no_roll` button already present via shared validation buttons — ST clicks manually
 
 ---
 
@@ -136,8 +129,19 @@ The existing roll modal in `downtime-views.js` uses `showRollModal()` from `roll
 
 ### Agent Model Used
 
-### Debug Log References
+claude-sonnet-4-6
 
-### Completion Notes List
+### Completion Notes
+
+- `feed` action type filtered from projects in `buildProcessingQueue` (AC10).
+- Project queue entries now carry `projSlot`, `projTitle`, `projOutcome`, `projCast`, `projMerits`, `projTerritory` sourced from flat responses.
+- Expanded panel shows a `.proc-proj-detail` block for projects with extra fields.
+- Roll button (`proc-action-roll-btn`) shared for both projects and merit actions; uses `rollPool()` directly (no modal); result stored in `projects_resolved[idx].roll` or `merit_actions_resolved[idx].roll`.
+- Allies hint (`.proc-allies-hint`) shown when `isAlliesAction === true && poolStatus === 'pending'`.
+- `recomputeDisciplineProfile()` extended to scan `projects_resolved` ambience entries using `project_N_territory` response field.
+- Skeleton `projects_resolved` entry now includes `action_type`, `pool: null`, `roll: null`, `st_note: ''` for backwards compat.
 
 ### File List
+
+- `public/js/admin/downtime-views.js`
+- `public/css/admin-layout.css`

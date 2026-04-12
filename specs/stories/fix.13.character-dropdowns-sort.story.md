@@ -1,6 +1,6 @@
 # Story Fix.13: Character Dropdowns — Alphabetical by sortName
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

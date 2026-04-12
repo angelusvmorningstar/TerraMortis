@@ -1,6 +1,6 @@
 # Story Fix.1: Theban/Cruac Always Out-of-Clan — Dead Code Cleanup
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

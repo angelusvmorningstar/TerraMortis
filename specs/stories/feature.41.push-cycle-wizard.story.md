@@ -1,6 +1,6 @@
 # Story feature.41: Push Cycle Wizard — Pre-Push Warnings, Open Feeding, Deadline Input
 
-## Status: Approved
+## Status: done
 
 ## Story
 
@@ -54,32 +54,32 @@ After this story, "Open Game Phase" fires inside the wizard. The existing standa
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Blocking acknowledgement of unresolved submissions (AC: 1, 2, 3, 4)
-  - [ ] In `buildWizardChecklistHtml()`, replace the advisory `pendingSubs` warning with a blocking list
-  - [ ] For each pending sub, render a row: `<li class="gc-chk-block"><input type="checkbox" class="gc-dismiss-check" data-sub-id="..."> <span class="gc-chk-name">Character — Player</span></li>`
-  - [ ] "Begin Reset" button starts disabled when `pendingSubs.length > 0`
-  - [ ] Wire a delegated `change` listener on the checklist: enable Begin Reset when all `.gc-dismiss-check` boxes are checked
-  - [ ] Add a "Dismiss all" button that checks all boxes when `pendingSubs.length > 1`
+- [x] Task 1: Blocking acknowledgement of unresolved submissions (AC: 1, 2, 3, 4)
+  - [x] In `buildWizardChecklistHtml()`, replace the advisory `pendingSubs` warning with a blocking list
+  - [x] For each pending sub, render a row: `<li class="gc-chk-block"><input type="checkbox" class="gc-dismiss-check" data-sub-id="..."> <span class="gc-chk-name">Character — Player</span></li>`
+  - [x] "Begin Reset" button starts disabled when `pendingSubs.length > 0`
+  - [x] Wire a delegated `change` listener on the checklist: enable Begin Reset when all `.gc-dismiss-check` boxes are checked
+  - [x] Add a "Dismiss all" button that checks all boxes when `pendingSubs.length > 1`
 
-- [ ] Task 2: Open Feeding confirmation step after tracks phase (AC: 5)
-  - [ ] In `runWizardPhases()`, after Phase 5 (tracks done), add a manual gate:
+- [x] Task 2: Open Feeding confirmation step after tracks phase (AC: 5)
+  - [x] In `runWizardPhases()`, after Phase 5 (tracks done), add a manual gate:
     - `setPhaseState(overlay, 'tracks', 'done')` (already exists)
     - Show footer prompt: "Open feeding for this game phase?" with two buttons: "Open Feeding" and "Skip"
     - If "Open Feeding": call `await openGamePhase(cycleId)`, then continue to Phase 6
     - If "Skip": continue to Phase 6 without calling `openGamePhase`
-  - [ ] Add `{ id: 'open-game', label: 'Open game phase (feeding)' }` to `RESET_PHASES`
-  - [ ] `setPhaseState(overlay, 'open-game', 'paused', 'Awaiting confirmation')` before showing the prompt
-  - [ ] On "Open Feeding" confirm: `setPhaseState(overlay, 'open-game', 'done')`
-  - [ ] On "Skip": `setPhaseState(overlay, 'open-game', 'done', 'Skipped')`
+  - [x] Add `{ id: 'open-game', label: 'Open game phase (feeding)' }` to `RESET_PHASES`
+  - [x] `setPhaseState(overlay, 'open-game', 'paused', 'Awaiting confirmation')` before showing the prompt
+  - [x] On "Open Feeding" confirm: `setPhaseState(overlay, 'open-game', 'done')`
+  - [x] On "Skip": `setPhaseState(overlay, 'open-game', 'done', 'Skipped')`
 
-- [ ] Task 3: Deadline input in new-cycle phase (AC: 6)
-  - [ ] In `runWizardPhases()`, before `createCycle(nextNum)`, pause and render a date input in the footer:
+- [x] Task 3: Deadline input in new-cycle phase (AC: 6)
+  - [x] In `runWizardPhases()`, before `createCycle(nextNum)`, pause and render a date input in the footer:
     - Label: "Set deadline for Downtime N"
     - `<input type="date" id="gc-deadline-input">` pre-populated with today's date (ISO format, date part only)
     - A "Create Cycle" confirm button
-  - [ ] On confirm: read the date input value, call `createCycle(nextNum, deadlineAt)` passing the ISO string (or `null` if empty)
-  - [ ] Update `createCycle()` in `public/js/downtime/db.js` to accept an optional `deadline_at` param and include it in the POST body if provided
-  - [ ] `setPhaseState(overlay, 'new-cycle', 'running')` fires after the ST confirms
+  - [x] On confirm: read the date input value, call `createCycle(nextNum, deadlineAt)` passing the ISO string (or `null` if empty)
+  - [x] Update `createCycle()` in `public/js/downtime/db.js` to accept an optional `deadline_at` param and include it in the POST body if provided
+  - [x] `setPhaseState(overlay, 'new-cycle', 'running')` fires after the ST confirms
 
 ---
 
@@ -141,9 +141,17 @@ async function createCycle(gameNum, deadlineAt = null) {
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
 
 ### Completion Notes List
+- Task 1: `buildWizardChecklistHtml` replaces advisory pendingSubs line with per-submission checkbox rows. Each row has `class="gc-dismiss-check"` and `data-sub-id`. Begin Reset starts `disabled` when `pendingSubs.length > 0`. Delegated `change` listener in `openResetWizard` enables Begin Reset when all boxes are checked. "Dismiss all" button renders only when `pendingSubs.length > 1`, ticks all boxes and enables Begin Reset in one click.
+- Task 2: `RESET_PHASES` gains `{ id: 'open-game', label: 'Open game phase (feeding)' }` between tracks and new-cycle. After tracks done, `runWizardPhases` sets open-game to paused, renders "Open feeding?" prompt with Open Feeding / Skip buttons. Confirm calls `openGamePhase(cycleId)` and marks done; Skip marks done with 'Skipped' detail.
+- Task 3: Before new-cycle runs, wizard pauses and renders a date input pre-populated with today (ISO date). ST clicks "Create Cycle" to confirm; value becomes `YYYY-MM-DDT00:00:00.000Z` (or null if cleared). Passed to `createCycle(nextNum, deadlineAt)`. `createCycle` in `db.js` updated to accept optional `deadlineAt` param and conditionally include `deadline_at` in POST body.
 
 ### File List
+- `public/js/admin/downtime-views.js`
+- `public/js/downtime/db.js`
+- `public/css/admin-layout.css`
+- `specs/stories/feature.41.push-cycle-wizard.story.md`

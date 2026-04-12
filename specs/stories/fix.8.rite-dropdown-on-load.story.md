@@ -1,6 +1,6 @@
 # Story Fix.8: Rite Add — Always Show Rules-DB Dropdown
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story Fix.19: Fucking Thief — Remove Erroneous Free Dot Grant
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
