@@ -8,6 +8,7 @@ import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, displayNameRaw, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { AMBIENCE_MODS } from '../player/downtime-data.js';
 
 const TERRITORIES = [
   { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
@@ -18,7 +19,6 @@ const TERRITORIES = [
 ];
 
 const AMBIENCE_LEVELS = ['Hostile', 'Barrens', 'Neglected', 'Untended', 'Settled', 'Tended', 'Curated'];
-const AMBIENCE_MODS   = { Hostile: -5, Barrens: -4, Neglected: -3, Untended: -2, Settled: 0, Tended: 2, Curated: 3 };
 
 const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
 const COURT_TITLES = ['', 'Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];

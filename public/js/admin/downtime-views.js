@@ -6,7 +6,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
@@ -1806,6 +1806,7 @@ const RESET_PHASES = [
   { id: 'mutations', label: 'Confirm XP mutations' },
   { id: 'publish',   label: 'Publish outcomes to players' },
   { id: 'tracks',    label: 'Reset character tracks' },
+  { id: 'ambience',  label: 'Apply ambience changes' },
   { id: 'open-game', label: 'Open game phase (feeding)' },
   { id: 'new-cycle', label: 'Close cycle and create next' },
 ];
@@ -1949,6 +1950,23 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   }
   if (trackErrors.length) { fail('tracks', `Failed: ${trackErrors.join(', ')}`); return; }
   setPhaseState(overlay, 'tracks', 'done');
+
+  // Phase: Apply confirmed ambience changes
+  setPhaseState(overlay, 'ambience', 'running');
+  const confirmedAmbience = currentCycle?.confirmed_ambience || {};
+  const ambEntries = Object.entries(confirmedAmbience);
+  if (!ambEntries.length) {
+    setPhaseState(overlay, 'ambience', 'done', 'No changes');
+  } else {
+    const ambErrors = [];
+    for (const [terrId, { ambience, ambienceMod }] of ambEntries) {
+      try { await apiPost('/api/territories', { id: terrId, ambience, ambienceMod }); }
+      catch (err) { ambErrors.push(terrId); }
+    }
+    cachedTerritories = null;
+    if (ambErrors.length) { fail('ambience', `Failed: ${ambErrors.join(', ')}`); return; }
+    setPhaseState(overlay, 'ambience', 'done', `${ambEntries.length} territor${ambEntries.length === 1 ? 'y' : 'ies'} updated`);
+  }
 
   // Phase: Open game phase (feeding) — AC 5 manual gate
   setPhaseState(overlay, 'open-game', 'paused', 'Awaiting confirmation');
@@ -2676,6 +2694,7 @@ function renderAmbienceDashboard() {
       <th title="Ambience project roll successes">Projects</th>
       <th title="Sum of all columns">Net Change</th>
       <th title="Projected new ambience step (preview only)">Projected</th>
+      <th title="Confirm this ambience change for cycle push">Confirm</th>
     </tr></thead>`;
     h += `<tbody>`;
     for (const r of rows) {
@@ -2702,6 +2721,14 @@ function renderAmbienceDashboard() {
       h += `<td>${projDisplay}</td>`;
       h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
       h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
+      // Confirm cell
+      const confirmed = currentCycle?.confirmed_ambience?.[r.id];
+      const projMod = AMBIENCE_MODS[r.projStep] ?? r.ambienceMod ?? 0;
+      if (confirmed) {
+        h += `<td class="proc-amb-confirmed">\u2713 ${esc(confirmed.ambience)} <button class="proc-amb-confirm-btn proc-amb-reconfirm" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Re-confirm</button></td>`;
+      } else {
+        h += `<td><button class="proc-amb-confirm-btn" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Confirm ${esc(r.projStep)}</button></td>`;
+      }
       h += `</tr>`;
     }
     h += `</tbody></table>`;
@@ -3194,6 +3221,22 @@ function renderProcessingMode(container) {
     renderProcessingMode(container);
   });
 
+  // Wire ambience confirm buttons
+  container.querySelectorAll('.proc-amb-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!currentCycle) return;
+      const terrId      = btn.dataset.terrId;
+      const ambience    = btn.dataset.projStep;
+      const ambienceMod = parseInt(btn.dataset.projMod, 10);
+      const updated = { ...(currentCycle.confirmed_ambience || {}), [terrId]: { ambience, ambienceMod } };
+      try {
+        await updateCycle(currentCycle._id, { confirmed_ambience: updated });
+        currentCycle.confirmed_ambience = updated;
+        renderProcessingMode(container);
+      } catch (err) { console.error('Failed to confirm ambience:', err.message); }
+    });
+  });
+
   // Wire ST ambience notes textarea (save on blur)
   container.querySelector('.proc-amb-notes')?.addEventListener('blur', async e => {
     const val = e.target.value;
@@ -3583,7 +3626,11 @@ function _renderFeedRightPanel(entry, char, rev) {
         t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
       )
     : null;
-  const ambienceVitae = terrRec?.ambienceMod ?? null;
+  // Prefer confirmed ambience from cycle (post-downtime value used for next-game feeding)
+  const confirmedAmb  = currentCycle?.confirmed_ambience?.[normalizedTerrId];
+  const ambienceVitae = confirmedAmb != null
+    ? (confirmedAmb.ambienceMod ?? 0)
+    : (terrRec?.ambienceMod ?? null);
 
   const ghoulCount = (char?.merits || []).filter(m =>
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')

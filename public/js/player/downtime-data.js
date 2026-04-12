@@ -60,6 +60,12 @@ export const AMBIENCE_CAP = {
   'The Rack':  8,
 };
 
+// Ambience level → default dice modifier
+export const AMBIENCE_MODS = {
+  Hostile: -5, Barrens: -4, Neglected: -3, Untended: -2,
+  Settled: 0, Tended: 2, Curated: 3,
+};
+
 // Territory definitions with current ambience (mirrors city-views.js)
 export const TERRITORY_DATA = [
   { id: 'academy',    name: 'The Academy',    ambience: 'Curated',  ambienceMod: +3 },

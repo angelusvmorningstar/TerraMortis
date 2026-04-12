@@ -4456,6 +4456,11 @@ body {
 .proc-amb-neutral,
 .proc-amb-table td.proc-amb-neutral { color: var(--txt2); }
 
+.proc-amb-confirm-btn { padding: 3px 8px; background: var(--surf); border: 1px solid var(--bdr2); border-radius: 3px; color: var(--txt2); font-size: 11px; font-family: var(--fh); letter-spacing: .05em; cursor: pointer; white-space: nowrap; }
+.proc-amb-confirm-btn:hover { border-color: var(--gold-a30); color: var(--gold2); }
+.proc-amb-reconfirm { opacity: 0.6; font-size: 10px; margin-left: 4px; }
+.proc-amb-confirmed { color: var(--gold2); font-size: 12px; white-space: nowrap; }
+
 .proc-amb-note {
   font-size: 11px;
   color: var(--txt3);
