@@ -16,14 +16,16 @@ export async function getActiveCycle() {
   return cycles.find(c => c.status === 'active') || null;
 }
 
-export async function createCycle(gameNumber) {
-  return apiPost('/api/downtime_cycles', {
+export async function createCycle(gameNumber, deadlineAt = null) {
+  const body = {
     label: 'Downtime ' + gameNumber,
     game_number: gameNumber,
     status: 'active',
     loaded_at: new Date().toISOString(),
     submission_count: 0,
-  });
+  };
+  if (deadlineAt) body.deadline_at = deadlineAt;
+  return apiPost('/api/downtime_cycles', body);
 }
 
 /** Derive the game number for a new cycle: closed cycle count + 1 for current, +1 for next. */

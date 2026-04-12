@@ -1731,7 +1731,21 @@ async function openResetWizard() {
   document.body.appendChild(overlay);
 
   overlay.querySelector('#gc-cancel').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#gc-begin').addEventListener('click', () => {
+
+  const beginBtn = overlay.querySelector('#gc-begin');
+  // AC 2: Enable Begin Reset only when all dismiss checkboxes are ticked
+  overlay.addEventListener('change', e => {
+    if (!e.target.classList.contains('gc-dismiss-check')) return;
+    const all = [...overlay.querySelectorAll('.gc-dismiss-check')];
+    beginBtn.disabled = !all.every(cb => cb.checked);
+  });
+  // AC 3: Dismiss-all shortcut
+  overlay.querySelector('#gc-dismiss-all')?.addEventListener('click', () => {
+    overlay.querySelectorAll('.gc-dismiss-check').forEach(cb => { cb.checked = true; });
+    beginBtn.disabled = false;
+  });
+
+  beginBtn.addEventListener('click', () => {
     switchToPhaseView(overlay, cycle, nextNum);
   });
 }
@@ -1752,25 +1766,36 @@ function buildWizardChecklistHtml(cycle, nextNum) {
 
   let items = '';
   if (readySubs.length) items += `<li class="gc-chk-ok">&#10003; ${readySubs.length} submission${readySubs.length !== 1 ? 's' : ''} ready to publish</li>`;
-  if (pendingSubs.length) items += `<li class="gc-chk-warn">&#9651; ${pendingSubs.length} submission${pendingSubs.length !== 1 ? 's' : ''} not yet reviewed</li>`;
+
+  // AC 1–3: Unresolved submissions are blocking — each must be acknowledged
+  if (pendingSubs.length) {
+    items += `<li class="gc-chk-block-header">&#9651; ${pendingSubs.length} unresolved \u2014 acknowledge each before proceeding:</li>`;
+    for (const sub of pendingSubs) {
+      const name = esc(`${sub.character_name || '\u2014'} \u2014 ${sub.player_name || '\u2014'}`);
+      items += `<li class="gc-chk-block"><label><input type="checkbox" class="gc-dismiss-check" data-sub-id="${esc(String(sub._id))}"> <span class="gc-chk-name">${name}</span></label></li>`;
+    }
+  }
+
   if (missingExp.length) items += `<li class="gc-chk-warn">&#9651; ${missingExp.length} approved submission${missingExp.length !== 1 ? 's' : ''} missing expenditure data</li>`;
   if (noFeed.length) items += `<li class="gc-chk-warn">&#9651; ${noFeed.length} submission${noFeed.length !== 1 ? 's' : ''} with no feeding roll</li>`;
   if (!items) items = '<li class="gc-chk-ok">&#10003; All checks passed</li>';
 
-  const hasWarnings = pendingSubs.length || missingExp.length || noFeed.length;
+  const hasAdvisoryWarnings = missingExp.length || noFeed.length;
+  const blocking = pendingSubs.length > 0;
 
   return `<div class="gc-wizard-box">
     <div class="gc-wizard-title">Cycle Reset Wizard</div>
     <div class="gc-wizard-sub">Closing: <strong>${esc(cycle.label || 'Unnamed')}</strong></div>
     <ul class="gc-checklist">${items}</ul>
-    ${hasWarnings ? '<p class="gc-chk-note">Warnings are advisory. You may still proceed.</p>' : ''}
+    ${hasAdvisoryWarnings ? '<p class="gc-chk-note">Other warnings are advisory. You may still proceed.</p>' : ''}
     <div class="gc-label-row">
       <span class="gc-label-lbl">New cycle</span>
       <span class="gc-next-cycle-name">Downtime ${nextNum}</span>
     </div>
     <div class="gc-wizard-actions">
       <button id="gc-cancel" class="dt-btn">Cancel</button>
-      <button id="gc-begin" class="dt-btn dt-btn-gold">Begin Reset</button>
+      ${pendingSubs.length > 1 ? '<button id="gc-dismiss-all" class="dt-btn">Dismiss all</button>' : ''}
+      <button id="gc-begin" class="dt-btn dt-btn-gold"${blocking ? ' disabled' : ''}>Begin Reset</button>
     </div>
   </div>`;
 }
@@ -1781,6 +1806,7 @@ const RESET_PHASES = [
   { id: 'mutations', label: 'Confirm XP mutations' },
   { id: 'publish',   label: 'Publish outcomes to players' },
   { id: 'tracks',    label: 'Reset character tracks' },
+  { id: 'open-game', label: 'Open game phase (feeding)' },
   { id: 'new-cycle', label: 'Close cycle and create next' },
 ];
 
@@ -1924,11 +1950,67 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   if (trackErrors.length) { fail('tracks', `Failed: ${trackErrors.join(', ')}`); return; }
   setPhaseState(overlay, 'tracks', 'done');
 
-  // Phase 6: Close old cycle + create new
+  // Phase: Open game phase (feeding) — AC 5 manual gate
+  setPhaseState(overlay, 'open-game', 'paused', 'Awaiting confirmation');
+  await new Promise(resolve => {
+    const prompt = document.createElement('p');
+    prompt.className = 'gc-prompt';
+    prompt.textContent = 'Open feeding for this game phase?';
+    const openBtn = document.createElement('button');
+    openBtn.className = 'dt-btn dt-btn-gold';
+    openBtn.textContent = 'Open Feeding';
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'dt-btn';
+    skipBtn.textContent = 'Skip';
+    openBtn.addEventListener('click', async () => {
+      openBtn.disabled = true;
+      skipBtn.disabled = true;
+      try {
+        await openGamePhase(cycleId);
+        setPhaseState(overlay, 'open-game', 'done');
+      } catch (err) {
+        setPhaseState(overlay, 'open-game', 'failed', err.message);
+      }
+      footer.innerHTML = '';
+      resolve();
+    }, { once: true });
+    skipBtn.addEventListener('click', () => {
+      setPhaseState(overlay, 'open-game', 'done', 'Skipped');
+      footer.innerHTML = '';
+      resolve();
+    }, { once: true });
+    footer.append(prompt, openBtn, skipBtn);
+  });
+
+  // Phase: New cycle — AC 6 deadline prompt then create
+  setPhaseState(overlay, 'new-cycle', 'paused', 'Set deadline');
+  const deadlineAt = await new Promise(resolve => {
+    const today = new Date().toISOString().split('T')[0];
+    const wrapper = document.createElement('div');
+    wrapper.className = 'gc-deadline-wrapper';
+    const label = document.createElement('label');
+    label.className = 'gc-deadline-label';
+    label.textContent = `Set deadline for Downtime ${nextNum}`;
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.id = 'gc-deadline-input';
+    dateInput.className = 'gc-deadline-input';
+    dateInput.value = today;
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'dt-btn dt-btn-gold';
+    confirmBtn.textContent = 'Create Cycle';
+    confirmBtn.addEventListener('click', () => {
+      const val = dateInput.value;
+      footer.innerHTML = '';
+      resolve(val ? `${val}T00:00:00.000Z` : null);
+    }, { once: true });
+    wrapper.append(label, dateInput);
+    footer.append(wrapper, confirmBtn);
+  });
   setPhaseState(overlay, 'new-cycle', 'running');
   try {
     await closeCycle(cycleId);
-    await createCycle(nextNum);
+    await createCycle(nextNum, deadlineAt);
     setPhaseState(overlay, 'new-cycle', 'done');
   } catch (err) { fail('new-cycle', err.message); return; }
 
