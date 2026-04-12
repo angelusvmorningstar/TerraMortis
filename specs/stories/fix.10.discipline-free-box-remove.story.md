@@ -1,6 +1,6 @@
 # Story Fix.10: Remove Free Dots Input from Discipline Edit Rows
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

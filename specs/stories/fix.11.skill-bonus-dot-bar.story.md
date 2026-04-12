@@ -1,6 +1,6 @@
 # Story Fix.11: Skill Bonus Dot Bar — Remove Fr Box, Add Visual Bonus Bar
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

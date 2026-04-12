@@ -1,6 +1,6 @@
 # Story Fix.9: Pacts Dropdown Placeholder Text
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story Fix.6: K-9 and Falconry Auto-Grant 1-Dot Retainer
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

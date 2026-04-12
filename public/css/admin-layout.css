@@ -4094,6 +4094,131 @@ body {
   border-radius: 4px;
 }
 
+/* ── feature.51: Feeding panel two-column layout ── */
+.proc-feed-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.proc-feed-left {
+  flex: 3;
+  min-width: 0;
+}
+.proc-feed-right {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Panel containers */
+.proc-feed-mod-panel,
+.proc-feed-vitae-panel {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.proc-mod-panel-title {
+  font-family: var(--fh);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold2);
+  margin-bottom: 8px;
+}
+
+/* Modifier rows */
+.proc-mod-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--txt2);
+  margin-bottom: 5px;
+}
+.proc-mod-row:last-child { margin-bottom: 0; }
+
+.proc-mod-label {
+  color: var(--txt3);
+  font-size: 11px;
+}
+
+.proc-mod-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt2);
+  min-width: 28px;
+  text-align: right;
+}
+.proc-mod-pos  { color: #5dbb6a; }
+.proc-mod-neg  { color: var(--crim); }
+.proc-mod-muted { color: var(--txt3); font-weight: 400; }
+
+/* Total row */
+.proc-mod-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--bdr);
+}
+.proc-mod-total-val,
+.proc-vitae-total-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold2);
+  min-width: 28px;
+  text-align: right;
+}
+
+/* Ticker controls (shared by equipment and manual vitae) */
+.proc-mod-ticker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.proc-mod-ticker button {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proc-mod-ticker button:hover { border-color: var(--gold2); }
+.proc-equip-mod-disp,
+.proc-vitae-mod-disp {
+  min-width: 28px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt1);
+}
+
+/* Rite cost input */
+.proc-rite-cost-input {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  color: var(--txt1);
+  font-size: 12px;
+  padding: 2px 4px;
+  width: 52px;
+  text-align: center;
+}
+.proc-rite-cost-input:focus { border-color: var(--gold2); outline: none; }
+
 /* ── feature.46: Project detail and allies hint ── */
 .proc-proj-detail {
   margin-bottom: 12px;

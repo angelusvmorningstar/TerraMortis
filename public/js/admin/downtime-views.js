@@ -216,7 +216,7 @@ function renderPhaseRibbon(cycle, subs) {
   }).join('');
 }
 
-export async function initDowntimeView() {
+export async function initDowntimeView(passedChars) {
   const container = document.getElementById('downtime-content');
   if (!container) return;
 
@@ -268,7 +268,16 @@ export async function initDowntimeView() {
     }
   }
 
-  try { await loadCharacters(); } catch (e) { console.warn('loadCharacters failed (no API?):', e.message); }
+  if (passedChars && passedChars.length) {
+    characters = passedChars;
+    charMap = new Map();
+    for (const c of characters) {
+      if (c.name) charMap.set(c.name.toLowerCase().trim(), c);
+      if (c.moniker) charMap.set(c.moniker.toLowerCase().trim(), c);
+    }
+  } else {
+    try { await loadCharacters(); } catch (e) { console.warn('loadCharacters failed (no API?):', e.message); }
+  }
   try { await loadAllCycles(); } catch (e) { console.warn('loadAllCycles failed (no API?):', e.message); }
 }
 
@@ -2763,6 +2772,10 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', e => {
       e.stopPropagation();
       _updatePoolTotal(container, sel.dataset.procKey);
+      // AC 3 / Task 5: also update unskilled row in right panel when skill changes
+      if (sel.classList.contains('proc-pool-skill')) {
+        _updateUnskilledRow(container, sel.dataset.procKey);
+      }
     });
   });
 
@@ -2813,6 +2826,63 @@ function renderProcessingMode(container) {
       const stReview = { ...(sub.st_review || {}), feeding_rote: cb.checked };
       await updateSubmission(entry.subId, { st_review: stReview });
       sub.st_review = stReview;
+    });
+  });
+
+  // ── feature.51: Equipment modifier ticker (pool mod panel) ──
+  container.querySelectorAll('.proc-equip-mod-dec, .proc-equip-mod-inc').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key    = btn.dataset.procKey;
+      const panel  = container.querySelector(`.proc-feed-mod-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+      const valInp = panel.querySelector('.proc-equip-mod-val');
+      const disp   = panel.querySelector(`.proc-equip-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(valInp?.value || '0', 10);
+      if (btn.classList.contains('proc-equip-mod-dec')) { if (val > -5) val--; }
+      else                                               { if (val < 5)  val++; }
+      if (valInp) valInp.value = val;
+      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updatePoolModTotal(container, key);
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (entry) await saveEntryReview(entry, { pool_mod_equipment: val });
+    });
+  });
+
+  // ── feature.51: Manual vitae adjustment ticker (vitae panel) ──
+  container.querySelectorAll('.proc-vitae-mod-dec, .proc-vitae-mod-inc').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const panel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
+      if (!panel) return;
+      const valInp = panel.querySelector('.proc-vitae-mod-val');
+      const disp   = panel.querySelector(`.proc-vitae-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(valInp?.value || '0', 10);
+      if (btn.classList.contains('proc-vitae-mod-dec')) val--;
+      else                                               val++;
+      if (valInp) valInp.value = val;
+      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updateVitaeTotal(container, key);
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (entry) await saveEntryReview(entry, { vitae_mod_manual: val });
+    });
+  });
+
+  // ── feature.51: Rite cost input (vitae panel) ──
+  container.querySelectorAll('.proc-rite-cost-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', e => {
+      e.stopPropagation();
+      _updateVitaeTotal(container, inp.dataset.procKey);
+    });
+    inp.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key  = inp.dataset.procKey;
+      const val  = Math.max(0, parseInt(inp.value || '0', 10));
+      inp.value  = val;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (entry) await saveEntryReview(entry, { vitae_rite_cost: val });
     });
   });
 
@@ -3158,6 +3228,14 @@ function _parsePoolExpr(str, attrList, skillList, discNames) {
 }
 
 /**
+ * Return the unskilled penalty for a skill with 0 dots (-3 mental, -1 otherwise).
+ */
+function _unskilledPenalty(skillName, skillDots) {
+  if (!skillName || skillDots > 0) return 0;
+  return SKILLS_MENTAL.includes(skillName) ? -3 : -1;
+}
+
+/**
  * Build the human-readable pool expression string for pool_validated.
  */
 function _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier) {
@@ -3172,10 +3250,16 @@ function _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifi
 
 /**
  * Build the live display string for the pool total element.
+ * skillName is optional; when provided and skillDots === 0, appends unskilled penalty note.
  */
-function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier) {
+function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skillName) {
   if (!attr || !skill) return '\u2014 + \u2014 = 0';
-  return _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+  const base = _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+  const penalty = _unskilledPenalty(skillName, skillDots);
+  if (!penalty) return base;
+  const rawTotal = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
+  const corrected = rawTotal + penalty;
+  return base.replace(`= ${rawTotal}`, `= ${corrected} (\u2212${Math.abs(penalty)} unskilled)`);
 }
 
 /**
@@ -3200,6 +3284,72 @@ function _readBuilderExpr(builder) {
 }
 
 /**
+ * Recompute pool modifier total in the right panel for a feeding entry.
+ */
+function _updatePoolModTotal(container, key) {
+  const modPanel = container.querySelector(`.proc-feed-mod-panel[data-proc-key="${key}"]`);
+  if (!modPanel) return;
+  const fgData = modPanel.dataset.fg;
+  const fgDice = fgData !== '' ? parseInt(fgData || '0', 10) : 0;
+
+  const unskilledRow = modPanel.querySelector('.proc-feed-unskilled-row');
+  const unskilledVal = (unskilledRow && unskilledRow.style.display !== 'none')
+    ? parseInt(modPanel.querySelector('.proc-mod-unskilled-val')?.textContent || '0', 10)
+    : 0;
+
+  const eqInput = modPanel.querySelector('.proc-equip-mod-val');
+  const eqVal = parseInt(eqInput?.value || '0', 10);
+
+  const total = fgDice + unskilledVal + eqVal;
+  const totalEl = modPanel.querySelector('.proc-mod-total-val');
+  if (totalEl) totalEl.textContent = total === 0 ? '\u00B10' : total > 0 ? `+${total}` : String(total);
+}
+
+/**
+ * Recompute final vitae total in the vitae panel for a feeding entry.
+ */
+function _updateVitaeTotal(container, key) {
+  const panel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
+  if (!panel) return;
+  const herd    = panel.dataset.herd     !== '' ? parseInt(panel.dataset.herd     || '0', 10) : 0;
+  const oof     = parseInt(panel.dataset.oof      || '0', 10);
+  const amb     = panel.dataset.ambience !== '' ? parseInt(panel.dataset.ambience || '0', 10) : 0;
+  const ghouls  = parseInt(panel.dataset.ghouls   || '0', 10);
+  const manVal  = parseInt(panel.querySelector('.proc-vitae-mod-val')?.value  || '0', 10);
+  const riteVal = parseInt(panel.querySelector('.proc-rite-cost-input')?.value || '0', 10);
+  const total   = Math.max(0, herd + oof + amb - ghouls + manVal - riteVal);
+  const totalEl = panel.querySelector('.proc-vitae-total-val');
+  if (totalEl) totalEl.textContent = String(total);
+}
+
+/**
+ * Update the unskilled row in the right panel when the skill dropdown changes.
+ */
+function _updateUnskilledRow(container, key) {
+  const right = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+  if (!right) return;
+  const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+  if (!builder) return;
+  const skillSel  = builder.querySelector('.proc-pool-skill');
+  if (!skillSel) return;
+  const skillName = skillSel.value;
+  const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
+  const penalty   = _unskilledPenalty(skillName, skillDots);
+
+  const row = right.querySelector('.proc-feed-unskilled-row');
+  if (row) {
+    if (penalty === 0) {
+      row.style.display = 'none';
+    } else {
+      row.style.display = '';
+      const valEl = row.querySelector('.proc-mod-unskilled-val');
+      if (valEl) valEl.textContent = String(penalty);
+    }
+  }
+  _updatePoolModTotal(container, key);
+}
+
+/**
  * Recompute and update the total display for a pool builder in the container.
  */
 function _updatePoolTotal(container, key) {
@@ -3218,7 +3368,153 @@ function _updatePoolTotal(container, key) {
   const attrDots  = parseInt(attrSel.selectedOptions[0]?.dataset.dots  || '0', 10);
   const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
   const discDots  = (discSel && disc !== 'none') ? parseInt(discSel.selectedOptions[0]?.dataset.dots || '0', 10) : 0;
-  totalEl.textContent = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+  totalEl.textContent = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skill);
+}
+
+/**
+ * Render the right-side modifier panel for a feeding entry (Tasks 2 & 3, feature.51).
+ * @param {object} entry - Processing queue entry
+ * @param {object|null} char - Character document (may be null)
+ * @param {object} rev - feeding_review fields
+ */
+function _renderFeedRightPanel(entry, char, rev) {
+  const key = entry.key;
+
+  // ── Pool modifier panel data ──
+  const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
+  const fgDice = fg ? (fg.rating || 0) : null; // null = char not loaded
+
+  // Initial unskilled from pool_validated (may be '' if nothing saved yet)
+  const poolValidated = rev.pool_validated || '';
+  let initSkillName = '', initSkillDots = 0;
+  if (poolValidated && char) {
+    const charDiscs0 = (char.disciplines || []).filter(d => d.dots > 0).map(d => d.name);
+    const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
+    if (parsed0?.skill) {
+      initSkillName = parsed0.skill;
+      initSkillDots = skDots(getSkillObj(char, initSkillName)) || 0;
+    }
+  }
+  const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
+
+  const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
+  const eqStr = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const poolModTotal = (fgDice ?? 0) + initUnskilled + eqMod;
+  const poolModTotalStr = poolModTotal === 0 ? '\u00B10' : poolModTotal > 0 ? `+${poolModTotal}` : String(poolModTotal);
+
+  // fgDice data attr: '' when char null (so live update can detect "unknown")
+  const fgDataAttr = fgDice !== null ? String(fgDice) : '';
+  const fgDisplay  = fgDice !== null ? (fgDice > 0 ? `+${fgDice}` : String(fgDice)) : '\u2014';
+
+  let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+
+  // ── Dice Pool Modifiers ──
+  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
+  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+  // Feeding Grounds row
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val${fgDice !== null && fgDice > 0 ? ' proc-mod-pos' : ''}">${fgDisplay}</span></div>`;
+  // Unskilled penalty row (hidden when 0)
+  const unskilledDisplay = initUnskilled !== 0 ? String(initUnskilled) : '0';
+  h += `<div class="proc-feed-unskilled-row proc-mod-row" data-proc-key="${esc(key)}" style="${initUnskilled === 0 ? 'display:none' : ''}">`;
+  h += `<span class="proc-mod-label">Unskilled penalty</span>`;
+  h += `<span class="proc-mod-val proc-mod-neg proc-mod-unskilled-val">${unskilledDisplay}</span>`;
+  h += `</div>`;
+  // Equipment ticker
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
+  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
+  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+  // Total
+  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
+  h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
+  h += `</div>`;
+  h += `</div>`; // proc-feed-mod-panel
+
+  // ── Vitae Tally ──
+  const herd = (char?.merits || []).find(m => m.name === 'Herd');
+  const herdVitae = herd ? (herd.rating || 0) : null;
+
+  const hasOoF = (char?.powers || []).some(p => p.category === 'pact' && p.name === 'Oath of Fealty');
+  const oofVitae = hasOoF ? Math.max(char.status?.covenant || 0, char._ots_covenant_bonus || 0) : 0;
+
+  // Ambience: check cachedTerritories then TERRITORY_DATA
+  const terrList = (cachedTerritories && cachedTerritories.length) ? cachedTerritories : TERRITORY_DATA;
+  const terrRec = entry.primaryTerr
+    ? terrList.find(t =>
+        t.id === entry.primaryTerr ||
+        t.name === entry.primaryTerr ||
+        t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
+      )
+    : null;
+  const ambienceVitae = terrRec?.ambienceMod ?? null;
+
+  const ghoulCount = (char?.merits || []).filter(m =>
+    m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
+  ).length;
+
+  const vitaeMod  = rev.vitae_mod_manual !== undefined ? rev.vitae_mod_manual : 0;
+  const vitaeRite = rev.vitae_rite_cost  !== undefined ? rev.vitae_rite_cost  : 0;
+  const manStr    = vitaeMod === 0 ? '\u00B10' : vitaeMod > 0 ? `+${vitaeMod}` : String(vitaeMod);
+
+  const autoSum = (herdVitae ?? 0) + oofVitae + (ambienceVitae ?? 0) - ghoulCount;
+  const finalVitae = Math.max(0, autoSum + vitaeMod - vitaeRite);
+
+  // data attrs for live recalculation
+  const herdData      = herdVitae     !== null ? String(herdVitae)    : '';
+  const ambienceData  = ambienceVitae !== null ? String(ambienceVitae): '';
+
+  h += `<div class="proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
+  h += `<div class="proc-mod-panel-title">Vitae Tally</div>`;
+
+  // Herd
+  const herdDisplay = herdVitae !== null ? `+${herdVitae}` : '\u2014';
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Herd</span><span class="proc-mod-val${herdVitae !== null && herdVitae > 0 ? ' proc-mod-pos' : ''}">${herdDisplay}</span></div>`;
+
+  // Feeding Grounds — does not contribute vitae
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val proc-mod-muted">\u2014</span></div>`;
+
+  // Oath of Fealty (only if character has it)
+  if (hasOoF) {
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Oath of Fealty</span><span class="proc-mod-val proc-mod-pos">+${oofVitae}</span></div>`;
+  }
+
+  // Ambience (only if non-zero and known)
+  if (ambienceVitae !== null && ambienceVitae !== 0) {
+    const ambSign = ambienceVitae > 0 ? '+' : '';
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Ambience</span><span class="proc-mod-val ${ambienceVitae > 0 ? 'proc-mod-pos' : 'proc-mod-neg'}">${ambSign}${ambienceVitae}</span></div>`;
+  }
+
+  // Ghoul retainers (only if > 0)
+  if (ghoulCount > 0) {
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Ghoul retainers</span><span class="proc-mod-val proc-mod-neg">\u2212${ghoulCount}</span></div>`;
+  }
+
+  // Rite costs row (always shown with manual input)
+  h += `<div class="proc-mod-row proc-mod-rite-row">`;
+  h += `<span class="proc-mod-label">Rite costs</span>`;
+  h += `<input type="number" class="proc-rite-cost-input" min="0" data-proc-key="${esc(key)}" value="${vitaeRite}" style="width:52px">`;
+  h += `</div>`;
+
+  // Manual adjustment ticker
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Manual adj.</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="proc-vitae-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="proc-vitae-mod-disp" data-proc-key="${esc(key)}">${manStr}</span>`;
+  h += `<input type="hidden" class="proc-vitae-mod-val" data-proc-key="${esc(key)}" value="${vitaeMod}">`;
+  h += `<button class="proc-vitae-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+
+  // Final vitae total
+  h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Final Vitae</span>`;
+  h += `<span class="proc-vitae-total-val" data-proc-key="${esc(key)}">${finalVitae}</span>`;
+  h += `</div>`;
+
+  h += `</div>`; // proc-feed-vitae-panel
+  h += `</div>`; // proc-feed-right
+  return h;
 }
 
 /** Render the expanded detail panel for a single action row. */
@@ -3230,6 +3526,19 @@ function renderActionPanel(entry, review) {
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
   const isSorcery     = entry.source === 'sorcery';
+
+  // Hoist char lookup for feeding entries (needed by right panel and pool builder)
+  let feedSub = null;
+  let feedChar = null;
+  if (entry.source === 'feeding') {
+    feedSub = submissions.find(s => s._id === entry.subId) || null;
+    const charIdStr   = feedSub?.character_id ? String(feedSub.character_id) : null;
+    const charNameKey = (feedSub?.character_name || '').toLowerCase().trim();
+    feedChar =
+      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+      charMap.get(charNameKey) ||
+      null;
+  }
 
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
 
@@ -3281,6 +3590,9 @@ function renderActionPanel(entry, review) {
     }
   }
 
+  // ── Feeding two-column layout wrapper ──
+  if (entry.source === 'feeding') h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+
   // ── Feeding-specific detail display ──
   if (entry.source === 'feeding') {
     if (entry.noMethod) {
@@ -3301,8 +3613,7 @@ function renderActionPanel(entry, review) {
       }
       h += '</div>';
     }
-    // Previous roll result
-    const feedSub = submissions.find(s => s._id === entry.subId);
+    // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
     if (feedRoll) {
       const roteTag = feedRoll.params?.rote ? ' (rote)' : '';
@@ -3312,15 +3623,10 @@ function renderActionPanel(entry, review) {
 
   // Pool row — feeding gets structured pool builder; others get free-text input
   if (entry.source === 'feeding') {
-    const feedSub2 = submissions.find(s => s._id === entry.subId);
-    const resp = feedSub2?.responses || {};
+    // Use hoisted feedSub / feedChar from top of function
+    const resp = feedSub?.responses || {};
     const isAppForm = !!(resp.feed_attr);
-    const charIdStr    = feedSub2?.character_id ? String(feedSub2.character_id) : null;
-    const charNameKey  = (feedSub2?.character_name || '').toLowerCase().trim();
-    const char =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
+    const char = feedChar;
 
     // Player's submitted pool (source-aware, read-only)
     h += '<div class="proc-pool-player-row">';
@@ -3336,23 +3642,16 @@ function renderActionPanel(entry, review) {
     }
     h += '</div>';
 
-    // ST Pool Builder
-    if (!char) {
-      const warnMsg = characters.length === 0
-        ? 'Characters not loaded (local server may be down) \u2014 manual entry'
-        : `Character not found for "${esc(feedSub2?.character_name || '?')}" \u2014 manual entry`;
-      h += `<div class="proc-pool-nochar-warn">${warnMsg}</div>`;
-      h += `<div class="proc-detail-label" style="margin-bottom:4px">ST Validated Pool</div>`;
-      h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
-    } else {
-      // Build option lists with effective dots
-      const charDiscs = (char.disciplines || []).filter(d => d.dots > 0);
+    // ST Pool Builder — always rendered; dot values filled from char data when available
+    {
+      const charDiscs = char ? (char.disciplines || []).filter(d => d.dots > 0) : [];
       const discNames = charDiscs.map(d => d.name);
+      const allDiscNames = char ? discNames : KNOWN_DISCIPLINES;
 
       // Pre-populate from existing pool_validated
       let preAttr = '', preSkill = '', preDisc = 'none', preMod = 0, showParseRef = false;
       if (poolValidated) {
-        const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, discNames);
+        const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, allDiscNames);
         if (parsed) {
           preAttr  = parsed.attr  || '';
           preSkill = parsed.skill || '';
@@ -3365,38 +3664,43 @@ function renderActionPanel(entry, review) {
 
       const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
         ...ALL_ATTRS.map(a => {
-          const dots = getAttrVal(char, a) || 0;
+          const dots = char ? (getAttrVal(char, a) || 0) : null;
           const sel  = a === preAttr ? ' selected' : '';
-          return `<option value="${esc(a)}" data-dots="${dots}"${sel}>${esc(a)} (${dots})</option>`;
+          const label = dots !== null ? `${esc(a)} (${dots})` : esc(a);
+          return `<option value="${esc(a)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
         })
       ].join('');
 
       const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
         ...ALL_SKILLS.map(s => {
-          const dots = skDots(getSkillObj(char, s)) || 0;
+          const dots = char ? (skDots(getSkillObj(char, s)) || 0) : null;
           const sel  = s === preSkill ? ' selected' : '';
-          return `<option value="${esc(s)}" data-dots="${dots}"${sel}>${esc(s)} (${dots})</option>`;
+          const label = dots !== null ? `${esc(s)} (${dots})` : esc(s);
+          return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
         })
       ].join('');
 
       const discOptHtml = ['<option value="none" data-dots="0">None</option>',
-        ...charDiscs.map(d => {
-          const sel = d.name === preDisc ? ' selected' : '';
-          return `<option value="${esc(d.name)}" data-dots="${d.dots}"${sel}>${esc(d.name)} (${d.dots})</option>`;
+        ...allDiscNames.map(name => {
+          const d    = charDiscs.find(cd => cd.name === name);
+          const dots = d ? d.dots : null;
+          const sel  = name === preDisc ? ' selected' : '';
+          const label = dots !== null ? `${esc(name)} (${dots})` : esc(name);
+          return `<option value="${esc(name)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
         })
       ].join('');
 
-      // Initial total display
-      const initAttrDots  = preAttr  ? (getAttrVal(char, preAttr) || 0) : 0;
-      const initSkillDots = preSkill ? (skDots(getSkillObj(char, preSkill)) || 0) : 0;
+      // Initial total display (AC 12: pass skillName for unskilled penalty)
+      const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
+      const initSkillDots = preSkill ? (char ? (skDots(getSkillObj(char, preSkill)) || 0) : 0) : 0;
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
-      const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, preMod);
+      const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, preMod, preSkill);
 
       const modStr      = preMod === 0 ? '\u00B10' : preMod > 0 ? `+${preMod}` : String(preMod);
-      const roteChecked = (entry.feedRote || feedSub2?.st_review?.feeding_rote) ? ' checked' : '';
+      const roteChecked = (entry.feedRote || feedSub?.st_review?.feeding_rote) ? ' checked' : '';
 
       h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
-      h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder</div>`;
+      h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder${!char ? ' <span style="color:var(--txt3);font-size:10px">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
       if (showParseRef) {
         h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
       }
@@ -3434,10 +3738,12 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-detail-grid
   }
 
-  // Validation status — sorcery uses Resolved/No Effect labels
+  // Validation status — feeding: Pending/Validated only; sorcery: Resolved/No Effect; others: Pending/Validated/No Roll Needed
   const statusOptions = isSorcery
     ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
-    : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
+    : entry.source === 'feeding'
+      ? [['pending', 'Pending'], ['validated', 'Validated']]
+      : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
 
   h += '<div style="margin-bottom:12px">';
   h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
@@ -3480,7 +3786,6 @@ function renderActionPanel(entry, review) {
 
   // Roll button for validated feeding entries
   if (entry.source === 'feeding' && poolStatus === 'validated') {
-    const feedSub  = submissions.find(s => s._id === entry.subId);
     const isRote   = entry.feedRote || feedSub?.st_review?.feeding_rote || false;
     h += '<div style="margin-bottom:12px">';
     h += `<button class="dt-btn proc-feed-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-rote="${isRote}">Roll Feeding</button>`;
@@ -3514,6 +3819,13 @@ function renderActionPanel(entry, review) {
   h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
   h += '</div>';
   h += '</div>';
+
+  // ── Close left column; render right panel for feeding entries ──
+  if (entry.source === 'feeding') {
+    h += '</div>'; // proc-feed-left
+    h += _renderFeedRightPanel(entry, feedChar, rev);
+    h += '</div>'; // proc-feed-layout
+  }
 
   // Re-tag action type (for project actions only)
   if (entry.source === 'project') {
