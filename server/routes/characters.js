@@ -99,6 +99,33 @@ router.get('/public', async (req, res) => {
   res.json(chars);
 });
 
+// GET /api/characters/combat — lightweight resistance data for all active characters.
+// Used by the game app dice roller to populate the opponent target dropdown
+// when a player needs to select a resistance target. Returns only the fields
+// needed for contested roll calculations — no merit data, no powers, no PII.
+router.get('/combat', async (req, res) => {
+  const chars = await col()
+    .find(
+      { retired: { $ne: true }, pending_approval: { $ne: true } },
+      {
+        projection: {
+          name: 1, honorific: 1, moniker: 1, clan: 1, covenant: 1,
+          blood_potency: 1,
+          'attributes.Resolve': 1, 'attributes.Composure': 1,
+          'attributes.Strength': 1, 'attributes.Dexterity': 1,
+          'attributes.Stamina': 1, 'attributes.Wits': 1,
+          'attributes.Presence': 1, 'attributes.Manipulation': 1,
+          'attributes.Intelligence': 1,
+          disciplines: 1,
+        },
+      }
+    )
+    .toArray();
+  const sortKey = c => (c.moniker || c.name || '').toLowerCase();
+  chars.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  res.json(chars);
+});
+
 // GET /api/characters/status — status ranking data (any authenticated user)
 // Returns active characters with clan/covenant status, joined with their
 // linked player's Discord avatar so the player portal Status tab can

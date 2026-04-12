@@ -63,6 +63,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
+import { apiGet } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
@@ -258,8 +259,24 @@ async function loadAllData() {
   // 2. Copy to suite state
   const sortedChars = editorState.chars.slice().sort((a, b) => sortName(a).localeCompare(sortName(b)));
   suiteState.chars = sortedChars;
-  window._charNames = sortedChars.map(c => c.name);
-  window._charDisplayMap = Object.fromEntries(sortedChars.map(c => [c.name, displayName(c)]));
+
+  // 2b. Load combat data for ALL characters (resist target dropdown).
+  // Players only have their own chars in editorState, but the resist
+  // calculator needs opponents' attributes. The /combat endpoint returns
+  // lightweight attribute/discipline data for all active characters.
+  try {
+    const combatChars = await apiGet('/api/characters/combat');
+    if (Array.isArray(combatChars) && combatChars.length) {
+      // Merge combat chars into suiteState so resist lookups find them
+      const ownIds = new Set(sortedChars.map(c => String(c._id)));
+      for (const cc of combatChars) {
+        if (!ownIds.has(String(cc._id))) suiteState.chars.push(cc);
+      }
+    }
+  } catch { /* combat endpoint unavailable — resist dropdown will only show own chars */ }
+
+  window._charNames = suiteState.chars.map(c => c.name);
+  window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
 
   // 3. Populate suite dropdowns
   populateSuiteDropdowns(sortedChars);
