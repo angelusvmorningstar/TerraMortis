@@ -3310,6 +3310,19 @@ function _parsePoolExpr(str, attrList, skillList, discNames) {
 }
 
 /**
+ * Normalise char.disciplines to [{name, dots}] regardless of schema version.
+ * v2 format: array; old format: { "Dominate": { dots: 3 } }.
+ */
+function _charDiscsArray(char) {
+  if (!char) return [];
+  const d = char.disciplines;
+  if (!d) return [];
+  if (Array.isArray(d)) return d;
+  // Old object format: { "Dominate": { dots: 3 } }
+  return Object.entries(d).map(([name, v]) => ({ name, dots: v?.dots || 0 }));
+}
+
+/**
  * Return the unskilled penalty for a skill with 0 dots (-3 mental, -1 otherwise).
  */
 function _unskilledPenalty(skillName, skillDots) {
@@ -3470,7 +3483,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolValidated = rev.pool_validated || '';
   let initSkillName = '', initSkillDots = 0;
   if (poolValidated && char) {
-    const charDiscs0 = (char.disciplines || []).filter(d => d.dots > 0).map(d => d.name);
+    const charDiscs0 = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
     const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
     if (parsed0?.skill) {
       initSkillName = parsed0.skill;
@@ -3744,7 +3757,7 @@ function renderActionPanel(entry, review) {
 
     // ST Pool Builder — always rendered; dot values filled from char data when available
     {
-      const charDiscs = char ? (char.disciplines || []).filter(d => d.dots > 0) : [];
+      const charDiscs = _charDiscsArray(char).filter(d => d.dots > 0);
       const discNames = charDiscs.map(d => d.name);
       const allDiscNames = char ? discNames : KNOWN_DISCIPLINES;
 
