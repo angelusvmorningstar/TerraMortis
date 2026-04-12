@@ -30,6 +30,7 @@ function esc(s) {
 let players = [];
 let chars   = [];
 let editingId = null;   // player _id currently in edit mode
+let expandedId = null;  // player _id currently expanded
 
 export async function initPlayersView(characters) {
   chars = characters || [];
@@ -118,26 +119,47 @@ function playerCard(p) {
     ? `<span class="pv-handle">@${esc(p.discord_username)}</span>`
     : '<span class="pv-dim">No username set</span>';
 
-  return `<div class="pv-card" data-id="${esc(p._id)}">
-    <img class="pv-avatar" src="${avatarUrl}" alt=""${isRedactMode() ? '' : ` onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'"`}>
-    <div class="pv-info">
-      <div class="pv-name-row">
-        <span class="pv-name">${esc(p.display_name || '(unnamed)')}</span>
-        ${roleBadge}
+  const isExpanded = expandedId === String(p._id);
+  const dim = (v) => v ? esc(v) : '<span class="pv-dim">Not provided</span>';
+
+  let detail = '';
+  if (isExpanded) {
+    detail = `<div class="pv-detail">
+      <div class="pv-detail-grid">
+        <div class="pv-detail-field"><span class="pv-detail-label">Email</span>${dim(p.email)}</div>
+        <div class="pv-detail-field"><span class="pv-detail-label">Mobile</span>${dim(p.mobile)}</div>
+        <div class="pv-detail-field"><span class="pv-detail-label">Emergency Contact</span>${dim(p.emergency_contact_name)}</div>
+        <div class="pv-detail-field"><span class="pv-detail-label">Emergency Mobile</span>${dim(p.emergency_contact_mobile)}</div>
+        <div class="pv-detail-field pv-detail-wide"><span class="pv-detail-label">Medical Info</span>${dim(p.medical_info)}</div>
       </div>
-      <div class="pv-discord-row">
-        ${usernameDisplay}
-        ${didDisplay}
+      <div class="pv-detail-actions">
+        <button class="pv-icon-btn pv-edit-btn" data-id="${esc(p._id)}" title="Edit">&#9998;</button>
       </div>
-      ${charNames ? `<div class="pv-chars">${charNames}</div>` : ''}
+    </div>`;
+  }
+
+  return `<div class="pv-card${isExpanded ? ' pv-card-expanded' : ''}" data-id="${esc(p._id)}">
+    <div class="pv-card-header" data-toggle-id="${esc(p._id)}">
+      <img class="pv-avatar" src="${avatarUrl}" alt=""${isRedactMode() ? '' : ` onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'"`}>
+      <div class="pv-info">
+        <div class="pv-name-row">
+          <span class="pv-name">${esc(p.display_name || '(unnamed)')}</span>
+          ${roleBadge}
+        </div>
+        <div class="pv-discord-row">
+          ${usernameDisplay}
+          ${didDisplay}
+        </div>
+        ${charNames ? `<div class="pv-chars">${charNames}</div>` : ''}
+      </div>
+      <div class="pv-meta">
+        <span class="pv-login">Last login: ${lastLogin}</span>
+      </div>
+      <div class="pv-row-actions">
+        <button class="pv-icon-btn pv-remove-btn" data-id="${esc(p._id)}" data-name="${esc(p.display_name || '(unnamed)')}" title="Remove">&#10005;</button>
+      </div>
     </div>
-    <div class="pv-meta">
-      <span class="pv-login">Last login: ${lastLogin}</span>
-    </div>
-    <div class="pv-actions">
-      <button class="dt-btn pv-edit-btn" data-id="${esc(p._id)}">Edit</button>
-      <button class="dt-btn pv-remove-btn" data-id="${esc(p._id)}" data-name="${esc(p.display_name || '(unnamed)')}">Remove</button>
-    </div>
+    ${detail}
   </div>`;
 }
 
@@ -207,6 +229,16 @@ function bindEvents(container) {
   container.querySelector('#pv-add-btn')?.addEventListener('click', () => {
     editingId = 'new';
     render();
+  });
+
+  // Card header toggle (expand/collapse)
+  container.querySelectorAll('[data-toggle-id]').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('button')) return; // don't toggle when clicking buttons
+      const id = el.dataset.toggleId;
+      expandedId = expandedId === id ? null : id;
+      render();
+    });
   });
 
   container.querySelectorAll('.pv-edit-btn').forEach(btn => {
