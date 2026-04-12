@@ -2980,6 +2980,7 @@ function renderProcessingMode(container) {
       // AC 3 / Task 5: also update unskilled row in right panel when skill changes
       if (sel.classList.contains('proc-pool-skill')) {
         _updateUnskilledRow(container, sel.dataset.procKey);
+        _updateFeedBuilderMeta(container, sel.dataset.procKey);
       }
     });
   });
@@ -3631,6 +3632,27 @@ function _updateUnskilledRow(container, key) {
 }
 
 /**
+ * Update the 9-again badge and spec info labels in the feeding pool builder when skill changes.
+ */
+function _updateFeedBuilderMeta(container, key) {
+  const metaEl = container.querySelector(`.dt-feed-builder-meta[data-proc-key="${key}"]`);
+  if (!metaEl) return;
+  const skillSel = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-skill`);
+  if (!skillSel) return;
+  const skillName = skillSel.value;
+  if (!skillName) { metaEl.innerHTML = ''; return; }
+  const sub = submissions.find(s => s._id === metaEl.dataset.subId);
+  const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
+  if (!char) { metaEl.innerHTML = ''; return; }
+  const nineA = skNineAgain(char, skillName);
+  const specs = skSpecs(char, skillName);
+  let h = '';
+  if (nineA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+  for (const sp of specs) h += `<span class="dt-skill-meta-spec">${esc(sp)}</span>`;
+  metaEl.innerHTML = h;
+}
+
+/**
  * Recompute and update the total display for a pool builder in the container.
  */
 function _updatePoolTotal(container, key) {
@@ -4059,6 +4081,13 @@ function renderActionPanel(entry, review) {
       // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
+      // Skill metadata: 9-again badge + spec info labels (live; updates on skill change)
+      const _fbnA = char && preSkill ? skNineAgain(char, preSkill) : false;
+      const _fbSp = char && preSkill ? skSpecs(char, preSkill) : [];
+      h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
+      if (_fbnA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+      for (const sp of _fbSp) h += `<span class="dt-skill-meta-spec">${esc(sp)}</span>`;
+      h += '</div>';
       h += '</div>'; // proc-pool-builder
     }
   } else {

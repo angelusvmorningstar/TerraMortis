@@ -1641,6 +1641,7 @@ body {
 .dt-pool-9a-auto { display: inline-block; background: rgba(58,138,58,.15); color: #3a8a3a; border-radius: 3px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
 .dt-spec-toggle-lbl { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; color: var(--txt-dim); }
 .dt-spec-toggle-lbl:hover { color: var(--txt); }
+.dt-skill-meta-spec { display: inline-block; background: rgba(224,196,122,.1); color: var(--gold2); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
 
 /* ── Narrative Output (1.7) ── */
 .dt-narr-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
