@@ -4219,6 +4219,28 @@ body {
 }
 .proc-rite-cost-input:focus { border-color: var(--gold2); outline: none; }
 
+/* Right panel sections (rote, validation) */
+.proc-feed-right-section {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.proc-feed-rote-right {
+  font-size: 13px;
+  color: var(--txt2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.proc-feed-right-validation .proc-val-status {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
 /* ── feature.46: Project detail and allies hint ── */
 .proc-proj-detail {
   margin-bottom: 12px;

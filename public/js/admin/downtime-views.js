@@ -3513,6 +3513,24 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `</div>`;
 
   h += `</div>`; // proc-feed-vitae-panel
+
+  // ── Rote toggle ──
+  const feedSubR = submissions.find(s => s._id === entry.subId);
+  const isRote   = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
+  h += `<div class="proc-feed-right-section">`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
+  h += `</div>`;
+
+  // ── Validation Status ──
+  const poolStatus = rev.pool_status || 'pending';
+  h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
+  h += `<div class="proc-mod-panel-title">Validation Status</div>`;
+  h += `<div class="proc-val-status">`;
+  h += `<button class="proc-val-btn${poolStatus === 'pending'    ? ' active pending'    : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'validated'  ? ' active validated'  : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
+  h += `</div>`;
+  h += `</div>`;
+
   h += `</div>`; // proc-feed-right
   return h;
 }
@@ -3696,9 +3714,6 @@ function renderActionPanel(entry, review) {
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
       const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, preMod, preSkill);
 
-      const modStr      = preMod === 0 ? '\u00B10' : preMod > 0 ? `+${preMod}` : String(preMod);
-      const roteChecked = (entry.feedRote || feedSub?.st_review?.feeding_rote) ? ' checked' : '';
-
       h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
       h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder${!char ? ' <span style="color:var(--txt3);font-size:10px">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
       if (showParseRef) {
@@ -3711,16 +3726,6 @@ function renderActionPanel(entry, review) {
       h += `<span class="proc-pool-plus">+</span>`;
       h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
       h += '</div>'; // proc-pool-builder-selects
-      h += '<div class="proc-pool-builder-controls">';
-      h += '<div class="proc-pool-mod-group">';
-      h += `<span class="proc-pool-mod-label">Modifier</span>`;
-      h += `<button class="proc-pool-mod-dec" type="button" data-proc-key="${esc(entry.key)}">\u2212</button>`;
-      h += `<span class="proc-pool-mod-disp" data-proc-key="${esc(entry.key)}">${modStr}</span>`;
-      h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${preMod}">`;
-      h += `<button class="proc-pool-mod-inc" type="button" data-proc-key="${esc(entry.key)}">+</button>`;
-      h += '</div>'; // proc-pool-mod-group
-      h += `<label class="proc-pool-rote-label"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(entry.key)}"${roteChecked}> Rote</label>`;
-      h += '</div>'; // proc-pool-builder-controls
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
       h += '</div>'; // proc-pool-builder
     }
@@ -3738,21 +3743,21 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-detail-grid
   }
 
-  // Validation status — feeding: Pending/Validated only; sorcery: Resolved/No Effect; others: Pending/Validated/No Roll Needed
-  const statusOptions = isSorcery
-    ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
-    : entry.source === 'feeding'
-      ? [['pending', 'Pending'], ['validated', 'Validated']]
+  // Validation status — feeding moves to right panel; non-feeding rendered here
+  if (entry.source !== 'feeding') {
+    const statusOptions = isSorcery
+      ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
       : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
 
-  h += '<div style="margin-bottom:12px">';
-  h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
-  h += '<div class="proc-val-status">';
-  for (const [val, label] of statusOptions) {
-    h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
+    h += '<div style="margin-bottom:12px">';
+    h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
+    h += '<div class="proc-val-status">';
+    for (const [val, label] of statusOptions) {
+      h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
+    }
+    h += '</div>';
+    h += '</div>';
   }
-  h += '</div>';
-  h += '</div>';
 
   // ── Attach Reminder (sorcery resolved) ──
   if (isSorcery) {
