@@ -221,14 +221,22 @@ function renderInfluenceColumn(doc, data, assets) {
   }
 
   // Influence merits list — inline name with sphere qualifier.
-  // Examples: "Allies (Politics)", "Contacts (Police, Media, Street)".
-  //
-  // The sphere lives in different schema fields for different merit types:
-  // Allies / Status use `qualifier`, Contacts uses `area` (see
-  // schemas/print-character.schema.json). Fall through both.
+  // Real character data for influence merits:
+  //   Allies  — each sphere is a separate entry with m.area = "Politics"
+  //   Contacts — aggregated by serialiseForPrint into one entry with
+  //              m.spheres = ["Police", "Media", "Street"]
+  //   Others  — m.area is the free-text scope (Mentor name, Retainer desc, ...)
+  // Fall through spheres[] → area → qualifier so every merit type renders
+  // a sensible label.
+  function sphereLabel(m) {
+    if (Array.isArray(m.spheres) && m.spheres.length) return m.spheres.join(', ');
+    if (m.area)      return m.area;
+    if (m.qualifier) return m.qualifier;
+    return null;
+  }
   const influenceMerits = (data.merits || []).filter(m => m.category === 'influence');
   influenceMerits.forEach(m => {
-    const sphere = m.qualifier || m.area || null;
+    const sphere = sphereLabel(m);
     const headline = sphere ? `${m.name} (${sphere})` : m.name;
     doc.font(F.caslon).fontSize(8.5).fillColor(C.INK);
     // Reserve the right edge for the rating dots
@@ -242,17 +250,27 @@ function renderInfluenceColumn(doc, data, assets) {
 
   y += 10;
 
-  // KINDRED STATUS
+  // KINDRED STATUS — NOT a merit. Derived from top-level character data:
+  //   data.stats.status.covenant = score in the character's OWN covenant
+  //   data.identity.covenant     = which covenant that is
+  // Characters don't track status in covenants they don't belong to, so
+  // all non-own covenants render as "–".
   miniHeader(doc, x, y, w, 'KINDRED STATUS', { fontSize: 10 });
   y += 14;
-  const ksMerits = (data.merits || []).filter(m =>
-    m.category === 'standing' && /Kindred Status/i.test(m.name)
-  );
-  ksMerits.forEach(m => {
+  const charCov = data.identity.covenant;
+  const covStatus = (data.stats.status && data.stats.status.covenant) || 0;
+  const COVENANT_LABELS = [
+    { full: 'Carthian Movement',   short: 'Carthian' },
+    { full: 'Circle of the Crone', short: 'Crone' },
+    { full: 'Invictus',            short: 'Invictus' },
+    { full: 'Lancea et Sanctum',   short: 'Lance' },
+    { full: 'Ordo Dracul',         short: 'Dracul' },
+  ];
+  COVENANT_LABELS.forEach(cov => {
     doc.font(F.body).fontSize(8.5).fillColor(C.INK);
-    const label = m.qualifier || m.name.replace(/Kindred Status\s*\(?/, '').replace(/\)$/, '');
-    doc.text(label, x, y, { lineBreak: false });
-    ratingGlyphs(m.effective_rating, y);
+    doc.text(cov.short, x, y, { lineBreak: false });
+    const rating = (cov.full === charCov) ? covStatus : 0;
+    ratingGlyphs(rating, y);
     y += 11;
   });
   y += 10;
