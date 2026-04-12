@@ -7,12 +7,11 @@ import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
-import { rollPool } from '../downtime/roller.js';
+import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
-import { showRollModal } from '../downtime/roller.js';
 import { getUser } from '../auth/discord.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
@@ -2979,15 +2978,25 @@ function renderProcessingMode(container) {
         if (builder) {
           const expr = _readBuilderExpr(builder);
           if (expr) {
-            const sub2  = submissions.find(s => s._id === entry.subId);
-            const char2 = sub2 ? findCharacter(sub2.character_name, sub2.player_name) : null;
-            let nineAgainAuto = false;
-            if (char2) {
-              const charDiscsArr2 = _charDiscsArray(char2).map(d => d.name);
-              const parsed2 = _parsePoolExpr(expr, ALL_ATTRS, ALL_SKILLS, charDiscsArr2);
-              if (parsed2?.skill) nineAgainAuto = skNineAgain(char2, parsed2.skill);
+            if (entry.source === 'project') {
+              // Use sidebar checkbox states for project nine_again/rote/eight_again
+              const rightPanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+              const roteVal      = rightPanel?.querySelector('.proc-pool-rote')?.checked  || false;
+              const nineAgainVal = rightPanel?.querySelector('.proc-proj-9a')?.checked    || false;
+              const eightAgainVal = rightPanel?.querySelector('.proc-proj-8a')?.checked   || false;
+              await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainVal, rote: roteVal, eight_again: eightAgainVal });
+            } else {
+              // Feeding: auto-detect nine_again from skill
+              const sub2  = submissions.find(s => s._id === entry.subId);
+              const char2 = sub2 ? findCharacter(sub2.character_name, sub2.player_name) : null;
+              let nineAgainAuto = false;
+              if (char2) {
+                const charDiscsArr2 = _charDiscsArray(char2).map(d => d.name);
+                const parsed2 = _parsePoolExpr(expr, ALL_ATTRS, ALL_SKILLS, charDiscsArr2);
+                if (parsed2?.skill) nineAgainAuto = skNineAgain(char2, parsed2.skill);
+              }
+              await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainAuto });
             }
-            await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainAuto });
           }
         }
       }
@@ -3068,6 +3077,11 @@ function renderProcessingMode(container) {
       const key   = cb.dataset.procKey;
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
+      if (entry.source === 'project') {
+        await saveEntryReview(entry, { rote: cb.checked });
+        renderProcessingMode(container);
+        return;
+      }
       const sub = submissions.find(s => s._id === entry.subId);
       if (!sub) return;
       const stReview = { ...(sub.st_review || {}), feeding_rote: cb.checked };
@@ -3309,6 +3323,68 @@ function renderProcessingMode(container) {
           renderProcessingMode(container);
         }
       );
+    });
+  });
+
+  // Wire project 9-Again sidebar toggle
+  container.querySelectorAll('.proc-proj-9a').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key = cb.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { nine_again: cb.checked });
+      // Update pool total annotation in-place
+      const poolTotalEl = container.querySelector(`.proc-pool-total[data-proc-key="${key}"]`);
+      if (poolTotalEl) {
+        poolTotalEl.dataset.nineAgain = cb.checked ? '1' : '0';
+        _updatePoolTotal(container, key);
+      }
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire project 8-Again sidebar toggle
+  container.querySelectorAll('.proc-proj-8a').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key = cb.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { eight_again: cb.checked });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire project roll button (sidebar roll card)
+  container.querySelectorAll('.proc-proj-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      const poolValidated = review?.pool_validated || '';
+      if (!poolValidated) return;
+      const match = poolValidated.match(/(\d+)\s*$/);
+      const diceCount = match ? parseInt(match[1], 10) : 0;
+      if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      // Read toggle states from sidebar
+      const rightPanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+      const roteChecked      = rightPanel?.querySelector('.proc-pool-rote')?.checked  || false;
+      const nineAgainChecked = rightPanel?.querySelector('.proc-proj-9a')?.checked    || false;
+      const eightAgainChecked = rightPanel?.querySelector('.proc-proj-8a')?.checked   || false;
+      const again = eightAgainChecked ? 8 : nineAgainChecked ? 9 : 10;
+      showRollModal({
+        size: diceCount, expression: poolValidated,
+        existingRoll: review?.roll || null,
+        again, initialRote: roteChecked,
+      }, async result => {
+        await saveEntryReview(entry, { roll: result });
+        renderProcessingMode(container);
+      });
     });
   });
 
@@ -3611,17 +3687,41 @@ function _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifi
 }
 
 /**
+ * Format a dice_string from rollPool into a human-readable list, marking exploded dice with !.
+ * e.g. "[1,3,5,0>9>4,5]" → "[1, 3, 5, 10!, 9!, 4, 5]"
+ */
+function _formatDiceString(diceString) {
+  if (!diceString) return '';
+  const chains = parseDiceString(diceString);
+  const parts = [];
+  for (const chain of chains) {
+    for (let i = 0; i < chain.length; i++) {
+      const face = chain[i] === 0 ? 10 : chain[i];
+      parts.push(i < chain.length - 1 ? `${face}!` : String(face));
+    }
+  }
+  return '[' + parts.join(', ') + ']';
+}
+
+/**
  * Build the live display string for the pool total element.
  * skillName is optional; when provided and skillDots === 0, appends unskilled penalty note.
+ * nineAgain is optional; when true, appends (9-Again).
  */
-function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skillName) {
+function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skillName, nineAgain = false) {
   if (!attr || !skill) return '\u2014 + \u2014 = 0';
   const base = _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
   const penalty = _unskilledPenalty(skillName, skillDots);
-  if (!penalty) return base;
-  const rawTotal = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
-  const corrected = rawTotal + penalty;
-  return base.replace(`= ${rawTotal}`, `= ${corrected} (\u2212${Math.abs(penalty)} unskilled)`);
+  let result;
+  if (!penalty) {
+    result = base;
+  } else {
+    const rawTotal = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
+    const corrected = rawTotal + penalty;
+    result = base.replace(`= ${rawTotal}`, `= ${corrected} (\u2212${Math.abs(penalty)} unskilled)`);
+  }
+  if (nineAgain) result += ' (9-Again)';
+  return result;
 }
 
 /**
@@ -3736,6 +3836,38 @@ function _updateFeedBuilderMeta(container, key) {
   const entry = buildProcessingQueue(submissions).find(q => q.key === key);
   const review = entry ? (getEntryReview(entry) || {}) : {};
   const activeSpecs = review.active_feed_specs || [];
+
+  // For project entries: 9-again lives in the sidebar; only spec toggles in meta
+  if (entry?.source === 'project') {
+    // Sync auto-detected nine_again to sidebar checkbox and pool total annotation
+    const sidebarNineA = container.querySelector(`.proc-proj-9a[data-proc-key="${key}"]`);
+    if (sidebarNineA) sidebarNineA.checked = nineA;
+    const poolTotalEl = container.querySelector(`.proc-pool-total[data-proc-key="${key}"]`);
+    if (poolTotalEl) poolTotalEl.dataset.nineAgain = nineA ? '1' : '0';
+    _updatePoolTotal(container, key);
+    let h = '';
+    for (const sp of specs) {
+      const checked = activeSpecs.includes(sp);
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
+    }
+    metaEl.innerHTML = h;
+    metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
+      cb.addEventListener('change', async e => {
+        e.stopPropagation();
+        const entry2 = buildProcessingQueue(submissions).find(q => q.key === cb.dataset.procKey);
+        if (!entry2 || !cb.dataset.spec) return;
+        const rev2 = getEntryReview(entry2) || {};
+        const activeSpecs2 = [...(rev2.active_feed_specs || [])];
+        if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
+        else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
+        await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: activeSpecs2.length });
+        renderProcessingMode(container);
+      });
+    });
+    return;
+  }
+
+  // Feeding: existing behaviour — 9-again badge/toggle + spec toggles in meta
   const nineAOverride = review.nine_again || false;
   let h = '';
   if (nineA) {
@@ -3795,7 +3927,8 @@ function _updatePoolTotal(container, key) {
   const attrDots  = parseInt(attrSel.selectedOptions[0]?.dataset.dots  || '0', 10);
   const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
   const discDots  = (discSel && disc !== 'none') ? parseInt(discSel.selectedOptions[0]?.dataset.dots || '0', 10) : 0;
-  totalEl.textContent = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skill);
+  const nineAgain = totalEl.dataset.nineAgain === '1';
+  totalEl.textContent = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier, skill, nineAgain);
 }
 
 /**
@@ -3846,11 +3979,14 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `</div>`;
   h += `</div>`; // proc-proj-succ-panel
 
-  // ── Rote toggle ──
-  const projSubR = submissions.find(s => s._id === entry.subId);
-  const isRote   = projSubR?.projects_resolved?.[entry.actionIdx]?.rote || false;
+  // ── Roll toggles: Rote, 9-Again, 8-Again ──
+  const isRote        = rev.rote        || false;
+  const nineAgainState = rev.nine_again || false;
+  const eightAgainState = rev.eight_again || false;
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainState ? ' checked' : ''}> 9-Again</label>`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-8a" data-proc-key="${esc(key)}"${eightAgainState ? ' checked' : ''}> 8-Again</label>`;
   h += `</div>`;
 
   // ── Validation Status ──
@@ -3873,6 +4009,35 @@ function _renderProjRightPanel(entry, char, rev) {
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
+  // Validation notation: show active flags when validated
+  if (poolStatus === 'validated') {
+    const notes = [];
+    if (isRote) notes.push('Rote');
+    if (nineAgainState) notes.push('9-Again');
+    if (eightAgainState) notes.push('8-Again');
+    if (notes.length > 0) {
+      h += `<div class="proc-proj-val-notation">${esc(notes.join(' \u00B7 '))}</div>`;
+    }
+  }
+  h += `</div>`;
+
+  // ── Roll card ──
+  const projRoll = rev.roll || null;
+  const showRollBtn = poolStatus === 'validated' || !!projRoll;
+  h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
+  h += `<div class="proc-mod-panel-title">Roll</div>`;
+  if (showRollBtn) {
+    const rollLabel = projRoll ? 'Re-roll' : 'Roll';
+    h += `<button class="dt-btn proc-proj-roll-btn" data-proc-key="${esc(key)}">${rollLabel}</button>`;
+  } else {
+    h += `<span style="color:var(--txt3);font-size:11px;font-style:italic">Validate pool first</span>`;
+  }
+  if (projRoll) {
+    const diceStr = _formatDiceString(projRoll.dice_string);
+    const suc = projRoll.successes;
+    const excTag = projRoll.exceptional ? ' \u2014 Exceptional' : '';
+    h += `<div class="proc-proj-roll-result">${esc(diceStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
+  }
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -4174,11 +4339,6 @@ function renderActionPanel(entry, review) {
       if (entry.description)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Project Description</span> ${esc(entry.description)}</div>`;
       h += '</div>';
     }
-    // Previous roll result
-    const projRoll = projSub?.projects_resolved?.[entry.actionIdx]?.roll;
-    if (projRoll) {
-      h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(projRoll.successes))} success${projRoll.successes !== 1 ? 'es' : ''}${projRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
-    }
   }
 
   // ── Feeding-specific detail display ──
@@ -4381,7 +4541,9 @@ function renderActionPanel(entry, review) {
     const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
     const initSkillDots = preSkill ? (char ? (getSkillObj(char, preSkill).dots || 0) : 0) : 0;
     const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
-    const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
+    // 9-again auto-detect (used for pool total annotation and sidebar initial state)
+    const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
+    const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill, _pnA);
 
     // Player's submitted pool (read-only)
     h += '<div class="proc-pool-player-row">';
@@ -4402,20 +4564,11 @@ function renderActionPanel(entry, review) {
     h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
     h += '</div>';
     h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
-    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
-    // 9-again + spec toggles
-    const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
+    h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
+    // Spec toggles only — 9-again moved to right sidebar for project entries
     const _pSp  = char && preSkill ? skSpecs(char, preSkill) : [];
     const _pAct = rev.active_feed_specs || [];
-    const _p9Ov = rev.nine_again || false;
     h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-    if (preSkill) {
-      if (_pnA) {
-        h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
-      } else {
-        h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${esc(entry.key)}"${_p9Ov ? ' checked' : ''}> 9-Again</label>`;
-      }
-    }
     for (const sp of _pSp) {
       const checked = _pAct.includes(sp);
       h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
@@ -4475,8 +4628,8 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Roll button for validated project / merit entries
-  if ((entry.source === 'project' || entry.source === 'merit') && poolStatus === 'validated') {
+  // Roll button for validated merit entries (project roll is in the right sidebar)
+  if (entry.source === 'merit' && poolStatus === 'validated') {
     h += '<div style="margin-bottom:12px">';
     h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
     h += '</div>';

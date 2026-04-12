@@ -4250,6 +4250,30 @@ body {
   color: var(--txt1);
 }
 
+.proc-proj-roll-card {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proc-proj-roll-result {
+  font-size: 11px;
+  color: var(--txt2);
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.proc-proj-val-notation {
+  font-size: 11px;
+  color: var(--gold2);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
 .proc-mod-panel-title {
   font-family: var(--fh);
   font-size: 11px;
