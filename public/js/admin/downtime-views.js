@@ -37,6 +37,7 @@ let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder 
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let ambDashCollapsed = false;  // collapse state for the Ambience Dashboard panel
 let discDashCollapsed = false; // collapse state for the Discipline Profile Matrix panel
+const collapsedPhases = new Set(); // phaseKeys currently collapsed in Processing Mode
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -56,14 +57,14 @@ const PHASE_ORDER = {
 };
 
 const PHASE_LABELS = {
-  resolve_first: 'Resolve First — Sorcery & Rituals',
-  feeding: 'Phase 1 — Feeding',
-  ambience: 'Phase 2 — Ambience',
-  hide_protect: 'Phase 3 — Defensive',
-  investigate: 'Phase 4 — Investigative',
-  attack: 'Phase 5 — Hostile',
-  support_patrol: 'Phase 6 — Support & Patrol',
-  misc: 'Phase 7 — Miscellaneous',
+  resolve_first: 'Step 1 — Blood Sorcery & Rituals',
+  feeding: 'Step 2 — Feeding',
+  ambience: 'Step 3 — Ambience',
+  hide_protect: 'Step 4 — Defensive',
+  investigate: 'Step 5 — Investigative',
+  attack: 'Step 6 — Hostile',
+  support_patrol: 'Step 7 — Support & Patrol',
+  misc: 'Step 8 — Miscellaneous',
   sphere: 'Sphere Actions',
   allies: 'Allies & Status',
   contacts: 'Contacts',
@@ -2681,24 +2682,31 @@ function renderProcessingMode(container) {
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
+    const isCollapsed = collapsedPhases.has(phaseKey);
     h += `<div class="proc-phase-section">`;
-    h += `<div class="proc-phase-header">${esc(label)} <span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span></div>`;
+    h += `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
+    h += `<span class="proc-phase-label">${esc(label)}</span>`;
+    h += `<span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span>`;
+    h += `<span class="proc-phase-toggle">${isCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
 
-    for (const entry of entries) {
-      const isExpanded = procExpandedKey === entry.key;
-      const review = getEntryReview(entry);
-      const status = review?.pool_status || 'pending';
-      const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
+    if (!isCollapsed) {
+      for (const entry of entries) {
+        const isExpanded = procExpandedKey === entry.key;
+        const review = getEntryReview(entry);
+        const status = review?.pool_status || 'pending';
+        const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
 
-      h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
-      h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
-      h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
-      h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
-      h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
-      h += '</div>';
+        h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+        h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
+        h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
+        h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+        h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+        h += '</div>';
 
-      if (isExpanded) {
-        h += renderActionPanel(entry, review);
+        if (isExpanded) {
+          h += renderActionPanel(entry, review);
+        }
       }
     }
 
@@ -2916,6 +2924,16 @@ function renderProcessingMode(container) {
         alert('Failed to save reminder: ' + err.message);
       }
 
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire phase section collapse toggles
+  container.querySelectorAll('[data-toggle-phase]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.togglePhase;
+      if (collapsedPhases.has(key)) collapsedPhases.delete(key);
+      else collapsedPhases.add(key);
       renderProcessingMode(container);
     });
   });
