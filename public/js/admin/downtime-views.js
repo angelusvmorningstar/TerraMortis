@@ -2652,7 +2652,7 @@ function buildAmbienceData(terrs) {
       const action = sub.responses?.[`project_${n}_action`];
       if (action !== 'ambience_increase' && action !== 'ambience_decrease') continue;
       const resolved = (sub.projects_resolved || [])[n - 1];
-      if (!resolved?.roll) pendingAmbienceCount++;
+      if ((resolved?.pool_status || 'pending') === 'pending') pendingAmbienceCount++;
     }
     // Sum resolved roll successes
     for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
@@ -2781,7 +2781,7 @@ function renderAmbienceDashboard() {
       const _mResidents = {};
       for (const mt of _mCols) {
         const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
-        const td = (cachedTerritories || []).find(t => t.id === tid);
+        const td = (cachedTerritories || TERRITORY_DATA).find(t => t.id === tid);
         const residents = new Set(td?.feeding_rights || []);
         if (td?.regent_id) residents.add(String(td.regent_id));
         if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
