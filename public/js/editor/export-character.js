@@ -11,9 +11,10 @@ import { displayName, getWillpower, findRegentTerritory } from '../data/helpers.
 import {
   getAttrEffective, getAttrBonus, skDots, skBonus, skSpecs, skNineAgain,
   calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence, calcVitaeMax,
-  calcCityStatus, titleStatusBonus,
+  calcCityStatus, titleStatusBonus, BP_TABLE,
 } from '../data/accessors.js';
 import { isInClanDisc } from '../data/accessors.js';
+import { meritLookup } from './merits.js';
 import {
   calcTotalInfluence, influenceBreakdown, calcMeritInfluence, calcContactsInfluence,
   hasHoneyWithVinegar, domMeritTotal, domMeritContrib, ssjHerdBonus, flockHerdBonus,
@@ -193,6 +194,9 @@ export function serialiseForPrint(c, territories) {
     }
     let inf = 0;
     if (m.category === 'influence' && m.name !== 'Contacts') inf = calcMeritInfluence(m, hwv);
+    // Description comes from merits_db via the rules cache (meritLookup).
+    // Needed by the PDF renderer's page 2 merits section.
+    const lookup = meritLookup(m.name);
     return {
       name: m.name,
       category: m.category,
@@ -207,6 +211,7 @@ export function serialiseForPrint(c, territories) {
       cult_name: m.cult_name || null,
       asset_skills: m.asset_skills || [],
       influence: inf,
+      description: (lookup && lookup.desc) || null,
     };
   });
 
@@ -293,6 +298,53 @@ export function serialiseForPrint(c, territories) {
     xp,
     influence_breakdown,
   };
+}
+
+/**
+ * Build the `print_meta` block consumed by the PDF renderer.
+ *
+ * Kept as a separate export so `serialiseForPrint()` stays pure (no `Date.now`
+ * in its call tree) and the PDF button call site owns "render time" concerns.
+ * Callers merge the returned object into the serialiseForPrint output before
+ * passing to the renderer:
+ *
+ *     const data = serialiseForPrint(c, territories);
+ *     data.print_meta = buildPrintMeta(c, data);
+ *     await render({ data, ... });
+ *
+ * @param {object} c - character object
+ * @param {object} serialised - return value of serialiseForPrint(c)
+ * @returns {object} print_meta block
+ */
+export function buildPrintMeta(c, serialised) {
+  const bp = c.blood_potency || 0;
+  const bpRow = BP_TABLE[bp] || BP_TABLE[1];
+
+  // BP feed tier maps to a human-readable "Can feed from" value.
+  // BP 0–2 feed from animals, 3–4 from humans, 5+ only from kindred.
+  const FEED_LABEL = {
+    animal:  'Animals',
+    human:   'Humans',
+    kindred: 'Kindred',
+  };
+  const feedSources = [FEED_LABEL[bpRow.feed] || 'Animals'];
+
+  return {
+    printed_date: formatDDMMMYY(new Date()),
+    xp_display: `${serialised.xp.remaining} / ${serialised.xp.earned}`,
+    clan_key: serialised.identity.clan || null,
+    covenant_key: serialised.identity.covenant || null,
+    feed_sources: feedSources,
+    vitae_per_turn: bpRow.per_turn,
+  };
+}
+
+function formatDDMMMYY(d) {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mmm = months[d.getMonth()];
+  const yy = String(d.getFullYear() % 100).padStart(2, '0');
+  return `${dd}-${mmm}-${yy}`;
 }
 
 /**
