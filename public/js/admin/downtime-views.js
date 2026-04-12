@@ -3053,6 +3053,11 @@ function renderProcessingMode(container) {
       if (sel.classList.contains('proc-pool-skill')) {
         _updateUnskilledRow(container, sel.dataset.procKey);
         _updateFeedBuilderMeta(container, sel.dataset.procKey);
+        // Reset spec selection when skill changes — specs from old skill no longer apply
+        const skillChgEntry = buildProcessingQueue(submissions).find(q => q.key === sel.dataset.procKey);
+        if (skillChgEntry && skillChgEntry.source === 'feeding') {
+          saveEntryReview(skillChgEntry, { active_feed_specs: [], pool_mod_spec: 0 });
+        }
       }
     });
   });
@@ -3280,8 +3285,8 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire 9-Again override toggle → save rev.nine_again
-  container.querySelectorAll('.proc-feed-9a-toggle').forEach(cb => {
+  // Wire 9-Again builder toggle → save rev.nine_again (for initial-render static toggles)
+  container.querySelectorAll('.dt-feed-9a-toggle').forEach(cb => {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key = cb.dataset.procKey;
@@ -3737,8 +3742,14 @@ function _updateFeedBuilderMeta(container, key) {
   const entry = buildProcessingQueue(submissions).find(q => q.key === key);
   const review = entry ? (getEntryReview(entry) || {}) : {};
   const activeSpecs = review.active_feed_specs || [];
+  const nineAOverride = review.nine_again || false;
   let h = '';
-  if (nineA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+  if (nineA) {
+    h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
+  } else {
+    const oChk = nineAOverride ? ' checked' : '';
+    h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${key}"${oChk}> 9-Again</label>`;
+  }
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
     h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
@@ -3758,6 +3769,17 @@ function _updateFeedBuilderMeta(container, key) {
       renderProcessingMode(container);
     });
   });
+  // Wire 9-Again override toggle injected into builder meta
+  const nineAToggleEl = metaEl.querySelector('.dt-feed-9a-toggle');
+  if (nineAToggleEl) {
+    nineAToggleEl.addEventListener('change', async e => {
+      e.stopPropagation();
+      const entry3 = buildProcessingQueue(submissions).find(q => q.key === nineAToggleEl.dataset.procKey);
+      if (!entry3) return;
+      await saveEntryReview(entry3, { nine_again: nineAToggleEl.checked });
+      renderProcessingMode(container);
+    });
+  }
 }
 
 /**
@@ -3961,13 +3983,11 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`; // proc-feed-vitae-panel
 
-  // ── Rote + 9-Again override toggles ──
+  // ── Rote toggle ──
   const feedSubR = submissions.find(s => s._id === entry.subId);
   const isRote   = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
-  const nineAgainOverride = rev.nine_again || false;
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
-  h += `<label class="proc-pool-rote-label proc-feed-9a-lbl"><input type="checkbox" class="proc-feed-9a-toggle" data-proc-key="${esc(key)}"${nineAgainOverride ? ' checked' : ''}> 9-Again</label>`;
   h += `</div>`;
 
   // ── Validation Status ──
@@ -4201,12 +4221,19 @@ function renderActionPanel(entry, review) {
       // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
-      // Skill metadata: 9-again badge + spec toggles (live; updates on skill change)
+      // Skill metadata: 9-again badge/toggle + spec checkboxes (live; updates on skill change)
       const _fbnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
       const _fbSp  = char && preSkill ? skSpecs(char, preSkill) : [];
       const _fbAct = rev.active_feed_specs || [];
+      const _fb9Ov = rev.nine_again || false;
       h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-      if (_fbnA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+      if (preSkill) {
+        if (_fbnA) {
+          h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
+        } else {
+          h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${esc(entry.key)}"${_fb9Ov ? ' checked' : ''}> 9-Again</label>`;
+        }
+      }
       for (const sp of _fbSp) {
         const checked = _fbAct.includes(sp);
         h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +1</label>`;
