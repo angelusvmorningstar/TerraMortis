@@ -3487,7 +3487,7 @@ function _renderFeedRightPanel(entry, char, rev) {
     const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
     if (parsed0?.skill) {
       initSkillName = parsed0.skill;
-      initSkillDots = skDots(getSkillObj(char, initSkillName)) || 0;
+      initSkillDots = getSkillObj(char, initSkillName).dots || 0;
     }
   }
   const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
@@ -3786,7 +3786,7 @@ function renderActionPanel(entry, review) {
 
       const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
         ...ALL_SKILLS.map(s => {
-          const dots = char ? (skDots(getSkillObj(char, s)) || 0) : null;
+          const dots = char ? (getSkillObj(char, s).dots || 0) : null;
           const sel  = s === preSkill ? ' selected' : '';
           const label = dots !== null ? `${esc(s)} (${dots})` : esc(s);
           return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
@@ -3805,7 +3805,7 @@ function renderActionPanel(entry, review) {
 
       // Initial total display (AC 12: pass skillName for unskilled penalty)
       const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
-      const initSkillDots = preSkill ? (char ? (skDots(getSkillObj(char, preSkill)) || 0) : 0) : 0;
+      const initSkillDots = preSkill ? (char ? (getSkillObj(char, preSkill).dots || 0) : 0) : 0;
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
       const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, preMod, preSkill);
 
