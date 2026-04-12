@@ -40,10 +40,10 @@ export const SPHERE_ACTIONS = [
 
 export const FEEDING_TERRITORIES = [
   'The Academy',
-  'The City Harbour',
-  'The Docklands',
+  'The Harbour',
+  'The Dockyards',
   'The Second City',
-  'The Northern Shore',
+  'The North Shore',
   'The Barrens (No Territory)',
 ];
 
@@ -58,6 +58,12 @@ export const AMBIENCE_CAP = {
   'Curated':   7,
   'Verdant':   7,
   'The Rack':  8,
+};
+
+// Ambience level → default dice modifier
+export const AMBIENCE_MODS = {
+  Hostile: -5, Barrens: -4, Neglected: -3, Untended: -2,
+  Settled: 0, Tended: 2, Curated: 3,
 };
 
 // Territory definitions with current ambience (mirrors city-views.js)
