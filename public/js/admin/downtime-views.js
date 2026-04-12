@@ -6,9 +6,9 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
-import { getAttrEffective as getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getSkillObj, skDots, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
@@ -752,7 +752,7 @@ async function loadCycleById(cycleId) {
   // Keep processing mode on across cycle switches — just re-render appropriately
   document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
-  renderFeedingScene();
+  renderSubmissionChecklist();
   renderFeedingMatrix();
   renderConflicts();
   await loadInvestigations(cycleId);
@@ -1022,6 +1022,38 @@ function renderSubmissions() {
       if (!sub._proj_pending) sub._proj_pending = [];
       if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
       sub._proj_pending[idx][field] = sel.value;
+      // When skill changes, update nine_again flag and reset active_specs
+      if (field === 'skill') {
+        const char = findCharacter(sub.character_name, sub.player_name);
+        sub._proj_pending[idx].nine_again = char ? skNineAgain(char, sel.value) : false;
+        sub._proj_pending[idx].active_specs = [];
+        sub._proj_pending[idx].spec_bonus = 0;
+      }
+      renderSubmissions();
+    });
+  });
+
+  // Project spec toggle delegation
+  el.querySelectorAll('.dt-spec-toggle').forEach(cb => {
+    cb.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = cb.dataset.subId;
+      const idx = +(cb.dataset.projIdx ?? cb.dataset.meritIdx);
+      const spec = cb.dataset.spec;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub || !spec || isNaN(idx)) return;
+      const pendingArr = cb.dataset.meritIdx !== undefined ? '_merit_pending' : '_proj_pending';
+      if (!sub[pendingArr]) sub[pendingArr] = [];
+      if (!sub[pendingArr][idx]) sub[pendingArr][idx] = {};
+      const activeSpecs = sub[pendingArr][idx].active_specs || [];
+      if (cb.checked) {
+        if (!activeSpecs.includes(spec)) activeSpecs.push(spec);
+      } else {
+        const i = activeSpecs.indexOf(spec);
+        if (i !== -1) activeSpecs.splice(i, 1);
+      }
+      sub[pendingArr][idx].active_specs = activeSpecs;
+      sub[pendingArr][idx].spec_bonus = activeSpecs.length;
       renderSubmissions();
     });
   });
@@ -1041,6 +1073,20 @@ function renderSubmissions() {
     });
   });
 
+  // Project rote toggle delegation
+  el.querySelectorAll('.dt-proj-rote').forEach(cb => {
+    cb.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = cb.dataset.subId;
+      const idx = +cb.dataset.projIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub._proj_pending) sub._proj_pending = [];
+      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
+      sub._proj_pending[idx].rote = cb.checked;
+    });
+  });
+
   // Project roll button delegation
   el.querySelectorAll('.dt-proj-roll-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1051,7 +1097,14 @@ function renderSubmissions() {
       const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
       const pen = (sub?._proj_pending || [])[idx] || {};
       const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-      showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
+      const existingRoll = sub?.projects_resolved?.[idx]?.roll || null;
+      const specBonus = pen.spec_bonus || 0;
+      const nineAgain = pen.nine_again || false;
+      showRollModal({
+        size: pool.total + specBonus, expression: pool.expression, success: 8, exc: 5,
+        again: nineAgain ? 9 : 10,
+        existingRoll, initialRote: pen.rote || false,
+      }, result => {
         handleProjectRollSave(subId, idx, pool, result);
       });
     });
@@ -1068,6 +1121,25 @@ function renderSubmissions() {
       if (!sub._proj_pending) sub._proj_pending = [];
       if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
       sub._proj_pending[idx].st_note = ta.value;
+    });
+  });
+
+  // Project writeup delegation (save on blur)
+  el.querySelectorAll('.dt-proj-writeup').forEach(ta => {
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const subId = ta.dataset.subId;
+      const idx = +ta.dataset.projIdx;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const resolved = [...(sub.projects_resolved || [])];
+      while (resolved.length <= idx) resolved.push(null);
+      if (!resolved[idx]) resolved[idx] = {};
+      resolved[idx] = { ...resolved[idx], writeup: ta.value };
+      try {
+        await updateSubmission(subId, { projects_resolved: resolved });
+        sub.projects_resolved = resolved;
+      } catch (err) { console.error('Writeup save error:', err.message); }
     });
   });
 
@@ -1694,7 +1766,7 @@ async function processFilePreview(file) {
     `<span class="dt-status-badge dt-status-approved">preview</span><span class="domain-count">${devSubs.length} submissions</span>`;
   renderSnapshotPanel(devCycle);
   renderMatchSummary();
-  renderFeedingScene();
+  renderSubmissionChecklist();
   renderFeedingMatrix();
   renderConflicts();
   renderInvestigations();
@@ -1806,6 +1878,7 @@ const RESET_PHASES = [
   { id: 'mutations', label: 'Confirm XP mutations' },
   { id: 'publish',   label: 'Publish outcomes to players' },
   { id: 'tracks',    label: 'Reset character tracks' },
+  { id: 'ambience',  label: 'Apply ambience changes' },
   { id: 'open-game', label: 'Open game phase (feeding)' },
   { id: 'new-cycle', label: 'Close cycle and create next' },
 ];
@@ -1949,6 +2022,23 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   }
   if (trackErrors.length) { fail('tracks', `Failed: ${trackErrors.join(', ')}`); return; }
   setPhaseState(overlay, 'tracks', 'done');
+
+  // Phase: Apply confirmed ambience changes
+  setPhaseState(overlay, 'ambience', 'running');
+  const confirmedAmbience = currentCycle?.confirmed_ambience || {};
+  const ambEntries = Object.entries(confirmedAmbience);
+  if (!ambEntries.length) {
+    setPhaseState(overlay, 'ambience', 'done', 'No changes');
+  } else {
+    const ambErrors = [];
+    for (const [terrId, { ambience, ambienceMod }] of ambEntries) {
+      try { await apiPost('/api/territories', { id: terrId, ambience, ambienceMod }); }
+      catch (err) { ambErrors.push(terrId); }
+    }
+    cachedTerritories = null;
+    if (ambErrors.length) { fail('ambience', `Failed: ${ambErrors.join(', ')}`); return; }
+    setPhaseState(overlay, 'ambience', 'done', `${ambEntries.length} territor${ambEntries.length === 1 ? 'y' : 'ies'} updated`);
+  }
 
   // Phase: Open game phase (feeding) — AC 5 manual gate
   setPhaseState(overlay, 'open-game', 'paused', 'Awaiting confirmation');
@@ -2456,12 +2546,14 @@ async function ensureTerritories() {
 const TERRITORY_SLUG_MAP = {
   // normaliseTerritoryGrid slugs
   the_academy:              'academy',
-  the_city_harbour:         'harbour',
+  the_harbour:              'harbour',
+  the_city_harbour:         'harbour',     // legacy
   the_dockyards:            'dockyards',
   the_docklands:            'dockyards',   // legacy
   the_second_city:          'secondcity',
-  the_northern_shore:       'northshore',
-  the_barrens__no_territory_: null,  // no territory
+  the_north_shore:          'northshore',
+  the_northern_shore:       'northshore',  // legacy
+  the_barrens__no_territory_: null,        // no territory
   // MATRIX_TERRS display-name keys (from _raw.feeding.territories)
   'The Academy':            'academy',
   'The City Harbour':       'harbour',
@@ -2469,9 +2561,11 @@ const TERRITORY_SLUG_MAP = {
   'The Dockyards':          'dockyards',
   'The Docklands':          'dockyards',   // legacy
   'The Second City':        'secondcity',
-  'The Northern Shore':     'northshore',
-  'The Shore':              'northshore', // short form used in _raw.influence
+  'The Northern Shore':     'northshore',  // legacy
+  'The North Shore':        'northshore',
+  'The Shore':              'northshore',  // short form used in _raw.influence
   'The Barrens':            null,
+  'The Barrens (No Territory)': null,
   // TERRITORY_DATA ids (pass-through)
   academy:    'academy',
   harbour:    'harbour',
@@ -2514,16 +2608,22 @@ function buildAmbienceData(terrs) {
   for (const t of TERRITORY_DATA) terrById[t.id] = t;
 
   // Find current ambience from DB records (which may differ from TERRITORY_DATA defaults)
-  const startingAmbience = {};
+  const startingAmbience    = {};
+  const startingAmbienceMod = {};
   if (terrs && terrs.length) {
     for (const t of terrs) {
       const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
-      if (td) startingAmbience[td.id] = t.ambience || td.ambience;
+      if (td) {
+        startingAmbience[td.id]    = t.ambience    || td.ambience;
+        startingAmbienceMod[td.id] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
+          ? t.ambienceMod : td.ambienceMod;
+      }
     }
   }
   // Fallback to TERRITORY_DATA
   for (const td of TERRITORY_DATA) {
-    if (!startingAmbience[td.id]) startingAmbience[td.id] = td.ambience;
+    if (!startingAmbience[td.id])    startingAmbience[td.id]    = td.ambience;
+    if (startingAmbienceMod[td.id] === undefined) startingAmbienceMod[td.id] = td.ambienceMod;
   }
 
   // ── Overfeeding: count feeders per territory ──
@@ -2632,7 +2732,8 @@ function buildAmbienceData(terrs) {
       const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
       projStep = AMBIENCE_STEPS_LIST[newIdx];
     }
-    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
+    const ambienceMod = startingAmbienceMod[id] ?? td.ambienceMod;
+    return { id, name: td.name, ambience, ambienceMod, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
   });
   return { rows, pendingAmbienceCount };
 }
@@ -2665,6 +2766,7 @@ function renderAmbienceDashboard() {
       <th title="Ambience project roll successes">Projects</th>
       <th title="Sum of all columns">Net Change</th>
       <th title="Projected new ambience step (preview only)">Projected</th>
+      <th title="Confirm this ambience change for cycle push">Confirm</th>
     </tr></thead>`;
     h += `<tbody>`;
     for (const r of rows) {
@@ -2691,6 +2793,14 @@ function renderAmbienceDashboard() {
       h += `<td>${projDisplay}</td>`;
       h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
       h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
+      // Confirm cell
+      const confirmed = currentCycle?.confirmed_ambience?.[r.id];
+      const projMod = AMBIENCE_MODS[r.projStep] ?? r.ambienceMod ?? 0;
+      if (confirmed) {
+        h += `<td class="proc-amb-confirmed">\u2713 ${esc(confirmed.ambience)} <button class="proc-amb-confirm-btn proc-amb-reconfirm" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Re-confirm</button></td>`;
+      } else {
+        h += `<td><button class="proc-amb-confirm-btn" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Confirm ${esc(r.projStep)}</button></td>`;
+      }
       h += `</tr>`;
     }
     h += `</tbody></table>`;
@@ -2829,7 +2939,18 @@ function renderProcessingMode(container) {
         const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
         if (builder) {
           const expr = _readBuilderExpr(builder);
-          if (expr) await saveEntryReview(entry, { pool_validated: expr });
+          if (expr) {
+            // Auto-detect nine_again from skill in validated pool
+            const feedSub2 = submissions.find(s => s._id === entry.subId);
+            const feedChar2 = feedSub2 ? findCharacter(feedSub2.character_name, feedSub2.player_name) : null;
+            let nineAgainAuto = false;
+            if (feedChar2) {
+              const charDiscsArr2 = Object.keys(feedChar2.disciplines || {});
+              const parsed2 = _parsePoolExpr(expr, ALL_ATTRS, ALL_SKILLS, charDiscsArr2);
+              if (parsed2?.skill) nineAgainAuto = skNineAgain(feedChar2, parsed2.skill);
+            }
+            await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainAuto });
+          }
         }
       }
       await saveEntryReview(entry, { pool_status: status });
@@ -3063,6 +3184,27 @@ function renderProcessingMode(container) {
   });
 
   // Wire feeding roll buttons
+  // Wire feeding spec toggles
+  container.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key  = cb.dataset.procKey;
+      const spec = cb.dataset.spec;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry || !spec) return;
+      const review = getEntryReview(entry) || {};
+      const activeFeedSpecs = [...(review.active_feed_specs || [])];
+      if (cb.checked) {
+        if (!activeFeedSpecs.includes(spec)) activeFeedSpecs.push(spec);
+      } else {
+        const i = activeFeedSpecs.indexOf(spec);
+        if (i !== -1) activeFeedSpecs.splice(i, 1);
+      }
+      await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: activeFeedSpecs.length });
+      renderProcessingMode(container);
+    });
+  });
+
   container.querySelectorAll('.proc-feed-roll-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
@@ -3075,11 +3217,14 @@ function renderProcessingMode(container) {
       const poolValidated = review?.pool_validated || '';
       if (!poolValidated) return;
       const match = poolValidated.match(/(\d+)\s*$/);
-      const diceCount = match ? parseInt(match[1], 10) : 0;
+      let diceCount = match ? parseInt(match[1], 10) : 0;
       if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      diceCount += (review?.pool_mod_spec || 0);
+      const nineAgain = review?.nine_again || false;
       const sub = submissions.find(s => s._id === subId);
       showRollModal(
-        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll, rote: isRote },
+        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll,
+          again: nineAgain ? 9 : 10, rote: isRote },
         async result => {
           await updateSubmission(subId, { feeding_roll: result });
           if (sub) sub.feeding_roll = result;
@@ -3181,6 +3326,22 @@ function renderProcessingMode(container) {
   container.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
     discDashCollapsed = !discDashCollapsed;
     renderProcessingMode(container);
+  });
+
+  // Wire ambience confirm buttons
+  container.querySelectorAll('.proc-amb-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!currentCycle) return;
+      const terrId      = btn.dataset.terrId;
+      const ambience    = btn.dataset.projStep;
+      const ambienceMod = parseInt(btn.dataset.projMod, 10);
+      const updated = { ...(currentCycle.confirmed_ambience || {}), [terrId]: { ambience, ambienceMod } };
+      try {
+        await updateCycle(currentCycle._id, { confirmed_ambience: updated });
+        currentCycle.confirmed_ambience = updated;
+        renderProcessingMode(container);
+      } catch (err) { console.error('Failed to confirm ambience:', err.message); }
+    });
   });
 
   // Wire ST ambience notes textarea (save on blur)
@@ -3572,7 +3733,11 @@ function _renderFeedRightPanel(entry, char, rev) {
         t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
       )
     : null;
-  const ambienceVitae = terrRec?.ambienceMod ?? null;
+  // Prefer confirmed ambience from cycle (post-downtime value used for next-game feeding)
+  const confirmedAmb  = currentCycle?.confirmed_ambience?.[normalizedTerrId];
+  const ambienceVitae = confirmedAmb != null
+    ? (confirmedAmb.ambienceMod ?? 0)
+    : (terrRec?.ambienceMod ?? null);
 
   const ghoulCount = (char?.merits || []).filter(m =>
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
@@ -3655,6 +3820,33 @@ function _renderFeedRightPanel(entry, char, rev) {
   // Committed pool expression display — updated when pool is validated
   const committedPool = poolValidated;
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${committedPool ? esc(committedPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
+
+  // Skill metadata: 9-again badge + spec toggles (feature.57)
+  if (poolValidated && char) {
+    const charDiscsArr = Object.keys(char.disciplines || {});
+    const parsedSkill = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscsArr);
+    const feedSkill = parsedSkill?.skill || null;
+    if (feedSkill) {
+      const nineA = skNineAgain(char, feedSkill);
+      const feedSpecs = skSpecs(char, feedSkill);
+      if (nineA || feedSpecs.length) {
+        const activeSpecMod = rev.pool_mod_spec || 0;
+        h += '<div class="dt-skill-meta">';
+        if (nineA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+        for (const sp of feedSpecs) {
+          // We track spec bonus as a count, not by name — show all as toggleable
+          // First spec checked if activeSpecMod >= 1, second if >= 2, etc.
+          // Simple approach: read from rev.active_feed_specs (array)
+          const activeFeedSpecs = rev.active_feed_specs || [];
+          const checked = activeFeedSpecs.includes(sp);
+          h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle"
+            data-proc-key="${esc(key)}" data-spec="${esc(sp)}" ${checked ? 'checked' : ''}>${esc(sp)} +1</label>`;
+        }
+        h += '</div>';
+      }
+    }
+  }
+
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -4689,6 +4881,140 @@ function renderNpcForm(npc) {
   return h;
 }
 
+// ── Submission Checklist (feature.55) ───────────────────────────────────────
+
+const CHK_SECTIONS = [
+  { key: 'travel',            label: 'Travel' },
+  { key: 'feeding',           label: 'Feeding' },
+  { key: 'project_1',         label: 'P1' },
+  { key: 'project_2',         label: 'P2' },
+  { key: 'project_3',         label: 'P3' },
+  { key: 'project_4',         label: 'P4' },
+  { key: 'influence_allies',  label: 'Infl/Allies' },
+  { key: 'contacts',          label: 'Contacts' },
+  { key: 'resources',         label: 'Resources' },
+  { key: 'xp',                label: 'XP' },
+];
+
+function _chkHasContent(sub, key) {
+  if (!sub) return false;
+  const raw = sub._raw || {};
+  switch (key) {
+    case 'travel':           return !!(raw.submission?.narrative?.travel_description);
+    case 'feeding':          return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
+    case 'project_1':        return !!(sub.responses?.project_1_action || raw.projects?.[0]);
+    case 'project_2':        return !!(sub.responses?.project_2_action || raw.projects?.[1]);
+    case 'project_3':        return !!(sub.responses?.project_3_action || raw.projects?.[2]);
+    case 'project_4':        return !!(sub.responses?.project_4_action || raw.projects?.[3]);
+    case 'influence_allies': return !!(raw.sphere_actions?.length);
+    case 'contacts':         return !!(raw.contact_actions?.requests?.length);
+    case 'resources':        return !!(raw.retainer_actions?.actions?.length);
+    case 'xp':               return !!(raw.meta?.xp_spend);
+    default:                 return false;
+  }
+}
+
+function _chkState(sub, key) {
+  if (!_chkHasContent(sub, key)) return 'empty';
+  if (key === 'feeding' && sub?.feeding_roll) return 'validated';
+  if (sub?.st_review?.sighted?.[key]) return 'sighted';
+  return 'unsighted';
+}
+
+function renderSubmissionChecklist() {
+  const el = document.getElementById('dt-feeding-scene');
+  if (!el) return;
+
+  const activeChars = characters.filter(c => !c.retired);
+  if (!activeChars.length) { el.innerHTML = ''; return; }
+
+  const subByCharId = new Map();
+  for (const s of submissions) {
+    const char = findCharacter(s.character_name, s.player_name);
+    if (char) subByCharId.set(String(char._id), s);
+  }
+
+  const isOpen = el.dataset.open !== 'false';
+  const sorted = [...activeChars].sort((a, b) => sortName(a).localeCompare(sortName(b)));
+
+  // Count how many chars have all present sections sighted/validated
+  let fullySighted = 0;
+  for (const char of sorted) {
+    const sub = subByCharId.get(String(char._id)) || null;
+    if (!sub) continue;
+    const allDone = CHK_SECTIONS.every(sec => {
+      const st = _chkState(sub, sec.key);
+      return st === 'empty' || st === 'sighted' || st === 'validated';
+    });
+    if (allDone) fullySighted++;
+  }
+
+  let h = '<div class="dt-chk-panel">';
+  h += `<div class="dt-chk-toggle" id="dt-chk-toggle">${isOpen ? '\u25BC' : '\u25BA'} Submission Checklist`;
+  h += ` <span class="domain-count">${fullySighted} / ${sorted.length} processed</span></div>`;
+
+  if (isOpen) {
+    h += '<div class="dt-chk-wrap"><table class="dt-chk-table"><thead><tr>';
+    h += '<th class="dt-chk-name-col">Character</th>';
+    for (const sec of CHK_SECTIONS) h += `<th title="${esc(sec.key)}">${esc(sec.label)}</th>`;
+    h += '</tr></thead><tbody>';
+
+    for (const char of sorted) {
+      const charId = String(char._id);
+      const sub = subByCharId.get(charId) || null;
+      const hasSub = !!sub;
+      const rowCls = hasSub ? '' : ' dt-chk-nosub';
+
+      h += `<tr class="${rowCls}">`;
+      h += `<td class="dt-chk-name">${esc(displayName(char))}`;
+      if (!hasSub) h += ' <span class="dt-chk-nosub-badge">No submission</span>';
+      h += '</td>';
+
+      for (const sec of CHK_SECTIONS) {
+        const state = _chkState(sub, sec.key);
+        if (state === 'empty') {
+          h += '<td class="dt-chk-empty">\u2014</td>';
+        } else if (state === 'validated') {
+          h += `<td class="dt-chk-validated" title="Validated">\u2605</td>`;
+        } else if (state === 'sighted') {
+          h += `<td class="dt-chk-sighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="Sighted \u2014 click to unsight">\u2713</td>`;
+        } else {
+          h += `<td class="dt-chk-unsighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="Has content \u2014 click to mark sighted">?</td>`;
+        }
+      }
+
+      h += '</tr>';
+    }
+
+    h += '</tbody></table></div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('dt-chk-toggle')?.addEventListener('click', () => {
+    el.dataset.open = isOpen ? 'false' : 'true';
+    renderSubmissionChecklist();
+  });
+
+  el.querySelectorAll('.dt-chk-cell').forEach(cell => {
+    cell.addEventListener('click', async () => {
+      const subId  = cell.dataset.subId;
+      const section = cell.dataset.section;
+      if (!subId || !section) return;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const current = sub?.st_review?.sighted?.[section] || false;
+      const next = !current;
+      await updateSubmission(subId, { [`st_review.sighted.${section}`]: next });
+      if (!sub.st_review) sub.st_review = {};
+      if (!sub.st_review.sighted) sub.st_review.sighted = {};
+      sub.st_review.sighted[section] = next;
+      renderSubmissionChecklist();
+    });
+  });
+}
+
 // ── Feeding Scene Summary (GC-2) ────────────────────────────────────────────
 
 /** Derive the primary feeding territory (resident > poacher) from a submission's territory grid. */
@@ -4835,13 +5161,21 @@ const AMBIENCE_STEPS = ['Hostile', 'Barrens', 'Neglected', 'Untended', 'Settled'
 
 // Canonical territory columns for the matrix (CSV keys in feeding.territories)
 const MATRIX_TERRS = [
-  { csvKey: 'The Academy',      label: 'Academy',     ambienceKey: 'The Academy' },
-  { csvKey: 'The City Harbour', label: 'Harbour',     ambienceKey: 'The Harbour' },
-  { csvKey: 'The Docklands',    label: 'Docklands',   ambienceKey: 'The Dockyards' },
-  { csvKey: 'The Second City',  label: 'Second City', ambienceKey: 'The Second City' },
-  { csvKey: 'The Northern Shore', label: 'North Shore', ambienceKey: 'The North Shore' },
-  { csvKey: 'The Barrens',      label: 'Barrens',     ambienceKey: null },
+  { csvKey: 'The Academy',              label: 'Academy',     ambienceKey: 'The Academy' },
+  { csvKey: 'The Harbour',              label: 'Harbour',     ambienceKey: 'The Harbour' },
+  { csvKey: 'The Dockyards',            label: 'Dockyards',   ambienceKey: 'The Dockyards' },
+  { csvKey: 'The Second City',          label: 'Second City', ambienceKey: 'The Second City' },
+  { csvKey: 'The North Shore',          label: 'North Shore', ambienceKey: 'The North Shore' },
+  { csvKey: 'The Barrens (No Territory)', label: 'Barrens',   ambienceKey: null },
 ];
+
+// Legacy territory name keys from old submissions stored in MongoDB
+const LEGACY_TERR_KEY_MAP = {
+  'The City Harbour':   'The Harbour',
+  'The Docklands':      'The Dockyards',
+  'The Northern Shore': 'The North Shore',
+  'The Barrens':        'The Barrens (No Territory)',
+};
 
 function getTerritoryAmbience(ambienceKey) {
   if (!ambienceKey) return null;
@@ -4849,75 +5183,131 @@ function getTerritoryAmbience(ambienceKey) {
   return td?.ambience || null;
 }
 
+/** Translate legacy territory keys in a raw territories object to canonical names. */
+function _normTerrKeys(rawTerrs) {
+  if (!rawTerrs) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(rawTerrs)) {
+    const canonical = LEGACY_TERR_KEY_MAP[k] ?? k;
+    out[canonical] = v;
+  }
+  return out;
+}
+
+/** Return a Set of MATRIX_TERRS csvKeys where this submission's character actually fed. */
+function _getSubFedTerrs(sub) {
+  const fed = new Set();
+  let grid = null;
+
+  // Prefer responses.feeding_territories (slug keys — new form format)
+  if (sub.responses?.feeding_territories) {
+    try { grid = JSON.parse(sub.responses.feeding_territories); } catch { grid = null; }
+  }
+
+  if (grid) {
+    for (const [slug, status] of Object.entries(grid)) {
+      if (!status || status === 'none' || status === 'Not feeding here') continue;
+      const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug)
+        ? TERRITORY_SLUG_MAP[slug] : undefined;
+      if (tid === undefined) continue;
+      const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
+      if (mt) fed.add(mt.csvKey);
+    }
+  } else {
+    // Fallback: _raw.feeding.territories (display-name keys, legacy)
+    const rawTerrs = _normTerrKeys(sub._raw?.feeding?.territories);
+    for (const [csvKey, status] of Object.entries(rawTerrs)) {
+      if (!status || status === 'Not feeding here' || status === 'none') continue;
+      fed.add(csvKey);
+    }
+  }
+
+  return fed;
+}
+
 function renderFeedingMatrix() {
   const el = document.getElementById('dt-matrix');
   if (!el) return;
-  if (!submissions.length) { el.innerHTML = ''; return; }
 
-  // Determine which territory columns actually have any data
-  const activeCols = MATRIX_TERRS.filter(t =>
-    submissions.some(s => {
-      const terrs = (s._raw || {}).feeding?.territories || {};
-      const v = terrs[t.csvKey];
-      return v && v !== 'Not feeding here';
-    })
-  );
+  const activeChars = (typeof chars !== 'undefined' ? chars : []).filter(c => !c.retired)
+    .sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
-  if (!activeCols.length) { el.innerHTML = ''; return; }
+  if (!submissions.length && !activeChars.length) { el.innerHTML = ''; return; }
 
-  // Count residents per territory (residents only, not poachers — poachers don't count toward cap)
-  const residentCounts = {};
-  for (const t of activeCols) {
-    residentCounts[t.csvKey] = submissions.filter(s => {
-      const v = ((s._raw || {}).feeding?.territories || {})[t.csvKey];
-      return v === 'Resident';
-    }).length;
+  // All 6 columns always shown
+  const cols = MATRIX_TERRS;
+
+  // Build residency lookup from cachedTerritories (authoritative feeding_rights list)
+  const residentsByTerrKey = {};
+  for (const mt of cols) {
+    const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
+    const td = (cachedTerritories || []).find(t => t.id === tid);
+    residentsByTerrKey[mt.csvKey] = new Set(td?.feeding_rights || []);
   }
 
-  const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
+  // Map submission by character id for quick lookup
+  const subByCharId = new Map();
+  for (const s of submissions) {
+    const char = findCharacter(s.character_name, s.player_name);
+    if (char) subByCharId.set(String(char._id), s);
+  }
 
-  // Collapsible state via data attr
   const isOpen = el.dataset.open !== 'false';
+  const totalChars = activeChars.length + (submissions.filter(s => !findCharacter(s.character_name, s.player_name)).length);
 
   let h = `<div class="dt-matrix-panel">`;
-  h += `<div class="dt-matrix-toggle" id="dt-matrix-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Matrix <span class="domain-count">${sorted.length} characters</span></div>`;
+  h += `<div class="dt-matrix-toggle" id="dt-matrix-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Matrix <span class="domain-count">${activeChars.length} characters</span></div>`;
 
   if (isOpen) {
     h += `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
     h += '<thead><tr><th>Character</th>';
-    for (const t of activeCols) {
+    for (const t of cols) {
       const ambience = getTerritoryAmbience(t.ambienceKey);
       h += `<th title="${esc(ambience || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(ambience || 'N/A')}</span></th>`;
     }
     h += '</tr></thead><tbody>';
 
-    for (const s of sorted) {
-      const terrs = (s._raw || {}).feeding?.territories || {};
-      h += `<tr class="dt-matrix-row" data-sub-id="${esc(s._id)}"><td class="dt-matrix-char">${esc(s.character_name || '?')}</td>`;
-      for (const t of activeCols) {
-        const status = terrs[t.csvKey];
-        if (!status || status === 'Not feeding here') {
-          h += '<td class="dt-matrix-empty">—</td>';
+    for (const char of activeChars) {
+      const charId = String(char._id);
+      const sub = subByCharId.get(charId) || null;
+      const hasSub = !!sub;
+      const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
+
+      h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}" ${hasSub ? `data-sub-id="${esc(sub._id)}"` : ''}>`;
+      h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+
+      for (const t of cols) {
+        const isBarrens = t.ambienceKey === null;
+        const fed = fedTerrs.has(t.csvKey);
+        if (!fed) {
+          h += '<td class="dt-matrix-empty">\u2014</td>';
+        } else if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
+          h += '<td class="dt-matrix-resident">O</td>';
         } else {
-          const cls = status === 'Resident' ? 'dt-matrix-resident' : status === 'Poaching' ? 'dt-matrix-poach' : 'dt-matrix-other';
-          h += `<td class="${cls}">${esc(status)}</td>`;
+          h += '<td class="dt-matrix-poach">X</td>';
         }
       }
       h += '</tr>';
     }
 
-    // Footer: counts vs caps
+    h += '</tbody>';
+
+    // Footer: authoritative resident count from feeding_rights, cap from ambience
     h += '<tfoot><tr><td><strong>Residents</strong></td>';
-    for (const t of activeCols) {
-      const ambience = getTerritoryAmbience(t.ambienceKey);
-      const cap = ambience ? (AMBIENCE_CAP[ambience] ?? null) : null;
-      const count = residentCounts[t.csvKey] || 0;
-      const overCap = cap !== null && count > cap;
-      h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
+    for (const t of cols) {
+      if (t.ambienceKey === null) {
+        h += '<td class="dt-matrix-empty">\u2014</td>';
+      } else {
+        const ambience = getTerritoryAmbience(t.ambienceKey);
+        const cap = ambience ? (AMBIENCE_CAP[ambience] ?? null) : null;
+        const count = residentsByTerrKey[t.csvKey].size;
+        const overCap = cap !== null && count > cap;
+        h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
+      }
     }
     h += '</tr></tfoot>';
     h += '</table>';
-    h += '<p class="dt-matrix-note">Cap = Resident PCs only. Herds, cults, and animal feeding do not count toward territory cap.</p>';
+    h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Resident count from City feeding rights list.</p>';
     h += '</div>';
   }
 
@@ -4929,7 +5319,7 @@ function renderFeedingMatrix() {
     renderFeedingMatrix();
   });
 
-  el.querySelectorAll('.dt-matrix-row').forEach(row => {
+  el.querySelectorAll('.dt-matrix-row[data-sub-id]').forEach(row => {
     row.addEventListener('click', () => {
       const id = row.dataset.subId;
       expandedId = expandedId === id ? null : id;
@@ -4960,7 +5350,7 @@ function renderConflicts() {
       const lc = proj.action_type.toLowerCase();
       const isCompeting = COMPETING_ACTIONS.some(a => lc.includes(a));
       if (!isCompeting) continue;
-      const territory = proj.description?.match(/The (Academy|Harbour|Docklands|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
+      const territory = proj.description?.match(/The (Academy|Harbour|Dockyards|Docklands|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
       const key = lc + '::' + territory.toLowerCase();
       if (!byTerritory[key]) byTerritory[key] = [];
       byTerritory[key].push({ subId: s._id, name: s.character_name, action: proj.action_type, territory });
@@ -5248,6 +5638,30 @@ function poolBuilderUI(subId, idxField, idxVal, char, pen, compactPool, selClass
   if (pen.attr) {
     h += `<span class="dt-pool-display">${esc(compactPool.expression)}</span>`;
   }
+  // Skill metadata: 9-again badge + spec toggles (feature.57)
+  h += skillMetaUI(char, pen.skill, subId, idxField, idxVal, pen);
+  h += '</div>';
+  return h;
+}
+
+/**
+ * Render skill metadata block (9-again badge + spec toggles) for pool builders.
+ * Returns empty string if no metadata exists.
+ */
+function skillMetaUI(char, skillName, subId, idxField, idxVal, pen) {
+  if (!char || !skillName) return '';
+  const nineAgain = skNineAgain(char, skillName);
+  const specs = skSpecs(char, skillName);
+  if (!nineAgain && !specs.length) return '';
+  const activeSpecs = pen.active_specs || [];
+  let h = '<div class="dt-skill-meta">';
+  if (nineAgain) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+  for (const sp of specs) {
+    const checked = activeSpecs.includes(sp);
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-spec-toggle"
+      data-sub-id="${esc(subId)}" data-${esc(idxField)}="${idxVal}" data-spec="${esc(sp)}"
+      ${checked ? 'checked' : ''}>${esc(sp)} +1</label>`;
+  }
   h += '</div>';
   return h;
 }
@@ -5294,6 +5708,7 @@ function renderProjectsPanel(s, raw, char) {
   projects.forEach((proj, i) => {
     const res = resolved[i];
     const pen = pending[i] || {};
+    const rote = pen.rote ?? res?.roll?.params?.rote ?? false;
     const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
     const isResolved = !!res?.roll;
 
@@ -5319,15 +5734,20 @@ function renderProjectsPanel(s, raw, char) {
     // Pool builder
     if (char) {
       h += poolBuilderUI(s._id, 'proj-idx', i, char, pen, pool);
+      h += `<label class="dt-proj-rote-lbl"><input type="checkbox" class="dt-proj-rote" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" ${rote ? 'checked' : ''}>Rote</label>`;
       h += `<button class="dt-btn dt-proj-roll-btn" data-sub-id="${esc(s._id)}" data-proj-idx="${i}"
         ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
     }
 
     if (isResolved) h += renderResolveBadge(res.roll);
 
-    // ST note
+    // ST note (internal only)
     const note = res?.st_note || pen.st_note || '';
-    h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project...">${esc(note)}</textarea>`;
+    h += `<textarea class="dt-proj-note" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="ST note for this project (internal)...">${esc(note)}</textarea>`;
+
+    // Player-visible writeup
+    const writeup = res?.writeup || '';
+    h += `<textarea class="dt-proj-writeup" data-sub-id="${esc(s._id)}" data-proj-idx="${i}" placeholder="Player-visible writeup for this project...">${esc(writeup)}</textarea>`;
 
     h += '</div>';
   });

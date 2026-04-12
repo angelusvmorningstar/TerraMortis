@@ -262,12 +262,12 @@ export function parseDowntimeCSV(csvText) {
         feeding: {
           method: str(c[COL.FEEDING_METHOD]),
           territories: {
-            'The Academy': feedingStatus(c[COL.FEED_ACADEMY]),
-            'The City Harbour': feedingStatus(c[COL.FEED_HARBOUR]),
-            'The Dockyards': feedingStatus(c[COL.FEED_DOCKLANDS]),
-            'The Second City': feedingStatus(c[COL.FEED_SECOND_CITY]),
-            'The Northern Shore': feedingStatus(c[COL.FEED_SHORE]),
-            'The Barrens': feedingStatus(c[COL.FEED_BARRENS]),
+            'The Academy':              feedingStatus(c[COL.FEED_ACADEMY]),
+            'The Harbour':              feedingStatus(c[COL.FEED_HARBOUR]),
+            'The Dockyards':            feedingStatus(c[COL.FEED_DOCKLANDS]),
+            'The Second City':          feedingStatus(c[COL.FEED_SECOND_CITY]),
+            'The North Shore':          feedingStatus(c[COL.FEED_SHORE]),
+            'The Barrens (No Territory)': feedingStatus(c[COL.FEED_BARRENS]),
           }
         },
         influence: {

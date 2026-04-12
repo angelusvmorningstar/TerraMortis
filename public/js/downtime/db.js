@@ -164,13 +164,16 @@ function normaliseSphereAction(raw) {
 function normaliseTerritoryGrid(rawTerrs) {
   if (!rawTerrs || typeof rawTerrs !== 'object') return null;
   const nameToSlug = {
-    'The Academy': 'the_academy',
-    'The City Harbour': 'the_city_harbour',
-    'The Dockyards': 'the_dockyards',
-    'The Docklands': 'the_dockyards',   // legacy key from older uploads
-    'The Second City': 'the_second_city',
-    'The Northern Shore': 'the_northern_shore',
-    'The Barrens': 'the_barrens__no_territory_',
+    'The Academy':              'the_academy',
+    'The Harbour':              'the_harbour',
+    'The City Harbour':         'the_harbour',         // legacy
+    'The Dockyards':            'the_dockyards',
+    'The Docklands':            'the_dockyards',       // legacy
+    'The Second City':          'the_second_city',
+    'The North Shore':          'the_north_shore',
+    'The Northern Shore':       'the_north_shore',     // legacy
+    'The Barrens (No Territory)': 'the_barrens__no_territory_',
+    'The Barrens':              'the_barrens__no_territory_', // legacy
   };
   const statusMap = { 'Resident': 'resident', 'Poaching': 'poach', 'Feeding': 'feed', 'Not feeding here': 'none' };
   const result = {};

@@ -740,6 +740,11 @@ body {
 .terr-feed-add-btn:hover { border-color: var(--gold-a30); color: var(--gold2); }
 .terr-feed-actions { display: flex; align-items: center; gap: 12px; }
 
+/* ── Territory ambience override ── */
+.terr-amb-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--bdr); }
+.terr-amb-mod-inp { width: 64px; padding: 6px 8px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--fb); font-size: 13px; }
+.terr-amb-level-sel { padding: 6px 8px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--fb); font-size: 13px; min-width: 130px; }
+
 /* ── City edit controls ── */
 .city-edit-toggle { background: none; border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt3); font-family: var(--fh); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 12px; cursor: pointer; margin-top: 12px; }
 .city-edit-toggle:hover { color: var(--gold2); border-color: var(--gold2); }
@@ -1559,14 +1564,35 @@ body {
 .dt-matrix-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
 .dt-matrix-char { text-align: left; font-size: 12px; white-space: nowrap; }
 .dt-matrix-amb { font-size: 10px; color: var(--txt-dim); font-family: var(--fb, sans-serif); }
-.dt-matrix-resident { background: rgba(58,138,58,.12); color: #3a8a3a; font-weight: 600; }
-.dt-matrix-poach { background: rgba(224,196,122,.1); color: var(--gold2); }
+.dt-matrix-resident { background: rgba(58,138,58,.15); color: #3a8a3a; font-weight: 700; }
+.dt-matrix-poach { background: rgba(224,164,60,.12); color: #d4902a; font-weight: 700; }
 .dt-matrix-other { color: var(--txt-dim); }
 .dt-matrix-empty { color: var(--txt-dim); opacity: .4; }
 .dt-matrix-overcap { background: rgba(139,0,0,.15); color: var(--crim); font-weight: 700; }
 .dt-matrix-row { cursor: pointer; }
 .dt-matrix-row:hover td { background: var(--surf2); }
+.dt-matrix-nosub td { opacity: .45; }
+.dt-matrix-nosub-badge { font-size: 10px; color: var(--txt-dim); font-style: italic; margin-left: 4px; }
 .dt-matrix-note { font-size: 11px; color: var(--txt-dim); padding: 6px 12px; margin: 0; }
+/* ── Submission Checklist (feature.55) ── */
+.dt-chk-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 4px; overflow: hidden; }
+.dt-chk-toggle { padding: 8px 12px; background: var(--surf2); cursor: pointer; font-family: var(--fh); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.dt-chk-toggle:hover { background: var(--surf3); }
+.dt-chk-wrap { overflow-x: auto; }
+.dt-chk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dt-chk-table th, .dt-chk-table td { padding: 4px 6px; border: 1px solid var(--bdr); text-align: center; }
+.dt-chk-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
+.dt-chk-name-col { text-align: left; }
+.dt-chk-name { text-align: left; white-space: nowrap; font-size: 12px; }
+.dt-chk-nosub td { opacity: .45; }
+.dt-chk-nosub-badge { font-size: 10px; color: var(--txt-dim); font-style: italic; margin-left: 4px; }
+.dt-chk-empty { color: var(--txt-dim); opacity: .4; }
+.dt-chk-unsighted { color: #d4902a; cursor: pointer; font-weight: 700; }
+.dt-chk-unsighted:hover { background: rgba(212,144,42,.15); }
+.dt-chk-sighted { color: #3a8a3a; cursor: pointer; font-weight: 600; }
+.dt-chk-sighted:hover { background: rgba(58,138,58,.1); }
+.dt-chk-validated { color: #3a8a3a; font-weight: 700; }
+
 .dt-conflict-list { padding: 8px 12px; }
 .dt-conflict-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--bdr); }
 .dt-conflict-item:last-child { border-bottom: none; }
@@ -1609,6 +1635,12 @@ body {
 .dt-succ-exc { background: rgba(224,196,122,.2); color: var(--gold2); }
 .dt-succ-fail { background: rgba(139,0,0,.12); color: var(--crim); }
 .dt-proj-note { width: 100%; margin-top: 6px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
+.dt-proj-rote-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-left: 6px; cursor: pointer; }
+.dt-proj-writeup { width: 100%; margin-top: 4px; background: var(--surf); border: 1px solid var(--bdr); border-left: 3px solid var(--gold2); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
+.dt-skill-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.dt-pool-9a-auto { display: inline-block; background: rgba(58,138,58,.15); color: #3a8a3a; border-radius: 3px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
+.dt-spec-toggle-lbl { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; color: var(--txt-dim); }
+.dt-spec-toggle-lbl:hover { color: var(--txt); }
 
 /* ── Narrative Output (1.7) ── */
 .dt-narr-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
@@ -4450,6 +4482,11 @@ body {
 .proc-amb-table td.proc-amb-neg { color: #ff9090; }
 .proc-amb-neutral,
 .proc-amb-table td.proc-amb-neutral { color: var(--txt2); }
+
+.proc-amb-confirm-btn { padding: 3px 8px; background: var(--surf); border: 1px solid var(--bdr2); border-radius: 3px; color: var(--txt2); font-size: 11px; font-family: var(--fh); letter-spacing: .05em; cursor: pointer; white-space: nowrap; }
+.proc-amb-confirm-btn:hover { border-color: var(--gold-a30); color: var(--gold2); }
+.proc-amb-reconfirm { opacity: 0.6; font-size: 10px; margin-left: 4px; }
+.proc-amb-confirmed { color: var(--gold2); font-size: 12px; white-space: nowrap; }
 
 .proc-amb-note {
   font-size: 11px;

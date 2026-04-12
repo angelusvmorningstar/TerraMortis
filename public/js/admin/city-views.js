@@ -8,6 +8,7 @@ import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, displayNameRaw, sortName, clanIcon, covIcon } from '../data/helpers.js';
+import { AMBIENCE_MODS } from '../player/downtime-data.js';
 
 const TERRITORIES = [
   { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
@@ -16,6 +17,8 @@ const TERRITORIES = [
   { id: 'northshore', name: 'The North Shore', ambience: 'Tended', ambienceMod: +2 },
   { id: 'secondcity', name: 'The Second City', ambience: 'Tended', ambienceMod: +2 },
 ];
+
+const AMBIENCE_LEVELS = ['Hostile', 'Barrens', 'Neglected', 'Untended', 'Settled', 'Tended', 'Curated'];
 
 const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
 const COURT_TITLES = ['', 'Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
@@ -278,7 +281,10 @@ function renderTerritories() {
   for (const t of TERRITORIES) {
     const td = _terrDoc(t.id);
     const regent = td?.regent_id ? active.find(c => String(c._id) === td.regent_id) : null;
-    const modSign = t.ambienceMod >= 0 ? '+' : '';
+    // Prefer DB ambience values over hardcoded defaults
+    const dispAmbience = td?.ambience || t.ambience;
+    const dispMod      = td?.ambienceMod !== undefined && td?.ambienceMod !== null ? td.ambienceMod : t.ambienceMod;
+    const modSign = dispMod >= 0 ? '+' : '';
     const lt = td?.lieutenant_id ? active.find(c => String(c._id) === td.lieutenant_id) : null;
     const ltDisplay = lt ? esc(displayName(lt)) : null;
     const open = _terrExpanded.has(t.id);
@@ -287,7 +293,7 @@ function renderTerritories() {
     h += `<button class="terr-card-hd" data-terr-toggle="${esc(t.id)}">`;
     h += `<div class="terr-hd-info">`;
     h += `<div class="terr-name">${esc(t.name)}</div>`;
-    h += `<div class="terr-ambience">${esc(t.ambience)} (${modSign}${t.ambienceMod})</div>`;
+    h += `<div class="terr-ambience">${esc(dispAmbience)} (${modSign}${dispMod})</div>`;
     h += `<div class="terr-regent">Regent: ${regent ? `<span class="terr-regent-name">${esc(displayName(regent))}</span>` : '<span class="terr-vacant">Vacant</span>'}</div>`;
     if (ltDisplay) h += `<div class="terr-lt">Lieutenant: ${ltDisplay}</div>`;
     h += `</div>`;
@@ -340,6 +346,31 @@ function renderTerritories() {
       h += `<span class="city-save-status" id="terr-feed-status-${esc(t.id)}"></span>`;
       h += `</div>`;
       h += `</div>`;
+
+      // Ambience Override
+      const curAmb    = td?.ambience || t.ambience;
+      const curMod    = td?.ambienceMod !== undefined && td?.ambienceMod !== null ? td.ambienceMod : t.ambienceMod;
+      h += `<div class="terr-amb-section">`;
+      h += `<div class="terr-feed-label">Ambience Override</div>`;
+      h += `<div class="terr-edit-row">`;
+      h += `<label class="terr-edit-lbl">Level</label>`;
+      h += `<select class="terr-amb-level-sel" data-terr-id="${esc(t.id)}">`;
+      for (const lvl of AMBIENCE_LEVELS) {
+        const sel = curAmb === lvl ? ' selected' : '';
+        h += `<option value="${esc(lvl)}"${sel}>${esc(lvl)}</option>`;
+      }
+      h += `</select>`;
+      h += `</div>`;
+      h += `<div class="terr-edit-row">`;
+      h += `<label class="terr-edit-lbl">Dice modifier</label>`;
+      h += `<input type="number" class="terr-amb-mod-inp" data-terr-id="${esc(t.id)}" value="${curMod}">`;
+      h += `</div>`;
+      h += `<div class="terr-rl-actions">`;
+      h += `<button class="city-save-btn" data-terr-amb-save="${esc(t.id)}">Save Ambience</button>`;
+      h += `<span class="city-save-status" id="terr-amb-status-${esc(t.id)}"></span>`;
+      h += `</div>`;
+      h += `</div>`;
+
       h += `</div>`;
     }
 
@@ -434,6 +465,24 @@ function wireEvents(container) {
       saveTerritory(rlSaveBtn.dataset.terrRlSave);
       return;
     }
+
+    // Save ambience override
+    const ambSaveBtn = e.target.closest('[data-terr-amb-save]');
+    if (ambSaveBtn) {
+      saveTerrAmbience(ambSaveBtn.dataset.terrAmbSave);
+      return;
+    }
+  });
+
+  // Ambience level dropdown → auto-fill modifier
+  container.addEventListener('change', e => {
+    const sel = e.target.closest('.terr-amb-level-sel');
+    if (!sel) return;
+    const terrId = sel.dataset.terrId;
+    const modInp = document.querySelector(`.terr-amb-mod-inp[data-terr-id="${terrId}"]`);
+    if (modInp && sel.value) {
+      modInp.value = AMBIENCE_MODS[sel.value] ?? 0;
+    }
   });
 }
 
@@ -505,6 +554,28 @@ async function saveCourt() {
     if (status) status.textContent = 'Saved';
     setTimeout(() => { if (status) status.textContent = ''; }, 2000);
     renderCity(document.getElementById('city-content'));
+  } catch (err) {
+    if (status) status.textContent = 'Failed: ' + err.message;
+  }
+}
+
+async function saveTerrAmbience(terrId) {
+  const status   = document.getElementById('terr-amb-status-' + terrId);
+  const levelSel = document.querySelector(`.terr-amb-level-sel[data-terr-id="${terrId}"]`);
+  const modInp   = document.querySelector(`.terr-amb-mod-inp[data-terr-id="${terrId}"]`);
+  const ambience = levelSel?.value || null;
+  const ambienceMod = modInp ? parseInt(modInp.value, 10) : 0;
+
+  try {
+    await apiPost('/api/territories', { id: terrId, ambience, ambienceMod });
+    // Update local cache
+    const idx = terrDocs.findIndex(d => d.id === terrId);
+    const patch = { ambience, ambienceMod };
+    if (idx >= 0) Object.assign(terrDocs[idx], patch);
+    else terrDocs.push({ id: terrId, ...patch });
+
+    if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+    patchTerritories(document.getElementById('city-content'));
   } catch (err) {
     if (status) status.textContent = 'Failed: ' + err.message;
   }
