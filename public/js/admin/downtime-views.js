@@ -1038,21 +1038,22 @@ function renderSubmissions() {
     cb.addEventListener('change', e => {
       e.stopPropagation();
       const subId = cb.dataset.subId;
-      const idx = +cb.dataset.projIdx;
+      const idx = +(cb.dataset.projIdx ?? cb.dataset.meritIdx);
       const spec = cb.dataset.spec;
       const sub = submissions.find(s => s._id === subId);
-      if (!sub || !spec) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      const activeSpecs = sub._proj_pending[idx].active_specs || [];
+      if (!sub || !spec || isNaN(idx)) return;
+      const pendingArr = cb.dataset.meritIdx !== undefined ? '_merit_pending' : '_proj_pending';
+      if (!sub[pendingArr]) sub[pendingArr] = [];
+      if (!sub[pendingArr][idx]) sub[pendingArr][idx] = {};
+      const activeSpecs = sub[pendingArr][idx].active_specs || [];
       if (cb.checked) {
         if (!activeSpecs.includes(spec)) activeSpecs.push(spec);
       } else {
         const i = activeSpecs.indexOf(spec);
         if (i !== -1) activeSpecs.splice(i, 1);
       }
-      sub._proj_pending[idx].active_specs = activeSpecs;
-      sub._proj_pending[idx].spec_bonus = activeSpecs.length;
+      sub[pendingArr][idx].active_specs = activeSpecs;
+      sub[pendingArr][idx].spec_bonus = activeSpecs.length;
       renderSubmissions();
     });
   });
