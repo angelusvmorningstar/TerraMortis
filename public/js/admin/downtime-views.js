@@ -3003,6 +3003,22 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire delete-note buttons
+  container.querySelectorAll('.proc-note-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key  = btn.dataset.procKey;
+      const idx  = parseInt(btn.dataset.noteIdx, 10);
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review = getEntryReview(entry) || {};
+      const thread = [...(review.notes_thread || [])];
+      thread.splice(idx, 1);
+      await saveEntryReview(entry, { notes_thread: thread });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire re-tag selects
   container.querySelectorAll('.proc-retag-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -3522,7 +3538,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<span class="proc-mod-val proc-mod-neg proc-mod-unskilled-val">${unskilledDisplay}</span>`;
   h += `</div>`;
   // Equipment ticker
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment</span>`;
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
   h += `<span class="proc-mod-ticker">`;
   h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
   h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
@@ -3546,10 +3562,12 @@ function _renderFeedRightPanel(entry, char, rev) {
   const oofVitae = hasOoF ? Math.max(char.status?.covenant || 0, char._ots_covenant_bonus || 0) : 0;
 
   // Ambience: check cachedTerritories then TERRITORY_DATA
+  // Normalise primaryTerr slug through TERRITORY_SLUG_MAP first (e.g. the_northern_shore → northshore)
   const terrList = (cachedTerritories && cachedTerritories.length) ? cachedTerritories : TERRITORY_DATA;
-  const terrRec = entry.primaryTerr
+  const normalizedTerrId = entry.primaryTerr ? (TERRITORY_SLUG_MAP[entry.primaryTerr] ?? entry.primaryTerr) : null;
+  const terrRec = normalizedTerrId
     ? terrList.find(t =>
-        t.id === entry.primaryTerr ||
+        t.id === normalizedTerrId ||
         t.name === entry.primaryTerr ||
         t.name?.toLowerCase() === (entry.primaryTerr || '').replace(/_/g, ' ').toLowerCase()
       )
@@ -3920,12 +3938,13 @@ function renderActionPanel(entry, review) {
   h += '<div class="proc-detail-label" style="margin-bottom:6px">ST Notes (ST only)</div>';
   if (thread.length) {
     h += '<div class="proc-notes-thread">';
-    for (const note of thread) {
+    for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
+      const note = thread[noteIdx];
       const time = note.created_at
         ? new Date(note.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
         : '';
       h += '<div class="proc-note-entry">';
-      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  \u00B7  ' + esc(time) : ''}</div>`;
+      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  \u00B7  ' + esc(time) : ''}<button class="proc-note-delete-btn" data-proc-key="${esc(entry.key)}" data-note-idx="${noteIdx}" title="Delete note">\u00D7</button></div>`;
       h += `<div class="proc-note-text">${esc(note.text)}</div>`;
       h += '</div>';
     }
