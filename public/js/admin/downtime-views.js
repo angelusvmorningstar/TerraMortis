@@ -5268,12 +5268,15 @@ function renderFeedingMatrix() {
   // All 6 columns always shown
   const cols = MATRIX_TERRS;
 
-  // Build residency lookup from cachedTerritories (authoritative feeding_rights list)
+  // Build residency lookup: feeding_rights + regent + lieutenant always count as residents
   const residentsByTerrKey = {};
   for (const mt of cols) {
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
     const td = (cachedTerritories || []).find(t => t.id === tid);
-    residentsByTerrKey[mt.csvKey] = new Set(td?.feeding_rights || []);
+    const residents = new Set(td?.feeding_rights || []);
+    if (td?.regent_id) residents.add(String(td.regent_id));
+    if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
+    residentsByTerrKey[mt.csvKey] = residents;
   }
 
   // Map submission by character id for quick lookup
