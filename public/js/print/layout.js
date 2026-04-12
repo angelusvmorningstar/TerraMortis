@@ -68,10 +68,10 @@ const C = {
 };
 
 // ── Dot & square sizes ───────────────────────────────────────────────────────
-// Sized to match the Mammon target at this column width. Bumped from the
-// original tiny version so the page visibly uses its vertical space.
-const DOT_R   = 3.0;
-const DOT_GAP = 8.5;
+// DOT_GAP tightened so the 5-dot column doesn't hog width and crowd the
+// labels to its left. User feedback: "less gaps between the dots themselves".
+const DOT_R   = 2.6;
+const DOT_GAP = 6.5;
 const SQ_SIZE = 8.5;
 const SQ_GAP  = 10.5;
 
