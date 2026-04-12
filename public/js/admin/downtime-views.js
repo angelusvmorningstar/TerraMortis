@@ -245,10 +245,7 @@ export async function initDowntimeView() {
     selectedCycleId = e.target.value;
     loadCycleById(selectedCycleId);
   });
-  await loadCharacters();
-  await loadAllCycles();
-
-  // Dev-only: preview CSV button (no MongoDB writes)
+  // Dev-only: preview CSV button (no MongoDB writes) — must be wired before API calls
   if (location.hostname === 'localhost') {
     const toolbar = document.querySelector('.dt-toolbar');
     if (toolbar) {
@@ -270,6 +267,9 @@ export async function initDowntimeView() {
       toolbar.appendChild(btn);
     }
   }
+
+  try { await loadCharacters(); } catch (e) { console.warn('loadCharacters failed (no API?):', e.message); }
+  try { await loadAllCycles(); } catch (e) { console.warn('loadAllCycles failed (no API?):', e.message); }
 }
 
 function buildShell() {
