@@ -183,7 +183,15 @@ export function serialiseForPrint(c, territories) {
   disciplines.sort((a, b) => a.name.localeCompare(b.name));
 
   // ── Merits ──
-  const merits = (c.merits || []).map(m => {
+  // Contacts gets special handling: raw character data may have multiple
+  // Contacts merit entries, each contributing dots and spheres. The UI
+  // aggregates them into a single display row (see editor/sheet.js line
+  // 709) — we mirror that here so the PDF renderer sees a clean shape.
+  const rawMerits = c.merits || [];
+  const contactsEntries = rawMerits.filter(m => m.category === 'influence' && m.name === 'Contacts');
+
+  // Non-Contacts merits pass through normally
+  const normalMerits = rawMerits.filter(m => !(m.category === 'influence' && m.name === 'Contacts')).map(m => {
     let effectiveRating = m.rating || 0;
     let ownDots = effectiveRating;
     const bonuses = [];
@@ -199,9 +207,7 @@ export function serialiseForPrint(c, territories) {
       if (flock) { effectiveRating += flock; bonuses.push('+' + flock + ' Flock'); }
     }
     let inf = 0;
-    if (m.category === 'influence' && m.name !== 'Contacts') inf = calcMeritInfluence(m, hwv);
-    // Description comes from merits_db via the rules cache (meritLookup).
-    // Needed by the PDF renderer's page 2 merits section.
+    if (m.category === 'influence') inf = calcMeritInfluence(m, hwv);
     const lookup = meritLookup(m.name);
     return {
       name: m.name,
@@ -210,6 +216,7 @@ export function serialiseForPrint(c, territories) {
       own_dots: ownDots,
       qualifier: m.qualifier || null,
       area: m.area || null,
+      spheres: Array.isArray(m.spheres) ? m.spheres.slice() : null,
       granted_by: m.granted_by || null,
       shared_with: m.shared_with || [],
       is_shared: isShared,
@@ -220,6 +227,41 @@ export function serialiseForPrint(c, territories) {
       description: (lookup && lookup.desc) || null,
     };
   });
+
+  // Build the aggregated Contacts entry (only if the character has any).
+  const merits = normalMerits;
+  if (contactsEntries.length) {
+    const totalRating = Math.min(5, contactsEntries.reduce((s, m) => s + (m.rating || 0), 0));
+    const allSpheres = [];
+    contactsEntries.forEach(m => {
+      if (Array.isArray(m.spheres) && m.spheres.length) {
+        allSpheres.push(...m.spheres);
+      } else if (m.area) {
+        allSpheres.push(m.area.trim());
+      } else if (m.qualifier) {
+        allSpheres.push(...m.qualifier.split(/,\s*/).filter(Boolean));
+      }
+    });
+    const uniqueSpheres = [...new Set(allSpheres.filter(Boolean))];
+    const lookup = meritLookup('Contacts');
+    merits.push({
+      name: 'Contacts',
+      category: 'influence',
+      effective_rating: totalRating,
+      own_dots: totalRating,
+      qualifier: null,
+      area: null,
+      spheres: uniqueSpheres,
+      granted_by: null,
+      shared_with: [],
+      is_shared: false,
+      bonuses: [],
+      cult_name: null,
+      asset_skills: [],
+      influence: 0,
+      description: (lookup && lookup.desc) || null,
+    });
+  }
 
   // ── Devotions ──
   const devotions = (c.powers || [])
