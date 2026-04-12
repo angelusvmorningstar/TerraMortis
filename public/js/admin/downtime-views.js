@@ -2729,23 +2729,90 @@ function renderProcessingMode(container) {
   container.querySelectorAll('.proc-val-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
-      const key = btn.dataset.procKey;
+      const key    = btn.dataset.procKey;
       const status = btn.dataset.status;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry  = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
+      // For feeding entries: read builder state and save pool_validated before status
+      if (entry.source === 'feeding') {
+        const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+        if (builder) {
+          const expr = _readBuilderExpr(builder);
+          if (expr) await saveEntryReview(entry, { pool_validated: expr });
+        }
+      }
       await saveEntryReview(entry, { pool_status: status });
       renderProcessingMode(container);
     });
   });
 
-  // Wire pool_validated input (save on blur)
+  // Wire pool_validated free-text input (non-feeding fallback — save on blur)
   container.querySelectorAll('.proc-pool-input').forEach(inp => {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
-      const key = inp.dataset.procKey;
+      const key   = inp.dataset.procKey;
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
       await saveEntryReview(entry, { pool_validated: inp.value.trim() });
+    });
+  });
+
+  // Wire pool builder dropdowns → live total update
+  container.querySelectorAll('.proc-pool-attr, .proc-pool-skill, .proc-pool-disc').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', e => {
+      e.stopPropagation();
+      _updatePoolTotal(container, sel.dataset.procKey);
+    });
+  });
+
+  // Wire modifier decrement button
+  container.querySelectorAll('.proc-pool-mod-dec').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const key     = btn.dataset.procKey;
+      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      if (!builder) return;
+      const modInput = builder.querySelector('.proc-pool-mod-val');
+      const modDisp  = builder.querySelector(`.proc-pool-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(modInput.value || '0', 10);
+      if (val > -5) val--;
+      modInput.value = val;
+      if (modDisp) modDisp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updatePoolTotal(container, key);
+    });
+  });
+
+  // Wire modifier increment button
+  container.querySelectorAll('.proc-pool-mod-inc').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const key     = btn.dataset.procKey;
+      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      if (!builder) return;
+      const modInput = builder.querySelector('.proc-pool-mod-val');
+      const modDisp  = builder.querySelector(`.proc-pool-mod-disp[data-proc-key="${key}"]`);
+      let val = parseInt(modInput.value || '0', 10);
+      if (val < 5) val++;
+      modInput.value = val;
+      if (modDisp) modDisp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      _updatePoolTotal(container, key);
+    });
+  });
+
+  // Wire rote checkbox → save immediately to st_review.feeding_rote
+  container.querySelectorAll('.proc-pool-rote').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = cb.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const sub = submissions.find(s => s._id === entry.subId);
+      if (!sub) return;
+      const stReview = { ...(sub.st_review || {}), feeding_rote: cb.checked };
+      await updateSubmission(entry.subId, { st_review: stReview });
+      sub.st_review = stReview;
     });
   });
 
@@ -3034,6 +3101,126 @@ function _renderAttachPanel(entry) {
   return h;
 }
 
+// ── Pool Builder helpers (feature.50) ───────────────────────────────────────
+
+/**
+ * Parse a pool_validated expression back into its components.
+ * Format: "{Attr} {n} + {Skill} {n}[ + {Disc} {n}][± modifier] = {total}"
+ * Returns { attr, skill, disc, modifier } or null on failure.
+ */
+function _parsePoolExpr(str, attrList, skillList, discNames) {
+  if (!str) return null;
+  const eqIdx = str.lastIndexOf('=');
+  if (eqIdx === -1) return null;
+  let lhs = str.slice(0, eqIdx).trim();
+
+  // Extract negative modifier: ends with ' − N' (U+2212)
+  let modifier = 0;
+  const negModMatch = lhs.match(/\s+\u2212\s*(\d+)\s*$/);
+  if (negModMatch) {
+    modifier = -parseInt(negModMatch[1], 10);
+    lhs = lhs.slice(0, negModMatch.index).trim();
+  }
+
+  // Split remaining by ' + '
+  const parts = lhs.split(/\s+\+\s+/);
+
+  // If last part is a lone number, it's a positive modifier
+  if (!negModMatch && parts.length > 1) {
+    const last = parts[parts.length - 1].trim();
+    if (/^\d+$/.test(last)) {
+      modifier = parseInt(last, 10);
+      parts.pop();
+    }
+  }
+
+  if (parts.length < 2) return null;
+
+  function parsePart(p) {
+    const m = p.trim().match(/^(.+?)\s+(\d+)$/);
+    return m ? { name: m[1].trim(), dots: parseInt(m[2], 10) } : null;
+  }
+
+  const t0 = parsePart(parts[0]);
+  const t1 = parsePart(parts[1]);
+  const t2 = parts[2] ? parsePart(parts[2]) : null;
+  if (!t0 || !t1) return null;
+
+  const attr  = attrList.find(a => a.toLowerCase() === t0.name.toLowerCase()) || null;
+  const skill = skillList.find(s => s.toLowerCase() === t1.name.toLowerCase()) || null;
+  if (!attr || !skill) return null;
+
+  let disc = 'none';
+  if (t2 && discNames) {
+    disc = discNames.find(d => d.toLowerCase() === t2.name.toLowerCase()) || 'none';
+  }
+  return { attr, skill, disc, modifier };
+}
+
+/**
+ * Build the human-readable pool expression string for pool_validated.
+ */
+function _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier) {
+  if (!attr || !skill) return '';
+  let expr = `${attr} ${attrDots} + ${skill} ${skillDots}`;
+  if (disc && disc !== 'none') expr += ` + ${disc} ${discDots}`;
+  if (modifier !== 0) expr += ` ${modifier > 0 ? '+' : '\u2212'} ${Math.abs(modifier)}`;
+  const total = attrDots + skillDots + (disc && disc !== 'none' ? discDots : 0) + modifier;
+  expr += ` = ${total}`;
+  return expr;
+}
+
+/**
+ * Build the live display string for the pool total element.
+ */
+function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier) {
+  if (!attr || !skill) return '\u2014 + \u2014 = 0';
+  return _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+}
+
+/**
+ * Read the current builder state from the DOM and return the pool expression string.
+ * Returns null if attr or skill are not selected.
+ */
+function _readBuilderExpr(builder) {
+  const attrSel  = builder.querySelector('.proc-pool-attr');
+  const skillSel = builder.querySelector('.proc-pool-skill');
+  const discSel  = builder.querySelector('.proc-pool-disc');
+  const modInput = builder.querySelector('.proc-pool-mod-val');
+  if (!attrSel || !skillSel) return null;
+  const attr  = attrSel.value;
+  const skill = skillSel.value;
+  if (!attr || !skill) return null;
+  const disc     = discSel ? discSel.value : 'none';
+  const modifier = parseInt(modInput ? modInput.value : '0', 10);
+  const attrDots  = parseInt(attrSel.selectedOptions[0]?.dataset.dots  || '0', 10);
+  const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
+  const discDots  = (discSel && disc !== 'none') ? parseInt(discSel.selectedOptions[0]?.dataset.dots || '0', 10) : 0;
+  return _buildPoolExpr(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+}
+
+/**
+ * Recompute and update the total display for a pool builder in the container.
+ */
+function _updatePoolTotal(container, key) {
+  const builder  = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+  if (!builder) return;
+  const attrSel  = builder.querySelector('.proc-pool-attr');
+  const skillSel = builder.querySelector('.proc-pool-skill');
+  const discSel  = builder.querySelector('.proc-pool-disc');
+  const modInput = builder.querySelector('.proc-pool-mod-val');
+  const totalEl  = builder.querySelector('.proc-pool-total');
+  if (!attrSel || !skillSel || !totalEl) return;
+  const attr     = attrSel.value;
+  const skill    = skillSel.value;
+  const disc     = discSel ? discSel.value : 'none';
+  const modifier = parseInt(modInput ? modInput.value : '0', 10);
+  const attrDots  = parseInt(attrSel.selectedOptions[0]?.dataset.dots  || '0', 10);
+  const skillDots = parseInt(skillSel.selectedOptions[0]?.dataset.dots || '0', 10);
+  const discDots  = (discSel && disc !== 'none') ? parseInt(discSel.selectedOptions[0]?.dataset.dots || '0', 10) : 0;
+  totalEl.textContent = _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, modifier);
+}
+
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
@@ -3123,17 +3310,129 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Pool row
-  h += '<div class="proc-detail-grid">';
-  h += '<div class="proc-detail-col">';
-  h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
-  h += `<div class="proc-detail-value">${esc(poolPlayer || '—')}</div>`;
-  h += '</div>';
-  h += '<div class="proc-detail-col">';
-  h += `<div class="proc-detail-label">ST Validated Pool</div>`;
-  h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
-  h += '</div>';
-  h += '</div>'; // proc-detail-grid
+  // Pool row — feeding gets structured pool builder; others get free-text input
+  if (entry.source === 'feeding') {
+    const feedSub2 = submissions.find(s => s._id === entry.subId);
+    const resp = feedSub2?.responses || {};
+    const isAppForm = !!(resp.feed_attr);
+    const charIdStr    = feedSub2?.character_id ? String(feedSub2.character_id) : null;
+    const charNameKey  = (feedSub2?.character_name || '').toLowerCase().trim();
+    const char =
+      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+      charMap.get(charNameKey) ||
+      null;
+
+    // Player's submitted pool (source-aware, read-only)
+    h += '<div class="proc-pool-player-row">';
+    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+    if (isAppForm) {
+      const pAttr  = resp.feed_attr || '';
+      const pSkill = resp.feed_skill || '';
+      const pDisc  = resp.feed_discipline || '';
+      const pStr   = pAttr + (pSkill ? ' + ' + pSkill : '') + (pDisc ? ' + ' + pDisc : '');
+      h += `<div class="proc-detail-value proc-pool-player-structured">${esc(pStr || '\u2014')}</div>`;
+    } else {
+      h += `<div class="proc-detail-value proc-pool-player-csv">${esc(poolPlayer || '\u2014')}</div>`;
+    }
+    h += '</div>';
+
+    // ST Pool Builder
+    if (!char) {
+      const warnMsg = characters.length === 0
+        ? 'Characters not loaded (local server may be down) \u2014 manual entry'
+        : `Character not found for "${esc(feedSub2?.character_name || '?')}" \u2014 manual entry`;
+      h += `<div class="proc-pool-nochar-warn">${warnMsg}</div>`;
+      h += `<div class="proc-detail-label" style="margin-bottom:4px">ST Validated Pool</div>`;
+      h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
+    } else {
+      // Build option lists with effective dots
+      const charDiscs = (char.disciplines || []).filter(d => d.dots > 0);
+      const discNames = charDiscs.map(d => d.name);
+
+      // Pre-populate from existing pool_validated
+      let preAttr = '', preSkill = '', preDisc = 'none', preMod = 0, showParseRef = false;
+      if (poolValidated) {
+        const parsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, discNames);
+        if (parsed) {
+          preAttr  = parsed.attr  || '';
+          preSkill = parsed.skill || '';
+          preDisc  = parsed.disc  || 'none';
+          preMod   = parsed.modifier || 0;
+        } else {
+          showParseRef = true;
+        }
+      }
+
+      const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
+        ...ALL_ATTRS.map(a => {
+          const dots = getAttrVal(char, a) || 0;
+          const sel  = a === preAttr ? ' selected' : '';
+          return `<option value="${esc(a)}" data-dots="${dots}"${sel}>${esc(a)} (${dots})</option>`;
+        })
+      ].join('');
+
+      const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
+        ...ALL_SKILLS.map(s => {
+          const dots = skDots(getSkillObj(char, s)) || 0;
+          const sel  = s === preSkill ? ' selected' : '';
+          return `<option value="${esc(s)}" data-dots="${dots}"${sel}>${esc(s)} (${dots})</option>`;
+        })
+      ].join('');
+
+      const discOptHtml = ['<option value="none" data-dots="0">None</option>',
+        ...charDiscs.map(d => {
+          const sel = d.name === preDisc ? ' selected' : '';
+          return `<option value="${esc(d.name)}" data-dots="${d.dots}"${sel}>${esc(d.name)} (${d.dots})</option>`;
+        })
+      ].join('');
+
+      // Initial total display
+      const initAttrDots  = preAttr  ? (getAttrVal(char, preAttr) || 0) : 0;
+      const initSkillDots = preSkill ? (skDots(getSkillObj(char, preSkill)) || 0) : 0;
+      const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
+      const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, preMod);
+
+      const modStr      = preMod === 0 ? '\u00B10' : preMod > 0 ? `+${preMod}` : String(preMod);
+      const roteChecked = (entry.feedRote || feedSub2?.st_review?.feeding_rote) ? ' checked' : '';
+
+      h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
+      h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder</div>`;
+      if (showParseRef) {
+        h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
+      }
+      h += '<div class="proc-pool-builder-selects">';
+      h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}">${attrOptHtml}</select>`;
+      h += `<span class="proc-pool-plus">+</span>`;
+      h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}">${skillOptHtml}</select>`;
+      h += `<span class="proc-pool-plus">+</span>`;
+      h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
+      h += '</div>'; // proc-pool-builder-selects
+      h += '<div class="proc-pool-builder-controls">';
+      h += '<div class="proc-pool-mod-group">';
+      h += `<span class="proc-pool-mod-label">Modifier</span>`;
+      h += `<button class="proc-pool-mod-dec" type="button" data-proc-key="${esc(entry.key)}">\u2212</button>`;
+      h += `<span class="proc-pool-mod-disp" data-proc-key="${esc(entry.key)}">${modStr}</span>`;
+      h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${preMod}">`;
+      h += `<button class="proc-pool-mod-inc" type="button" data-proc-key="${esc(entry.key)}">+</button>`;
+      h += '</div>'; // proc-pool-mod-group
+      h += `<label class="proc-pool-rote-label"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(entry.key)}"${roteChecked}> Rote</label>`;
+      h += '</div>'; // proc-pool-builder-controls
+      h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
+      h += '</div>'; // proc-pool-builder
+    }
+  } else {
+    // Non-feeding: standard 2-column layout
+    h += '<div class="proc-detail-grid">';
+    h += '<div class="proc-detail-col">';
+    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
+    h += `<div class="proc-detail-value">${esc(poolPlayer || '\u2014')}</div>`;
+    h += '</div>';
+    h += '<div class="proc-detail-col">';
+    h += `<div class="proc-detail-label">ST Validated Pool</div>`;
+    h += `<input class="proc-pool-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(poolValidated)}" placeholder="Enter validated pool...">`;
+    h += '</div>';
+    h += '</div>'; // proc-detail-grid
+  }
 
   // Validation status — sorcery uses Resolved/No Effect labels
   const statusOptions = isSorcery
