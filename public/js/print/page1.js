@@ -392,26 +392,34 @@ function renderMasthead(doc, data, assets) {
     doc.image(logoAsset, x - 4, M_TOP - 2, { width: lw, height: lh });
   }
 
-  // Name to the right of the logo. The name spans all the way to the right
-  // edge of the masthead minus the status-diamond reserve, so it has lots
-  // of room to breathe.
+  // Terra Mortis tagline UNDER the logo (not next to the name). Frees the
+  // whole vertical span beside the logo for the character name to wrap to
+  // a second line if it's very long.
+  doc.font(F.caslon).fontSize(11).fillColor(C.INK);
+  doc.text('Terra Mortis', x - 4, M_TOP + lh + 1, {
+    width: lw, align: 'center', lineBreak: false,
+  });
+
+  // Name to the right of the logo, occupying the full vertical span.
+  // Allowed to wrap to a second line if needed; shrink-to-fit only kicks
+  // in at extreme lengths.
   const nameAreaX = x + lw + 6;
   const nameAreaW = w - lw - 6 - diamondColW - 6;
   const nameText = data.identity.displayName.toUpperCase();
   let nameSize = 22;
   doc.font(F.caslon).fontSize(nameSize);
-  while (doc.widthOfString(nameText) > nameAreaW - 8 && nameSize > 10) {
+  // Allow the name two lines of room: 2 × (nameSize * 1.2) vertical capacity.
+  // Only shrink if a single word is wider than the column.
+  const longestWord = nameText.split(/\s+/).reduce((a, b) =>
+    doc.widthOfString(a) > doc.widthOfString(b) ? a : b, '');
+  while (doc.widthOfString(longestWord) > nameAreaW - 8 && nameSize > 10) {
     nameSize -= 0.5;
     doc.fontSize(nameSize);
   }
   doc.fillColor(C.ACCENT);
-  doc.text(nameText, nameAreaX, M_TOP + 8, {
-    width: nameAreaW, lineBreak: false,
-  });
-
-  doc.font(F.caslon).fontSize(12).fillColor(C.INK);
-  doc.text('Terra Mortis', nameAreaX, M_TOP + 34, {
-    width: nameAreaW, lineBreak: false,
+  doc.text(nameText, nameAreaX, M_TOP + 6, {
+    width: nameAreaW,
+    lineGap: -2,       // tight line spacing for the 2-line wrap case
   });
 
   // ── Identity fields (col A) ──────────────────────────────────────────
