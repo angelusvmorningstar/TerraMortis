@@ -1,6 +1,6 @@
 /* Player portal entry point — auth gate, tab routing, character loading, read-only sheet */
 
-import { apiGet } from './data/api.js';
+import { apiGet, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { esc, displayName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
@@ -80,11 +80,80 @@ function renderSidebarUser() {
   }
 
   el.innerHTML =
-    `<img class="sidebar-avatar" src="${avatarUrl}" alt="">` +
+    `<img class="sidebar-avatar sidebar-avatar-click" id="sidebar-avatar-btn" src="${avatarUrl}" alt="" title="Edit your profile">` +
     `<span class="sidebar-username">${name}</span>` +
     `<button class="sidebar-logout" id="logout-btn">Log out</button>`;
 
   document.getElementById('logout-btn').addEventListener('click', logout);
+  document.getElementById('sidebar-avatar-btn')?.addEventListener('click', openProfileModal);
+}
+
+// ── Player profile modal ──
+
+async function openProfileModal() {
+  document.getElementById('profile-modal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'profile-modal';
+  overlay.className = 'plm-overlay';
+  document.getElementById('player-app').appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.innerHTML = '<div class="plm-dialog"><p class="plm-loading">Loading\u2026</p></div>';
+
+  let player;
+  try {
+    player = await apiGet('/api/players/me');
+  } catch (err) {
+    overlay.querySelector('.plm-dialog').innerHTML = '<p class="plm-error">Failed to load profile: ' + esc(err.message) + '</p>';
+    return;
+  }
+
+  const user = getUser();
+  const dialog = overlay.querySelector('.plm-dialog');
+  dialog.innerHTML = `
+    <div class="plm-header">
+      <h3>Your Profile</h3>
+      <button class="cd-close" id="profile-close">&times;</button>
+    </div>
+    <div class="prof-readonly">
+      <div class="prof-field"><span class="prof-label">Display Name</span><span>${esc(player.display_name || '')}</span></div>
+      <div class="prof-field"><span class="prof-label">Discord</span><span>@${esc(player.discord_username || user?.username || '')}</span></div>
+    </div>
+    <div class="prof-form">
+      <div class="prof-field"><label class="prof-label" for="prof-email">Email</label><input id="prof-email" type="email" class="plm-input" value="${esc(player.email || '')}" placeholder="your@email.com"></div>
+      <div class="prof-field"><label class="prof-label" for="prof-mobile">Mobile</label><input id="prof-mobile" type="tel" class="plm-input" value="${esc(player.mobile || '')}" placeholder="+61 4xx xxx xxx"></div>
+      <div class="prof-field"><label class="prof-label" for="prof-emergency-name">Emergency Contact</label><input id="prof-emergency-name" type="text" class="plm-input" value="${esc(player.emergency_contact_name || '')}" placeholder="Name"></div>
+      <div class="prof-field"><label class="prof-label" for="prof-emergency-mobile">Emergency Mobile</label><input id="prof-emergency-mobile" type="tel" class="plm-input" value="${esc(player.emergency_contact_mobile || '')}" placeholder="+61 4xx xxx xxx"></div>
+      <div class="prof-field prof-wide"><label class="prof-label" for="prof-medical">Medical Info</label><textarea id="prof-medical" class="plm-input" rows="3" placeholder="Allergies, conditions, medications...">${esc(player.medical_info || '')}</textarea></div>
+    </div>
+    <p class="prof-privacy">This information is only visible to Storytellers and is used for live game safety.</p>
+    <div class="prof-actions">
+      <button class="dt-btn" id="profile-save">Save</button>
+      <button class="dt-btn" id="profile-cancel">Cancel</button>
+      <span id="profile-status" class="plm-loading" style="display:none"></span>
+    </div>`;
+
+  document.getElementById('profile-close').addEventListener('click', () => overlay.remove());
+  document.getElementById('profile-cancel').addEventListener('click', () => overlay.remove());
+  document.getElementById('profile-save').addEventListener('click', async () => {
+    const statusEl = document.getElementById('profile-status');
+    statusEl.style.display = '';
+    statusEl.textContent = 'Saving\u2026';
+    try {
+      await apiPut('/api/players/me', {
+        email: document.getElementById('prof-email').value.trim() || null,
+        mobile: document.getElementById('prof-mobile').value.trim() || null,
+        medical_info: document.getElementById('prof-medical').value.trim() || null,
+        emergency_contact_name: document.getElementById('prof-emergency-name').value.trim() || null,
+        emergency_contact_mobile: document.getElementById('prof-emergency-mobile').value.trim() || null,
+      });
+      statusEl.textContent = 'Saved!';
+      setTimeout(() => overlay.remove(), 800);
+    } catch (err) {
+      statusEl.textContent = 'Failed: ' + err.message;
+    }
+  });
 }
 
 // ── Character loading ──
