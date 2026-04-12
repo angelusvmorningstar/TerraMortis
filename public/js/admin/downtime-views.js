@@ -11,6 +11,7 @@ import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js'
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
+import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
 
@@ -318,6 +319,7 @@ let players = [];
 async function loadCharacters() {
   try {
     characters = await apiGet('/api/characters');
+    characters.forEach(c => applyDerivedMerits(c));
     charMap = new Map();
     for (const c of characters) {
       if (c.name) charMap.set(c.name.toLowerCase().trim(), c);

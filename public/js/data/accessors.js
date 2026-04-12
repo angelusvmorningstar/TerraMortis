@@ -84,7 +84,13 @@ export function skBonus(c, skill) { return c.skills?.[skill]?.bonus || 0; }
 export function skTotal(c, skill) { return skDots(c, skill) + skBonus(c, skill); }
 export function skSpecs(c, skill) { return c.skills?.[skill]?.specs || []; }
 export function skSpecStr(c, skill) { return skSpecs(c, skill).join(', '); }
-export function skNineAgain(c, skill) { return c.skills?.[skill]?.nine_again || false; }
+export function skNineAgain(c, skill) {
+  return c.skills?.[skill]?.nine_again ||
+    c._pt_nine_again_skills?.has(skill) ||
+    c._mci_dot3_skills?.has(skill) ||
+    c._ohm_nine_again_skills?.has(skill) ||
+    false;
+}
 
 // ── Merits by category ──
 
