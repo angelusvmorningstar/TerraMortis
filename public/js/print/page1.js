@@ -24,7 +24,7 @@ import {
 } from './layout.js';
 
 import {
-  dots, squares, field, miniHeader, sectionBanner,
+  dots, squares, capacityRow, field, miniHeader, sectionBanner,
   skillRow, traitRow, paragraph,
 } from './helpers.js';
 
@@ -95,18 +95,15 @@ function renderLeftColumn(doc, data, assets) {
   y += 16;
 
   // ── Vitae ────────────────────────────────────────────────────────────────
+  // Always 20 boxes in 2 rows of 10. First vitae_max outlined empty, rest solid black.
   miniHeader(doc, x, y, w, 'VITAE', { fontSize: 10 });
   y += 14;
   const vmax = data.stats.vitae_max || 0;
-  const vrow1 = Math.min(vmax, 10);
-  const vrow2 = Math.max(0, vmax - 10);
-  if (vrow1 > 0) {
-    squares(doc, x + (w - vrow1 * SQ_GAP) / 2, y, 0, vrow1);
-  }
-  if (vrow2 > 0) {
-    squares(doc, x + (w - vrow2 * SQ_GAP) / 2, y + 12, 0, vrow2);
-  }
-  y += vrow2 > 0 ? 26 : 14;
+  const vRowX = x + (w - 10 * SQ_GAP) / 2;
+  capacityRow(doc, vRowX, y, Math.min(vmax, 10), 10);
+  y += 12;
+  capacityRow(doc, vRowX, y, Math.max(0, vmax - 10), 10);
+  y += 14;
 
   // Vitae per turn + feed sources (derived)
   if (data.print_meta) {
@@ -124,18 +121,24 @@ function renderLeftColumn(doc, data, assets) {
   y += 6;
 
   // ── Health ───────────────────────────────────────────────────────────────
+  // Always 15 boxes in 10 + 5. First `health` outlined, rest solid black.
   miniHeader(doc, x, y, w, 'HEALTH', { fontSize: 10 });
   y += 14;
   const h = data.stats.health || 0;
-  squares(doc, x + (w - h * SQ_GAP) / 2, y, 0, h);
-  y += 20;
+  const hRow1X = x + (w - 10 * SQ_GAP) / 2;
+  const hRow2X = x + (w - 5 * SQ_GAP) / 2;
+  capacityRow(doc, hRow1X, y, Math.min(h, 10), 10);
+  y += 12;
+  capacityRow(doc, hRow2X, y, Math.max(0, h - 10), 5);
+  y += 16;
 
   // ── Willpower ────────────────────────────────────────────────────────────
+  // Always 10 boxes in a row. First `willpower` outlined, rest solid black.
   miniHeader(doc, x, y, w, 'WILLPOWER', { fontSize: 10 });
   y += 14;
   const wp = data.stats.willpower || 0;
-  squares(doc, x + (w - wp * SQ_GAP) / 2, y, 0, wp);
-  y += 24;
+  capacityRow(doc, x + (w - 10 * SQ_GAP) / 2, y, Math.min(wp, 10), 10);
+  y += 22;
 
   // ── Size / Speed / Defence diamonds ──────────────────────────────────────
   renderStatDiamonds(doc, data, assets, x, y, w);
@@ -351,33 +354,34 @@ function renderHumanityColumn(doc, data, assets) {
   });
 }
 
-// ─── Masthead (RIGHT PANEL TOP): logo + name banner, 3 columns below ──────
+// ─── Masthead (RIGHT PANEL TOP) ─────────────────────────────────────────────
+// Three internal columns:
+//   Col A: logo → name → tagline → identity fields (Player/Concept/XP/Printed)
+//   Col B: Carthian/clan icons + names
+//   Col C: status diamonds — start near the TOP of the page, not aligned with
+//          the identity block. The space freed by moving the diamonds up is
+//          reclaimed by the ATTRIBUTES and SKILLS sections below.
 function renderMasthead(doc, data, assets) {
   const { x, w } = COL.masthead;
 
-  // Reserve right edge for the vertically-stacked status diamonds
+  // Narrower identity column (user feedback: "too spread out width")
+  const colAW = 132;
+  const colBX = x + colAW + 10;
   const diamondColW = 58;
-  const mastheadInnerW = w - diamondColW - 4;
+  const colBW = w - colAW - 10 - diamondColW - 6;
 
-  // ── Row 1: logo + character name + Terra Mortis tagline ────────────────
-  // Logo sits at the top-left of the right panel. To its right we draw the
-  // ornate name-banner.png plate with the character's name centred over it,
-  // and "Terra Mortis" underneath.
-  // Prefer the transparent PNG version over the JPG fallback — the JPG has
-  // an opaque white rectangle that looks bad on the cream parchment.
-  const lw = 110, lh = 64;
+  // ── Logo + character name + tagline (col A, top) ──────────────────────
+  const lw = 108, lh = 62;
   const logoAsset = assets['logo-vampire.png'] || assets['logo-vampire.jpg'];
   if (logoAsset) {
     doc.image(logoAsset, x - 4, M_TOP - 2, { width: lw, height: lh });
   }
 
+  // Name to the right of the logo. The name spans all the way to the right
+  // edge of the masthead minus the status-diamond reserve, so it has lots
+  // of room to breathe.
   const nameAreaX = x + lw + 6;
-  const nameAreaW = mastheadInnerW - lw - 6;
-
-  // Character name — large red small-caps, shrink-to-fit.
-  // Mammon target draws this as plain accent-coloured text with no banner
-  // plate — name-banner.png has a transparent interior so cream text
-  // would disappear against the cream parchment.
+  const nameAreaW = w - lw - 6 - diamondColW - 6;
   const nameText = data.identity.displayName.toUpperCase();
   let nameSize = 22;
   doc.font(F.caslon).fontSize(nameSize);
@@ -390,33 +394,31 @@ function renderMasthead(doc, data, assets) {
     width: nameAreaW, lineBreak: false,
   });
 
-  // Terra Mortis tagline beneath the name
   doc.font(F.caslon).fontSize(12).fillColor(C.INK);
   doc.text('Terra Mortis', nameAreaX, M_TOP + 34, {
     width: nameAreaW, lineBreak: false,
   });
 
-  // ── Row 2: identity fields (col A) + cov/clan blocks (col B) ───────────
-  let y = M_TOP + lh + 14;
-  const colAW = 172;
-  const colBX = x + colAW + 12;
-  const colBW = mastheadInnerW - colAW - 12;
-
-  field(doc, x, y,      'Player',  data.identity.player,  colAW); y += 14;
-  field(doc, x, y,      'Concept', data.identity.concept, colAW); y += 14;
+  // ── Identity fields (col A) ──────────────────────────────────────────
+  let y = M_TOP + lh + 10;
+  field(doc, x, y,      'Player',  data.identity.player,  colAW); y += 13;
+  field(doc, x, y,      'Concept', data.identity.concept, colAW); y += 13;
   const xpDisplay = (data.print_meta && data.print_meta.xp_display)
     || `${data.xp.remaining} / ${data.xp.earned}`;
-  field(doc, x, y,      'XP',      xpDisplay,              colAW); y += 14;
+  field(doc, x, y,      'XP',      xpDisplay,              colAW); y += 13;
   const printDate = (data.print_meta && data.print_meta.printed_date)
     || todayDDMMMYY();
   field(doc, x, y,      'Printed', printDate,              colAW);
 
-  // Covenant + Clan block (col B) aligned with identity fields
-  renderCovClanBlocks(doc, data, assets, colBX, M_TOP + lh + 14, colBW);
+  // ── Covenant + Clan block (col B) ────────────────────────────────────
+  renderCovClanBlocks(doc, data, assets, colBX, M_TOP + lh + 10, colBW);
 
-  // Status diamonds stacked vertically on the far right
+  // ── Status diamonds (col C) — START AT TOP OF PAGE ───────────────────
+  // Previously aligned with the identity block; user feedback wants them
+  // starting near the top of the page to free vertical space for the
+  // ATTRIBUTES / SKILLS sections below.
   renderStatusDiamondsVertical(doc, data, assets,
-    x + mastheadInnerW + 6, M_TOP + lh + 10, diamondColW - 6);
+    x + w - diamondColW + 2, M_TOP + 2, diamondColW - 4);
 }
 
 function renderCovClanBlocks(doc, data, assets, x, y, w) {
@@ -442,9 +444,12 @@ function renderCovClanBlocks(doc, data, assets, x, y, w) {
     return size;
   }
 
-  // Covenant row — icon left, shrink-to-fit name right
+  // Covenant row — icon left, shrink-to-fit name right.
+  // Use `fit: [w, h]` to preserve aspect ratio; the icons are not square
+  // (Carthian is wide, Crone is ornate tall) so forcing width=height=32
+  // stretched them.
   if (covIconFile && assets[covIconFile]) {
-    doc.image(assets[covIconFile], x, y, { width: iconSize, height: iconSize });
+    doc.image(assets[covIconFile], x, y, { fit: [iconSize, iconSize], align: 'center', valign: 'center' });
   }
   const covText = covName ? covName.toUpperCase() : '';
   const covSize = fitOneLine(covText, textW, 12, 7);
@@ -454,7 +459,7 @@ function renderCovClanBlocks(doc, data, assets, x, y, w) {
   // Clan row
   const y2 = y + rowH;
   if (clanIconFile && assets[clanIconFile]) {
-    doc.image(assets[clanIconFile], x, y2, { width: iconSize, height: iconSize });
+    doc.image(assets[clanIconFile], x, y2, { fit: [iconSize, iconSize], align: 'center', valign: 'center' });
   }
   const clanText = clanName ? clanName.toUpperCase() : '';
   const clanSize = fitOneLine(clanText, textW, 12, 7);
@@ -494,11 +499,13 @@ function renderStatusDiamondsVertical(doc, data, assets, x, y, w) {
 // ─── Attributes section (right panel middle) ──────────────────────────────
 function renderAttributes(doc, data, assets) {
   const { x, w } = RIGHT_PANEL;
-  const y0 = M_TOP + 230;    // below masthead (logo 58 + id fields 56 + cov/clan 90 + padding)
+  const y0 = M_TOP + 170;     // moved up — status diamonds no longer push this down
   const bannerH = 26;
 
+  // Prefer the simple ink-brush banner_large.png over the scrollwork plates
+  // (closer to Mammon target aesthetic).
   sectionBanner(doc, x, y0, w, bannerH, 'ATTRIBUTES',
-    assets['short-banner.png'] || assets['banner-section.png'], 15);
+    assets['banner-large.png'] || assets['short-banner.png'], 15);
 
   // Three column sub-headers: Mental / Physical / Social
   const colW = w / 3;
@@ -509,9 +516,11 @@ function renderAttributes(doc, data, assets) {
   });
   doc.fillColor(C.INK);
 
-  // Three rows (Power, Finesse, Resistance) × three columns
-  const yRow = ySub + 20;
-  const rowGap = 18;
+  // Three rows (Power, Finesse, Resistance) × three columns.
+  // Attribute labels rendered UPPERCASE (small caps via the Caslon font
+  // applied by traitRow).
+  const yRow = ySub + 22;
+  const rowGap = 20;
   ATTR_GRID.forEach((row, ri) => {
     ['Mental', 'Physical', 'Social'].forEach((cat, ci) => {
       const name = row[cat];
@@ -519,7 +528,7 @@ function renderAttributes(doc, data, assets) {
       if (!val) return;
       const rowX = x + ci * colW + 12;
       const rowW = colW - 24;
-      traitRow(doc, rowX, yRow + ri * rowGap, name, val.effective, 5, rowW,
+      traitRow(doc, rowX, yRow + ri * rowGap, name.toUpperCase(), val.effective, 5, rowW,
         { fontSize: 9 });
     });
   });
@@ -528,11 +537,11 @@ function renderAttributes(doc, data, assets) {
 // ─── Skills section (right panel bottom) ──────────────────────────────────
 function renderSkills(doc, data, assets) {
   const { x, w } = RIGHT_PANEL;
-  const y0 = M_TOP + 340;    // below attributes (banner 26 + subheader 20 + 3 rows 18)
+  const y0 = M_TOP + 290;     // below attributes (banner 26 + sub 22 + 3 rows × 20 = 108 → 170+108=278 + gap)
   const bannerH = 26;
 
   sectionBanner(doc, x, y0, w, bannerH, 'SKILLS',
-    assets['short-banner.png'] || assets['banner-section.png'], 15);
+    assets['banner-large.png'] || assets['short-banner.png'], 15);
 
   const colW = w / 3;
   const subtitles = {
@@ -545,8 +554,8 @@ function renderSkills(doc, data, assets) {
   (data.skills || []).forEach(s => { skillMap[s.name] = s; });
 
   const ySub = y0 + bannerH + 6;
-  const yRow = ySub + 22;
-  const rowGap = 18;
+  const yRow = ySub + 24;
+  const rowGap = 26;     // spread out — user feedback: more gap between skills
 
   ['Mental', 'Physical', 'Social'].forEach((cat, ci) => {
     // Category label + unskilled penalty subtitle
@@ -561,8 +570,9 @@ function renderSkills(doc, data, assets) {
       const dotsN = s ? s.effective : 0;
       const rowX = x + ci * colW + 12;
       const rowW = colW - 24;
+      // Smaller skill label, bigger spec label — user feedback
       skillRow(doc, rowX, yRow + si * rowGap, sname.toUpperCase(), dotsN, rowW,
-        s && s.specialisations, { fontSize: 8.5 });
+        s && s.specialisations, { fontSize: 7.5, specFontSize: 7.5 });
     });
   });
 }

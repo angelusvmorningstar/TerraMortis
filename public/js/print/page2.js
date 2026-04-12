@@ -6,8 +6,8 @@
  * in column 1 then into column 2.
  */
 
-import { PAGE_W, PAGE_H, M_LEFT, M_RIGHT, M_TOP, M_BOTTOM, CW, F, C } from './layout.js';
-import { sectionBanner } from './helpers.js';
+import { PAGE_W, PAGE_H, M_LEFT, M_RIGHT, M_TOP, M_BOTTOM, CW, F, C, DOT_R, DOT_GAP } from './layout.js';
+import { sectionBanner, dots } from './helpers.js';
 
 function renderPage2(doc, data, assets) {
   if (assets['background.jpg']) {
@@ -46,17 +46,23 @@ function renderPage2(doc, data, assets) {
       col = 1;
       y = contentTop;
     }
-    // Name + dots
-    doc.font(F.caslon).fontSize(9).fillColor(C.INK);
-    const heading = `${m.name.toUpperCase()}  ${'●'.repeat(m.effective_rating)}`;
-    doc.text(heading, curX(), y, { width: colW, lineBreak: false });
-    y += 11;
+    // Name text, then real ● circles via dots() helper (NOT U+25CF character —
+    // the body font doesn't have the glyph and it shows as a missing-glyph box).
+    doc.font(F.caslon).fontSize(10).fillColor(C.INK);
+    const nameText = m.name.toUpperCase();
+    doc.text(nameText, curX(), y, { lineBreak: false });
+    const nameW = doc.widthOfString(nameText);
+    if (m.effective_rating > 0) {
+      dots(doc, curX() + nameW + 6, y + 5, m.effective_rating, m.effective_rating,
+        { r: 2.2, gap: 6 });
+    }
+    y += 13;
     if (m.description) {
-      doc.font(F.body).fontSize(7.5).fillColor(C.INK);
+      doc.font(F.body).fontSize(8).fillColor(C.INK);
       doc.text(m.description, curX(), y, { width: colW, lineGap: 0.5 });
-      y = doc.y + 6;
+      y = doc.y + 10;   // more padding between merit entries (was 6)
     } else {
-      y += 4;
+      y += 6;
     }
   });
 
@@ -84,11 +90,19 @@ function renderPage2(doc, data, assets) {
       }
 
       // Heading: "NIGHTMARE ●● | FACE OF THE BEAST"
-      doc.font(F.caslon).fontSize(9).fillColor(C.INK);
-      const rankDots = '●'.repeat(p.rank);
-      const heading = `${disc.name.toUpperCase()} ${rankDots} | ${p.name.toUpperCase()}`;
-      doc.text(heading, curX(), y, { width: colW, lineBreak: false });
-      y += 11;
+      // Draw the discipline name, then real dots(), then pipe + power name.
+      doc.font(F.caslon).fontSize(10).fillColor(C.INK);
+      const discText = disc.name.toUpperCase() + ' ';
+      doc.text(discText, curX(), y, { lineBreak: false });
+      const discW = doc.widthOfString(discText);
+      const dotsStart = curX() + discW;
+      if (p.rank > 0) {
+        dots(doc, dotsStart + 2, y + 5, p.rank, p.rank, { r: 2.2, gap: 6 });
+      }
+      const dotsEnd = dotsStart + p.rank * 6 + 4;
+      const tailText = ` | ${p.name.toUpperCase()}`;
+      doc.text(tailText, dotsEnd, y, { lineBreak: false });
+      y += 13;
 
       // Stats line: "Cost: X  •  Pool: Y  •  Z  •  W"
       const parts = [];
