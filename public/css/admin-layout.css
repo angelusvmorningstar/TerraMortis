@@ -1637,6 +1637,10 @@ body {
 .dt-proj-note { width: 100%; margin-top: 6px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
 .dt-proj-rote-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-left: 6px; cursor: pointer; }
 .dt-proj-writeup { width: 100%; margin-top: 4px; background: var(--surf); border: 1px solid var(--bdr); border-left: 3px solid var(--gold2); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
+.dt-skill-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.dt-pool-9a-auto { display: inline-block; background: rgba(58,138,58,.15); color: #3a8a3a; border-radius: 3px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
+.dt-spec-toggle-lbl { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; color: var(--txt-dim); }
+.dt-spec-toggle-lbl:hover { color: var(--txt); }
 
 /* ── Narrative Output (1.7) ── */
 .dt-narr-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }

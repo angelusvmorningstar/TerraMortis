@@ -8,7 +8,7 @@ import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool } from '../downtime/roller.js';
-import { getAttrEffective as getAttrVal, getSkillObj, skDots } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getSkillObj, skDots, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
@@ -1022,6 +1022,37 @@ function renderSubmissions() {
       if (!sub._proj_pending) sub._proj_pending = [];
       if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
       sub._proj_pending[idx][field] = sel.value;
+      // When skill changes, update nine_again flag and reset active_specs
+      if (field === 'skill') {
+        const char = findCharacter(sub.character_name, sub.player_name);
+        sub._proj_pending[idx].nine_again = char ? skNineAgain(char, sel.value) : false;
+        sub._proj_pending[idx].active_specs = [];
+        sub._proj_pending[idx].spec_bonus = 0;
+      }
+      renderSubmissions();
+    });
+  });
+
+  // Project spec toggle delegation
+  el.querySelectorAll('.dt-spec-toggle').forEach(cb => {
+    cb.addEventListener('change', e => {
+      e.stopPropagation();
+      const subId = cb.dataset.subId;
+      const idx = +cb.dataset.projIdx;
+      const spec = cb.dataset.spec;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub || !spec) return;
+      if (!sub._proj_pending) sub._proj_pending = [];
+      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
+      const activeSpecs = sub._proj_pending[idx].active_specs || [];
+      if (cb.checked) {
+        if (!activeSpecs.includes(spec)) activeSpecs.push(spec);
+      } else {
+        const i = activeSpecs.indexOf(spec);
+        if (i !== -1) activeSpecs.splice(i, 1);
+      }
+      sub._proj_pending[idx].active_specs = activeSpecs;
+      sub._proj_pending[idx].spec_bonus = activeSpecs.length;
       renderSubmissions();
     });
   });
@@ -1066,8 +1097,11 @@ function renderSubmissions() {
       const pen = (sub?._proj_pending || [])[idx] || {};
       const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
       const existingRoll = sub?.projects_resolved?.[idx]?.roll || null;
+      const specBonus = pen.spec_bonus || 0;
+      const nineAgain = pen.nine_again || false;
       showRollModal({
-        size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10,
+        size: pool.total + specBonus, expression: pool.expression, success: 8, exc: 5,
+        again: nineAgain ? 9 : 10,
         existingRoll, initialRote: pen.rote || false,
       }, result => {
         handleProjectRollSave(subId, idx, pool, result);
@@ -2904,7 +2938,18 @@ function renderProcessingMode(container) {
         const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
         if (builder) {
           const expr = _readBuilderExpr(builder);
-          if (expr) await saveEntryReview(entry, { pool_validated: expr });
+          if (expr) {
+            // Auto-detect nine_again from skill in validated pool
+            const feedSub2 = submissions.find(s => s._id === entry.subId);
+            const feedChar2 = feedSub2 ? findCharacter(feedSub2.character_name, feedSub2.player_name) : null;
+            let nineAgainAuto = false;
+            if (feedChar2) {
+              const charDiscsArr2 = Object.keys(feedChar2.disciplines || {});
+              const parsed2 = _parsePoolExpr(expr, ALL_ATTRS, ALL_SKILLS, charDiscsArr2);
+              if (parsed2?.skill) nineAgainAuto = skNineAgain(feedChar2, parsed2.skill);
+            }
+            await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainAuto });
+          }
         }
       }
       await saveEntryReview(entry, { pool_status: status });
@@ -3138,6 +3183,27 @@ function renderProcessingMode(container) {
   });
 
   // Wire feeding roll buttons
+  // Wire feeding spec toggles
+  container.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key  = cb.dataset.procKey;
+      const spec = cb.dataset.spec;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry || !spec) return;
+      const review = getEntryReview(entry) || {};
+      const activeFeedSpecs = [...(review.active_feed_specs || [])];
+      if (cb.checked) {
+        if (!activeFeedSpecs.includes(spec)) activeFeedSpecs.push(spec);
+      } else {
+        const i = activeFeedSpecs.indexOf(spec);
+        if (i !== -1) activeFeedSpecs.splice(i, 1);
+      }
+      await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: activeFeedSpecs.length });
+      renderProcessingMode(container);
+    });
+  });
+
   container.querySelectorAll('.proc-feed-roll-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
@@ -3150,11 +3216,14 @@ function renderProcessingMode(container) {
       const poolValidated = review?.pool_validated || '';
       if (!poolValidated) return;
       const match = poolValidated.match(/(\d+)\s*$/);
-      const diceCount = match ? parseInt(match[1], 10) : 0;
+      let diceCount = match ? parseInt(match[1], 10) : 0;
       if (!diceCount) { alert('Cannot parse dice count from validated pool expression.'); return; }
+      diceCount += (review?.pool_mod_spec || 0);
+      const nineAgain = review?.nine_again || false;
       const sub = submissions.find(s => s._id === subId);
       showRollModal(
-        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll, rote: isRote },
+        { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll,
+          again: nineAgain ? 9 : 10, rote: isRote },
         async result => {
           await updateSubmission(subId, { feeding_roll: result });
           if (sub) sub.feeding_roll = result;
@@ -3750,6 +3819,33 @@ function _renderFeedRightPanel(entry, char, rev) {
   // Committed pool expression display — updated when pool is validated
   const committedPool = poolValidated;
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${committedPool ? esc(committedPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
+
+  // Skill metadata: 9-again badge + spec toggles (feature.57)
+  if (poolValidated && char) {
+    const charDiscsArr = Object.keys(char.disciplines || {});
+    const parsedSkill = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscsArr);
+    const feedSkill = parsedSkill?.skill || null;
+    if (feedSkill) {
+      const nineA = skNineAgain(char, feedSkill);
+      const feedSpecs = skSpecs(char, feedSkill);
+      if (nineA || feedSpecs.length) {
+        const activeSpecMod = rev.pool_mod_spec || 0;
+        h += '<div class="dt-skill-meta">';
+        if (nineA) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+        for (const sp of feedSpecs) {
+          // We track spec bonus as a count, not by name — show all as toggleable
+          // First spec checked if activeSpecMod >= 1, second if >= 2, etc.
+          // Simple approach: read from rev.active_feed_specs (array)
+          const activeFeedSpecs = rev.active_feed_specs || [];
+          const checked = activeFeedSpecs.includes(sp);
+          h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle"
+            data-proc-key="${esc(key)}" data-spec="${esc(sp)}" ${checked ? 'checked' : ''}>${esc(sp)} +1</label>`;
+        }
+        h += '</div>';
+      }
+    }
+  }
+
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5540,6 +5636,30 @@ function poolBuilderUI(subId, idxField, idxVal, char, pen, compactPool, selClass
 
   if (pen.attr) {
     h += `<span class="dt-pool-display">${esc(compactPool.expression)}</span>`;
+  }
+  // Skill metadata: 9-again badge + spec toggles (feature.57)
+  h += skillMetaUI(char, pen.skill, subId, idxField, idxVal, pen);
+  h += '</div>';
+  return h;
+}
+
+/**
+ * Render skill metadata block (9-again badge + spec toggles) for pool builders.
+ * Returns empty string if no metadata exists.
+ */
+function skillMetaUI(char, skillName, subId, idxField, idxVal, pen) {
+  if (!char || !skillName) return '';
+  const nineAgain = skNineAgain(char, skillName);
+  const specs = skSpecs(char, skillName);
+  if (!nineAgain && !specs.length) return '';
+  const activeSpecs = pen.active_specs || [];
+  let h = '<div class="dt-skill-meta">';
+  if (nineAgain) h += '<span class="dt-pool-9a-auto">9-Again (auto)</span>';
+  for (const sp of specs) {
+    const checked = activeSpecs.includes(sp);
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-spec-toggle"
+      data-sub-id="${esc(subId)}" data-${esc(idxField)}="${idxVal}" data-spec="${esc(sp)}"
+      ${checked ? 'checked' : ''}>${esc(sp)} +1</label>`;
   }
   h += '</div>';
   return h;
