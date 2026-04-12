@@ -307,7 +307,6 @@ function buildShell() {
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
     <div id="dt-feeding-scene"></div>
-    <div id="dt-matrix"></div>
     <div id="dt-conflicts"></div>
     <div id="dt-investigations"></div>
     <div id="dt-npcs"></div>
@@ -2864,7 +2863,7 @@ function renderAmbienceDashboard() {
         const c = findCharacter(s.character_name, s.player_name);
         if (c) _mSubByCharId.set(String(c._id), s);
       }
-      const _mChars = (typeof chars !== 'undefined' ? chars : []).filter(c => !c.retired)
+      const _mChars = characters.filter(c => !c.retired)
         .sort((a, b) => sortName(a).localeCompare(sortName(b)));
       const _mFeederCounts = {};
       for (const mt of _mCols) _mFeederCounts[mt.csvKey] = 0;
@@ -5416,7 +5415,7 @@ function renderFeedingMatrix() {
   const el = document.getElementById('dt-matrix');
   if (!el) return;
 
-  const activeChars = (typeof chars !== 'undefined' ? chars : []).filter(c => !c.retired)
+  const activeChars = characters.filter(c => !c.retired)
     .sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
   if (!submissions.length && !activeChars.length) { el.innerHTML = ''; return; }
