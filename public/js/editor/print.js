@@ -155,7 +155,14 @@ export async function printPDF() {
       },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('PDF generation failed: ' + res.status);
+    if (!res.ok) {
+      // Try to read the error details from the server
+      let detail = res.status;
+      try { const body = await res.json(); detail = body.message + '\n' + (body.stack || ''); } catch {}
+      console.error('PDF server error:', detail);
+      alert('PDF generation failed on server:\n\n' + detail);
+      return;
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
