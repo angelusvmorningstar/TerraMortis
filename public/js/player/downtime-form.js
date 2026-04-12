@@ -10,7 +10,8 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
-import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, findRegentTerritory } from '../data/helpers.js';
+import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
+import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
@@ -636,6 +637,7 @@ function renderDowntimeResults(outcomeText, sub) {
 
 export async function renderDowntimeTab(targetEl, char, territories) {
   currentChar = char;
+  if (char) applyDerivedMerits(char);
   _territories = territories || [];
   responseDoc = null;
   currentCycle = null;
@@ -2424,15 +2426,14 @@ function renderAcquisitionsSection(saved) {
   }
   h += '</select>';
 
-  // Specialisation chips (if selected skill has specs)
+  // Specialisation chips (if selected skill has specs, or IS grants cross-skill specs)
   const skSavedSpec = saved['skill_acq_pool_spec'] || '';
   let specBonus = 0;
-  let skSpecs = [];
-  if (skSavedSkill && c.skills?.[skSavedSkill]?.specs?.length) {
-    skSpecs = c.skills[skSavedSkill].specs;
-    if (skSavedSpec && skSpecs.includes(skSavedSpec)) {
-      specBonus = hasAoE(c, skSavedSpec) ? 2 : 1;
-    }
+  const skNativeSpecs = skSavedSkill ? (c.skills?.[skSavedSkill]?.specs || []) : [];
+  const skIsSpecs = isSpecs(c).filter(({ spec }) => !skNativeSpecs.includes(spec));
+  const skAllSpecs = [...skNativeSpecs, ...skIsSpecs.map(({ spec }) => spec)];
+  if (skSavedSpec && skAllSpecs.includes(skSavedSpec)) {
+    specBonus = hasAoE(c, skSavedSpec) ? 2 : 1;
   }
 
   // Pool total
@@ -2445,12 +2446,16 @@ function renderAcquisitionsSection(saved) {
 
   // Spec chips row + hidden input
   h += `<input type="hidden" id="dt-skill_acq_pool_spec" value="${esc(skSavedSpec)}">`;
-  if (skSpecs.length) {
+  if (skNativeSpecs.length || skIsSpecs.length) {
     h += '<div class="dt-feed-spec-row" style="margin-top:6px;">';
     h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-    for (const sp of skSpecs) {
+    for (const sp of skNativeSpecs) {
       const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
       h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+    }
+    for (const { spec: sp, fromSkill } of skIsSpecs) {
+      const on = skSavedSpec === sp ? ' dt-feed-spec-on' : '';
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-skill-acq-spec="${esc(sp)}">${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
     }
     h += '</div>';
   }
@@ -3216,7 +3221,9 @@ function renderQuestion(q, value) {
         const skills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0; });
         const discs = Object.entries(c.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
 
-        const customSpecs = feedCustomSkill ? (c.skills?.[feedCustomSkill]?.specs || []) : [];
+        const customNativeSpecs = feedCustomSkill ? (c.skills?.[feedCustomSkill]?.specs || []) : [];
+        const customIsSpecs = isSpecs(c).filter(({ spec }) => !customNativeSpecs.includes(spec));
+        const customSpecs = [...customNativeSpecs, ...customIsSpecs.map(({ spec }) => spec)];
         const customSpecBonus = feedSpecName ? (hasAoE(c, feedSpecName) ? 2 : 1) : 0;
 
         let customTotal = 0;
@@ -3247,12 +3254,16 @@ function renderQuestion(q, value) {
         h += '</select>';
         if (customTotal) h += `<span class="dt-feed-total">= ${customTotal} dice</span>`;
         h += '</div>';
-        if (customSpecs.length) {
+        if (customNativeSpecs.length || customIsSpecs.length) {
           h += '<div class="dt-feed-spec-row">';
           h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-          for (const sp of customSpecs) {
+          for (const sp of customNativeSpecs) {
             const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
             h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
+          }
+          for (const { spec: sp, fromSkill } of customIsSpecs) {
+            const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
+            h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
           }
           h += '</div>';
         }
