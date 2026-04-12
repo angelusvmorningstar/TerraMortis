@@ -82,16 +82,11 @@
     { "name": "Indomitable",        "category": "general",   "effective_rating": 2, "own_dots": 2, "qualifier": null, "bonuses": [], "description": "+2 to contest or resist supernatural mental influence." },
     { "name": "Secret Society Junkie", "category": "general","effective_rating": 1, "own_dots": 1, "qualifier": null, "bonuses": [], "description": "Dots in Status or Mystery Cult Initiation representing human secret societies also count as dots of Herd." },
 
-    { "name": "Allies",   "category": "influence", "effective_rating": 3, "qualifier": "Finance",    "bonuses": [] },
-    { "name": "Allies",   "category": "influence", "effective_rating": 2, "qualifier": "Politics",   "bonuses": [] },
-    { "name": "Allies",   "category": "influence", "effective_rating": 2, "qualifier": "Underworld", "bonuses": [] },
-    { "name": "Contacts", "category": "influence", "effective_rating": 4, "qualifier": null, "area": "Police, High Society, Occult, Media, Street", "bonuses": [] },
-    { "name": "Resources","category": "influence", "effective_rating": 3, "qualifier": null,         "bonuses": [] },
-
-    { "name": "Kindred Status (Carthian)", "category": "standing", "effective_rating": 1, "qualifier": "Carthian", "bonuses": [] },
-    { "name": "Kindred Status (Crone)",    "category": "standing", "effective_rating": 0, "qualifier": "Crone",    "bonuses": [] },
-    { "name": "Kindred Status (Invictus)", "category": "standing", "effective_rating": 0, "qualifier": "Invictus", "bonuses": [] },
-    { "name": "Kindred Status (Lance)",    "category": "standing", "effective_rating": 0, "qualifier": "Lance",    "bonuses": [] },
+    { "name": "Allies",   "category": "influence", "effective_rating": 3, "area": "Finance",    "bonuses": [] },
+    { "name": "Allies",   "category": "influence", "effective_rating": 2, "area": "Politics",   "bonuses": [] },
+    { "name": "Allies",   "category": "influence", "effective_rating": 2, "area": "Underworld", "bonuses": [] },
+    { "name": "Contacts", "category": "influence", "effective_rating": 4, "spheres": ["Police", "High Society", "Occult", "Media", "Street"], "bonuses": [] },
+    { "name": "Resources","category": "influence", "effective_rating": 3, "qualifier": null,    "bonuses": [] },
 
     { "name": "Safe Place",       "category": "domain",   "effective_rating": 2, "qualifier": null, "bonuses": [] },
     { "name": "Haven",            "category": "domain",   "effective_rating": 0, "qualifier": null, "bonuses": [] },
