@@ -2518,16 +2518,22 @@ function buildAmbienceData(terrs) {
   for (const t of TERRITORY_DATA) terrById[t.id] = t;
 
   // Find current ambience from DB records (which may differ from TERRITORY_DATA defaults)
-  const startingAmbience = {};
+  const startingAmbience    = {};
+  const startingAmbienceMod = {};
   if (terrs && terrs.length) {
     for (const t of terrs) {
       const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
-      if (td) startingAmbience[td.id] = t.ambience || td.ambience;
+      if (td) {
+        startingAmbience[td.id]    = t.ambience    || td.ambience;
+        startingAmbienceMod[td.id] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
+          ? t.ambienceMod : td.ambienceMod;
+      }
     }
   }
   // Fallback to TERRITORY_DATA
   for (const td of TERRITORY_DATA) {
-    if (!startingAmbience[td.id]) startingAmbience[td.id] = td.ambience;
+    if (!startingAmbience[td.id])    startingAmbience[td.id]    = td.ambience;
+    if (startingAmbienceMod[td.id] === undefined) startingAmbienceMod[td.id] = td.ambienceMod;
   }
 
   // ── Overfeeding: count feeders per territory ──
@@ -2636,7 +2642,8 @@ function buildAmbienceData(terrs) {
       const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
       projStep = AMBIENCE_STEPS_LIST[newIdx];
     }
-    return { id, name: td.name, ambience, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
+    const ambienceMod = startingAmbienceMod[id] ?? td.ambienceMod;
+    return { id, name: td.name, ambience, ambienceMod, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
   });
   return { rows, pendingAmbienceCount };
 }

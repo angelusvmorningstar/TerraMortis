@@ -740,6 +740,11 @@ body {
 .terr-feed-add-btn:hover { border-color: var(--gold-a30); color: var(--gold2); }
 .terr-feed-actions { display: flex; align-items: center; gap: 12px; }
 
+/* ── Territory ambience override ── */
+.terr-amb-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--bdr); }
+.terr-amb-mod-inp { width: 64px; padding: 6px 8px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--fb); font-size: 13px; }
+.terr-amb-level-sel { padding: 6px 8px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--fb); font-size: 13px; min-width: 130px; }
+
 /* ── City edit controls ── */
 .city-edit-toggle { background: none; border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt3); font-family: var(--fh); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 12px; cursor: pointer; margin-top: 12px; }
 .city-edit-toggle:hover { color: var(--gold2); border-color: var(--gold2); }
