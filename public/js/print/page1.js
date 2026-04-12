@@ -190,16 +190,17 @@ function renderInfluenceColumn(doc, data, assets) {
   const { x, w } = COL.influence;
   let y = M_TOP + 20;
 
-  // INFLUENCE header + 16-box tally (always 2 rows of 8). First
-  // `influence_total` boxes filled, rest outlined empty. data.stats.influence_total
-  // is computed by serialiseForPrint.
+  // INFLUENCE header + 16-box tally (always 2 rows of 8).
+  // Same pattern as Vitae/Health/Willpower: first `influence_total` boxes
+  // outlined (character's capacity), remainder solid black (above cap /
+  // unavailable). data.stats.influence_total is computed by serialiseForPrint.
   miniHeader(doc, x, y, w, 'INFLUENCE', { fontSize: 11 });
   y += 16;
   const infTotal = data.stats.influence_total || 0;
   const infRowX = x + (w - 8 * SQ_GAP) / 2;
-  squares(doc, infRowX, y, Math.min(infTotal, 8), 8);
+  capacityRow(doc, infRowX, y, Math.min(infTotal, 8), 8);
   y += 12;
-  squares(doc, infRowX, y, Math.max(0, infTotal - 8), 8);
+  capacityRow(doc, infRowX, y, Math.max(0, infTotal - 8), 8);
   y += 18;
 
   // Small helper: draw the rating on the right edge of the column as real
@@ -219,18 +220,24 @@ function renderInfluenceColumn(doc, data, assets) {
     }
   }
 
-  // Influence merits list — name on the left, real dots on the right.
+  // Influence merits list — inline name with sphere qualifier.
+  // Examples: "Allies (Politics)", "Contacts (Police, Media, Street)".
+  // The qualifier is truncated mid-row if the sphere list is too long
+  // for the column; the full text is preserved on a wrap line underneath
+  // for Contacts which often lists several spheres.
   const influenceMerits = (data.merits || []).filter(m => m.category === 'influence');
   influenceMerits.forEach(m => {
+    const headline = m.qualifier
+      ? `${m.name} (${m.qualifier})`
+      : m.name;
     doc.font(F.caslon).fontSize(8.5).fillColor(C.INK);
-    doc.text(m.name, x, y, { lineBreak: false });
+    // Reserve the right edge for the rating dots
+    const labelMaxW = w - (m.effective_rating * 5) - 8;
+    doc.text(headline, x, y, {
+      width: labelMaxW, lineBreak: true, lineGap: 0,
+    });
     ratingGlyphs(m.effective_rating, y);
-    y += 10;
-    if (m.qualifier) {
-      doc.font(F.body).fontSize(7.5).fillColor(C.INK);
-      doc.text(m.qualifier, x + 4, y, { width: w - 4, lineBreak: true });
-      y = doc.y + 3;
-    }
+    y = doc.y + 4;
   });
 
   y += 10;
