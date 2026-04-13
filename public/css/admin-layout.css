@@ -276,6 +276,35 @@ body {
   gap: 8px;
 }
 
+/* ── Sidebar theme toggle ── */
+
+.sidebar-theme {
+  padding: 8px 20px;
+  border-top: 1px solid var(--bdr);
+}
+
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--surf2);
+  color: var(--txt);
+}
+
 /* ── Sidebar user (bottom) ── */
 
 .sidebar-user {
@@ -4713,3 +4742,63 @@ body {
   box-sizing: border-box;
 }
 .proc-amb-notes:focus { border-color: var(--gold2); outline: none; }
+
+/* ══════════════════════════════════════════
+   Parchment overrides
+   Dark mode reads thin Cinzel fine (contrast does the work).
+   Parchment needs 600+ weight — stroke width carries legibility on a light bg.
+   Also corrects hardcoded dark-mode colours in status badges.
+   ══════════════════════════════════════════ */
+
+/* Status row badges — dark-mode colours (#ff9090 / #90d090) are unreadable on cream */
+html:not([data-theme="dark"]) .proc-row-status.pending  { background: var(--crim-a15); color: var(--crim); }
+html:not([data-theme="dark"]) .proc-row-status.validated{ background: var(--green-a15); color: var(--green3); }
+html:not([data-theme="dark"]) .proc-row-status.no_roll  { background: var(--gold-a10); color: var(--txt2); }
+
+/* Cinzel weight floor: 600 minimum on parchment */
+html:not([data-theme="dark"]) .sidebar-sub,
+html:not([data-theme="dark"]) .sidebar-btn,
+html:not([data-theme="dark"]) .sidebar-btn.on,
+html:not([data-theme="dark"]) .dt-btn,
+html:not([data-theme="dark"]) .dt-btn-sm,
+html:not([data-theme="dark"]) .btn-sm,
+html:not([data-theme="dark"]) .proc-row-desc-lbl,
+html:not([data-theme="dark"]) .proc-row-status,
+html:not([data-theme="dark"]) .proc-detail-label,
+html:not([data-theme="dark"]) .dt-chk-toggle,
+html:not([data-theme="dark"]) .dt-matrix-table th,
+html:not([data-theme="dark"]) .dt-chk-table th,
+html:not([data-theme="dark"]) .dt-proj-lbl,
+html:not([data-theme="dark"]) .dt-narr-label,
+html:not([data-theme="dark"]) .dt-narr-status-btn,
+html:not([data-theme="dark"]) .dt-pool-sel,
+html:not([data-theme="dark"]) .dt-pool-display,
+html:not([data-theme="dark"]) .dt-rote-hint,
+html:not([data-theme="dark"]) .dt-inv-target,
+html:not([data-theme="dark"]) .dt-conflict-type,
+html:not([data-theme="dark"]) .asc-label,
+html:not([data-theme="dark"]) .city-edit-toggle,
+html:not([data-theme="dark"]) .city-save-btn,
+html:not([data-theme="dark"]) .terr-feed-label,
+html:not([data-theme="dark"]) .terr-feed-add-btn,
+html:not([data-theme="dark"]) .prestige-view-btn,
+html:not([data-theme="dark"]) .de-roll-btn,
+html:not([data-theme="dark"]) .de-sc-btn,
+html:not([data-theme="dark"]) .de-load-btn,
+html:not([data-theme="dark"]) .de-spec-chip,
+html:not([data-theme="dark"]) .de-history .hist-clr,
+html:not([data-theme="dark"]) .de-history .hmeta { font-weight: 600; }
+
+/* Character name in processing row — 700 for prominence */
+html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }
+
+/* Font size floor: bump 10px readable-text elements to 12px on parchment */
+html:not([data-theme="dark"]) .dt-scene-mod,
+html:not([data-theme="dark"]) .dt-matrix-amb,
+html:not([data-theme="dark"]) .dt-matrix-nosub-badge,
+html:not([data-theme="dark"]) .dt-chk-nosub-badge { font-size: 12px; }
+
+/* text-align: centre on all Cinzel button variants */
+html:not([data-theme="dark"]) .dt-btn,
+html:not([data-theme="dark"]) .dt-btn-sm,
+html:not([data-theme="dark"]) .btn-sm { text-align: center; }

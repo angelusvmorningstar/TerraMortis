@@ -279,6 +279,35 @@ body {
   gap: 8px;
 }
 
+/* ── Sidebar theme toggle ── */
+
+.sidebar-theme {
+  padding: 8px 20px;
+  border-top: 1px solid var(--bdr);
+}
+
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--surf2);
+  color: var(--txt);
+}
+
 /* ── Sidebar user (bottom) ── */
 
 .sidebar-user {

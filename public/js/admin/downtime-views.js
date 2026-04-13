@@ -35,10 +35,10 @@ let procExpandedKey = null;    // tracks which action row is expanded in process
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
-let ambDashCollapsed = false;  // collapse state for the Ambience Dashboard panel
-let discDashCollapsed = false; // collapse state for the Discipline Profile Matrix panel
-let matrixCollapsed = false;   // collapse state for the Feeding Matrix section in the dashboard
-const collapsedPhases = new Set(); // phaseKeys currently collapsed in Processing Mode
+let ambDashCollapsed = true;   // collapse state for the Ambience Dashboard panel
+let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
+let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
+const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -2964,7 +2964,7 @@ function renderProcessingMode(container) {
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
-    const isCollapsed = collapsedPhases.has(phaseKey);
+    const isCollapsed = !expandedPhases.has(phaseKey);
     h += `<div class="proc-phase-section">`;
     h += `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
     h += `<span class="proc-phase-label">${esc(label)}</span>`;
@@ -3613,8 +3613,8 @@ function renderProcessingMode(container) {
   container.querySelectorAll('[data-toggle-phase]').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.dataset.togglePhase;
-      if (collapsedPhases.has(key)) collapsedPhases.delete(key);
-      else collapsedPhases.add(key);
+      if (expandedPhases.has(key)) expandedPhases.delete(key);
+      else expandedPhases.add(key);
       renderProcessingMode(container);
     });
   });
