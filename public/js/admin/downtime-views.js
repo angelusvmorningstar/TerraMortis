@@ -2243,10 +2243,11 @@ function buildProcessingQueue(subs) {
         phaseNum: 1,
         actionType: 'feeding',
         label: 'Feeding',
-        description: feedDesc || poolLabel || 'No feeding method declared',
+        description: poolLabel || 'No feeding method declared',
         source: 'feeding',
         actionIdx: 0,
         poolPlayer: poolLabel,
+        feedDesc,
         feedMethod,
         feedMethodLabel: methodLabel,
         feedDisc,
@@ -4488,8 +4489,8 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Full description if it was truncated (suppressed for project — shown inside detail block)
-  if (entry.description && entry.description.length > 80 && entry.source !== 'project') {
+  // Full description if it was truncated (suppressed for project + feeding — shown inside detail block)
+  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding') {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
   }
 
@@ -4542,6 +4543,7 @@ function renderActionPanel(entry, review) {
         if (amb !== 0) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Ambience</span> ${amb > 0 ? '+' : ''}${amb}</span>`;
       }
       h += '</div>';
+      if (entry.feedDesc) h += `<div class="proc-proj-field proc-feed-desc-field"><span class="proc-feed-lbl">Description</span> ${esc(entry.feedDesc)}</div>`;
     }
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
