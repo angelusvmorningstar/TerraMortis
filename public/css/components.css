@@ -52,9 +52,10 @@
 .exp-row{display:flex;justify-content:space-between;align-items:center;padding:10px 10px;min-height:44px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;cursor:pointer;margin-bottom:3px;user-select:none;-webkit-user-select:none;}
 .exp-row.open{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;margin-bottom:0;}
 .exp-lbl{font-family:var(--fl);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--label-secondary);flex-shrink:0;}
-.exp-lbl.labeled{min-width:54px;}
+.exp-lbl.labeled{min-width:82px;}
 .exp-val{font-family:var(--fl);font-size:12px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);flex:1;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .exp-arr{font-size:11px;color:var(--txt3);transition:transform .15s;flex-shrink:0;}
+.exp-row.open .exp-arr{transform:rotate(90deg);}
 .exp-body{display:none;background:var(--surf3);border:0.5px solid var(--bdr);border-top:none;border-radius:0 0 4px 4px;padding:9px 10px;margin-bottom:3px;font-family:var(--ft);font-size:11px;color:var(--txt2);line-height:1.6;}
 .exp-body.visible{display:block;}
 .exp-wp-lbl{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-right:4px;}
@@ -449,19 +450,19 @@ html:not([data-theme="dark"]) .edit-icon {
 
 /* ── Right panel (clan, covenant, status) ── */
 .sh-hdr-right{flex:2;flex-shrink:0;display:flex;flex-direction:column;}
-.sh-hdr-row{display:flex;align-items:center;gap:8px;padding:6px 10px;}
-.sh-icon-slot{width:36px;height:36px;flex-shrink:0;}
-.sh-faction-icon{width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.sh-faction-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
-.sh-faction-label{font-family:var(--fl);font-size:13px;font-variant:small-caps;font-weight:700;letter-spacing:.04em;color:var(--accent);}
-.sh-faction-sub{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;letter-spacing:.06em;color:var(--label-secondary);}
-.sh-faction-bloodline{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;letter-spacing:.06em;color:var(--label-secondary);}
+.sh-hdr-row{display:flex;align-items:center;gap:12px;padding:10px 12px;}
+.sh-icon-slot{width:48px;height:48px;flex-shrink:0;}
+.sh-faction-icon{width:48px;height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sh-faction-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+.sh-faction-label{font-family:var(--fl);font-size:15px;font-variant:small-caps;font-weight:700;letter-spacing:.04em;color:var(--accent);}
+.sh-faction-sub{font-family:var(--fl);font-size:12px;font-variant:small-caps;font-weight:600;letter-spacing:.06em;color:var(--label-secondary);}
+.sh-faction-bloodline{font-family:var(--fl);font-size:12px;font-variant:small-caps;font-weight:600;letter-spacing:.06em;color:var(--label-tertiary);}
 .sh-stat-pip{display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;}
 .sh-stat-pip-edit{gap:0;}
-.sh-status-shape{position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
+.sh-status-shape{position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;}
 .sh-status-shape svg{position:absolute;inset:0;width:100%;height:100%;color:var(--crim);opacity:.9;}
-.sh-status-n{position:relative;z-index:1;font-family:var(--fl);font-size:17px;font-weight:700;color:var(--txt);line-height:1;}
-.sh-status-lbl{font-family:var(--fl);font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--accent);line-height:1;}
+.sh-status-n{position:relative;z-index:1;font-family:var(--fl);font-size:20px;font-weight:700;color:var(--txt);line-height:1;}
+.sh-status-lbl{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--accent);line-height:1;}
 .sh-stat-adj{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:8px;padding:1px 4px;line-height:1;}
 .sh-stat-adj:hover{color:var(--gold);}
 .sh-stat-edit-row{display:flex;align-items:center;gap:2px;}
@@ -479,21 +480,20 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-stat-lr:hover{border-color:var(--accent);color:var(--accent);}
 .cov-strip-cell-edit{flex-direction:column;align-items:center;padding:4px 8px;}
 
-/* ── City Status dot bar (inherent + title) ── */
-.sh-city-dots{display:flex;gap:1px;justify-content:flex-start;margin-top:2px;}
-.sh-city-dot{font-size:14px;letter-spacing:2px;line-height:1;}
-.sh-city-dot.crim{color:var(--crim);}
-.sh-city-dot.gold{color:var(--accent);}
+/* ── Status dot track (faction panel: city/cov/clan) ──
+   Inherent = full accent, bonus = hollow accent, non-dots not rendered. */
+.sh-sdot-track{display:flex;gap:2px;margin-top:3px;}
+.sh-sdot-rows{flex-direction:column;gap:2px;}
+.sh-sdot-row{display:flex;gap:2px;}
+.sh-sdot{font-size:14px;line-height:1;color:var(--accent);}
+.sh-sdot-base{/* full ● — colour from .sh-sdot */}
+.sh-sdot-bonus{/* hollow ○ — same colour as base */}
 
 /* ── Features ── */
-.sh-features-block{padding:4px 10px 2px;font-family:var(--ft);font-size:11px;}
-.sh-features-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
-.sh-features-auto{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
-.sh-feat-tag{font-style:italic;color:var(--txt2);}
-.sh-feat-tag+.sh-feat-tag::before{content:'\B7';margin-right:4px;color:var(--txt3);}
-.sh-feat-none{color:var(--txt3);font-style:italic;}
-.sh-features-extra{width:100%;}
-.sh-features-extra-view{color:var(--txt3);font-style:italic;margin-top:2px;padding-left:2px;}
+.sh-features-card{background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;padding:6px 10px;margin-bottom:3px;display:flex;flex-direction:column;gap:4px;}
+.sh-features-card .sh-features-top{display:flex;align-items:center;min-height:28px;}
+.sh-feat-none{font-family:var(--fl);font-size:12px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);}
+.sh-features-card .sh-edit-input{margin:0;font-size:11px;}
 
 /* ── Touchstone edit ── */
 .sh-touchstones-edit{padding:0 10px 4px;}
@@ -503,9 +503,9 @@ html:not([data-theme="dark"]) .edit-icon {
 /* ── Covenant strip ── */
 .cov-strip{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr2);}
 .cov-strip-cell{flex:1;display:flex;align-items:center;gap:6px;padding:5px 10px;}
-.cov-strip-name{font-family:var(--fl);font-size:11px;font-weight:600;font-variant:small-caps;letter-spacing:.04em;color:var(--label-tertiary);}
+.cov-strip-name{font-family:var(--fl);font-size:11px;font-weight:700;font-variant:small-caps;letter-spacing:.04em;color:var(--label-secondary);}
 .cov-strip-name.active{color:var(--accent);}
-.cov-strip-dot{font-family:var(--fl);font-size:13px;color:var(--label-tertiary);}
+.cov-strip-dot{font-family:var(--fl);font-size:13px;color:var(--label-secondary);}
 .cov-strip-dot.active{color:var(--accent);}
 
 /* ── Stats strip ── */
@@ -589,6 +589,15 @@ html:not([data-theme="dark"]) .edit-icon {
 .merit-sub-sh{font-family:var(--fl);font-size:10px;letter-spacing:.06em;color:var(--txt2);margin-top:2px;}
 .merit-dots-sh{font-size:12px;color:var(--accent);letter-spacing:1.5px;flex-shrink:0;margin-right:6px;}
 .merit-plain{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;font-family:var(--fl);font-size:11px;color:var(--txt2);letter-spacing:.02em;}
+
+/* ── Unified trait card ── */
+.trait-row{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;}
+.trait-main{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.trait-name{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--label-secondary);}
+.trait-dots{font-size:15px;color:var(--accent);letter-spacing:2.5px;line-height:1;flex-shrink:0;}
+.trait-sub{display:flex;align-items:center;gap:4px;}
+.trait-qual{font-family:var(--fl);font-size:10px;letter-spacing:.04em;color:var(--txt2);flex:1;}
+.trait-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 
 /* ── Manoeuvres ── */
 .man-list{display:flex;flex-direction:column;gap:3px;}

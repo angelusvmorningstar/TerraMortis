@@ -126,7 +126,7 @@ function _alertBadge(lvl) {
 /** Render merit dots split into purchased (full gold) and bonus (empty circle). */
 function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
-  return '<span class="merit-dots-sh">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
+  return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
 
 /** Gold log of all derived dot sources on a merit. Only emits lines where the field > 0. */
@@ -167,38 +167,26 @@ function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
 function _statusEditBtns(downFn, upFn) {
   return '<div class="sh-status-btns"><button class="sh-stat-lr" onclick="' + downFn + '">&#9664;</button><button class="sh-stat-lr" onclick="' + upFn + '">&#9654;</button></div>';
 }
-function _cityStatusDots(base, titleBonus) {
-  if (!base && !titleBonus) return '';
-  const total = base + titleBonus;
-  let h = '<div class="sh-city-dots">';
-  for (let i = 1; i <= 10; i++) {
-    if (i <= base) h += '<span class="sh-city-dot crim">\u25CF</span>';
-    else if (i <= total) h += '<span class="sh-city-dot gold">\u25CF</span>';
-    else h += '<span class="sh-city-dot empty">\u25CB</span>';
-    if (i === 5) h += '<br>';
+/* Render only the dots that exist — inherent full, bonus hollow, nothing beyond total.
+   maxDots caps the scale (10 for city, 5 for cov/clan). */
+function _statusDots(base, bonus, maxDots) {
+  const total = Math.min(base + bonus, maxDots);
+  if (!total) return '';
+  const cappedBase = Math.min(base, maxDots);
+  const dot = i => i <= cappedBase
+    ? '<span class="sh-sdot sh-sdot-base">\u25CF</span>'
+    : '<span class="sh-sdot sh-sdot-bonus">\u25CB</span>';
+  if (total > 5) {
+    let h = '<div class="sh-sdot-track sh-sdot-rows">';
+    h += '<div class="sh-sdot-row">'; for (let i = 1; i <= 5; i++) h += dot(i); h += '</div>';
+    h += '<div class="sh-sdot-row">'; for (let i = 6; i <= total; i++) h += dot(i); h += '</div>';
+    return h + '</div>';
   }
+  let h = '<div class="sh-sdot-track">';
+  for (let i = 1; i <= total; i++) h += dot(i);
   return h + '</div>';
 }
-function _cityStatusPip(editMode, base, total, titleBonus) {
-  if (editMode) return '<div class="sh-stat-pip">'
-    + '<div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div>'
-    + '<div class="sh-status-lbl">City</div>'
-    + _statusTrack(base, titleBonus, 'var(--accent)', 10)
-    + _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')')
-    + '</div>';
-  return '<div class="sh-stat-pip"><div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div><div class="sh-status-lbl">City</div></div>';
-}
-
-function _statusPip(editMode, svg, val, lbl, key, trackBase, bonusDots, bonusColor) {
-  if (editMode) {
-    const tb = trackBase !== undefined ? trackBase : val, bd = bonusDots || 0, bc = bonusColor || '';
-    return '<div class="sh-stat-pip">'
-      + '<div class="sh-status-shape">' + svg + '<span class="sh-status-n">' + val + '</span></div>'
-      + '<div class="sh-status-lbl">' + lbl + '</div>'
-      + _statusTrack(tb, bd, bc)
-      + _statusEditBtns('shStatusDown(\'' + key + '\')', 'shStatusUp(\'' + key + '\')')
-      + '</div>';
-  }
+function _statusPip(svg, val, lbl) {
   return '<div class="sh-stat-pip"><div class="sh-status-shape">' + svg + '<span class="sh-status-n">' + val + '</span></div><div class="sh-status-lbl">' + lbl + '</div></div>';
 }
 
@@ -408,9 +396,10 @@ export function shRenderDisciplines(c, editMode) {
   function renderDiscRow(d, r, nameStyle) {
     const dp = _discPowers(d, r || 0), hasPow = dp.length > 0, id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    const nTag = (nameStyle ? '<span class="disc-tap-name" style="' + nameStyle + '">' : '<span class="disc-tap-name">') + esc(d) + '</span>', dTag = r ? '<span class="disc-tap-dots">' + shDots(r) + '</span>' : '';
-    if (!hasPow) return '<div class="disc-tap-row"><div class="disc-tap-left">' + nTag + dTag + '</div></div>';
-    return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"><div class="disc-tap-left">' + nTag + dTag + '</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
+    const nTag = '<span class="trait-name"' + (nameStyle ? ' style="' + nameStyle + '"' : '') + '>' + esc(d) + '</span>', dTag = r ? '<span class="trait-dots">' + shDots(r) + '</span>' : '';
+    const _trInner = '<div class="trait-row"><div class="trait-main">' + nTag + '<div class="trait-right">' + dTag + (hasPow ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div></div></div>';
+    if (!hasPow) return '<div class="disc-tap-row">' + _trInner + '</div>';
+    return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')">' + _trInner + '</div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
   }
   function renderDiscEditRow(d, r, isIC, style) {
     const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = dObj.cp || 0, xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
@@ -418,10 +407,8 @@ export function shRenderDisciplines(c, editMode) {
     // Derive powers from rules cache (same as view mode)
     const dp = _discPowers(d, dt);
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
-    if (r > 0) h2 += '<span class="disc-tap-dots">' + shDots(r) + '</span>';
-    if (dp.length) h2 += '</div><span class="disc-tap-arr">\u203A</span></div>';
-    else h2 += '</div></div>';
+    const _eR = '<div class="trait-right">' + (r > 0 ? '<span class="trait-dots">' + shDots(r) + '</span>' : '') + (dp.length ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div>';
+    let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="trait-row"><div class="trait-main"><span class="trait-name" ' + ns + '>' + esc(d) + '</span>' + _eR + '</div>' + (isIC ? '<div class="trait-sub"><span class="disc-clan-tag">in-clan</span></div>' : '') + '</div></div>';
     h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
     if (dp.length) h2 += '<div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
     return h2;
@@ -464,8 +451,8 @@ export function shRenderDisciplines(c, editMode) {
     h += '<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">';
     devP.forEach((p, i) => {
       const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i, db = DEVOTIONS_DB.find(d => d.n === p.name);
-      if (editMode) { h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">' + esc(p.name) + '</span>' + (db ? '<span class="dev-xp-tag">' + db.xp + ' XP</span>' : '') + '</div><div style="display:flex;align-items:center;gap:4px"><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveDevotion(' + i + ')" title="Remove">&times;</button></div></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (db ? '<div class="dev-prereq">Requires: ' + devPrereqStr(db) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
-      else { h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">' + esc(p.name) + '</span></div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
+      if (editMode) { h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:var(--txt2)">' + esc(p.name) + '</span><div class="trait-right">' + (db ? '<span class="dev-xp-tag">' + db.xp + ' XP</span>' : '') + '<span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveDevotion(' + i + ')" title="Remove">&times;</button></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (db ? '<div class="dev-prereq">Requires: ' + devPrereqStr(db) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
+      else { h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:var(--txt2)">' + esc(p.name) + '</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
     });
     if (editMode) {
       const owned = new Set(devP.map(p => p.name)), avail = DEVOTIONS_DB.filter(d => !owned.has(d.n) && meetsDevPrereqs(c, d));
@@ -504,9 +491,9 @@ export function shRenderDisciplines(c, editMode) {
         const canFree = !p.free && p.level <= discDots && usedFree < freePool;
         const freeLbl = p.free ? 'Free' : (xpCost + ' XP');
         const freeCls = p.free ? 'rite-free-badge' : 'rite-xp-badge';
-        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><span class="disc-tap-dots" style="margin-left:6px;color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><span style="font-family:var(--fh);font-size:10px;color:var(--txt3);margin-left:6px">' + esc(p.tradition) + '</span></div><div style="display:flex;align-items:center;gap:4px"><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots" style="color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual" style="color:var(--txt3)">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
       } else {
-        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><span class="disc-tap-dots" style="margin-left:6px;color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><span style="font-family:var(--fh);font-size:10px;color:var(--txt3);margin-left:6px">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span style="font-size:9px;color:var(--txt3);margin-left:6px">' + xpCost + ' XP</span>' : '') + '</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots" style="color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual" style="color:var(--txt3)">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
       }
     });
     if (editMode) {
@@ -564,7 +551,7 @@ export function shRenderDisciplines(c, editMode) {
         const ptColor = ptotal >= reqDots && (reqDots === 0 || ptotal === reqDots) ? 'var(--accent)' : ptotal > 0 ? 'var(--err)' : 'var(--txt3)';
         h += '<div class="pact-edit-block">'
           + '<div class="pact-edit-hdr">'
-          + '<span class="disc-tap-name" style="font-size:12px;color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span>'
+          + '<span class="trait-name" style="font-size:12px;color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span>'
           + (reqDots ? '<span class="pact-req-dots">\u25CF'.repeat(reqDots) + ' required</span>' : '')
           + '<div class="pact-cp-xp">'
           + '<span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + pcp + '" onchange="shEditPact(' + realPi + ',\'cp\',+this.value)" style="width:36px">'
@@ -611,12 +598,11 @@ export function shRenderDisciplines(c, editMode) {
         }
         h += '</div>';
       } else {
+        const _pNotes = [isOHM && p.ohm_allies_sphere ? 'Allies: ' + esc(p.ohm_allies_sphere) : '', isOHM && p.ohm_skills && p.ohm_skills.filter(Boolean).length ? '9-again: ' + p.ohm_skills.filter(Boolean).map(esc).join(', ') : '', isSW && p.partner ? 'w/ ' + esc(p.partner) + (p.shared_merit ? ' \u00B7 ' + esc(p.shared_merit) : '') : ''].filter(Boolean).join(' \u00B7 ');
         h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">'
-          + '<div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span>'
-          + (isOHM && p.ohm_allies_sphere ? '<span style="font-size:11px;color:var(--txt3);margin-left:8px">Allies: ' + esc(p.ohm_allies_sphere) + '</span>' : '')
-          + (isOHM && p.ohm_skills && p.ohm_skills.filter(Boolean).length ? '<span style="font-size:11px;color:var(--txt3);margin-left:8px">9-again: ' + p.ohm_skills.filter(Boolean).map(esc).join(', ') + '</span>' : '')
-          + (isSW && p.partner ? '<span style="font-size:11px;color:var(--txt3);margin-left:8px">w/ ' + esc(p.partner) + (p.shared_merit ? ' | ' + esc(p.shared_merit) : '') + '</span>' : '')
-          + '</div><span class="disc-tap-arr">\u203A</span></div>'
+          + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div>'
+          + (_pNotes ? '<div class="trait-sub"><span class="trait-qual">' + _pNotes + '</span></div>' : '')
+          + '</div></div>'
           + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">'
           + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '')
           + '<div class="disc-power-effect">' + esc(effect) + '</div>'
@@ -652,7 +638,7 @@ export function shRenderInfluenceMerits(c, editMode) {
   _inflOhmPools.forEach(p => { const u = ohmUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
   _inflInvPools.forEach(p => { const u = investedUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
   const _inflBadge = editMode ? _alertBadge(_inflAlert) : '';
-  let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits' + _inflBadge + '</div><div class="merit-list">';
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Influence Merits' + _inflBadge + '</div><div class="merit-list">';
   if (editMode) {
     // All non-Contacts influence merits
     const _inflMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
@@ -732,7 +718,7 @@ export function shRenderDomainMerits(c, editMode) {
   _domLkPools.forEach(p => { const u = lorekeeperUsed(c); if (u > p.amount) _domAlert = 'red'; else if (u < p.amount && _domAlert !== 'red') _domAlert = 'yellow'; });
   _domInvPools.forEach(p => { const u = investedUsed(c); if (u > p.amount) _domAlert = 'red'; else if (u < p.amount && _domAlert !== 'red') _domAlert = 'yellow'; });
   const _domBadge = editMode ? _alertBadge(_domAlert) : '';
-  let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits' + _domBadge + '</div><div class="merit-list">';
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Domain Merits' + _domBadge + '</div><div class="merit-list">';
   if (editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c);
@@ -764,12 +750,12 @@ export function shRenderDomainMerits(c, editMode) {
   } else {
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
       const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_attache || 0) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, dPurch = (ssjB > 0 || flockB > 0) ? _dRaw : Math.min(5, _dRaw);
-      const dotHtml = (ssjB > 0 || flockB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="merit-dots-sh">' + shDots(de) + '</span>';
+      const dotHtml = (ssjB > 0 || flockB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="trait-dots">' + shDots(de) + '</span>';
       // Shared display: own dots filled + partner contribution hollow.
       const _shOwn = Math.min(dO, de);
       const _shPart = Math.max(0, de - _shOwn);
       const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
-      h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (dp ? '<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</div>' : '') + '</div><div style="text-align:right">' + (dp ? _shHtml : dotHtml) + '</div></div>';
+      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div></div>';
     });
   }
   h += '</div></div>'; return h;
@@ -778,7 +764,7 @@ export function shRenderDomainMerits(c, editMode) {
 export function shRenderStandingMerits(c, editMode) {
   const standM = (c.merits || []).filter(m => m.category === 'standing');
   if (!editMode && !standM.length) return '';
-  let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Standing Merits</div><div class="merit-list">';
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="merit-list">';
   const _standMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
   const _standSorted = editMode ? standM : standM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   _standSorted.forEach((m, si) => {
@@ -796,7 +782,7 @@ export function shRenderStandingMerits(c, editMode) {
         h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
-    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (sub ? '<div class="merit-sub-sh">' + esc(sub) + '</div>' : '') + (assets ? '<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: ' + esc(assets) + '</div>' : '') + '</div>' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div>'; }
+    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
   });
   if (editMode) {
     const hasMCI = standM.some(m => m.name === 'Mystery Cult Initiation');
@@ -1392,9 +1378,7 @@ export function shRenderManoeuvres(c, editMode) {
       fStyles.forEach(fs => {
         const _vPurch = (fs.cp || 0) + (fs.xp || 0), _vDerived = (fs.free_mci || 0) + (fs.free_ots || 0);
         const tags = STYLE_TAGS[fs.name] || [];
-        h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
-          + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
-          + shDotsMixed(_vPurch, _vDerived) + '</div>';
+        h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(fs.name) + '</span><div class="trait-right">' + shDotsMixed(_vPurch, _vDerived) + '</div></div>' + (tags.length ? '<div class="trait-sub"><span class="trait-qual">' + tags.map(t => esc(t)).join(', ') + '</span></div>' : '') + '</div></div>';
       });
       h += '</div>';
     }
@@ -1405,9 +1389,7 @@ export function shRenderManoeuvres(c, editMode) {
       fMerits.forEach(fs => {
         const _vPurch = (fs.cp || 0) + (fs.xp || 0), _vDerived = (fs.free_mci || 0) + (fs.free_ots || 0);
         const tags = STYLE_TAGS[fs.name] || [];
-        h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
-          + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
-          + shDotsMixed(_vPurch, _vDerived) + '</div>';
+        h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(fs.name) + '</span><div class="trait-right">' + shDotsMixed(_vPurch, _vDerived) + '</div></div>' + (tags.length ? '<div class="trait-sub"><span class="trait-qual">' + tags.map(t => esc(t)).join(', ') + '</span></div>' : '') + '</div></div>';
       });
       h += '</div>';
     }
@@ -1423,9 +1405,7 @@ export function shRenderManoeuvres(c, editMode) {
         const body = db
           ? '<div class="man-exp-body"><div class="man-style">' + esc(db.style) + ' \u2014 Rank ' + esc(db.rank) + '</div><div>' + esc(db.effect || '') + '</div>' + (db.prereqStr ? '<div class="man-prereq">Prerequisite: ' + esc(db.prereqStr) + '</div>' : '') + '</div>'
           : '<div>' + esc(manName) + '</div>';
-        h += '<div class="exp-row' + (prereqOk ? '' : ' merit-prereq-fail') + '" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(manName) + '</div>'
-          + (db ? '<div class="merit-sub-sh">' + esc(db.style) + ' \u2014 Rank ' + db.rank + (prereqOk ? '' : ' \u2014 prereq not met') + '</div>' : '') + '</div>'
-          + '<span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
+        h += '<div class="exp-row' + (prereqOk ? '' : ' merit-prereq-fail') + '" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(manName) + '</span><div class="trait-right"><span class="exp-arr">\u203A</span></div></div>' + (db ? '<div class="trait-sub"><span class="trait-qual">' + esc(db.style) + ' \u2014 Rank ' + db.rank + (prereqOk ? '' : ' \u2014 prereq not met') + '</span></div>' : '') + '</div></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
       });
       h += '</div>';
     }
@@ -1437,13 +1417,13 @@ export function shRenderManoeuvres(c, editMode) {
 
 export function shRenderMeritRow(m, idPrefix, i, dotHtml) {
   const b2 = meritBase(m), dc = meritDotCount(m), ds = dc ? shDots(dc) : '', pm = b2.match(/^([^(]+?)\s*\((.+)\)$/), mn = pm ? pm[1].trim() : b2, sn = pm ? pm[2].trim() : null;
-  const nh = sn ? '<div class="merit-name-sh">' + esc(mn) + '</div><div class="merit-sub-sh">' + esc(sn) + '</div>' : '<div class="merit-name-sh">' + esc(mn) + '</div>';
-  const db = meritLookup(m), dt = dotHtml !== undefined ? dotHtml : (ds ? '<span class="merit-dots-sh">' + ds + '</span>' : '');
+  const db = meritLookup(m), dt = dotHtml !== undefined ? dotHtml : (ds ? '<span class="trait-dots">' + ds + '</span>' : '');
+  const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span><div class="trait-right">' + (dt || '') + (hasArr ? '<span class="exp-arr">\u203A</span>' : '') + '</div></div>' + (sn ? '<div class="trait-sub"><span class="trait-qual">' + esc(sn) + '</span></div>' : '') + '</div>';
   if (db && db.desc) {
     const id2 = idPrefix + i, pqStr = db.prereq ? prereqLabel(db.prereq) : '', body = '<div>' + esc(db.desc) + '</div>' + (pqStr ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(pqStr) + '</div>' : '');
-    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0">' + nh + '</div>' + dt + '<span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
+    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
   }
-  return '<div class="merit-plain"><div style="flex:1;min-width:0">' + nh + '</div>' + dt + '</div>';
+  return '<div class="merit-plain">' + _inner(false) + '</div>';
 }
 
 /* ── renderSheet orchestrator ── */
@@ -1456,7 +1436,7 @@ export function renderSheet(c, target = null) {
   if (!c) { el.innerHTML = ''; return; }
   applyDerivedMerits(c, chars); ensureMeritSync(c);
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '', st = c.status || {}, wp = getWillpower(c);
-  const clanIconHtml = clanIcon(c.clan, 36), covIconHtml = covIcon(c.covenant, 36);
+  const clanIconHtml = clanIcon(c.clan, 48), covIconHtml = covIcon(c.covenant, 48);
   const allB = c.banes || [], curseIdx = allB.findIndex(b => b.name.toLowerCase().includes('curse')), curse = curseIdx >= 0 ? allB[curseIdx] : null, regB = allB.filter((_, i) => i !== curseIdx);
   let h = '';
   // Desktop layout hint — admin CSS uses this for 3-col grid
@@ -1493,18 +1473,6 @@ export function renderSheet(c, target = null) {
   if (curse) h += expRow('curse', 'Curse', esc(curse.name), '<div>' + esc(curse.effect || '') + '</div>');
   if (editMode) { regB.forEach((b, bi) => { const ri = allB.indexOf(b); h += '<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName(' + ri + ',this.value)"><option value="">(select)</option>' + BANE_LIST.map(bn => '<option' + (b.name === bn ? ' selected' : '') + '>' + esc(bn) + '</option>').join('') + '</select><button class="sh-bane-rm" onclick="shRemoveBane(' + ri + ')" title="Remove">&times;</button></div><input class="sh-edit-input" value="' + esc(b.effect || '') + '" onchange="shEditBaneEffect(' + ri + ',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>'; }); h += '<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>'; }
   else regB.forEach((b, i) => { h += expRow('bane' + i, 'Bane', esc(b.name), '<div>' + esc(b.effect || '') + '</div>'); });
-  // Features: auto-detected + manual notes
-  const _autoFeat = derivedFeatures(c);
-  if (editMode || _autoFeat.length || c.features) {
-    h += '<div class="sh-features-block">';
-    h += '<div class="sh-features-row"><span class="exp-lbl labeled">Features</span><span class="sh-features-auto">' + (_autoFeat.length ? _autoFeat.map(f => '<span class="sh-feat-tag">' + esc(f) + '</span>').join('') : '<span class="sh-feat-none">None detected</span>') + '</span></div>';
-    if (editMode) {
-      h += '<input class="sh-edit-input sh-features-extra" value="' + esc(c.features || '') + '" onchange="shEdit(\'features\',this.value)" placeholder="Additional features\u2026" style="margin-top:4px;font-size:11px">';
-    } else if (c.features) {
-      h += '<div class="sh-features-extra-view">' + esc(c.features) + '</div>';
-    }
-    h += '</div>';
-  }
   // Touchstones
   const ts = c.touchstones || [];
   if (editMode) {
@@ -1515,6 +1483,18 @@ export function renderSheet(c, target = null) {
   // Date of Embrace + Apparent Age
   if (editMode || c.date_of_embrace) { const _ded = c.date_of_embrace || ''; const _dedDisp = _ded ? new Date(_ded + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; h += '<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>' + (editMode ? '<input type="date" class="sh-edit-input" value="' + esc(_ded) + '" onchange="shEdit(\'date_of_embrace\',this.value)">' : '<span class="exp-val">' + esc(_dedDisp) + '</span>') + '</div>'; }
   if (editMode || c.apparent_age) h += '<div class="exp-row"><span class="exp-lbl labeled">App. Age</span>' + (editMode ? '<input class="sh-edit-input" value="' + esc(c.apparent_age || '') + '" onchange="shEdit(\'apparent_age\',this.value)" placeholder="Apparent Age">' : '<span class="exp-val">' + esc(c.apparent_age) + '</span>') + '</div>';
+  // Features: auto-detected stats + manual notes — single card
+  const _autoFeat = derivedFeatures(c);
+  if (editMode || _autoFeat.length || c.features) {
+    h += '<div class="sh-features-card">';
+    h += '<div class="sh-features-top"><span class="exp-lbl labeled">Features</span><span class="exp-val sh-features-auto">' + (_autoFeat.length ? _autoFeat.join(', ') : '<span class="sh-feat-none">None detected</span>') + '</span></div>';
+    if (editMode) {
+      h += '<div class="sh-features-top"><span class="exp-lbl labeled"></span><input class="sh-edit-input" style="flex:1" value="' + esc(c.features || '') + '" onchange="shEdit(\'features\',this.value)" placeholder="Additional features\u2026"></div>';
+    } else if (c.features) {
+      h += '<div class="sh-features-top"><span class="exp-lbl labeled"></span><span class="exp-val">' + esc(c.features) + '</span></div>';
+    }
+    h += '</div>';
+  }
   h += '</div>'; // end left
   // Right panel
   h += '<div class="sh-hdr-right">';
@@ -1525,15 +1505,30 @@ export function renderSheet(c, target = null) {
   if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--accent)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), cityTotal = cityBase + titleBonus;
-  h += '<div class="sh-faction-sub">Title</div>' + _cityStatusDots(cityBase, titleBonus) + '</div>' + _cityStatusPip(editMode, cityBase, cityTotal, titleBonus) + '</div>';
-  const covRow = (iconHtml, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) => { h += '<div class="sh-hdr-row">' + (iconHtml ? '<div class="sh-faction-icon">' + iconHtml + '</div>' : '<div class="sh-icon-slot"></div>') + '<div class="sh-faction-text">' + (editMode ? editH : viewH) + '<div class="sh-faction-sub">' + sub + '</div></div>' + _statusPip(editMode, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) + '</div>'; };
+  h += '<div class="sh-faction-sub">Title</div>'
+    + _statusDots(cityBase, titleBonus, 10)
+    + (editMode ? _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')') : '')
+    + '</div>' + _statusPip(CITY_SVG, cityTotal, 'City') + '</div>';
+  // covRow: dots + arrows live in the text column; pip is just diamond + number + label
+  const covRow = (iconHtml, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus) => {
+    h += '<div class="sh-hdr-row">'
+      + (iconHtml ? '<div class="sh-faction-icon">' + iconHtml + '</div>' : '<div class="sh-icon-slot"></div>')
+      + '<div class="sh-faction-text">'
+      + (editMode ? editH : viewH)
+      + '<div class="sh-faction-sub">' + sub + '</div>'
+      + _statusDots(tBase, tBonus, 5)
+      + (editMode ? _statusEditBtns('shStatusDown(\'' + sKey + '\')', 'shStatusUp(\'' + sKey + '\')') : '')
+      + '</div>'
+      + _statusPip(svg, sVal, sLbl)
+      + '</div>';
+  };
   const _covBase = st.covenant || 0, _covOTSBonus = c._ots_covenant_bonus || 0, _covBonusDots = Math.max(0, _covOTSBonus - _covBase), _covEffective = Math.max(_covBase, _covOTSBonus);
-  covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', (_covBonusDots > 0 ? '<div style="font-size:9px;letter-spacing:.03em">Covenant ' + shDotsWithBonus(_covBase, _covBonusDots) + '<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>' : 'Covenant'), OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots, '#9E7AE0');
+  covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots);
   if (editMode) {
     const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = (BLOODLINE_CLANS[c.clan] || []).slice().sort(), blO = bls.map(b => '<option' + (c.bloodline === b ? ' selected' : '') + '>' + b + '</option>').join('');
-    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
+    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   }
-  else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
+  else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   h += '</div></div></div>'; // end right, body, hdr
   // Covenant strip
   const covLbls = ['Carthian', 'Crone', 'Invictus', 'Lance'], covSM = { 'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone', 'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance' }, pLbl = covSM[c.covenant] || c.covenant;
