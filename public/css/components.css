@@ -51,9 +51,9 @@
 /* ── Expandable rows ── */
 .exp-row{display:flex;justify-content:space-between;align-items:center;padding:10px 10px;min-height:44px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;cursor:pointer;margin-bottom:3px;user-select:none;-webkit-user-select:none;}
 .exp-row.open{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;margin-bottom:0;}
-.exp-lbl{font-family:var(--fl);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);flex-shrink:0;}
+.exp-lbl{font-family:var(--fl);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--label-secondary);flex-shrink:0;}
 .exp-lbl.labeled{min-width:54px;}
-.exp-val{font-family:var(--fl);font-size:11px;color:var(--txt2);flex:1;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.exp-val{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);flex:1;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .exp-arr{font-size:11px;color:var(--txt3);transition:transform .15s;flex-shrink:0;}
 .exp-body{display:none;background:var(--surf3);border:0.5px solid var(--bdr);border-top:none;border-radius:0 0 4px 4px;padding:9px 10px;margin-bottom:3px;font-family:var(--ft);font-size:11px;color:var(--txt2);line-height:1.6;}
 .exp-body.visible{display:block;}
@@ -110,9 +110,6 @@
 
 /* Cinzel weight floor: .cc-name stays on Cinzel and benefits from 600 on light bg */
 html:not([data-theme="dark"]) .cc-name { font-weight: 600; }
-
-/* Expandable row values — --txt2 warm brown reads as amber on parchment; pin to near-black */
-html:not([data-theme="dark"]) .exp-val { color: var(--txt); }
 
 /* Faction icons: switch background-color to crimson on parchment.
    opacity:1 overrides the .clan-icon/.cov-icon dim values tuned for dark bg. */
@@ -417,7 +414,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .disc-tap-row.disc-edit{border-radius:4px 4px 0 0;border-bottom:none;background:var(--surf2);border:1px solid var(--bdr);}
 .disc-cp-counter{font-family:var(--fl);font-size:10px;letter-spacing:.04em;color:var(--txt3);margin-bottom:6px;display:flex;gap:12px;}
 .disc-cp-counter span{color:var(--txt2);}
-.disc-clan-tag{font-family:var(--fl);font-size:8px;letter-spacing:.06em;color:var(--accent);opacity:.7;margin-left:6px;text-transform:uppercase;}
+.disc-clan-tag{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;letter-spacing:.04em;color:var(--label-tertiary);margin-left:6px;}
 
 /* ══ SHEET VIEW ══ */
 #v-sheet.active{display:block;padding:0;overflow-y:auto;}
@@ -449,14 +446,14 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-faction-icon{width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .sh-faction-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
 .sh-faction-label{font-family:var(--fl);font-size:12px;color:var(--txt);letter-spacing:.02em;font-weight:700;}
-.sh-faction-sub{font-family:var(--fl);font-size:9px;color:var(--txt3);letter-spacing:.10em;text-transform:uppercase;}
-.sh-faction-bloodline{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+.sh-faction-sub{font-family:var(--fl);font-size:10px;font-weight:600;font-variant:small-caps;letter-spacing:.04em;color:var(--label-secondary);}
+.sh-faction-bloodline{font-family:var(--fl);font-size:10px;font-weight:600;font-variant:small-caps;letter-spacing:.04em;color:var(--label-secondary);}
 .sh-stat-pip{display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;}
 .sh-stat-pip-edit{gap:0;}
 .sh-status-shape{position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
 .sh-status-shape svg{position:absolute;inset:0;width:100%;height:100%;color:var(--crim);opacity:.9;}
 .sh-status-n{position:relative;z-index:1;font-family:var(--fl);font-size:17px;font-weight:700;color:var(--txt);line-height:1;}
-.sh-status-lbl{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);line-height:1;}
+.sh-status-lbl{font-family:var(--fl);font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--accent);line-height:1;}
 .sh-stat-adj{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:8px;padding:1px 4px;line-height:1;}
 .sh-stat-adj:hover{color:var(--gold);}
 .sh-stat-edit-row{display:flex;align-items:center;gap:2px;}
@@ -498,9 +495,9 @@ html:not([data-theme="dark"]) .edit-icon {
 /* ── Covenant strip ── */
 .cov-strip{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr2);}
 .cov-strip-cell{flex:1;display:flex;align-items:center;gap:6px;padding:5px 10px;}
-.cov-strip-name{font-family:var(--fl);font-size:9px;letter-spacing:.06em;color:var(--txt3);}
-.cov-strip-name.active{color:var(--txt2);}
-.cov-strip-dot{font-family:var(--fl);font-size:12px;color:var(--txt3);}
+.cov-strip-name{font-family:var(--fl);font-size:11px;font-weight:600;font-variant:small-caps;letter-spacing:.04em;color:var(--label-tertiary);}
+.cov-strip-name.active{color:var(--accent);}
+.cov-strip-dot{font-family:var(--fl);font-size:13px;color:var(--label-tertiary);}
 .cov-strip-dot.active{color:var(--accent);}
 
 /* ── Stats strip ── */
@@ -509,7 +506,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-stat-icon{position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;}
 .sh-stat-icon svg{position:absolute;inset:0;width:100%;height:100%;color:var(--crim);opacity:.9;}
 .sh-stat-n{position:relative;z-index:1;font-family:var(--fl);font-size:17px;font-weight:700;color:var(--txt);line-height:1;}
-.sh-stat-lbl{font-size:9px;font-family:var(--fl);text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin-top:2px;}
+.sh-stat-lbl{font-size:8px;font-family:var(--fl);font-weight:700;text-transform:uppercase;letter-spacing:.10em;color:var(--accent);margin-top:2px;}
 
 /* ── Sheet sections ── */
 .sh-body{padding:0 14px 24px;}
@@ -547,8 +544,9 @@ html:not([data-theme="dark"]) .edit-icon {
 .disc-tap-row{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;min-height:48px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;user-select:none;}
 .disc-tap-row.open{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;margin-bottom:0;}
 .disc-tap-left{display:flex;align-items:center;gap:8px;}
-.disc-tap-name{font-family:var(--fl);font-size:12px;color:var(--accent);letter-spacing:.04em;}
-.disc-tap-name.sorcery{color:var(--err7);}
+.disc-tap-name{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--label-secondary);}
+.disc-tap-name.sorcery{color:var(--warn-dk);}
+[data-theme="dark"] .disc-tap-name.sorcery{color:#d4a070;}
 .disc-tap-dots{font-size:14px;color:var(--accent);letter-spacing:2px;}
 .disc-tap-arr{font-size:11px;color:var(--txt3);transition:transform .15s;}
 .disc-tap-row.open .disc-tap-arr{transform:rotate(90deg);}
@@ -556,10 +554,10 @@ html:not([data-theme="dark"]) .edit-icon {
 .disc-drawer.visible{display:block;}
 .disc-power{padding:9px 12px;border-bottom:0.5px solid var(--bdr);}
 .disc-power:last-child{border-bottom:none;}
-.disc-power-name{font-family:var(--fl);font-size:11px;color:var(--accent);letter-spacing:.02em;margin-bottom:3px;}
-.disc-power-stats{font-family:var(--ft);font-size:10px;color:var(--txt2);font-style:italic;margin-bottom:5px;line-height:1.5;}
-.disc-power-effect{font-family:var(--ft);font-size:11px;color:var(--txt2);line-height:1.55;}
-.disc-sub-head{font-family:var(--fl);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);padding:7px 12px 3px;}
+.disc-power-name{font-family:var(--fl);font-size:11px;font-weight:700;font-variant:small-caps;color:var(--accent);letter-spacing:.03em;margin-bottom:3px;}
+.disc-power-stats{font-family:var(--fl);font-size:10px;font-weight:700;color:var(--label-secondary);margin-bottom:5px;line-height:1.5;}
+.disc-power-effect{font-family:var(--ft);font-size:11px;color:var(--label-secondary);line-height:1.55;}
+.disc-sub-head{font-family:var(--fl);font-size:9px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--label-tertiary);padding:7px 12px 3px;}
 
 /* ── Rite badges ── */
 .rite-free-badge,.rite-xp-badge{font-family:var(--fl);font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid;border-radius:3px;padding:1px 5px;cursor:pointer;transition:background .15s,color .15s;}
