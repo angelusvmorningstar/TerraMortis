@@ -149,7 +149,9 @@ function renderSidebarUser() {
     ? discordAvatarUrl(null, null)
     : user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
-      : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
+      : user.id
+        ? `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`
+        : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
   const playerLink = info?.is_dual_role
     ? `<a href="player" class="sidebar-player-link">My Character</a>`
@@ -873,6 +875,20 @@ async function init() {
     } catch { /* territories not available — regent display will be blank */ }
     renderCharGrid();
   } catch (err) {
+    // TEMP: visual testing fallback — load local JSON when API unavailable on localhost
+    if (location.hostname === 'localhost') {
+      try {
+        const r = await fetch('/data/chars_v3.json');
+        chars = await r.json();
+        // Inject stub _id so renderCharGrid card templates don't break
+        chars.forEach((c, i) => { if (!c._id) c._id = `local-${i}`; });
+        chars.forEach(sanitiseChar);
+        // Stub _players so no cards get the unlinked red tint
+        _players = chars.map(c => ({ character_ids: [c._id], display_name: c.player }));
+        renderCharGrid();
+        return;
+      } catch (localErr) { console.error('Local JSON fallback failed:', localErr); /* fall through to error message below */ }
+    }
     console.error('Failed to load characters:', err.message);
     document.getElementById('char-grid').innerHTML =
       `<p class="placeholder">Failed to load characters from API. Is the server running?</p>`;

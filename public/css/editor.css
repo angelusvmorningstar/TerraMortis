@@ -319,7 +319,6 @@
 .sh-hdr-row{display:flex;align-items:center;gap:8px;padding:6px 10px;}
 .sh-icon-slot{width:36px;height:36px;flex-shrink:0;}
 .sh-faction-icon{width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.sh-faction-icon img{width:100%;height:100%;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);opacity:.75;}
 .sh-faction-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
 .sh-faction-label{font-family:var(--fh);font-size:12px;color:var(--txt);letter-spacing:.02em;font-weight:700;}
 .sh-faction-sub{font-family:var(--fh);font-size:9px;color:var(--txt3);letter-spacing:.10em;text-transform:uppercase;}
@@ -657,3 +656,128 @@ html:not([data-theme="dark"]) .merit-name-sh,
 html:not([data-theme="dark"]) .merit-sub-sh,
 html:not([data-theme="dark"]) .merit-plain,
 html:not([data-theme="dark"]) .sk-spec-add { font-weight: 600; }
+
+/* ── Colour overrides — crimson replaces gold for dots and accents on parchment ── */
+
+/* Sheet dots — gold → crimson on parchment */
+html:not([data-theme="dark"]) .attr-dots-sh,
+html:not([data-theme="dark"]) .sh-skill-dots,
+html:not([data-theme="dark"]) .merit-dots-sh,
+html:not([data-theme="dark"]) .disc-tap-dots,
+html:not([data-theme="dark"]) .cov-strip-dot.active { color: var(--crim); }
+
+/* City dot bar — gold variant → crimson on parchment */
+html:not([data-theme="dark"]) .sh-city-dot.gold { color: var(--crim); }
+
+/* Character name and section headings — crimson on parchment for visual hierarchy */
+html:not([data-theme="dark"]) .sh-char-name { color: var(--crim); }
+html:not([data-theme="dark"]) .sh-sec-title  { color: var(--crim); }
+
+/* ── Gold → crimson sweep ─────────────────────────────────────────────────── */
+
+/* Section heading labels that use --gdim (gold) in base style */
+html:not([data-theme="dark"]) .attr-group-title,
+html:not([data-theme="dark"]) .skill-group-title,
+html:not([data-theme="dark"]) .xp-title { color: var(--crim); }
+
+/* Active tab / button states */
+html:not([data-theme="dark"]) .edit-tab.on,
+html:not([data-theme="dark"]) .topbar-btn.on { color: var(--crim); }
+
+/* Discipline: power names and in-clan tag colour (font-weight already set) */
+html:not([data-theme="dark"]) .disc-power-name { color: var(--crim); }
+html:not([data-theme="dark"]) .disc-clan-tag   { color: var(--crim); opacity: 1; }
+
+/* Clan attribute star */
+html:not([data-theme="dark"]) .attr-clan-star { color: var(--crim); }
+
+/* Stat diamond numbers — --txt on parchment is near-black; switch to bg cream so
+   numbers stay light-on-dark against the crimson SVG shape */
+html:not([data-theme="dark"]) .sh-stat-n { color: var(--bg); }
+
+/* Stat gem SVGs — soften opacity slightly more on parchment */
+html:not([data-theme="dark"]) .sh-stat-icon svg,
+html:not([data-theme="dark"]) .sh-status-shape svg { opacity: 0.55; }
+
+/* Influence total highlight */
+html:not([data-theme="dark"]) .infl-total .inf-n { color: var(--crim); }
+
+/* Domain totals */
+html:not([data-theme="dark"]) .dom-total-lbl,
+html:not([data-theme="dark"]) .dom-total-view { color: var(--crim); }
+
+/* Contacts edit header (font-weight already set) */
+html:not([data-theme="dark"]) .contacts-edit-hdr { color: var(--crim); }
+
+/* MCI */
+html:not([data-theme="dark"]) .mci-choice-active { color: var(--crim); border-color: var(--crim-a40); }
+html:not([data-theme="dark"]) .mci-pool-val      { color: var(--crim); }
+
+/* XP total value */
+html:not([data-theme="dark"]) .xp-row.total .xp-val { color: var(--crim); }
+
+/* Granted merit tags — gold badge → crimson badge */
+html:not([data-theme="dark"]) .gen-granted-tag,
+html:not([data-theme="dark"]) .gen-granted-tag-view {
+  color: var(--crim);
+  background: var(--crim-a8);
+  border-color: var(--crim-a25);
+}
+
+/* Rite badge — gold pill → crimson pill (font-weight already set) */
+html:not([data-theme="dark"]) .rite-free-badge {
+  color: var(--crim);
+  background: var(--crim-a8);
+  border-color: var(--crim-a25);
+}
+
+/* Discipline tap names — gold colour (font-weight already set) */
+html:not([data-theme="dark"]) .disc-tap-name:not(.sorcery) { color: var(--crim); }
+
+/* Add/action buttons — gold text → crimson (font-weight already set) */
+html:not([data-theme="dark"]) .dev-add-btn { color: var(--crim); border-color: var(--crim-a40); }
+
+/* Status pip numbers (City/Cov/Clan) — same fix as stat diamond numbers */
+html:not([data-theme="dark"]) .sh-status-n { color: var(--bg); }
+
+/* Section sub-headings (e.g. "Influence Merits") */
+html:not([data-theme="dark"]) .sh-sec-subtitle { color: var(--crim); }
+
+/* ── Remaining gold → crimson gaps ────────────────────────────────────────── */
+
+/* Topbar / charlist labels (font-weight already set) */
+html:not([data-theme="dark"]) .topbar-title,
+html:not([data-theme="dark"]) .topbar-action,
+html:not([data-theme="dark"]) .edit-charname,
+html:not([data-theme="dark"]) .edit-dirty { color: var(--crim); }
+
+/* Attribute priority selects — form controls should be dark text, not gold */
+html:not([data-theme="dark"]) .sh-attr-pri select,
+html:not([data-theme="dark"]) .sh-clan-attr-row select { color: var(--txt); }
+
+/* CP remaining: "full" state uses green — replace with neutral on parchment */
+html:not([data-theme="dark"]) .sh-cp-remaining.full { color: var(--txt3); }
+
+/* Sheet topbar edit button */
+html:not([data-theme="dark"]) .sheet-topbar .sheet-edit-btn,
+html:not([data-theme="dark"]) .sheet-edit-btn.editing { color: var(--crim); }
+
+/* Blood/health alert marker */
+html:not([data-theme="dark"]) .sh-bh-alert { color: var(--crim); }
+
+/* Attribute breakdown derived value */
+html:not([data-theme="dark"]) .attr-derived-row .bd-eff .bd-val { color: var(--crim); }
+
+/* MCI dot labels ("My dots:", "Total:") and XP breakdown headers */
+html:not([data-theme="dark"]) .mci-dot-lbl { color: var(--crim); }
+html:not([data-theme="dark"]) .sh-xp-breakdown th { color: var(--crim); }
+html:not([data-theme="dark"]) .sh-xp-badge.xp-under { color: var(--crim); }
+
+/* Influence edit row value */
+html:not([data-theme="dark"]) .infl-edit-row .infl-inf .inf-val { color: var(--crim); }
+
+/* Audit warning badge — hardcoded amber in base */
+html:not([data-theme="dark"]) .audit-warn { color: var(--crim); }
+
+/* Skill flag active state (font-weight already set) */
+html:not([data-theme="dark"]) .skill-flag.on { color: var(--crim); }
