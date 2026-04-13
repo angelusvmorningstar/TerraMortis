@@ -586,3 +586,74 @@ input.sh-edit-input:disabled {
   pointer-events: none;
   z-index: 2;
 }
+
+/* ══════════════════════════════════════════
+   PARCHMENT THEME OVERRIDES
+   Applied to admin.html + player.html (light default).
+   index.html is always dark — these rules never fire there.
+   ══════════════════════════════════════════ */
+
+/* Cinzel weight floor: 600 minimum on parchment.
+   Grouped by area for easier maintenance. */
+
+/* Topbar navigation */
+html:not([data-theme="dark"]) .topbar-btn,
+html:not([data-theme="dark"]) .topbar-action,
+html:not([data-theme="dark"]) .topbar-title { font-weight: 600; }
+
+/* Editor tabs and state indicators */
+html:not([data-theme="dark"]) .edit-tab,
+html:not([data-theme="dark"]) .edit-dirty,
+html:not([data-theme="dark"]) .edit-charname { font-weight: 600; }
+
+/* Attribute and skill sections */
+html:not([data-theme="dark"]) .attr-group-title,
+html:not([data-theme="dark"]) .attr-name,
+html:not([data-theme="dark"]) .skill-group-title,
+html:not([data-theme="dark"]) .skill-name,
+html:not([data-theme="dark"]) .skill-flag,
+html:not([data-theme="dark"]) .xp-title { font-weight: 600; }
+
+/* Sheet character info */
+html:not([data-theme="dark"]) .sh-char-player,
+html:not([data-theme="dark"]) .sh-bane-add,
+html:not([data-theme="dark"]) .sh-ordeal,
+html:not([data-theme="dark"]) .sh-spec-counter,
+html:not([data-theme="dark"]) .sh-merit-cp-row,
+html:not([data-theme="dark"]) .sh-clan-attr-row,
+html:not([data-theme="dark"]) .sh-skill-name,
+html:not([data-theme="dark"]) .sh-skill-spec,
+html:not([data-theme="dark"]) .sh-stat-lbl,
+html:not([data-theme="dark"]) .sh-status-lbl,
+html:not([data-theme="dark"]) .sh-faction-sub,
+html:not([data-theme="dark"]) .sh-faction-bloodline,
+html:not([data-theme="dark"]) .cov-strip-name { font-weight: 600; }
+
+/* XP, audit, badges */
+html:not([data-theme="dark"]) .audit-badge,
+html:not([data-theme="dark"]) .sh-xp-breakdown th { font-weight: 600; }
+
+/* Contacts and influence */
+html:not([data-theme="dark"]) .contacts-edit-hdr,
+html:not([data-theme="dark"]) .contacts-dot-src,
+html:not([data-theme="dark"]) .infl-total,
+html:not([data-theme="dark"]) .mci-dot-lbl,
+html:not([data-theme="dark"]) .mci-pool-lbl,
+html:not([data-theme="dark"]) .mci-pool-val { font-weight: 600; }
+
+/* Disciplines and devotions */
+html:not([data-theme="dark"]) .dev-add-btn,
+html:not([data-theme="dark"]) .disc-cp-counter,
+html:not([data-theme="dark"]) .sheet-topbar button,
+html:not([data-theme="dark"]) .disc-tap-name,
+html:not([data-theme="dark"]) .disc-power-name,
+html:not([data-theme="dark"]) .disc-sub-head,
+html:not([data-theme="dark"]) .disc-clan-tag,
+html:not([data-theme="dark"]) .rite-free-badge,
+html:not([data-theme="dark"]) .rite-xp-badge { font-weight: 600; }
+
+/* Merits */
+html:not([data-theme="dark"]) .merit-name-sh,
+html:not([data-theme="dark"]) .merit-sub-sh,
+html:not([data-theme="dark"]) .merit-plain,
+html:not([data-theme="dark"]) .sk-spec-add { font-weight: 600; }
