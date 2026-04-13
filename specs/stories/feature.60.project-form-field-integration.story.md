@@ -1,6 +1,6 @@
 # Story feature.60: Project Detail Block — App Form Field Integration
 
-## Status: draft
+## Status: review
 
 ## Story
 
@@ -43,23 +43,23 @@ The player downtime form collects project data as fully structured, distinct fie
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extract `projDescription` in `buildProcessingQueue`
-  - [ ] Read `resp[project_${slot}_description]` and store as `entry.projDescription`
-  - [ ] Change `entry.description` assignment: `proj.detail` → `entry.projDescription || proj.desired_outcome || ''`
+- [x] Task 1: Extract `projDescription` in `buildProcessingQueue`
+  - [x] Read `resp[project_${slot}_description]` and store as `entry.projDescription`
+  - [x] Change `entry.description` assignment: `proj.detail` → `entry.projDescription || proj.desired_outcome || ''`
 
-- [ ] Task 2: Resolve cast character IDs to names
-  - [ ] In `buildProcessingQueue`, attempt `JSON.parse(resp[project_${slot}_cast])`
-  - [ ] Map each ID to `displayName(char)` using the `characters` array
-  - [ ] Store resolved string in `entry.projCast`; fall back to raw string on parse error
+- [x] Task 2: Resolve cast character IDs to names
+  - [x] In `buildProcessingQueue`, attempt `JSON.parse(resp[project_${slot}_cast])`
+  - [x] Map each ID to `displayName(char)` using the `characters` array
+  - [x] Store resolved string in `entry.projCast`; fall back to raw string on parse error
 
-- [ ] Task 3: Parse merit keys to readable strings
-  - [ ] In `buildProcessingQueue`, attempt `JSON.parse(resp[project_${slot}_merits])`
-  - [ ] Map each `"Name|qualifier"` to `"Name (qualifier)"` — omit qualifier part if empty
-  - [ ] Store joined string in `entry.projMerits`; fall back to raw string on parse error
+- [x] Task 3: Parse merit keys to readable strings
+  - [x] In `buildProcessingQueue`, attempt `JSON.parse(resp[project_${slot}_merits])`
+  - [x] Map each `"Name|qualifier"` to `"Name (qualifier)"` — omit qualifier part if empty
+  - [x] Store joined string in `entry.projMerits`; fall back to raw string on parse error
 
-- [ ] Task 4: Pool builder pre-population from form fields (AC 6)
-  - [ ] In the project pool builder block in `renderActionPanel`, if `poolValidated` is empty, read `resp[project_${slot}_pool_attr/skill/disc]` as fallback pre-selections
-  - [ ] This requires passing `projSub` into the builder block (already hoisted as `projSub`)
+- [x] Task 4: Pool builder pre-population from form fields (AC 6)
+  - [x] In the project pool builder block in `renderActionPanel`, if `poolValidated` is empty, read `resp[project_${slot}_pool_attr/skill/disc]` as fallback pre-selections
+  - [x] `projSub` already hoisted at top of `renderActionPanel` — no additional plumbing needed
 
 ## Dev Notes
 
@@ -91,14 +91,22 @@ The project pool builder block in `renderActionPanel` currently parses `poolVali
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-13 | 1.0 | Initial draft — deferred, pending old CSV cycles ageing out | Angelus |
+| 2026-04-13 | 1.1 | Implemented all four tasks | claude-sonnet-4-6 |
 
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+None — implementation matched spec. Pool response keys confirmed as `project_N_pool_attr/skill/disc` from `downtime-form.js:324-326`.
 
 ### Completion Notes List
+- Tasks 1-3 implemented in `buildProcessingQueue` forEach loop; computed before `queue.push()`
+- Task 1: `projDescription` reads from `resp[project_${slot}_description]` always; `entry.description` no longer touches `proj.detail`
+- Task 2: cast array parsed with `JSON.parse`; each ID resolved via `characters.find(ch => String(ch._id) === String(id))`; falls back to raw string
+- Task 3: merits array parsed; each `"Name|qualifier"` split on `|`; qualifier omitted if empty; falls back to raw string
+- Task 4: `else if (projSub)` branch added after `if (poolValidated)` in project pool builder block; reads `project_N_pool_attr/skill/disc` from `projSub.responses`; `projSub` was already hoisted at top of `renderActionPanel`
 
 ### File List
 - `public/js/admin/downtime-views.js`

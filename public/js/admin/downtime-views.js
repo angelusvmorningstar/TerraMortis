@@ -227,6 +227,16 @@ export async function initDowntimeView(passedChars) {
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
   document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
   document.getElementById('dt-export-json').addEventListener('click', handleExportJson);
+  document.getElementById('dt-import-csv').addEventListener('click', () => {
+    document.getElementById('dt-import-csv-input').click();
+  });
+  document.getElementById('dt-import-csv-input').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    await processDowntimeCsvFile(file);
+    await renderCycle();
+  });
   document.getElementById('dt-processing-btn').addEventListener('click', async () => {
     processingMode = !processingMode;
     procExpandedKey = null;
@@ -286,6 +296,8 @@ function buildShell() {
       <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
       <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export MD</button>
       <button class="dt-btn dt-btn-export" id="dt-export-json" style="display:none">Export JSON</button>
+      <button class="dt-btn dt-btn-export" id="dt-import-csv">Import CSV</button>
+      <input type="file" id="dt-import-csv-input" accept=".csv" style="display:none">
       <button class="dt-btn proc-mode-btn" id="dt-processing-btn">Processing</button>
     </div>
     <div id="dt-cycle-bar" class="dt-cycle-bar">
@@ -2266,6 +2278,44 @@ function buildProcessingQueue(subs) {
       const phaseNum = PHASE_ORDER[actionType] ?? 7;
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
       const slot = idx + 1; // 1-indexed response key
+
+      // Task 1: extract app-form narrative description (distinct from desired outcome)
+      const projDescription = resp[`project_${slot}_description`] || '';
+
+      // Task 2: resolve cast character IDs to display names
+      let projCastResolved = '';
+      try {
+        const castArr = JSON.parse(resp[`project_${slot}_cast`] || '[]');
+        if (Array.isArray(castArr) && castArr.length) {
+          projCastResolved = castArr.map(id => {
+            const c = characters.find(ch => String(ch._id) === String(id));
+            return c ? displayName(c) : id;
+          }).join(', ');
+        } else {
+          projCastResolved = resp[`project_${slot}_cast`] || '';
+        }
+      } catch {
+        projCastResolved = resp[`project_${slot}_cast`] || '';
+      }
+
+      // Task 3: parse merit keys "Name|qualifier" into "Name (qualifier)"
+      let projMeritsResolved = '';
+      try {
+        const meritsArr = JSON.parse(resp[`project_${slot}_merits`] || '[]');
+        if (Array.isArray(meritsArr) && meritsArr.length) {
+          projMeritsResolved = meritsArr.map(m => {
+            const parts = m.split('|');
+            const name = parts[0] || m;
+            const qual = parts[1] || '';
+            return qual ? `${name} (${qual})` : name;
+          }).join(', ');
+        } else {
+          projMeritsResolved = resp[`project_${slot}_merits`] || '';
+        }
+      } catch {
+        projMeritsResolved = resp[`project_${slot}_merits`] || '';
+      }
+
       queue.push({
         key: `${sub._id}:proj:${idx}`,
         subId: sub._id,
@@ -2274,16 +2324,17 @@ function buildProcessingQueue(subs) {
         phaseNum,
         actionType,
         label: ACTION_TYPE_LABELS[actionType] || actionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        description: proj.detail || proj.desired_outcome || '',
+        description: projDescription || proj.desired_outcome || '',
         source: 'project',
         actionIdx: idx,
         projSlot: slot,
         poolPlayer: proj.primary_pool?.expression || resp[`project_${slot}_pool_expr`] || '',
-        projTitle:     resp[`project_${slot}_title`]    || '',
-        projOutcome:   proj.desired_outcome || resp[`project_${slot}_outcome`] || '',
-        projCast:      resp[`project_${slot}_cast`]     || '',
-        projMerits:    resp[`project_${slot}_merits`]   || '',
-        projTerritory: resp[`project_${slot}_territory`] || '',
+        projTitle:       resp[`project_${slot}_title`]     || '',
+        projOutcome:     proj.desired_outcome || resp[`project_${slot}_outcome`] || '',
+        projDescription,
+        projCast:        projCastResolved,
+        projMerits:      projMeritsResolved,
+        projTerritory:   resp[`project_${slot}_territory`] || '',
       });
     });
 
@@ -4527,6 +4578,12 @@ function renderActionPanel(entry, review) {
       } else {
         showParseRef = true;
       }
+    } else if (projSub) {
+      // Task 4: pre-populate from player's submitted form fields on first open
+      const resp2 = projSub.responses || {};
+      preAttr  = resp2[`project_${entry.projSlot}_pool_attr`]  || '';
+      preSkill = resp2[`project_${entry.projSlot}_pool_skill`] || '';
+      preDisc  = resp2[`project_${entry.projSlot}_pool_disc`]  || 'none';
     }
 
     const attrOptHtml = ['<option value="" data-dots="0">-- Attribute --</option>',
