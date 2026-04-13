@@ -4791,7 +4791,9 @@ html:not([data-theme="dark"]) .de-history .hmeta,
 html:not([data-theme="dark"]) .proc-mod-panel-title,
 html:not([data-theme="dark"]) .proc-feed-lbl,
 html:not([data-theme="dark"]) .proc-amb-title,
-html:not([data-theme="dark"]) .proc-attach-char-header { font-weight: 600; }
+html:not([data-theme="dark"]) .proc-attach-char-header,
+html:not([data-theme="dark"]) .proc-val-status button,
+html:not([data-theme="dark"]) .proc-response-reviewed-label { font-weight: 600; }
 
 /* Character name in processing row — 700 for prominence */
 html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }
@@ -4820,6 +4822,31 @@ html:not([data-theme="dark"]) #dice-engine .empty-d { font-weight: 600; }
 /* Processing validation status buttons — neon colours fail on parchment */
 html:not([data-theme="dark"]) .proc-val-status button.active.pending   { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }
 html:not([data-theme="dark"]) .proc-val-status button.active.validated { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
+html:not([data-theme="dark"]) .proc-val-status button:hover             { border-color: var(--crim-a40); color: var(--txt); }
+
+/* Proc panel hover/focus gold states → crimson on parchment */
+html:not([data-theme="dark"]) .proc-mod-ticker button:hover       { border-color: var(--crim-a40); }
+html:not([data-theme="dark"]) .proc-pool-mod-dec:hover,
+html:not([data-theme="dark"]) .proc-pool-mod-inc:hover            { border-color: var(--crim-a40); color: var(--crim); }
+html:not([data-theme="dark"]) .proc-pool-input:focus,
+html:not([data-theme="dark"]) .proc-feedback-input:focus,
+html:not([data-theme="dark"]) .proc-note-textarea:focus,
+html:not([data-theme="dark"]) .proc-st-response-textarea:focus,
+html:not([data-theme="dark"]) .proc-rite-cost-input:focus,
+html:not([data-theme="dark"]) .proc-attach-text:focus,
+html:not([data-theme="dark"]) .proc-amb-notes:focus,
+html:not([data-theme="dark"]) .proc-pool-builder-selects select:focus { border-color: var(--crim-a40); outline: none; }
+html:not([data-theme="dark"]) .proc-open-sub-link:hover           { color: var(--crim); }
+html:not([data-theme="dark"]) .proc-amb-confirm-btn:hover         { border-color: var(--crim-a40); color: var(--crim); }
+
+/* Rote checkbox accent — gold2 → crimson */
+html:not([data-theme="dark"]) .proc-pool-rote-label input[type="checkbox"] { accent-color: var(--crim); }
+
+/* Reviewed-label colour (gold2 in base) → crimson */
+html:not([data-theme="dark"]) .proc-response-reviewed-label { color: var(--crim); }
+
+/* Reminder badge left border (base uses border-left shorthand, must use border-left-color) */
+html:not([data-theme="dark"]) .proc-reminder-badge { border-left-color: var(--crim-a40); }
 
 /* Audit badges — base colours are too faint on cream parchment.
    Error → strong crimson. Warning → dark parchment gold (#8B6010) for semantic
