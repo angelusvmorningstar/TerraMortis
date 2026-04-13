@@ -955,12 +955,12 @@ body {
   color: var(--txt);
   padding: 8px 16px;
   border-radius: 4px;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   cursor: pointer;
 }
 
-.dt-btn:hover { border-color: var(--gold2); }
+.dt-btn:hover { border-color: var(--accent); }
 
 .dt-cycle-bar {
   display: flex;
@@ -975,7 +975,7 @@ body {
   color: var(--txt);
   padding: 6px 10px;
   border-radius: 4px;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   min-width: 200px;
 }
@@ -992,7 +992,7 @@ body {
   align-items: stretch;
   justify-content: center;
   background: var(--surf2);
-  border-bottom: 2px solid var(--gold2);
+  border-bottom: 2px solid var(--accent);
   overflow-x: auto;
   min-height: 52px;
   gap: 0;
@@ -1016,7 +1016,7 @@ body {
   gap: 8px;
   white-space: nowrap;
   padding: 0 28px;
-  font-family: var(--fh, 'Cinzel', serif);
+  font-family: var(--fl, 'Lato', sans-serif);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1031,7 +1031,7 @@ body {
   height: 22px;
   border-radius: 50%;
   font-size: 11px;
-  font-family: var(--fh, 'Cinzel', serif);
+  font-family: var(--fl, 'Lato', sans-serif);
   flex-shrink: 0;
 }
 .pr-done {
@@ -1044,7 +1044,7 @@ body {
 }
 .pr-active {
   color: var(--bg);
-  background: var(--gold2);
+  background: var(--accent);
 }
 .pr-active .pr-step-num {
   background: rgba(0,0,0,0.25);
@@ -1096,9 +1096,9 @@ body {
   opacity: 1;
 }
 .pr-sub.pr-active {
-  color: var(--gold2);
-  background: rgba(224, 196, 122, 0.12);
-  border: 1px solid rgba(224, 196, 122, 0.3);
+  color: var(--accent);
+  background: var(--accent-a8);
+  border: 1px solid var(--accent-a25);
   font-weight: 600;
 }
 .pr-sub.pr-future {
@@ -1123,7 +1123,7 @@ body {
 .dt-snapshot-toggle {
   padding: 8px 12px;
   background: var(--surf2);
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   color: var(--txt2);
   cursor: pointer;
@@ -1142,7 +1142,7 @@ body {
 }
 .dt-snapshot-table th {
   text-align: left;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1158,7 +1158,7 @@ body {
 .dt-snapshot-table tbody tr:last-child td { border-bottom: none; }
 .dt-snap-val {
   font-variant-numeric: tabular-nums;
-  color: var(--gold2);
+  color: var(--accent);
   font-weight: 600;
   text-align: right;
 }
@@ -1169,7 +1169,7 @@ body {
 }
 .dt-snapshot-faction-col { flex: 1; min-width: 180px; }
 .dt-snapshot-head {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1201,7 +1201,7 @@ body {
   color: var(--txt);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 12px;
   color-scheme: dark;
 }
@@ -1213,11 +1213,11 @@ body {
   color: var(--txt);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 12px;
   max-width: 180px;
 }
-.dt-regency-badge { font-size: 12px; color: var(--gold2); margin-left: 8px; }
+.dt-regency-badge { font-size: 12px; color: var(--accent); margin-left: 8px; }
 
 .dt-cycle-info {
   display: flex;
@@ -1227,10 +1227,10 @@ body {
 }
 
 .dt-cycle-label {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 15px;
   font-weight: 600;
-  color: var(--gold2);
+  color: var(--accent);
 }
 
 .dt-warnings { margin-bottom: 12px; }
@@ -1268,9 +1268,9 @@ body {
 }
 
 .dt-sub-name {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-weight: 600;
-  color: var(--gold2);
+  color: var(--accent);
   font-size: 13px;
 }
 
@@ -1300,8 +1300,8 @@ body {
 .dt-sub-list { display: flex; flex-direction: column; gap: 8px; }
 
 .dt-sub-clickable { cursor: pointer; }
-.dt-sub-card:hover { border-color: var(--gold2); }
-.dt-sub-expanded { border-color: var(--gold2); }
+.dt-sub-card:hover { border-color: var(--accent); }
+.dt-sub-expanded { border-color: var(--accent); }
 .dt-sub-unmatched { border-color: var(--crim, #8B0000); }
 
 .dt-match-icon { color: #6a6; font-size: 12px; }
@@ -1317,11 +1317,11 @@ body {
 }
 .dt-panel { margin: 8px 0 12px; }
 .dt-panel-title {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gold2);
+  color: var(--accent);
   margin-bottom: 8px;
 }
 .dt-resp-section { margin-bottom: 10px; }
@@ -1364,8 +1364,8 @@ body {
 .dt-match-ok { color: #6a6; }
 .dt-match-warn { color: var(--crim2, #B22222); }
 
-.dt-btn-gold { background: var(--gold2); color: var(--bg); font-weight: 600; }
-.dt-btn-gold:hover { opacity: 0.9; border-color: var(--gold2); }
+.dt-btn-gold { background: var(--accent); color: var(--bg); font-weight: 600; }
+.dt-btn-gold:hover { opacity: 0.9; border-color: var(--accent); }
 
 .dt-roll-badge {
   font-size: 13px;
@@ -1383,9 +1383,9 @@ body {
 }
 
 .dt-feed-header {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 12px;
-  color: var(--gold2);
+  color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
@@ -1434,7 +1434,7 @@ body {
   font-size: 13px;
 }
 .dt-feed-result.normal { color: var(--txt); }
-.dt-feed-result.exceptional { color: var(--gold2); }
+.dt-feed-result.exceptional { color: var(--accent); }
 .dt-feed-result.failure { color: var(--crim2, #B22222); }
 
 .dt-feed-dice {
@@ -1464,23 +1464,23 @@ body {
   cursor: pointer;
 }
 
-.dt-method-btn:hover { border-color: var(--gold2); }
-.dt-method-btn.selected { border-color: var(--gold2); color: var(--gold2); background: rgba(224, 196, 122, 0.08); }
+.dt-method-btn:hover { border-color: var(--accent); }
+.dt-method-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-a8); }
 
 .dt-pool-breakdown {
   font-size: 13px;
   color: var(--txt2);
 }
 
-.dt-pool-breakdown b { color: var(--gold2); }
+.dt-pool-breakdown b { color: var(--accent); }
 
 .dt-rote-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--txt2); cursor: pointer; }
-.dt-rote-label input[type="checkbox"] { accent-color: var(--gold2); width: 14px; height: 14px; }
-.dt-rote-hint { font-size: 11px; color: var(--gold2); font-family: var(--fh); text-transform: uppercase; letter-spacing: .04em; }
+.dt-rote-label input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; }
+.dt-rote-hint { font-size: 11px; color: var(--accent); font-family: var(--fl); text-transform: uppercase; letter-spacing: .04em; }
 
 /* ── Approval status ── */
 .dt-status-badge {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1490,16 +1490,16 @@ body {
 }
 .dt-status-pending { background: rgba(138, 126, 110, 0.15); color: var(--txt3); }
 .dt-status-approved { background: rgba(106, 170, 106, 0.15); color: #6a6; }
-.dt-status-game { background: rgba(224, 196, 122, 0.2); color: var(--gold2); font-weight: 600; }
-.dt-status-modified { background: rgba(224, 196, 122, 0.15); color: var(--gold2); }
+.dt-status-game { background: var(--accent-a8); color: var(--accent); font-weight: 600; }
+.dt-status-modified { background: var(--accent-a8); color: var(--accent); }
 .dt-status-rejected { background: rgba(178, 34, 34, 0.15); color: var(--crim2, #B22222); }
-.dt-btn-game { border-color: var(--gold2); color: var(--gold2); }
+.dt-btn-game { border-color: var(--accent); color: var(--accent); }
 .dt-btn-export { border-color: var(--txt3); color: var(--txt3); }
 .dt-export-row { display: flex; align-items: center; gap: 1rem; padding: .75rem 1rem; border-top: 1px solid var(--surf3); }
 .dt-export-hint { font-size: .8rem; color: var(--txt3); }
 
 .dt-sub-approved { border-left: 3px solid #6a6; }
-.dt-sub-modified { border-left: 3px solid var(--gold2); }
+.dt-sub-modified { border-left: 3px solid var(--accent); }
 .dt-sub-rejected { border-left: 3px solid var(--crim2, #B22222); }
 
 /* ── Feeding Scene Summary (GC-2) ── */
@@ -1512,7 +1512,7 @@ body {
 .dt-scene-toggle {
   padding: 8px 12px;
   background: var(--surf2);
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   color: var(--txt2);
   cursor: pointer;
@@ -1530,7 +1530,7 @@ body {
 .dt-scene-table th {
   padding: 6px 12px;
   text-align: left;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1556,7 +1556,7 @@ body {
   vertical-align: middle;
 }
 .dt-scene-name { color: var(--txt); font-weight: 500; }
-.dt-scene-pool { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--gold2); }
+.dt-scene-pool { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); }
 .dt-scene-amb {
   font-size: 11px;
   background: var(--surf2);
@@ -1578,7 +1578,7 @@ body {
 .dt-matrix-toggle {
   padding: 8px 12px;
   background: var(--surf2);
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   cursor: pointer;
   user-select: none;
@@ -1590,9 +1590,9 @@ body {
 .dt-matrix-wrap { overflow-x: auto; }
 .dt-matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .dt-matrix-table th, .dt-matrix-table td { padding: 5px 8px; border: 1px solid var(--bdr); text-align: center; }
-.dt-matrix-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
+.dt-matrix-table th { background: var(--surf2); font-family: var(--fl); font-size: 11px; }
 .dt-matrix-char { text-align: left; font-size: 12px; white-space: nowrap; }
-.dt-matrix-amb { font-size: 10px; color: var(--txt-dim); font-family: var(--fb, sans-serif); }
+.dt-matrix-amb { font-size: 10px; color: var(--txt-dim); font-family: var(--ft); }
 .dt-matrix-resident { background: rgba(58,138,58,.15); color: var(--green3); font-weight: 700; }
 .dt-matrix-poach { background: rgba(224,164,60,.12); color: #d4902a; font-weight: 700; }
 .dt-matrix-other { color: var(--txt-dim); }
@@ -1605,12 +1605,12 @@ body {
 .dt-matrix-note { font-size: 11px; color: var(--txt-dim); padding: 6px 12px; margin: 0; }
 /* ── Submission Checklist (feature.55) ── */
 .dt-chk-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 4px; overflow: hidden; }
-.dt-chk-toggle { padding: 8px 12px; background: var(--surf2); cursor: pointer; font-family: var(--fh); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.dt-chk-toggle { padding: 8px 12px; background: var(--surf2); cursor: pointer; font-family: var(--fl); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .dt-chk-toggle:hover { background: var(--surf3); }
 .dt-chk-wrap { overflow-x: auto; }
 .dt-chk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .dt-chk-table th, .dt-chk-table td { padding: 4px 6px; border: 1px solid var(--bdr); text-align: center; }
-.dt-chk-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
+.dt-chk-table th { background: var(--surf2); font-family: var(--fl); font-size: 11px; }
 .dt-chk-name-col { text-align: left; }
 .dt-chk-name { text-align: left; white-space: nowrap; font-size: 12px; }
 .dt-chk-nosub td { opacity: .45; }
@@ -1625,8 +1625,8 @@ body {
 .dt-conflict-list { padding: 8px 12px; }
 .dt-conflict-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--bdr); }
 .dt-conflict-item:last-child { border-bottom: none; }
-.dt-conflict-type { font-family: var(--fh); color: var(--gold2); }
-.dt-conflict-char { color: var(--gold2); cursor: pointer; text-decoration: underline; }
+.dt-conflict-type { font-family: var(--fl); color: var(--accent); }
+.dt-conflict-char { color: var(--accent); cursor: pointer; text-decoration: underline; }
 .dt-conflict-char:hover { color: var(--txt); }
 
 /* ── Project & Merit Resolution Panels ── */
@@ -1645,47 +1645,47 @@ body {
 .dt-proj-resolved { border-left: 3px solid var(--green3); }
 .dt-proj-unresolved { border-left: 3px solid var(--gold2); }
 .dt-proj-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-.dt-proj-type { font-family: var(--fh); font-size: 13px; font-weight: 600; color: var(--gold2); }
+.dt-proj-type { font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--accent); }
 .dt-merit-action-type { font-size: 12px; color: var(--txt-dim); }
 .dt-proj-done-badge { font-size: 11px; color: var(--green3); background: rgba(58,138,58,.12); padding: 1px 6px; border-radius: 10px; }
-.dt-proj-pending-badge { font-size: 11px; color: var(--gold2); background: rgba(224,196,122,.1); padding: 1px 6px; border-radius: 10px; }
+.dt-proj-pending-badge { font-size: 11px; color: var(--accent); background: var(--accent-a8); padding: 1px 6px; border-radius: 10px; }
 .dt-merit-passive { font-size: 11px; color: var(--txt-dim); }
 .dt-proj-outcome { font-size: 12px; color: var(--txt-dim); margin-bottom: 4px; }
 .dt-proj-field { font-size: 12px; color: var(--txt2); padding: 2px 0; }
-.dt-proj-lbl { color: var(--gold2); font-family: var(--fh); font-size: 11px; letter-spacing: .03em; }
+.dt-proj-lbl { color: var(--accent); font-family: var(--fl); font-size: 11px; letter-spacing: .03em; }
 .dt-proj-desc { font-size: 12px; margin: 6px 0 8px; white-space: pre-wrap; color: var(--txt2); border-left: 2px solid var(--bdr); padding-left: 10px; }
 .dt-merit-warn { font-size: 11px; color: var(--crim); background: rgba(139,0,0,.08); border-radius: 4px; padding: 4px 8px; margin: 4px 0; }
 .dt-pool-builder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }
-.dt-pool-sel { background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 6px; border-radius: 4px; font-family: var(--fh); font-size: 12px; }
-.dt-pool-mod { width: 60px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 6px; border-radius: 4px; font-family: var(--fh); font-size: 12px; text-align: center; }
-.dt-pool-display { font-size: 12px; color: var(--gold2); font-family: var(--fh); }
+.dt-pool-sel { background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 6px; border-radius: 4px; font-family: var(--fl); font-size: 12px; }
+.dt-pool-mod { width: 60px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 6px; border-radius: 4px; font-family: var(--fl); font-size: 12px; text-align: center; }
+.dt-pool-display { font-size: 12px; color: var(--accent); font-family: var(--fl); }
 .dt-resolve-badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; margin: 4px 0; display: inline-block; }
 .dt-succ-ok { background: rgba(58,138,58,.15); color: var(--green3); }
-.dt-succ-exc { background: rgba(224,196,122,.2); color: var(--gold2); }
+.dt-succ-exc { background: var(--accent-a8); color: var(--accent); }
 .dt-succ-fail { background: rgba(139,0,0,.12); color: var(--crim); }
 .dt-proj-note { width: 100%; margin-top: 6px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
 .dt-proj-rote-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-left: 6px; cursor: pointer; }
-.dt-proj-writeup { width: 100%; margin-top: 4px; background: var(--surf); border: 1px solid var(--bdr); border-left: 3px solid var(--gold2); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
+.dt-proj-writeup { width: 100%; margin-top: 4px; background: var(--surf); border: 1px solid var(--bdr); border-left: 3px solid var(--accent); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
 .dt-skill-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
 .dt-pool-9a-auto { display: inline-block; background: rgba(58,138,58,.15); color: var(--green3); border-radius: 3px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
 .dt-spec-toggle-lbl { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; color: var(--txt-dim); }
 .dt-spec-toggle-lbl:hover { color: var(--txt); }
-.dt-skill-meta-spec { display: inline-block; background: rgba(224,196,122,.1); color: var(--gold2); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
+.dt-skill-meta-spec { display: inline-block; background: var(--accent-a8); color: var(--accent); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
 
 /* ── Narrative Output (1.7) ── */
 .dt-narr-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
 .dt-style-guide { margin-bottom: 8px; font-size: 12px; color: var(--txt-dim); }
-.dt-style-guide summary { cursor: pointer; color: var(--gold2); font-family: var(--fh); font-size: 12px; }
+.dt-style-guide summary { cursor: pointer; color: var(--accent); font-family: var(--fl); font-size: 12px; }
 .dt-style-list { margin: 6px 0 0 16px; padding: 0; }
 .dt-style-list li { margin-bottom: 3px; }
 .dt-narr-block { margin-bottom: 10px; }
 .dt-narr-block-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-.dt-narr-label { font-family: var(--fh); font-size: 13px; font-weight: 600; color: var(--gold2); }
+.dt-narr-label { font-family: var(--fl); font-size: 13px; font-weight: 600; color: var(--accent); }
 .dt-narr-hint { font-size: 11px; color: var(--txt-dim); flex: 1; }
 .dt-narr-status-row { display: flex; gap: 4px; }
 .dt-narr-status-btn { font-size: 11px; padding: 1px 8px; border: 1px solid var(--bdr); border-radius: 10px; background: transparent; color: var(--txt-dim); cursor: pointer; }
-.dt-narr-status-btn.active { border-color: var(--gold2); color: var(--gold2); background: rgba(224,196,122,.1); }
-.dt-narr-textarea { width: 100%; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: var(--fb, 'Lora', serif); resize: vertical; min-height: 100px; box-sizing: border-box; line-height: 1.5; }
+.dt-narr-status-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-a8); }
+.dt-narr-textarea { width: 100%; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: var(--ft); resize: vertical; min-height: 100px; box-sizing: border-box; line-height: 1.5; }
 .dt-narr-badge { font-size: 11px; color: var(--green3); background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; }
 
 /* ── Mechanical Summary (1.8) ── */
@@ -1716,24 +1716,24 @@ body {
 .dt-inv-item { border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
 .dt-inv-resolved { opacity: .65; border-left: 3px solid var(--green3); }
 .dt-inv-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.dt-inv-target { font-family: var(--fh); font-size: 13px; }
+.dt-inv-target { font-family: var(--fl); font-size: 13px; }
 .dt-inv-type-badge { font-size: 11px; color: var(--txt-dim); background: var(--surf2); padding: 1px 6px; border-radius: 8px; }
 .dt-inv-investigator { font-size: 11px; color: var(--txt-dim); margin-bottom: 4px; }
 .dt-inv-progress-wrap { position: relative; background: var(--surf2); border-radius: 4px; height: 18px; margin: 4px 0; overflow: hidden; }
-.dt-inv-progress-bar { height: 100%; background: var(--gold2); opacity: .5; transition: width .3s; }
+.dt-inv-progress-bar { height: 100%; background: var(--accent); opacity: .5; transition: width .3s; }
 .dt-inv-progress-label { position: absolute; left: 8px; top: 1px; font-size: 11px; line-height: 16px; color: var(--txt); }
 .dt-inv-add-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .dt-inv-notes { margin-top: 6px; }
 .dt-inv-note-entry { font-size: 11px; color: var(--txt-dim); padding: 2px 0; border-bottom: 1px solid var(--bdr); }
 .dt-inv-note-entry:last-child { border-bottom: none; }
-.dt-inv-note-when { color: var(--gold2); }
+.dt-inv-note-when { color: var(--accent); }
 
 /* ── NPC Register (1.6) ── */
 .dt-npc-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }
 .dt-npc-body { padding: 10px 12px; }
 .dt-npc-card { border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--surf2); }
 .dt-npc-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-.dt-npc-name { font-family: var(--fh); font-size: 13px; font-weight: 600; flex: 1; }
+.dt-npc-name { font-family: var(--fl); font-size: 13px; font-weight: 600; flex: 1; }
 .dt-npc-dead { color: var(--crim); text-decoration: line-through; }
 .dt-npc-unknown { color: var(--txt-dim); }
 .dt-npc-status-badge { font-size: 11px; color: var(--txt-dim); background: var(--surf); padding: 1px 6px; border-radius: 8px; }
@@ -1755,7 +1755,7 @@ body {
 }
 
 .dt-approval-btn {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1770,7 +1770,7 @@ body {
 .dt-approval-btn:hover { border-color: var(--txt3); }
 
 .dt-appr-approved.active { background: rgba(106, 170, 106, 0.15); color: #6a6; border-color: #6a6; }
-.dt-appr-modified.active { background: rgba(224, 196, 122, 0.15); color: var(--gold2); border-color: var(--gold2); }
+.dt-appr-modified.active { background: var(--accent-a8); color: var(--accent); border-color: var(--accent); }
 .dt-appr-rejected.active { background: rgba(178, 34, 34, 0.15); color: var(--crim2); border-color: var(--crim2); }
 .dt-appr-pending.active { background: rgba(138, 126, 110, 0.15); color: var(--txt3); border-color: var(--txt3); }
 
@@ -1796,7 +1796,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--txt3);
-  font-family: var(--fh);
+  font-family: var(--fl);
 }
 .dt-exp-input {
   width: 72px;
@@ -1806,7 +1806,7 @@ body {
   color: var(--txt);
   font-size: 14px;
   padding: 4px 8px;
-  font-family: var(--fb);
+  font-family: var(--ft);
 }
 .dt-exp-input:focus { outline: 1px solid var(--gold); }
 
@@ -1832,12 +1832,12 @@ body {
   color: var(--txt);
   padding: 8px 10px;
   border-radius: 4px;
-  font-family: var(--fb);
+  font-family: var(--ft);
   font-size: 12px;
   resize: vertical;
 }
 
-.dt-notes-input:focus { border-color: var(--gold2); outline: none; }
+.dt-notes-input:focus { border-color: var(--accent); outline: none; }
 
 .dt-notes-actions {
   display: flex;
@@ -4759,23 +4759,9 @@ html:not([data-theme="dark"]) .proc-row-status.no_roll  { background: var(--gold
 html:not([data-theme="dark"]) .sidebar-sub,
 html:not([data-theme="dark"]) .sidebar-btn,
 html:not([data-theme="dark"]) .sidebar-btn.on,
-html:not([data-theme="dark"]) .dt-btn,
-html:not([data-theme="dark"]) .dt-btn-sm,
-html:not([data-theme="dark"]) .btn-sm,
 html:not([data-theme="dark"]) .proc-row-desc-lbl,
 html:not([data-theme="dark"]) .proc-row-status,
 html:not([data-theme="dark"]) .proc-detail-label,
-html:not([data-theme="dark"]) .dt-chk-toggle,
-html:not([data-theme="dark"]) .dt-matrix-table th,
-html:not([data-theme="dark"]) .dt-chk-table th,
-html:not([data-theme="dark"]) .dt-proj-lbl,
-html:not([data-theme="dark"]) .dt-narr-label,
-html:not([data-theme="dark"]) .dt-narr-status-btn,
-html:not([data-theme="dark"]) .dt-pool-sel,
-html:not([data-theme="dark"]) .dt-pool-display,
-html:not([data-theme="dark"]) .dt-rote-hint,
-html:not([data-theme="dark"]) .dt-inv-target,
-html:not([data-theme="dark"]) .dt-conflict-type,
 html:not([data-theme="dark"]) .de-roll-btn,
 html:not([data-theme="dark"]) .de-sc-btn,
 html:not([data-theme="dark"]) .de-load-btn,
@@ -4798,9 +4784,7 @@ html:not([data-theme="dark"]) .dt-matrix-amb,
 html:not([data-theme="dark"]) .dt-matrix-nosub-badge,
 html:not([data-theme="dark"]) .dt-chk-nosub-badge { font-size: 12px; }
 
-/* text-align: centre on all Cinzel button variants */
-html:not([data-theme="dark"]) .dt-btn,
-html:not([data-theme="dark"]) .dt-btn-sm,
+/* text-align: centre on Cinzel button variants */
 html:not([data-theme="dark"]) .btn-sm { text-align: center; }
 
 /* Dice engine Cinzel weight floor */
@@ -4867,9 +4851,6 @@ html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-neg { color: var(--cri
 
 /* ── Downtime tab: gold → crimson sweep ───────────────────────────────────── */
 
-/* Pipeline ribbon — active step: gold2 background → crimson */
-html:not([data-theme="dark"]) .pr-active { background: var(--crim); color: var(--bg); }
-
 /* Pipeline ribbon — done steps: faded gold → faded crimson */
 html:not([data-theme="dark"]) .pr-done { color: var(--crim-a60); }
 html:not([data-theme="dark"]) .pr-done .pr-step-num {
@@ -4878,13 +4859,8 @@ html:not([data-theme="dark"]) .pr-done .pr-step-num {
   border-color: var(--crim-a30);
 }
 
-/* Pipeline sub-ribbon — done and active states */
+/* Pipeline sub-ribbon — done steps */
 html:not([data-theme="dark"]) .pr-sub.pr-done { color: var(--crim-a60); }
-html:not([data-theme="dark"]) .pr-sub.pr-active {
-  color: var(--crim);
-  background: var(--crim-a12);
-  border-color: var(--crim-a30);
-}
 
 /* btn-sm (utility action button) — gold text/border → neutral dark */
 html:not([data-theme="dark"]) .btn-sm {
@@ -4892,28 +4868,10 @@ html:not([data-theme="dark"]) .btn-sm {
   border-color: var(--bdr2);
 }
 
-/* dt-btn-game (phase-specific button variant) — gold → crimson */
-html:not([data-theme="dark"]) .dt-btn-game { color: var(--crim); border-color: var(--crim-a40); }
-
-/* Submission status chips */
-html:not([data-theme="dark"]) .dt-status-game     { background: var(--crim-a12); color: var(--crim); }
-html:not([data-theme="dark"]) .dt-status-modified { background: var(--crim-a8);  color: var(--crim); }
-
-/* "26 PENDING" badge and "PUSH READY" badge */
-html:not([data-theme="dark"]) .dt-proj-pending-badge {
-  color: var(--crim);
-  background: var(--crim-a8);
-}
+/* "PUSH READY" badge */
 html:not([data-theme="dark"]) .dt-ready-badge {
   color: var(--crim);
   background: var(--crim-a8);
-}
-
-/* Active approval button (PREVIEW CSV active state) */
-html:not([data-theme="dark"]) .dt-appr-modified.active {
-  color: var(--crim);
-  background: var(--crim-a12);
-  border-color: var(--crim-a40);
 }
 
 /* Checklist unsighted "?" marks — hardcoded amber → crimson */
