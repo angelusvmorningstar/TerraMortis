@@ -1019,7 +1019,7 @@ body {
   gap: 8px;
   white-space: nowrap;
   padding: 0 28px;
-  font-family: var(--fl, 'Lato', sans-serif);
+  font-family: var(--fl);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1034,7 +1034,7 @@ body {
   height: 22px;
   border-radius: 50%;
   font-size: 11px;
-  font-family: var(--fl, 'Lato', sans-serif);
+  font-family: var(--fl);
   flex-shrink: 0;
 }
 .pr-done {
@@ -3766,13 +3766,13 @@ body {
   font-size: 11px;
   font-weight: 400;
   color: var(--txt3);
-  font-family: var(--ft);
+  font-family: var(--fl);
 }
 
 .proc-phase-toggle {
   font-size: 11px;
   color: var(--txt3);
-  font-family: var(--ft);
+  font-family: var(--fl);
   font-weight: 400;
 }
 

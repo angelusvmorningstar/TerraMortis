@@ -168,7 +168,6 @@ function normaliseTerritoryGrid(rawTerrs) {
     'The Harbour':              'the_harbour',
     'The City Harbour':         'the_harbour',         // legacy
     'The Dockyards':            'the_dockyards',
-    'The Docklands':            'the_dockyards',       // legacy
     'The Second City':          'the_second_city',
     'The North Shore':          'the_north_shore',
     'The Northern Shore':       'the_north_shore',     // legacy
