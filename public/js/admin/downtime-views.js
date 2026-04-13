@@ -222,10 +222,6 @@ export async function initDowntimeView(passedChars) {
 
   container.innerHTML = buildShell();
 
-  document.getElementById('dt-file-input').addEventListener('change', handleFileSelect);
-  document.getElementById('dt-drop-zone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
-  document.getElementById('dt-drop-zone').addEventListener('dragleave', e => { e.currentTarget.classList.remove('drag-over'); });
-  document.getElementById('dt-drop-zone').addEventListener('drop', handleDrop);
   document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
   document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
   document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
@@ -285,12 +281,6 @@ export async function initDowntimeView(passedChars) {
 function buildShell() {
   return `
     <div class="dt-toolbar">
-      <div id="dt-drop-zone" class="dt-drop-zone">
-        <span>Drop CSV here or </span>
-        <label class="dt-file-label">
-          choose file<input type="file" id="dt-file-input" accept=".csv" style="display:none">
-        </label>
-      </div>
       <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
       <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
       <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
@@ -1606,32 +1596,26 @@ async function handleApproval(subId, newStatus) {
 
 // ── File handling ───────────────────────────────────────────────────────────
 
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (file) processFile(file);
-}
-
-function handleDrop(e) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file && file.name.endsWith('.csv')) processFile(file);
-}
-
-async function processFile(file) {
+/**
+ * Process a downtime player CSV file.
+ * Returns { created, updated, unmatched, warnings } so callers can render
+ * their own result feedback.
+ * Also writes human-readable feedback to #dt-warnings if it exists in the DOM.
+ */
+export async function processDowntimeCsvFile(file) {
   const warnEl = document.getElementById('dt-warnings');
-  warnEl.innerHTML = '';
+  if (warnEl) warnEl.innerHTML = '';
 
   const text = await file.text();
   const { submissions: parsed, warnings } = parseDowntimeCSV(text);
 
-  if (warnings.length) {
+  if (warnings.length && warnEl) {
     warnEl.innerHTML = warnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('');
   }
 
   if (!parsed.length) {
-    warnEl.innerHTML += '<div class="dt-warn">No submissions found in CSV.</div>';
-    return;
+    if (warnEl) warnEl.innerHTML += '<div class="dt-warn">No submissions found in CSV.</div>';
+    return { created: 0, updated: 0, unmatched: 0, warnings: ['No submissions found in CSV.'] };
   }
 
   // Enrich each parsed submission with character_id via combined fuzzy matching
@@ -1641,23 +1625,23 @@ async function processFile(file) {
     if (character) sub._character_id = character._id;
     matchWarnings.push(...mw);
   }
-  if (matchWarnings.length) {
+  if (matchWarnings.length && warnEl) {
     warnEl.innerHTML += matchWarnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('');
   }
 
-  try {
-    const result = await upsertCycle(parsed, characters);
-    const matched = parsed.filter(s => s._character_id).length;
-    const unmatched = parsed.length - matched;
-    let msg = `Loaded ${result.created} new, ${result.updated} updated submissions.`;
-    if (unmatched) msg += ` ${unmatched} submission${unmatched > 1 ? 's' : ''} could not be linked to a character.`;
+  const result = await upsertCycle(parsed, characters);
+  const matched = parsed.filter(s => s._character_id).length;
+  const unmatched = parsed.length - matched;
+
+  let msg = `Loaded ${result.created} new, ${result.updated} updated submissions.`;
+  if (unmatched) msg += ` ${unmatched} submission${unmatched > 1 ? 's' : ''} could not be linked to a character.`;
+  if (warnEl) {
     warnEl.innerHTML = (matchWarnings.length ? matchWarnings.map(w => `<div class="dt-warn">${esc(w)}</div>`).join('') : '')
       + `<div class="dt-success">${esc(msg)}</div>`;
-    await loadAllCycles();
-  } catch (err) {
-    warnEl.innerHTML += `<div class="dt-warn">Import failed: ${esc(err.message)}</div>`;
-    console.error('Downtime CSV import failed:', err);
   }
+  await loadAllCycles();
+
+  return { created: result.created, updated: result.updated, unmatched, warnings: matchWarnings };
 }
 
 // ── Dev CSV Preview (localhost only — no MongoDB writes) ─────────────────────

@@ -2967,6 +2967,31 @@ body {
 .dp-diff-arrow { color: var(--txt3); }
 .dp-diff-new { color: var(--gold2); }
 .dp-diff-warn { font-size: 11px; color: #d4a832; padding: 1px 0; }
+.dp-warning {
+  background: rgba(139,0,0,.18);
+  border: 1px solid rgba(139,0,0,.5);
+  border-radius: 6px;
+  color: #e88;
+  font-size: 13px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.dp-warning strong { color: #f44; margin-right: 4px; }
+.dp-section { margin-bottom: 28px; }
+.dp-section-heading {
+  font-family: var(--fh);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold2);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  border-bottom: 1px solid rgba(201,169,98,.2);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+.dp-card-placeholder { opacity: .55; }
+.dp-placeholder-note { color: var(--txt3); font-style: italic; }
 
 /* ── Ordeals (OR-2 / OR-3) ── */
 
