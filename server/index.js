@@ -74,7 +74,7 @@ app.use('/api/rules', requireAuth, rulesRouter);
 
 // /api/pdf removed — PDF generation moved client-side to public/js/print/.
 // Stale browsers calling the old endpoint get a 410 Gone with a refresh hint.
-app.all('/api/pdf/*', (req, res) => {
+app.all('/api/pdf/*path', (req, res) => {
   res.status(410).json({
     error: 'GONE',
     message: 'PDF generation has moved client-side. Hard-refresh the page (Ctrl+Shift+R / Cmd+Shift+R) to load the new renderer.',
