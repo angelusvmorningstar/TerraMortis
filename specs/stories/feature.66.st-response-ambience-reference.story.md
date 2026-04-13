@@ -1,6 +1,6 @@
 # Story feature.66: ST Response — Ambience Action Reference Design
 
-## Status: draft
+## Status: review
 
 ## Story
 
@@ -79,38 +79,36 @@ Saved via the existing `saveEntryReview` path (apiPut patch to `projects_resolve
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Storage wiring — confirm `projects_resolved` schema accepts new fields (AC: 3, 9)
-  - [ ] Check `downtime_submission.schema.js` for `projects_resolved` field definition
-  - [ ] Confirm `additionalProperties` at the `projects_resolved[N]` level allows new fields, or add them explicitly
+- [x] Task 1: Storage wiring — confirm `projects_resolved` schema accepts new fields (AC: 3, 9)
+  - [x] Check `downtime_submission.schema.js` for `projects_resolved` field definition
+  - [x] Confirmed `additionalProperties: true` on `resolvedAction` definition — no schema changes needed
 
-- [ ] Task 2: ST Response section in left panel (AC: 1, 2, 3, 4)
-  - [ ] In `renderActionPanel`, before the Player Feedback block, add a guard: `if (entry.source === 'project' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease'))`
-  - [ ] Render: section header row with `ST RESPONSE` label + Copy context button; textarea with `proc-st-response-textarea`; Save button `proc-st-response-save`
-  - [ ] Populate textarea from `rev.st_response || ''`
-  - [ ] Render `Drafted by [name]` label if `rev.response_author` is present
+- [x] Task 2: ST Response section in left panel (AC: 1, 2, 3, 4)
+  - [x] In `renderActionPanel`, before the Player Feedback block, add a guard: `if (entry.source === 'project' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease'))`
+  - [x] Render: section header row with `ST RESPONSE` label + Copy context button; textarea with `proc-st-response-textarea`; Save button `proc-st-response-save`
+  - [x] Populate textarea from `rev.st_response || ''`
+  - [x] Render `Drafted by [name]` label if `rev.response_author` is present
 
-- [ ] Task 3: Save handler for ST Response (AC: 3, 11)
-  - [ ] In the click handler block in `renderProcessingMode`, wire `proc-st-response-save`: read textarea value, call `saveEntryReview(entry, { st_response, response_author, response_status: currentStatus === 'reviewed' ? 'draft' : 'draft', response_reviewed_by: currentStatus === 'reviewed' ? null : undefined })`
-  - [ ] Re-render the action panel after save
+- [x] Task 3: Save handler for ST Response (AC: 3, 11)
+  - [x] Wire `proc-st-response-save`: read textarea value, preserve existing author, always set `response_status: 'draft'`, clear `response_reviewed_by: null`
+  - [x] Also wired `click` stopPropagation on textarea to prevent row collapse
+  - [x] Re-renders after save
 
-- [ ] Task 4: Copy context button (AC: 5, 6)
-  - [ ] Wire `proc-st-response-copy` click: assemble prompt string from entry fields + roll result + style rules
-  - [ ] `navigator.clipboard.writeText(prompt)` then set button text to `Copied!` for 1500ms
-  - [ ] Pull roll result from `getEntryReview(entry).roll` for dice string + successes + exceptional
+- [x] Task 4: Copy context button (AC: 5, 6)
+  - [x] Wire `proc-st-response-copy`: assembles full prompt from entry fields + roll result + style rules
+  - [x] `navigator.clipboard.writeText(prompt)` then `Copied!` for 1500ms; `Failed` on error
+  - [x] Roll result from `getEntryReview(entry).roll`; omitted if no roll yet
 
-- [ ] Task 5: Review button in right panel (AC: 7, 8, 9, 10)
-  - [ ] In `_renderProjRightPanel`, after the Roll card closing `</div>`, add a guard: `if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')`
-  - [ ] If `rev.st_response` is non-empty and `rev.response_status !== 'reviewed'`: render `<div class="proc-response-review-section"><button class="proc-response-review-btn">Mark reviewed</button></div>`
-  - [ ] If `rev.response_status === 'reviewed'`: render `<div class="proc-response-reviewed-label">Reviewed by [name]</div>` (gold tint)
-  - [ ] Wire `proc-response-review-btn` in the click handler: call `saveEntryReview(entry, { response_status: 'reviewed', response_reviewed_by: getUser().display_name || getUser().username })` then re-render
+- [x] Task 5: Review button in right panel (AC: 7, 8, 9, 10)
+  - [x] In `_renderProjRightPanel`, after Roll card, guard by `actionType`
+  - [x] `Mark reviewed` button shown when `st_response` non-empty and not yet reviewed
+  - [x] `Reviewed by [name]` gold label shown when `response_status === 'reviewed'`
+  - [x] Handler saves `response_status: 'reviewed'` + `response_reviewed_by` then re-renders
 
-- [ ] Task 6: CSS (AC: 4, 9)
-  - [ ] `.proc-st-response-section` — section wrapper, consistent with existing proc section spacing
-  - [ ] `.proc-st-response-header` — flex row, space-between, for label + Copy button
-  - [ ] `.proc-st-response-textarea` — full width, min 4 rows, dark bg consistent with `proc-note-textarea`
-  - [ ] `.proc-st-response-author` — small muted label, consistent with `proc-note-meta` style
-  - [ ] `.proc-response-review-section` — wrapper below Roll card
-  - [ ] `.proc-response-reviewed-label` — gold tint (`color: var(--gold2)`), small caps or italic
+- [x] Task 6: CSS (AC: 4, 9)
+  - [x] `.proc-st-response-section/header/textarea/footer/author` added
+  - [x] `.proc-response-status-badge`, `.proc-response-status-draft`, `.proc-response-status-reviewed`
+  - [x] `.proc-response-review-section`, `.proc-response-reviewed-label`
 
 ---
 
@@ -195,12 +193,19 @@ Look at the server schema for `downtime_submission`. The `projects_resolved` arr
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+None — `resolvedAction` schema has `additionalProperties: true`; no schema changes needed. `getUser()` already imported in `downtime-views.js`. `_formatDiceString()` in same file scope.
 
 ### Completion Notes List
+- ST Response section inserted above Player Feedback, guarded by `ambience_increase || ambience_decrease`
+- `response_author` preserved on re-save (not overwritten); only first drafter recorded
+- Re-save always resets status to `'draft'` and clears `response_reviewed_by` (AC 11)
+- Copy context prompt omits Roll Result line if no roll yet recorded
+- Textarea gets `click` stopPropagation to prevent row collapse
+- Review section only renders in right panel when `st_response` is non-empty (AC 10)
 
 ### File List
 - `public/js/admin/downtime-views.js`
 - `public/css/admin-layout.css`
-- `server/schemas/downtime_submission.schema.js`

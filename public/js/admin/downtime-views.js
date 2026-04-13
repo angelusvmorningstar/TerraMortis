@@ -3262,6 +3262,105 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Prevent click on ST Response textarea from collapsing the row
+  container.querySelectorAll('.proc-st-response-textarea').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+  });
+
+  // Wire ST Response save buttons (feature.66)
+  container.querySelectorAll('.proc-st-response-save').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const textarea = container.querySelector(`.proc-st-response-textarea[data-proc-key="${CSS.escape(key)}"]`);
+      if (!textarea) return;
+      const text   = textarea.value.trim();
+      const user   = getUser();
+      const author = user?.display_name || user?.username || 'Unknown ST';
+      const review = getEntryReview(entry) || {};
+      // Re-saving resets reviewed status (AC 11)
+      const patch = {
+        st_response: text,
+        response_author: review.response_author || author,
+        response_status: 'draft',
+        response_reviewed_by: null,
+      };
+      await saveEntryReview(entry, patch);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire ST Response copy-context buttons (feature.66)
+  container.querySelectorAll('.proc-st-response-copy').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review    = getEntryReview(entry) || {};
+      const roll      = review.roll || null;
+      const pool      = review.pool_validated || entry.poolPlayer || '';
+      const actionLbl = entry.actionType === 'ambience_increase' ? 'Ambience Increase' : 'Ambience Decrease';
+
+      let rollLine = '';
+      if (roll) {
+        const diceStr = _formatDiceString(roll.dice_string);
+        const excTag  = roll.exceptional ? ', Exceptional' : '';
+        rollLine = `Roll Result: ${roll.successes} success${roll.successes !== 1 ? 'es' : ''}${excTag} — Dice: ${diceStr}\n`;
+      }
+
+      const prompt = [
+        'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
+        '',
+        `Character: ${entry.charName}`,
+        `Action: ${actionLbl}`,
+        `Territory: ${entry.projTerritory || '—'}`,
+        `Title: ${entry.projTitle || '—'}`,
+        `Desired Outcome: ${entry.projOutcome || '—'}`,
+        `Description: ${entry.projDescription || entry.description || '—'}`,
+        `Merits & Bonuses: ${entry.projMerits || '—'}`,
+        `Validated Pool: ${pool || '—'}`,
+        rollLine.trimEnd(),
+        '',
+        'Write a narrative response (2–4 paragraphs) describing what happened during this action from the Storyteller\'s perspective.',
+        '',
+        'Style rules:',
+        '- Second person, present tense',
+        '- British English',
+        '- No mechanical terms — no discipline names, dot ratings, or success counts in narrative',
+        '- No em dashes',
+        '- Do not editorialise about what the result means mechanically',
+        '- Never dictate what the character felt or chose',
+      ].filter(l => l !== null).join('\n');
+
+      try {
+        await navigator.clipboard.writeText(prompt);
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      } catch {
+        btn.textContent = 'Failed';
+        setTimeout(() => { btn.textContent = 'Copy context'; }, 1500);
+      }
+    });
+  });
+
+  // Wire ST Response review buttons (feature.66)
+  container.querySelectorAll('.proc-response-review-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const user     = getUser();
+      const reviewer = user?.display_name || user?.username || 'Unknown ST';
+      await saveEntryReview(entry, { response_status: 'reviewed', response_reviewed_by: reviewer });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire re-tag selects
   container.querySelectorAll('.proc-retag-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -4107,6 +4206,22 @@ function _renderProjRightPanel(entry, char, rev) {
   }
   h += `</div>`;
 
+  // ── Review section (Ambience actions only — feature.66) ──
+  if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
+    const stResponse = rev.st_response || '';
+    const responseStatus = rev.response_status || '';
+    const reviewedBy = rev.response_reviewed_by || '';
+    if (stResponse) {
+      h += `<div class="proc-response-review-section">`;
+      if (responseStatus === 'reviewed') {
+        h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(reviewedBy)}</div>`;
+      } else {
+        h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
+      }
+      h += `</div>`;
+    }
+  }
+
   h += `</div>`; // proc-feed-right
   return h;
 }
@@ -4717,6 +4832,30 @@ function renderActionPanel(entry, review) {
   if (entry.source === 'merit' && poolStatus === 'validated') {
     h += '<div style="margin-bottom:12px">';
     h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
+    h += '</div>';
+  }
+
+  // ST Response (Ambience actions only — reference design for feature.66)
+  if (entry.source === 'project' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')) {
+    const stResponse     = rev.st_response       || '';
+    const responseAuthor = rev.response_author   || '';
+    const responseStatus = rev.response_status   || '';
+    const reviewedBy     = rev.response_reviewed_by || '';
+    h += '<div class="proc-st-response-section">';
+    h += '<div class="proc-st-response-header">';
+    h += '<span class="proc-detail-label">ST Response</span>';
+    h += `<button class="dt-btn proc-st-response-copy" data-proc-key="${esc(entry.key)}" style="padding:2px 8px;font-size:11px">Copy context</button>`;
+    h += '</div>';
+    h += `<textarea class="proc-st-response-textarea" data-proc-key="${esc(entry.key)}" rows="5" placeholder="Narrative response for the player...">${esc(stResponse)}</textarea>`;
+    h += `<div class="proc-st-response-footer">`;
+    h += `<button class="dt-btn proc-st-response-save" data-proc-key="${esc(entry.key)}" style="padding:3px 10px;font-size:11px">Save</button>`;
+    if (responseAuthor) {
+      const statusBadge = responseStatus === 'reviewed'
+        ? ` <span class="proc-response-status-badge proc-response-status-reviewed">Reviewed</span>`
+        : ` <span class="proc-response-status-badge proc-response-status-draft">Draft</span>`;
+      h += `<span class="proc-st-response-author">Drafted by ${esc(responseAuthor)}${statusBadge}</span>`;
+    }
+    h += '</div>';
     h += '</div>';
   }
 
