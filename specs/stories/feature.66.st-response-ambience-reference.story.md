@@ -1,6 +1,6 @@
 # Story feature.66: ST Response — Ambience Action Reference Design
 
-## Status: review
+## Status: done
 
 ## Story
 
