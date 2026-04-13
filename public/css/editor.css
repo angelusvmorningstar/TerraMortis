@@ -304,9 +304,9 @@
 .sh-char-name{font-family:var(--fh);font-size:20px;color:var(--accent);letter-spacing:.02em;line-height:1.2;margin-bottom:4px;}
 /* Audit badge — inline next to character name */
 .audit-badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:4px;cursor:default;white-space:pre-line;vertical-align:middle;margin-left:8px;font-family:var(--fl);letter-spacing:.02em;}
-.audit-ok{color:var(--green2,#6aaa6a);font-size:14px;}
-.audit-warn{background:rgba(220,180,60,.15);color:#d4a832;border:1px solid rgba(220,180,60,.25);}
-.audit-err{background:rgba(180,40,40,.15);color:var(--crim2,#B22222);border:1px solid rgba(180,40,40,.25);}
+.audit-ok{color:var(--result-succ);font-size:14px;}
+.audit-warn{background:var(--warn-dk-bg);color:var(--warn-dk);border:1px solid var(--gold2-a25);}
+.audit-err{background:var(--crim-a15);color:var(--crim2);border:1px solid var(--crim-a25);}
 .sh-player-row{display:flex;justify-content:space-between;align-items:center;}
 .sh-char-player{font-family:var(--fl);font-size:11px;color:var(--txt2);letter-spacing:.03em;}
 .sh-xp-badge{font-family:var(--fl);font-size:10px;color:var(--green2-a9);letter-spacing:.04em;}
