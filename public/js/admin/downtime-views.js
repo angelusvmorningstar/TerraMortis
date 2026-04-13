@@ -2564,7 +2564,6 @@ const TERRITORY_SLUG_MAP = {
   'The City Harbour':       'harbour',
   'The Harbour':            'harbour',   // short form used in _raw.influence
   'The Dockyards':          'dockyards',
-  'The Docklands':          'dockyards',   // legacy
   'The Second City':        'secondcity',
   'The Northern Shore':     'northshore',  // legacy
   'The North Shore':        'northshore',
@@ -5930,7 +5929,6 @@ const MATRIX_TERRS = [
 // Legacy territory name keys from old submissions stored in MongoDB
 const LEGACY_TERR_KEY_MAP = {
   'The City Harbour':   'The Harbour',
-  'The Docklands':      'The Dockyards',
   'The Northern Shore': 'The North Shore',
   'The Barrens':        'The Barrens (No Territory)',
 };
@@ -6123,7 +6121,7 @@ function renderConflicts() {
       const lc = proj.action_type.toLowerCase();
       const isCompeting = COMPETING_ACTIONS.some(a => lc.includes(a));
       if (!isCompeting) continue;
-      const territory = proj.description?.match(/The (Academy|Harbour|Dockyards|Docklands|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
+      const territory = proj.description?.match(/The (Academy|Harbour|Dockyards|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
       const key = lc + '::' + territory.toLowerCase();
       if (!byTerritory[key]) byTerritory[key] = [];
       byTerritory[key].push({ subId: s._id, name: s.character_name, action: proj.action_type, territory });

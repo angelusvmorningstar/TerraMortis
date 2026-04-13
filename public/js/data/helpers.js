@@ -101,6 +101,13 @@ export function shDotsWithBonus(base, bonus) {
   return '\u25CF'.repeat(base) + '\u25CB'.repeat(bonus);
 }
 
+/** Card name: moniker || name, no honorific. Redacted in dev mode.
+ *  Used for character grid cards where honorific is omitted for brevity. */
+export function cardName(c) {
+  const base = c.moniker || c.name;
+  return isRedactMode() ? _blockOut(base, 10, 16) : base;
+}
+
 /** Display name: honorific + (moniker || name). Redacted in dev mode. */
 export function displayName(c) {
   const base = c.moniker || c.name;

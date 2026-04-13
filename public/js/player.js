@@ -50,6 +50,7 @@ async function boot() {
       loginScreen.style.display = 'none';
       app.style.display = '';
       renderSidebarUser();
+      renderSidebarFooter();
       await loadCharacters();
       return;
     }
@@ -72,12 +73,6 @@ function renderSidebarUser() {
     : user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
       : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
-
-  // Show ST Admin link for ST and dev-role users
-  if (isSTRole()) {
-    const adminLink = document.getElementById('nav-admin');
-    if (adminLink) adminLink.style.display = '';
-  }
 
   el.innerHTML =
     `<img class="sidebar-avatar sidebar-avatar-click" id="sidebar-avatar-btn" src="${avatarUrl}" alt="" title="Edit your profile">` +
@@ -329,26 +324,38 @@ document.getElementById('sb-open').addEventListener('click', () => {
   appEl.classList.remove('sb-collapsed');
   localStorage.setItem(SB_KEY, '0');
 });
-// ── Theme toggle ──
-{
-  const btn = document.getElementById('theme-toggle');
-  const html = document.documentElement;
-  const updateBtn = () => {
-    const dark = html.getAttribute('data-theme') === 'dark';
-    btn.textContent = dark ? '☀ Light' : '☾ Dark';
+// ── Sidebar footer nav ──
+
+function renderSidebarFooter() {
+  const nav = document.getElementById('sidebar-footer-nav');
+  if (!nav) return;
+
+  const path = location.pathname.replace(/\/+$/, '') || '/';
+  const html = [];
+
+  if (path !== '' && path !== '/') html.push(`<a href="/" class="sb-link-btn">Game App</a>`);
+  if (isSTRole() && path !== '/admin') html.push(`<a href="/admin" class="sb-link-btn">Storyteller</a>`);
+  // Player (/player) is always current page here; never shown
+
+  html.push(`<button class="sb-link-btn" id="sb-mode-btn"></button>`);
+  html.push(`<button class="sb-link-btn" id="sb-profile-btn">Emergency Contact</button>`);
+
+  nav.innerHTML = html.join('');
+
+  const modeBtn = document.getElementById('sb-mode-btn');
+  const htmlEl = document.documentElement;
+  const updateMode = () => {
+    modeBtn.textContent = htmlEl.getAttribute('data-theme') === 'dark' ? '☀ Light Mode' : '☾ Dark Mode';
   };
-  updateBtn();
-  btn.addEventListener('click', () => {
-    const dark = html.getAttribute('data-theme') === 'dark';
-    if (dark) {
-      html.removeAttribute('data-theme');
-      localStorage.removeItem('tm-theme');
-    } else {
-      html.setAttribute('data-theme', 'dark');
-      localStorage.setItem('tm-theme', 'dark');
-    }
-    updateBtn();
+  updateMode();
+  modeBtn.addEventListener('click', () => {
+    const dark = htmlEl.getAttribute('data-theme') === 'dark';
+    if (dark) { htmlEl.removeAttribute('data-theme'); localStorage.removeItem('tm-theme'); }
+    else { htmlEl.setAttribute('data-theme', 'dark'); localStorage.setItem('tm-theme', 'dark'); }
+    updateMode();
   });
+
+  document.getElementById('sb-profile-btn').addEventListener('click', openProfileModal);
 }
 
 // Auto-collapse when a tab is selected on small screens
