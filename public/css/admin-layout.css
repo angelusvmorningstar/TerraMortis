@@ -391,8 +391,8 @@ body {
 .char-card.unlinked:hover { border-color: var(--crim, #8B0000); }
 .cc-audit { display: flex; gap: 4px; align-items: center; margin-left: auto; flex-shrink: 0; }
 .cc-audit-badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; font-family: var(--fl); letter-spacing: .02em; cursor: default; white-space: pre-line; font-weight: 600; }
-.cc-audit-err { background: rgba(180,40,40,.18); color: var(--crim2, #B22222); border: 1px solid rgba(180,40,40,.3); }
-.cc-audit-warn { background: rgba(212,168,50,.18); color: #d4a832; border: 1px solid rgba(212,168,50,.3); }
+.cc-audit-err { background: var(--crim-a15); color: var(--crim2); border: 1px solid var(--crim-a25); }
+.cc-audit-warn { background: var(--warn-dk-bg); color: var(--warn-dk); border: 1px solid var(--gold2-a25); }
 .cc-ordeals {
   margin-left: auto;
   padding: 2px 8px;
@@ -2368,7 +2368,7 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .plm-table tbody tr:last-child td { border-bottom: none; }
-.plm-row-linked td { color: var(--txt); background: rgba(224,196,122,0.05); }
+.plm-row-linked td { color: var(--txt); background: var(--gold-a5); }
 .plm-did { font-family: var(--fc, monospace); font-size: 12px; color: var(--txt3) !important; }
 .plm-role { font-size: 12px; color: var(--txt3) !important; }
 .plm-badge {
@@ -2460,7 +2460,7 @@ body {
 }
 .om-table tbody tr:last-child td { border-bottom: none; }
 .om-row { transition: background 0.1s; }
-.om-row:hover { background: rgba(224,196,122,0.04); }
+.om-row:hover { background: var(--gold-a4); }
 .om-row-absent .om-name { color: var(--txt3); }
 .om-check { text-align: center; }
 .om-check input[type="checkbox"] {
@@ -2763,8 +2763,8 @@ body {
   gap: 6px;
   font-size: 13px;
 }
-.gc-chk-ok  { color: #6abf6a; }
-.gc-chk-warn { color: #c8a84b; }
+.gc-chk-ok  { color: var(--result-succ); }
+.gc-chk-warn { color: var(--warn-dk); }
 .gc-chk-note {
   font-size: 12px;
   color: var(--txt3);
@@ -2822,9 +2822,9 @@ body {
   color: var(--txt3);
 }
 .gc-phase-item[data-state="running"]  { color: var(--txt); }
-.gc-phase-item[data-state="done"]     { color: #6abf6a; }
-.gc-phase-item[data-state="failed"]   { color: var(--crim2, #B22222); }
-.gc-phase-item[data-state="paused"]   { color: #c8a84b; }
+.gc-phase-item[data-state="done"]     { color: var(--result-succ); }
+.gc-phase-item[data-state="failed"]   { color: var(--crim2); }
+.gc-phase-item[data-state="paused"]   { color: var(--warn-dk); }
 
 .gc-phase-icon {
   font-size: 13px;
@@ -2853,7 +2853,7 @@ body {
 
 /* AC 1–3: Blocking unresolved submission rows */
 .gc-chk-block-header {
-  color: #c8a84b;
+  color: var(--warn-dk);
   margin-bottom: 4px;
 }
 .gc-chk-block {
@@ -2905,12 +2905,12 @@ body {
 
 .gc-result-ok {
   font-size: 13px;
-  color: #6abf6a;
+  color: var(--result-succ);
   margin: 0;
 }
 .gc-result-err {
   font-size: 13px;
-  color: var(--crim2, #B22222);
+  color: var(--crim2);
   margin: 0;
 }
 
@@ -2951,10 +2951,10 @@ body {
 }
 .dp-result-summary { display: flex; gap: 16px; margin-bottom: 10px; }
 .dp-stat { font-size: 13px; color: var(--txt2); }
-.dp-stat-ok { color: #6abf6a; }
-.dp-stat-err { color: var(--crim2, #B22222); }
-.dp-result-ok { font-size: 13px; color: #6abf6a; margin: 0; }
-.dp-result-err { font-size: 13px; color: var(--crim2, #B22222); margin: 0; }
+.dp-stat-ok { color: var(--result-succ); }
+.dp-stat-err { color: var(--crim2); }
+.dp-result-ok { font-size: 13px; color: var(--result-succ); margin: 0; }
+.dp-result-err { font-size: 13px; color: var(--crim2); margin: 0; }
 .dp-result-loading { font-size: 13px; color: var(--txt2); margin: 0; }
 .dp-error-list {
   list-style: none;
@@ -2971,7 +2971,7 @@ body {
 .dp-excel-preview { margin-top: 16px; }
 .dp-excel-header { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
 .dp-excel-warnings { margin-bottom: 10px; }
-.dp-excel-warn { font-size: 11px; color: #d4a832; padding: 2px 0; }
+.dp-excel-warn { font-size: 11px; color: var(--warn-dk); padding: 2px 0; }
 .dp-excel-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
 .dp-excel-tbl th { text-align: left; padding: 6px 8px; background: var(--surf2); color: var(--accent); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--bdr); }
 .dp-excel-tbl td { padding: 5px 8px; border-bottom: 1px solid rgba(201,169,98,.06); }
@@ -2981,9 +2981,9 @@ body {
 .dp-excel-name { font-family: var(--fl); }
 .dp-badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: .5px; }
 .dp-badge-update { background: var(--accent-a8); color: var(--accent); }
-.dp-badge-new { background: rgba(106,170,106,.15); color: #6abf6a; }
+.dp-badge-new { background: var(--result-succ-bg); color: var(--result-succ); }
 .dp-badge-dim { background: rgba(120,120,120,.1); color: var(--txt3); }
-.dp-badge-warn { background: rgba(212,168,50,.15); color: #d4a832; }
+.dp-badge-warn { background: var(--warn-dk-bg); color: var(--warn-dk); }
 .dp-excel-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
 .dp-excel-progress { font-size: 12px; color: var(--txt2); }
 .dp-excel-errors { margin-top: 8px; }
@@ -2995,18 +2995,18 @@ body {
 .dp-diff-old { color: var(--txt3); }
 .dp-diff-arrow { color: var(--txt3); }
 .dp-diff-new { color: var(--accent); }
-.dp-diff-warn { font-size: 11px; color: #d4a832; padding: 1px 0; }
+.dp-diff-warn { font-size: 11px; color: var(--warn-dk); padding: 1px 0; }
 .dp-warning {
-  background: rgba(139,0,0,.18);
-  border: 1px solid rgba(139,0,0,.5);
+  background: var(--crim-a15);
+  border: 1px solid var(--crim-a50);
   border-radius: 6px;
-  color: #e88;
+  color: var(--result-pend);
   font-size: 13px;
   padding: 12px 16px;
   margin-bottom: 20px;
   line-height: 1.5;
 }
-.dp-warning strong { color: #f44; margin-right: 4px; }
+.dp-warning strong { color: var(--result-pend); margin-right: 4px; }
 .dp-section { margin-bottom: 28px; }
 .dp-section-heading {
   font-family: var(--fl);
@@ -3143,7 +3143,7 @@ body {
   color: var(--txt3);
   flex-shrink: 0;
 }
-.or-complete-count { color: #6abf6a; }
+.or-complete-count { color: var(--result-succ); }
 .or-pending-count  { color: var(--accent); }
 
 .or-list {
@@ -3204,8 +3204,8 @@ body {
   color: var(--accent);
 }
 .or-status-badge.or-status-complete {
-  background: rgba(106, 191, 106, 0.15);
-  color: #6abf6a;
+  background: var(--result-succ-bg);
+  color: var(--result-succ);
 }
 
 /* Right panel */
@@ -3292,7 +3292,7 @@ body {
   margin-bottom: 6px;
   overflow: hidden;
 }
-.or-qa-row.or-result-yes     { border-left: 3px solid #6abf6a; }
+.or-qa-row.or-result-yes     { border-left: 3px solid var(--result-succ); }
 .or-qa-row.or-result-close   { border-left: 3px solid var(--accent); }
 .or-qa-row.or-result-no      { border-left: 3px solid var(--crim, #8B0000); }
 
@@ -3369,9 +3369,9 @@ body {
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 .or-ync-btn:hover { color: var(--txt); }
-.or-ync-btn[data-result="yes"].active   { background: rgba(106,191,106,0.2); color: #6abf6a; border-color: #6abf6a; }
+.or-ync-btn[data-result="yes"].active   { background: var(--result-succ-bg); color: var(--result-succ); border-color: var(--result-succ); }
 .or-ync-btn[data-result="close"].active { background: var(--accent-a8); color: var(--accent); border-color: var(--accent); }
-.or-ync-btn[data-result="no"].active    { background: rgba(139,0,0,0.25);   color: #c04040; border-color: #8B0000; }
+.or-ync-btn[data-result="no"].active    { background: var(--crim-a25); color: var(--result-pend); border-color: var(--crim); }
 
 .or-feedback-input {
   flex: 1;
@@ -3428,11 +3428,11 @@ body {
   flex-shrink: 0;
 }
 .or-complete-btn {
-  border-color: #6abf6a;
-  color: #6abf6a;
+  border-color: var(--result-succ);
+  color: var(--result-succ);
 }
 .or-complete-btn:hover:not(:disabled) {
-  background: rgba(106,191,106,0.15);
+  background: var(--result-succ-bg);
 }
 .or-complete-btn:disabled {
   opacity: 0.4;
@@ -3841,8 +3841,8 @@ body {
   text-align: center;
   font-family: var(--fl);
 }
-.proc-row-status.pending { background: rgba(139,0,0,.25); color: #ff9090; }
-.proc-row-status.validated { background: rgba(60,140,60,.25); color: #90d090; }
+.proc-row-status.pending { background: var(--crim-a25); color: var(--result-pend); }
+.proc-row-status.validated { background: rgba(60,140,60,.25); color: var(--result-succ); }
 .proc-row-status.no_roll { background: rgba(100,100,100,.25); color: var(--txt2); }
 
 .proc-action-detail {
@@ -4014,9 +4014,9 @@ body {
 }
 .proc-pool-nochar-warn {
   font-size: 12px;
-  color: #ffb870;
-  background: #5a3010;
-  border: 1px solid #c07030;
+  color: var(--warn-dk);
+  background: var(--warn-dk-bg);
+  border: 1px solid var(--gold2-a25);
   border-radius: 4px;
   padding: 4px 10px;
   margin-bottom: 6px;
@@ -4053,8 +4053,8 @@ body {
   transition: border-color 0.12s, color 0.12s;
 }
 .proc-val-status button:hover { border-color: var(--accent); color: var(--txt1); }
-.proc-val-status button.active.pending { border-color: #ff9090; color: #ff9090; background: rgba(139,0,0,.15); }
-.proc-val-status button.active.validated { border-color: #90d090; color: #90d090; background: rgba(60,140,60,.15); }
+.proc-val-status button.active.pending { border-color: var(--result-pend); color: var(--result-pend); background: var(--crim-a15); }
+.proc-val-status button.active.validated { border-color: var(--result-succ); color: var(--result-succ); background: var(--result-succ-bg); }
 .proc-val-status button.active.no_roll { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
 
 .proc-notes-thread {
@@ -4621,10 +4621,11 @@ body {
 
 .proc-amb-pending-chip {
   font-size: 11px;
-  font-family: 'Lora', serif;
-  background: #5a3010;
-  color: #ffb870;
-  border: 1px solid #c07030;
+  font-family: var(--fl);
+  font-weight: 600;
+  background: var(--warn-dk-bg);
+  color: var(--warn-dk);
+  border: 1px solid var(--gold2-a25);
   border-radius: 10px;
   padding: 1px 8px;
   margin-left: 10px;
@@ -4676,9 +4677,9 @@ body {
 }
 
 .proc-amb-pos,
-.proc-amb-table td.proc-amb-pos { color: #90d090; }
+.proc-amb-table td.proc-amb-pos { color: var(--result-succ); }
 .proc-amb-neg,
-.proc-amb-table td.proc-amb-neg { color: #ff9090; }
+.proc-amb-table td.proc-amb-neg { color: var(--result-pend); }
 .proc-amb-neutral,
 .proc-amb-table td.proc-amb-neutral { color: var(--txt2); }
 
