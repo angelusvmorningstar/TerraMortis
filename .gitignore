@@ -1,7 +1,7 @@
 *.zip
+*.docx
 *-backup.html
 VtR 2e - Core Book.pdf
-Terra Mortis Treatment.docx
 Terra Mortis Treatment.pdf
 .claude/settings.local.json
 private/*
@@ -29,6 +29,7 @@ data/backup/
 # Character data — source of truth is MongoDB, not git
 data/chars_v2.json
 data/chars_v3.json
+public/data/chars_v3.json
 data/chars_dev.json
 data/chars_test.json
 archive/tm_characters.json
