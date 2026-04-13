@@ -267,7 +267,7 @@ export async function initDowntimeView(passedChars) {
       btn.className = 'dt-btn';
       btn.textContent = 'Preview CSV';
       btn.title = 'Load CSV for local preview — not saved to MongoDB';
-      btn.style.cssText = 'border-color:var(--gold2);color:var(--gold2)';
+      btn.style.cssText = 'border-color:var(--accent);color:var(--accent)';
       btn.addEventListener('click', () => inp.click());
 
       toolbar.appendChild(inp);
@@ -1660,7 +1660,7 @@ export async function processDowntimeCsvFile(file) {
 
 async function processFilePreview(file) {
   const warnEl = document.getElementById('dt-warnings');
-  warnEl.innerHTML = '<div class="dt-warn" style="background:rgba(224,196,122,.08);border-color:var(--gold2);color:var(--gold2)">&#9888; Preview mode — data is not saved to MongoDB.</div>';
+  warnEl.innerHTML = '<div class="dt-warn" style="background:rgba(224,196,122,.08);border-color:var(--accent);color:var(--accent)">&#9888; Preview mode — data is not saved to MongoDB.</div>';
 
   const text = await file.text();
   const { submissions: parsed, warnings } = parseDowntimeCSV(text);

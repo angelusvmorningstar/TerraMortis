@@ -137,7 +137,7 @@ export function showRollModal(pool, onSave) {
       <span class="roll-param">success \u2265 ${params.success}</span>
       <span class="roll-param">exceptional \u2265 ${params.exc}</span>
       <label class="roll-param roll-rote-toggle">
-        <input type="checkbox" id="rote-toggle" ${isRote ? 'checked' : ''} style="accent-color:var(--gold2);margin-right:0.3rem">Rote
+        <input type="checkbox" id="rote-toggle" ${isRote ? 'checked' : ''} style="accent-color:var(--accent);margin-right:0.3rem">Rote
       </label>`;
     panel.appendChild(pRow);
 
