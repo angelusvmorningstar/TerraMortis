@@ -956,23 +956,9 @@ async function init() {
     } catch { /* territories not available — regent display will be blank */ }
     renderCharGrid();
   } catch (err) {
-    // TEMP: visual testing fallback — load local JSON when API unavailable on localhost
-    if (location.hostname === 'localhost') {
-      try {
-        const r = await fetch('/data/chars_v3.json');
-        chars = await r.json();
-        // Inject stub _id so renderCharGrid card templates don't break
-        chars.forEach((c, i) => { if (!c._id) c._id = `local-${i}`; });
-        chars.forEach(sanitiseChar);
-        // Stub _players so no cards get the unlinked red tint
-        _players = chars.map(c => ({ character_ids: [c._id], display_name: c.player }));
-        renderCharGrid();
-        return;
-      } catch (localErr) { console.error('Local JSON fallback failed:', localErr); /* fall through to error message below */ }
-    }
     console.error('Failed to load characters:', err.message);
     document.getElementById('char-grid').innerHTML =
-      `<p class="placeholder">Failed to load characters from API. Is the server running?</p>`;
+      `<p class="placeholder">Error: could not load characters from API. Check server status and try refreshing.</p>`;
   }
 }
 
@@ -988,7 +974,17 @@ Object.assign(window, {
     renderSheet(chars[editorState.editIdx]);
   },
   createNewCharacter, openPlayerLinkModal,
-  downloadCSV: () => downloadCSV(chars),
+  downloadCSV: async () => {
+    let fresh;
+    try {
+      fresh = await apiGet('/api/characters');
+      fresh.forEach(sanitiseChar);
+    } catch (err) {
+      alert('Export failed: could not fetch character data from API.\n\n' + err.message);
+      return;
+    }
+    downloadCSV(fresh);
+  },
   markDirty, printSheet,
   shEdit, shEditStatus,
   shEditBaneName, shEditBaneEffect, shRemoveBane, shAddBane,

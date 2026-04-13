@@ -53,7 +53,7 @@
 .exp-row.open{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;margin-bottom:0;}
 .exp-lbl{font-family:var(--fl);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--label-secondary);flex-shrink:0;}
 .exp-lbl.labeled{min-width:54px;}
-.exp-val{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);flex:1;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.exp-val{font-family:var(--fl);font-size:12px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);flex:1;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .exp-arr{font-size:11px;color:var(--txt3);transition:transform .15s;flex-shrink:0;}
 .exp-body{display:none;background:var(--surf3);border:0.5px solid var(--bdr);border-top:none;border-radius:0 0 4px 4px;padding:9px 10px;margin-bottom:3px;font-family:var(--ft);font-size:11px;color:var(--txt2);line-height:1.6;}
 .exp-body.visible{display:block;}
@@ -206,7 +206,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-edit-select option{background:var(--surf);color:var(--txt);}
 .sh-char-name .sh-edit-input{font-family:var(--fh);font-size:20px;font-weight:600;color:var(--accent);letter-spacing:.02em;background:transparent;border-color:var(--bdr2);padding:2px 6px;}
 .sh-char-player .sh-edit-input{font-family:var(--fl);font-size:11px;color:var(--txt2);background:transparent;border-color:var(--bdr);padding:2px 6px;}
-.sh-char-concept .sh-edit-input{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;background:transparent;border-color:var(--bdr);padding:2px 6px;}
+.sh-char-concept .sh-edit-input{font-family:var(--ft);font-size:11px;color:var(--txt);background:transparent;border-color:var(--bdr);padding:2px 6px;}
 .sheet-edit-btn.editing{background:var(--accent-a8);color:var(--accent);}
 .sh-bane-edit-row{display:flex;gap:6px;align-items:center;margin-bottom:4px;}
 .sh-bane-edit-row .sh-edit-input{flex:1;}
@@ -421,31 +421,41 @@ html:not([data-theme="dark"]) .edit-icon {
 .sheet-topbar button:hover{color:var(--accent);background:var(--accent-a8);}
 .sheet-topbar .sheet-edit-btn{margin-left:auto;border:1px solid var(--bdr2);color:var(--accent);}
 
-/* ── Character header ── */
+/* ── Character header ──
+   Accessibility minimums (WCAG 2.1 AA):
+   - Normal text (<18pt / <14pt bold): contrast ratio ≥ 4.5:1 against background
+   - Large text (≥18pt / ≥14pt bold): contrast ratio ≥ 3:1
+   - UI components (badges, borders): ≥ 3:1
+   Player name and XP badge are interactive-adjacent labels — minimum font-size 11px,
+   minimum font-weight 600, minimum colour --label-secondary (not --txt3). */
 .sh-char-hdr{background:var(--surf);border-bottom:1px solid var(--bdr2);}
-.sh-namerow{padding:14px 14px 10px;border-bottom:1px solid var(--bdr);}
+.sh-namerow{padding:14px 14px 10px;border-bottom:1px solid var(--bdr);position:relative;}
 .sh-char-name{font-family:var(--fh);font-size:20px;font-weight:600;color:var(--accent);letter-spacing:.02em;line-height:1.2;margin-bottom:4px;}
-/* Audit badge — inline next to character name */
-.audit-badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:4px;cursor:default;white-space:pre-line;vertical-align:middle;margin-left:8px;font-family:var(--fl);letter-spacing:.02em;}
+/* Audit badge — anchored top-right of namerow */
+.audit-badge{position:absolute;top:12px;right:14px;display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;cursor:default;white-space:pre-line;font-family:var(--fl);letter-spacing:.04em;}
 .audit-ok{color:var(--result-succ);font-size:14px;}
 .audit-warn{background:var(--warn-dk-bg);color:var(--warn-dk);border:1px solid var(--gold2-a25);}
 .audit-err{background:var(--crim-a15);color:var(--crim2);border:1px solid var(--crim-a25);}
 .sh-player-row{display:flex;justify-content:space-between;align-items:center;}
-.sh-char-player{font-family:var(--fl);font-size:11px;color:var(--txt2);letter-spacing:.03em;}
-.sh-xp-badge{font-family:var(--fl);font-size:10px;color:var(--green2-a9);letter-spacing:.04em;}
+/* Player name: min 12px Lato 700, --label-secondary — meets 4.5:1 contrast floor */
+.sh-char-player{font-family:var(--fl);font-size:12px;font-weight:700;color:var(--label-secondary);letter-spacing:.03em;}
+/* XP badge: min 11px Lato 700. Neutral state --label-secondary; over = err; under = accent */
+.sh-xp-badge{font-family:var(--fl);font-size:11px;font-weight:700;color:var(--label-secondary);letter-spacing:.04em;}
 .sh-char-body{display:flex;align-items:stretch;}
-.sh-char-left{flex:1;min-width:0;padding:10px 12px 12px;border-right:1px solid var(--bdr);}
-.sh-char-concept{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;margin-bottom:8px;line-height:1.4;}
+.sh-char-left{flex:3;min-width:0;padding:10px 12px 12px;border-right:1px solid var(--bdr);}
+.sh-concept-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:8px;}
+.sh-char-concept{font-family:var(--ft);font-size:12px;font-weight:700;color:var(--txt);}
+.sh-char-pronoun{font-family:var(--ft);font-size:12px;font-weight:700;color:var(--txt);text-align:right;flex-shrink:0;}
 
 /* ── Right panel (clan, covenant, status) ── */
-.sh-hdr-right{flex-shrink:0;display:flex;flex-direction:column;}
+.sh-hdr-right{flex:2;flex-shrink:0;display:flex;flex-direction:column;}
 .sh-hdr-row{display:flex;align-items:center;gap:8px;padding:6px 10px;}
 .sh-icon-slot{width:36px;height:36px;flex-shrink:0;}
 .sh-faction-icon{width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .sh-faction-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
-.sh-faction-label{font-family:var(--fl);font-size:12px;color:var(--txt);letter-spacing:.02em;font-weight:700;}
-.sh-faction-sub{font-family:var(--fl);font-size:10px;font-weight:600;font-variant:small-caps;letter-spacing:.04em;color:var(--label-secondary);}
-.sh-faction-bloodline{font-family:var(--fl);font-size:10px;font-weight:600;font-variant:small-caps;letter-spacing:.04em;color:var(--label-secondary);}
+.sh-faction-label{font-family:var(--fl);font-size:13px;font-variant:small-caps;font-weight:700;letter-spacing:.04em;color:var(--accent);}
+.sh-faction-sub{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;letter-spacing:.06em;color:var(--label-secondary);}
+.sh-faction-bloodline{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;letter-spacing:.06em;color:var(--label-secondary);}
 .sh-stat-pip{display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;}
 .sh-stat-pip-edit{gap:0;}
 .sh-status-shape{position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
@@ -622,7 +632,6 @@ html:not([data-theme="dark"]) .edit-icon {
 /* Edit controls */
 .sh-desktop .sh-edit-select{font-size:13px;padding:5px 8px;}
 .sh-desktop .sh-edit-input{font-size:13px;padding:5px 8px;}
-.sh-desktop .exp-lbl{font-size:13px;}
 .sh-desktop .sh-ts-edit-row input{font-size:12px;padding:4px 8px;}
 .sh-desktop .sh-ts-hum{font-size:12px;padding:4px 6px;}
 .sh-desktop .infl-edit-row{padding:6px 10px;gap:8px;}
@@ -721,7 +730,9 @@ input.sh-edit-input:disabled {
 html:not([data-theme="dark"]) .sh-stat-n,
 html:not([data-theme="dark"]) .sh-status-n { color: var(--bg); }
 
-/* Stat gem SVGs — soften opacity slightly more on parchment */
+/* Stat/status gem SVGs — dark mode: soft gold; parchment: crimson at reduced opacity */
+[data-theme="dark"] .sh-stat-icon svg,
+[data-theme="dark"] .sh-status-shape svg { color: var(--gdim); opacity: 0.75; }
 html:not([data-theme="dark"]) .sh-stat-icon svg,
 html:not([data-theme="dark"]) .sh-status-shape svg { opacity: 0.55; }
 
