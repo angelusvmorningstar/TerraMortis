@@ -4092,6 +4092,74 @@ body {
 }
 .proc-note-textarea:focus { border-color: var(--gold2); outline: none; }
 
+/* ── ST Response section (feature.66) ─────────────────────────── */
+.proc-st-response-section {
+  margin-bottom: 12px;
+}
+
+.proc-st-response-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.proc-st-response-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--fb);
+  resize: vertical;
+  min-height: 88px;
+  display: block;
+}
+.proc-st-response-textarea:focus { border-color: var(--gold2); outline: none; }
+
+.proc-st-response-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.proc-st-response-author {
+  font-size: 11px;
+  color: var(--txt3);
+  font-family: var(--fh);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.proc-response-status-badge {
+  font-size: 10px;
+  font-family: var(--fh);
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.proc-response-status-draft    { background: rgba(100,100,100,.2); color: var(--txt2); border: 1px solid var(--bdr); }
+.proc-response-status-reviewed { background: rgba(224,196,122,.15); color: var(--gold2); border: 1px solid rgba(224,196,122,.35); }
+
+.proc-response-review-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
+.proc-response-reviewed-label {
+  font-size: 11px;
+  font-family: var(--fh);
+  color: var(--gold2);
+  letter-spacing: 0.04em;
+}
+
 .proc-open-sub-link {
   font-size: 11px;
   color: var(--txt3);
