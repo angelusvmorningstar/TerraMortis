@@ -13,6 +13,13 @@
 <link rel="stylesheet" href="css/editor.css">
 <link rel="stylesheet" href="css/player-layout.css">
 <link rel="stylesheet" href="css/reading-pane.css">
+<!-- Theme init: run before body renders to prevent flash -->
+<script>
+(function(){
+  var t=localStorage.getItem('tm-theme');
+  if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+})();
+</script>
 </head>
 <body>
 
@@ -58,6 +65,9 @@
     <div class="sidebar-app-nav">
       <a href="/" class="app-nav-btn">Game App</a>
       <a href="/admin" id="nav-admin" class="app-nav-btn" style="display:none">ST Admin</a>
+    </div>
+    <div class="sidebar-theme">
+      <button class="theme-toggle-btn" id="theme-toggle" title="Toggle light/dark mode"></button>
     </div>
     <div class="sidebar-user" id="sidebar-user"></div>
   </nav>

@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TM Suite — Theme Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+
+/* ── Parchment (default) ── */
+:root {
+  --bg:    #F4EFE4;
+  --surf:  #EDE7D8;
+  --surf2: #E5DEC9;
+  --surf3: #DBD3BC;
+
+  --bdr:  rgba(120,90,40,.20);
+  --bdr2: rgba(120,90,40,.38);
+  --bdr3: rgba(120,90,40,.55);
+
+  --txt:  #1C1410;
+  --txt2: #4A3A28;
+  --txt3: #6A5238;
+
+  --gold:  #8B6010;
+  --gold2: #7A5208;
+  --gdim:  #A07A20;
+
+  --crim:  #7A0000;
+  --crim2: #8B1010;
+
+  --green:  #1E6A1E;
+  --green2: #2A7A4A;
+  --green3: #1A5A30;
+
+  --err:  #8B1010;
+  --err2: #7A0808;
+
+  --info:  #1A4A7A;
+  --info2: #1A3A6A;
+
+  --fh:  'Cinzel', serif;
+  --fhd: 'Cinzel Decorative', serif;
+  --fb:  'Lora', serif;
+
+  --shadow: rgba(60,40,10,.12);
+}
+
+/* ── Dark override ── */
+[data-theme="dark"] {
+  --bg:    #0D0B09;
+  --surf:  #161210;
+  --surf2: #1E1A16;
+  --surf3: #252018;
+
+  --bdr:  rgba(201,169,98,.18);
+  --bdr2: rgba(201,169,98,.35);
+  --bdr3: rgba(201,169,98,.55);
+
+  --txt:  #E8E0D0;
+  --txt2: #C4B49A;
+  --txt3: #8A7A6A;
+
+  --gold:  #C9A962;
+  --gold2: #E0C47A;
+  --gdim:  #8A7040;
+
+  --crim:  #8B0000;
+  --crim2: #A81010;
+
+  --green:  #5A8A5A;
+  --green2: #7EC8A0;
+  --green3: #8bc878;
+
+  --err:  #E8A0A0;
+  --err2: #c06060;
+
+  --info:  #A8C4E0;
+  --info2: #A0C8E8;
+
+  --shadow: rgba(0,0,0,.35);
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--fb);
+  font-size: 14px;
+  line-height: 1.55;
+  min-height: 100vh;
+  transition: background .25s, color .25s;
+}
+
+/* ── Layout ── */
+.app { display: flex; min-height: 100vh; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--surf);
+  border-right: 1px solid var(--bdr2);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.sidebar-title {
+  font-family: var(--fhd);
+  font-size: 16px;
+  color: var(--gold2);
+  letter-spacing: 1px;
+}
+
+.sidebar-sub {
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  flex: 1;
+}
+
+.sidebar-btn {
+  background: none;
+  border: none;
+  color: var(--txt2);
+  font-family: var(--fh);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  padding: 11px 20px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background .15s, color .15s;
+}
+.sidebar-btn:hover { background: var(--surf2); color: var(--txt); }
+.sidebar-btn.on { color: var(--gold2); border-left-color: var(--gold2); background: var(--surf2); }
+
+.sidebar-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--bdr);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-user {
+  font-family: var(--fh);
+  font-size: 12px;
+  color: var(--txt3);
+}
+
+.theme-toggle {
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background .15s, color .15s;
+}
+.theme-toggle:hover { background: var(--surf3); color: var(--txt); }
+
+/* ── Content ── */
+.content {
+  flex: 1;
+  padding: 28px 36px;
+  overflow-y: auto;
+}
+
+.domain-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--bdr);
+}
+
+.domain-header h2 {
+  font-family: var(--fh);
+  font-size: 20px;
+  color: var(--gold2);
+  font-weight: 700;
+  letter-spacing: .5px;
+}
+
+.domain-count {
+  font-size: 13px;
+  color: var(--txt3);
+}
+
+/* ── Buttons ── */
+.btn {
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  font-family: var(--fh);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: background .15s, color .15s;
+}
+.btn:hover { background: var(--surf3); color: var(--txt); }
+
+.btn-gold {
+  background: transparent;
+  border: 1px solid var(--gold2);
+  color: var(--gold2);
+}
+.btn-gold:hover { background: var(--surf3); }
+
+.btn-crim {
+  background: var(--crim);
+  border: 1px solid var(--crim2);
+  color: #fff;
+}
+.btn-crim:hover { filter: brightness(1.15); }
+
+/* ── Phase section ── */
+.phase-section {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px var(--shadow);
+}
+
+.phase-header {
+  background: var(--surf2);
+  padding: 10px 16px;
+  font-family: var(--fh);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold2);
+  border-bottom: 1px solid var(--bdr);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.phase-label { flex: 1; }
+
+.phase-count {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--txt3);
+  font-family: var(--fb);
+}
+
+.phase-toggle {
+  font-size: 11px;
+  color: var(--txt3);
+  font-family: var(--fb);
+}
+
+/* ── Action row ── */
+.action-row {
+  display: grid;
+  grid-template-columns: 150px 170px 1fr 100px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--bdr);
+  cursor: pointer;
+  transition: background .12s;
+}
+.action-row:last-child { border-bottom: none; }
+.action-row:hover { background: rgba(120,90,40,.04); }
+
+[data-theme="dark"] .action-row:hover { background: rgba(224,196,122,.04); }
+
+.row-char {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--txt);
+  font-weight: 700;
+}
+
+.row-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold2);
+}
+
+.row-desc {
+  font-size: 12px;
+  color: var(--txt2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Status badges ── */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-family: var(--fh);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.badge-pending {
+  background: rgba(120,90,40,.08);
+  color: var(--txt3);
+  border: 1px solid var(--bdr);
+}
+[data-theme="dark"] .badge-pending {
+  background: rgba(100,100,100,.2);
+  color: var(--txt3);
+}
+
+.badge-validated {
+  background: rgba(30,106,30,.10);
+  color: var(--green);
+  border: 1px solid rgba(30,106,30,.30);
+}
+[data-theme="dark"] .badge-validated {
+  background: rgba(90,138,90,.15);
+  color: var(--green2);
+  border-color: rgba(90,138,90,.3);
+}
+
+.badge-reviewed {
+  background: rgba(122,82,8,.10);
+  color: var(--gold2);
+  border: 1px solid rgba(122,82,8,.30);
+}
+[data-theme="dark"] .badge-reviewed {
+  background: rgba(224,196,122,.12);
+  color: var(--gold2);
+  border-color: rgba(224,196,122,.30);
+}
+
+.badge-draft {
+  background: rgba(120,90,40,.06);
+  color: var(--txt3);
+  border: 1px solid var(--bdr);
+}
+
+/* ── Detail panel ── */
+.detail-panel {
+  padding: 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--bdr);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.detail-col { display: flex; flex-direction: column; gap: 10px; }
+
+.detail-block { display: flex; flex-direction: column; gap: 4px; }
+
+.detail-label {
+  font-size: 11px;
+  color: var(--txt3);
+  font-family: var(--fh);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.detail-value {
+  font-size: 13px;
+  color: var(--txt);
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 6px 10px;
+  line-height: 1.5;
+}
+
+.detail-value.narrative {
+  color: var(--txt2);
+  line-height: 1.65;
+}
+
+/* ── Text areas ── */
+.textarea {
+  width: 100%;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--fb);
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.55;
+  transition: border-color .15s;
+}
+.textarea:focus { border-color: var(--gold2); outline: none; }
+
+/* ── Roll card ── */
+.roll-card {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.roll-dice {
+  font-size: 12px;
+  color: var(--txt2);
+  word-break: break-word;
+  line-height: 1.6;
+  font-family: var(--fb);
+}
+
+.roll-result {
+  font-family: var(--fh);
+  font-size: 13px;
+  color: var(--txt);
+  font-weight: 600;
+}
+
+.roll-exceptional {
+  color: var(--gold2);
+}
+
+/* ── Section header (ST Response style) ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.section-label {
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--gold2);
+}
+
+.author-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt2);
+  font-family: var(--fh);
+  margin-top: 5px;
+}
+
+/* ── Player feedback ── */
+.feedback-label {
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--txt3);
+  margin-bottom: 6px;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-family: var(--fh);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt2);
+}
+
+/* ── Stats row ── */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 12px 20px;
+  min-width: 120px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.stat-label {
+  font-family: var(--fh);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--txt3);
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-family: var(--fh);
+  font-size: 22px;
+  color: var(--gold2);
+  font-weight: 600;
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--txt3);
+  margin-top: 2px;
+}
+
+/* ── Typography demo ── */
+.type-demo {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.type-demo h1 { font-family: var(--fhd); font-size: 24px; color: var(--gold2); margin-bottom: 8px; }
+.type-demo h2 { font-family: var(--fh); font-size: 18px; color: var(--gold2); margin-bottom: 8px; font-weight: 700; }
+.type-demo h3 { font-family: var(--fh); font-size: 14px; color: var(--txt); margin-bottom: 6px; font-weight: 600; }
+.type-demo p  { font-family: var(--fb); font-size: 14px; color: var(--txt2); line-height: 1.65; margin-bottom: 8px; }
+.type-demo .label { font-family: var(--fh); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--txt3); }
+
+/* ── Divider ── */
+.section-divider {
+  font-family: var(--fh);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--txt3);
+  border-bottom: 1px solid var(--bdr);
+  padding-bottom: 6px;
+  margin-bottom: 16px;
+  margin-top: 24px;
+}
+
+/* ── Expanded row ── */
+.action-row.expanded { background: rgba(120,90,40,.05); border-bottom: none; }
+[data-theme="dark"] .action-row.expanded { background: rgba(224,196,122,.06); }
+
+/* ── Colours strip ── */
+.colours {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.swatch {
+  width: 60px;
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid var(--bdr2);
+  display: flex;
+  align-items: flex-end;
+  padding: 3px 5px;
+  font-size: 9px;
+  font-family: monospace;
+  color: rgba(0,0,0,.5);
+}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Terra Mortis</div>
+      <div class="sidebar-sub">Admin Suite</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="sidebar-btn">Player</button>
+      <button class="sidebar-btn">City</button>
+      <button class="sidebar-btn on">Downtime</button>
+      <button class="sidebar-btn">Attendance</button>
+      <button class="sidebar-btn">Engine</button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="sidebar-user">Angelus</span>
+      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">
+        <span id="theme-icon">☾</span>
+        <span id="theme-label">Dark</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <main class="content">
+
+    <div class="domain-header">
+      <h2>Downtime Processing</h2>
+      <span class="domain-count">Game 2 — 14 submissions</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Processed</div>
+        <div class="stat-value">9</div>
+        <div class="stat-sub">of 14</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Reviewed</div>
+        <div class="stat-value">6</div>
+        <div class="stat-sub">responses</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value" style="color:var(--txt2)">5</div>
+        <div class="stat-sub">submissions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ready</div>
+        <div class="stat-value" style="color:var(--green)">3</div>
+        <div class="stat-sub">to publish</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <button class="btn btn-gold">Import CSV</button>
+      <button class="btn">Export</button>
+      <span class="toolbar-label">Cycle: Game 2 — Closed</span>
+    </div>
+
+    <!-- Phase: Ambience -->
+    <div class="phase-section">
+      <div class="phase-header">
+        <span class="phase-label">Phase 1 — Ambience</span>
+        <span class="phase-count">4 actions</span>
+        <span class="phase-toggle">▲ Hide</span>
+      </div>
+
+      <div class="action-row">
+        <span class="row-char">Yusuf</span>
+        <span class="row-label">Ambience Increase</span>
+        <span class="row-desc">Fear Cleanse of the Burrows — I am physically taking myself through whatever tunnels…</span>
+        <span class="badge badge-reviewed">Reviewed</span>
+      </div>
+
+      <div class="action-row">
+        <span class="row-char">Reed Justice</span>
+        <span class="row-label">Ambience Increase</span>
+        <span class="row-desc">Harbour Ambience — Reed is spending personal time with contacts…</span>
+        <span class="badge badge-validated">Validated</span>
+      </div>
+
+      <div class="action-row expanded">
+        <span class="row-char">Edna Judge</span>
+        <span class="row-label">Ambience Increase</span>
+        <span class="row-desc">His Many Houses ii — Able now to cast her visage as one that resembles…</span>
+        <span class="badge badge-draft">Draft</span>
+      </div>
+
+      <!-- Expanded detail panel -->
+      <div class="detail-panel">
+        <div class="detail-grid">
+
+          <!-- Left col -->
+          <div class="detail-col">
+
+            <div class="detail-block">
+              <div class="detail-label">Title</div>
+              <div class="detail-value">His Many Houses ii</div>
+            </div>
+
+            <div class="detail-block">
+              <div class="detail-label">Desired Outcome</div>
+              <div class="detail-value">Improve the Docklands ambience.</div>
+            </div>
+
+            <div class="detail-block">
+              <div class="detail-label">Description</div>
+              <div class="detail-value narrative">Able now to cast her visage as one that resembles a more delightsome her, Edna spends this month dipping her toes back in to her sociable pre-fang self. She visits churches in The Port on quiet early-week nights, speaks briefly with an attendee each time before leaving, and makes sure to add a reasonable donation to the collection.</div>
+            </div>
+
+            <div class="detail-block">
+              <div class="section-header">
+                <span class="section-label">ST Response</span>
+                <button class="btn" style="font-size:11px;padding:3px 10px;">Copy context</button>
+              </div>
+              <textarea class="textarea" placeholder="Draft narrative response…">The Docklands feel subtly different this month. Parishioners who notice the quiet woman in the back pew find themselves oddly cheered — not by anything she says, but simply by the sense that someone is paying attention. The collection plate is a little fuller.</textarea>
+              <div class="author-label">Drafted by Angelus</div>
+            </div>
+
+            <div class="detail-block">
+              <div class="feedback-label">Player Feedback</div>
+              <textarea class="textarea" placeholder="Feedback visible to player…" style="min-height:60px;">Pool corrected: Presence + Empathy + Spec (Proselytising) + Majesty. Obfuscate not applicable here.</textarea>
+            </div>
+
+          </div>
+
+          <!-- Right col -->
+          <div class="detail-col">
+
+            <div class="detail-block">
+              <div class="detail-label">Player's Pool</div>
+              <div class="detail-value">Presence 3 + Empathy 2 + Spec (Proselytising) 1 + Obfuscate 4 = 10</div>
+            </div>
+
+            <div class="detail-block">
+              <div class="detail-label">Validated Pool</div>
+              <div class="detail-value" style="color:var(--gold2)">Presence 3 + Empathy 5 + Spec 1 + Majesty 2 = 11</div>
+            </div>
+
+            <div class="roll-card">
+              <div class="detail-label" style="margin-bottom:4px">Roll Result</div>
+              <div class="roll-dice">[3, 7, 1, 9, 10!, 4, 8, 2, 6, 5, 10!] </div>
+              <div class="roll-result">2 successes</div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+              <span class="badge badge-validated">Validated</span>
+              <span class="badge badge-draft">Draft</span>
+            </div>
+
+            <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--bdr)">
+              <div class="detail-label" style="margin-bottom:8px">Review</div>
+              <button class="btn btn-gold" style="width:100%">Mark reviewed</button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <div class="action-row">
+        <span class="row-char">Doc</span>
+        <span class="row-label">Ambience Increase</span>
+        <span class="row-desc">Preventative Care — Having made a habit of donating a few nights…</span>
+        <span class="badge badge-pending">Pending</span>
+      </div>
+    </div>
+
+    <!-- Phase: Investigations (collapsed) -->
+    <div class="phase-section">
+      <div class="phase-header">
+        <span class="phase-label">Phase 4 — Investigative</span>
+        <span class="phase-count">7 actions</span>
+        <span class="phase-toggle">▼ Show</span>
+      </div>
+    </div>
+
+    <!-- Phase: Patrol (collapsed) -->
+    <div class="phase-section">
+      <div class="phase-header">
+        <span class="phase-label">Phase 6 — Patrol / Scout</span>
+        <span class="phase-count">6 actions</span>
+        <span class="phase-toggle">▼ Show</span>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         LEGIBILITY AUDIT — Dark mode contrast failures
+         Both panels always dark so failures are visible regardless of theme toggle.
+         ══════════════════════════════════════════ -->
+
+    <div class="section-divider" style="margin-top:32px">Dark Mode Legibility Audit</div>
+
+    <p style="font-size:13px;color:var(--txt2);font-family:var(--fb);margin-bottom:20px;line-height:1.6">
+      Both panels below use a hardcoded dark surface (<code style="font-size:12px;background:var(--surf2);padding:1px 5px;border-radius:3px">#1E1A16</code>) so failures are always visible.
+      After reviewing, toggle to parchment to confirm the proposed token fixes also work on light backgrounds.
+    </p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+
+      <!-- ── Current: broken ── -->
+      <div>
+        <div style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#c04040;margin-bottom:10px">Current — Failing</div>
+        <div style="background:#1E1A16;border:1px solid rgba(201,169,98,.18);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:14px">
+
+          <!-- 1. txt-dim / txt1 undefined -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:5px">--txt-dim &amp; --txt1 — undefined variables</div>
+            <div style="font-size:12px;color:inherit;font-family:'Lora',serif">This hint text uses <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">var(--txt-dim)</code> — inherits by accident</div>
+            <div style="font-size:12px;color:inherit;font-family:'Lora',serif;margin-top:3px">Input colour uses <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">var(--txt1)</code> — also undefined</div>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Both fall back to inherited value — fragile, undocumented</div>
+          </div>
+
+          <!-- 2. #3a8a3a fails -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">Done / Approved — hardcoded #3a8a3a</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <span style="font-size:11px;color:#3a8a3a;background:rgba(58,138,58,.12);padding:2px 8px;border-radius:10px;font-family:'Cinzel',serif;font-weight:600">Reviewed</span>
+              <span style="font-size:11px;color:#3a8a3a;background:rgba(58,138,58,.12);padding:2px 8px;border-radius:10px;font-family:'Cinzel',serif;font-weight:600">Validated</span>
+              <span style="font-size:12px;color:#3a8a3a;font-family:'Cinzel',serif;font-weight:600">&#10003; Done</span>
+            </div>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Contrast on #1E1A16: ~4.2:1 — fails AA (need 4.5:1)</div>
+          </div>
+
+          <!-- 3. #7a5a00 fails -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">Ready to Publish — hardcoded #7a5a00</div>
+            <span style="font-size:11px;color:#7a5a00;background:rgba(180,130,0,.12);padding:2px 8px;border-radius:10px;font-family:'Cinzel',serif;font-weight:600">Ready to Publish</span>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Contrast: 3.1:1 — fails badly (olive on near-black)</div>
+          </div>
+
+          <!-- 4. gdim fails -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">--gdim — current value #8A7040</div>
+            <span style="font-size:14px;color:#8A7040;font-family:'Cinzel',serif;font-weight:600;letter-spacing:.04em">Dimmed gold label text</span>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Contrast on #1E1A16: 3.9:1 — fails AA</div>
+          </div>
+
+          <!-- 5. pr-future / pr-active fails -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">Progress ribbon — hardcoded #444 / #0D0B09</div>
+            <div style="display:flex;gap:2px;align-items:stretch">
+              <div style="padding:6px 14px;background:#E0C47A;color:#0D0B09;font-family:'Cinzel',serif;font-size:11px;font-weight:600;border-radius:3px 0 0 3px">Active Step</div>
+              <div style="padding:6px 14px;color:#444;font-family:'Cinzel',serif;font-size:11px;background:#252018;border:1px solid #333;border-radius:0 3px 3px 0">Future Step</div>
+            </div>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Future #444: 2.2:1 · Active parchment check: #0D0B09 on --gold2 = 2.9:1</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Proposed: fixed ── -->
+      <div>
+        <div style="font-family:'Cinzel',serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6abf6a;margin-bottom:10px">Proposed Fixes</div>
+        <div style="background:#1E1A16;border:1px solid rgba(201,169,98,.35);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:14px">
+
+          <!-- 1. Add tokens -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:5px">Define: --txt-dim = --txt3 &nbsp;/&nbsp; --txt1 = --txt</div>
+            <div style="font-size:12px;color:#8A7A6A;font-family:'Lora',serif">Hint text now explicit via <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">--txt-dim</code> token</div>
+            <div style="font-size:12px;color:#E8E0D0;font-family:'Lora',serif;margin-top:3px">Input colour via <code style="font-size:11px;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:2px">--txt1</code> — bright primary text</div>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Behaviour explicit and theme-aware</div>
+          </div>
+
+          <!-- 2. green3 token -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">Replace with var(--green3)</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <span style="font-size:11px;color:#8bc878;background:rgba(58,138,58,.12);padding:2px 8px;border-radius:10px;font-family:'Cinzel',serif;font-weight:600">Reviewed</span>
+              <span style="font-size:11px;color:#8bc878;background:rgba(58,138,58,.12);padding:2px 8px;border-radius:10px;font-family:'Cinzel',serif;font-weight:600">Validated</span>
+              <span style="font-size:12px;color:#8bc878;font-family:'Cinzel',serif;font-weight:600">&#10003; Done</span>
+            </div>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Dark: #8bc878 = 10.2:1 ✓ &nbsp;/&nbsp; Parchment: maps to dark green ✓</div>
+          </div>
+
+          <!-- 3. gold token -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">Replace with var(--gold)</div>
+            <span style="font-size:11px;color:#C9A962;background:rgba(180,130,0,.12);padding:2px 8px;border-radius:10px;font-family:'Cinzel',serif;font-weight:600">Ready to Publish</span>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">--gold dark: 9.2:1 ✓ &nbsp;/&nbsp; Parchment: dark amber ✓</div>
+          </div>
+
+          <!-- 4. gdim fixed -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">--gdim dark → #A08848</div>
+            <span style="font-size:14px;color:#A08848;font-family:'Cinzel',serif;font-weight:600;letter-spacing:.04em">Dimmed gold label text</span>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Contrast on #1E1A16: 5.3:1 ✓ &nbsp;/&nbsp; Warm muted gold, still readable</div>
+          </div>
+
+          <!-- 5. pr fixed -->
+          <div>
+            <div style="font-size:10px;font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8A7A6A;margin-bottom:6px">var(--txt3) future / var(--bg) active text</div>
+            <div style="display:flex;gap:2px;align-items:stretch">
+              <div style="padding:6px 14px;background:#E0C47A;color:#0D0B09;font-family:'Cinzel',serif;font-size:11px;font-weight:600;border-radius:3px 0 0 3px">Active Step</div>
+              <div style="padding:6px 14px;color:#8A7A6A;font-family:'Cinzel',serif;font-size:11px;background:#252018;border:1px solid rgba(201,169,98,.35);border-radius:0 3px 3px 0">Future Step</div>
+            </div>
+            <div style="font-size:10px;color:#8A7A6A;margin-top:5px">Future 4.7:1 ✓ &nbsp;/&nbsp; Active text uses var(--bg) — works on both golds ✓</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Parchment token check: switch theme above to verify -->
+    <div style="background:var(--surf);border:1px solid var(--bdr);border-radius:8px;padding:16px;margin-bottom:8px">
+      <div style="font-family:var(--fh);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin-bottom:12px">Token check — toggle theme above to verify on parchment</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:11px;color:var(--green3);background:var(--green-a15);padding:2px 8px;border-radius:10px;font-family:var(--fh);font-weight:600;border:1px solid var(--green-a45)">var(--green3) Reviewed</span>
+        <span style="font-size:11px;color:var(--green3);background:var(--green-a15);padding:2px 8px;border-radius:10px;font-family:var(--fh);font-weight:600;border:1px solid var(--green-a45)">var(--green3) Validated</span>
+        <span style="font-size:11px;color:var(--gold);background:var(--gold-a10);padding:2px 8px;border-radius:10px;font-family:var(--fh);font-weight:600">var(--gold) Ready</span>
+        <span style="font-size:14px;color:#A08848;font-family:var(--fh);font-weight:600">--gdim #A08848</span>
+        <div style="display:flex;gap:2px;align-items:stretch">
+          <div style="padding:5px 12px;background:var(--gold2);color:var(--bg);font-family:var(--fh);font-size:11px;font-weight:600;border-radius:3px 0 0 3px">Active</div>
+          <div style="padding:5px 12px;color:var(--txt3);font-family:var(--fh);font-size:11px;background:var(--surf3);border:1px solid var(--bdr2);border-radius:0 3px 3px 0">Future</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typography & palette reference -->
+    <div class="section-divider">Typography & Palette Reference</div>
+
+    <div class="type-demo">
+      <h1>Terra Mortis Suite</h1>
+      <h2>Domain Heading</h2>
+      <h3>Section Title</h3>
+      <p>Body text rendered in Lora — the narrative response goes here. Edna spends this month dipping her toes back in to her sociable pre-fang self, visiting churches in The Port on quiet early-week nights. She speaks briefly with an attendee each time before leaving.</p>
+      <span class="label">Section label / metadata</span>
+    </div>
+
+    <!-- Colour swatches -->
+    <div class="colours">
+      <div class="swatch" style="background:var(--bg)">--bg</div>
+      <div class="swatch" style="background:var(--surf)">--surf</div>
+      <div class="swatch" style="background:var(--surf2)">--surf2</div>
+      <div class="swatch" style="background:var(--surf3)">--surf3</div>
+      <div class="swatch" style="background:var(--txt);color:#fff">--txt</div>
+      <div class="swatch" style="background:var(--txt2);color:#fff">--txt2</div>
+      <div class="swatch" style="background:var(--txt3);color:#fff">--txt3</div>
+      <div class="swatch" style="background:var(--gold2)">--gold2</div>
+      <div class="swatch" style="background:var(--gold)">--gold</div>
+      <div class="swatch" style="background:var(--crim);color:#fff">--crim</div>
+      <div class="swatch" style="background:var(--green);color:#fff">--green</div>
+      <div class="swatch" style="background:var(--err);color:#fff">--err</div>
+      <div class="swatch" style="background:var(--info);color:#fff">--info</div>
+    </div>
+
+    <!-- Badge strip -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
+      <span class="badge badge-pending">Pending</span>
+      <span class="badge badge-validated">Validated</span>
+      <span class="badge badge-draft">Draft</span>
+      <span class="badge badge-reviewed">Reviewed</span>
+      <span class="badge" style="background:rgba(26,74,122,.10);color:var(--info);border:1px solid rgba(26,74,122,.25)">No Roll Needed</span>
+      <span class="badge" style="background:rgba(122,0,0,.10);color:var(--crim);border:1px solid rgba(122,0,0,.25)">Blocked</span>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function setTheme(dark) {
+  const html = document.documentElement;
+  const icon = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (dark) {
+    html.setAttribute('data-theme', 'dark');
+    icon.textContent = '☀';
+    label.textContent = 'Light';
+  } else {
+    html.setAttribute('data-theme', 'light');
+    icon.textContent = '☾';
+    label.textContent = 'Dark';
+  }
+  localStorage.setItem('tm-theme', dark ? 'dark' : 'light');
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  setTheme(!isDark);
+}
+
+// On load — apply saved preference
+const saved = localStorage.getItem('tm-theme');
+if (saved === 'dark') setTheme(true);
+</script>
+
+</body>
+</html>

@@ -329,6 +329,28 @@ document.getElementById('sb-open').addEventListener('click', () => {
   appEl.classList.remove('sb-collapsed');
   localStorage.setItem(SB_KEY, '0');
 });
+// ── Theme toggle ──
+{
+  const btn = document.getElementById('theme-toggle');
+  const html = document.documentElement;
+  const updateBtn = () => {
+    const dark = html.getAttribute('data-theme') === 'dark';
+    btn.textContent = dark ? '☀ Light' : '☾ Dark';
+  };
+  updateBtn();
+  btn.addEventListener('click', () => {
+    const dark = html.getAttribute('data-theme') === 'dark';
+    if (dark) {
+      html.removeAttribute('data-theme');
+      localStorage.removeItem('tm-theme');
+    } else {
+      html.setAttribute('data-theme', 'dark');
+      localStorage.setItem('tm-theme', 'dark');
+    }
+    updateBtn();
+  });
+}
+
 // Auto-collapse when a tab is selected on small screens
 document.getElementById('sidebar').addEventListener('click', e => {
   if (e.target.closest('.sidebar-btn') && window.innerWidth <= 1024) {

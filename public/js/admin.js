@@ -219,6 +219,28 @@ document.getElementById('sidebar').addEventListener('click', e => {
   });
 }
 
+// ── Theme toggle ──
+{
+  const btn = document.getElementById('theme-toggle');
+  const html = document.documentElement;
+  const updateBtn = () => {
+    const dark = html.getAttribute('data-theme') === 'dark';
+    btn.textContent = dark ? '☀ Light' : '☾ Dark';
+  };
+  updateBtn();
+  btn.addEventListener('click', () => {
+    const dark = html.getAttribute('data-theme') === 'dark';
+    if (dark) {
+      html.removeAttribute('data-theme');
+      localStorage.removeItem('tm-theme');
+    } else {
+      html.setAttribute('data-theme', 'dark');
+      localStorage.setItem('tm-theme', 'dark');
+    }
+    updateBtn();
+  });
+}
+
 // ── Dev-mode: hide sensitive admin panels ──
 if (isRedactMode()) {
   document.querySelector('.sidebar-btn[data-domain="downtime"]')?.remove();

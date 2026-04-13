@@ -17,7 +17,7 @@ body {
 /* ── Sidebar ── */
 
 #sidebar {
-  width: 220px;
+  width: clamp(180px, 16vw, 220px);
   flex-shrink: 0;
   height: 100vh;
   position: sticky;
@@ -147,7 +147,7 @@ body {
 
 #content {
   flex: 1;
-  padding: 32px 40px;
+  padding: 32px clamp(16px, 2.5vw, 40px);
   overflow-y: auto;
   min-width: 0;
 }
@@ -274,6 +274,35 @@ body {
   border-top: 1px solid var(--bdr);
   display: flex;
   gap: 8px;
+}
+
+/* ── Sidebar theme toggle ── */
+
+.sidebar-theme {
+  padding: 8px 20px;
+  border-top: 1px solid var(--bdr);
+}
+
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--surf2);
+  color: var(--txt);
 }
 
 /* ── Sidebar user (bottom) ── */
@@ -644,7 +673,7 @@ body {
 
 .city-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 32px;
   align-items: start;
 }
@@ -1014,21 +1043,21 @@ body {
   border: 1px solid rgba(224, 196, 122, 0.25);
 }
 .pr-active {
-  color: #0D0B09;
+  color: var(--bg);
   background: var(--gold2);
 }
 .pr-active .pr-step-num {
   background: rgba(0,0,0,0.25);
-  color: #0D0B09;
+  color: var(--bg);
   border: none;
 }
 .pr-future {
-  color: #444;
+  color: var(--txt3);
 }
 .pr-future .pr-step-num {
   background: var(--surf3);
-  color: #555;
-  border: 1px solid #333;
+  color: var(--txt3);
+  border: 1px solid var(--bdr2);
 }
 
 /* Arrow connectors between main steps */
@@ -1073,7 +1102,7 @@ body {
   font-weight: 600;
 }
 .pr-sub.pr-future {
-  color: #444;
+  color: var(--txt3);
 }
 .pr-sub-connector {
   display: inline-block;
@@ -1564,7 +1593,7 @@ body {
 .dt-matrix-table th { background: var(--surf2); font-family: var(--fh); font-size: 11px; }
 .dt-matrix-char { text-align: left; font-size: 12px; white-space: nowrap; }
 .dt-matrix-amb { font-size: 10px; color: var(--txt-dim); font-family: var(--fb, sans-serif); }
-.dt-matrix-resident { background: rgba(58,138,58,.15); color: #3a8a3a; font-weight: 700; }
+.dt-matrix-resident { background: rgba(58,138,58,.15); color: var(--green3); font-weight: 700; }
 .dt-matrix-poach { background: rgba(224,164,60,.12); color: #d4902a; font-weight: 700; }
 .dt-matrix-other { color: var(--txt-dim); }
 .dt-matrix-empty { color: var(--txt-dim); opacity: .4; }
@@ -1589,9 +1618,9 @@ body {
 .dt-chk-empty { color: var(--txt-dim); opacity: .4; }
 .dt-chk-unsighted { color: #d4902a; cursor: pointer; font-weight: 700; }
 .dt-chk-unsighted:hover { background: rgba(212,144,42,.15); }
-.dt-chk-sighted { color: #3a8a3a; cursor: pointer; font-weight: 600; }
+.dt-chk-sighted { color: var(--green3); cursor: pointer; font-weight: 600; }
 .dt-chk-sighted:hover { background: rgba(58,138,58,.1); }
-.dt-chk-validated { color: #3a8a3a; font-weight: 700; }
+.dt-chk-validated { color: var(--green3); font-weight: 700; }
 
 .dt-conflict-list { padding: 8px 12px; }
 .dt-conflict-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--bdr); }
@@ -1613,12 +1642,12 @@ body {
   padding: 10px 12px;
   margin-bottom: 8px;
 }
-.dt-proj-resolved { border-left: 3px solid #3a8a3a; }
+.dt-proj-resolved { border-left: 3px solid var(--green3); }
 .dt-proj-unresolved { border-left: 3px solid var(--gold2); }
 .dt-proj-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .dt-proj-type { font-family: var(--fh); font-size: 13px; font-weight: 600; color: var(--gold2); }
 .dt-merit-action-type { font-size: 12px; color: var(--txt-dim); }
-.dt-proj-done-badge { font-size: 11px; color: #3a8a3a; background: rgba(58,138,58,.12); padding: 1px 6px; border-radius: 10px; }
+.dt-proj-done-badge { font-size: 11px; color: var(--green3); background: rgba(58,138,58,.12); padding: 1px 6px; border-radius: 10px; }
 .dt-proj-pending-badge { font-size: 11px; color: var(--gold2); background: rgba(224,196,122,.1); padding: 1px 6px; border-radius: 10px; }
 .dt-merit-passive { font-size: 11px; color: var(--txt-dim); }
 .dt-proj-outcome { font-size: 12px; color: var(--txt-dim); margin-bottom: 4px; }
@@ -1631,14 +1660,14 @@ body {
 .dt-pool-mod { width: 60px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 6px; border-radius: 4px; font-family: var(--fh); font-size: 12px; text-align: center; }
 .dt-pool-display { font-size: 12px; color: var(--gold2); font-family: var(--fh); }
 .dt-resolve-badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; margin: 4px 0; display: inline-block; }
-.dt-succ-ok { background: rgba(58,138,58,.15); color: #3a8a3a; }
+.dt-succ-ok { background: rgba(58,138,58,.15); color: var(--green3); }
 .dt-succ-exc { background: rgba(224,196,122,.2); color: var(--gold2); }
 .dt-succ-fail { background: rgba(139,0,0,.12); color: var(--crim); }
 .dt-proj-note { width: 100%; margin-top: 6px; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
 .dt-proj-rote-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-left: 6px; cursor: pointer; }
 .dt-proj-writeup { width: 100%; margin-top: 4px; background: var(--surf); border: 1px solid var(--bdr); border-left: 3px solid var(--gold2); color: var(--txt); padding: 5px 8px; border-radius: 4px; font-size: 12px; resize: vertical; min-height: 48px; box-sizing: border-box; }
 .dt-skill-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
-.dt-pool-9a-auto { display: inline-block; background: rgba(58,138,58,.15); color: #3a8a3a; border-radius: 3px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
+.dt-pool-9a-auto { display: inline-block; background: rgba(58,138,58,.15); color: var(--green3); border-radius: 3px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
 .dt-spec-toggle-lbl { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; color: var(--txt-dim); }
 .dt-spec-toggle-lbl:hover { color: var(--txt); }
 .dt-skill-meta-spec { display: inline-block; background: rgba(224,196,122,.1); color: var(--gold2); border-radius: 3px; padding: 1px 6px; font-size: 11px; }
@@ -1657,7 +1686,7 @@ body {
 .dt-narr-status-btn { font-size: 11px; padding: 1px 8px; border: 1px solid var(--bdr); border-radius: 10px; background: transparent; color: var(--txt-dim); cursor: pointer; }
 .dt-narr-status-btn.active { border-color: var(--gold2); color: var(--gold2); background: rgba(224,196,122,.1); }
 .dt-narr-textarea { width: 100%; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: var(--fb, 'Lora', serif); resize: vertical; min-height: 100px; box-sizing: border-box; line-height: 1.5; }
-.dt-narr-badge { font-size: 11px; color: #3a8a3a; background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; }
+.dt-narr-badge { font-size: 11px; color: var(--green3); background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; }
 
 /* ── Mechanical Summary (1.8) ── */
 .dt-mech-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
@@ -1671,9 +1700,9 @@ body {
 .dt-publish-status { font-size: 12px; color: var(--txt-dim); }
 .dt-pub-status { display: flex; align-items: center; gap: 8px; }
 .dt-pub-when { font-size: 11px; color: var(--txt-dim); }
-.dt-publish-ready { border-color: #3a8a3a !important; color: #3a8a3a !important; }
-.dt-pub-badge { font-size: 11px; color: #3a8a3a; background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
-.dt-ready-badge { font-size: 11px; color: #7a5a00; background: rgba(180,130,0,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.dt-publish-ready { border-color: var(--green3) !important; color: var(--green3) !important; }
+.dt-pub-badge { font-size: 11px; color: var(--green3); background: rgba(58,138,58,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.dt-ready-badge { font-size: 11px; color: var(--gold); background: rgba(180,130,0,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
 .dt-publish-hint { font-size: 11px; color: var(--txt-dim); }
 
 /* ── Investigation Tracker (1.5) ── */
@@ -1685,7 +1714,7 @@ body {
 .dt-inv-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .dt-inv-input { background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 8px; border-radius: 4px; font-size: 12px; }
 .dt-inv-item { border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
-.dt-inv-resolved { opacity: .65; border-left: 3px solid #3a8a3a; }
+.dt-inv-resolved { opacity: .65; border-left: 3px solid var(--green3); }
 .dt-inv-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .dt-inv-target { font-family: var(--fh); font-size: 13px; }
 .dt-inv-type-badge { font-size: 11px; color: var(--txt-dim); background: var(--surf2); padding: 1px 6px; border-radius: 8px; }
@@ -2040,7 +2069,7 @@ body {
 /* ── Engine split layout ── */
 .engine-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 20px;
   align-items: start;
 }
@@ -3746,7 +3775,7 @@ body {
 
 .proc-action-row {
   display: grid;
-  grid-template-columns: 160px 180px 1fr 90px;
+  grid-template-columns: minmax(120px, 160px) minmax(140px, 180px) 1fr 90px;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -3825,7 +3854,7 @@ body {
 
 .proc-detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 16px;
   margin-bottom: 14px;
 }
@@ -4713,3 +4742,86 @@ body {
   box-sizing: border-box;
 }
 .proc-amb-notes:focus { border-color: var(--gold2); outline: none; }
+
+/* ══════════════════════════════════════════
+   Parchment overrides
+   Dark mode reads thin Cinzel fine (contrast does the work).
+   Parchment needs 600+ weight — stroke width carries legibility on a light bg.
+   Also corrects hardcoded dark-mode colours in status badges.
+   ══════════════════════════════════════════ */
+
+/* Status row badges — dark-mode colours (#ff9090 / #90d090) are unreadable on cream */
+html:not([data-theme="dark"]) .proc-row-status.pending  { background: var(--crim-a15); color: var(--crim); }
+html:not([data-theme="dark"]) .proc-row-status.validated{ background: var(--green-a15); color: var(--green3); }
+html:not([data-theme="dark"]) .proc-row-status.no_roll  { background: var(--gold-a10); color: var(--txt2); }
+
+/* Cinzel weight floor: 600 minimum on parchment */
+html:not([data-theme="dark"]) .sidebar-sub,
+html:not([data-theme="dark"]) .sidebar-btn,
+html:not([data-theme="dark"]) .sidebar-btn.on,
+html:not([data-theme="dark"]) .dt-btn,
+html:not([data-theme="dark"]) .dt-btn-sm,
+html:not([data-theme="dark"]) .btn-sm,
+html:not([data-theme="dark"]) .proc-row-desc-lbl,
+html:not([data-theme="dark"]) .proc-row-status,
+html:not([data-theme="dark"]) .proc-detail-label,
+html:not([data-theme="dark"]) .dt-chk-toggle,
+html:not([data-theme="dark"]) .dt-matrix-table th,
+html:not([data-theme="dark"]) .dt-chk-table th,
+html:not([data-theme="dark"]) .dt-proj-lbl,
+html:not([data-theme="dark"]) .dt-narr-label,
+html:not([data-theme="dark"]) .dt-narr-status-btn,
+html:not([data-theme="dark"]) .dt-pool-sel,
+html:not([data-theme="dark"]) .dt-pool-display,
+html:not([data-theme="dark"]) .dt-rote-hint,
+html:not([data-theme="dark"]) .dt-inv-target,
+html:not([data-theme="dark"]) .dt-conflict-type,
+html:not([data-theme="dark"]) .asc-label,
+html:not([data-theme="dark"]) .city-edit-toggle,
+html:not([data-theme="dark"]) .city-save-btn,
+html:not([data-theme="dark"]) .terr-feed-label,
+html:not([data-theme="dark"]) .terr-feed-add-btn,
+html:not([data-theme="dark"]) .prestige-view-btn,
+html:not([data-theme="dark"]) .de-roll-btn,
+html:not([data-theme="dark"]) .de-sc-btn,
+html:not([data-theme="dark"]) .de-load-btn,
+html:not([data-theme="dark"]) .de-spec-chip,
+html:not([data-theme="dark"]) .de-history .hist-clr,
+html:not([data-theme="dark"]) .de-history .hmeta { font-weight: 600; }
+
+/* Character name in processing row — 700 for prominence */
+html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }
+
+/* Font size floor: bump 10px readable-text elements to 12px on parchment */
+html:not([data-theme="dark"]) .dt-scene-mod,
+html:not([data-theme="dark"]) .dt-matrix-amb,
+html:not([data-theme="dark"]) .dt-matrix-nosub-badge,
+html:not([data-theme="dark"]) .dt-chk-nosub-badge { font-size: 12px; }
+
+/* text-align: centre on all Cinzel button variants */
+html:not([data-theme="dark"]) .dt-btn,
+html:not([data-theme="dark"]) .dt-btn-sm,
+html:not([data-theme="dark"]) .btn-sm { text-align: center; }
+
+/* Dice engine Cinzel weight floor */
+html:not([data-theme="dark"]) #dice-engine .slabel,
+html:not([data-theme="dark"]) #dice-engine .effline,
+html:not([data-theme="dark"]) #dice-engine .abtn,
+html:not([data-theme="dark"]) #dice-engine .mchip,
+html:not([data-theme="dark"]) #dice-engine .rlbl,
+html:not([data-theme="dark"]) #dice-engine .rverd,
+html:not([data-theme="dark"]) #dice-engine .rote-lbl,
+html:not([data-theme="dark"]) #dice-engine .empty-d { font-weight: 600; }
+
+/* Processing validation status buttons — neon colours fail on parchment */
+html:not([data-theme="dark"]) .proc-val-status button.active.pending   { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }
+html:not([data-theme="dark"]) .proc-val-status button.active.validated { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
+
+/* Ambience pending chip — dark background/neon text don't suit parchment */
+html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
+
+/* Ambience pos/neg colour values — neon green/red replaced with legible theme tokens */
+html:not([data-theme="dark"]) .proc-amb-pos,
+html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green3); }
+html:not([data-theme="dark"]) .proc-amb-neg,
+html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-neg { color: var(--crim); }
