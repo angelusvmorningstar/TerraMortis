@@ -1,6 +1,6 @@
 # Story feature.60: Project Detail Block — App Form Field Integration
 
-## Status: review
+## Status: done
 
 ## Story
 
