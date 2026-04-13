@@ -17,7 +17,7 @@
 .cc-alert.red{background:rgba(180,30,30,.9);color:#fff;border:1px solid rgba(255,80,80,.4);}
 .cc-alert.yellow{background:rgba(180,140,20,.85);color:#fff;border:1px solid rgba(255,210,60,.4);font-size:8px;}
 .cc-identity{flex:1;min-width:0;}
-.cc-name{font-family:var(--fh);font-size:15px;color:var(--accent);letter-spacing:.02em;}
+.cc-name{font-family:var(--fh);font-size:15px;font-weight:600;color:var(--accent);letter-spacing:.02em;}
 .cc-player{font-size:12px;color:var(--txt3);}
 .cc-mid{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .cc-tag{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);background:var(--surf2);border:0.5px solid var(--bdr);border-radius:10px;padding:2px 8px;display:flex;align-items:center;gap:4px;}
@@ -108,8 +108,6 @@
    index.html is always dark — these rules never fire there.
    ══════════════════════════════════════════ */
 
-/* Cinzel weight floor: .cc-name stays on Cinzel and benefits from 600 on light bg */
-html:not([data-theme="dark"]) .cc-name { font-weight: 600; }
 
 /* Faction icons: switch background-color to crimson on parchment.
    opacity:1 overrides the .clan-icon/.cov-icon dim values tuned for dark bg. */
@@ -137,7 +135,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .topbar-btn:hover{color:var(--txt2);background:var(--gold-a5);}
 .topbar-btn.on{color:var(--accent);background:var(--accent-a8);}
 .topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
-.topbar-action{background:none;border:1px solid var(--bdr2);font-family:var(--fl);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);padding:6px 14px;border-radius:4px;cursor:pointer;transition:background .15s;}
+.topbar-action{background:none;border:1px solid var(--bdr2);font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);padding:6px 14px;border-radius:4px;cursor:pointer;transition:background .15s;}
 .topbar-action:hover{background:var(--gold-a10);}
 .topbar-action.crim{border-color:var(--crim-a45);color:var(--txt);}
 .topbar-action.crim:hover{background:var(--crim-a15);}
@@ -150,7 +148,7 @@ html:not([data-theme="dark"]) .edit-icon {
 /* ══ EDIT VIEW ══ */
 #v-edit.active{display:flex;flex-direction:column;padding:0;}
 .edit-header{flex-shrink:0;background:var(--surf);border-bottom:1px solid var(--bdr);padding:12px 24px;display:flex;align-items:center;gap:16px;}
-.edit-charname{font-family:var(--fh);font-size:16px;color:var(--accent);letter-spacing:.02em;}
+.edit-charname{font-family:var(--fh);font-size:16px;font-weight:600;color:var(--accent);letter-spacing:.02em;}
 .edit-back{background:none;border:none;color:var(--txt3);font-size:18px;cursor:pointer;padding:4px 8px;}
 .edit-back:hover{color:var(--gold);}
 .edit-tabs{display:flex;gap:2px;margin-left:24px;}
@@ -206,7 +204,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-edit-select{background:var(--surf2);border:1px solid var(--bdr2);border-radius:4px;padding:4px 8px;font-family:var(--ft);font-size:12px;color:var(--txt);outline:none;cursor:pointer;width:100%;}
 .sh-edit-select:focus{border-color:var(--gold);}
 .sh-edit-select option{background:var(--surf);color:var(--txt);}
-.sh-char-name .sh-edit-input{font-family:var(--fh);font-size:20px;color:var(--accent);letter-spacing:.02em;background:transparent;border-color:var(--bdr2);padding:2px 6px;}
+.sh-char-name .sh-edit-input{font-family:var(--fh);font-size:20px;font-weight:600;color:var(--accent);letter-spacing:.02em;background:transparent;border-color:var(--bdr2);padding:2px 6px;}
 .sh-char-player .sh-edit-input{font-family:var(--fl);font-size:11px;color:var(--txt2);background:transparent;border-color:var(--bdr);padding:2px 6px;}
 .sh-char-concept .sh-edit-input{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;background:transparent;border-color:var(--bdr);padding:2px 6px;}
 .sheet-edit-btn.editing{background:var(--accent-a8);color:var(--accent);}
@@ -419,14 +417,14 @@ html:not([data-theme="dark"]) .edit-icon {
 /* ══ SHEET VIEW ══ */
 #v-sheet.active{display:block;padding:0;overflow-y:auto;}
 .sheet-topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surf);border-bottom:1px solid var(--bdr);}
-.sheet-topbar button{background:none;border:none;font-family:var(--fl);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);cursor:pointer;padding:6px 10px;border-radius:4px;}
+.sheet-topbar button{background:none;border:none;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);cursor:pointer;padding:6px 10px;border-radius:4px;}
 .sheet-topbar button:hover{color:var(--accent);background:var(--accent-a8);}
 .sheet-topbar .sheet-edit-btn{margin-left:auto;border:1px solid var(--bdr2);color:var(--accent);}
 
 /* ── Character header ── */
 .sh-char-hdr{background:var(--surf);border-bottom:1px solid var(--bdr2);}
 .sh-namerow{padding:14px 14px 10px;border-bottom:1px solid var(--bdr);}
-.sh-char-name{font-family:var(--fh);font-size:20px;color:var(--accent);letter-spacing:.02em;line-height:1.2;margin-bottom:4px;}
+.sh-char-name{font-family:var(--fh);font-size:20px;font-weight:600;color:var(--accent);letter-spacing:.02em;line-height:1.2;margin-bottom:4px;}
 /* Audit badge — inline next to character name */
 .audit-badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:4px;cursor:default;white-space:pre-line;vertical-align:middle;margin-left:8px;font-family:var(--fl);letter-spacing:.02em;}
 .audit-ok{color:var(--result-succ);font-size:14px;}
@@ -718,9 +716,6 @@ input.sh-edit-input:disabled {
    index.html is always dark — these rules never fire there.
    ══════════════════════════════════════════ */
 
-/* Cinzel weight floor: only remaining Cinzel elements (character name display) */
-html:not([data-theme="dark"]) .sh-char-name,
-html:not([data-theme="dark"]) .edit-charname { font-weight: 600; }
 
 /* Stat/status diamond and pip numbers — light text on dark SVG shape background */
 html:not([data-theme="dark"]) .sh-stat-n,
