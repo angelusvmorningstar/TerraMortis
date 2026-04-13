@@ -2367,6 +2367,19 @@ body {
 .feeding-v-num { font-family: var(--fhd); font-size: 36px; color: var(--gold2); }
 .feeding-v-label { font-size: 13px; color: var(--txt2); }
 .feeding-no-vessels { color: var(--txt3); font-style: italic; margin-top: 16px; }
+.feeding-vessels-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: center; }
+.feeding-vessel-card { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; }
+.fvc-label { font-family: var(--fh); font-size: 12px; color: var(--txt3); min-width: 62px; }
+.fvc-val { font-size: 13px; color: var(--txt2); min-width: 52px; }
+.fvc-select { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-size: 13px; padding: 4px 8px; }
+.fvc-consequence { font-size: 12px; min-width: 100px; }
+.fvc-consequence.fvc-safe { color: var(--gold2); }
+.fvc-consequence.fvc-drained { color: #C89040; }
+.fvc-consequence.fvc-serious { color: var(--crim); }
+.fvc-consequence.fvc-critical { color: #CC0000; }
+.fvc-total { margin-top: 12px; font-size: 14px; color: var(--txt2); }
+.fvc-alloc-badge { display: inline-block; margin-top: 12px; padding: 6px 14px; background: var(--surf); border: 1px solid #3a8a3a; border-radius: 6px; color: #3a8a3a; font-size: 12px; font-family: var(--fh); text-transform: uppercase; letter-spacing: .08em; }
+.feeding-dramatic { margin-top: 16px; padding: 16px; background: var(--surf); border: 1px solid var(--err); border-radius: 8px; color: var(--err); font-size: 14px; text-align: center; }
 .feeding-overfeed-warn { font-size: 12px; color: var(--err); margin-top: 8px; }
 .feeding-roll-btn { width: 100%; padding: 14px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: 6px; color: #fff; font-family: var(--fh); font-size: 14px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; margin-top: 16px; }
 .feeding-roll-btn:hover { filter: brightness(1.2); }

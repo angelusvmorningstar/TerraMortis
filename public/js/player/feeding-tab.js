@@ -40,6 +40,7 @@ let poolTotal = 0;
 let poolBreakdown = '';
 let stRote = false; // rote flag confirmed by ST in downtime processing
 let rollResult = null;
+let vitaeAllocation = null; // array of ints after player confirms, or null
 let feedingRecord = null; // persisted feeding_rolls record from DB
 let responseSubId = null; // submission _id for persisting player roll
 let publishedFeedingText = null; // extracted Feeding section from published_outcome
@@ -55,6 +56,7 @@ export async function renderFeedingTab(el, char) {
 
   feedingState = 'loading';
   rollResult = null;
+  vitaeAllocation = null;
   feedingRecord = null;
   declaredMethod = null;
   selectedMethodId = '';
@@ -100,6 +102,9 @@ export async function renderFeedingTab(el, char) {
     if (mySub.feeding_roll_player) {
       rollResult = mySub.feeding_roll_player;
       feedingState = 'rolled';
+      if (mySub.feeding_vitae_allocation) {
+        vitaeAllocation = mySub.feeding_vitae_allocation;
+      }
       render();
       return;
     }
@@ -300,6 +305,21 @@ function buildPool(method, discName, specName) {
   poolBreakdown = parts.join(' + ') + ` = ${poolTotal}`;
 }
 
+function fvcConseqText(v) {
+  if (v <= 2) return 'Safe';
+  if (v === 3) return 'Drained';
+  if (v <= 5) return 'Serious injury';
+  if (v === 6) return 'Critical';
+  return 'Fatal';
+}
+
+function fvcConseqClass(v) {
+  if (v <= 2) return 'fvc-safe';
+  if (v === 3) return 'fvc-drained';
+  if (v <= 5) return 'fvc-serious';
+  return 'fvc-critical';
+}
+
 function render() {
   if (!container) return;
   const isST = isSTRole();
@@ -376,7 +396,7 @@ function render() {
 
   // ── ROLLED ──
   if (feedingState === 'rolled' && rollResult) {
-    const { cols, successes, vessels, safeVitae, methodName } = rollResult;
+    const { cols, successes, vessels, safeVitae, methodName, dramaticFailure } = rollResult;
 
     // Show ST-confirmed result if published
     if (publishedFeedingText) {
@@ -403,14 +423,45 @@ function render() {
     }
     h += '</div>';
 
-    if (vessels === 0) {
+    if (dramaticFailure) {
+      h += '<div class="feeding-dramatic">Dramatic failure \u2014 see your Storyteller at game before feeding.</div>';
+    } else if (vessels === 0) {
       h += '<p class="feeding-no-vessels">No vessels secured this hunt.</p>';
     } else {
-      h += '<div class="feeding-vessels">';
-      h += `<div class="feeding-v-num">${vessels}</div>`;
-      h += `<div class="feeding-v-label">vessel${vessels !== 1 ? 's' : ''} available \u2014 <strong>${safeVitae} Vitae</strong> safe (2 per vessel)</div>`;
+      const allocated = vitaeAllocation && vitaeAllocation.length === vessels;
+      h += `<div class="feeding-vessels-grid" id="feeding-vessels-grid">`;
+      for (let i = 0; i < vessels; i++) {
+        h += `<div class="feeding-vessel-card" data-vessel-idx="${i}">`;
+        h += `<span class="fvc-label">Vessel ${i + 1}</span>`;
+        if (allocated) {
+          const sv = vitaeAllocation[i];
+          h += `<span class="fvc-val">${sv} vitae</span>`;
+          h += `<span class="fvc-consequence ${fvcConseqClass(sv)}">${fvcConseqText(sv)}</span>`;
+        } else {
+          h += `<select class="fvc-select" id="fvc-sel-${i}" data-vessel-idx="${i}">`;
+          h += '<option value="">\u2014</option>';
+          h += '<option value="1">1 vitae \u2014 Safe</option>';
+          h += '<option value="2">2 vitae \u2014 Safe</option>';
+          h += '<option value="3">3 vitae \u2014 Drained (medical care needed)</option>';
+          h += '<option value="4">4 vitae \u2014 Serious injury</option>';
+          h += '<option value="5">5 vitae \u2014 Serious injury</option>';
+          h += '<option value="6">6 vitae \u2014 Critical (near death)</option>';
+          h += '<option value="7">7 vitae \u2014 Fatal</option>';
+          h += '</select>';
+          h += `<span class="fvc-consequence" id="fvc-con-${i}"></span>`;
+        }
+        h += '</div>';
+      }
       h += '</div>';
-      h += '<p class="feeding-overfeed-warn">Draining beyond safe vitae risks a Humanity check.</p>';
+      if (allocated) {
+        const total = vitaeAllocation.reduce((a, b) => a + b, 0);
+        h += `<div class="fvc-total">Total Vitae: <strong>${total}</strong></div>`;
+        h += '<div class="fvc-alloc-badge">\u2713 Allocation recorded</div>';
+      } else {
+        h += `<div class="fvc-total">Total Vitae: <span id="fvc-total-val">0</span></div>`;
+        h += `<p class="feeding-overfeed-warn">Draining beyond safe vitae (${safeVitae}) risks a Humanity check.</p>`;
+        h += '<button id="fvc-confirm" class="qf-btn qf-btn-submit" disabled>Confirm Allocation</button>';
+      }
     }
 
     if (isST) {
@@ -444,6 +495,14 @@ function wireEvents() {
     render();
   });
 
+  // Vessel allocation selectors
+  container.querySelectorAll('.fvc-select').forEach(sel => {
+    sel.addEventListener('change', updateVesselUI);
+  });
+
+  // Confirm allocation
+  container.querySelector('#fvc-confirm')?.addEventListener('click', doConfirmAllocation);
+
   // Roll button
   container.querySelector('#feeding-roll-btn')?.addEventListener('click', doFeedingRoll);
 
@@ -452,9 +511,15 @@ function wireEvents() {
     const lockKey = `tm_feed_rolled_${currentChar._id}`;
     localStorage.removeItem(lockKey);
     rollResult = null;
+    vitaeAllocation = null;
     // Clear DB lock
     if (responseSubId) {
-      try { await apiPut(`/api/downtime_submissions/${responseSubId}`, { feeding_roll_player: null }); } catch { /* ignore */ }
+      try {
+        await apiPut(`/api/downtime_submissions/${responseSubId}`, {
+          feeding_roll_player: null,
+          feeding_vitae_allocation: null,
+        });
+      } catch { /* ignore */ }
     }
     // Reset to ready or no_submission
     if (declaredMethod) {
@@ -465,6 +530,43 @@ function wireEvents() {
     }
     render();
   });
+}
+
+function updateVesselUI() {
+  const sels = Array.from(container.querySelectorAll('.fvc-select'));
+  let total = 0, allFilled = true;
+  sels.forEach(sel => {
+    const idx = sel.dataset.vesselIdx;
+    const conEl = container.querySelector(`#fvc-con-${idx}`);
+    if (sel.value) {
+      const v = parseInt(sel.value, 10);
+      total += v;
+      if (conEl) { conEl.textContent = fvcConseqText(v); conEl.className = `fvc-consequence ${fvcConseqClass(v)}`; }
+    } else {
+      allFilled = false;
+      if (conEl) { conEl.textContent = ''; conEl.className = 'fvc-consequence'; }
+    }
+  });
+  const totalEl = container.querySelector('#fvc-total-val');
+  if (totalEl) totalEl.textContent = total;
+  const confirmBtn = container.querySelector('#fvc-confirm');
+  if (confirmBtn) confirmBtn.disabled = !allFilled || sels.length === 0;
+}
+
+async function doConfirmAllocation() {
+  const sels = Array.from(container.querySelectorAll('.fvc-select'));
+  const alloc = sels.map(s => parseInt(s.value, 10));
+  if (alloc.some(v => isNaN(v))) return;
+
+  if (responseSubId) {
+    try {
+      await apiPut(`/api/downtime_submissions/${responseSubId}`, { feeding_vitae_allocation: alloc });
+    } catch {
+      return; // leave selectors interactive on failure
+    }
+  }
+  vitaeAllocation = alloc;
+  render();
 }
 
 function rollDiceRote(n) {
@@ -479,6 +581,7 @@ async function doFeedingRoll() {
   const cols = stRote ? rollDiceRote(poolTotal) : rollDice(poolTotal);
   const successes = cntSuc(cols);
   const methodName = declaredMethod?.name || FEED_METHODS.find(m => m.id === selectedMethodId)?.name || 'Unknown';
+  const usedDisc = !!(declaredDisc || selectedDisc);
 
   rollResult = {
     cols,
@@ -489,6 +592,7 @@ async function doFeedingRoll() {
     pool: poolTotal,
     breakdown: poolBreakdown,
     rolledAt: new Date().toISOString(),
+    dramaticFailure: usedDisc && successes === 0,
   };
 
   feedingState = 'rolled';
