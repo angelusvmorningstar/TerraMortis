@@ -1705,7 +1705,7 @@ body {
 .dt-pub-when { font-size: 11px; color: var(--txt-dim); }
 .dt-publish-ready { border-color: var(--green3) !important; color: var(--green3) !important; }
 .dt-pub-badge { font-size: 11px; color: var(--green3); background: var(--result-succ-bg); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
-.dt-ready-badge { font-size: 11px; color: var(--gold); background: rgba(180,130,0,.12); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.dt-ready-badge { font-size: 11px; color: var(--accent); background: var(--accent-a8); padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
 .dt-publish-hint { font-size: 11px; color: var(--txt-dim); }
 
 /* ── Investigation Tracker (1.5) ── */
@@ -2095,7 +2095,7 @@ body {
 /* Shared roll classes — suite.css defines these for mobile; we redefine for admin */
 #dice-engine .slabel { font-family: var(--fl); font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--txt2); margin-bottom: 8px; }
 #dice-engine .crow { display: flex; align-items: center; gap: 8px; }
-#dice-engine .cbtn { width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--gold); font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+#dice-engine .cbtn { width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--accent); font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
 #dice-engine .cbtn:hover { background: var(--surf3); }
 #dice-engine .cval { flex: 1; height: 48px; border-radius: 8px; border: 1px solid var(--bdr); background: var(--surf2); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 500; color: var(--txt); }
 #dice-engine .cval.chance { color: var(--err); }
@@ -2108,7 +2108,7 @@ body {
 #dice-engine .bval.neg { color: var(--err); }
 #dice-engine .arow { display: flex; gap: 6px; }
 #dice-engine .abtn { flex: 1; height: 42px; border-radius: 6px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt3); font-family: var(--fl); font-size: 12px; letter-spacing: .04em; cursor: pointer; }
-#dice-engine .abtn.on { border-color: var(--bdr2); color: var(--gold); background: var(--gold-a7); }
+#dice-engine .abtn.on { border-color: var(--bdr2); color: var(--accent); background: var(--accent-a8); }
 #dice-engine .mrow { display: flex; gap: 6px; }
 #dice-engine .mchip { flex: 1; height: 42px; border-radius: 6px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--txt3); font-family: var(--fl); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 #dice-engine .mchip.on { border-color: var(--crim-a55); color: var(--accent); background: var(--crim-a15); }
@@ -2143,7 +2143,7 @@ body {
 
 /* Character & pool builder */
 .de-shortcut-row { display: flex; gap: 8px; }
-.de-sc-btn { flex: 1; height: 44px; border-radius: 8px; padding: 0 14px; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--gold); font-family: var(--fl); font-size: 12px; letter-spacing: .06em; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.de-sc-btn { flex: 1; height: 44px; border-radius: 8px; padding: 0 14px; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--accent); font-family: var(--fl); font-size: 12px; letter-spacing: .06em; cursor: pointer; appearance: none; -webkit-appearance: none; }
 .de-sc-btn:focus { outline: none; border-color: var(--gold); }
 
 .de-pool-builder { display: flex; flex-direction: column; gap: 8px; }
@@ -2153,10 +2153,10 @@ body {
 
 .de-spec-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .de-spec-chip { border-radius: 10px; padding: 4px 10px; border: 0.5px solid var(--bdr); background: var(--surf2); color: var(--txt2); font-family: var(--fl); font-size: 12px; letter-spacing: .04em; cursor: pointer; }
-.de-spec-chip.on { border-color: var(--gold-a30); background: var(--gold-a7); color: var(--gold); }
-.de-spec-bonus { color: var(--gold); margin-left: 2px; }
+.de-spec-chip.on { border-color: var(--accent-a40); background: var(--accent-a8); color: var(--accent); }
+.de-spec-bonus { color: var(--accent); margin-left: 2px; }
 
-.de-load-btn { height: 34px; border-radius: 6px; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--gold); font-family: var(--fl); font-size: 13px; letter-spacing: .06em; cursor: pointer; }
+.de-load-btn { height: 34px; border-radius: 6px; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--accent); font-family: var(--fl); font-size: 13px; letter-spacing: .06em; cursor: pointer; }
 .de-load-btn:hover { background: var(--surf3); }
 
 /* Power info banner */
@@ -2220,13 +2220,13 @@ body {
 
 /* Reuse suite feed classes in admin context */
 #feeding-engine .feed-method-card { padding: 10px; border: 1px solid var(--bdr); background: var(--surf2); cursor: pointer; text-align: left; border-radius: 4px; }
-#feeding-engine .feed-method-card.selected { border-color: var(--gold); background: var(--gold-a8); }
+#feeding-engine .feed-method-card.selected { border-color: var(--accent); background: var(--accent-a8); }
 #feeding-engine .feed-method-card:hover { border-color: var(--bdr2); }
 #feeding-engine .feed-method-name { font-family: var(--fl); font-size: 12px; color: var(--txt); letter-spacing: .04em; margin-bottom: 2px; }
 #feeding-engine .feed-method-desc { font-size: 13px; color: var(--txt3); font-style: italic; }
 #feeding-engine .feed-pool-box { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px; margin-bottom: 10px; }
 #feeding-engine .feed-pool-breakdown { font-family: var(--fl); font-size: 13px; color: var(--txt2); letter-spacing: .04em; line-height: 1.8; }
-#feeding-engine .feed-pool-breakdown span { color: var(--gold); }
+#feeding-engine .feed-pool-breakdown span { color: var(--accent); }
 #feeding-engine .feed-pool-breakdown .feed-dim { color: var(--txt3); }
 #feeding-engine .feed-pool-total { text-align: right; }
 #feeding-engine .feed-pool-n { font-family: var(--fl); font-size: 36px; color: var(--accent); line-height: 1; }
@@ -2300,7 +2300,7 @@ body {
 .st-admin-cell-row { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .st-admin-cell-val { font-family: var(--fl); font-size: 24px; color: var(--txt); min-width: 28px; }
 .st-admin-cell-max { font-size: 12px; color: var(--txt3); }
-.st-admin-adj { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--gold); font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.st-admin-adj { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--bdr); background: var(--surf2); color: var(--accent); font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .st-admin-adj:hover { border-color: var(--gold-a30); background: var(--gold-a8); }
 
 .st-admin-dt { border-top: 1px solid var(--bdr); padding-top: 10px; }
@@ -4786,11 +4786,6 @@ html:not([data-theme="dark"]) .cc-audit-err {
   background: var(--crim-a15);
   border-color: var(--crim-a40);
 }
-html:not([data-theme="dark"]) .cc-audit-warn {
-  color: var(--gold);
-  background: rgba(139,96,16,.12);
-  border-color: rgba(139,96,16,.30);
-}
 
 /* Ambience pending chip — dark background/neon text don't suit parchment */
 html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
@@ -4820,11 +4815,6 @@ html:not([data-theme="dark"]) .btn-sm {
   border-color: var(--bdr2);
 }
 
-/* "PUSH READY" badge */
-html:not([data-theme="dark"]) .dt-ready-badge {
-  color: var(--crim);
-  background: var(--crim-a8);
-}
 
 /* Checklist unsighted "?" marks — hardcoded amber → crimson */
 html:not([data-theme="dark"]) .dt-chk-unsighted { color: var(--crim); }
