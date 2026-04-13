@@ -781,3 +781,16 @@ html:not([data-theme="dark"]) .audit-warn { color: var(--crim); }
 
 /* Skill flag active state (font-weight already set) */
 html:not([data-theme="dark"]) .skill-flag.on { color: var(--crim); }
+
+/* 9-Again / 9-Again (PT) / 9-Again (OHM) tags — --txt2 warm-brown is indistinct on cream; use crimson */
+html:not([data-theme="dark"]) .sh-skill-na { color: var(--crim); }
+
+/* +2 AoE bonus inline green (rgba(140,200,140,.8)) is washed out on cream; redirect to crimson */
+html:not([data-theme="dark"]) .sh-skill-spec span { color: var(--crim) !important; }
+html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important; }
+
+/* Manoeuvres sub-headings — all three use inline gold2 in edit mode; !important beats inline */
+html:not([data-theme="dark"]) .sh-sub-title { color: var(--crim) !important; }
+
+/* Grant pool row — style point tag name uses inline gold2 in view mode */
+html:not([data-theme="dark"]) .grant-pool-row span:first-child { color: var(--crim) !important; }
