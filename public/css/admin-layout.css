@@ -37,6 +37,7 @@ body {
 .sidebar-title {
   font-family: var(--fh);
   font-size: 18px;
+  font-weight: 900;
   color: var(--accent);
   letter-spacing: 1px;
 }
@@ -44,6 +45,7 @@ body {
 .sidebar-sub {
   font-family: var(--fl);
   font-size: 13px;
+  font-weight: 700;
   color: var(--txt3);
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -60,10 +62,10 @@ body {
   background: none;
   border: none;
   color: var(--txt2);
-  font-family: var(--fl);
+  font-family: var(--fh);
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .06em;
+  font-weight: 600;
+  letter-spacing: .04em;
   text-transform: uppercase;
   text-align: left;
   padding: 12px 20px;
@@ -171,15 +173,19 @@ body {
 }
 
 .domain-header h2 {
-  font-family: var(--fl);
+  font-family: var(--fh);
   font-size: 22px;
   color: var(--accent);
   font-weight: 600;
 }
 
 .domain-count {
-  font-size: 13px;
-  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--label-tertiary);
 }
 
 .btn-sm {
@@ -269,43 +275,42 @@ body {
   min-height: 1em;
 }
 
-/* ── Sidebar app nav (bottom, above user) ── */
+/* ── Sidebar footer nav ── */
 
-.sidebar-app-nav {
+.sidebar-footer-nav {
   margin-top: auto;
-  padding: 12px 20px;
+  padding: 12px 16px;
   border-top: 1px solid var(--bdr);
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-/* ── Sidebar theme toggle ── */
-
-.sidebar-theme {
-  padding: 8px 20px;
-  border-top: 1px solid var(--bdr);
-}
-
-.theme-toggle-btn {
+.sb-link-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
   background: none;
   border: 1px solid var(--bdr2);
   border-radius: 4px;
-  color: var(--txt2);
+  color: var(--label-secondary);
   font-family: var(--fl);
   font-size: 11px;
+  font-variant: small-caps;
   font-weight: 600;
   letter-spacing: .06em;
-  text-transform: uppercase;
-  padding: 5px 10px;
-  cursor: pointer;
-  width: 100%;
   text-align: center;
-  transition: background 0.15s, color 0.15s;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
-.theme-toggle-btn:hover {
+.sb-link-btn:hover {
   background: var(--surf2);
   color: var(--txt);
+  border-color: var(--accent-a25);
 }
 
 /* ── Sidebar user (bottom) ── */
