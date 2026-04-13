@@ -13,13 +13,11 @@
 .cc-alert{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:700;font-family:var(--fb);line-height:1;}
 .cc-alert.red{background:rgba(180,30,30,.9);color:#fff;border:1px solid rgba(255,80,80,.4);}
 .cc-alert.yellow{background:rgba(180,140,20,.85);color:#fff;border:1px solid rgba(255,210,60,.4);font-size:8px;}
-.cc-icon{width:28px;height:28px;flex-shrink:0;opacity:.7;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);}
 .cc-identity{flex:1;min-width:0;}
 .cc-name{font-family:var(--fh);font-size:15px;color:var(--gold2);letter-spacing:.02em;}
 .cc-player{font-size:12px;color:var(--txt3);}
 .cc-mid{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .cc-tag{font-family:var(--fh);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);background:var(--surf2);border:0.5px solid var(--bdr);border-radius:10px;padding:2px 8px;display:flex;align-items:center;gap:4px;}
-.cc-tag img{width:14px;height:14px;opacity:.6;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);}
 .cc-tag.clan{color:var(--txt2);}
 .cc-tag.cov{color:var(--gdim);}
 .cc-tag.title{color:var(--gold);border-color:var(--bdr2);}
@@ -65,6 +63,11 @@
 /* ── Shared icon filters ── */
 .topbar-logo{width:28px;height:28px;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);opacity:.8;}
 .edit-icon{width:22px;height:22px;opacity:.7;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);}
+/* faction-icon: clan/covenant <span> elements using CSS mask + background-color.
+   Avoids filter-chain maths entirely — background-color is the icon colour. */
+.faction-icon{display:inline-block;background-color:var(--gold);-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;}
+.clan-icon{opacity:.7;}
+.cov-icon{opacity:.6;}
 
 /* ── Search and filter toolbar ── */
 .list-toolbar{display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;}
@@ -102,15 +105,22 @@
    index.html is always dark — these rules never fire there.
    ══════════════════════════════════════════ */
 
+/* Form section title — --gdim (gold) → crimson on parchment */
+html:not([data-theme="dark"]) .form-section-title { color: var(--crim); }
+
 /* Character card — crimson accents instead of gold on parchment */
 html:not([data-theme="dark"]) .cc-name { color: var(--crim); }
 html:not([data-theme="dark"]) .cc-tag.cov { color: var(--crim2); }
 html:not([data-theme="dark"]) .cc-tag.title { color: var(--crim); border-color: var(--crim-a25); }
-html:not([data-theme="dark"]) .cc-icon,
-html:not([data-theme="dark"]) .cc-tag img,
+/* Faction icons: switch background-color to crimson on parchment.
+   opacity:1 overrides the .clan-icon/.cov-icon dim values tuned for dark bg. */
+html:not([data-theme="dark"]) .faction-icon { background-color: var(--crim); opacity: 1; }
+
+/* Topbar / edit button icons: filter recolour on parchment */
 html:not([data-theme="dark"]) .topbar-logo,
 html:not([data-theme="dark"]) .edit-icon {
-  filter: invert(1) sepia(1) hue-rotate(330deg) saturate(6) brightness(0.9);
+  filter: invert(1) sepia(1) hue-rotate(300deg) brightness(0.30);
+  opacity: 1;
 }
 
 /* Cinzel weight floor: 600 minimum on parchment */
@@ -123,3 +133,11 @@ html:not([data-theme="dark"]) .exp-val,
 html:not([data-theme="dark"]) .exp-wp-lbl,
 html:not([data-theme="dark"]) .exp-ts-hum,
 html:not([data-theme="dark"]) .list-count { font-weight: 600; }
+
+/* Expandable row values — --txt2 warm brown reads as amber on parchment; pin to near-black */
+html:not([data-theme="dark"]) .exp-val { color: var(--txt); }
+
+/* Dot stepper — crimson fills on parchment */
+html:not([data-theme="dark"]) .dot.filled { color: var(--crim); }
+html:not([data-theme="dark"]) .dot.bonus  { color: var(--crim2); }
+html:not([data-theme="dark"]) .dot.empty  { color: var(--crim); opacity: .20; }

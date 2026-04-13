@@ -4787,7 +4787,13 @@ html:not([data-theme="dark"]) .de-sc-btn,
 html:not([data-theme="dark"]) .de-load-btn,
 html:not([data-theme="dark"]) .de-spec-chip,
 html:not([data-theme="dark"]) .de-history .hist-clr,
-html:not([data-theme="dark"]) .de-history .hmeta { font-weight: 600; }
+html:not([data-theme="dark"]) .de-history .hmeta,
+html:not([data-theme="dark"]) .proc-mod-panel-title,
+html:not([data-theme="dark"]) .proc-feed-lbl,
+html:not([data-theme="dark"]) .proc-amb-title,
+html:not([data-theme="dark"]) .proc-attach-char-header,
+html:not([data-theme="dark"]) .proc-val-status button,
+html:not([data-theme="dark"]) .proc-response-reviewed-label { font-weight: 600; }
 
 /* Character name in processing row — 700 for prominence */
 html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }
@@ -4816,6 +4822,45 @@ html:not([data-theme="dark"]) #dice-engine .empty-d { font-weight: 600; }
 /* Processing validation status buttons — neon colours fail on parchment */
 html:not([data-theme="dark"]) .proc-val-status button.active.pending   { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }
 html:not([data-theme="dark"]) .proc-val-status button.active.validated { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
+html:not([data-theme="dark"]) .proc-val-status button:hover             { border-color: var(--crim-a40); color: var(--txt); }
+
+/* Proc panel hover/focus gold states → crimson on parchment */
+html:not([data-theme="dark"]) .proc-mod-ticker button:hover       { border-color: var(--crim-a40); }
+html:not([data-theme="dark"]) .proc-pool-mod-dec:hover,
+html:not([data-theme="dark"]) .proc-pool-mod-inc:hover            { border-color: var(--crim-a40); color: var(--crim); }
+html:not([data-theme="dark"]) .proc-pool-input:focus,
+html:not([data-theme="dark"]) .proc-feedback-input:focus,
+html:not([data-theme="dark"]) .proc-note-textarea:focus,
+html:not([data-theme="dark"]) .proc-st-response-textarea:focus,
+html:not([data-theme="dark"]) .proc-rite-cost-input:focus,
+html:not([data-theme="dark"]) .proc-attach-text:focus,
+html:not([data-theme="dark"]) .proc-amb-notes:focus,
+html:not([data-theme="dark"]) .proc-pool-builder-selects select:focus { border-color: var(--crim-a40); outline: none; }
+html:not([data-theme="dark"]) .proc-open-sub-link:hover           { color: var(--crim); }
+html:not([data-theme="dark"]) .proc-amb-confirm-btn:hover         { border-color: var(--crim-a40); color: var(--crim); }
+
+/* Rote checkbox accent — gold2 → crimson */
+html:not([data-theme="dark"]) .proc-pool-rote-label input[type="checkbox"] { accent-color: var(--crim); }
+
+/* Reviewed-label colour (gold2 in base) → crimson */
+html:not([data-theme="dark"]) .proc-response-reviewed-label { color: var(--crim); }
+
+/* Reminder badge left border (base uses border-left shorthand, must use border-left-color) */
+html:not([data-theme="dark"]) .proc-reminder-badge { border-left-color: var(--crim-a40); }
+
+/* Audit badges — base colours are too faint on cream parchment.
+   Error → strong crimson. Warning → dark parchment gold (#8B6010) for semantic
+   distinction from error while staying legible on the light background. */
+html:not([data-theme="dark"]) .cc-audit-err {
+  color: var(--crim);
+  background: var(--crim-a15);
+  border-color: var(--crim-a40);
+}
+html:not([data-theme="dark"]) .cc-audit-warn {
+  color: var(--gold);
+  background: rgba(139,96,16,.12);
+  border-color: rgba(139,96,16,.30);
+}
 
 /* Ambience pending chip — dark background/neon text don't suit parchment */
 html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
@@ -4825,3 +4870,104 @@ html:not([data-theme="dark"]) .proc-amb-pos,
 html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green3); }
 html:not([data-theme="dark"]) .proc-amb-neg,
 html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-neg { color: var(--crim); }
+
+/* ── Downtime tab: gold → crimson sweep ───────────────────────────────────── */
+
+/* Pipeline ribbon — active step: gold2 background → crimson */
+html:not([data-theme="dark"]) .pr-active { background: var(--crim); color: var(--bg); }
+
+/* Pipeline ribbon — done steps: faded gold → faded crimson */
+html:not([data-theme="dark"]) .pr-done { color: var(--crim-a60); }
+html:not([data-theme="dark"]) .pr-done .pr-step-num {
+  background: var(--crim-a12);
+  color: var(--crim-a60);
+  border-color: var(--crim-a30);
+}
+
+/* Pipeline sub-ribbon — done and active states */
+html:not([data-theme="dark"]) .pr-sub.pr-done { color: var(--crim-a60); }
+html:not([data-theme="dark"]) .pr-sub.pr-active {
+  color: var(--crim);
+  background: var(--crim-a12);
+  border-color: var(--crim-a30);
+}
+
+/* btn-sm (utility action button) — gold text/border → neutral dark */
+html:not([data-theme="dark"]) .btn-sm {
+  color: var(--txt);
+  border-color: var(--bdr2);
+}
+
+/* dt-btn-game (phase-specific button variant) — gold → crimson */
+html:not([data-theme="dark"]) .dt-btn-game { color: var(--crim); border-color: var(--crim-a40); }
+
+/* Submission status chips */
+html:not([data-theme="dark"]) .dt-status-game     { background: var(--crim-a12); color: var(--crim); }
+html:not([data-theme="dark"]) .dt-status-modified { background: var(--crim-a8);  color: var(--crim); }
+
+/* "26 PENDING" badge and "PUSH READY" badge */
+html:not([data-theme="dark"]) .dt-proj-pending-badge {
+  color: var(--crim);
+  background: var(--crim-a8);
+}
+html:not([data-theme="dark"]) .dt-ready-badge {
+  color: var(--crim);
+  background: var(--crim-a8);
+}
+
+/* Active approval button (PREVIEW CSV active state) */
+html:not([data-theme="dark"]) .dt-appr-modified.active {
+  color: var(--crim);
+  background: var(--crim-a12);
+  border-color: var(--crim-a40);
+}
+
+/* Checklist unsighted "?" marks — hardcoded amber → crimson */
+html:not([data-theme="dark"]) .dt-chk-unsighted { color: var(--crim); }
+html:not([data-theme="dark"]) .dt-chk-unsighted:hover { background: var(--crim-a8); }
+
+/* Feeding matrix poach cells — hardcoded amber → crimson */
+html:not([data-theme="dark"]) .dt-matrix-poach {
+  color: var(--crim);
+  background: var(--crim-a8);
+}
+
+/* ── Expanded action / processing panel — gold → crimson on parchment ── */
+/* Panel and section headings */
+html:not([data-theme="dark"]) .proc-mod-panel-title,
+html:not([data-theme="dark"]) .proc-response-sub-title,
+html:not([data-theme="dark"]) .proc-amb-title { color: var(--crim); }
+
+/* Row labels, character header, pool totals, notation, committed pool, confirmed state */
+html:not([data-theme="dark"]) .proc-row-label,
+html:not([data-theme="dark"]) .proc-attach-char-header,
+html:not([data-theme="dark"]) .proc-pool-total,
+html:not([data-theme="dark"]) .proc-mod-total-val,
+html:not([data-theme="dark"]) .proc-vitae-total-val,
+html:not([data-theme="dark"]) .proc-proj-val-notation,
+html:not([data-theme="dark"]) .proc-feed-committed-pool,
+html:not([data-theme="dark"]) .proc-amb-confirmed { color: var(--crim); }
+
+/* Badges: amber bg + gold text → crimson badge on cream */
+html:not([data-theme="dark"]) .proc-reminder-badge,
+html:not([data-theme="dark"]) .proc-feed-rote-badge,
+html:not([data-theme="dark"]) .proc-disc-high {
+  color: var(--crim);
+  background: var(--crim-a8);
+  border-color: var(--crim-a25);
+}
+
+/* Roll result and reviewed-status badges */
+html:not([data-theme="dark"]) .proc-feed-roll-result,
+html:not([data-theme="dark"]) .proc-response-status-reviewed {
+  color: var(--crim);
+  background: var(--crim-a8);
+  border-color: var(--crim-a25);
+}
+
+/* CRITICAL — dark orange bg hardcoded (#5a3010 equiv): completely unreadable on cream */
+html:not([data-theme="dark"]) .proc-pool-nochar-warn {
+  color: var(--crim);
+  background: var(--crim-a8);
+  border-color: var(--crim-a25);
+}

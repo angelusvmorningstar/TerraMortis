@@ -5,7 +5,7 @@
 import state from '../data/state.js';
 import { CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS, RITUAL_DISCS, CLAN_ATTR_OPTIONS, ATTR_CATS, PRI_LABELS, PRI_BUDGETS, SKILL_PRI_BUDGETS, SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, SKILL_CATS, CLANS, COVENANTS, MASKS_DIRGES, COURT_TITLES, BLOODLINE_CLANS, BANE_LIST, INFLUENCE_MERIT_TYPES, INFLUENCE_SPHERES, DOMAIN_MERIT_TYPES, ALL_SKILLS, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, HEALTH_SVG, WP_SVG, STAT_SVG, STYLE_TAGS } from '../data/constants.js';
 import { ICONS } from '../data/icons.js';
-import { CLAN_ICON_KEY, COV_ICON_KEY, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, displayNameRaw, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
+import { CLAN_ICON_KEY, COV_ICON_KEY, clanIcon, covIcon, shDots, shDotsWithBonus, esc, formatSpecs, hasAoE, displayName, displayNameRaw, sortName, getWillpower, redactPlayer, redactCharName, isRedactMode } from '../data/helpers.js';
 import { getAttrVal, getAttrBonus, getSkillObj, calcCityStatus, titleStatusBonus, isInClanDisc } from '../data/accessors.js';
 import { calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence } from '../data/derived.js';
 import { xpToDots, xpEarned, xpSpent, xpLeft, xpStarting, xpHumanityDrop, xpOrdeals, xpGame, xpPT5, xpSpentAttrs, xpSpentSkills, xpSpentMerits, xpSpentPowers, xpSpentSpecial, setDevotionsDB, meritBdRow } from './xp.js';
@@ -1456,7 +1456,7 @@ export function renderSheet(c, target = null) {
   if (!c) { el.innerHTML = ''; return; }
   applyDerivedMerits(c, chars); ensureMeritSync(c);
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '', st = c.status || {}, wp = getWillpower(c);
-  const clanImg = ICONS[CLAN_ICON_KEY[c.clan] || ''] || '', covImg = ICONS[COV_ICON_KEY[c.covenant] || ''] || '';
+  const clanIconHtml = clanIcon(c.clan, 36), covIconHtml = covIcon(c.covenant, 36);
   const allB = c.banes || [], curseIdx = allB.findIndex(b => b.name.toLowerCase().includes('curse')), curse = curseIdx >= 0 ? allB[curseIdx] : null, regB = allB.filter((_, i) => i !== curseIdx);
   let h = '';
   // Desktop layout hint — admin CSS uses this for 3-col grid
@@ -1522,14 +1522,14 @@ export function renderSheet(c, target = null) {
   else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), cityTotal = cityBase + titleBonus;
   h += '<div class="sh-faction-sub">Title</div>' + _cityStatusDots(cityBase, titleBonus) + '</div>' + _cityStatusPip(editMode, cityBase, cityTotal, titleBonus) + '</div>';
-  const covRow = (img, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) => { h += '<div class="sh-hdr-row">' + (img ? '<div class="sh-faction-icon"><img src="' + img + '"></div>' : '<div class="sh-icon-slot"></div>') + '<div class="sh-faction-text">' + (editMode ? editH : viewH) + '<div class="sh-faction-sub">' + sub + '</div></div>' + _statusPip(editMode, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) + '</div>'; };
+  const covRow = (iconHtml, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) => { h += '<div class="sh-hdr-row">' + (iconHtml ? '<div class="sh-faction-icon">' + iconHtml + '</div>' : '<div class="sh-icon-slot"></div>') + '<div class="sh-faction-text">' + (editMode ? editH : viewH) + '<div class="sh-faction-sub">' + sub + '</div></div>' + _statusPip(editMode, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) + '</div>'; };
   const _covBase = st.covenant || 0, _covOTSBonus = c._ots_covenant_bonus || 0, _covBonusDots = Math.max(0, _covOTSBonus - _covBase), _covEffective = Math.max(_covBase, _covOTSBonus);
-  covRow(covImg, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', (_covBonusDots > 0 ? '<div style="font-size:9px;letter-spacing:.03em">Covenant ' + shDotsWithBonus(_covBase, _covBonusDots) + '<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>' : 'Covenant'), OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots, '#9E7AE0');
+  covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', (_covBonusDots > 0 ? '<div style="font-size:9px;letter-spacing:.03em">Covenant ' + shDotsWithBonus(_covBase, _covBonusDots) + '<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>' : 'Covenant'), OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots, '#9E7AE0');
   if (editMode) {
     const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = (BLOODLINE_CLANS[c.clan] || []).slice().sort(), blO = bls.map(b => '<option' + (c.bloodline === b ? ' selected' : '') + '>' + b + '</option>').join('');
-    covRow(clanImg, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
+    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
   }
-  else covRow(clanImg, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
+  else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
   h += '</div></div></div>'; // end right, body, hdr
   // Covenant strip
   const covLbls = ['Carthian', 'Crone', 'Invictus', 'Lance'], covSM = { 'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone', 'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance' }, pLbl = covSM[c.covenant] || c.covenant;

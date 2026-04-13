@@ -80,16 +80,16 @@ export { CLAN_ICON_KEY, COV_ICON_KEY };
 
 export function clanIcon(clan, sz) {
   const k = CLAN_ICON_KEY[clan];
-  return k
-    ? '<img src="' + ICONS[k] + '" style="width:' + sz + 'px;height:' + sz + 'px;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);opacity:.7;">'
-    : '';
+  if (!k) return '';
+  const u = ICONS[k];
+  return '<span class="faction-icon clan-icon" style="-webkit-mask-image:url(\'' + u + '\');mask-image:url(\'' + u + '\');width:' + sz + 'px;height:' + sz + 'px;"></span>';
 }
 
 export function covIcon(cov, sz) {
   const k = COV_ICON_KEY[cov];
-  return k
-    ? '<img src="' + ICONS[k] + '" style="width:' + sz + 'px;height:' + sz + 'px;filter:invert(1) sepia(1) brightness(.78) saturate(2.8);opacity:.6;">'
-    : '';
+  if (!k) return '';
+  const u = ICONS[k];
+  return '<span class="faction-icon cov-icon" style="-webkit-mask-image:url(\'' + u + '\');mask-image:url(\'' + u + '\');width:' + sz + 'px;height:' + sz + 'px;"></span>';
 }
 
 export function shDots(n) {
