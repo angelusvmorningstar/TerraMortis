@@ -1876,7 +1876,7 @@ body {
 }
 
 .att-label {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   color: var(--txt2);
   text-transform: uppercase;
@@ -1890,7 +1890,7 @@ body {
   border-radius: 4px;
   padding: 6px 10px;
   font-size: 13px;
-  font-family: var(--fb);
+  font-family: var(--ft);
 }
 
 .att-date-input {
@@ -1900,23 +1900,23 @@ body {
   border-radius: 4px;
   padding: 5px 10px;
   font-size: 13px;
-  font-family: var(--fb);
+  font-family: var(--ft);
   color-scheme: dark;
 }
 
 .att-btn {
   background: var(--surf2);
-  color: var(--gold2);
+  color: var(--accent);
   border: 1px solid var(--bdr);
   border-radius: 4px;
   padding: 6px 14px;
   font-size: 12px;
-  font-family: var(--fh);
+  font-family: var(--fl);
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.att-btn:hover { border-color: var(--gold2); }
+.att-btn:hover { border-color: var(--accent); }
 
 .att-save-btn {
   background: var(--crim);
@@ -1930,14 +1930,14 @@ body {
   align-items: center;
   gap: 24px;
   padding: 8px 0 12px;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   color: var(--txt2);
   border-bottom: 1px solid var(--bdr);
   margin-bottom: 8px;
 }
 
-.att-stat strong { color: var(--gold2); }
+.att-stat strong { color: var(--accent); }
 
 .att-table {
   width: 100%;
@@ -1946,7 +1946,7 @@ body {
 }
 
 .att-table thead th {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1968,7 +1968,7 @@ body {
 .att-row.att-absent { opacity: 0.45; }
 
 .att-player-name {
-  font-family: var(--fb);
+  font-family: var(--ft);
   color: var(--txt);
   padding: 8px 6px;
   text-align: left;
@@ -1977,7 +1977,7 @@ body {
 
 .att-char-name {
   font-family: var(--fh);
-  color: var(--gold2);
+  color: var(--accent);
   padding: 8px 6px;
   text-align: left;
   font-size: 12px;
@@ -1992,7 +1992,7 @@ body {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: var(--gold2);
+  accent-color: var(--accent);
 }
 
 .att-num {
@@ -2014,8 +2014,8 @@ body {
 .att-xp {
   text-align: center;
   padding: 8px 6px;
-  font-family: var(--fh);
-  color: var(--gold2);
+  font-family: var(--fl);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -2038,7 +2038,7 @@ body {
   padding: 48px 24px;
   text-align: center;
   color: var(--txt3);
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 14px;
 }
 
@@ -2063,7 +2063,7 @@ body {
 
 .att-add-form select:focus {
   outline: none;
-  border-color: var(--gold2);
+  border-color: var(--accent);
 }
 
 /* ── Engine split layout ── */
