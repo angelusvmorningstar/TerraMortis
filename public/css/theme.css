@@ -41,6 +41,8 @@
 
   /* Text */
   --txt:#1C1410;--txt2:#4A3A28;--txt3:#6A5238;
+  /* Aliases — resolve via the theme-overrideable tokens above */
+  --txt1:var(--txt);--txt-dim:var(--txt3);
 
   /* Fonts — same for all themes */
   --fh:'Cinzel',serif;--fhd:'Cinzel Decorative',serif;--fb:'Lora',serif;
@@ -88,7 +90,7 @@
   --bdr:rgba(201,169,98,.18);--bdr2:rgba(201,169,98,.35);--bdr3:rgba(201,169,98,.55);
 
   /* Gold accents */
-  --gold:#C9A962;--gold2:#E0C47A;--gdim:#8A7040;
+  --gold:#C9A962;--gold2:#E0C47A;--gdim:#A08848;
   --gold-a4:rgba(201,169,98,.04);--gold-a5:rgba(201,169,98,.05);
   --gold-a6:rgba(201,169,98,.06);--gold-a7:rgba(201,169,98,.07);
   --gold-a8:rgba(201,169,98,.08);--gold-a10:rgba(201,169,98,.1);
