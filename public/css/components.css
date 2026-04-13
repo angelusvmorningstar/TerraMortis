@@ -491,7 +491,7 @@ html:not([data-theme="dark"]) .edit-icon {
 
 /* ── Features ── */
 .sh-features-card{background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;padding:6px 10px;margin-bottom:3px;display:flex;flex-direction:column;gap:4px;}
-.sh-features-card .sh-features-top{display:flex;align-items:center;min-height:28px;}
+.sh-features-top{display:flex;align-items:center;min-height:28px;}
 .sh-feat-none{font-family:var(--fl);font-size:12px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);}
 .sh-features-card .sh-edit-input{margin:0;font-size:11px;}
 
@@ -555,6 +555,12 @@ html:not([data-theme="dark"]) .edit-icon {
 .disc-tap-name{font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--label-secondary);}
 .disc-tap-name.sorcery{color:var(--warn-dk);}
 [data-theme="dark"] .disc-tap-name.sorcery{color:#d4a070;}
+.trait-name.sorcery{color:var(--warn-dk);}
+[data-theme="dark"] .trait-name.sorcery{color:rgba(220,160,120,.9);}
+.trait-dots.sorcery{color:var(--warn-dk);opacity:.8;}
+[data-theme="dark"] .trait-dots.sorcery{color:rgba(220,160,120,.75);opacity:1;}
+.trait-name.secondary{color:var(--txt2);}
+.trait-qual.dim{color:var(--txt3);}
 .disc-tap-dots{font-size:14px;color:var(--accent);letter-spacing:2px;}
 .disc-tap-arr{font-size:11px;color:var(--txt3);transition:transform .15s;}
 .disc-tap-row.open .disc-tap-arr{transform:rotate(90deg);}

@@ -393,22 +393,22 @@ export function shRenderDisciplines(c, editMode) {
     return parts.length ? parts.join('  \u2022  ') : '';
   }
 
-  function renderDiscRow(d, r, nameStyle) {
+  function renderDiscRow(d, r, nameClass) {
     const dp = _discPowers(d, r || 0), hasPow = dp.length > 0, id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    const nTag = '<span class="trait-name"' + (nameStyle ? ' style="' + nameStyle + '"' : '') + '>' + esc(d) + '</span>', dTag = r ? '<span class="trait-dots">' + shDots(r) + '</span>' : '';
+    const nTag = '<span class="trait-name' + (nameClass ? ' ' + nameClass : '') + '">' + esc(d) + '</span>', dTag = r ? '<span class="trait-dots' + (nameClass ? ' ' + nameClass : '') + '">' + shDots(r) + '</span>' : '';
     const _trInner = '<div class="trait-row"><div class="trait-main">' + nTag + '<div class="trait-right">' + dTag + (hasPow ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div></div></div>';
     if (!hasPow) return '<div class="disc-tap-row">' + _trInner + '</div>';
     return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')">' + _trInner + '</div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
   }
-  function renderDiscEditRow(d, r, isIC, style) {
-    const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = dObj.cp || 0, xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
+  function renderDiscEditRow(d, r, isIC, nameClass) {
+    const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = dObj.cp || 0, xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd;
     const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     // Derive powers from rules cache (same as view mode)
     const dp = _discPowers(d, dt);
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    const _eR = '<div class="trait-right">' + (r > 0 ? '<span class="trait-dots">' + shDots(r) + '</span>' : '') + (dp.length ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div>';
-    let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="trait-row"><div class="trait-main"><span class="trait-name" ' + ns + '>' + esc(d) + '</span>' + _eR + '</div>' + (isIC ? '<div class="trait-sub"><span class="disc-clan-tag">in-clan</span></div>' : '') + '</div></div>';
+    const _eR = '<div class="trait-right">' + (r > 0 ? '<span class="trait-dots' + (nameClass ? ' ' + nameClass : '') + '">' + shDots(r) + '</span>' : '') + (dp.length ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div>';
+    let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="trait-row"><div class="trait-main"><span class="trait-name' + (nameClass ? ' ' + nameClass : '') + '">' + esc(d) + '</span>' + _eR + '</div>' + (isIC ? '<div class="trait-sub"><span class="disc-clan-tag">in-clan</span></div>' : '') + '</div></div>';
     h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
     if (dp.length) h2 += '<div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
     return h2;
@@ -430,8 +430,8 @@ export function shRenderDisciplines(c, editMode) {
     if (showCr || showTh) {
       h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
       // Cruac and Theban are always out-of-clan (4 XP/dot) regardless of covenant.
-      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'color:rgba(220,160,120,.9)');
-      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'color:rgba(220,160,120,.9)');
+      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'sorcery');
+      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'sorcery');
       h += '</div></div>';
     }
   } else if (c.disciplines && Object.keys(c.disciplines).length) {
@@ -441,7 +441,7 @@ export function shRenderDisciplines(c, editMode) {
     if (core.length) { h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-list">'; core.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, null); }); h += '</div></div>'; }
     if (rit.length) {
       h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
-      rit.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); });
+      rit.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'sorcery'); });
       h += '</div></div>';
     }
   }
@@ -451,8 +451,8 @@ export function shRenderDisciplines(c, editMode) {
     h += '<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">';
     devP.forEach((p, i) => {
       const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i, db = DEVOTIONS_DB.find(d => d.n === p.name);
-      if (editMode) { h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:var(--txt2)">' + esc(p.name) + '</span><div class="trait-right">' + (db ? '<span class="dev-xp-tag">' + db.xp + ' XP</span>' : '') + '<span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveDevotion(' + i + ')" title="Remove">&times;</button></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (db ? '<div class="dev-prereq">Requires: ' + devPrereqStr(db) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
-      else { h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:var(--txt2)">' + esc(p.name) + '</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
+      if (editMode) { h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right">' + (db ? '<span class="dev-xp-tag">' + db.xp + ' XP</span>' : '') + '<span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveDevotion(' + i + ')" title="Remove">&times;</button></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (db ? '<div class="dev-prereq">Requires: ' + devPrereqStr(db) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
+      else { h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
     });
     if (editMode) {
       const owned = new Set(devP.map(p => p.name)), avail = DEVOTIONS_DB.filter(d => !owned.has(d.n) && meetsDevPrereqs(c, d));
@@ -491,9 +491,9 @@ export function shRenderDisciplines(c, editMode) {
         const canFree = !p.free && p.level <= discDots && usedFree < freePool;
         const freeLbl = p.free ? 'Free' : (xpCost + ' XP');
         const freeCls = p.free ? 'rite-free-badge' : 'rite-xp-badge';
-        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots" style="color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual" style="color:var(--txt3)">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name sorcery">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots sorcery">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
       } else {
-        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots" style="color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual" style="color:var(--txt3)">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name sorcery">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots sorcery">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
       }
     });
     if (editMode) {
@@ -551,7 +551,7 @@ export function shRenderDisciplines(c, editMode) {
         const ptColor = ptotal >= reqDots && (reqDots === 0 || ptotal === reqDots) ? 'var(--accent)' : ptotal > 0 ? 'var(--err)' : 'var(--txt3)';
         h += '<div class="pact-edit-block">'
           + '<div class="pact-edit-hdr">'
-          + '<span class="trait-name" style="font-size:12px;color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span>'
+          + '<span class="trait-name secondary" style="font-size:12px">' + esc(_toTitle(p.name)) + '</span>'
           + (reqDots ? '<span class="pact-req-dots">\u25CF'.repeat(reqDots) + ' required</span>' : '')
           + '<div class="pact-cp-xp">'
           + '<span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + pcp + '" onchange="shEditPact(' + realPi + ',\'cp\',+this.value)" style="width:36px">'
@@ -600,7 +600,7 @@ export function shRenderDisciplines(c, editMode) {
       } else {
         const _pNotes = [isOHM && p.ohm_allies_sphere ? 'Allies: ' + esc(p.ohm_allies_sphere) : '', isOHM && p.ohm_skills && p.ohm_skills.filter(Boolean).length ? '9-again: ' + p.ohm_skills.filter(Boolean).map(esc).join(', ') : '', isSW && p.partner ? 'w/ ' + esc(p.partner) + (p.shared_merit ? ' \u00B7 ' + esc(p.shared_merit) : '') : ''].filter(Boolean).join(' \u00B7 ');
         h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">'
-          + '<div class="trait-row"><div class="trait-main"><span class="trait-name" style="color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div>'
+          + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(_toTitle(p.name)) + '</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div>'
           + (_pNotes ? '<div class="trait-sub"><span class="trait-qual">' + _pNotes + '</span></div>' : '')
           + '</div></div>'
           + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">'
