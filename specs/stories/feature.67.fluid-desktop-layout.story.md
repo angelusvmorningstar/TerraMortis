@@ -1,6 +1,6 @@
 # Story feature.67: Fluid Desktop Layout
 
-## Status: review
+## Status: done
 
 ## Story
 
