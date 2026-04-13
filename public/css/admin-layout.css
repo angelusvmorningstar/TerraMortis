@@ -64,7 +64,7 @@ body {
   color: var(--txt2);
   font-family: var(--fh);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
   text-align: left;
@@ -431,7 +431,34 @@ body {
   background: var(--bdr);
 }
 
-.retire-btn { font-size: 12px; }
+.cd-header-actions .dt-btn {
+  background: none;
+  border: 1px solid var(--bdr2);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  text-decoration: none;
+}
+
+.cd-header-actions .dt-btn:hover {
+  background: var(--accent-a8);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cd-header-actions .retire-btn {
+  color: var(--err);
+  border-color: transparent;
+}
+
+.cd-header-actions .retire-btn:hover {
+  background: var(--crim-a12);
+  border-color: var(--err);
+  color: var(--err);
+}
 
 /* ── Character detail panel ── */
 
@@ -2261,11 +2288,7 @@ body {
 #feeding-engine .feed-apply-btn:hover { background: var(--crim-a40); }
 
 /* ── Player View link on character detail ── */
-.cd-player-view {
-  text-decoration: none;
-  color: var(--accent);
-}
-.cd-player-view:hover { filter: brightness(1.2); }
+.cd-player-view { text-decoration: none; }
 
 /* ══════════════════════════════════════════
    SESSION TRACKER (Engine domain)

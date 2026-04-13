@@ -1480,8 +1480,12 @@ export function renderSheet(c, target = null) {
     const ords = c.ordeals || []; if (ords.length) { h += '<div class="sh-ordeals">'; ords.forEach(o => { h += '<span class="sh-ordeal' + (o.complete ? ' done' : '') + '"><span class="sh-ordeal-dot">' + (o.complete ? '\u25CF' : '\u25CB') + '</span><span class="sh-ordeal-label">' + esc(o.name) + '</span></span>'; }); h += '</div>'; }
   }
   h += '<div class="sh-char-body"><div class="sh-char-left">';
-  if (editMode || c.concept) h += '<div class="sh-char-concept">' + (editMode ? '<input class="sh-edit-input" value="' + esc(c.concept || '') + '" onchange="shEdit(\'concept\',this.value)" placeholder="Concept">' : esc(c.concept)) + '</div>';
-  if (editMode || c.pronouns) h += '<div class="sh-char-concept">' + (editMode ? '<input class="sh-edit-input" value="' + esc(c.pronouns || '') + '" onchange="shEdit(\'pronouns\',this.value)" placeholder="Pronouns">' : esc(c.pronouns)) + '</div>';
+  if (editMode) {
+    h += '<div class="sh-char-concept"><input class="sh-edit-input" value="' + esc(c.concept || '') + '" onchange="shEdit(\'concept\',this.value)" placeholder="Concept"></div>';
+    h += '<div class="sh-char-concept"><input class="sh-edit-input" value="' + esc(c.pronouns || '') + '" onchange="shEdit(\'pronouns\',this.value)" placeholder="Pronouns"></div>';
+  } else if (c.concept || c.pronouns) {
+    h += '<div class="sh-concept-row"><span class="sh-char-concept">' + esc(c.concept || '') + '</span><span class="sh-char-pronoun">' + esc(c.pronouns || '') + '</span></div>';
+  }
   if (editMode) { h += '<div class="exp-row"><span class="exp-lbl labeled">Mask</span><select class="sh-edit-select" style="flex:1;margin:0 6px" onchange="shEdit(\'mask\',this.value)"><option value="">(none)</option>' + MASKS_DIRGES.map(m2 => '<option' + (c.mask === m2 ? ' selected' : '') + '>' + esc(m2) + '</option>').join('') + '</select></div>'; }
   else if (c.mask) { h += expRow('mask', 'Mask', esc(c.mask), (wp.mask_1wp ? '<div><span class="exp-wp-lbl">1 WP</span> ' + esc(wp.mask_1wp) + '</div>' : '') + (wp.mask_all ? '<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ' + esc(wp.mask_all) + '</div>' : '')); }
   if (editMode) { h += '<div class="exp-row"><span class="exp-lbl labeled">Dirge</span><select class="sh-edit-select" style="flex:1;margin:0 6px" onchange="shEdit(\'dirge\',this.value)"><option value="">(none)</option>' + MASKS_DIRGES.map(m2 => '<option' + (c.dirge === m2 ? ' selected' : '') + '>' + esc(m2) + '</option>').join('') + '</select></div>'; }
