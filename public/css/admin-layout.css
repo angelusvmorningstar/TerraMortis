@@ -17,7 +17,7 @@ body {
 /* ── Sidebar ── */
 
 #sidebar {
-  width: 220px;
+  width: clamp(180px, 16vw, 220px);
   flex-shrink: 0;
   height: 100vh;
   position: sticky;
@@ -147,7 +147,7 @@ body {
 
 #content {
   flex: 1;
-  padding: 32px 40px;
+  padding: 32px clamp(16px, 2.5vw, 40px);
   overflow-y: auto;
   min-width: 0;
 }
@@ -673,7 +673,7 @@ body {
 
 .city-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 32px;
   align-items: start;
 }
@@ -2069,7 +2069,7 @@ body {
 /* ── Engine split layout ── */
 .engine-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 20px;
   align-items: start;
 }
@@ -3775,7 +3775,7 @@ body {
 
 .proc-action-row {
   display: grid;
-  grid-template-columns: 160px 180px 1fr 90px;
+  grid-template-columns: minmax(120px, 160px) minmax(140px, 180px) 1fr 90px;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -3854,7 +3854,7 @@ body {
 
 .proc-detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 16px;
   margin-bottom: 14px;
 }
@@ -4802,3 +4802,26 @@ html:not([data-theme="dark"]) .dt-chk-nosub-badge { font-size: 12px; }
 html:not([data-theme="dark"]) .dt-btn,
 html:not([data-theme="dark"]) .dt-btn-sm,
 html:not([data-theme="dark"]) .btn-sm { text-align: center; }
+
+/* Dice engine Cinzel weight floor */
+html:not([data-theme="dark"]) #dice-engine .slabel,
+html:not([data-theme="dark"]) #dice-engine .effline,
+html:not([data-theme="dark"]) #dice-engine .abtn,
+html:not([data-theme="dark"]) #dice-engine .mchip,
+html:not([data-theme="dark"]) #dice-engine .rlbl,
+html:not([data-theme="dark"]) #dice-engine .rverd,
+html:not([data-theme="dark"]) #dice-engine .rote-lbl,
+html:not([data-theme="dark"]) #dice-engine .empty-d { font-weight: 600; }
+
+/* Processing validation status buttons — neon colours fail on parchment */
+html:not([data-theme="dark"]) .proc-val-status button.active.pending   { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }
+html:not([data-theme="dark"]) .proc-val-status button.active.validated { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
+
+/* Ambience pending chip — dark background/neon text don't suit parchment */
+html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
+
+/* Ambience pos/neg colour values — neon green/red replaced with legible theme tokens */
+html:not([data-theme="dark"]) .proc-amb-pos,
+html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green3); }
+html:not([data-theme="dark"]) .proc-amb-neg,
+html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-neg { color: var(--crim); }
