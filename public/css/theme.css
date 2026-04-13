@@ -45,7 +45,9 @@
   --txt1:var(--txt);--txt-dim:var(--txt3);
 
   /* Fonts — same for all themes */
-  --fh:'Cinzel',serif;--fhd:'Cinzel Decorative',serif;--fb:'Lora',serif;
+  --fh:'Cinzel',serif;--fl:'Lato',sans-serif;--ft:'Libre Baskerville',serif;
+  /* Transition aliases — kept until DS-02 through DS-12 sweep removes all usages */
+  --fhd:var(--fh);--fb:var(--ft);
 
   /* Status: success / green */
   --green:#1E6A1E;--green2:#2A7A4A;--green3:#1A5A30;--green4:#2A8A4A;
@@ -77,6 +79,19 @@
   --w-a5:rgba(60,40,10,.05);--w-a6:rgba(60,40,10,.06);
   --w-a7:rgba(60,40,10,.07);--w-a8:rgba(60,40,10,.08);
   --w-a10:rgba(60,40,10,.10);--w-a12:rgba(60,40,10,.12);
+
+  /* Semantic accent — crimson on parchment */
+  --accent:var(--crim);--accent2:var(--crim2);
+  --accent-a8:rgba(122,0,0,.08);--accent-a25:rgba(122,0,0,.25);--accent-a40:rgba(122,0,0,.40);
+
+  /* Label contrast */
+  --label-secondary:#5a4a3a;--label-tertiary:#8a7060;
+
+  /* Result states */
+  --result-succ:#2e7d32;--result-succ-bg:rgba(46,125,50,.10);--result-succ-bdr:rgba(46,125,50,.35);
+  --result-pend:#c04040;--result-pend-bg:rgba(192,64,64,.10);--result-pend-bdr:rgba(192,64,64,.35);
+  --green-dk:#1b5e20;--green-dk-bg:rgba(27,94,32,.12);--green-dk-bdr:rgba(27,94,32,.35);
+  --warn-dk:#7a5c00;--warn-dk-bg:rgba(122,92,0,.12);
 }
 
 /* ── Dark mode override ── */
@@ -144,6 +159,19 @@
   --w-a5:rgba(255,255,255,.05);--w-a6:rgba(255,255,255,.06);
   --w-a7:rgba(255,255,255,.07);--w-a8:rgba(255,255,255,.08);
   --w-a10:rgba(255,255,255,.1);--w-a12:rgba(255,255,255,.12);
+
+  /* Semantic accent — gold on dark */
+  --accent:var(--gold2);--accent2:var(--gold);
+  --accent-a8:rgba(224,196,122,.08);--accent-a25:rgba(224,196,122,.25);--accent-a40:rgba(224,196,122,.40);
+
+  /* Label contrast */
+  --label-secondary:var(--txt2);--label-tertiary:var(--txt3);
+
+  /* Result states */
+  --result-succ:#6abf6a;--result-succ-bg:rgba(106,191,106,.12);--result-succ-bdr:rgba(106,191,106,.35);
+  --result-pend:#ff9090;--result-pend-bg:rgba(255,144,144,.12);--result-pend-bdr:rgba(255,144,144,.35);
+  --green-dk:#6abf6a;--green-dk-bg:rgba(106,191,106,.15);--green-dk-bdr:rgba(106,191,106,.40);
+  --warn-dk:#d4a832;--warn-dk-bg:rgba(212,168,50,.15);
 }
 
 /* ── Cross-app navigation buttons ── */
