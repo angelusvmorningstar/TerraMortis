@@ -1,6 +1,6 @@
 # Story feature.42: Feeding Panel — Per-Vessel Vitae Allocation
 
-## Status: Approved
+## Status: Done
 
 ## Story
 
@@ -60,62 +60,27 @@ If the roll used a discipline in the pool (either from the submitted `_feed_disc
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Dramatic failure detection (AC: 7)
-  - [ ] In `doFeedingRoll()`, after computing `successes`, check: `const usedDisc = !!(declaredDisc || selectedDisc);`
-  - [ ] If `usedDisc && successes === 0`: set `rollResult.dramaticFailure = true` before storing
-  - [ ] In `render()` rolled-state block, if `rollResult.dramaticFailure`: show the failure message and skip vessel cards
+- [x] Task 1: Dramatic failure detection (AC: 7)
+  - [x] In `doFeedingRoll()`, after computing `successes`, check: `const usedDisc = !!(declaredDisc || selectedDisc);`
+  - [x] If `usedDisc && successes === 0`: set `rollResult.dramaticFailure = true` before storing
+  - [x] In `render()` rolled-state block, if `rollResult.dramaticFailure`: show the failure message and skip vessel cards
 
-- [ ] Task 2: Per-vessel allocation UI (AC: 1, 2, 3, 4)
-  - [ ] In the rolled-state render block (when `vessels > 0` and no dramatic failure), replace the static "N vessels — X Vitae safe" line with per-vessel cards:
-    - Container: `<div class="feeding-vessels-grid" id="feeding-vessels-grid">`
-    - For each vessel `i` from 1 to `vessels`:
-      ```html
-      <div class="feeding-vessel-card" data-vessel-idx="i">
-        <span class="fvc-label">Vessel i</span>
-        <select class="fvc-select" id="fvc-sel-i" data-vessel-idx="i">
-          <option value="">—</option>
-          <option value="1">1 vitae — Safe</option>
-          <option value="2">2 vitae — Safe</option>
-          <option value="3">3 vitae — Drained (medical care needed)</option>
-          <option value="4">4 vitae — Serious injury</option>
-          <option value="5">5 vitae — Serious injury</option>
-          <option value="6">6 vitae — Critical (near death)</option>
-          <option value="7">7 vitae — Fatal</option>
-        </select>
-        <span class="fvc-consequence" id="fvc-con-i"></span>
-      </div>
-      ```
-    - Total tally: `<div class="fvc-total">Total Vitae: <span id="fvc-total-val">0</span></div>`
-    - Confirm button: `<button id="fvc-confirm" class="qf-btn qf-btn-submit" disabled>Confirm Allocation</button>`
-  - [ ] Add a `feeding-vessels-grid` CSS class to `public/css/player-layout.css`:
-    - Display: flex-column or grid, gap between cards
-    - `.feeding-vessel-card`: flex row, align-items center, gap between elements
-    - `.fvc-consequence`: coloured text (gold for safe, amber for 3, red for 4+, dark-red for 6+)
-  - [ ] Wire change events on `.fvc-select`: update consequence label, recalculate total, enable/disable confirm button
+- [x] Task 2: Per-vessel allocation UI (AC: 1, 2, 3, 4)
+  - [x] In the rolled-state render block (when `vessels > 0` and no dramatic failure), replace the static "N vessels — X Vitae safe" line with per-vessel cards
+  - [x] Add `feeding-vessels-grid` and related CSS classes to `public/css/player-layout.css`
+  - [x] Wire change events on `.fvc-select`: update consequence label, recalculate total, enable/disable confirm button
 
-- [ ] Task 3: Read-only state after allocation confirmed (AC: 6, 9)
-  - [ ] Add a module-level `vitaeAllocation = null` variable (array of ints or null)
-  - [ ] On tab load, after loading `rollResult`, also check `mySub.feeding_vitae_allocation`:
-    - If present, set `vitaeAllocation = mySub.feeding_vitae_allocation`
-  - [ ] When rendering vessel cards with a pre-existing allocation: render `<span>` instead of `<select>`, show the saved value and consequence label, show "Allocation recorded" badge
-  - [ ] When `vitaeAllocation` is null and `feedingState === 'rolled'` and `vessels > 0`: render selectors (interactive)
+- [x] Task 3: Read-only state after allocation confirmed (AC: 6, 9)
+  - [x] `let vitaeAllocation = null` declared at module level
+  - [x] On tab load, `mySub.feeding_vitae_allocation` loaded into `vitaeAllocation`
+  - [x] Read-only render: `<span>` values + consequence + "Allocation recorded" badge
 
-- [ ] Task 4: Save allocation to DB (AC: 5)
-  - [ ] In the Confirm Allocation click handler:
-    - Collect values: `const alloc = Array.from(document.querySelectorAll('.fvc-select')).map(s => parseInt(s.value, 10))`
-    - Call `apiPut('/api/downtime_submissions/' + responseSubId, { feeding_vitae_allocation: alloc })`
-    - On success: set `vitaeAllocation = alloc`, re-render
-    - On error: show error message, leave selectors interactive
+- [x] Task 4: Save allocation to DB (AC: 5)
+  - [x] `doConfirmAllocation()` collects selectors, `apiPut`s `feeding_vitae_allocation`, sets state, re-renders
 
-- [ ] Task 5: Clear allocation on ST re-roll (AC: 10)
-  - [ ] In the ST re-roll handler (`feeding-reroll-btn` click), extend the existing `apiPut` call to also clear `feeding_vitae_allocation`:
-    ```js
-    await apiPut(`/api/downtime_submissions/${responseSubId}`, {
-      feeding_roll_player: null,
-      feeding_vitae_allocation: null,
-    });
-    ```
-  - [ ] Reset `vitaeAllocation = null` in module state
+- [x] Task 5: Clear allocation on ST re-roll (AC: 10)
+  - [x] ST re-roll `apiPut` clears both `feeding_roll_player` and `feeding_vitae_allocation`
+  - [x] `vitaeAllocation = null` reset in module state
 
 ---
 
@@ -185,9 +150,17 @@ No max-width caps, no single-column mobile layout. The vessel cards grid can be 
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+None — implementation matched spec exactly. Schema confirmed `additionalProperties: true` at top level; no server changes needed.
 
 ### Completion Notes List
+- `vitaeAllocation` had been partially wired (reset + DB load) but undeclared; declaration added as part of implementation
+- `fvcConseqText` / `fvcConseqClass` helpers extracted for reuse in both interactive and read-only render paths
+- `updateVesselUI` handles consequence label updates and confirm button enable/disable reactively
+- Confirm button guard: `allFilled && sels.length > 0` to prevent empty-array save
 
 ### File List
+- `public/js/player/feeding-tab.js`
+- `public/css/player-layout.css`
