@@ -98,10 +98,6 @@ export function initDataPortabilityView(charData) {
     btn.addEventListener('click', () => handleVerify(btn.dataset.collection));
   });
 
-  // Static file exports
-  el.querySelectorAll('.dp-static-export-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleStaticExport(btn.dataset.url, btn.dataset.filename));
-  });
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -153,22 +149,6 @@ function buildShell() {
       <button class="dt-btn" disabled title="Rules CSV import not supported — use JSON">Import CSV</button>
     </div>
   </div>`;
-
-  // Static reference file cards
-  const staticFiles = [
-    { id: 'static_merits',     label: 'Merits DB',       desc: 'Static merit reference data used by the sheet renderer. Read-only — update by editing the source file and redeploying.',      url: '/data/merits_db.json',     filename: 'merits_db' },
-    { id: 'static_devotions',  label: 'Devotions DB',    desc: 'Static devotion reference data used by the sheet renderer. Read-only — update by editing the source file and redeploying.',   url: '/data/devotions_db.json',  filename: 'devotions_db' },
-    { id: 'static_manoeuvres', label: 'Manoeuvres DB',   desc: 'Static manoeuvre reference data used by the sheet renderer. Read-only — update by editing the source file and redeploying.',  url: '/data/man_db.json',        filename: 'man_db' },
-  ];
-  for (const sf of staticFiles) {
-    h += `<div class="dp-card">
-      <div class="dp-card-name">${sf.label}</div>
-      <div class="dp-card-desc">${sf.desc}</div>
-      <div class="dp-card-btns">
-        <button class="dt-btn dp-static-export-btn" data-url="${sf.url}" data-filename="${sf.filename}">Export JSON</button>
-      </div>
-    </div>`;
-  }
 
   h += `</div></div>`;
   h += '<div id="dp-result"></div>';
@@ -274,17 +254,6 @@ async function handleExportJson(collection) {
   } catch (err) { alert(`JSON export failed: ${err.message}`); }
 }
 
-async function handleStaticExport(url, filename) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    // Pretty-print if valid JSON
-    let out = text;
-    try { out = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keep raw */ }
-    triggerJsonDownload(out, filename);
-  } catch (err) { alert(`Static export failed: ${err.message}`); }
-}
 
 function collectionApiPath(collection) {
   const MAP = {
