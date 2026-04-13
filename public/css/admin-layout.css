@@ -4971,3 +4971,221 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
   background: var(--crim-a8);
   border-color: var(--crim-a25);
 }
+
+/* ══════════════════════════════════════════
+   ROLL MODAL — shared by downtime processing roll buttons.
+   CSS was only in downtime_helper; ported here with admin token mapping:
+     --surf1 → --surf  |  --border → --bdr  |  --radius → 6px
+     --muted → --txt3  |  --text → --txt    |  --surf4 → --surf3
+     --gold1 → --gold  |  all others same
+   ══════════════════════════════════════════ */
+
+.roll-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.roll-panel {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  width: 100%;
+  max-width: 580px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.roll-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.roll-title {
+  font-family: var(--fhd);
+  font-size: 16px;
+  color: var(--gold2);
+  margin-bottom: 3px;
+}
+.roll-subtitle {
+  font-family: var(--fb);
+  font-size: 13px;
+  color: var(--txt3);
+}
+.roll-close-btn {
+  background: none;
+  border: none;
+  color: var(--txt3);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.roll-close-btn:hover { color: var(--txt); }
+
+.roll-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.roll-param {
+  font-family: var(--fh);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+/* Dice display */
+.roll-dice-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  padding: 16px;
+  min-height: 64px;
+  align-items: center;
+}
+.roll-chain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.roll-die {
+  width: 35px;
+  height: 35px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fhd);
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid transparent;
+  transition: transform 0.1s;
+}
+.roll-die.succ {
+  background: rgba(74,124,89,0.3);
+  color: #7fbf8f;
+  border-color: rgba(74,124,89,0.6);
+}
+.roll-die.fail {
+  background: var(--surf3);
+  color: var(--txt3);
+  border-color: var(--surf3);
+}
+.roll-die.again {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 6px rgba(139,96,16,0.4);
+}
+.roll-arrow {
+  color: var(--txt3);
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Result summary */
+.roll-summary {
+  text-align: center;
+  padding: 8px 0;
+}
+.roll-count {
+  font-family: var(--fhd);
+  font-size: 48px;
+  line-height: 1;
+  color: var(--gold2);
+}
+.roll-count.exceptional { color: #7fbf8f; }
+.roll-count.failure     { color: var(--crim2); }
+.roll-count-label {
+  font-family: var(--fh);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  margin-top: 6px;
+}
+.roll-count-label.exceptional { color: #7fbf8f; }
+.roll-count-label.failure     { color: var(--crim2); }
+
+.roll-btn-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+/* Generic .btn used by roll modal buttons */
+.roll-btn-row .btn {
+  background: none;
+  border: 1px solid var(--bdr2);
+  color: var(--txt2);
+  font-family: var(--fh);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.roll-btn-row .btn:hover { border-color: var(--bdr3); color: var(--txt); }
+
+/* Rote two-column dice layout */
+.roll-rote-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.roll-dice-block { display: flex; flex-direction: column; gap: 8px; }
+.roll-dice-block.dimmed .roll-die       { opacity: 0.4; }
+.roll-dice-block.dimmed .roll-dice-wrap { background: var(--surf); }
+.roll-dice-label {
+  font-family: var(--fh);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+}
+.roll-dice-label.winner { color: #7fbf8f; }
+.rote-tag {
+  font-family: var(--fh);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  border: 1px solid rgba(139,96,16,0.4);
+  border-radius: 3px;
+  padding: 1px 6px;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+.roll-rote-toggle {
+  cursor: pointer;
+  color: var(--gold) !important;
+  border-color: rgba(139,96,16,0.4) !important;
+}
+
+/* ── Roll modal parchment overrides ── */
+html:not([data-theme="dark"]) .roll-title         { color: var(--crim); }
+html:not([data-theme="dark"]) .roll-count         { color: var(--crim); }
+html:not([data-theme="dark"]) .roll-count.exceptional { color: #3a8a50; }
+html:not([data-theme="dark"]) .roll-count-label.exceptional { color: #3a8a50; }
+html:not([data-theme="dark"]) .roll-die.again     { border-color: var(--crim-a60) !important; box-shadow: none; }
+html:not([data-theme="dark"]) .rote-tag           { color: var(--crim); border-color: var(--crim-a40); }
+html:not([data-theme="dark"]) .roll-rote-toggle   { color: var(--crim) !important; border-color: var(--crim-a40) !important; }
+html:not([data-theme="dark"]) .roll-panel         { background: var(--bg); box-shadow: 0 8px 40px rgba(0,0,0,0.25); }
+html:not([data-theme="dark"]) .roll-btn-row .btn  { font-weight: 600; }
