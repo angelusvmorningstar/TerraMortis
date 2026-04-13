@@ -95,3 +95,31 @@
 .merit-prereq-warn{font-size:10px;font-family:var(--fb);color:var(--err);background:rgba(139,0,0,.12);border:1px solid rgba(139,0,0,.3);border-radius:3px;padding:3px 8px;margin-bottom:4px;}
 .merit-prereq-txt{color:var(--txt2);font-style:italic;}
 .merit-prereq-fail{border-left:2px solid var(--err)!important;}
+
+/* ══════════════════════════════════════════
+   PARCHMENT THEME OVERRIDES
+   Applied to admin.html + player.html (light default).
+   index.html is always dark — these rules never fire there.
+   ══════════════════════════════════════════ */
+
+/* Character card — crimson accents instead of gold on parchment */
+html:not([data-theme="dark"]) .cc-name { color: var(--crim); }
+html:not([data-theme="dark"]) .cc-tag.cov { color: var(--crim2); }
+html:not([data-theme="dark"]) .cc-tag.title { color: var(--crim); border-color: var(--crim-a25); }
+html:not([data-theme="dark"]) .cc-icon,
+html:not([data-theme="dark"]) .cc-tag img,
+html:not([data-theme="dark"]) .topbar-logo,
+html:not([data-theme="dark"]) .edit-icon {
+  filter: invert(1) sepia(1) hue-rotate(330deg) saturate(6) brightness(0.9);
+}
+
+/* Cinzel weight floor: 600 minimum on parchment */
+html:not([data-theme="dark"]) .cc-name,
+html:not([data-theme="dark"]) .cc-tag,
+html:not([data-theme="dark"]) .form-section-title,
+html:not([data-theme="dark"]) .form-label,
+html:not([data-theme="dark"]) .exp-lbl,
+html:not([data-theme="dark"]) .exp-val,
+html:not([data-theme="dark"]) .exp-wp-lbl,
+html:not([data-theme="dark"]) .exp-ts-hum,
+html:not([data-theme="dark"]) .list-count { font-weight: 600; }
