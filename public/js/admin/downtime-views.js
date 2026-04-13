@@ -2243,10 +2243,11 @@ function buildProcessingQueue(subs) {
         phaseNum: 1,
         actionType: 'feeding',
         label: 'Feeding',
-        description: feedDesc || poolLabel || 'No feeding method declared',
+        description: poolLabel || 'No feeding method declared',
         source: 'feeding',
         actionIdx: 0,
         poolPlayer: poolLabel,
+        feedDesc,
         feedMethod,
         feedMethodLabel: methodLabel,
         feedDisc,
@@ -3302,7 +3303,7 @@ function renderProcessingMode(container) {
       const review    = getEntryReview(entry) || {};
       const roll      = review.roll || null;
       const pool      = review.pool_validated || entry.poolPlayer || '';
-      const actionLbl = entry.actionType === 'ambience_increase' ? 'Ambience Increase' : 'Ambience Decrease';
+      const actionLbl = ACTION_TYPE_LABELS[entry.actionType] || entry.actionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
       let rollLine = '';
       if (roll) {
@@ -4206,20 +4207,18 @@ function _renderProjRightPanel(entry, char, rev) {
   }
   h += `</div>`;
 
-  // ── Review section (Ambience actions only — feature.66) ──
-  if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
-    const stResponse = rev.st_response || '';
-    const responseStatus = rev.response_status || '';
-    const reviewedBy = rev.response_reviewed_by || '';
-    if (stResponse) {
-      h += `<div class="proc-response-review-section">`;
-      if (responseStatus === 'reviewed') {
-        h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(reviewedBy)}</div>`;
-      } else {
-        h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
-      }
-      h += `</div>`;
+  // ── Review section (all personal project actions — feature.66 extended) ──
+  const stResponse = rev.st_response || '';
+  const responseStatus = rev.response_status || '';
+  const reviewedBy = rev.response_reviewed_by || '';
+  if (stResponse) {
+    h += `<div class="proc-response-review-section">`;
+    if (responseStatus === 'reviewed') {
+      h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(reviewedBy)}</div>`;
+    } else {
+      h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
     }
+    h += `</div>`;
   }
 
   h += `</div>`; // proc-feed-right
@@ -4488,8 +4487,8 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Full description if it was truncated (suppressed for project — shown inside detail block)
-  if (entry.description && entry.description.length > 80 && entry.source !== 'project') {
+  // Full description if it was truncated (suppressed for project + feeding — shown inside detail block)
+  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding') {
     h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
   }
 
@@ -4542,6 +4541,7 @@ function renderActionPanel(entry, review) {
         if (amb !== 0) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Ambience</span> ${amb > 0 ? '+' : ''}${amb}</span>`;
       }
       h += '</div>';
+      if (entry.feedDesc) h += `<div class="proc-proj-field proc-feed-desc-field"><span class="proc-feed-lbl">Description</span> ${esc(entry.feedDesc)}</div>`;
     }
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
@@ -4835,8 +4835,8 @@ function renderActionPanel(entry, review) {
     h += '</div>';
   }
 
-  // ST Response (Ambience actions only — reference design for feature.66)
-  if (entry.source === 'project' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease')) {
+  // ST Response (all personal project actions — feature.66 extended)
+  if (entry.source === 'project') {
     const stResponse     = rev.st_response       || '';
     const responseAuthor = rev.response_author   || '';
     const responseStatus = rev.response_status   || '';
