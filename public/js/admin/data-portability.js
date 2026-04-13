@@ -735,7 +735,7 @@ function renderImportPreview(el, globalWarnings) {
   const unchanged = _importResults.filter(r => !r.isNew && !r.notInExcel && !r.changes.length);
   const notInExcel = _importResults.filter(r => r.notInExcel);
   h += `<span class="dp-stat dp-stat-ok">${updates.length} to update</span>`;
-  if (newChars.length) h += `<span class="dp-stat" style="color:var(--gold2)">${newChars.length} new</span>`;
+  if (newChars.length) h += `<span class="dp-stat" style="color:var(--accent)">${newChars.length} new</span>`;
   h += `<span class="dp-stat">${unchanged.length} unchanged</span>`;
   if (notInExcel.length) h += `<span class="dp-stat">${notInExcel.length} DB only</span>`;
   h += '</div>';

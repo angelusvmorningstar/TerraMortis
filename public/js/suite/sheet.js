@@ -368,7 +368,7 @@ export function renderSheet() {
   if (inflMerits.length) {
     const _inflTip = influenceBreakdown(c).join('\n');
     const _inflTotal = calcTotalInfluence(c);
-    html += `<div class="sh-sec"><div class="sh-sec-title" title="${_inflTip}">Influence Merits <span style="font-size:11px;color:var(--gold2);letter-spacing:0">(${_inflTotal} inf)</span></div><div class="merit-list">`;
+    html += `<div class="sh-sec"><div class="sh-sec-title" title="${_inflTip}">Influence Merits <span style="font-size:11px;color:var(--accent);letter-spacing:0">(${_inflTotal} inf)</span></div><div class="merit-list">`;
     inflMerits.forEach((m, i) => {
       html += renderMeritRow(m, 'infl', i);
     });

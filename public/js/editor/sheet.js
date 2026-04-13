@@ -112,7 +112,7 @@ function _renderPoolCounters(c, category) {
     else if (p.category === 'inv') { pTotal = p.amount; pUsed = investedUsed(c); }
     else { const lookupName = p.names ? p.names[0] : p.name; pTotal = getPoolTotal(c, lookupName); pUsed = getPoolUsed(c, lookupName); }
     const cls = pUsed > pTotal ? 'sc-over' : pUsed === pTotal ? 'sc-full' : 'sc-val';
-    h += '<div class="grant-pool-row"><span style="color:var(--gold2)">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
+    h += '<div class="grant-pool-row"><span style="color:var(--accent)">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
   });
   h += '</div>'; return h;
 }
@@ -130,7 +130,7 @@ function shDotsMixed(purchased, bonus) {
 }
 
 /** Gold log of all derived dot sources on a merit. Only emits lines where the field > 0. */
-const _DN = 'font-size:10px;color:var(--gold2);padding:2px 8px';
+const _DN = 'font-size:10px;color:var(--accent);padding:2px 8px';
 function _derivedNotes(m) {
   const _n = (v, lbl, why) => v ? '<div style="' + _DN + '">' + lbl + ': +' + v + ' dot' + (v !== 1 ? 's' : '') + ' (auto) \u2014 ' + why + '</div>' : '';
   return _n(m.free_mci,       'MCI',        'removed if MCI drops')
@@ -183,7 +183,7 @@ function _cityStatusPip(editMode, base, total, titleBonus) {
   if (editMode) return '<div class="sh-stat-pip">'
     + '<div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div>'
     + '<div class="sh-status-lbl">City</div>'
-    + _statusTrack(base, titleBonus, 'var(--gold2)', 10)
+    + _statusTrack(base, titleBonus, 'var(--accent)', 10)
     + _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')')
     + '</div>';
   return '<div class="sh-stat-pip"><div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div><div class="sh-status-lbl">City</div></div>';
@@ -338,7 +338,7 @@ export function shRenderSkills(c, editMode) {
     if (blTotal) bonusParts.push('Bloodline: ' + blTotal);
     h += '<div class="sh-spec-counter">Specialisations <span class="' + cpCls + '">' + cpSp + ' / 3 CP</span>'
       + (specXP ? ' + <span style="font-size:10px;color:var(--crim)">' + specXP + ' XP</span>' : '')
-      + (bonusTotal ? ' + <span style="font-size:10px;color:var(--gold2)">Bonus: ' + bonusUsed + '/' + bonusTotal + '</span>' : '')
+      + (bonusTotal ? ' + <span style="font-size:10px;color:var(--accent)">Bonus: ' + bonusUsed + '/' + bonusTotal + '</span>' : '')
       + (bonusParts.length ? '<div style="font-size:10px;color:var(--txt3);margin-top:1px">' + bonusParts.join(' \u00B7 ') + '</div>' : '')
       + '</div>';
   }
@@ -561,7 +561,7 @@ export function shRenderDisciplines(c, editMode) {
       const reqDots = dbEntry && dbEntry.rating ? parseInt(dbEntry.rating) || 0 : 0;
       if (editMode) {
         const pcp = p.cp || 0, pxp = p.xp || 0, ptotal = pcp + pxp;
-        const ptColor = ptotal >= reqDots && (reqDots === 0 || ptotal === reqDots) ? 'var(--gold2)' : ptotal > 0 ? 'var(--err)' : 'var(--txt3)';
+        const ptColor = ptotal >= reqDots && (reqDots === 0 || ptotal === reqDots) ? 'var(--accent)' : ptotal > 0 ? 'var(--err)' : 'var(--txt3)';
         h += '<div class="pact-edit-block">'
           + '<div class="pact-edit-hdr">'
           + '<span class="disc-tap-name" style="font-size:12px;color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span>'
@@ -581,7 +581,7 @@ export function shRenderDisciplines(c, editMode) {
           const _alliesMerits = (c.merits || []).filter(m => m.category === 'influence' && m.name === 'Allies' && m.area);
           const _alliesOpts = _alliesMerits.map(m => '<option value="' + esc(m.area) + '"' + ((m.area || '').toLowerCase() === ohmSphere.toLowerCase() ? ' selected' : '') + '>' + esc(m.area) + '</option>').join('');
           h += '<div class="pact-controls">'
-            + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Auto grants:</span><span style="color:var(--gold2)">+1 Contacts, +1 Resources</span></div>'
+            + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Auto grants:</span><span style="color:var(--accent)">+1 Contacts, +1 Resources</span></div>'
             + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">+1 Allies:</span>'
             + (_alliesMerits.length
               ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'ohm_allies_sphere\',this.value)"><option value="">-- pick Allies merit --</option>' + _alliesOpts + '</select>'
@@ -603,7 +603,7 @@ export function shRenderDisciplines(c, editMode) {
             + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Partner:</span>'
             + '<select class="gen-qual-input" style="width:160px" onchange="shEditPact(' + realPi + ',\'partner\',this.value)"><option value="">-- select character --</option>' + _charNames.replace('value="' + esc(partner) + '"', 'value="' + esc(partner) + '" selected') + '</select>'
             + (partner && !partnerHasSW ? '<span style="font-size:10px;color:var(--txt3);font-style:italic;margin-left:4px">partner must also take this oath</span>' : '')
-            + (partnerHasSW ? '<span style="font-size:10px;color:var(--gold2);margin-left:4px">\u2713 mutually linked</span>' : '')
+            + (partnerHasSW ? '<span style="font-size:10px;color:var(--accent);margin-left:4px">\u2713 mutually linked</span>' : '')
             + '</div>'
             + (() => { const _sm = (c.merits || []).filter(m => m.category === 'influence'); const _smOpts = _sm.map(m => { const _lbl = m.name + (m.qualifier ? ' (' + m.qualifier + ')' : m.area ? ' (' + m.area + ')' : ''); return '<option value="' + esc(_lbl) + '"' + (sharedMerit === _lbl ? ' selected' : '') + '>' + esc(_lbl) + '</option>'; }).join(''); return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>' + (_sm.length ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>' + _smOpts + '</select>' : '<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>') + '</div>'; })()
 
@@ -676,7 +676,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       h += _derivedNotes(m);
       if (m.name === 'Retainer' && _inflHasAtt && m.attache_key) {
         const _au = attacheUsed(c, m.attache_key);
-        h += '<div style="font-size:10px;padding:2px 8px;color:' + (_inflAttPool > 0 && _au > _inflAttPool ? 'var(--crim)' : 'var(--gold2)') + '">Attach\u00e9 (' + m.attache_key + '): ' + _au + ' / ' + _inflAttPool + ' dots</div>';
+        h += '<div style="font-size:10px;padding:2px 8px;color:' + (_inflAttPool > 0 && _au > _inflAttPool ? 'var(--crim)' : 'var(--accent)') + '">Attach\u00e9 (' + m.attache_key + '): ' + _au + ' / ' + _inflAttPool + ' dots</div>';
       }
     });
     // Contacts: single entry with sphere-per-dot
@@ -753,7 +753,7 @@ export function shRenderDomainMerits(c, editMode) {
       const _domAttShow = _domHasAtt && _domAttPool > 0 && _domAttKeys.length && m.name === 'Safe Place' ? { keys: _domAttKeys } : null;
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showAttache: _domAttShow }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
-      if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
+      if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div style="font-size:10px;color:var(--gdim);padding:2px 8px">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
       if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div style="font-size:10px;color:var(--gdim);padding:2px 8px">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
       if (m.name !== 'Herd' && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
@@ -792,8 +792,8 @@ export function shRenderStandingMerits(c, editMode) {
       h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Oath of the Scapegoat' && dd > 0) {
-        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
-        h += '<div style="font-size:10px;color:var(--gold2);padding:2px 8px">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
+        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
+        h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
     else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (sub ? '<div class="merit-sub-sh">' + esc(sub) + '</div>' : '') + (assets ? '<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: ' + esc(assets) + '</div>' : '') + '</div>' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div>'; }
@@ -909,7 +909,7 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
       const _assetSp3 = Object.entries(c.skills || {}).filter(([sk]) => ptAssetSet3.has(sk)).reduce((s, [, sk]) => s + (sk.specs ? sk.specs.length : 0), 0);
       const ptFreeCov3 = Math.min(2, _assetSp3);
       const _pt3Missing = !as[2];
-      h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF</span><div><span class="mci-benefit-text">Breadth of Knowledge: 3rd Asset Skill + 2 PT Specialisations (Asset Skills only)</span><div class="pt-skill-pick' + (_pt3Missing ? ' has-unfilled' : '') + '" style="display:flex;gap:6px;margin-top:4px;align-items:center">' + _skSel(2, '\u2014 3rd skill \u2014') + '<span style="font-size:10px;color:var(--gold2)">PT specs: ' + ptFreeCov3 + ' / 2 used</span></div></div></div>';
+      h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF</span><div><span class="mci-benefit-text">Breadth of Knowledge: 3rd Asset Skill + 2 PT Specialisations (Asset Skills only)</span><div class="pt-skill-pick' + (_pt3Missing ? ' has-unfilled' : '') + '" style="display:flex;gap:6px;margin-top:4px;align-items:center">' + _skSel(2, '\u2014 3rd skill \u2014') + '<span style="font-size:10px;color:var(--accent)">PT specs: ' + ptFreeCov3 + ' / 2 used</span></div></div></div>';
     }
     if (eDots >= 4) {
       const dot4 = m.dot4_skill || '', validAs = as.filter(Boolean);
@@ -1250,7 +1250,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
     if (otsFreeDots > 0) {
       const otsCls = otsUsed > otsFreeDots ? ' sc-over' : otsUsed === otsFreeDots ? ' sc-full' : ' sc-val';
-      h += '<div class="grant-pool-row"><span style="color:var(--gold2)">Oath of the Scapegoat</span> free style/merit dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
+      h += '<div class="grant-pool-row"><span style="color:var(--accent)">Oath of the Scapegoat</span> free style/merit dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
     }
 
     // Style Points — tag totals for unorthodox access
@@ -1259,7 +1259,7 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="grant-pools">';
       h += '<div style="font-size:9px;letter-spacing:.07em;color:var(--txt3);margin-bottom:3px">STYLE POINTS (unorthodox access)</div>';
       tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
-        h += '<div class="grant-pool-row"><span style="color:var(--gold2)">' + esc(tag) + '</span>'
+        h += '<div class="grant-pool-row"><span style="color:var(--accent)">' + esc(tag) + '</span>'
           + '<span style="margin-left:6px">' + shDots(Math.min(count, 5)) + '</span>'
           + '<span style="font-size:10px;color:var(--txt3);margin-left:6px">rank 1\u2013' + count + '</span></div>';
       });
@@ -1267,7 +1267,7 @@ export function shRenderManoeuvres(c, editMode) {
     }
 
     // ── Fighting Styles ──────────────────────────────────────
-    h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:6px 0 2px">Fighting Styles</div>';
+    h += '<div class="sh-sub-title" style="color:var(--accent);font-size:11px;letter-spacing:.05em;margin:6px 0 2px">Fighting Styles</div>';
     h += '<div class="man-list">';
     fStyles.forEach(fs => {
       const si = styles.indexOf(fs);
@@ -1284,8 +1284,8 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fs.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">MCI</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
-        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">OTS</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
+        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--accent)">MCI</span><input class="merit-bd-input" style="color:var(--accent)" type="number" min="0" value="' + (fs.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--accent)">OTS</span><input class="merit-bd-input" style="color:var(--accent)" type="number" min="0" value="' + (fs.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
@@ -1305,7 +1305,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '</select></div></div>';
 
     // ── Fighting Merits ──────────────────────────────────────
-    h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Fighting Merits</div>';
+    h += '<div class="sh-sub-title" style="color:var(--accent);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Fighting Merits</div>';
     h += '<div class="man-list">';
     const fmEntry = fMerits.find(fs => fs.name === 'Fighting Merit');
     if (fmEntry) {
@@ -1319,8 +1319,8 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="merit-bd-row">'
         + '<div class="bd-grp"><span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.cp || 0) + '" onchange="shEditStyle(' + si + ',\'cp\',+this.value)"></div>'
         + '<div class="bd-grp"><span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + (fmEntry.xp || 0) + '" onchange="shEditStyle(' + si + ',\'xp\',+this.value)"></div>'
-        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">MCI</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
-        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--gold2)">OTS</span><input class="merit-bd-input" style="color:var(--gold2)" type="number" min="0" value="' + (fmEntry.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
+        + (mciPool > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--accent)">MCI</span><input class="merit-bd-input" style="color:var(--accent)" type="number" min="0" value="' + (fmEntry.free_mci || 0) + '" onchange="shEditStyle(' + si + ',\'free_mci\',+this.value)"></div>' : '')
+        + (otsFreeDots > 0 ? '<div class="bd-grp"><span class="bd-lbl" style="color:var(--accent)">OTS</span><input class="merit-bd-input" style="color:var(--accent)" type="number" min="0" value="' + (fmEntry.free_ots || 0) + '" onchange="shEditStyle(' + si + ',\'free_ots\',+this.value)"></div>' : '')
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
@@ -1335,7 +1335,7 @@ export function shRenderManoeuvres(c, editMode) {
 
     // ── Picks editor ─────────────────────────────────────────
     const remaining = maxPicks - totalPicks;
-    h += '<div class="sh-sub-title" style="color:var(--gold2);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Manoeuvres Picked'
+    h += '<div class="sh-sub-title" style="color:var(--accent);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Manoeuvres Picked'
       + '<span style="font-weight:normal;color:var(--txt2);margin-left:8px">' + totalPicks + ' / ' + maxPicks + '</span></div>';
     h += '<div class="man-list">';
 
@@ -1379,7 +1379,7 @@ export function shRenderManoeuvres(c, editMode) {
       h += '<div class="grant-pools">';
       h += '<div style="font-size:9px;letter-spacing:.07em;color:var(--txt3);margin-bottom:3px">STYLE POINTS</div>';
       tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
-        h += '<div class="grant-pool-row"><span style="color:var(--gold2)">' + esc(tag) + '</span>'
+        h += '<div class="grant-pool-row"><span style="color:var(--accent)">' + esc(tag) + '</span>'
           + '<span style="margin-left:6px">' + shDots(Math.min(count, 5)) + '</span>'
           + '<span style="font-size:10px;color:var(--txt3);margin-left:6px">rank 1\u2013' + count + '</span></div>';
       });
@@ -1518,7 +1518,7 @@ export function renderSheet(c, target = null) {
   // Regent territory is derived from territories collection, not stored on character
   const _regTerrName = c._regentTerritory?.territory || null;
   h += '<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
-  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--gold2)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
+  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--accent)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), cityTotal = cityBase + titleBonus;
   h += '<div class="sh-faction-sub">Title</div>' + _cityStatusDots(cityBase, titleBonus) + '</div>' + _cityStatusPip(editMode, cityBase, cityTotal, titleBonus) + '</div>';
