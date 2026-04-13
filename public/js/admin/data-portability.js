@@ -138,9 +138,22 @@ function buildShell() {
     <div class="dp-grid">`;
 
   // Purchasable Powers card
-  h += `<div class="dp-card">
+  h += `<div class="dp-card dp-rules-card">
     <div class="dp-card-name">Purchasable Powers</div>
-    <div class="dp-card-desc">Merits, disciplines, rites, devotions, and powers stored in MongoDB. Use JSON export/import to mass-edit (e.g. replace all Cruac rites).</div>
+    <div class="dp-card-desc">Merits, disciplines, rites, devotions, and powers stored in MongoDB. Filter by category and parent to export/import a specific subset.</div>
+    <div class="dp-rules-filters">
+      <select id="dp-rules-category" class="dp-rules-select">
+        <option value="">All</option>
+        <option value="merit">Merits</option>
+        <option value="discipline">Disciplines</option>
+        <option value="devotion">Devotions</option>
+        <option value="rite">Rites</option>
+        <option value="manoeuvre">Manoeuvres</option>
+        <option value="attribute">Attributes</option>
+        <option value="skill">Skills</option>
+      </select>
+      <input id="dp-rules-parent" class="dp-rules-parent" type="text" placeholder="Filter by parent (e.g. Cruac)">
+    </div>
     <div class="dp-card-btns">
       <button class="dt-btn dp-export-btn" data-collection="rules">Export CSV</button>
       <button class="dt-btn dp-export-json-btn" data-collection="rules">Export JSON</button>
@@ -148,6 +161,7 @@ function buildShell() {
       <input type="file" accept=".json" class="dp-file-json-input" data-collection="rules" style="display:none">
       <button class="dt-btn" disabled title="Rules CSV import not supported — use JSON">Import CSV</button>
     </div>
+    <div class="dp-rules-import-note">Import applies to all documents in the file regardless of filter.</div>
   </div>`;
 
   h += `</div></div>`;
@@ -233,25 +247,51 @@ async function exportCollection(apiPath, toRows, headers) {
 }
 
 async function exportRulesCSV() {
-  const docs = await apiGet('/api/rules');
-  if (!docs.length) { alert('No rules data to export.'); return; }
-  triggerDownload(buildCSV(rulesHeaders(), rulesToRows(docs)), 'rules');
+  const { docs, filenameSuffix } = await fetchRulesFiltered();
+  if (!docs.length) { alert('No records found for the selected filter.'); return; }
+  triggerDownload(buildCSV(rulesHeaders(), rulesToRows(docs)), `rules_${filenameSuffix}`);
 }
 
 // ── JSON Export ───────────────────────────────────────────────────────────────
 
 async function handleExportJson(collection) {
   try {
-    let docs;
+    let docs, name;
     if (collection === 'rules') {
-      docs = await apiGet('/api/rules');
+      const filtered = await fetchRulesFiltered();
+      docs = filtered.docs;
+      name = `rules_${filtered.filenameSuffix}`;
     } else {
       const apiPath = collectionApiPath(collection);
       docs = await apiGet(`/api/${apiPath}`);
+      name = collection;
     }
-    if (!docs || !docs.length) { alert('No data to export.'); return; }
-    triggerJsonDownload(JSON.stringify(docs, null, 2), collection);
+    if (!docs || !docs.length) { alert('No records found for the selected filter.'); return; }
+    triggerJsonDownload(JSON.stringify(docs, null, 2), name);
   } catch (err) { alert(`JSON export failed: ${err.message}`); }
+}
+
+/** Fetch rules from API with category + parent filters applied.
+ *  Returns { docs, filenameSuffix } where filenameSuffix encodes the active filters. */
+async function fetchRulesFiltered() {
+  const categoryEl = document.getElementById('dp-rules-category');
+  const parentEl   = document.getElementById('dp-rules-parent');
+  const category   = categoryEl?.value || '';
+  const parentFilter = (parentEl?.value || '').trim();
+
+  const url = category ? `/api/rules?category=${encodeURIComponent(category)}` : '/api/rules';
+  let docs = await apiGet(url);
+
+  if (parentFilter) {
+    const lc = parentFilter.toLowerCase();
+    docs = docs.filter(d => d.parent?.toLowerCase().includes(lc));
+  }
+
+  const catPart    = category || 'all';
+  const parentPart = parentFilter ? '_' + parentFilter.toLowerCase().replace(/\s+/g, '_') : '';
+  const filenameSuffix = `${catPart}${parentPart}`;
+
+  return { docs, filenameSuffix };
 }
 
 
