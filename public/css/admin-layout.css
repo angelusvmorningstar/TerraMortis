@@ -61,7 +61,10 @@ body {
   border: none;
   color: var(--txt2);
   font-family: var(--fl);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
   text-align: left;
   padding: 12px 20px;
   cursor: pointer;
