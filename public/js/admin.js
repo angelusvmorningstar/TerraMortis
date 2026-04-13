@@ -409,12 +409,31 @@ function openCharDetail(c) {
   document.getElementById('cd-close').addEventListener('click', closeCharDetail);
   document.getElementById('cd-print').addEventListener('click', () => printPDF());
   document.getElementById('cd-export-json').addEventListener('click', () => exportJSON());
-  document.getElementById('cd-edit-toggle').addEventListener('click', () => {
+  document.getElementById('cd-edit-toggle').addEventListener('click', async () => {
     editorState.editMode = !editorState.editMode;
     const btn = document.getElementById('cd-edit-toggle');
     const saveBtn = document.getElementById('cd-save-api');
     btn.textContent = editorState.editMode ? 'View' : 'Edit';
     saveBtn.style.display = editorState.editMode ? '' : 'none';
+
+    // When entering edit mode, fetch fresh data from the server so that one
+    // ST's session cannot silently overwrite another's recent saves with a
+    // stale in-memory copy loaded at page open.
+    if (editorState.editMode) {
+      const idx = editorState.editIdx;
+      const c = chars[idx];
+      if (c && c._id) {
+        try {
+          const fresh = await apiGet('/api/characters/' + c._id);
+          sanitiseChar(fresh);
+          // Merge server data over cached object; _-prefixed ephemeral props
+          // (e.g. _gameXP, _regentTerritory) are not on `fresh` so they survive.
+          Object.assign(chars[idx], fresh);
+          selectedChar = chars[idx];
+        } catch { /* keep cached data if fetch fails — don't block editing */ }
+      }
+    }
+
     renderSheet(chars[editorState.editIdx]);
   });
   document.getElementById('cd-save-api').addEventListener('click', saveCharToApi);
