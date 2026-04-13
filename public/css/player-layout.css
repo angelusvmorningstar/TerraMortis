@@ -5,7 +5,7 @@
 body {
   background: var(--bg);
   color: var(--txt);
-  font-family: var(--fb);
+  font-family: var(--ft);
   min-height: 100vh;
 }
 
@@ -26,14 +26,14 @@ body {
 }
 
 .login-title {
-  font-family: var(--fhd);
+  font-family: var(--fh);
   font-size: 28px;
-  color: var(--gold2);
+  color: var(--accent);
   letter-spacing: 2px;
 }
 
 .login-sub {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 12px;
   color: var(--txt3);
   text-transform: uppercase;
@@ -57,7 +57,7 @@ body {
   border: none;
   border-radius: 6px;
   padding: 12px 24px;
-  font-family: var(--fb);
+  font-family: var(--fl);
   font-size: 15px;
   cursor: pointer;
   transition: background .2s;
@@ -101,14 +101,14 @@ body {
 }
 
 .sidebar-title {
-  font-family: var(--fhd);
+  font-family: var(--fh);
   font-size: 18px;
-  color: var(--gold2);
+  color: var(--accent);
   letter-spacing: 1px;
 }
 
 .sidebar-sub {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   color: var(--txt3);
   text-transform: uppercase;
@@ -125,7 +125,7 @@ body {
   border: 1px solid var(--bdr);
   border-radius: 4px;
   padding: 6px 8px;
-  font-family: var(--fb);
+  font-family: var(--ft);
   font-size: 13px;
   cursor: pointer;
 }
@@ -143,7 +143,7 @@ body {
   border: none;
   border-left: 3px solid transparent;
   color: var(--txt2);
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   letter-spacing: 0.5px;
   padding: 12px 20px;
@@ -159,15 +159,15 @@ body {
   content: '\00B7 Open';
   margin-left: 6px;
   font-size: 11px;
-  color: var(--gold2);
+  color: var(--accent);
   opacity: 0.85;
-  font-family: var(--fh);
+  font-family: var(--fl);
   letter-spacing: 0.3px;
 }
 
 .sidebar-btn.on {
-  color: var(--gold2);
-  border-left-color: var(--gold2);
+  color: var(--accent);
+  border-left-color: var(--accent);
   background: var(--surf2);
 }
 
@@ -190,7 +190,7 @@ body {
   justify-content: center;
   transition: color 0.15s, border-color 0.15s;
 }
-.sb-close-btn:hover { color: var(--gold2); border-color: var(--gold2); }
+.sb-close-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 .sb-open-btn {
   position: fixed;
@@ -202,7 +202,7 @@ body {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 4px;
-  color: var(--gold2);
+  color: var(--accent);
   font-size: 18px;
   cursor: pointer;
   display: none;
@@ -249,7 +249,7 @@ body {
 .prof-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px 16px; }
 .prof-wide { grid-column: 1 / -1; }
 .prof-field { display: flex; flex-direction: column; gap: 3px; }
-.prof-label { font-family: var(--fh); font-size: 11px; color: var(--txt3); letter-spacing: 0.04em; text-transform: uppercase; }
+.prof-label { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: 0.04em; text-transform: uppercase; }
 .prof-privacy { font-size: 11px; font-style: italic; color: var(--txt3); margin: 12px 0 4px; }
 .prof-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 
@@ -291,7 +291,7 @@ body {
   border: 1px solid var(--bdr2);
   border-radius: 4px;
   color: var(--txt2);
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .06em;
@@ -3318,13 +3318,13 @@ body {
 /* ── Tickets tab ── */
 .tk-tab { padding: 20px; max-width: 720px; }
 .tk-submit-form { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 16px; margin-bottom: 20px; }
-.tk-submit-form h4 { font-family: 'Cinzel', serif; font-size: 14px; color: var(--gold2); margin: 0 0 12px; }
+.tk-submit-form h4 { font-family: var(--fl); font-size: 14px; color: var(--accent); margin: 0 0 12px; }
 .tk-form-row { margin-bottom: 10px; }
 .tk-form-label { display: block; font-size: 12px; color: var(--txt3); margin-bottom: 4px; }
 .tk-select, .tk-input { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 7px 10px; font-size: 13px; box-sizing: border-box; }
 .tk-textarea { width: 100%; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt1); padding: 7px 10px; font-size: 13px; box-sizing: border-box; resize: vertical; }
-.tk-btn-submit { background: none; border: 1px solid var(--gold2); color: var(--gold2); font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 18px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
-.tk-btn-submit:hover { background: rgba(224,196,122,0.12); }
+.tk-btn-submit { background: none; border: 1px solid var(--accent); color: var(--accent); font-family: var(--fl); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 18px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
+.tk-btn-submit:hover { background: var(--accent-a8); }
 .tk-error { color: var(--crim); font-size: 12px; margin-top: 6px; }
 .tk-list { display: flex; flex-direction: column; gap: 8px; }
 .tk-item { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; padding: 12px 14px; }
@@ -3334,7 +3334,7 @@ body {
 .tk-item-body { font-size: 13px; color: var(--txt2); margin-top: 6px; white-space: pre-wrap; }
 .tk-empty { color: var(--txt3); font-style: italic; font-size: 13px; padding: 20px 0; }
 .tk-badge { font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 600; letter-spacing: 0.03em; white-space: nowrap; }
-.tk-badge-open { background: rgba(224,196,122,0.2); color: var(--gold2); }
+.tk-badge-open { background: var(--accent-a8); color: var(--accent); }
 .tk-badge-in_progress { background: rgba(80,140,200,0.2); color: #7ab4e0; }
 .tk-badge-resolved { background: rgba(80,180,100,0.2); color: #72c47a; }
 .tk-badge-closed { background: rgba(120,120,120,0.15); color: var(--txt3); }
@@ -3344,15 +3344,15 @@ body {
 .tk-badge-sheet { background: rgba(200,150,50,0.2); color: #d4a84b; }
 .tk-badge-other { background: rgba(120,120,120,0.15); color: var(--txt3); }
 .tk-item-toggle { cursor: pointer; user-select: none; }
-.tk-item-toggle:hover .tk-item-title { color: var(--gold2); }
+.tk-item-toggle:hover .tk-item-title { color: var(--accent); }
 .tk-item-chevron { font-size: 13px; color: var(--txt3); margin-left: auto; }
-.tk-item-expanded { border-color: var(--gold2); }
+.tk-item-expanded { border-color: var(--accent); }
 .tk-detail { border-top: 1px solid var(--bdr); padding-top: 12px; margin-top: 8px; }
 .tk-item-body-full { font-size: 13px; color: var(--txt2); white-space: pre-wrap; }
 .tk-edit-error { color: var(--crim); font-size: 12px; margin: 6px 0; }
-.tk-btn-save { background: none; border: 1px solid var(--gold2); color: var(--gold2); font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 16px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
-.tk-btn-save:hover { background: rgba(224,196,122,0.12); }
-.tk-edit-hint { font-family: var(--fh); font-size: 10px; letter-spacing: .04em; color: var(--gold2); opacity: .6; }
+.tk-btn-save { background: none; border: 1px solid var(--accent); color: var(--accent); font-family: var(--fl); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 16px; border-radius: 4px; cursor: pointer; margin-top: 6px; }
+.tk-btn-save:hover { background: var(--accent-a8); }
+.tk-edit-hint { font-family: var(--fl); font-size: 10px; letter-spacing: .04em; color: var(--accent); opacity: .6; }
 
 /* ── Responsive ── */
 
@@ -3371,9 +3371,6 @@ body {
    ══════════════════════════════════════════ */
 
 /* Cinzel weight floor: 600 minimum on parchment */
-html:not([data-theme="dark"]) .sidebar-sub,
-html:not([data-theme="dark"]) .sidebar-btn,
-html:not([data-theme="dark"]) .sidebar-btn.on,
 html:not([data-theme="dark"]) .prof-label,
 html:not([data-theme="dark"]) .wiz-btn,
 html:not([data-theme="dark"]) .wiz-step-n,
@@ -3387,8 +3384,6 @@ html:not([data-theme="dark"]) .fvc-label,
 html:not([data-theme="dark"]) .fvc-alloc-badge,
 html:not([data-theme="dark"]) .story-section-head,
 html:not([data-theme="dark"]) .story-cycle-label,
-html:not([data-theme="dark"]) .tk-btn-save,
-html:not([data-theme="dark"]) .tk-edit-hint,
 html:not([data-theme="dark"]) .feeding-title,
 html:not([data-theme="dark"]) .regency-title,
 html:not([data-theme="dark"]) .influence-title,
