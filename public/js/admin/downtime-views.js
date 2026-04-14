@@ -7177,8 +7177,8 @@ function _chkState(sub, key) {
   if (key === 'feeding') {
     const fr  = sub.feeding_review || {};
     const ps  = fr.pool_status;
-    if (ps === 'no_feed')   return 'no_action';
-    if (sub.feeding_roll || ps === 'validated') return 'dice_validated';
+    if (ps === 'no_feed')                       return 'no_action';
+    if (sub.feeding_roll || ps === 'validated') return 'confirmed';
   }
 
   // ── Projects ──
