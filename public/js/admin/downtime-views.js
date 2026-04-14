@@ -1981,10 +1981,13 @@ function buildProcessingQueue(subs) {
       const { category: meritCategory, label: meritLabel, qualifier: meritQualifier } = parsed;
       // Use character's actual merit rating + bonus (catches VM bonus dots, shared merits, etc.)
       const sphereChar  = _subChar || charMap.get((sub.character_name || '').toLowerCase().trim());
-      const actualMerit = sphereChar?.merits?.find(m =>
-        m.name?.toLowerCase() === meritLabel.toLowerCase() &&
-        (m.qualifier || '').toLowerCase() === meritQualifier.toLowerCase()
-      );
+      const actualMerit = sphereChar?.merits?.find(m => {
+        const mName = (m.name || '').toLowerCase();
+        const lName = meritLabel.toLowerCase();
+        const nameMatch = mName === lName || lName.includes(mName) || mName.includes(lName);
+        const qualMatch = (m.qualifier || m.area || '').toLowerCase() === meritQualifier.toLowerCase();
+        return nameMatch && qualMatch;
+      });
       const meritDots = actualMerit
         ? (actualMerit.rating || actualMerit.dots || parsed.dots || 0) + (actualMerit.bonus || 0)
         : (parsed.dots || 0);
@@ -3267,6 +3270,13 @@ function renderProcessingMode(container) {
   container.querySelectorAll('.proc-recat-select').forEach(sel => {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
+      // Skip selects that carry proc-recat-select only for styling — they have their own handlers
+      if (sel.classList.contains('proc-prot-merit-sel') ||
+          sel.classList.contains('proc-merit-link-sel') ||
+          sel.classList.contains('proc-inv-char-sel') ||
+          sel.classList.contains('proc-attack-char-sel') ||
+          sel.classList.contains('proc-attack-merit-sel') ||
+          sel.classList.contains('proc-inv-secrecy-sel')) return;
       const key = sel.dataset.procKey;
       const newType = sel.value;
       const entry = _getQueueEntry(key);
@@ -5138,7 +5148,7 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved'], ['skipped', 'Skip']];
+  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   h += `</div>`;
 
@@ -5864,7 +5874,10 @@ function renderActionPanel(entry, review) {
       const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
       const _meritNameKey = (entry.meritLabel || '').toLowerCase();
       const _charMerits   = (meritEntChar?.merits || [])
-        .filter(m => (m.name || '').toLowerCase() === _meritNameKey)
+        .filter(m => {
+          const mName = (m.name || '').toLowerCase();
+          return mName === _meritNameKey || _meritNameKey.includes(mName) || mName.includes(_meritNameKey);
+        })
         .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
       const _hasHWV = isAmbienceMerit && (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
       h += `<span class="proc-feed-lbl">Merit</span>`;
@@ -7361,7 +7374,7 @@ function _chkState(sub, key) {
   if (alliesM) {
     const idx = parseInt(alliesM[1]) - 1;
     const ps  = resolved[idx]?.pool_status;
-    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action') return 'no_action';
+    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action' || ps === 'no_roll' || ps === 'skipped') return 'no_action';
     if (ps === 'validated') return 'dice_validated';
   }
 
@@ -7370,7 +7383,7 @@ function _chkState(sub, key) {
   if (contactsM) {
     const idx = (raw.sphere_actions?.length || 0) + parseInt(contactsM[1]) - 1;
     const ps  = resolved[idx]?.pool_status;
-    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action') return 'no_action';
+    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action' || ps === 'no_roll' || ps === 'skipped') return 'no_action';
     if (ps === 'validated') return 'dice_validated';
   }
 
