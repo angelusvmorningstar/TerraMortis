@@ -1683,7 +1683,10 @@ body {
 .dt-chk-unsighted:hover { background: var(--surf3); }
 .dt-chk-sighted { color: var(--txt2); cursor: pointer; font-weight: 700; }
 .dt-chk-sighted:hover { background: var(--surf3); }
-.dt-chk-validated { color: var(--accent); font-weight: 700; }
+.dt-chk-confirmed   { color: var(--accent); font-weight: 700; }
+.dt-chk-drafted     { color: var(--gold2); opacity: .85; }
+.dt-chk-dice        { color: var(--txt2); }
+.dt-chk-no-action   { color: var(--txt3); opacity: .55; }
 
 .dt-conflict-list { padding: 8px 12px; }
 .dt-conflict-section-head { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--txt3); padding: 6px 0 4px; }
