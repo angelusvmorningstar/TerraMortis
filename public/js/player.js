@@ -206,10 +206,6 @@ async function loadCharacters() {
     });
   }
 
-  // Archive tab always visible
-  const archiveBtn = document.getElementById('tab-btn-archive');
-  if (archiveBtn) archiveBtn.style.display = '';
-
   // Load territories for regent derivation
   try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
 
