@@ -4910,6 +4910,23 @@ function _renderValStatusButtons(key, poolStatus, buttons) {
 }
 
 /**
+ * Render a ± ticker row (label, dec button, display span, hidden input, inc button).
+ * cssPrefix: base CSS class (e.g. 'proc-equip-mod' → -dec / -disp / -val / -inc).
+ * displayStr: pre-formatted display value (e.g. '+2', '±0', '-1').
+ * storedVal: numeric value written to the hidden input.
+ */
+function _renderTickerRow(key, label, cssPrefix, displayStr, storedVal) {
+  let h = `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">${esc(label)}</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="${cssPrefix}-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="${cssPrefix}-disp" data-proc-key="${esc(key)}">${displayStr}</span>`;
+  h += `<input type="hidden" class="${cssPrefix}-val" data-proc-key="${esc(key)}" value="${storedVal}">`;
+  h += `<button class="${cssPrefix}-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+  return h;
+}
+
+/**
  * Render the right-side sidebar for a sphere merit action entry.
  * Shows: action mode + effect from matrix, equipment modifier, roll card (if rolled), status buttons.
  */
@@ -4980,13 +4997,7 @@ function _renderMeritRightPanel(entry, rev) {
     h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
     const poolDisplay = totalPool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base pool</span><span class="proc-mod-static">${poolDisplay}</span></div>`;
-    h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-    h += `<span class="proc-mod-ticker">`;
-    h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-    h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-    h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-    h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-    h += `</span></div>`;
+    h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
     h += `</div>`; // mod panel
 
     // Roll card
@@ -5080,13 +5091,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   }
 
   // Equipment / other ticker
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
 
   h += `</div>`; // proc-feed-mod-panel
 
@@ -5141,13 +5146,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Dice Pool Modifiers (equipment only) ──
   h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="">`;
   h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
   h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
   h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
   h += `</div>`;
@@ -5156,13 +5155,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Success Modifier ──
   h += `<div class="proc-proj-succ-panel" data-proc-key="${esc(key)}">`;
   h += `<div class="proc-mod-panel-title">Success Modifier</div>`;
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Manual adj.</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-succmod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-succmod-disp" data-proc-key="${esc(key)}">${succStr}</span>`;
-  h += `<input type="hidden" class="proc-succmod-val" data-proc-key="${esc(key)}" value="${succMod}">`;
-  h += `<button class="proc-succmod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Manual adj.', 'proc-succmod', succStr, succMod);
   h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Net modifier</span>`;
   h += `<span class="proc-proj-succ-total-val" data-proc-key="${esc(key)}">${succStr}</span>`;
   h += `</div>`;
@@ -5306,13 +5299,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<span class="proc-mod-val proc-mod-neg proc-mod-unskilled-val">${unskilledDisplay}</span>`;
   h += `</div>`;
   // Equipment ticker
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
   // Total
   h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
   h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
