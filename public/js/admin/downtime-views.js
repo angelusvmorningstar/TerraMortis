@@ -6260,7 +6260,6 @@ function renderActionPanel(entry, review) {
 
   // ── Connected Characters (project + merit + sorcery) — inside left column, below description ──
   // Ambience merit actions are level-based automatic effects; no connected characters needed
-  const isAmbienceMerit = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
   if (!isAmbienceMerit && (entry.source === 'project' || entry.source === 'merit' || isSorcery)) {
     const connectedChars = rev.connected_chars || [];
     const otherChars = [...new Set(
