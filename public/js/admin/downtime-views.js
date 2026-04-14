@@ -3197,26 +3197,6 @@ function renderProcessingMode(container) {
         h += '</div>';
 
         if (isExpanded) {
-          // Territory pill row — feeding, project, and allies entries (expanded only)
-          const isAmbienceEntry = entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease';
-          const showTerrPills = entry.source === 'feeding'
-            || (entry.source === 'project' && !isAmbienceEntry)
-            || (entry.source === 'merit' && entry.isAlliesAction && !isAmbienceEntry);
-          if (showTerrPills) {
-            const sub = submissions.find(s => s._id === entry.subId);
-            const terrContext = entry.source === 'project' ? String(entry.actionIdx)
-              : entry.source === 'feeding' ? 'feeding'
-              : `allies_${entry.actionIdx}`;
-            const isFeeding = terrContext === 'feeding';
-            // Feeding: multi-select (array); others: single-select (string)
-            const feedingOverrideArr = isFeeding
-              ? (Array.isArray(sub?.st_review?.territory_overrides?.feeding)
-                  ? sub.st_review.territory_overrides.feeding : [])
-              : null;
-            const currentTerrId = isFeeding ? '' : (sub?.st_review?.territory_overrides?.[terrContext] || '');
-            const feedingSet = isFeeding ? new Set(feedingOverrideArr) : null;
-            h += _renderInlineTerrPills(entry.subId, terrContext, currentTerrId, feedingSet);
-          }
           h += renderActionPanel(entry, review);
         }
       }
@@ -5772,6 +5752,11 @@ function renderActionPanel(entry, review) {
       const _ambiCtx = String(entry.actionIdx);
       const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
       h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+    } else {
+      // All other project action types get territory pills inline
+      const _projCtx = String(entry.actionIdx);
+      const _projTid = projSub?.st_review?.territory_overrides?.[_projCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {
@@ -5865,6 +5850,12 @@ function renderActionPanel(entry, review) {
       const _ambiCtx = `allies_${entry.actionIdx}`;
       const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
       h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+    }
+    // Territory pills for allies/status/retainer non-ambience actions
+    if (entry.isAlliesAction && !isAmbienceMerit) {
+      const _mCtx = `allies_${entry.actionIdx}`;
+      const _mTid = meritEntSub?.st_review?.territory_overrides?.[_mCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {
@@ -5992,6 +5983,16 @@ function renderActionPanel(entry, review) {
       h += `</div>`;
       h += `</div>`;
     }
+    // Territory pills row — feeding multi-select
+    {
+      const _feedOvrArr = Array.isArray(feedSub?.st_review?.territory_overrides?.feeding)
+        ? feedSub.st_review.territory_overrides.feeding : [];
+      const _feedSet = new Set(_feedOvrArr);
+      h += `<div class="proc-recat-row">`;
+      h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet);
+      h += `</div>`;
+    }
+
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
     if (feedRoll) {
