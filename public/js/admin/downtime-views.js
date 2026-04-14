@@ -6088,17 +6088,22 @@ function renderActionPanel(entry, review) {
     const targetsVal      = rev.sorc_targets ?? sorcRawTargets;
     const notesVal        = rev.sorc_notes   ?? sorcRawNotes;
 
+    // Rite name from DT1 submissions may be an entire blob — truncate display
+    const riteDisplay   = entry.riteName || '\u2014';
+    const riteTruncated = riteDisplay.length > 100 ? riteDisplay.slice(0, 100) + '\u2026' : riteDisplay;
+
     h += `<div class="proc-feed-desc-card">`;
     h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
-    // View mode
-    h += `<div class="proc-feed-desc-view">`;
+    // Always-visible static fields (not toggled by Edit)
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(entry.tradition || '\u2014')}</div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span> ${esc(entry.riteName || '\u2014')}</div>`;
-    if (targetsVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(targetsVal)}</div>`;
-    if (notesVal)        h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(notesVal)}</div>`;
+    h += `<div class="proc-proj-field" title="${esc(riteDisplay)}"><span class="proc-feed-lbl">Rite</span> ${esc(riteTruncated)}</div>`;
+    // View mode (hidden when editing)
+    h += `<div class="proc-feed-desc-view">`;
+    if (targetsVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(targetsVal)}</div>`;
+    if (notesVal)         h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(notesVal)}</div>`;
     if (entry.poolPlayer) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(entry.poolPlayer)}</div>`;
     h += `</div>`;
-    // Edit mode
+    // Edit mode (hidden by default)
     h += `<div class="proc-feed-desc-edit" style="display:none">`;
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
