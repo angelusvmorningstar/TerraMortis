@@ -8,7 +8,7 @@ import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
 import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
-import { getAttrEffective as getAttrVal, getSkillObj, skDots, skNineAgain, skSpecs } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
 import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
@@ -2435,7 +2435,16 @@ function buildProcessingQueue(subs) {
     spheres.forEach((action, idx) => {
       const actionType = action.action_type || 'misc';
       const parsed     = _parseMeritType(action.merit_type || '');
-      const { category: meritCategory, label: meritLabel, dots: meritDots, qualifier: meritQualifier } = parsed;
+      const { category: meritCategory, label: meritLabel, qualifier: meritQualifier } = parsed;
+      // Use character's actual merit rating + bonus (catches VM bonus dots, shared merits, etc.)
+      const sphereChar  = charMap.get((charName || '').toLowerCase().trim());
+      const actualMerit = sphereChar?.merits?.find(m =>
+        m.name?.toLowerCase() === meritLabel.toLowerCase() &&
+        (m.qualifier || '').toLowerCase() === meritQualifier.toLowerCase()
+      );
+      const meritDots = actualMerit
+        ? (actualMerit.rating || actualMerit.dots || parsed.dots || 0) + (actualMerit.bonus || 0)
+        : (parsed.dots || 0);
       let phaseNum;
       const isAlliesAction = meritCategory === 'allies' || meritCategory === 'status';
       if (isAlliesAction) {
@@ -4400,19 +4409,19 @@ function renderProcessingMode(container) {
                         || charMap.get(charNameKey) || null;
 
       // Pool = tradition stats + 3 (DT) + Mandragora (Cruac, if toggled)
-      const base     = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
-      const isCruac  = entry.tradition === 'Cruac';
-      const mandUsed = rev.ritual_mg_used || false;
-      const mgMerit  = char?.merits?.find(m => m.name === 'Mandragora Garden');
-      const mgDots   = (isCruac && mandUsed && mgMerit) ? (mgMerit.rating || mgMerit.dots || 0) : 0;
-      const eqMod    = rev.pool_mod_equipment || 0;
-      const total    = base + 3 + mgDots + eqMod;
+      const base         = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
+      const isCruac      = entry.tradition === 'Cruac';
+      const mandUsed     = rev.ritual_mg_used || false;
+      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) : 0); }, 0);
+      const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
+      const eqMod        = rev.pool_mod_equipment || 0;
+      const total        = base + 3 + mgDots + eqMod;
       if (!total) { alert('Cannot compute pool — character stats unavailable.'); return; }
 
       const parts = char
         ? [
             `${ritInfo.attr} ${getAttrVal(char, ritInfo.attr) || 0}`,
-            `${ritInfo.skill} ${skDots(char, ritInfo.skill) || 0}`,
+            `${ritInfo.skill} ${skTotal(char, ritInfo.skill) || 0}`,
             ritInfo.disc ? `${ritInfo.disc} ${char.disciplines?.[ritInfo.disc]?.dots || 0}` : null,
             '+3 (downtime)',
             mgDots ? `+${mgDots} (Mandragora)` : null,
@@ -5300,14 +5309,14 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const selectedRite = rev.rite_override || entry.riteName || '';
   const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
 
-  const isCruac  = entry.tradition === 'Cruac';
-  const mandUsed = rev.ritual_mg_used || false;
-  const mgMerit  = char?.merits?.find(m => m.name === 'Mandragora Garden');
-  const mgDots   = (isCruac && mandUsed && mgMerit) ? (mgMerit.rating || mgMerit.dots || 0) : 0;
-  const eqMod    = rev.pool_mod_equipment || 0;
-  const eqStr    = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
-  const base     = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
-  const total    = base + 3 + mgDots + eqMod;
+  const isCruac      = entry.tradition === 'Cruac';
+  const mandUsed     = rev.ritual_mg_used || false;
+  const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) : 0); }, 0);
+  const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
+  const eqMod        = rev.pool_mod_equipment || 0;
+  const eqStr        = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
+  const total        = base + 3 + mgDots + eqMod;
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
@@ -5318,12 +5327,11 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // +3 Downtime bonus (always on)
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
 
-  // Mandragora Garden toggle (Cruac only)
-  if (isCruac && mgMerit) {
-    const mgTotal = mgMerit.rating || mgMerit.dots || 0;
+  // Mandragora Garden toggle (Cruac only — shared pool across all chars with the merit)
+  if (isCruac && mgSharedPool > 0) {
     h += `<div class="proc-mod-row">`;
     h += `<label class="proc-pool-rote-label proc-feed-rote-right">`;
-    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}> Mandragora Garden (+${mgTotal})`;
+    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}> Mandragora Garden (+${mgSharedPool})`;
     h += `</label></div>`;
   }
 
@@ -5526,7 +5534,7 @@ function _renderFeedRightPanel(entry, char, rev) {
     const parsed0 = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, charDiscs0);
     if (parsed0?.skill) {
       initSkillName = parsed0.skill;
-      initSkillDots = getSkillObj(char, initSkillName).dots || 0;
+      initSkillDots = skTotal(char, initSkillName) || 0;
     }
   }
   const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
@@ -5948,7 +5956,7 @@ function renderActionPanel(entry, review) {
 
       const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
         ...ALL_SKILLS.map(s => {
-          const dots = char ? (getSkillObj(char, s).dots || 0) : null;
+          const dots = char ? (skTotal(char, s) || 0) : null;
           const sel  = s === preSkill ? ' selected' : '';
           const label = dots !== null ? `${esc(s)} (${dots})` : esc(s);
           return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
@@ -5977,7 +5985,7 @@ function renderActionPanel(entry, review) {
 
       // Initial total display (AC 12: pass skillName for unskilled penalty)
       const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
-      const initSkillDots = preSkill ? (char ? (getSkillObj(char, preSkill).dots || 0) : 0) : 0;
+      const initSkillDots = preSkill ? (char ? (skTotal(char, preSkill) || 0) : 0) : 0;
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
       const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
 
@@ -6057,7 +6065,7 @@ function renderActionPanel(entry, review) {
 
     const skillOptHtml = ['<option value="" data-dots="0">-- Skill --</option>',
       ...ALL_SKILLS.map(s => {
-        const dots = char ? (getSkillObj(char, s).dots || 0) : null;
+        const dots = char ? (skTotal(char, s) || 0) : null;
         const sel  = s === preSkill ? ' selected' : '';
         const label = dots !== null ? `${esc(s)} (${dots})` : esc(s);
         return `<option value="${esc(s)}" data-dots="${dots ?? 0}"${sel}>${label}</option>`;
@@ -6078,7 +6086,7 @@ function renderActionPanel(entry, review) {
     const initModForDisplay = eqMod0;
 
     const initAttrDots  = preAttr  ? (char ? (getAttrVal(char, preAttr) || 0) : 0) : 0;
-    const initSkillDots = preSkill ? (char ? (getSkillObj(char, preSkill).dots || 0) : 0) : 0;
+    const initSkillDots = preSkill ? (char ? (skTotal(char, preSkill) || 0) : 0) : 0;
     const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
     // 9-again auto-detect (used for pool total annotation and sidebar initial state)
     const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
@@ -6155,18 +6163,18 @@ function renderActionPanel(entry, review) {
 
     // Pool + target display (auto-computed from selected rite + char)
     if (ritInfo) {
-      const base     = _computeRitePool(sorcChar, ritInfo.attr, ritInfo.skill, ritInfo.disc);
-      const isCruac  = entry.tradition === 'Cruac';
-      const mandUsed = rev.ritual_mg_used || false;
-      const mgMerit  = sorcChar?.merits?.find(m => m.name === 'Mandragora Garden');
-      const mgDots   = (isCruac && mandUsed && mgMerit) ? (mgMerit.rating || mgMerit.dots || 0) : 0;
-      const eqMod    = rev.pool_mod_equipment || 0;
-      const total    = base + 3 + mgDots + eqMod;
+      const base         = _computeRitePool(sorcChar, ritInfo.attr, ritInfo.skill, ritInfo.disc);
+      const isCruac      = entry.tradition === 'Cruac';
+      const mandUsed     = rev.ritual_mg_used || false;
+      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) : 0); }, 0);
+      const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
+      const eqMod        = rev.pool_mod_equipment || 0;
+      const total        = base + 3 + mgDots + eqMod;
 
       let exprParts = sorcChar
         ? [
             `${ritInfo.attr} ${getAttrVal(sorcChar, ritInfo.attr) || 0}`,
-            `${ritInfo.skill} ${skDots(sorcChar, ritInfo.skill) || 0}`,
+            `${ritInfo.skill} ${skTotal(sorcChar, ritInfo.skill) || 0}`,
             ritInfo.disc ? `${ritInfo.disc} ${sorcChar.disciplines?.[ritInfo.disc]?.dots || 0}` : null,
             '+3',
           ].filter(Boolean)
@@ -6364,7 +6372,7 @@ function _getRiteInfo(riteName) {
 function _computeRitePool(char, attr, skill, disc) {
   if (!char) return 0;
   return (getAttrVal(char, attr) || 0)
-       + (skDots(char, skill)    || 0)
+       + (skTotal(char, skill)   || 0)
        + (char.disciplines?.[disc]?.dots || 0);
 }
 
@@ -8008,7 +8016,7 @@ async function handleApplyAmbience(cycleId, cycle) {
  */
 function buildGenericPool(char, attrName, skillName, discName, modifier) {
   const attrVal = attrName ? getAttrVal(char, attrName) : 0;
-  const skillVal = skillName ? skDots(char, skillName) : 0;
+  const skillVal = skillName ? skTotal(char, skillName) : 0;
   const discVal = (discName && char?.disciplines?.[discName]?.dots) || 0;
   const mod = modifier || 0;
   const unskilled = skillName && skillVal === 0
@@ -8039,7 +8047,7 @@ function skillOptions(char) {
   for (const [cat, skills] of Object.entries(SKILL_CATS)) {
     h += `<optgroup label="${esc(cat)}">`;
     for (const s of skills) {
-      const v = char ? skDots(char, s) : 0;
+      const v = char ? skTotal(char, s) : 0;
       h += `<option value="${esc(s)}">${esc(s)} (${v})</option>`;
     }
     h += '</optgroup>';
