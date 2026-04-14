@@ -1659,6 +1659,14 @@ body {
 .dt-matrix-nosub-badge { font-size: 10px; color: var(--txt-dim); font-style: italic; margin-left: 4px; }
 .dt-matrix-note { font-size: 11px; color: var(--txt-dim); padding: 6px 12px; margin: 0; display: inline; margin-left: 8px; }
 /* ── Submission Checklist (feature.55) ── */
+.dt-proc-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  padding-bottom: 4px;
+}
+
 .dt-chk-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 4px; overflow: hidden; }
 .dt-chk-toggle { padding: 8px 12px; background: var(--surf2); cursor: pointer; font-family: var(--fl); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .dt-chk-toggle:hover { background: var(--surf3); }
@@ -1755,6 +1763,7 @@ body {
 .proc-terr-pill-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 5px;
   padding: 4px 16px;
   background: var(--surf1);
@@ -3911,6 +3920,98 @@ body {
   overflow: hidden;
 }
 
+/* ── Queue controls bar ── */
+.proc-queue-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 2px;
+}
+
+.proc-hide-done-btn {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  background: none;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.proc-hide-done-btn:hover { background: var(--surf3); color: var(--txt); }
+.proc-hide-done-btn.active {
+  background: var(--accent-a8);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Character status strip ── */
+.proc-char-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+  flex-wrap: wrap;
+}
+
+.proc-char-strip-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.proc-char-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--bdr2);
+  background: var(--surf2);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  min-width: 60px;
+}
+.proc-char-chip:hover { background: var(--surf3); border-color: var(--txt3); }
+
+.proc-char-chip-name {
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt1);
+  white-space: nowrap;
+}
+
+.proc-char-chip-prog {
+  font-family: var(--fl);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--txt3);
+  white-space: nowrap;
+}
+
+/* State variants — left border colour communicates overall state */
+.proc-char-chip.state-none     { border-left: 3px solid var(--bdr2); }
+.proc-char-chip.state-partial  { border-left: 3px solid var(--gold2); }
+.proc-char-chip.state-complete { border-left: 3px solid var(--accent); }
+.proc-char-chip.state-ready    { border-left: 3px solid var(--result-succ); }
+.proc-char-chip.state-published{ border-left: 3px solid var(--txt3); opacity: 0.6; }
+
+.proc-char-chip.state-partial  .proc-char-chip-prog { color: var(--gold2); }
+.proc-char-chip.state-complete .proc-char-chip-prog { color: var(--accent); }
+.proc-char-chip.state-ready    .proc-char-chip-prog { color: var(--result-succ); }
+
 .proc-phase-header {
   background: var(--surf2);
   padding: 10px 16px;
@@ -4158,7 +4259,7 @@ body {
 
 .proc-action-row {
   display: grid;
-  grid-template-columns: minmax(120px, 160px) minmax(140px, 180px) 1fr 90px;
+  grid-template-columns: minmax(120px, 160px) minmax(140px, 180px) 1fr 90px auto;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -4224,9 +4325,19 @@ body {
   text-align: center;
   font-family: var(--fl);
 }
-.proc-row-status.pending { background: var(--crim-a25); color: var(--result-pend); }
-.proc-row-status.validated { background: rgba(60,140,60,.25); color: var(--result-succ); }
-.proc-row-status.no_roll { background: rgba(100,100,100,.25); color: var(--txt2); }
+.proc-row-status.pending     { background: var(--crim-a25); color: var(--result-pend); }
+.proc-row-status.validated   { background: rgba(60,140,60,.25); color: var(--result-succ); }
+.proc-row-status.no_roll     { background: rgba(100,100,100,.25); color: var(--txt2); }
+.proc-row-status.no_feed     { background: var(--crim-a25); color: var(--result-pend); }
+.proc-row-status.maintenance { background: var(--accent-a15); color: var(--accent); }
+
+.proc-row-author {
+  font-family: var(--fl);
+  font-size: 10px;
+  color: var(--txt3);
+  white-space: nowrap;
+  font-style: italic;
+}
 
 .proc-action-detail {
   padding: 16px;
@@ -4436,9 +4547,11 @@ body {
   transition: border-color 0.12s, color 0.12s;
 }
 .proc-val-status button:hover { border-color: var(--accent); color: var(--txt1); }
-.proc-val-status button.active.pending { border-color: var(--result-pend); color: var(--result-pend); background: var(--crim-a15); }
-.proc-val-status button.active.validated { border-color: var(--result-succ); color: var(--result-succ); background: var(--result-succ-bg); }
-.proc-val-status button.active.no_roll { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
+.proc-val-status button.active.pending     { border-color: var(--result-pend); color: var(--result-pend); background: var(--crim-a15); }
+.proc-val-status button.active.validated   { border-color: var(--result-succ); color: var(--result-succ); background: var(--result-succ-bg); }
+.proc-val-status button.active.no_roll     { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
+.proc-val-status button.active.no_feed     { border-color: var(--result-pend); color: var(--result-pend); background: var(--crim-a15); }
+.proc-val-status button.active.maintenance { border-color: var(--accent); color: var(--accent); background: var(--accent-a15); }
 
 .proc-notes-thread {
   display: flex;
@@ -4951,6 +5064,36 @@ body {
 }
 .proc-proj-field:last-child { margin-bottom: 0; }
 
+/* ── Action type recategorisation ── */
+.proc-recat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+}
+
+.proc-recat-select {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt);
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.proc-recat-select:focus { outline: none; border-color: var(--accent); }
+
+.proc-recat-original {
+  font-family: var(--fl);
+  font-size: 10px;
+  color: var(--txt3);
+  font-style: italic;
+}
+
 .proc-allies-hint {
   font-size: 12px;
   color: var(--txt3);
@@ -5196,6 +5339,7 @@ body {
 html:not([data-theme="dark"]) .proc-row-status.pending  { background: var(--crim-a15); color: var(--crim); }
 html:not([data-theme="dark"]) .proc-row-status.validated{ background: var(--green-a15); color: var(--green3); }
 html:not([data-theme="dark"]) .proc-row-status.no_roll  { background: var(--gold-a10); color: var(--txt2); }
+html:not([data-theme="dark"]) .proc-row-status.no_feed  { background: var(--crim-a15); color: var(--crim); }
 
 /* Character name in processing row — 700 for prominence (Cinzel entity name) */
 html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }
@@ -5210,10 +5354,16 @@ html:not([data-theme="dark"]) .dt-chk-nosub-badge { font-size: 12px; }
 html:not([data-theme="dark"]) .btn-sm { text-align: center; }
 
 
+/* Character strip — gold2 is too bright on parchment */
+html:not([data-theme="dark"]) .proc-char-chip.state-partial  { border-left-color: var(--crim); }
+html:not([data-theme="dark"]) .proc-char-chip.state-partial  .proc-char-chip-prog { color: var(--crim); }
+
 /* Processing validation status buttons — neon colours fail on parchment */
-html:not([data-theme="dark"]) .proc-val-status button.active.pending   { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }
-html:not([data-theme="dark"]) .proc-val-status button.active.validated { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
-html:not([data-theme="dark"]) .proc-val-status button:hover             { border-color: var(--crim-a40); color: var(--txt); }
+html:not([data-theme="dark"]) .proc-val-status button.active.pending      { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }
+html:not([data-theme="dark"]) .proc-val-status button.active.validated    { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
+html:not([data-theme="dark"]) .proc-val-status button.active.maintenance  { border-color: var(--accent); color: var(--accent); background: var(--accent-a12); }
+html:not([data-theme="dark"]) .proc-val-status button:hover               { border-color: var(--crim-a40); color: var(--txt); }
+html:not([data-theme="dark"]) .proc-row-status.maintenance                { background: var(--accent-a12); color: var(--accent); }
 
 
 /* Audit badges — base colours are too faint on cream parchment.
