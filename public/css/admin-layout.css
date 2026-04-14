@@ -4811,6 +4811,42 @@ body {
 /* ── Ritual roll section (sorcery entries, inline panel) ── */
 .proc-ritual-section { margin-top: 10px; }
 
+/* Rite selector row */
+.proc-rite-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.proc-rite-select {
+  flex: 1;
+  font-family: var(--fl);
+  font-size: 12px;
+  color: var(--txt);
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.proc-rite-select:focus { outline: none; border-color: var(--accent); }
+
+/* Mechanical result textarea */
+.proc-ritual-note-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+  background: var(--surf2);
+  color: var(--txt1);
+  border: 1px solid var(--surf3);
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-family: var(--fl);
+  font-size: 13px;
+  resize: vertical;
+}
+.proc-ritual-note-input:focus { outline: none; border-color: var(--accent); }
+
 .proc-ritual-info {
   display: flex;
   flex-wrap: wrap;
@@ -4956,7 +4992,6 @@ body {
 .proc-feed-blood-input,
 .proc-feed-pool-input,
 .proc-feed-bonuses-input,
-.proc-proj-name-input,
 .proc-proj-title-input,
 .proc-proj-outcome-input,
 .proc-proj-merits-input {
