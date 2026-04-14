@@ -6371,8 +6371,15 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-story-aspirations {
   background: var(--surf);
   border-left: 2px solid var(--bdr2);
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
   font-style: italic;
+  line-height: 1.5;
   margin-bottom: 8px;
   padding: 6px 10px;
+}
+.dt-story-aspirations .dt-story-note-author {
+  font-size: 11px;
 }
 
