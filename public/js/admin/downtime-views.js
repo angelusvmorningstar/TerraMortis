@@ -2250,12 +2250,13 @@ function buildProcessingQueue(subs) {
   for (const sub of subs) {
     const raw = sub._raw || {};
     const resp = sub.responses || {};
-    const charName = sub.character_name || '?';
+    const _subChar = findCharacter(sub.character_name, sub.player_name);
+    const charName = _subChar ? (_subChar.moniker || _subChar.name) : (sub.character_name || '?');
 
     // ── Sorcery (resolve_first) ──
     const sorcCount = parseInt(resp['sorcery_slot_count'] || '1', 10);
     // Tradition detection: check character disciplines for Cruac or Theban
-    const sorcChar = charMap.get((charName || '').toLowerCase().trim());
+    const sorcChar = _subChar || charMap.get((sub.character_name || '').toLowerCase().trim());
     const discs = sorcChar?.disciplines || {};
     let tradition = 'Unknown';
     if (discs.Cruac) tradition = 'Cruac';
@@ -2430,7 +2431,7 @@ function buildProcessingQueue(subs) {
       const parsed     = _parseMeritType(action.merit_type || '');
       const { category: meritCategory, label: meritLabel, qualifier: meritQualifier } = parsed;
       // Use character's actual merit rating + bonus (catches VM bonus dots, shared merits, etc.)
-      const sphereChar  = charMap.get((charName || '').toLowerCase().trim());
+      const sphereChar  = _subChar || charMap.get((sub.character_name || '').toLowerCase().trim());
       const actualMerit = sphereChar?.merits?.find(m =>
         m.name?.toLowerCase() === meritLabel.toLowerCase() &&
         (m.qualifier || '').toLowerCase() === meritQualifier.toLowerCase()
@@ -3725,21 +3726,82 @@ function renderProcessingMode(container) {
               const eightAgainVal = rightPanel?.querySelector('.proc-proj-8a')?.checked   || false;
               await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainVal, rote: roteVal, eight_again: eightAgainVal });
             } else {
-              // Feeding: auto-detect nine_again from skill
-              const sub2  = submissions.find(s => s._id === entry.subId);
-              const char2 = sub2 ? findCharacter(sub2.character_name, sub2.player_name) : null;
-              let nineAgainAuto = false;
-              if (char2) {
-                const charDiscsArr2 = _charDiscsArray(char2).map(d => d.name);
-                const parsed2 = _parsePoolExpr(expr, ALL_ATTRS, ALL_SKILLS, charDiscsArr2);
-                if (parsed2?.skill) nineAgainAuto = skNineAgain(char2, parsed2.skill);
-              }
-              await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainAuto });
+              // Feeding: read nine_again and eight_again from right panel checkboxes
+              const rightPanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+              const nineAgainVal  = rightPanel?.querySelector('.proc-proj-9a')?.checked  || false;
+              const eightAgainVal = rightPanel?.querySelector('.proc-proj-8a')?.checked  || false;
+              await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainVal, eight_again: eightAgainVal });
             }
           }
         }
       }
       await saveEntryReview(entry, { pool_status: status });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire clear pool button — clears pool_validated so ST can rebuild from scratch
+  container.querySelectorAll('.proc-pool-clear-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_validated: '' });
+      renderProcessingMode(container);
+    });
+  });
+
+  // ── Feeding description card — Edit / Save / Cancel ──
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-blood-input, .proc-feed-pool-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input').forEach(el => {
+    el.addEventListener('click',  e => e.stopPropagation());
+    el.addEventListener('mousedown', e => e.stopPropagation());
+  });
+  container.querySelectorAll('.proc-feed-desc-edit-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const card = btn.closest('.proc-feed-desc-card');
+      card.querySelector('.proc-feed-desc-view').style.display = 'none';
+      card.querySelector('.proc-feed-desc-edit').style.display = '';
+      btn.style.display = 'none';
+    });
+  });
+  container.querySelectorAll('.proc-feed-desc-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const card = btn.closest('.proc-feed-desc-card');
+      card.querySelector('.proc-feed-desc-view').style.display = '';
+      card.querySelector('.proc-feed-desc-edit').style.display = 'none';
+      card.querySelector('.proc-feed-desc-edit-btn').style.display = '';
+    });
+  });
+  container.querySelectorAll('.proc-feed-desc-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const card       = btn.closest('.proc-feed-desc-card');
+      const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
+      const bloodType  = card.querySelector('.proc-feed-blood-input').value.trim();
+      const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
+      await saveEntryReview(entry, { description: desc, blood_type: bloodType, pool_player: playerPool });
+      renderProcessingMode(container);
+    });
+  });
+  container.querySelectorAll('.proc-proj-desc-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const card       = btn.closest('.proc-feed-desc-card');
+      const title      = card.querySelector('.proc-proj-title-input').value.trim();
+      const outcome    = card.querySelector('.proc-proj-outcome-input').value.trim();
+      const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
+      const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
+      const merits     = card.querySelector('.proc-proj-merits-input').value.trim();
+      await saveEntryReview(entry, { title, desired_outcome: outcome, description: desc, pool_player: playerPool, merits_bonuses: merits });
       renderProcessingMode(container);
     });
   });
@@ -4174,24 +4236,6 @@ function renderProcessingMode(container) {
         : null;
       const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire 9-Again builder toggle → save rev.nine_again (for initial-render static toggles)
-  container.querySelectorAll('.dt-feed-9a-toggle').forEach(cb => {
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const key = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
-      if (!entry) return;
-      // Snapshot builder expression before re-render wipes unsaved dropdown values
-      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
-      if (builder) {
-        const expr = _readBuilderExpr(builder);
-        if (expr) await saveEntryReview(entry, { pool_validated: expr });
-      }
-      await saveEntryReview(entry, { nine_again: cb.checked });
       renderProcessingMode(container);
     });
   });
@@ -5128,15 +5172,12 @@ function _updateFeedBuilderMeta(container, key) {
     return;
   }
 
-  // Feeding: existing behaviour — 9-again badge/toggle + spec toggles in meta
-  const nineAOverride = review.nine_again || false;
-  let h = '';
-  if (nineA) {
-    h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
-  } else {
-    const oChk = nineAOverride ? ' checked' : '';
-    h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${key}"${oChk}> 9-Again</label>`;
+  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox
+  const sidebarNineAFeed = container.querySelector(`.proc-proj-9a[data-proc-key="${key}"]`);
+  if (sidebarNineAFeed && review.nine_again == null) {
+    sidebarNineAFeed.checked = nineA;
   }
+  let h = '';
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
     const aoe = hasAoE(char, sp);
@@ -5163,17 +5204,6 @@ function _updateFeedBuilderMeta(container, key) {
       renderProcessingMode(container);
     });
   });
-  // Wire 9-Again override toggle injected into builder meta
-  const nineAToggleEl = metaEl.querySelector('.dt-feed-9a-toggle');
-  if (nineAToggleEl) {
-    nineAToggleEl.addEventListener('change', async e => {
-      e.stopPropagation();
-      const entry3 = buildProcessingQueue(submissions).find(q => q.key === nineAToggleEl.dataset.procKey);
-      if (!entry3) return;
-      await saveEntryReview(entry3, { nine_again: nineAToggleEl.checked });
-      renderProcessingMode(container);
-    });
-  }
 }
 
 /**
@@ -5502,7 +5532,8 @@ function _renderProjRightPanel(entry, char, rev) {
       const _base = poolValidated.slice(0, _eqIdx).trim();
       const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
       const specTotal = _activeProjSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      displayPool = `${_base} + specs ${specTotal} = ${_tot + specTotal}`;
+      const specLabel = _activeProjSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
@@ -5516,6 +5547,7 @@ function _renderProjRightPanel(entry, char, rev) {
       h += `<div class="proc-proj-val-notation">${esc(notes.join(' \u00B7 '))}</div>`;
     }
   }
+  if (poolValidated) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   // ── Roll card ──
@@ -5734,11 +5766,25 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`; // proc-feed-vitae-panel
 
-  // ── Rote toggle ──
+  // ── Roll toggles: Rote, 9-Again, 8-Again ──
   const feedSubR = submissions.find(s => s._id === entry.subId);
-  const isRote   = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
+  const isRote = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
+  const eightAgainStateFeed = rev.eight_again || false;
+  let nineAgainStateFeed;
+  if (rev.nine_again != null) {
+    nineAgainStateFeed = rev.nine_again;
+  } else {
+    nineAgainStateFeed = false;
+    if (poolValidated && char) {
+      const _frdDiscs = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+      const _frdParsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, _frdDiscs);
+      if (_frdParsed?.skill) nineAgainStateFeed = skNineAgain(char, _frdParsed.skill);
+    }
+  }
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainStateFeed ? ' checked' : ''}> 9-Again</label>`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-8a" data-proc-key="${esc(key)}"${eightAgainStateFeed ? ' checked' : ''}> 8-Again</label>`;
   h += `</div>`;
 
   // ── Validation Status ──
@@ -5759,10 +5805,19 @@ function _renderFeedRightPanel(entry, char, rev) {
       const _base = poolValidated.slice(0, _eqIdx).trim();
       const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
       const specTotal = _activeFeedSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      displayPool = `${_base} + specs ${specTotal} = ${_tot + specTotal}`;
+      const specLabel = _activeFeedSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
+  if (poolValidated) {
+    const feedNotes = [];
+    if (isRote) feedNotes.push('Rote');
+    if (nineAgainStateFeed) feedNotes.push('9-Again');
+    if (eightAgainStateFeed) feedNotes.push('8-Again');
+    if (feedNotes.length > 0) h += `<div class="proc-proj-val-notation">${esc(feedNotes.join(' \u00B7 '))}</div>`;
+    h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  }
 
   h += `</div>`;
 
@@ -5886,21 +5941,49 @@ function renderActionPanel(entry, review) {
     const projSub2 = submissions.find(s => s._id === entry.subId);
     const xpTrait  = projSub2?.responses?.[`project_${entry.projSlot}_xp_trait`] || '';
     const xpAmount = projSub2?.responses?.[`project_${entry.projSlot}_xp`] || '';
-    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory || entry.description || xpTrait;
-    if (hasExtra) {
-      h += '<div class="proc-proj-detail">';
-      if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
-      if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
-      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
-      if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
-      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(entry.projMerits)}</div>`;
-      if (entry.description)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Project Description</span> ${esc(entry.description)}</div>`;
-      // Story 3.2 — XP trait and amount attached to this project action
+
+    // ── Editable Details card ──
+    {
+      const titleVal   = rev.title          ?? entry.projTitle   ?? '';
+      const outcomeVal = rev.desired_outcome ?? entry.projOutcome ?? '';
+      const descVal    = rev.description    ?? entry.description ?? '';
+      const meritsVal  = rev.merits_bonuses ?? entry.projMerits  ?? '';
+      const playerPoolVal = poolPlayer || '';
+
+      h += `<div class="proc-feed-desc-card">`;
+      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+
+      // View mode
+      h += `<div class="proc-feed-desc-view">`;
+      if (titleVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
+      if (outcomeVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
+      if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
+      if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
+      if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      h += `</div>`;
+
+      // Edit mode (hidden)
+      h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
+      h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-proj-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+      h += `</div>`;
+      h += `</div>`;
+
+      // XP spend — kept outside the card (it's an approval item, not descriptive)
       if (xpTrait) {
-        const xpLabel = xpAmount ? `XP Spend${xpAmount ? ' (' + esc(String(xpAmount)) + ' XP)' : ''}` : 'XP Spend';
+        const xpLabel = xpAmount ? `XP Spend (${esc(String(xpAmount))} XP)` : 'XP Spend';
         h += `<div class="proc-proj-field proc-proj-xp"><span class="proc-feed-lbl">${xpLabel}</span> ${esc(xpTrait)}</div>`;
       }
-      h += '</div>';
+
+      // Territory (read-only — set via territory pills elsewhere)
+      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      // Characters Involved (read-only — structural, not editable here)
+      if (entry.projCast) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
     }
 
     // ── Action type recategorisation ──
@@ -5932,6 +6015,28 @@ function renderActionPanel(entry, review) {
       h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
     }
     h += `</div>`;
+  }
+
+  // ── Connected Characters (project + merit + sorcery) — inside left column, below description ──
+  if (entry.source === 'project' || entry.source === 'merit' || isSorcery) {
+    const connectedChars = rev.connected_chars || [];
+    const otherChars = [...new Set(
+      submissions.map(s => {
+        const ch = findCharacter(s.character_name, s.player_name);
+        return ch ? (ch.moniker || ch.name) : (s.character_name || null);
+      }).filter(Boolean).filter(n => n !== entry.charName)
+    )].sort();
+    if (otherChars.length > 0) {
+      h += `<div class="proc-connected-section">`;
+      h += `<div class="proc-detail-label">Connected Characters</div>`;
+      h += `<div class="proc-connected-list">`;
+      for (const charN of otherChars) {
+        const chk = connectedChars.includes(charN) ? ' checked' : '';
+        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(charN)}"${chk}> ${esc(charN)}</label>`;
+      }
+      h += `</div>`;
+      h += `</div>`;
+    }
   }
 
   // ── Attack target (project + merit attack actions only) ──
@@ -5980,22 +6085,43 @@ function renderActionPanel(entry, review) {
   if (entry.source === 'feeding') {
     if (entry.noMethod) {
       h += `<div class="proc-feed-no-method">No feeding method declared by player.</div>`;
-    } else {
-      h += '<div class="proc-feed-info">';
-      h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Method</span> ${esc(entry.feedMethodLabel || entry.feedMethod)}</span>`;
-      if (entry.feedDisc) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Discipline</span> ${esc(entry.feedDisc)}</span>`;
-      if (entry.feedSpec) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Specialisation</span> ${esc(entry.feedSpec)}</span>`;
-      if (entry.feedRote) h += `<span class="proc-feed-field proc-feed-rote-badge">Rote</span>`;
-      const activeTerms = Object.entries(entry.feedTerrs || {}).filter(([, v]) => v && v !== 'none')
-        .map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
-      if (activeTerms) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Territory</span> ${esc(activeTerms)}</span>`;
-      if (entry.primaryTerr) {
-        const terrRec = TERRITORY_DATA.find(t => t.id === entry.primaryTerr || t.name === entry.primaryTerr || t.name?.toLowerCase() === entry.primaryTerr.replace(/_/g, ' ').toLowerCase());
-        const amb = terrRec?.ambienceMod ?? 0;
-        if (amb !== 0) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Ambience</span> ${amb > 0 ? '+' : ''}${amb}</span>`;
+    }
+    // ── Details card: Description (editable) + Blood Type (editable) + Player's Submitted Pool ──
+    {
+      const resp         = feedSub?.responses || {};
+      const isAppForm    = !!(resp.feed_attr);
+      const descVal      = rev.description ?? entry.feedDesc ?? '';
+      const bloodTypeVal = rev.blood_type  ?? '';
+      // Player's submitted pool string
+      let playerPoolStr;
+      if (isAppForm) {
+        const pAttr  = resp.feed_attr || '';
+        const pSkill = resp.feed_skill || '';
+        const pDisc  = resp.feed_discipline || '';
+        playerPoolStr = [pAttr, pSkill, pDisc].filter(Boolean).join(' + ') || '\u2014';
+      } else {
+        playerPoolStr = (entry.feedMethod === 'other' && (!poolPlayer || poolPlayer === 'Other') && entry.feedDesc)
+          ? entry.feedDesc
+          : (poolPlayer || '\u2014');
       }
-      h += '</div>';
-      if (entry.feedDesc) h += `<div class="proc-proj-field proc-feed-desc-field"><span class="proc-feed-lbl">Description</span> ${esc(entry.feedDesc)}</div>`;
+
+      h += `<div class="proc-feed-desc-card">`;
+      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+      // View mode
+      h += `<div class="proc-feed-desc-view">`;
+      if (descVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (bloodTypeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span> ${esc(bloodTypeVal)}</div>`;
+      if (!descVal && !bloodTypeVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No description recorded</div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolStr)}</div>`;
+      h += `</div>`;
+      // Edit mode (hidden)
+      h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><input type="text" class="proc-feed-blood-input" data-proc-key="${esc(entry.key)}" value="${esc(bloodTypeVal)}" placeholder="e.g. Human, Animal, Kindred"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
+      h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-feed-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+      h += `</div>`;
+      h += `</div>`;
     }
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
@@ -6009,26 +6135,7 @@ function renderActionPanel(entry, review) {
   if (entry.source === 'feeding') {
     // Use hoisted feedSub / feedChar from top of function
     const resp = feedSub?.responses || {};
-    const isAppForm = !!(resp.feed_attr);
     const char = feedChar;
-
-    // Player's submitted pool (source-aware, read-only)
-    h += '<div class="proc-pool-player-row">';
-    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
-    if (isAppForm) {
-      const pAttr  = resp.feed_attr || '';
-      const pSkill = resp.feed_skill || '';
-      const pDisc  = resp.feed_discipline || '';
-      const pStr   = pAttr + (pSkill ? ' + ' + pSkill : '') + (pDisc ? ' + ' + pDisc : '');
-      h += `<div class="proc-detail-value proc-pool-player-structured">${esc(pStr || '\u2014')}</div>`;
-    } else {
-      // For 'other' method with no structured custom fields, poolPlayer is just 'Other' — show feedDesc instead
-      const displayPoolPlayer = (entry.feedMethod === 'other' && (!poolPlayer || poolPlayer === 'Other') && entry.feedDesc)
-        ? entry.feedDesc
-        : (poolPlayer || '\u2014');
-      h += `<div class="proc-detail-value proc-pool-player-csv">${esc(displayPoolPlayer)}</div>`;
-    }
-    h += '</div>';
 
     // ST Pool Builder — always rendered; dot values filled from char data when available
     {
@@ -6109,19 +6216,10 @@ function renderActionPanel(entry, review) {
       // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
-      // Skill metadata: 9-again badge/toggle + spec checkboxes (live; updates on skill change)
-      const _fbnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
+      // Skill metadata: spec checkboxes only (9-again lives in the right panel)
       const _fbSp  = char && preSkill ? skSpecs(char, preSkill) : [];
       const _fbAct = rev.active_feed_specs || [];
-      const _fb9Ov = rev.nine_again || false;
       h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-      if (preSkill) {
-        if (_fbnA) {
-          h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
-        } else {
-          h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${esc(entry.key)}"${_fb9Ov ? ' checked' : ''}> 9-Again</label>`;
-        }
-      }
       for (const sp of _fbSp) {
         const checked = _fbAct.includes(sp);
         const aoe = hasAoE(char, sp);
@@ -6196,12 +6294,6 @@ function renderActionPanel(entry, review) {
     // 9-again auto-detect (used for pool total annotation and sidebar initial state)
     const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
     const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill, _pnA);
-
-    // Player's submitted pool (read-only)
-    h += '<div class="proc-pool-player-row">';
-    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
-    h += `<div class="proc-detail-value proc-pool-player-csv">${esc(poolPlayer || '\u2014')}</div>`;
-    h += '</div>';
 
     h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
     h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
@@ -6427,26 +6519,6 @@ function renderActionPanel(entry, review) {
     h += _renderMeritRightPanel(entry, rev);
     h += '</div>'; // proc-feed-layout
   }
-
-  // ── Connected Characters (project + merit + sorcery) ──
-  if (entry.source === 'project' || entry.source === 'merit' || isSorcery) {
-    const connectedChars = rev.connected_chars || [];
-    const otherChars = [...new Set(
-      submissions.map(s => s.character_name).filter(Boolean).filter(n => n !== entry.charName)
-    )].sort();
-    if (otherChars.length > 0) {
-      h += `<div class="proc-connected-section">`;
-      h += `<div class="proc-detail-label">Connected Characters</div>`;
-      h += `<div class="proc-connected-list">`;
-      for (const charN of otherChars) {
-        const chk = connectedChars.includes(charN) ? ' checked' : '';
-        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(charN)}"${chk}> ${esc(charN)}</label>`;
-      }
-      h += `</div>`;
-      h += `</div>`;
-    }
-  }
-
 
   h += '</div>'; // proc-action-detail
   return h;
