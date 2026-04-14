@@ -104,27 +104,42 @@ export async function initDtStory(cycleId) {
     selectCharacter(pill.dataset.charId);
   });
 
-  // Event delegation — all panel button clicks
+  // Event delegation — all panel button clicks, routed by section key
   panel.addEventListener('click', e => {
-    // Sign-off
+    // Sign-off (not inside a section)
     const signOffBtn = e.target.closest('.dt-story-sign-off-btn');
     if (signOffBtn && !signOffBtn.disabled) { handleSignOff(signOffBtn); return; }
 
-    // Project: Copy Context
-    const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
-    if (copyBtn) { handleCopyProjectContext(copyBtn); return; }
-
-    // Project: Context toggle
+    // Context toggle (shared across all sections — no routing needed)
     const toggleLink = e.target.closest('.dt-story-context-toggle');
     if (toggleLink) { handleContextToggle(toggleLink); return; }
 
-    // Project: Save Draft
-    const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
-    if (saveDraftBtn && !saveDraftBtn.disabled) { handleProjectSave(saveDraftBtn, 'draft'); return; }
+    // Determine which section the clicked element belongs to
+    const sectionKey = e.target.closest('.dt-story-section')?.dataset.section;
 
-    // Project: Mark Complete
+    // Copy Context
+    const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
+    if (copyBtn) {
+      if (sectionKey === 'project_responses') { handleCopyProjectContext(copyBtn); return; }
+      if (sectionKey === 'letter_from_home')  { handleCopyLetterContext(copyBtn);  return; }
+      return;
+    }
+
+    // Save Draft
+    const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
+    if (saveDraftBtn && !saveDraftBtn.disabled) {
+      if (sectionKey === 'project_responses') { handleProjectSave(saveDraftBtn, 'draft'); return; }
+      if (sectionKey === 'letter_from_home')  { handleLetterSave(saveDraftBtn, 'draft');  return; }
+      return;
+    }
+
+    // Mark Complete
     const completeBtn = e.target.closest('.dt-story-mark-complete-btn');
-    if (completeBtn && !completeBtn.disabled) { handleProjectSave(completeBtn, 'complete'); return; }
+    if (completeBtn && !completeBtn.disabled) {
+      if (sectionKey === 'project_responses') { handleProjectSave(completeBtn, 'complete'); return; }
+      if (sectionKey === 'letter_from_home')  { handleLetterSave(completeBtn, 'complete');  return; }
+      return;
+    }
   });
 }
 
@@ -487,6 +502,7 @@ function renderCharacterView(char, sub) {
  */
 function renderSection(section, char, sub, stNarrative) {
   switch (section.key) {
+    case 'letter_from_home':  return renderLetterFromHome(char, sub, stNarrative);
     case 'project_responses': return renderProjectSection(char, sub);
     default: return renderSectionScaffold(section.key, section.label, stNarrative);
   }
@@ -625,6 +641,150 @@ function renderProjectCard(char, sub, idx) {
   return h;
 }
 
+// ── Letter from Home section ──────────────────────────────────────────────────
+
+/**
+ * Assembles the Copy Context prompt for the Letter from Home section.
+ * Pure function — no side effects, no DOM access.
+ * Player letter field confirmed as `correspondence` (schema: "In-character letter to NPC").
+ */
+function buildLetterContext(char, sub) {
+  const humanity = char?.humanity ?? 0;
+  const touchstones = char?.touchstones || [];
+
+  // Player's submitted letter — check known field names in priority order
+  const playerLetter =
+    sub.responses?.correspondence ||
+    sub.responses?.letter_to_home ||
+    sub.responses?.letter ||
+    sub.responses?.narrative_letter ||
+    sub.responses?.personal_message ||
+    null;
+
+  const lines = [
+    'You are helping a Storyteller draft a Letter from Home for a Vampire: The Requiem 2nd Edition LARP character.',
+    '',
+    `Character: ${char ? displayName(char) : (sub.character_name || 'Unknown')}`,
+  ];
+
+  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
+  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+
+  if (touchstones.length) {
+    lines.push('');
+    lines.push('Touchstones:');
+    for (const t of touchstones) {
+      const attached = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
+      const desc = t.desc ? ` (${t.desc})` : '';
+      lines.push(`- ${t.name}${desc} \u2014 Humanity ${t.humanity} \u2014 ${attached}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('Player\'s submitted letter:');
+  lines.push(playerLetter ? playerLetter.trim() : '[No player letter submitted]');
+
+  lines.push('');
+  lines.push('Write a reply letter (~100 words) from one of the above touchstones (or an invented correspondent if none fit) to the character.');
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Written by the NPC to the character, never from the character');
+  lines.push('- Character moments only \u2014 no plot hooks, no hints of future events');
+  lines.push('- Match the correspondent\'s voice based on their relationship to the character');
+  lines.push('- Second person (the NPC writes "you" addressing the character)');
+  lines.push('- British English');
+  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
+  lines.push('- No em dashes');
+  lines.push('- Do not editorialise \u2014 write the scene, not its significance');
+
+  return lines.join('\n');
+}
+
+function renderLetterFromHome(char, sub, stNarrative) {
+  const complete = isSectionComplete(stNarrative, 'letter_from_home');
+  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  // Pre-fill: st_narrative first, then DT1 legacy fallback
+  const savedTxt =
+    stNarrative?.letter_from_home?.response ||
+    sub.st_review?.narrative?.letter_from_home?.text ||
+    '';
+
+  const humanity = char?.humanity ?? 0;
+  const touchstones = char?.touchstones || [];
+  const playerLetter =
+    sub.responses?.correspondence ||
+    sub.responses?.letter_to_home ||
+    sub.responses?.letter ||
+    sub.responses?.narrative_letter ||
+    sub.responses?.personal_message ||
+    null;
+
+  const ctxCollapsed = savedTxt ? ' collapsed' : '';
+  const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
+
+  let h = `<div class="dt-story-section" data-section="letter_from_home">`;
+
+  // Section header
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Letter from Home</span>`;
+  h += `<div class="dt-story-section-header-actions">`;
+  h += `<button class="dt-story-copy-ctx-btn">Copy Context</button>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  // Context block (collapsible)
+  h += `<div class="dt-story-section-body">`;
+  h += `<div class="dt-story-context-block${ctxCollapsed}">`;
+
+  // Touchstone list
+  if (touchstones.length) {
+    h += `<div class="dt-story-touchstone-list">`;
+    for (const t of touchstones) {
+      const attached = humanity >= (t.humanity || 0);
+      const stateClass = attached ? 'dt-story-ts-attached' : 'dt-story-ts-detached';
+      const stateLabel = attached ? 'Attached' : 'Detached';
+      const desc = t.desc ? ` (${t.desc})` : '';
+      h += `<div class="dt-story-touchstone-entry ${stateClass}">`;
+      h += `${t.name}${desc} \u2014 Hum ${t.humanity} \u2014 <em>${stateLabel}</em>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  } else {
+    h += `<div class="dt-story-section-empty">No touchstones on character record.</div>`;
+  }
+
+  // Player's submitted letter
+  h += `<div class="dt-story-player-letter">`;
+  h += `<span class="dt-story-note-author">Player's letter:</span> `;
+  if (playerLetter) {
+    h += `<pre class="dt-story-context-text">${playerLetter.trim()}</pre>`;
+  } else {
+    h += `<em class="dt-story-section-empty">[No player letter submitted]</em>`;
+  }
+  h += `</div>`;
+
+  h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
+  h += `</div>`; // context-block
+
+  // Response textarea
+  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
+
+  // Action buttons
+  const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
+  h += `<button class="dt-story-mark-complete-btn">`;
+  h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
+  h += `</button>`;
+  h += `</div>`;
+
+  h += `</div>`; // section-body
+  h += `</div>`; // dt-story-section
+  return h;
+}
+
 // ── Sign-off panel ────────────────────────────────────────────────────────────
 
 function renderSignOffPanel(stNarrative, applicableSections, sub) {
@@ -662,6 +822,62 @@ async function handleSignOff(btn) {
     btn.disabled = false;
     btn.textContent = 'Mark all complete';
     console.error('Sign-off failed:', err);
+  }
+}
+
+function handleCopyLetterContext(btn) {
+  if (!_currentSub) return;
+  const char = getCharForSub(_currentSub);
+  const text = buildLetterContext(char, _currentSub);
+  copyToClipboard(text, btn);
+}
+
+async function handleLetterSave(btn, status) {
+  const section = btn.closest('.dt-story-section[data-section="letter_from_home"]');
+  if (!section || !_currentSub) return;
+
+  const ta = section.querySelector('.dt-story-response-ta');
+  const text = ta?.value || '';
+
+  const user = getUser();
+  const author = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  btn.textContent = 'Saving\u2026';
+
+  try {
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.letter_from_home': { response: text, author, status },
+    });
+
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.letter_from_home = {
+      ...(_currentSub.st_narrative.letter_from_home || {}),
+      response: text, author, status,
+    };
+
+    const char = getCharForSub(_currentSub);
+    const newHtml = renderLetterFromHome(char, _currentSub, _currentSub.st_narrative);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = newHtml;
+    section.replaceWith(tmp.firstElementChild);
+
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp2 = document.createElement('div');
+      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      signOff.replaceWith(tmp2.firstElementChild);
+    }
+
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    console.error('Letter save failed:', err);
   }
 }
 

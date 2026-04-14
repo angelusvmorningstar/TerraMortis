@@ -1,6 +1,6 @@
 # Story 1.4: Letter from Home Section
 
-## Status: ready-for-dev
+## Status: review
 
 ## Story
 
@@ -143,37 +143,36 @@ The Letter from Home section is complete when `sub.st_narrative?.letter_from_hom
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: buildLetterContext(char, sub) pure function
-  - [ ] Reads char.touchstones, char.humanity for attachment status
-  - [ ] Reads char.clan, char.covenant for character context
-  - [ ] Finds player letter in sub.responses (check multiple possible keys)
-  - [ ] Assembles prompt string with all sections; omits empty lines gracefully
-  - [ ] Returns string
+- [x] Task 1: buildLetterContext(char, sub) pure function
+  - [x] Reads char.touchstones, char.humanity for attachment status
+  - [x] Reads char.clan, char.covenant for character context
+  - [x] Finds player letter in sub.responses (check multiple possible keys)
+  - [x] Assembles prompt string with all sections; omits empty lines gracefully
+  - [x] Returns string
 
-- [ ] Task 2: renderLetterFromHome(char, sub, stNarrative) renderer
-  - [ ] Replaces B1 scaffold placeholder for 'letter_from_home' section
-  - [ ] Context block: touchstone list + player letter (or absence note)
-  - [ ] Context block collapsed if stNarrative?.letter_from_home?.response is present
-  - [ ] Pre-fill textarea: stNarrative?.letter_from_home?.response || sub.st_review?.narrative?.letter_from_home?.text || ''
-  - [ ] Copy Context button, textarea (min 5 rows), Save Draft, Mark Complete
+- [x] Task 2: renderLetterFromHome(char, sub, stNarrative) renderer
+  - [x] Replaces B1 scaffold placeholder for 'letter_from_home' section
+  - [x] Context block: touchstone list + player letter (or absence note)
+  - [x] Context block collapsed if stNarrative?.letter_from_home?.response is present
+  - [x] Pre-fill textarea: stNarrative?.letter_from_home?.response || sub.st_review?.narrative?.letter_from_home?.text || ''
+  - [x] Copy Context button, textarea (min 5 rows), Save Draft, Mark Complete
 
-- [ ] Task 3: Event delegation for letter_from_home section
-  - [ ] Copy Context → buildLetterContext → copyToClipboard
-  - [ ] Context toggle (Show/Hide context)
-  - [ ] Save Draft → saveNarrativeField with 'st_narrative.letter_from_home', status: 'draft' → re-render section
-  - [ ] Mark Complete → saveNarrativeField with status: 'complete' → re-render + update pill rail
+- [x] Task 3: Event delegation for letter_from_home section
+  - [x] Copy Context → buildLetterContext → copyToClipboard
+  - [x] Context toggle (Show/Hide context)
+  - [x] Save Draft → saveNarrativeField with 'st_narrative.letter_from_home', status: 'draft' → re-render section
+  - [x] Mark Complete → saveNarrativeField with status: 'complete' → re-render + update pill rail
 
-- [ ] Task 4: Confirm player letter field name
-  - [ ] Inspect an actual DT2 submission document (read from API or check data files)
-  - [ ] Find the key in sub.responses that holds the player's letter text
-  - [ ] Update buildLetterContext to use the confirmed key
-  - [ ] If no letter field found in DT2 app form, note that it may have been DT1 CSV only
+- [x] Task 4: Confirm player letter field name
+  - [x] Inspected backup_downtime_2_2026-04-13.json — field is `correspondence` (schema: "In-character letter to NPC")
+  - [x] buildLetterContext checks: correspondence → letter_to_home → letter → narrative_letter → personal_message
+  - [x] Gracefully shows [No player letter submitted] if none found
 
-- [ ] Task 5: CSS
-  - [ ] `.dt-story-touchstone-list` — touchstone entries in context block
-  - [ ] `.dt-story-touchstone-entry` — individual touchstone row
-  - [ ] `.dt-story-ts-attached` / `.dt-story-ts-detached` — attachment state styling
-  - [ ] `.dt-story-player-letter` — player letter block in context (italic, indented)
+- [x] Task 5: CSS
+  - [x] `.dt-story-touchstone-list` — touchstone entries in context block
+  - [x] `.dt-story-touchstone-entry` — individual touchstone row
+  - [x] `.dt-story-ts-attached` / `.dt-story-ts-detached` — attachment state styling
+  - [x] `.dt-story-player-letter` — player letter block in context (italic, indented)
 
 ---
 
@@ -258,17 +257,23 @@ No new imports needed for B4.
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+| 2026-04-15 | 1.1 | Implementation complete | Dev Agent (claude-sonnet-4-6) |
 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
-_to be filled by dev agent_
+None — no blocking issues.
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Player letter field confirmed as `correspondence` via backup_downtime_2_2026-04-13.json inspection; multiple fallback keys also checked
+- DT1 legacy fallback reads `sub.st_review?.narrative?.letter_from_home?.text` on initial render; once saved via DT Story, st_narrative takes over
+- Detached touchstones shown with CSS strikethrough; still usable as letter writers
+- Panel click handler refactored from B2's project-only routing to section-key routing via `closest('.dt-story-section')?.dataset.section` — extensible for B5-B7
+- renderSection dispatch extended with letter_from_home case
+- Section header now uses `.dt-story-section-header-actions` flex wrapper to align Copy Context button + completion dot
 
 ### File List
 - `public/js/admin/downtime-story.js`

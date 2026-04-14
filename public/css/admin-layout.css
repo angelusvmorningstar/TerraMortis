@@ -6329,3 +6329,35 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-story-save-draft-btn:disabled,
 .dt-story-mark-complete-btn:disabled { color: var(--txt3); cursor: default; }
 
+/* ── DT Story — Letter from Home (B4) ───────────────────────────────── */
+
+.dt-story-section-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.dt-story-touchstone-list {
+  margin-bottom: 8px;
+}
+.dt-story-touchstone-entry {
+  font-family: var(--fl);
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 1px 0;
+}
+.dt-story-ts-attached { color: var(--txt2); }
+.dt-story-ts-detached { color: var(--txt3); text-decoration: line-through; text-decoration-color: var(--bdr3); }
+
+.dt-story-player-letter {
+  background: var(--surf);
+  border-left: 2px solid var(--bdr2);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+.dt-story-player-letter .dt-story-context-text {
+  margin-top: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+

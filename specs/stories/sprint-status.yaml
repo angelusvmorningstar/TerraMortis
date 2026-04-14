@@ -70,7 +70,7 @@ development_status:
   # B4–B7 — section implementations; depend on B1; can run in parallel with each other
   # B5 reuses CSS classes from B4 (implement B4 first or in same commit)
   # B6 adds resolveTerrId — implement before or alongside A1
-  1-4-letter-from-home-section: ready-for-dev
+  1-4-letter-from-home-section: review
   1-5-touchstone-vignette-section: ready-for-dev
   1-6-territory-report-section: ready-for-dev
   1-7-cacophony-savvy-section: ready-for-dev
