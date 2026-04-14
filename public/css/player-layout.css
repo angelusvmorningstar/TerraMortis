@@ -3483,6 +3483,136 @@ body {
 }
 
 /* ══════════════════════════════════════════
+   RESPONSIVE: TABLET ≤900px / MOBILE ≤600px
+   Phase 1 — pure-CSS mobile adjustments. No JS touched,
+   no sheet.js inline styles removed. Scope: collapse two-pane
+   splits, tighten padding, and rework the feeding grid to
+   stack on phones. Sidebar drawer already handles ≤1024px.
+   ══════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+  /* Sheet tab: desktop reserves 50px gutters — too fat for tablet */
+  #tab-sheet { padding: 12px 16px; }
+
+  /* Generic two-pane splits (Downtime, Feeding, Ordeals) stack vertically */
+  .tab-split,
+  .dt-split {
+    flex-direction: column;
+    height: auto;
+  }
+  .tab-split-left,
+  .dt-split-left {
+    border-right: none;
+    border-bottom: 1px solid var(--bdr);
+  }
+
+  /* City: left-panel (map/officers) stacks above right-panel (regents/who's who) */
+  .city-split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .city-left {
+    border-right: none;
+    border-bottom: 1px solid var(--bdr);
+  }
+
+  /* Primer: fixed 220px TOC becomes a flowing index above the content */
+  .primer-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .primer-toc {
+    position: static;
+    width: 100%;
+    max-height: none;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--bdr);
+  }
+  .primer-toc-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+  .primer-toc-h3 { padding-left: 0; }
+
+  /* Wizard primary-category picker: 3-col grid becomes auto-fit */
+  .wiz-pri-row {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  /* Reclaim horizontal space — tabs were padding 24px + clamped */
+  .tab-panel:not(#tab-sheet) { padding: 16px 12px; }
+  #tab-sheet { padding: 8px 10px; }
+  #tab-story { padding: 16px 12px; }
+
+  /* Status tab tighter gaps */
+  .status-split { padding: 12px; gap: 12px; }
+
+  /* Feeding territory grid — turn each row into a stacked card with
+     inline labels on the radios so the "Resident / Poacher / Not
+     feeding" header row can be hidden without losing meaning */
+  .dt-feed-grid { display: block; }
+  .dt-feed-grid-header { display: none; }
+  .dt-feed-grid-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(139, 0, 0, .1);
+  }
+  .dt-feed-grid-row:last-child { border-bottom: none; }
+  .dt-feed-grid-row:not(.dt-feed-grid-header) .dt-feed-grid-terr,
+  .dt-feed-grid-row:not(.dt-feed-grid-header) .dt-feed-grid-col {
+    padding: 0;
+    border: none;
+  }
+  .dt-feed-grid-row .dt-feed-grid-terr {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    font-weight: 600;
+  }
+  .dt-feed-grid-row .dt-feed-grid-col {
+    flex: 0 0 auto;
+    gap: 6px;
+    justify-content: flex-start;
+  }
+  .dt-feed-grid-row .dt-feed-grid-col:nth-child(2)::after {
+    content: "Resident";
+    font-size: 11px;
+    color: var(--txt2);
+  }
+  .dt-feed-grid-row .dt-feed-grid-col:nth-child(3)::after {
+    content: "Poacher";
+    font-size: 11px;
+    color: var(--txt2);
+  }
+  .dt-feed-grid-row .dt-feed-grid-col:nth-child(4)::after {
+    content: "Not feeding";
+    font-size: 11px;
+    color: var(--txt2);
+  }
+
+  /* Influence spending row: territory label jumps above the +/- buttons */
+  .dt-influence-row { flex-wrap: wrap; }
+  .dt-influence-terr { width: 100%; }
+
+  /* City panels */
+  .city-right { padding: 12px; gap: 10px; }
+  .city-panel { padding: 10px 12px; }
+
+  /* Tickets */
+  .tk-tab { padding: 12px; }
+
+  /* Profile modal fills the small-screen viewport with tighter padding */
+  .plm-dialog { padding: 16px 16px 14px; gap: 12px; }
+  .prof-form { grid-template-columns: 1fr; }
+  .prof-readonly { gap: 10px; }
+}
+
+/* ══════════════════════════════════════════
    PARCHMENT THEME OVERRIDES
    Fixes thin Cinzel strokes, hardcoded dark colours,
    and contrast issues on the light (parchment) theme.
