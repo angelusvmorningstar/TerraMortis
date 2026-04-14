@@ -34,6 +34,36 @@ const ACTION_TYPE_LABELS = {
   acquisition:       'Acquisition',
 };
 
+// ── Territory constants (duplicated from downtime-views.js per NFR-DS-01) ────
+
+const TERRITORY_SLUG_MAP = {
+  the_academy:     'academy',
+  the_harbour:     'harbour',
+  the_dockyards:   'dockyards',
+  the_second_city: 'secondcity',
+  the_north_shore: 'northshore',
+  the_barrens:     null,
+};
+
+const TERRITORY_DISPLAY = {
+  academy:    'The Academy',
+  harbour:    'The Harbour',
+  dockyards:  'The Dockyards',
+  secondcity: 'The Second City',
+  northshore: 'The North Shore',
+};
+
+function resolveTerrId(raw) {
+  if (!raw) return null;
+  if (Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, raw)) return TERRITORY_SLUG_MAP[raw];
+  const normalised = raw.toLowerCase().replace(/^the[_\s]+/, '').replace(/_/g, ' ').trim();
+  for (const [id, name] of Object.entries(TERRITORY_DISPLAY)) {
+    const norm = name.toLowerCase().replace(/^the\s+/, '');
+    if (normalised === norm || normalised.includes(norm) || norm.includes(normalised)) return id;
+  }
+  return null;
+}
+
 // ── Module state ─────────────────────────────────────────────────────────────
 
 let _allSubmissions = [];   // GET /api/downtime_submissions?cycle_id=
@@ -120,27 +150,30 @@ export async function initDtStory(cycleId) {
     // Copy Context
     const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
     if (copyBtn) {
-      if (sectionKey === 'project_responses') { handleCopyProjectContext(copyBtn);   return; }
-      if (sectionKey === 'letter_from_home')  { handleCopyLetterContext(copyBtn);    return; }
+      if (sectionKey === 'project_responses') { handleCopyProjectContext(copyBtn);    return; }
+      if (sectionKey === 'letter_from_home')  { handleCopyLetterContext(copyBtn);     return; }
       if (sectionKey === 'touchstone')        { handleCopyTouchstoneContext(copyBtn); return; }
+      if (sectionKey === 'territory_reports') { handleCopyTerritoryContext(copyBtn);  return; }
       return;
     }
 
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
-      if (sectionKey === 'project_responses') { handleProjectSave(saveDraftBtn, 'draft');    return; }
-      if (sectionKey === 'letter_from_home')  { handleLetterSave(saveDraftBtn, 'draft');     return; }
-      if (sectionKey === 'touchstone')        { handleTouchstoneSave(saveDraftBtn, 'draft'); return; }
+      if (sectionKey === 'project_responses') { handleProjectSave(saveDraftBtn, 'draft');       return; }
+      if (sectionKey === 'letter_from_home')  { handleLetterSave(saveDraftBtn, 'draft');        return; }
+      if (sectionKey === 'touchstone')        { handleTouchstoneSave(saveDraftBtn, 'draft');    return; }
+      if (sectionKey === 'territory_reports') { handleTerritorySave(saveDraftBtn, 'draft');     return; }
       return;
     }
 
     // Mark Complete
     const completeBtn = e.target.closest('.dt-story-mark-complete-btn');
     if (completeBtn && !completeBtn.disabled) {
-      if (sectionKey === 'project_responses') { handleProjectSave(completeBtn, 'complete');    return; }
-      if (sectionKey === 'letter_from_home')  { handleLetterSave(completeBtn, 'complete');     return; }
-      if (sectionKey === 'touchstone')        { handleTouchstoneSave(completeBtn, 'complete'); return; }
+      if (sectionKey === 'project_responses') { handleProjectSave(completeBtn, 'complete');     return; }
+      if (sectionKey === 'letter_from_home')  { handleLetterSave(completeBtn, 'complete');      return; }
+      if (sectionKey === 'touchstone')        { handleTouchstoneSave(completeBtn, 'complete');  return; }
+      if (sectionKey === 'territory_reports') { handleTerritorySave(completeBtn, 'complete');   return; }
       return;
     }
   });
@@ -186,10 +219,8 @@ function isSectionDone(stNarrative, sectionKey, sub) {
   switch (sectionKey) {
     case 'feeding_validation':
       return stNarrative.feeding_validation?.approved === true;
-    case 'territory_reports': {
-      const reports = stNarrative.territory_reports || [];
-      return reports.length > 0 && reports.every(r => r.status === 'complete');
-    }
+    case 'territory_reports':
+      return territoryReportsComplete(sub);
     case 'project_responses':
       return projectResponsesComplete(sub);
     case 'resource_approvals': {
@@ -503,9 +534,10 @@ function renderCharacterView(char, sub) {
  */
 function renderSection(section, char, sub, stNarrative) {
   switch (section.key) {
-    case 'letter_from_home':  return renderLetterFromHome(char, sub, stNarrative);
-    case 'touchstone':        return renderTouchstone(char, sub, stNarrative);
-    case 'project_responses': return renderProjectSection(char, sub);
+    case 'letter_from_home':   return renderLetterFromHome(char, sub, stNarrative);
+    case 'touchstone':         return renderTouchstone(char, sub, stNarrative);
+    case 'project_responses':  return renderProjectSection(char, sub);
+    case 'territory_reports':  return renderTerritoryReports(char, sub, stNarrative, _allSubmissions, _allCharacters);
     default: return renderSectionScaffold(section.key, section.label, stNarrative);
   }
 }
@@ -937,6 +969,313 @@ function renderTouchstone(char, sub, stNarrative) {
   return h;
 }
 
+// ── Territory Report helpers ──────────────────────────────────────────────────
+
+/**
+ * Parses sub.responses.feeding_territories JSON string safely.
+ * Returns array of [slugKey, value] pairs, or [] on failure.
+ */
+function parseFeedingTerritories(sub) {
+  try {
+    return Object.entries(JSON.parse(sub.responses?.feeding_territories || '{}'));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Finds all other characters resident in the same territory slug this cycle.
+ * Returns array of { name, clan, covenant }.
+ */
+function getCoResidents(territorySlug, thisSub, allSubmissions, allChars) {
+  return allSubmissions
+    .filter(s => s._id !== thisSub._id)
+    .filter(s => {
+      let terrs = {};
+      try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { return false; }
+      return terrs[territorySlug] === 'resident';
+    })
+    .map(s => {
+      const char = allChars.find(c => c._id === s.character_id || displayName(c) === s.character_name);
+      return { name: s.character_name || 'Unknown', clan: char?.clan || '', covenant: char?.covenant || '' };
+    });
+}
+
+/**
+ * Finds notable public-facing project actions by other characters in this territory.
+ * Excludes skipped actions and hide/protect actions with net successes > 0.
+ * Returns array of { characterName, actionType, outcome, successes }.
+ */
+function getNotableEvents(terrId, thisSub, allSubmissions) {
+  const events = [];
+  for (const s of allSubmissions) {
+    if (s._id === thisSub._id) continue;
+    const resolved = s.projects_resolved || [];
+    resolved.forEach((rev, idx) => {
+      if (!rev || rev.pool_status === 'skipped') return;
+      const slot = idx + 1;
+      const rawTerr = s.responses?.[`project_${slot}_territory`] || '';
+      if (resolveTerrId(rawTerr) !== terrId) return;
+      // Exclude hidden: hide_protect with net successes > 0
+      if (rev.action_type === 'hide_protect' && (rev.roll?.successes || 0) > 0) return;
+      events.push({
+        characterName: s.character_name || 'Unknown',
+        actionType: ACTION_TYPE_LABELS[rev.action_type] || rev.action_type,
+        outcome: s.responses?.[`project_${slot}_outcome`] || '',
+        successes: rev.roll?.successes ?? null,
+      });
+    });
+  }
+  return events;
+}
+
+/**
+ * Assembles the Copy Context prompt for a single territory.
+ * Pure function — no side effects, no DOM access.
+ */
+function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars) {
+  const terrName = TERRITORY_DISPLAY[terrId] || terrId;
+
+  // Find slug for co-resident lookup
+  const feedEntries = parseFeedingTerritories(sub);
+  const terrSlug = feedEntries.find(([slug]) => TERRITORY_SLUG_MAP[slug] === terrId)?.[0] || null;
+
+  const coResidents = terrSlug ? getCoResidents(terrSlug, sub, allSubmissions, allChars) : [];
+  const notableEvents = getNotableEvents(terrId, sub, allSubmissions);
+
+  // Character's own actions in this territory
+  const ownActions = [];
+  const feedingResolved = sub.st_review?.feeding_status === 'approved';
+  if (feedingResolved && sub.feeding_roll) {
+    const poolSize = sub.feeding_roll.params?.size;
+    ownActions.push(`Feeding${poolSize ? ` (pool: ${poolSize} dice)` : ''}`);
+  }
+  const resolved = sub.projects_resolved || [];
+  resolved.forEach((rev, idx) => {
+    if (!rev || rev.pool_status === 'skipped') return;
+    const slot = idx + 1;
+    const rawTerr = sub.responses?.[`project_${slot}_territory`] || '';
+    if (resolveTerrId(rawTerr) !== terrId) return;
+    const actionLabel = ACTION_TYPE_LABELS[rev.action_type] || rev.action_type || 'Action';
+    const outcome = sub.responses?.[`project_${slot}_outcome`] || '';
+    const successes = rev.roll?.successes ?? null;
+    let line = actionLabel;
+    if (outcome) line += `: ${outcome}`;
+    if (successes !== null) line += ` (${successes} success${successes !== 1 ? 'es' : ''})`;
+    ownActions.push(line);
+  });
+
+  const lines = [
+    'You are helping a Storyteller write a Territory Report for a Vampire: The Requiem 2nd Edition LARP character.',
+    '',
+    `Character: ${char ? displayName(char) : 'Unknown'}`,
+  ];
+  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
+  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+  lines.push(`Territory: ${terrName}`);
+
+  lines.push('');
+  lines.push('Co-residents this cycle:');
+  if (coResidents.length) {
+    for (const r of coResidents) {
+      const tags = [r.clan, r.covenant].filter(Boolean).join(', ');
+      lines.push(`- ${r.name}${tags ? ` (${tags})` : ''}`);
+    }
+  } else {
+    lines.push('No other residents this cycle');
+  }
+
+  if (ownActions.length) {
+    lines.push('');
+    lines.push(`This character\u2019s actions in ${terrName}:`);
+    for (const a of ownActions) lines.push(`- ${a}`);
+  }
+
+  lines.push('');
+  lines.push(`Notable events in ${terrName} (public-facing):`);
+  if (notableEvents.length) {
+    for (const ev of notableEvents) {
+      const succStr = ev.successes !== null ? ` (${ev.successes} success${ev.successes !== 1 ? 'es' : ''})` : '';
+      const outcomeStr = ev.outcome ? `: ${ev.outcome}` : '';
+      lines.push(`- ${ev.characterName} ran ${ev.actionType}${outcomeStr}${succStr}`);
+    }
+  } else {
+    lines.push('No notable events recorded');
+  }
+
+  lines.push('');
+  lines.push(`Write a short territory report (~100 words) describing what the character observed and experienced in ${terrName} this cycle.`);
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Second person, present tense');
+  lines.push('- British English');
+  lines.push('- No mechanical terms \u2014 no discipline names, success counts, dot ratings');
+  lines.push('- No em dashes');
+  lines.push('- Do not reveal hidden actions or information the character could not have witnessed');
+  lines.push('- Character moments only \u2014 no foreshadowing or plot hooks');
+  lines.push('- Do not editorialise');
+
+  return lines.join('\n');
+}
+
+/**
+ * Returns true when all resident-territory reports are complete,
+ * or when no resident territory was declared (trivially complete).
+ */
+function territoryReportsComplete(sub) {
+  const residentTerrs = parseFeedingTerritories(sub)
+    .filter(([, v]) => v === 'resident')
+    .map(([slug]) => TERRITORY_SLUG_MAP[slug] || null)
+    .filter(id => id !== null);
+  if (residentTerrs.length === 0) return true;
+  const reports = sub.st_narrative?.territory_reports || [];
+  return reports.filter(r => r?.territory_id).length >= residentTerrs.length
+    && reports.every(r => !r || r.status === 'complete');
+}
+
+// ── Territory Report section ──────────────────────────────────────────────────
+
+function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars) {
+  const residentTerrs = parseFeedingTerritories(sub)
+    .filter(([, v]) => v === 'resident')
+    .map(([slug]) => ({
+      slug,
+      id: TERRITORY_SLUG_MAP[slug] || null,
+      name: TERRITORY_DISPLAY[TERRITORY_SLUG_MAP[slug]] || slug,
+    }))
+    .filter(t => t.id !== null);
+
+  const complete = territoryReportsComplete(sub);
+  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  let h = `<div class="dt-story-section" data-section="territory_reports">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Territory Report</span>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  if (!residentTerrs.length) {
+    h += `<div class="dt-story-terr-no-territory">No resident territory declared this cycle. No territory report required.</div>`;
+    h += `</div></div>`;
+    return h;
+  }
+
+  for (let idx = 0; idx < residentTerrs.length; idx++) {
+    const terr = residentTerrs[idx];
+    const terrId = terr.id;
+    const terrName = terr.name;
+
+    const stNarrEntry = stNarrative?.territory_reports?.[idx];
+    const legacyText = idx === 0 ? (sub.st_review?.narrative?.territory_report?.text || '') : '';
+    const savedTxt = stNarrEntry?.response || legacyText;
+    const isComplete = stNarrEntry?.status === 'complete';
+
+    const ctxCollapsed = savedTxt ? ' collapsed' : '';
+    const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
+
+    h += `<div class="dt-story-terr-section" data-terr-idx="${idx}" data-terr-id="${terrId}">`;
+
+    // Territory sub-section header
+    h += `<div class="dt-story-terr-header">`;
+    h += `<span class="dt-story-terr-name">${terrName.toUpperCase()}</span>`;
+    h += `<span class="dt-story-completion-dot ${isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
+    h += `<button class="dt-story-copy-ctx-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Copy Context</button>`;
+    h += `</div>`;
+
+    // Collapsible context block
+    h += `<div class="dt-story-context-block${ctxCollapsed}">`;
+
+    // Co-residents block
+    const coResidents = getCoResidents(terr.slug, sub, allSubmissions, allChars);
+    h += `<div class="dt-story-terr-coresidents">`;
+    h += `<span class="dt-story-note-author">Co-residents:</span>`;
+    if (coResidents.length) {
+      h += `<ul class="dt-story-terr-list">`;
+      for (const r of coResidents) {
+        const tags = [r.clan, r.covenant].filter(Boolean).join(', ');
+        h += `<li>${r.name}${tags ? ` (${tags})` : ''}</li>`;
+      }
+      h += `</ul>`;
+    } else {
+      h += ` <em class="dt-story-section-empty">No other residents this cycle</em>`;
+    }
+    h += `</div>`;
+
+    // Own actions block
+    const ownActions = [];
+    const feedingResolved = sub.st_review?.feeding_status === 'approved';
+    if (feedingResolved && sub.feeding_roll) {
+      const poolSize = sub.feeding_roll.params?.size;
+      ownActions.push({ label: 'Feeding', detail: poolSize ? `pool: ${poolSize} dice` : null });
+    }
+    const projResolved = sub.projects_resolved || [];
+    projResolved.forEach((rev, pIdx) => {
+      if (!rev || rev.pool_status === 'skipped') return;
+      const slot = pIdx + 1;
+      const rawTerr = sub.responses?.[`project_${slot}_territory`] || '';
+      if (resolveTerrId(rawTerr) !== terrId) return;
+      ownActions.push({
+        label: ACTION_TYPE_LABELS[rev.action_type] || rev.action_type || 'Action',
+        detail: sub.responses?.[`project_${slot}_outcome`] || '',
+        successes: rev.roll?.successes ?? null,
+      });
+    });
+
+    if (ownActions.length) {
+      h += `<div class="dt-story-terr-own-actions">`;
+      h += `<span class="dt-story-note-author">Own actions in ${terrName}:</span>`;
+      h += `<ul class="dt-story-terr-list">`;
+      for (const a of ownActions) {
+        let item = a.label;
+        if (a.detail) item += `: ${a.detail}`;
+        if (a.successes !== null && a.successes !== undefined) {
+          item += ` \u2014 ${a.successes} success${a.successes !== 1 ? 'es' : ''}`;
+        }
+        h += `<li>${item}</li>`;
+      }
+      h += `</ul>`;
+      h += `</div>`;
+    }
+
+    // Notable events block
+    const notableEvents = getNotableEvents(terrId, sub, allSubmissions);
+    h += `<div class="dt-story-terr-events">`;
+    h += `<span class="dt-story-note-author">Notable events:</span>`;
+    if (notableEvents.length) {
+      h += `<ul class="dt-story-terr-list">`;
+      for (const ev of notableEvents) {
+        const succStr = ev.successes !== null ? ` \u2014 ${ev.successes} success${ev.successes !== 1 ? 'es' : ''}` : '';
+        const outcomeStr = ev.outcome ? `: ${ev.outcome}` : '';
+        h += `<li>${ev.characterName} ran ${ev.actionType}${outcomeStr}${succStr}</li>`;
+      }
+      h += `</ul>`;
+    } else {
+      h += ` <em class="dt-story-section-empty">No notable public events recorded</em>`;
+    }
+    h += `</div>`;
+
+    h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
+    h += `</div>`; // context-block
+
+    // Response textarea
+    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="4" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
+
+    // Action buttons
+    h += `<div class="dt-story-card-actions">`;
+    h += `<button class="dt-story-save-draft-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Save Draft</button>`;
+    h += `<button class="dt-story-mark-complete-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">`;
+    h += `<span class="dt-story-completion-dot ${isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span> Mark Complete`;
+    h += `</button>`;
+    h += `</div>`;
+
+    h += `</div>`; // dt-story-terr-section
+  }
+
+  h += `</div></div>`;
+  return h;
+}
+
 // ── Sign-off panel ────────────────────────────────────────────────────────────
 
 function renderSignOffPanel(stNarrative, applicableSections, sub) {
@@ -1165,5 +1504,69 @@ async function handleProjectSave(btn, status) {
     btn.disabled = false;
     btn.textContent = originalText;
     console.error('Project save failed:', err);
+  }
+}
+
+function handleCopyTerritoryContext(btn) {
+  if (!_currentSub) return;
+  const char = getCharForSub(_currentSub);
+  const terrId = btn.dataset.terrId;
+  if (!terrId) return;
+  const text = buildTerritoryContext(char, _currentSub, terrId, _allSubmissions, _allCharacters);
+  copyToClipboard(text, btn);
+}
+
+async function handleTerritorySave(btn, status) {
+  const terrSection = btn.closest('.dt-story-terr-section');
+  if (!terrSection || !_currentSub) return;
+  const idx = parseInt(terrSection.dataset.terrIdx, 10);
+  const terrId = terrSection.dataset.terrId;
+
+  const ta = terrSection.querySelector('.dt-story-response-ta');
+  const text = ta?.value || '';
+
+  const user = getUser();
+  const author = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  btn.textContent = 'Saving\u2026';
+
+  try {
+    const existing = [...(_currentSub.st_narrative?.territory_reports || [])];
+    while (existing.length <= idx) existing.push(null);
+    existing[idx] = { ...(existing[idx] || {}), territory_id: terrId, response: text, author, status };
+
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.territory_reports': existing,
+    });
+
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.territory_reports = existing;
+
+    const char = getCharForSub(_currentSub);
+    const sectionEl = document.querySelector('.dt-story-section[data-section="territory_reports"]');
+    if (sectionEl) {
+      const newHtml = renderTerritoryReports(char, _currentSub, _currentSub.st_narrative, _allSubmissions, _allCharacters);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = newHtml;
+      sectionEl.replaceWith(tmp.firstElementChild);
+    }
+
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp2 = document.createElement('div');
+      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      signOff.replaceWith(tmp2.firstElementChild);
+    }
+
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    console.error('Territory save failed:', err);
   }
 }

@@ -6383,3 +6383,55 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   font-size: 11px;
 }
 
+/* B6 — Territory Report */
+.dt-story-terr-section {
+  border-top: 1px solid var(--bdr2);
+  margin-bottom: 12px;
+  padding-top: 10px;
+}
+.dt-story-terr-section:first-child { border-top: none; padding-top: 0; }
+
+.dt-story-terr-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dt-story-terr-name {
+  color: var(--gold2);
+  flex: 1;
+  font-family: var(--fh);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.dt-story-terr-coresidents,
+.dt-story-terr-own-actions,
+.dt-story-terr-events {
+  font-size: 11px;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.dt-story-terr-list {
+  list-style: disc;
+  margin: 2px 0 0 16px;
+  padding: 0;
+}
+.dt-story-terr-list li {
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 1px 0;
+}
+
+.dt-story-terr-no-territory {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px 0;
+}
+
