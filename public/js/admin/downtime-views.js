@@ -3197,26 +3197,6 @@ function renderProcessingMode(container) {
         h += '</div>';
 
         if (isExpanded) {
-          // Territory pill row — feeding, project, and allies entries (expanded only)
-          const isAmbienceEntry = entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease';
-          const showTerrPills = entry.source === 'feeding'
-            || (entry.source === 'project' && !isAmbienceEntry)
-            || (entry.source === 'merit' && entry.isAlliesAction && !isAmbienceEntry);
-          if (showTerrPills) {
-            const sub = submissions.find(s => s._id === entry.subId);
-            const terrContext = entry.source === 'project' ? String(entry.actionIdx)
-              : entry.source === 'feeding' ? 'feeding'
-              : `allies_${entry.actionIdx}`;
-            const isFeeding = terrContext === 'feeding';
-            // Feeding: multi-select (array); others: single-select (string)
-            const feedingOverrideArr = isFeeding
-              ? (Array.isArray(sub?.st_review?.territory_overrides?.feeding)
-                  ? sub.st_review.territory_overrides.feeding : [])
-              : null;
-            const currentTerrId = isFeeding ? '' : (sub?.st_review?.territory_overrides?.[terrContext] || '');
-            const feedingSet = isFeeding ? new Set(feedingOverrideArr) : null;
-            h += _renderInlineTerrPills(entry.subId, terrContext, currentTerrId, feedingSet);
-          }
           h += renderActionPanel(entry, review);
         }
       }
@@ -3492,6 +3472,21 @@ function renderProcessingMode(container) {
         sorc_targets:   targets   || null,
         sorc_notes:     notes     || null,
       });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire merit details card save
+  container.querySelectorAll('.proc-merit-desc-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const card    = btn.closest('.proc-feed-desc-card');
+      const outcome = card.querySelector('.proc-merit-outcome-input').value.trim();
+      const desc    = card.querySelector('.proc-merit-desc-ta').value.trim();
+      await saveEntryReview(entry, { desired_outcome: outcome, description: desc });
       renderProcessingMode(container);
     });
   });
@@ -4080,6 +4075,19 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { attack_target_merit: sel.value });
+    });
+  });
+
+  // Wire protected merit dropdown — saves which merit a hide/protect action covers
+  container.querySelectorAll('.proc-prot-merit-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const [name, qual] = sel.value.split('|');
+      await saveEntryReview(entry, { protected_merit_name: name || '', protected_merit_qualifier: qual || '' });
     });
   });
 
@@ -5090,7 +5098,7 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved']];
+  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   h += `</div>`;
 
@@ -5600,10 +5608,6 @@ function renderActionPanel(entry, review) {
     h += `<div class="proc-reminder-badge proc-ritual-note-banner">\u2731 ${esc(rev.ritual_result_note)}</div>`;
   }
 
-  // Full description if it was truncated (suppressed for project + feeding + sorcery + ambience merit)
-  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && !isSorcery && !isAmbienceMerit) {
-    h += `<p class="proc-full-desc">${esc(entry.description)}</p>`;
-  }
 
   // ── Merit action previous roll result (suppressed for auto-mode ambience actions) ──
   if (entry.source === 'merit' && !isAmbienceMerit) {
@@ -5638,11 +5642,22 @@ function renderActionPanel(entry, review) {
       h += '</div>';
     }
 
-    if (mOutcome || mDesc) {
-      h += '<div class="proc-proj-detail">';
-      if (mOutcome) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(mOutcome)}</div>`;
-      if (mDesc)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(mDesc)}</div>`;
-      h += '</div>';
+    {
+      const outcomeVal = rev?.desired_outcome ?? mOutcome;
+      const descVal    = rev?.description     ?? mDesc;
+      h += `<div class="proc-feed-desc-card">`;
+      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+      h += `<div class="proc-feed-desc-view">`;
+      if (outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
+      if (descVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (!outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      h += `</div>`;
+      h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-merit-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+      h += `</div>`;
+      h += `</div>`;
     }
   }
 
@@ -5733,6 +5748,11 @@ function renderActionPanel(entry, review) {
       const _ambiCtx = String(entry.actionIdx);
       const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
       h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+    } else {
+      // All other project action types get territory pills inline
+      const _projCtx = String(entry.actionIdx);
+      const _projTid = projSub?.st_review?.territory_overrides?.[_projCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {
@@ -5763,6 +5783,7 @@ function renderActionPanel(entry, review) {
       h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
     }
     h += `</select>`;
+    // Action-type-specific extras (Target character or Protects merit selector)
     if (entry.actionType === 'investigate') {
       const _invT = rev.investigate_target_char || '';
       h += `<span class="proc-feed-lbl">Target</span>`;
@@ -5783,32 +5804,51 @@ function renderActionPanel(entry, review) {
         h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
       }
       h += `</select>`;
-    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
-      if (['allies', 'status', 'retainer'].includes(entry.meritCategory)) {
-        const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
-        const _meritNameKey = (entry.meritLabel || '').toLowerCase();
-        const _charMerits   = (meritEntChar?.merits || [])
-          .filter(m => (m.name || '').toLowerCase() === _meritNameKey)
-          .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
-        const _hasHWV = (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
-        h += `<span class="proc-feed-lbl">Merit</span>`;
-        h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(entry.key)}">`;
-        h += `<option value="">\u2014 Select \u2014</option>`;
-        for (const m of _charMerits) {
-          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-          const mQual   = m.qualifier || m.area || '';
-          const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
-          const mDots   = '\u25CF'.repeat(mRating);
-          const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
-          h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
-        }
-        h += `</select>`;
-        if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
+    } else if (entry.actionType === 'hide_protect') {
+      const _protName = rev?.protected_merit_name      ?? '';
+      const _protQual = rev?.protected_merit_qualifier ?? '';
+      const _allMerits = (meritEntChar?.merits || [])
+        .slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      h += `<span class="proc-feed-lbl">Protects</span>`;
+      h += `<select class="proc-recat-select proc-prot-merit-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select merit \u2014</option>`;
+      for (const m of _allMerits) {
+        const mQual   = m.qualifier || m.area || '';
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+        const mDots   = '\u25CF'.repeat(mRating);
+        const isSelected = (m.name || '') === _protName && mQual === _protQual;
+        h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
       }
-      const _ambiSub = submissions.find(s => s._id === entry.subId);
-      const _ambiCtx = `allies_${entry.actionIdx}`;
-      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+      h += `</select>`;
+    }
+    // Merit link dropdown — universal for all named-merit categories
+    if (['allies', 'status', 'retainer', 'contacts', 'staff'].includes(entry.meritCategory)) {
+      const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
+      const _meritNameKey = (entry.meritLabel || '').toLowerCase();
+      const _charMerits   = (meritEntChar?.merits || [])
+        .filter(m => (m.name || '').toLowerCase() === _meritNameKey)
+        .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
+      const _hasHWV = isAmbienceMerit && (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
+      h += `<span class="proc-feed-lbl">Merit</span>`;
+      h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const m of _charMerits) {
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mQual   = m.qualifier || m.area || '';
+        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+        const mDots   = '\u25CF'.repeat(mRating);
+        const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
+        h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
+      }
+      h += `</select>`;
+      if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
+    }
+    // Territory pills — allies/status/retainer actions (all action types)
+    if (entry.isAlliesAction) {
+      const _mCtx = `allies_${entry.actionIdx}`;
+      const _mTid = meritEntSub?.st_review?.territory_overrides?.[_mCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {
@@ -5936,6 +5976,16 @@ function renderActionPanel(entry, review) {
       h += `</div>`;
       h += `</div>`;
     }
+    // Territory pills row — feeding multi-select
+    {
+      const _feedOvrArr = Array.isArray(feedSub?.st_review?.territory_overrides?.feeding)
+        ? feedSub.st_review.territory_overrides.feeding : [];
+      const _feedSet = new Set(_feedOvrArr);
+      h += `<div class="proc-recat-row">`;
+      h += _renderInlineTerrPills(entry.subId, 'feeding', '', _feedSet);
+      h += `</div>`;
+    }
+
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
     if (feedRoll) {

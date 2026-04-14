@@ -4560,6 +4560,7 @@ body {
 .proc-val-status button.active.maintenance { border-color: var(--accent); color: var(--accent); background: var(--accent-a15); }
 .proc-val-status button.active.resolved    { border-color: var(--result-succ); color: var(--result-succ); background: var(--result-succ-bg); }
 .proc-val-status button.active.no_effect   { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
+.proc-val-status button.active.skipped     { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
 
 .proc-notes-thread {
   display: flex;
@@ -5675,6 +5676,7 @@ html:not([data-theme="dark"]) .proc-val-status button.active.pending      { bord
 html:not([data-theme="dark"]) .proc-val-status button.active.validated    { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
 html:not([data-theme="dark"]) .proc-val-status button.active.resolved     { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
 html:not([data-theme="dark"]) .proc-val-status button.active.no_effect    { border-color: var(--txt2); color: var(--txt2); background: var(--gold-a10); }
+html:not([data-theme="dark"]) .proc-val-status button.active.skipped      { border-color: var(--txt2); color: var(--txt2); background: var(--gold-a10); }
 html:not([data-theme="dark"]) .proc-val-status button.active.maintenance  { border-color: var(--accent); color: var(--accent); background: var(--accent-a12); }
 html:not([data-theme="dark"]) .proc-val-status button:hover               { border-color: var(--crim-a40); color: var(--txt); }
 html:not([data-theme="dark"]) .proc-row-status.maintenance                { background: var(--accent-a12); color: var(--accent); }
