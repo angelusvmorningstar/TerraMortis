@@ -4804,6 +4804,67 @@ body {
   margin-bottom: 12px;
 }
 
+/* ── Ritual roll section (sorcery entries, inline panel) ── */
+.proc-ritual-section { margin-top: 10px; }
+
+.proc-ritual-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-family: var(--fl);
+  font-size: 12px;
+  color: var(--txt2);
+}
+
+.proc-ritual-info-item { display: flex; gap: 5px; align-items: baseline; }
+
+.proc-ritual-no-rule {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.proc-ritual-summary {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.proc-ritual-attempt-line {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+}
+
+.proc-ritual-attempt-line.succ { color: var(--accent); font-weight: 700; }
+
+.proc-ritual-potency-line {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.proc-ritual-potency-line.proc-ritual-pending {
+  color: var(--txt3);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.proc-ritual-fail-line {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--crim);
+  margin-top: 2px;
+}
+
+
 /* ── feature.45: Feeding info in processing panel ── */
 .proc-feed-info {
   display: flex;

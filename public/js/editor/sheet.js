@@ -423,7 +423,7 @@ export function shRenderDisciplines(c, editMode) {
       .filter(([d]) => _validDiscs.has(d) && !isInClanDisc(c, d))
       .reduce((s, [, v]) => s + (v.cp || 0), 0);
     const rem = 3 - iCP - oCP;
-    h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span style="color:' + (iCP >= 2 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">In-clan: ' + iCP + ' (min 2)</span><span style="color:' + (oCP <= 1 ? 'rgba(140,200,140,.8)' : 'rgba(200,80,80,.9)') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';
+    h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines' + _alertBadge(iCP < 2 || oCP > 1 || rem !== 0 ? 'red' : null) + '</div><div class="disc-cp-counter"><span class="sh-cp-remaining' + (rem < 0 ? ' over' : rem === 0 ? ' full' : '') + '">' + rem + ' CP</span><span class="' + (iCP < 2 ? 'sh-cp-remaining over' : '') + '">In-clan: ' + iCP + ' (min 2)</span><span class="' + (oCP > 1 ? 'sh-cp-remaining over' : '') + '">Out-of-clan: ' + oCP + ' (max 1)</span></div><div class="disc-list">';
     CORE_DISCS.forEach(d => { h += renderDiscEditRow(d, (c.disciplines || {})[d]?.dots || 0, isInClanDisc(c, d), null); });
     h += '</div></div>';
     const cn = (c.covenant || '').toLowerCase(), showCr = cn.includes('crone') || (c.disciplines || {}).Cruac?.dots > 0, showTh = cn.includes('lancea') || (c.disciplines || {}).Theban?.dots > 0;
