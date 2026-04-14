@@ -5000,7 +5000,9 @@ body {
 .proc-proj-title-input,
 .proc-proj-outcome-input,
 .proc-proj-merits-input,
-.proc-sorc-targets-input {
+.proc-sorc-targets-input,
+.proc-sorc-tradition-input,
+.proc-sorc-rite-input {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
@@ -5352,6 +5354,14 @@ body {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--bdr);
+}
+
+/* Territory pills rendered inline alongside the Action Type selector (ambience actions) */
+.proc-terr-inline-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
 }
 
 .proc-recat-select {

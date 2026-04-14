@@ -29,14 +29,13 @@ let allCycles = [];
 let activeCycle = null;
 let currentCycle = null;
 let selectedCycleId = null;
-let expandedId = null;
-const processingMode = true;
 const procExpandedKeys = new Set(); // tracks which action rows are expanded in processing mode
 let procHideDone = false;           // when true, hide fully-resolved action rows from the queue
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let ambDashCollapsed = true;   // collapse state for the Ambience Dashboard panel
+let _procQueueMap = null;      // Map<key, entry> built once per renderProcessingMode call; null outside render
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
 let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
@@ -55,11 +54,7 @@ const PHASE_ORDER = {
   investigate: 4,
   attack: 5,
   patrol_scout: 6, support: 6,
-  misc: 7, xp_spend: 7, maintenance: 7,
-  block: 8, rumour: 8, grow: 8, acquisition: 8,
-  allies: 9,
-  contacts: 10,
-  resources_retainers: 11,
+  misc: 7, xp_spend: 7, maintenance: 7, block: 7, rumour: 7, grow: 7, acquisition: 7,
 };
 
 const PHASE_LABELS = {
@@ -71,10 +66,12 @@ const PHASE_LABELS = {
   attack: 'Step 6 — Hostile',
   support_patrol: 'Step 7 — Support & Patrol',
   misc: 'Step 8 — Miscellaneous',
-  sphere: 'Sphere Actions',
-  allies: 'Allies & Status',
+  allies: 'Allies',
+  status: 'Status',
+  retainers: 'Retainers',
   contacts: 'Contacts',
   resources_retainers: 'Resources & Retainers',
+  other_merit: 'Other Merit Actions',
 };
 
 // Maps phase numeric key back to display label key
@@ -87,10 +84,12 @@ const PHASE_NUM_TO_LABEL = {
   5: 'attack',
   6: 'support_patrol',
   7: 'misc',
-  8: 'sphere',
-  9: 'allies',
-  10: 'contacts',
-  11: 'resources_retainers',
+  8: 'allies',
+  9: 'status',
+  10: 'retainers',
+  11: 'contacts',
+  12: 'resources_retainers',
+  13: 'other_merit',
 };
 
 const ACTION_TYPE_LABELS = {
@@ -810,7 +809,6 @@ async function loadCycleById(cycleId) {
   // Wire ambience apply button
   document.getElementById('dt-apply-ambience')?.addEventListener('click', () => handleApplyAmbience(cycleId, cycle));
 
-  expandedId = null;
   procExpandedKeys.clear();
   submissions = await getSubmissionsForCycle(cycleId);
   renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
@@ -866,476 +864,6 @@ function renderSubmissions() {
     ?.classList.add('dt-proc-sticky');
 
   renderProcessingMode(document.getElementById('dt-submissions'));
-}
-
-function _renderSubmissionCards() {
-  const el = document.getElementById('dt-submissions');
-  if (!submissions.length) {
-    el.innerHTML = '<p class="placeholder">No submissions in this cycle.</p>';
-    return;
-  }
-
-  const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
-
-  el.innerHTML = '<div class="dt-sub-list">' + sorted.map(s => {
-    const raw = s._raw || {};
-    const sub = raw.submission || {};
-    const attended = sub.attended_last_game ? '\u2713' : '\u2717';
-    const attendedClass = sub.attended_last_game ? 'dt-attended' : 'dt-absent';
-
-    const char = findCharacter(s.character_name, s.player_name);
-    const matchIcon = char ? '<span class="dt-match-icon">\u2713</span>' : '<span class="dt-unmatch-icon">\u26A0</span>';
-    const isExpanded = expandedId === s._id;
-    const rollResult = s.feeding_roll;
-    const rollBadge = rollResult
-      ? `<span class="dt-roll-badge rolled">${rollResult.successes} succ</span>`
-      : '<span class="dt-roll-badge unrolled">No roll</span>';
-    const status = s.approval_status || 'pending';
-    const statusBadge = `<span class="dt-status-badge dt-status-${status}">${status}</span>`;
-    const narr = s.st_review?.narrative || {};
-    const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
-    const narrativeComplete = NARR_KEYS.every(k => narr[k]?.status === 'ready');
-    const isReady = s.st_review?.outcome_visibility === 'ready';
-    const isPublished = s.st_review?.outcome_visibility === 'published';
-    const narrativeBadge = narrativeComplete && !isReady && !isPublished ? '<span class="dt-narr-badge">&#x2710; Narrative ready</span>' : '';
-    const publishedBadge = isPublished ? '<span class="dt-pub-badge">&#x2713; Published</span>'
-      : isReady ? '<span class="dt-ready-badge">&#x23F3; Ready</span>' : '';
-    // Story 5.3 — XP approval status badge
-    let xpBadge = '';
-    try {
-      const xpRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
-      if (xpRows.length) {
-        const xpApproved = xpRows.filter((_, i) => s.st_review?.xp_approvals?.[i]?.status === 'approved').length;
-        xpBadge = xpApproved === xpRows.length
-          ? '<span class="dt-narr-badge">XP \u2713</span>'
-          : xpApproved > 0 ? `<span class="proc-narr-progress">${xpApproved}/${xpRows.length} XP</span>` : '';
-      }
-    } catch { /* ignore */ }
-
-    let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''} dt-sub-${status}" data-id="${s._id}">
-      <div class="dt-sub-top dt-sub-clickable">
-        ${matchIcon}
-        <span class="dt-sub-name">${esc(s.character_name || '?')}</span>
-        <span class="dt-sub-player">${esc(s.player_name || '')}</span>
-        <span class="${attendedClass}">${attended}</span>
-        ${statusBadge}
-        ${rollBadge}
-        ${narrativeBadge}${xpBadge}${publishedBadge}
-      </div>`;
-
-    if (isExpanded) {
-      // Story 5.2 — reference-only content (mechanical work lives in processing mode)
-      h += renderPlayerResponses(s);
-      h += renderMechanicalSummaryPanel(s);
-      h += renderStNotes(s, raw);
-      h += renderExpenditurePanel(s);
-      h += renderExportRow(s);
-    }
-
-    h += '</div>';
-    return h;
-  }).join('') + '</div>';
-
-  // Card click delegation
-  // Narrative textarea autosave on blur
-  el.querySelectorAll('.dt-narr-textarea').forEach(ta => {
-    ta.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const blockKey = ta.dataset.blockKey;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const text = ta.value;
-      const statusKey = `st_review.narrative.${blockKey}.text`;
-      try {
-        await updateSubmission(subId, { [statusKey]: text });
-        if (!sub.st_review) sub.st_review = {};
-        if (!sub.st_review.narrative) sub.st_review.narrative = {};
-        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
-        sub.st_review.narrative[blockKey].text = text;
-      } catch (err) { console.error('Narrative save error:', err.message); }
-    });
-  });
-
-  // Narrative block status toggle (draft/ready)
-  el.querySelectorAll('.dt-narr-status-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const blockKey = btn.dataset.blockKey;
-      const newStatus = btn.dataset.status;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      try {
-        await updateSubmission(subId, { [`st_review.narrative.${blockKey}.status`]: newStatus });
-        if (!sub.st_review) sub.st_review = {};
-        if (!sub.st_review.narrative) sub.st_review.narrative = {};
-        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
-        sub.st_review.narrative[blockKey].status = newStatus;
-        renderSubmissions();
-      } catch (err) { console.error('Narrative status error:', err.message); }
-    });
-  });
-
-  // Expenditure inputs autosave on blur (GC-3)
-  el.querySelectorAll('.dt-exp-input').forEach(input => {
-    input.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = input.dataset.subId;
-      const field = input.dataset.expField;
-      const val = parseInt(input.value, 10);
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      try {
-        await updateSubmission(subId, { [field]: isNaN(val) ? 0 : val });
-        if (!sub.st_review) sub.st_review = {};
-        const key = field.replace('st_review.', '');
-        sub.st_review[key] = isNaN(val) ? 0 : val;
-      } catch (err) { console.error('Expenditure save error:', err.message); }
-    });
-  });
-
-  // Publish button
-  el.querySelectorAll('.dt-publish-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (sub) handlePublish(sub);
-    });
-  });
-
-  // Restore pool builder select values (innerHTML can't set selected across render)
-  el.querySelectorAll('.dt-pool-sel').forEach(sel => {
-    const subId = sel.dataset.subId;
-    const field = sel.dataset.field;
-    const projIdx = sel.dataset.projIdx !== undefined ? +sel.dataset.projIdx : null;
-    const meritIdx = sel.dataset.meritIdx !== undefined ? +sel.dataset.meritIdx : null;
-    const sub = submissions.find(s => s._id === subId);
-    if (!sub) return;
-    let val = '';
-    if (projIdx !== null) val = (sub._proj_pending || [])[projIdx]?.[field] || '';
-    else if (meritIdx !== null) val = (sub._merit_pending || [])[meritIdx]?.[field] || '';
-    if (val) sel.value = val;
-  });
-
-  el.querySelectorAll('.dt-sub-clickable').forEach(row => {
-    row.addEventListener('click', () => {
-      const card = row.closest('.dt-sub-card');
-      const id = card.dataset.id;
-      expandedId = expandedId === id ? null : id;
-      renderSubmissions();
-    });
-  });
-
-  // Method button delegation
-  el.querySelectorAll('.dt-method-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const sub = submissions.find(s => s._id === btn.dataset.subId);
-      if (sub) { sub._feed_method = btn.dataset.method; renderSubmissions(); }
-    });
-  });
-
-  // Notes save delegation
-  el.querySelectorAll('.dt-notes-save').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); handleSaveNotes(btn.dataset.subId); });
-  });
-
-  // Approval button delegation
-  el.querySelectorAll('.dt-approval-btn').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); handleApproval(btn.dataset.subId, btn.dataset.status); });
-  });
-
-  // Project pool select delegation
-  el.querySelectorAll('.dt-proj-sel').forEach(sel => {
-    sel.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = sel.dataset.subId;
-      const idx = +sel.dataset.projIdx;
-      const field = sel.dataset.field;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx][field] = sel.value;
-      // When skill changes, update nine_again flag and reset active_specs
-      if (field === 'skill') {
-        const char = findCharacter(sub.character_name, sub.player_name);
-        sub._proj_pending[idx].nine_again = char ? skNineAgain(char, sel.value) : false;
-        sub._proj_pending[idx].active_specs = [];
-        sub._proj_pending[idx].spec_bonus = 0;
-      }
-      renderSubmissions();
-    });
-  });
-
-  // Project spec toggle delegation
-  el.querySelectorAll('.dt-spec-toggle').forEach(cb => {
-    cb.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = cb.dataset.subId;
-      const idx = +(cb.dataset.projIdx ?? cb.dataset.meritIdx);
-      const spec = cb.dataset.spec;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub || !spec || isNaN(idx)) return;
-      const pendingArr = cb.dataset.meritIdx !== undefined ? '_merit_pending' : '_proj_pending';
-      if (!sub[pendingArr]) sub[pendingArr] = [];
-      if (!sub[pendingArr][idx]) sub[pendingArr][idx] = {};
-      const activeSpecs = sub[pendingArr][idx].active_specs || [];
-      if (cb.checked) {
-        if (!activeSpecs.includes(spec)) activeSpecs.push(spec);
-      } else {
-        const i = activeSpecs.indexOf(spec);
-        if (i !== -1) activeSpecs.splice(i, 1);
-      }
-      sub[pendingArr][idx].active_specs = activeSpecs;
-      sub[pendingArr][idx].spec_bonus = activeSpecs.length;
-      renderSubmissions();
-    });
-  });
-
-  // Project modifier input delegation
-  el.querySelectorAll('.dt-proj-mod').forEach(inp => {
-    inp.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = inp.dataset.subId;
-      const idx = +inp.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx].modifier = parseInt(inp.value) || 0;
-      renderSubmissions();
-    });
-  });
-
-  // Project rote toggle delegation
-  el.querySelectorAll('.dt-proj-rote').forEach(cb => {
-    cb.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = cb.dataset.subId;
-      const idx = +cb.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx].rote = cb.checked;
-    });
-  });
-
-  // Project roll button delegation
-  el.querySelectorAll('.dt-proj-roll-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const idx = +btn.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
-      const pen = (sub?._proj_pending || [])[idx] || {};
-      const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-      const existingRoll = sub?.projects_resolved?.[idx]?.roll || null;
-      const specBonus = pen.spec_bonus || 0;
-      const nineAgain = pen.nine_again || false;
-      showRollModal({
-        size: pool.total + specBonus, expression: pool.expression, success: 8, exc: 5,
-        again: nineAgain ? 9 : 10,
-        existingRoll, initialRote: pen.rote || false,
-      }, result => {
-        handleProjectRollSave(subId, idx, pool, result);
-      });
-    });
-  });
-
-  // Project note delegation (save on blur)
-  el.querySelectorAll('.dt-proj-note').forEach(ta => {
-    ta.addEventListener('blur', e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const idx = +ta.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx].st_note = ta.value;
-    });
-  });
-
-  // Project writeup delegation (save on blur)
-  el.querySelectorAll('.dt-proj-writeup').forEach(ta => {
-    ta.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const idx = +ta.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const resolved = [...(sub.projects_resolved || [])];
-      while (resolved.length <= idx) resolved.push(null);
-      if (!resolved[idx]) resolved[idx] = {};
-      resolved[idx] = { ...resolved[idx], writeup: ta.value };
-      try {
-        await updateSubmission(subId, { projects_resolved: resolved });
-        sub.projects_resolved = resolved;
-      } catch (err) { console.error('Writeup save error:', err.message); }
-    });
-  });
-
-  // Merit action pool select/mod delegation
-  el.querySelectorAll('.dt-merit-sel').forEach(sel => {
-    sel.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = sel.dataset.subId;
-      const idx = +sel.dataset.meritIdx;
-      const field = sel.dataset.field;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._merit_pending) sub._merit_pending = [];
-      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
-      sub._merit_pending[idx][field] = sel.value;
-      renderSubmissions();
-    });
-  });
-
-  // Merit modifier input delegation
-  el.querySelectorAll('.dt-merit-mod').forEach(inp => {
-    inp.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = inp.dataset.subId;
-      const idx = +inp.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._merit_pending) sub._merit_pending = [];
-      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
-      sub._merit_pending[idx].modifier = parseInt(inp.value) || 0;
-      renderSubmissions();
-    });
-  });
-
-  // Merit roll button delegation
-  el.querySelectorAll('.dt-merit-roll-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const idx = +btn.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
-      const pen = (sub?._merit_pending || [])[idx] || {};
-      const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-      showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
-        handleMeritRollSave(subId, idx, pool, result);
-      });
-    });
-  });
-
-  // Merit note delegation (save on blur)
-  el.querySelectorAll('.dt-merit-note').forEach(ta => {
-    ta.addEventListener('blur', e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const idx = +ta.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._merit_pending) sub._merit_pending = [];
-      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
-      sub._merit_pending[idx].st_note = ta.value;
-    });
-  });
-
-  // Merit "no roll needed" delegation
-  el.querySelectorAll('.dt-merit-noroll-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const idx = +btn.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const pending = (sub._merit_pending || [])[idx] || {};
-      const resolved = [...(sub.merit_actions_resolved || [])];
-      while (resolved.length <= idx) resolved.push(null);
-      resolved[idx] = { no_roll: true, st_note: pending.st_note || '', resolved_at: new Date().toISOString() };
-      try {
-        await updateSubmission(subId, { merit_actions_resolved: resolved });
-        sub.merit_actions_resolved = resolved;
-        renderSubmissions();
-      } catch (err) { console.error('Failed to save merit no-roll:', err.message); }
-    });
-  });
-
-  // Rote toggle delegation (submission review feeding row)
-  el.querySelectorAll('.dt-feed-rote-chk').forEach(cb => {
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const subId = cb.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const val = cb.checked;
-      await updateSubmission(subId, { 'st_review.feeding_rote': val });
-      if (!sub.st_review) sub.st_review = {};
-      sub.st_review.feeding_rote = val;
-    });
-  });
-
-  // Pool modifier — persist on change and update display
-  el.querySelectorAll('.dt-pool-mod').forEach(inp => {
-    inp.addEventListener('change', async e => {
-      e.stopPropagation();
-      const subId = inp.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const val = parseInt(inp.value) || 0;
-      await updateSubmission(subId, { 'st_review.feeding_modifier': val });
-      if (!sub.st_review) sub.st_review = {};
-      sub.st_review.feeding_modifier = val;
-      renderSubmissions();
-    });
-  });
-
-  // Roll button delegation
-  el.querySelectorAll('.dt-feed-roll-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const id = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === id);
-      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
-
-      let poolSize = 1, expression = '';
-      if (char && sub._feed_method) {
-        const modInput = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-mod');
-        const stMod = modInput ? (parseInt(modInput.value) || 0) : (sub.st_review?.feeding_modifier || 0);
-        const pool = buildFeedingPool(char, sub._feed_method, stMod);
-        poolSize = pool ? pool.total : 1;
-        if (pool) {
-          const bd = pool.breakdown;
-          expression = `${bd.attrVal} ${bd.attr} + ${bd.skillVal} ${bd.skill}`;
-          if (bd.fg) expression += ` + ${bd.fg} FG`;
-          if (stMod) expression += ` ${stMod >= 0 ? '+' : '-'} ${Math.abs(stMod)} ST`;
-          expression += ` = ${pool.total}`;
-        }
-      } else {
-        const input = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-input');
-        poolSize = input ? parseInt(input.value) || 1 : 1;
-        expression = `${poolSize} dice`;
-      }
-
-      const isRote = sub?.st_review?.feeding_rote || false;
-      const existingRoll = sub?.feeding_roll || rollPool(poolSize, 10, 8, 5, isRote);
-      showRollModal(
-        { size: poolSize, expression: `Feeding: ${expression}`, existingRoll },
-        async result => {
-          await updateSubmission(id, { feeding_roll: result });
-          const s = submissions.find(s => s._id === id);
-          if (s) s.feeding_roll = result;
-          renderMatchSummary();
-          renderSubmissions();
-        }
-      );
-    });
-  });
-
-  // Export button delegation
-  el.querySelectorAll('.dt-export-btn').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); handleExportSingle(btn.dataset.subId); });
-  });
 }
 
 function renderFeedingDetail(s, raw, char) {
@@ -2444,14 +1972,16 @@ function buildProcessingQueue(subs) {
       const actionType = meritResolved.action_type_override || originalActionType;
       let phaseNum;
       const isAlliesAction = meritCategory === 'allies' || meritCategory === 'status';
-      if (isAlliesAction) {
+      if (meritCategory === 'allies') {
+        phaseNum = PHASE_ORDER[actionType] ?? 8;
+      } else if (meritCategory === 'status') {
         phaseNum = PHASE_ORDER[actionType] ?? 9;
-      } else if (meritCategory === 'contacts') {
+      } else if (meritCategory === 'retainer' || meritCategory === 'staff') {
         phaseNum = 10;
-      } else if (meritCategory === 'retainer') {
+      } else if (meritCategory === 'contacts') {
         phaseNum = 11;
       } else {
-        phaseNum = PHASE_ORDER[actionType] ?? 8;
+        phaseNum = PHASE_ORDER[actionType] ?? 13;
       }
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
       queue.push({
@@ -2482,8 +2012,8 @@ function buildProcessingQueue(subs) {
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[10],
-        phaseNum: 10,
+        phase: PHASE_NUM_TO_LABEL[11],
+        phaseNum: 11,
         actionType: 'contacts',
         label: 'Contacts: Gather Info',
         description: req,
@@ -2499,8 +2029,8 @@ function buildProcessingQueue(subs) {
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[11],
-        phaseNum: 11,
+        phase: PHASE_NUM_TO_LABEL[12],
+        phaseNum: 12,
         actionType: 'resources_retainers',
         label: 'Retainer: Directed Action',
         description: task,
@@ -2700,45 +2230,25 @@ function resolveTerrId(raw) {
   return null;
 }
 
+// ── Ambience source gatherers ─────────────────────────────────────────────────
+// Each reads the module-level `submissions` array, normalises territory keys via
+// resolveTerrId, and returns id-keyed accumulators. Extracted so buildAmbienceData
+// reads as a coordinator rather than a 180-line monolith.
+
 /**
- * Build the per-territory aggregation data for the ambience dashboard.
- * Returns an array of row objects (one per territory).
+ * Count feeders per territory for overfeeding calculation.
+ * Reads responses.feeding_territories (slug keys); falls back to _raw.feeding.territories
+ * (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
+ * Returns { [terrId]: count }
  */
-function buildAmbienceData(terrs) {
-  // terrs: array from cachedTerritories / TERRITORY_DATA, keyed by .id
-  const terrById = {};
-  for (const t of TERRITORY_DATA) terrById[t.id] = t;
-
-  // Find current ambience from DB records (which may differ from TERRITORY_DATA defaults)
-  const startingAmbience    = {};
-  const startingAmbienceMod = {};
-  if (terrs && terrs.length) {
-    for (const t of terrs) {
-      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
-      if (td) {
-        startingAmbience[td.id]    = t.ambience    || td.ambience;
-        startingAmbienceMod[td.id] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
-          ? t.ambienceMod : td.ambienceMod;
-      }
-    }
-  }
-  // Fallback to TERRITORY_DATA
-  for (const td of TERRITORY_DATA) {
-    if (!startingAmbience[td.id])    startingAmbience[td.id]    = td.ambience;
-    if (startingAmbienceMod[td.id] === undefined) startingAmbienceMod[td.id] = td.ambienceMod;
-  }
-
-  // ── Overfeeding: count feeders per territory ──
-  // Reads from responses.feeding_territories (slug keys) with fallback to _raw.feeding.territories
-  // (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
+function _gatherFeeders(subs) {
   const feederCounts = {};
-  for (const sub of submissions) {
+  for (const sub of subs) {
     let grid = {};
     const respStr = sub.responses?.feeding_territories;
     if (respStr) {
       try { grid = JSON.parse(respStr); } catch { grid = {}; }
     } else {
-      // Fallback: _raw feeding territories use display-name keys ('The Academy': 'Resident')
       grid = sub._raw?.feeding?.territories || {};
     }
     for (const [k, v] of Object.entries(grid)) {
@@ -2748,12 +2258,17 @@ function buildAmbienceData(terrs) {
       feederCounts[tid] = (feederCounts[tid] || 0) + 1;
     }
   }
+  return feederCounts;
+}
 
-  // ── Influence: sum numeric amounts per territory ──
-  // influence_territories stores { "The Academy": 3, "The Dockyards": -2, ... }
-  // Positive values = ambience increase; negative = decrease.
+/**
+ * Sum influence spend per territory.
+ * influence_territories: { "The Academy": 3, "The Dockyards": -2, ... } or legacy array.
+ * Returns { infPos: { [terrId]: n }, infNeg: { [terrId]: n } }
+ */
+function _gatherInfluence(subs) {
   const infPos = {}, infNeg = {};
-  for (const sub of submissions) {
+  for (const sub of subs) {
     let infObj = {};
     try { infObj = JSON.parse(sub.responses?.influence_territories || '{}'); } catch { infObj = {}; }
     // Handle legacy format (array of names from old uploads) — treat each as +1
@@ -2772,17 +2287,23 @@ function buildAmbienceData(terrs) {
       }
     }
   }
+  return { infPos, infNeg };
+}
 
-  // ── Projects: sum roll successes from ambience project actions ──
+/**
+ * Sum ambience project roll successes per territory.
+ * Returns { projPos: { [terrId]: n }, projNeg: { [terrId]: n }, pendingCount: n }
+ */
+function _gatherProjectAmbience(subs) {
   const projPos = {}, projNeg = {};
-  let pendingAmbienceCount = 0;
-  for (const sub of submissions) {
+  let pendingCount = 0;
+  for (const sub of subs) {
     // Count pending: ambience project actions in form responses with no resolved roll
     for (let n = 1; n <= 4; n++) {
       const action = sub.responses?.[`project_${n}_action`];
       if (action !== 'ambience_increase' && action !== 'ambience_decrease') continue;
       const resolved = (sub.projects_resolved || [])[n - 1];
-      if ((resolved?.pool_status || 'pending') === 'pending') pendingAmbienceCount++;
+      if ((resolved?.pool_status || 'pending') === 'pending') pendingCount++;
     }
     // Sum resolved roll successes
     for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
@@ -2790,37 +2311,47 @@ function buildAmbienceData(terrs) {
       if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
       if (!proj.roll) continue;
       const n = idx + 1;
+      const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
       const terrRaw = sub.responses?.[`project_${n}_territory`] || '';
-      const desc = sub.responses?.[`project_${n}_description`] || '';
+      const desc    = sub.responses?.[`project_${n}_description`] || '';
       const outcome = sub.responses?.[`project_${n}_outcome`] || '';
-      const tid = resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
+      const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = proj.roll.successes ?? 0;
       if (proj.action_type === 'ambience_increase') projPos[tid] = (projPos[tid] || 0) + successes;
       else projNeg[tid] = (projNeg[tid] || 0) + successes;
     }
   }
+  return { projPos, projNeg, pendingCount };
+}
 
-  // ── Allies / Status / Retainer ambience actions ──
-  // Level-based automatic: dots 3–4 = ±1, dots 5 = ±2. Territory from st_review overrides.
+/**
+ * Sum Allies / Status / Retainer automatic ambience contributions per territory.
+ * Level-based: dots 3–4 = ±1, dots 5 = ±2. Territory resolved from st_review overrides.
+ * Returns { alliesPos: { [terrId]: n }, alliesNeg: { [terrId]: n }, pendingCount: n }
+ */
+function _gatherMeritAmbience(subs) {
   const alliesPos = {}, alliesNeg = {};
-  for (const sub of submissions) {
-    const raw = sub._raw || {};
-    const spheres  = raw.sphere_actions?.actions  || [];
-    const contacts = raw.contact_actions?.actions || [];
+  let pendingCount = 0;
+  for (const sub of subs) {
+    const raw       = sub._raw || {};
+    const spheres   = raw.sphere_actions || [];
+    const contacts  = raw.contact_actions?.requests || [];
     const retainers = raw.retainer_actions?.actions || [];
-    const subChar = findCharacter(sub.character_name, sub.player_name);
+    const subChar   = findCharacter(sub.character_name, sub.player_name);
     let meritFlatIdx = 0;
 
     for (const action of spheres) {
       const resolvedAct = (sub.merit_actions_resolved || [])[meritFlatIdx];
-      const actionType = resolvedAct?.action_type_override || action.action_type || 'misc';
-      if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+      const rawType = resolvedAct?.action_type_override || action.action_type || 'misc';
+      // Normalise raw form label to enum if not already (e.g. "Ambience Change (Increase):...")
+      const isIncrease = rawType === 'ambience_increase' || /ambience.*increas/i.test(rawType);
+      const isDecrease = rawType === 'ambience_decrease' || /ambience.*decreas/i.test(rawType);
+      if (isIncrease || isDecrease) {
         const parsed = _parseMeritType(action.merit_type || '');
         if (parsed.category === 'allies' || parsed.category === 'status' || parsed.category === 'retainer') {
           if (resolvedAct?.pool_status === 'resolved') {
-            const terrKey = `allies_${meritFlatIdx}`;
-            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[terrKey] || '');
+            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '');
             if (tid) {
               const actualMerit = subChar?.merits?.find(m =>
                 m.name?.toLowerCase() === parsed.label.toLowerCase() &&
@@ -2831,13 +2362,13 @@ function buildAmbienceData(terrs) {
                 : (parsed.dots || 0);
               const value = dots >= 5 ? 2 : dots >= 3 ? 1 : 0;
               if (value > 0) {
-                if (actionType === 'ambience_increase') alliesPos[tid] = (alliesPos[tid] || 0) + value;
-                else alliesNeg[tid] = (alliesNeg[tid] || 0) + value;
+                if (isIncrease) alliesPos[tid] = (alliesPos[tid] || 0) + value;
+                else            alliesNeg[tid] = (alliesNeg[tid] || 0) + value;
               }
             }
           }
           // Count as pending if not yet resolved
-          if (!resolvedAct || resolvedAct.pool_status === 'pending') pendingAmbienceCount++;
+          if (!resolvedAct || resolvedAct.pool_status === 'pending') pendingCount++;
         }
       }
       meritFlatIdx++;
@@ -2845,6 +2376,39 @@ function buildAmbienceData(terrs) {
     // contacts and retainers don't do ambience but advance the flat index
     meritFlatIdx += contacts.length + retainers.length;
   }
+  return { alliesPos, alliesNeg, pendingCount };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build the per-territory aggregation data for the ambience dashboard.
+ * Returns { rows, pendingAmbienceCount }.
+ */
+function buildAmbienceData(terrs) {
+  // Starting ambience from DB records (fallback to TERRITORY_DATA defaults)
+  const startingAmbience = {}, startingAmbienceMod = {};
+  if (terrs?.length) {
+    for (const t of terrs) {
+      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
+      if (td) {
+        startingAmbience[td.id]    = t.ambience    || td.ambience;
+        startingAmbienceMod[td.id] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
+          ? t.ambienceMod : td.ambienceMod;
+      }
+    }
+  }
+  for (const td of TERRITORY_DATA) {
+    if (!startingAmbience[td.id])              startingAmbience[td.id]    = td.ambience;
+    if (startingAmbienceMod[td.id] === undefined) startingAmbienceMod[td.id] = td.ambienceMod;
+  }
+
+  // Aggregate each change source (all accumulators keyed by canonical territory id)
+  const feederCounts                                          = _gatherFeeders(submissions);
+  const { infPos, infNeg }                                    = _gatherInfluence(submissions);
+  const { projPos, projNeg, pendingCount: projPending }       = _gatherProjectAmbience(submissions);
+  const { alliesPos, alliesNeg, pendingCount: alliesPending } = _gatherMeritAmbience(submissions);
+  const pendingAmbienceCount = projPending + alliesPending;
 
   // ── Assemble rows ──
   const rows = TERRITORY_DATA.map(td => {
@@ -3480,6 +3044,54 @@ function renderCharacterStrip(queue) {
 }
 
 /** Render the phase-ordered processing queue into the given container. */
+/**
+ * Look up a queue entry by key using the map built at the start of the current
+ * renderProcessingMode call. O(1); avoids rebuilding the queue on every event.
+ */
+function _getQueueEntry(key) { return _procQueueMap?.get(key) ?? null; }
+
+/**
+ * Wire ± ticker buttons (dec/inc) inside a processing-mode container.
+ * All three modifier tickers share this logic; they differ only in selectors,
+ * clamping, an optional secondary display, and which function runs after update.
+ *
+ * opts:
+ *   decCls      — CSS class of the decrement button (e.g. 'proc-equip-mod-dec')
+ *   incCls      — CSS class of the increment button
+ *   panelCls    — CSS class of the panel that contains the input + display
+ *   inputCls    — CSS class of the hidden value input inside the panel
+ *   dispCls     — CSS class of the display span inside the panel
+ *   clamp       — { min, max } to clamp the value, or null for free-range
+ *   totalCls    — optional extra display span class (e.g. proc-proj-succ-total-val); null to skip
+ *   afterUpdate — optional fn(container, key) called after the display is updated
+ *   saveField   — key written to saveEntryReview (e.g. 'pool_mod_equipment')
+ */
+function _wireTickerHandler(container, { decCls, incCls, panelCls, inputCls, dispCls, clamp = null, totalCls = null, afterUpdate = null, saveField }) {
+  container.querySelectorAll(`.${decCls}, .${incCls}`).forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const panel = container.querySelector(`.${panelCls}[data-proc-key="${key}"]`);
+      if (!panel) return;
+      const valInp = panel.querySelector(`.${inputCls}`);
+      const disp   = panel.querySelector(`.${dispCls}[data-proc-key="${key}"]`);
+      let val = parseInt(valInp?.value || '0', 10);
+      if (btn.classList.contains(decCls)) { if (!clamp || val > clamp.min) val--; }
+      else                                { if (!clamp || val < clamp.max) val++; }
+      if (valInp) valInp.value = val;
+      const str = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      if (disp) disp.textContent = str;
+      if (totalCls) {
+        const total = panel.querySelector(`.${totalCls}[data-proc-key="${key}"]`);
+        if (total) total.textContent = str;
+      }
+      afterUpdate?.(container, key);
+      const entry = _getQueueEntry(key);
+      if (entry) await saveEntryReview(entry, { [saveField]: val });
+    });
+  });
+}
+
 function renderProcessingMode(container) {
   renderTerritoriesAtAGlance();
 
@@ -3493,6 +3105,7 @@ function renderProcessingMode(container) {
     container.innerHTML = '<p class="placeholder">No actions found in this cycle.</p>';
     return;
   }
+  _procQueueMap = new Map(queue.map(e => [e.key, e]));
 
   // Group by phase
   const byPhase = new Map();
@@ -3559,9 +3172,10 @@ function renderProcessingMode(container) {
 
         if (isExpanded) {
           // Territory pill row — feeding, project, and allies entries (expanded only)
-          const showTerrPills = entry.source === 'project'
-            || entry.source === 'feeding'
-            || (entry.source === 'merit' && entry.isAlliesAction);
+          const isAmbienceEntry = entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease';
+          const showTerrPills = entry.source === 'feeding'
+            || (entry.source === 'project' && !isAmbienceEntry)
+            || (entry.source === 'merit' && entry.isAlliesAction && !isAmbienceEntry);
           if (showTerrPills) {
             const sub = submissions.find(s => s._id === entry.subId);
             const terrContext = entry.source === 'project' ? String(entry.actionIdx)
@@ -3575,26 +3189,7 @@ function renderProcessingMode(container) {
               : null;
             const currentTerrId = isFeeding ? '' : (sub?.st_review?.territory_overrides?.[terrContext] || '');
             const feedingSet = isFeeding ? new Set(feedingOverrideArr) : null;
-            const TERR_PILLS = [
-              { id: '',           label: '\u2014' },
-              { id: 'academy',    label: 'Acad.' },
-              { id: 'harbour',    label: 'Harb.' },
-              { id: 'dockyards',  label: 'Dock.' },
-              { id: 'northshore', label: 'N.Shore' },
-              { id: 'secondcity', label: '2nd City' },
-            ];
-            h += `<div class="proc-terr-pill-row" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}">`;
-            h += `<span class="proc-terr-pill-label">Terr.</span>`;
-            for (const t of TERR_PILLS) {
-              let active = '';
-              if (isFeeding) {
-                active = (t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '';
-              } else {
-                active = currentTerrId === t.id ? ' active' : '';
-              }
-              h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
-            }
-            h += `</div>`;
+            h += _renderInlineTerrPills(entry.subId, terrContext, currentTerrId, feedingSet);
           }
           h += renderActionPanel(entry, review);
         }
@@ -3668,7 +3263,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key = sel.dataset.procKey;
       const newType = sel.value;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       // Clear override if ST selects the original player-submitted type
       const patch = { action_type_override: newType === entry.originalActionType ? null : newType };
@@ -3755,7 +3350,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key    = btn.dataset.procKey;
       const status = btn.dataset.status;
-      const entry  = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry  = _getQueueEntry(key);
       if (!entry) return;
       // For feeding + project entries: read builder state and save pool_validated before status
       if (entry.source === 'feeding' || entry.source === 'project') {
@@ -3790,7 +3385,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { pool_validated: '' });
       renderProcessingMode(container);
@@ -3798,7 +3393,7 @@ function renderProcessingMode(container) {
   });
 
   // ── Feeding description card — Edit / Save / Cancel ──
-  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-targets-input, .proc-sorc-notes-input').forEach(el => {
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-targets-input, .proc-sorc-notes-input, .proc-sorc-tradition-input, .proc-sorc-rite-input').forEach(el => {
     el.addEventListener('click',  e => e.stopPropagation());
     el.addEventListener('mousedown', e => e.stopPropagation());
   });
@@ -3824,7 +3419,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
       const name       = card.querySelector('.proc-feed-name-input').value.trim();
@@ -3840,7 +3435,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
       const title      = card.querySelector('.proc-proj-title-input').value.trim();
@@ -3858,12 +3453,19 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
-      const card    = btn.closest('.proc-feed-desc-card');
-      const targets = card.querySelector('.proc-sorc-targets-input').value.trim();
-      const notes   = card.querySelector('.proc-sorc-notes-input').value.trim();
-      await saveEntryReview(entry, { sorc_targets: targets || null, sorc_notes: notes || null });
+      const card       = btn.closest('.proc-feed-desc-card');
+      const tradition  = card.querySelector('.proc-sorc-tradition-input').value.trim();
+      const riteName   = card.querySelector('.proc-sorc-rite-input').value.trim();
+      const targets    = card.querySelector('.proc-sorc-targets-input').value.trim();
+      const notes      = card.querySelector('.proc-sorc-notes-input').value.trim();
+      await saveEntryReview(entry, {
+        sorc_tradition: tradition || null,
+        sorc_rite_name: riteName  || null,
+        sorc_targets:   targets   || null,
+        sorc_notes:     notes     || null,
+      });
       renderProcessingMode(container);
     });
   });
@@ -3873,7 +3475,7 @@ function renderProcessingMode(container) {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
       const key   = inp.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { pool_validated: inp.value.trim() });
     });
@@ -3884,17 +3486,17 @@ function renderProcessingMode(container) {
     sel.addEventListener('click', e => e.stopPropagation());
     sel.addEventListener('change', e => {
       e.stopPropagation();
-      _updatePoolTotal(container, sel.dataset.procKey);
-      // AC 3 / Task 5: also update unskilled row in right panel when skill changes
+      const procKey = sel.dataset.procKey;
       if (sel.classList.contains('proc-pool-skill')) {
-        _updateUnskilledRow(container, sel.dataset.procKey);
-        _updateFeedBuilderMeta(container, sel.dataset.procKey);
+        // Set nineAgain flag and render spec toggles before computing pool total
+        _updateFeedBuilderMeta(container, procKey);
         // Reset spec selection when skill changes — specs from old skill no longer apply
-        const skillChgEntry = buildProcessingQueue(submissions).find(q => q.key === sel.dataset.procKey);
+        const skillChgEntry = _getQueueEntry(procKey);
         if (skillChgEntry && (skillChgEntry.source === 'feeding' || skillChgEntry.source === 'project')) {
           saveEntryReview(skillChgEntry, { active_feed_specs: [], pool_mod_spec: 0 });
         }
       }
+      _refreshPoolBuilder(container, procKey);
     });
   });
 
@@ -3938,7 +3540,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       if (entry.source === 'project') {
         await saveEntryReview(entry, { rote: cb.checked });
@@ -3954,65 +3556,28 @@ function renderProcessingMode(container) {
   });
 
   // ── feature.51: Equipment modifier ticker (pool mod panel) ──
-  container.querySelectorAll('.proc-equip-mod-dec, .proc-equip-mod-inc').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key    = btn.dataset.procKey;
-      const panel  = container.querySelector(`.proc-feed-mod-panel[data-proc-key="${key}"]`);
-      if (!panel) return;
-      const valInp = panel.querySelector('.proc-equip-mod-val');
-      const disp   = panel.querySelector(`.proc-equip-mod-disp[data-proc-key="${key}"]`);
-      let val = parseInt(valInp?.value || '0', 10);
-      if (btn.classList.contains('proc-equip-mod-dec')) { if (val > -5) val--; }
-      else                                               { if (val < 5)  val++; }
-      if (valInp) valInp.value = val;
-      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
-      _updatePoolModTotal(container, key);
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
-      if (entry) await saveEntryReview(entry, { pool_mod_equipment: val });
-    });
+  _wireTickerHandler(container, {
+    decCls: 'proc-equip-mod-dec', incCls: 'proc-equip-mod-inc',
+    panelCls: 'proc-feed-mod-panel', inputCls: 'proc-equip-mod-val', dispCls: 'proc-equip-mod-disp',
+    clamp: { min: -5, max: 5 },
+    afterUpdate: _refreshPoolBuilder,
+    saveField: 'pool_mod_equipment',
   });
 
   // ── feature.51: Manual vitae adjustment ticker (vitae panel) ──
-  container.querySelectorAll('.proc-vitae-mod-dec, .proc-vitae-mod-inc').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const panel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
-      if (!panel) return;
-      const valInp = panel.querySelector('.proc-vitae-mod-val');
-      const disp   = panel.querySelector(`.proc-vitae-mod-disp[data-proc-key="${key}"]`);
-      let val = parseInt(valInp?.value || '0', 10);
-      if (btn.classList.contains('proc-vitae-mod-dec')) val--;
-      else                                               val++;
-      if (valInp) valInp.value = val;
-      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
-      _updateVitaeTotal(container, key);
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
-      if (entry) await saveEntryReview(entry, { vitae_mod_manual: val });
-    });
+  _wireTickerHandler(container, {
+    decCls: 'proc-vitae-mod-dec', incCls: 'proc-vitae-mod-inc',
+    panelCls: 'proc-feed-vitae-panel', inputCls: 'proc-vitae-mod-val', dispCls: 'proc-vitae-mod-disp',
+    afterUpdate: _updateVitaeTotal,
+    saveField: 'vitae_mod_manual',
   });
 
   // ── feature.59: Success modifier ticker (project right panel) ──
-  container.querySelectorAll('.proc-succmod-dec, .proc-succmod-inc').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const panel = container.querySelector(`.proc-proj-succ-panel[data-proc-key="${key}"]`);
-      if (!panel) return;
-      const valInp = panel.querySelector('.proc-succmod-val');
-      const disp   = panel.querySelector(`.proc-succmod-disp[data-proc-key="${key}"]`);
-      const total  = panel.querySelector(`.proc-proj-succ-total-val[data-proc-key="${key}"]`);
-      let val = parseInt(valInp?.value || '0', 10);
-      if (btn.classList.contains('proc-succmod-dec')) val--;
-      else                                             val++;
-      if (valInp) valInp.value = val;
-      const str = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
-      if (disp)  disp.textContent  = str;
-      if (total) total.textContent = str;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
-      if (entry) await saveEntryReview(entry, { succ_mod_manual: val });
-    });
+  _wireTickerHandler(container, {
+    decCls: 'proc-succmod-dec', incCls: 'proc-succmod-inc',
+    panelCls: 'proc-proj-succ-panel', inputCls: 'proc-succmod-val', dispCls: 'proc-succmod-disp',
+    totalCls: 'proc-proj-succ-total-val',
+    saveField: 'succ_mod_manual',
   });
 
   // ── feature.51: Rite cost input (vitae panel) ──
@@ -4027,7 +3592,7 @@ function renderProcessingMode(container) {
       const key  = inp.dataset.procKey;
       const val  = Math.max(0, parseInt(inp.value || '0', 10));
       inp.value  = val;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (entry) await saveEntryReview(entry, { vitae_rite_cost: val });
     });
   });
@@ -4037,7 +3602,7 @@ function renderProcessingMode(container) {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
       const key = inp.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { player_feedback: inp.value.trim() });
     });
@@ -4051,7 +3616,7 @@ function renderProcessingMode(container) {
       const ta = container.querySelector(`.proc-note-textarea[data-proc-key="${key}"]`);
       const text = ta ? ta.value.trim() : '';
       if (!text) return;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const user = getUser();
       const note = {
@@ -4073,7 +3638,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key  = btn.dataset.procKey;
       const idx  = parseInt(btn.dataset.noteIdx, 10);
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry) || {};
       const thread = [...(review.notes_thread || [])];
@@ -4093,7 +3658,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const textarea = container.querySelector(`.proc-st-response-textarea[data-proc-key="${CSS.escape(key)}"]`);
       if (!textarea) return;
@@ -4118,7 +3683,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review    = getEntryReview(entry) || {};
       const roll      = review.roll || null;
@@ -4239,7 +3804,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const user     = getUser();
       const reviewer = user?.display_name || user?.username || 'Unknown ST';
@@ -4253,7 +3818,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
       const poolValidated = review?.pool_validated || '';
@@ -4274,7 +3839,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key  = cb.dataset.procKey;
       const spec = cb.dataset.spec;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry || !spec) return;
       const review = getEntryReview(entry) || {};
 
@@ -4308,7 +3873,7 @@ function renderProcessingMode(container) {
       const key   = btn.dataset.procKey;
       const subId = btn.dataset.subId;
       const isRote = btn.dataset.rote === 'true';
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
       const poolValidated = review?.pool_validated || '';
@@ -4341,7 +3906,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { nine_again: cb.checked });
       // Update pool total annotation in-place
@@ -4360,7 +3925,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { eight_again: cb.checked });
       renderProcessingMode(container);
@@ -4372,7 +3937,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
       // Prefer the refreshed expression baked into the button's data attribute at render time
@@ -4403,7 +3968,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review    = getEntryReview(entry);
       const diceCount = parseInt(btn.dataset.pool, 10) || 0;
@@ -4443,7 +4008,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const allChks   = container.querySelectorAll(`.proc-conn-char-chk[data-proc-key="${key}"]`);
       const connected = [...allChks].filter(c => c.checked).map(c => c.dataset.charName);
@@ -4457,7 +4022,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { attack_target_char: sel.value, attack_target_merit: '' });
       // Repopulate merit dropdown inline — no full re-render needed
@@ -4486,7 +4051,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { attack_target_merit: sel.value });
     });
@@ -4498,7 +4063,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { investigate_target_char: sel.value });
     });
@@ -4509,7 +4074,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { rite_override: sel.value || null });
       renderProcessingMode(container);
@@ -4521,7 +4086,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { ritual_mg_used: cb.checked });
       renderProcessingMode(container);
@@ -4533,7 +4098,7 @@ function renderProcessingMode(container) {
     ta.addEventListener('blur', async e => {
       e.stopPropagation();
       const key   = ta.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { ritual_result_note: ta.value.trim() });
     });
@@ -4544,7 +4109,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
 
       const sub = submissions.find(s => s._id === entry.subId);
@@ -4628,7 +4193,7 @@ function renderProcessingMode(container) {
 
       if (!reminderText) { textInput?.focus(); return; }
 
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
 
       const user = getUser();
@@ -5098,6 +4663,31 @@ function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, mod
 }
 
 /**
+ * Render a territory pill row. Wires up via the existing proc-terr-pill click handler.
+ * feedingSet: pass a Set of active territory IDs for feeding multi-select; null for single-select.
+ */
+function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = null) {
+  const TERR_PILLS = [
+    { id: '',           label: '\u2014' },
+    { id: 'academy',   label: 'Academy' },
+    { id: 'harbour',   label: 'Harbour' },
+    { id: 'dockyards', label: 'Dockyards' },
+    { id: 'northshore', label: 'N. Shore' },
+    { id: 'secondcity', label: '2nd City' },
+  ];
+  let h = `<span class="proc-terr-pill-row proc-terr-inline-pills" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}">`;
+  h += `<span class="proc-feed-lbl">Terr.</span>`;
+  for (const t of TERR_PILLS) {
+    const active = feedingSet
+      ? ((t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '')
+      : (currentTerrId === t.id ? ' active' : '');
+    h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
+  }
+  h += `</span>`;
+  return h;
+}
+
+/**
  * Read the current builder state from the DOM and return the pool expression string.
  * Returns null if attr or skill are not selected.
  */
@@ -5141,10 +4731,7 @@ function _updatePoolModTotal(container, key) {
 
   // Sync total to pool builder hidden modifier input so the pool total display updates
   const builderModInp = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-mod-val`);
-  if (builderModInp) {
-    builderModInp.value = String(total);
-    _updatePoolTotal(container, key);
-  }
+  if (builderModInp) builderModInp.value = String(total);
 }
 
 /**
@@ -5188,7 +4775,6 @@ function _updateUnskilledRow(container, key) {
       if (valEl) valEl.textContent = String(penalty);
     }
   }
-  _updatePoolModTotal(container, key);
 }
 
 /**
@@ -5206,7 +4792,7 @@ function _updateFeedBuilderMeta(container, key) {
   if (!char) { metaEl.innerHTML = ''; return; }
   const nineA = skNineAgain(char, skillName);
   const specs = skSpecs(char, skillName);
-  const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+  const entry = _getQueueEntry(key);
   const review = entry ? (getEntryReview(entry) || {}) : {};
   const activeSpecs = review.active_feed_specs || [];
 
@@ -5217,7 +4803,6 @@ function _updateFeedBuilderMeta(container, key) {
     if (sidebarNineA) sidebarNineA.checked = nineA;
     const poolTotalEl = container.querySelector(`.proc-pool-total[data-proc-key="${key}"]`);
     if (poolTotalEl) poolTotalEl.dataset.nineAgain = nineA ? '1' : '0';
-    _updatePoolTotal(container, key);
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
@@ -5234,7 +4819,7 @@ function _updateFeedBuilderMeta(container, key) {
     metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
       cb.addEventListener('change', async e => {
         e.stopPropagation();
-        const entry2 = buildProcessingQueue(submissions).find(q => q.key === cb.dataset.procKey);
+        const entry2 = _getQueueEntry(cb.dataset.procKey);
         if (!entry2 || !cb.dataset.spec) return;
         const rev2 = getEntryReview(entry2) || {};
         const activeSpecs2 = [...(rev2.active_feed_specs || [])];
@@ -5269,7 +4854,7 @@ function _updateFeedBuilderMeta(container, key) {
   metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
-      const entry2 = buildProcessingQueue(submissions).find(q => q.key === cb.dataset.procKey);
+      const entry2 = _getQueueEntry(cb.dataset.procKey);
       if (!entry2 || !cb.dataset.spec) return;
       const rev2 = getEntryReview(entry2) || {};
       const activeSpecs2 = [...(rev2.active_feed_specs || [])];
@@ -5279,6 +4864,17 @@ function _updateFeedBuilderMeta(container, key) {
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
     });
   });
+}
+
+/**
+ * Coordinator: recompute all pool builder displays for one entry in dependency order.
+ * Sequence: unskilled row → mod panel total (syncs builder mod input) → pool total.
+ * Call this instead of individual helpers when the skill, attr, or disc has changed.
+ */
+function _refreshPoolBuilder(container, key) {
+  _updateUnskilledRow(container, key);
+  _updatePoolModTotal(container, key);
+  _updatePoolTotal(container, key);
 }
 
 /**
@@ -5308,6 +4904,33 @@ function _updatePoolTotal(container, key) {
  * Render the right-side sidebar for a sorcery entry.
  * Dice Pool Modifiers (DT bonus + Mandragora Garden + equipment) + Roll + Status.
  */
+/** Render the proc-val-status button row. buttons = [[statusValue, label], ...] */
+function _renderValStatusButtons(key, poolStatus, buttons) {
+  let h = '<div class="proc-val-status">';
+  for (const [val, label] of buttons) {
+    h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(key)}" data-status="${val}">${label}</button>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+/**
+ * Render a ± ticker row (label, dec button, display span, hidden input, inc button).
+ * cssPrefix: base CSS class (e.g. 'proc-equip-mod' → -dec / -disp / -val / -inc).
+ * displayStr: pre-formatted display value (e.g. '+2', '±0', '-1').
+ * storedVal: numeric value written to the hidden input.
+ */
+function _renderTickerRow(key, label, cssPrefix, displayStr, storedVal) {
+  let h = `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">${esc(label)}</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="${cssPrefix}-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="${cssPrefix}-disp" data-proc-key="${esc(key)}">${displayStr}</span>`;
+  h += `<input type="hidden" class="${cssPrefix}-val" data-proc-key="${esc(key)}" value="${storedVal}">`;
+  h += `<button class="${cssPrefix}-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+  return h;
+}
+
 /**
  * Render the right-side sidebar for a sphere merit action entry.
  * Shows: action mode + effect from matrix, equipment modifier, roll card (if rolled), status buttons.
@@ -5343,6 +4966,12 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-merit-mode-row">`;
   h += `<span class="proc-mod-label">Action Mode</span>`;
   h += `<span class="proc-merit-mode-chip proc-merit-mode-${mode}">${MODE_LABELS[mode] || mode}</span>`;
+  if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+    const mLbl = entry.meritLabel || '';
+    const mQual = entry.meritQualifier || '';
+    h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(category)}">${esc(mLbl.toUpperCase())}</span>`;
+    if (mQual) h += `<span class="proc-merit-qualifier">${esc(mQual)}</span>`;
+  }
   h += `</div>`;
   if (effect) {
     h += `<div class="proc-merit-effect-row">`;
@@ -5373,13 +5002,7 @@ function _renderMeritRightPanel(entry, rev) {
     h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
     const poolDisplay = totalPool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base pool</span><span class="proc-mod-static">${poolDisplay}</span></div>`;
-    h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-    h += `<span class="proc-mod-ticker">`;
-    h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-    h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-    h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-    h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-    h += `</span></div>`;
+    h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
     h += `</div>`; // mod panel
 
     // Roll card
@@ -5429,15 +5052,10 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  if (isAuto || mode === 'instant' || formula === 'none') {
-    h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Applied</button>`;
-  } else {
-    h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Resolved</button>`;
-    h += `<button class="proc-val-btn${poolStatus === 'no_effect' ? ' active no_effect' : ''}" data-proc-key="${esc(key)}" data-status="no_effect">No Effect</button>`;
-  }
-  h += `</div>`;
+  const meritBtns = isAuto || mode === 'instant' || formula === 'none'
+    ? [['pending', 'Pending'], ['resolved', 'Applied']]
+    : [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']];
+  h += _renderValStatusButtons(key, poolStatus, meritBtns);
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5478,13 +5096,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   }
 
   // Equipment / other ticker
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
 
   h += `</div>`; // proc-feed-mod-panel
 
@@ -5510,11 +5122,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Resolved</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'no_effect' ? ' active no_effect' : ''}" data-proc-key="${esc(key)}" data-status="no_effect">No Effect</button>`;
-  h += `</div>`;
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]);
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5543,13 +5151,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Dice Pool Modifiers (equipment only) ──
   h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="">`;
   h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
   h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
   h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
   h += `</div>`;
@@ -5558,13 +5160,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Success Modifier ──
   h += `<div class="proc-proj-succ-panel" data-proc-key="${esc(key)}">`;
   h += `<div class="proc-mod-panel-title">Success Modifier</div>`;
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Manual adj.</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-succmod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-succmod-disp" data-proc-key="${esc(key)}">${succStr}</span>`;
-  h += `<input type="hidden" class="proc-succmod-val" data-proc-key="${esc(key)}" value="${succMod}">`;
-  h += `<button class="proc-succmod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Manual adj.', 'proc-succmod', succStr, succMod);
   h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Net modifier</span>`;
   h += `<span class="proc-proj-succ-total-val" data-proc-key="${esc(key)}">${succStr}</span>`;
   h += `</div>`;
@@ -5594,11 +5190,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'      ? ' active pending'      : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'validated'    ? ' active validated'    : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'no_roll'      ? ' active no_roll'      : ''}" data-proc-key="${esc(key)}" data-status="no_roll">No Roll Needed</button>`;
-  h += `</div>`;
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']]);
   // Committed pool expression with active specs
   const _activeProjSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -5712,13 +5304,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<span class="proc-mod-val proc-mod-neg proc-mod-unskilled-val">${unskilledDisplay}</span>`;
   h += `</div>`;
   // Equipment ticker
-  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
-  h += `<span class="proc-mod-ticker">`;
-  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
-  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
-  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
-  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
-  h += `</span></div>`;
+  h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
   // Total
   h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span>`;
   h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
@@ -5867,11 +5453,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'    ? ' active pending'    : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'validated'  ? ' active validated'  : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'no_feed'    ? ' active no_feed'    : ''}" data-proc-key="${esc(key)}" data-status="no_feed">No Valid Feeding</button>`;
-  h += `</div>`;
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
   const _activeFeedSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -5909,7 +5491,8 @@ function renderActionPanel(entry, review) {
   const poolStatus    = rev.pool_status    || 'pending';
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
-  const isSorcery     = entry.source === 'sorcery';
+  const isSorcery        = entry.source === 'sorcery';
+  const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
 
   // Hoist char lookup for feeding entries (needed by right panel and pool builder)
   let feedSub = null;
@@ -5968,8 +5551,8 @@ function renderActionPanel(entry, review) {
     h += `<div class="proc-reminder-badge proc-ritual-note-banner">\u2731 ${esc(rev.ritual_result_note)}</div>`;
   }
 
-  // Full description if it was truncated (suppressed for project + feeding + sorcery)
-  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && !isSorcery) {
+  // Full description if it was truncated (suppressed for project + feeding + sorcery + ambience merit)
+  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && !isSorcery && !isAmbienceMerit) {
     h += `<p class="proc-full-desc">${esc(entry.description)}</p>`;
   }
 
@@ -5980,7 +5563,7 @@ function renderActionPanel(entry, review) {
     if (meritRoll) {
       h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(meritRoll.successes))} success${meritRoll.successes !== 1 ? 'es' : ''}${meritRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
     }
-    if (entry.isAlliesAction && poolStatus === 'pending') {
+    if (entry.isAlliesAction && poolStatus === 'pending' && !isAmbienceMerit) {
       h += `<div class="proc-allies-hint">Allies actions within favour rating are typically automatic \u2014 consider "No Roll Needed".</div>`;
     }
   }
@@ -5998,11 +5581,13 @@ function renderActionPanel(entry, review) {
     const mDesc      = entry.description || '';
     const mDotsStr   = mDots != null ? '\u25CF'.repeat(mDots) : '';
 
-    h += '<div class="proc-merit-header">';
-    h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(mCat)}">${esc(mLabel.toUpperCase())}</span>`;
-    if (mQual)    h += `<span class="proc-merit-qualifier">${esc(mQual)}</span>`;
-    if (mDotsStr) h += `<span class="proc-merit-dots">${esc(mDotsStr)}</span>`;
-    h += '</div>';
+    if (!isAmbienceMerit) {
+      h += '<div class="proc-merit-header">';
+      h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(mCat)}">${esc(mLabel.toUpperCase())}</span>`;
+      if (mQual)    h += `<span class="proc-merit-qualifier">${esc(mQual)}</span>`;
+      if (mDotsStr) h += `<span class="proc-merit-dots">${esc(mDotsStr)}</span>`;
+      h += '</div>';
+    }
 
     if (mOutcome || mDesc) {
       h += '<div class="proc-proj-detail">';
@@ -6094,6 +5679,11 @@ function renderActionPanel(entry, review) {
         h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
       }
       h += `</select>`;
+    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
+      const _ambiSub = submissions.find(s => s._id === entry.subId);
+      const _ambiCtx = String(entry.actionIdx);
+      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {
@@ -6148,6 +5738,11 @@ function renderActionPanel(entry, review) {
         h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
       }
       h += `</select>`;
+    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
+      const _ambiSub = submissions.find(s => s._id === entry.subId);
+      const _ambiCtx = `allies_${entry.actionIdx}`;
+      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {
@@ -6173,26 +5768,29 @@ function renderActionPanel(entry, review) {
   if (isSorcery) {
     const sorcRawNotes    = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
     const sorcRawTargets  = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
-    const targetsVal      = rev.sorc_targets ?? sorcRawTargets;
-    const notesVal        = rev.sorc_notes   ?? sorcRawNotes;
-
-    // Rite name from DT1 submissions may be an entire blob — truncate display
-    const riteDisplay   = entry.riteName || '\u2014';
-    const riteTruncated = riteDisplay.length > 100 ? riteDisplay.slice(0, 100) + '\u2026' : riteDisplay;
+    const targetsVal      = rev.sorc_targets    ?? sorcRawTargets;
+    const notesVal        = rev.sorc_notes      ?? sorcRawNotes;
+    // ST overrides for tradition and rite name — fall back to submission values
+    const traditionVal    = rev.sorc_tradition  ?? entry.tradition ?? '';
+    // Rite: prefer ST-set name, then right-panel rite_override, skip blob if >60 chars
+    const blobRite        = (entry.riteName && entry.riteName.length <= 60) ? entry.riteName : '';
+    const riteVal         = rev.sorc_rite_name  ?? rev.rite_override ?? blobRite;
+    const riteRaw         = entry.riteName || '\u2014';
 
     h += `<div class="proc-feed-desc-card">`;
     h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
-    // Always-visible static fields (not toggled by Edit)
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(entry.tradition || '\u2014')}</div>`;
-    h += `<div class="proc-proj-field" title="${esc(riteDisplay)}"><span class="proc-feed-lbl">Rite</span> ${esc(riteTruncated)}</div>`;
     // View mode (hidden when editing)
     h += `<div class="proc-feed-desc-view">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(traditionVal || '\u2014')}</div>`;
+    h += `<div class="proc-proj-field" title="${esc(riteRaw)}"><span class="proc-feed-lbl">Rite</span> ${esc(riteVal || '\u2014')}</div>`;
     if (targetsVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(targetsVal)}</div>`;
     if (notesVal)         h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(notesVal)}</div>`;
     if (entry.poolPlayer) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(entry.poolPlayer)}</div>`;
     h += `</div>`;
     // Edit mode (hidden by default)
     h += `<div class="proc-feed-desc-edit" style="display:none">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><input type="text" class="proc-sorc-tradition-input" data-proc-key="${esc(entry.key)}" value="${esc(traditionVal)}" placeholder="Cruac or Theban Sorcery\u2026"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><input type="text" class="proc-sorc-rite-input" data-proc-key="${esc(entry.key)}" value="${esc(riteVal)}" placeholder="Rite name\u2026"></div>`;
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
@@ -6202,7 +5800,6 @@ function renderActionPanel(entry, review) {
 
   // ── Connected Characters (project + merit + sorcery) — inside left column, below description ──
   // Ambience merit actions are level-based automatic effects; no connected characters needed
-  const isAmbienceMerit = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
   if (!isAmbienceMerit && (entry.source === 'project' || entry.source === 'merit' || isSorcery)) {
     const connectedChars = rev.connected_chars || [];
     const otherChars = [...new Set(
@@ -6570,11 +6167,7 @@ function renderActionPanel(entry, review) {
 
     h += '<div class="proc-section">';
     h += '<div class="proc-detail-label">Validation Status</div>';
-    h += '<div class="proc-val-status">';
-    for (const [val, label] of statusOptions) {
-      h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
-    }
-    h += '</div>';
+    h += _renderValStatusButtons(entry.key, poolStatus, statusOptions);
     h += '</div>';
   }
 
@@ -8066,8 +7659,6 @@ function renderFeedingMatrix() {
 
   el.querySelectorAll('.dt-matrix-row[data-sub-id]').forEach(row => {
     row.addEventListener('click', () => {
-      const id = row.dataset.subId;
-      expandedId = expandedId === id ? null : id;
       renderSubmissions();
       row.closest('.dt-matrix-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
