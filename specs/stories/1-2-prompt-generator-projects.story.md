@@ -1,6 +1,6 @@
 # Story 1.2: Prompt Generator — Projects
 
-## Status: ready-for-dev
+## Status: review
 
 ## Story
 
@@ -179,53 +179,53 @@ Returns `{ username, global_name, role, ... }`. Use `user.global_name || user.us
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Duplicate ACTION_TYPE_LABELS into downtime-story.js
-  - [ ] Copy the constant from downtime-views.js lines 95–110
-  - [ ] Place at top of downtime-story.js after imports
+- [x] Task 1: Duplicate ACTION_TYPE_LABELS into downtime-story.js
+  - [x] Copy the constant from downtime-views.js lines 95–110
+  - [x] Place at top of downtime-story.js after imports
 
-- [ ] Task 2: copyToClipboard(text, btnEl) utility
-  - [ ] Implement as described in Background — handles both success and failure states
+- [x] Task 2: copyToClipboard(text, btnEl) utility
+  - [x] Implement as described in Background — handles both success and failure states
 
-- [ ] Task 3: buildProjectContext(char, sub, idx) pure function
-  - [ ] Reads `sub.responses` for slot (idx+1): title, outcome, description, territory, cast, merits
-  - [ ] Reads `sub.projects_resolved[idx]`: pool_validated, pool_player, roll, notes_thread, action_type
-  - [ ] Assembles prompt string — omits empty lines (no territory line if territory blank, etc.)
-  - [ ] Omits Roll Result block if `rev.roll` is null
-  - [ ] Omits ST Notes block if `rev.notes_thread` is empty or absent
-  - [ ] Returns assembled string
+- [x] Task 3: buildProjectContext(char, sub, idx) pure function
+  - [x] Reads `sub.responses` for slot (idx+1): title, outcome, description, territory, cast, merits
+  - [x] Reads `sub.projects_resolved[idx]`: pool_validated, pool_player, roll, notes_thread, action_type
+  - [x] Assembles prompt string — omits empty lines (no territory line if territory blank, etc.)
+  - [x] Omits Roll Result block if `rev.roll` is null
+  - [x] Omits ST Notes block if `rev.notes_thread` is empty or absent
+  - [x] Returns assembled string
 
-- [ ] Task 4: buildUpdatedProjectResponses(sub, idx, patch) helper
-  - [ ] Merges patch into array at idx — preserves other entries
-  - [ ] Handles absent st_narrative.project_responses gracefully (initialises as empty array)
+- [x] Task 4: buildUpdatedProjectResponses(sub, idx, patch) helper
+  - [x] Merges patch into array at idx — preserves other entries
+  - [x] Handles absent st_narrative.project_responses gracefully (initialises as empty array)
 
-- [ ] Task 5: renderProjectReports(char, sub) renderer
-  - [ ] Replaces the B1 scaffold placeholder for the Project Reports section
-  - [ ] Iterates sub.projects_resolved (max 4)
-  - [ ] Skips entries where pool_status === 'skipped'
-  - [ ] Renders each card: action type chip, title, outcome, pool, roll summary, notes thread (read-only), context block, Copy Context button, textarea, Save Draft, Mark Complete
-  - [ ] Context block: collapsed if textarea has content; expanded otherwise
-  - [ ] Pre-fills textarea from sub.st_narrative?.project_responses[idx]?.response
+- [x] Task 5: renderProjectReports(char, sub) renderer
+  - [x] Replaces the B1 scaffold placeholder for the Project Reports section
+  - [x] Iterates sub.projects_resolved (max 4)
+  - [x] Skips entries where pool_status === 'skipped'
+  - [x] Renders each card: action type chip, title, outcome, pool, roll summary, notes thread (read-only), context block, Copy Context button, textarea, Save Draft, Mark Complete
+  - [x] Context block: collapsed if textarea has content; expanded otherwise
+  - [x] Pre-fills textarea from sub.st_narrative?.project_responses[idx]?.response
 
-- [ ] Task 6: projectSectionComplete(sub) helper
-  - [ ] Returns true if all non-skipped project entries have status === 'complete' in st_narrative.project_responses
-  - [ ] Used by isSectionComplete and the pill rail (adapt isSectionComplete to handle array sections)
+- [x] Task 6: projectSectionComplete(sub) helper
+  - [x] Returns true if all non-skipped project entries have status === 'complete' in st_narrative.project_responses
+  - [x] Used by isSectionComplete and the pill rail (adapt isSectionComplete to handle array sections)
 
-- [ ] Task 7: Event delegation for project cards
-  - [ ] Copy Context button click → buildProjectContext → copyToClipboard
-  - [ ] Context block toggle (Show context / Hide context)
-  - [ ] Save Draft button → save with status: 'draft' → re-render
-  - [ ] Mark Complete button → save with status: 'complete' → re-render + update pill rail
+- [x] Task 7: Event delegation for project cards
+  - [x] Copy Context button click → buildProjectContext → copyToClipboard
+  - [x] Context block toggle (Show context / Hide context)
+  - [x] Save Draft button → save with status: 'draft' → re-render
+  - [x] Mark Complete button → save with status: 'complete' → re-render + update pill rail
 
-- [ ] Task 8: CSS for project response cards
-  - [ ] `.dt-story-proj-card` — card container
-  - [ ] `.dt-story-proj-header` — title row with action chip + copy button
-  - [ ] `.dt-story-action-chip` — action type chip (matches existing chip style: 10px, 700, uppercase, 3px border-radius)
-  - [ ] `.dt-story-proj-meta` — outcome/pool/roll summary row
-  - [ ] `.dt-story-notes-thread` — read-only ST notes display
-  - [ ] `.dt-story-context-block` — collapsible context area
-  - [ ] `.dt-story-context-toggle` — "Show context" / "Hide context" link
-  - [ ] `.dt-story-response-ta` — response textarea (min 4 rows)
-  - [ ] `.dt-story-card-actions` — save/complete button row
+- [x] Task 8: CSS for project response cards
+  - [x] `.dt-story-proj-card` — card container
+  - [x] `.dt-story-proj-header` — title row with action chip + copy button
+  - [x] `.dt-story-action-chip` — action type chip (matches existing chip style: 10px, 700, uppercase, 3px border-radius)
+  - [x] `.dt-story-proj-meta` — outcome/pool/roll summary row
+  - [x] `.dt-story-notes-thread` — read-only ST notes display
+  - [x] `.dt-story-context-block` — collapsible context area
+  - [x] `.dt-story-context-toggle` — "Show context" / "Hide context" link
+  - [x] `.dt-story-response-ta` — response textarea (min 4 rows)
+  - [x] `.dt-story-card-actions` — save/complete button row
 
 ---
 
@@ -318,17 +318,26 @@ No other files need to change for this story.
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+| 2026-04-15 | 1.1 | Implementation complete | Dev Agent (claude-sonnet-4-6) |
 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
-_to be filled by dev agent_
+None — no blocking issues encountered.
 
 ### Completion Notes List
-_to be filled by dev agent_
+- ACTION_TYPE_LABELS duplicated into downtime-story.js (added `feed` key missing from story spec)
+- copyToClipboard handles both clipboard success and failure with 1500ms revert
+- buildProjectContext: pure function; omits empty territory/cast/merits/roll/notes lines; uses formatPool/resolveCast/resolveMerits helpers; falls back from roll.dice_string to Array.join for dice display
+- buildUpdatedProjectResponses: preserves all existing entries; fills gaps with null padding
+- projectResponsesComplete: filters skipped entries; returns false if no applicable entries
+- renderSection dispatch function added — B4–B7 add cases here
+- Context block collapses when savedResponse is non-empty; toggle updates text without re-render
+- handleProjectSave: re-renders project section and sign-off panel in-place using replaceWith; refreshes nav rail
+- CSS duplicate block from B1 edit was detected and cleaned up during B2 CSS addition
 
 ### File List
 - `public/js/admin/downtime-story.js`

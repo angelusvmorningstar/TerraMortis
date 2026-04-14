@@ -7,10 +7,32 @@
  * Exports:
  *   initDtStory(cycleId)           — called by admin.js on first DT Story tab click
  *   saveNarrativeField(id, patch)  — called by all B stories to persist st_narrative fields
+ *   isSectionComplete(sn, key)     — base completion check (status === 'complete')
  */
 
 import { apiGet, apiPut } from '../data/api.js';
 import { displayName } from '../data/helpers.js';
+import { getUser } from '../auth/discord.js';
+
+// ── Action type labels (duplicated from downtime-views.js per NFR-DS-01) ──────
+
+const ACTION_TYPE_LABELS = {
+  ambience_increase: 'Ambience Increase',
+  ambience_decrease: 'Ambience Decrease',
+  attack:            'Attack',
+  feed:              'Feed',
+  hide_protect:      'Hide / Protect',
+  investigate:       'Investigate',
+  patrol_scout:      'Patrol / Scout',
+  support:           'Support',
+  misc:              'Miscellaneous',
+  maintenance:       'Maintenance',
+  xp_spend:          'XP Spend',
+  block:             'Block',
+  rumour:            'Rumour',
+  grow:              'Grow',
+  acquisition:       'Acquisition',
+};
 
 // ── Module state ─────────────────────────────────────────────────────────────
 
@@ -82,11 +104,27 @@ export async function initDtStory(cycleId) {
     selectCharacter(pill.dataset.charId);
   });
 
-  // Event delegation — sign-off button
+  // Event delegation — all panel button clicks
   panel.addEventListener('click', e => {
-    const btn = e.target.closest('.dt-story-sign-off-btn');
-    if (!btn || btn.disabled) return;
-    handleSignOff(btn);
+    // Sign-off
+    const signOffBtn = e.target.closest('.dt-story-sign-off-btn');
+    if (signOffBtn && !signOffBtn.disabled) { handleSignOff(signOffBtn); return; }
+
+    // Project: Copy Context
+    const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
+    if (copyBtn) { handleCopyProjectContext(copyBtn); return; }
+
+    // Project: Context toggle
+    const toggleLink = e.target.closest('.dt-story-context-toggle');
+    if (toggleLink) { handleContextToggle(toggleLink); return; }
+
+    // Project: Save Draft
+    const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
+    if (saveDraftBtn && !saveDraftBtn.disabled) { handleProjectSave(saveDraftBtn, 'draft'); return; }
+
+    // Project: Mark Complete
+    const completeBtn = e.target.closest('.dt-story-mark-complete-btn');
+    if (completeBtn && !completeBtn.disabled) { handleProjectSave(completeBtn, 'complete'); return; }
   });
 }
 
@@ -103,11 +141,22 @@ export async function saveNarrativeField(submissionId, patch) {
 
 /**
  * Returns true only when stNarrative[sectionKey].status === 'complete'.
- * For array-typed sections and special approval sections, B4–B7 supplement
- * this with section-specific logic; here it provides the base contract.
+ * Array-typed and approval-typed sections use section-specific helpers below.
  */
 export function isSectionComplete(stNarrative, sectionKey) {
   return stNarrative?.[sectionKey]?.status === 'complete';
+}
+
+/**
+ * Project responses complete: all non-skipped project entries have status 'complete'.
+ * Used by the sign-off counter and pill rail in place of generic isSectionComplete.
+ */
+function projectResponsesComplete(sub) {
+  const resolved = sub?.projects_resolved || [];
+  const responses = sub?.st_narrative?.project_responses || [];
+  const applicable = resolved.filter(r => r?.pool_status !== 'skipped');
+  if (!applicable.length) return false;
+  return applicable.every((_, i) => responses[i]?.status === 'complete');
 }
 
 /**
@@ -123,11 +172,8 @@ function isSectionDone(stNarrative, sectionKey, sub) {
       const reports = stNarrative.territory_reports || [];
       return reports.length > 0 && reports.every(r => r.status === 'complete');
     }
-    case 'project_responses': {
-      const rsp = stNarrative.project_responses || [];
-      const count = sub?.projects_resolved?.length || 0;
-      return count > 0 && rsp.length >= count && rsp.every(r => r.status === 'complete');
-    }
+    case 'project_responses':
+      return projectResponsesComplete(sub);
     case 'resource_approvals': {
       const approvals = stNarrative.resource_approvals || [];
       return approvals.length > 0 && approvals.every(r => r.approved === true);
@@ -136,7 +182,6 @@ function isSectionDone(stNarrative, sectionKey, sub) {
       const cs = stNarrative.cacophony_savvy || [];
       return cs.length > 0 && cs.every(r => r.status === 'complete');
     }
-    // action_responses sections: check if any entries exist and all are complete
     case 'allies_actions':
     case 'status_actions':
     case 'retainer_actions':
@@ -164,6 +209,151 @@ function isSectionDone(stNarrative, sectionKey, sub) {
   }
 }
 
+// ── Clipboard utility ─────────────────────────────────────────────────────────
+
+function copyToClipboard(text, btnEl) {
+  const original = btnEl.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btnEl.textContent = 'Copied!';
+    setTimeout(() => { btnEl.textContent = original; }, 1500);
+  }).catch(() => {
+    btnEl.textContent = 'Failed';
+    setTimeout(() => { btnEl.textContent = original; }, 1500);
+  });
+}
+
+// ── Project context builder ───────────────────────────────────────────────────
+
+/**
+ * Resolves a JSON cast array (character IDs) to a comma-separated display name list.
+ */
+function resolveCast(castJson) {
+  if (!castJson) return '';
+  try {
+    const ids = JSON.parse(castJson);
+    if (!Array.isArray(ids) || !ids.length) return '';
+    return ids.map(id => {
+      const c = _allCharacters.find(ch => ch._id === id);
+      return c ? displayName(c) : id;
+    }).join(', ');
+  } catch {
+    return castJson;
+  }
+}
+
+/**
+ * Formats a JSON merits array ("Name|qualifier" strings) to readable labels.
+ */
+function resolveMerits(meritsJson) {
+  if (!meritsJson) return '';
+  try {
+    const arr = JSON.parse(meritsJson);
+    if (!Array.isArray(arr) || !arr.length) return '';
+    return arr.map(m => {
+      const [name, qual] = m.split('|');
+      return qual ? `${name} (${qual})` : name;
+    }).join(', ');
+  } catch {
+    return meritsJson;
+  }
+}
+
+/**
+ * Formats a pool value (object or primitive) to a display string.
+ */
+function formatPool(pool) {
+  if (!pool) return '';
+  if (typeof pool === 'string') return pool;
+  if (typeof pool === 'number') return String(pool);
+  if (pool.expression) return `${pool.expression} (${pool.total})`;
+  return pool.total != null ? String(pool.total) : '';
+}
+
+/**
+ * Assembles the Copy Context prompt for a single project action.
+ * Pure function — no side effects, no DOM access.
+ */
+function buildProjectContext(char, sub, idx) {
+  const slot = idx + 1;
+  const title       = sub.responses?.[`project_${slot}_title`]       || '';
+  const outcome     = sub.responses?.[`project_${slot}_outcome`]     || '';
+  const description = sub.responses?.[`project_${slot}_description`] || '';
+  const territory   = sub.responses?.[`project_${slot}_territory`]   || '';
+  const castRaw     = sub.responses?.[`project_${slot}_cast`]        || '';
+  const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
+
+  const rev        = sub.projects_resolved?.[idx] || {};
+  const actionType = rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
+  const pool       = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '\u2014';
+  const roll       = rev.roll || null;
+  const notes      = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+
+  const cast   = resolveCast(castRaw);
+  const merits = resolveMerits(meritsRaw);
+
+  const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Unknown';
+
+  const lines = [
+    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
+    '',
+    `Character: ${char ? displayName(char) : (sub.character_name || 'Unknown')}`,
+    `Action: ${actionLabel}`,
+  ];
+
+  if (territory) lines.push(`Territory: ${territory}`);
+  if (title)     lines.push(`Title: ${title}`);
+  if (outcome)   lines.push(`Desired Outcome: ${outcome}`);
+  if (description) lines.push(`Description: ${description}`);
+  if (cast)      lines.push(`Characters Involved: ${cast}`);
+  if (merits)    lines.push(`Merits & Bonuses: ${merits}`);
+
+  lines.push(`Validated Pool: ${pool}`);
+
+  if (roll) {
+    const diceStr = roll.dice_string
+      || (Array.isArray(roll.dice) ? '[' + roll.dice.join(', ') + ']' : '');
+    const successes = roll.successes ?? 0;
+    const plural = successes !== 1 ? 'es' : '';
+    const exc = roll.exceptional ? ', Exceptional' : '';
+    lines.push(`Roll Result: ${successes} success${plural}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+  }
+
+  if (notes.length) {
+    lines.push('');
+    lines.push('ST Notes:');
+    for (const note of notes) {
+      lines.push(`- ${note.author_name || 'ST'}: ${note.text || ''}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('Write a narrative response (2\u20134 paragraphs) describing what happened during this action from the Storyteller\u2019s perspective.');
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Second person, present tense');
+  lines.push('- British English');
+  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings, or success counts in narrative');
+  lines.push('- No em dashes');
+  lines.push('- Do not editorialise about what the result means mechanically');
+  lines.push('- Never dictate what the character felt or chose');
+  lines.push('- Target length: ~100 words');
+
+  return lines.join('\n');
+}
+
+// ── Project save helper ───────────────────────────────────────────────────────
+
+/**
+ * Returns an updated project_responses array with idx patched.
+ * Preserves all other existing entries.
+ */
+function buildUpdatedProjectResponses(sub, idx, patch) {
+  const arr = [...(sub.st_narrative?.project_responses || [])];
+  while (arr.length <= idx) arr.push(null);
+  arr[idx] = { ...(arr[idx] || {}), project_index: idx, ...patch };
+  return arr;
+}
+
 // ── Character lookup ──────────────────────────────────────────────────────────
 
 function getCharForSub(sub) {
@@ -185,8 +375,8 @@ function hasHaven(char) {
 
 function getApplicableSections(char, sub) {
   const sections = [
-    { key: 'letter_from_home', label: 'Letter from Home' },
-    { key: 'touchstone',       label: 'Touchstone' },
+    { key: 'letter_from_home',   label: 'Letter from Home' },
+    { key: 'touchstone',         label: 'Touchstone' },
     { key: 'feeding_validation', label: 'Feeding Validation' },
   ];
 
@@ -201,10 +391,10 @@ function getApplicableSections(char, sub) {
   const meritActions = sub?.merit_actions_resolved || [];
   const hasCategory = (cats) => meritActions.some(a => cats.includes(a.meritCategory));
 
-  if (hasCategory(['allies']))            sections.push({ key: 'allies_actions',   label: 'Allies Actions' });
-  if (hasCategory(['status']))            sections.push({ key: 'status_actions',   label: 'Status Actions' });
-  if (hasCategory(['retainer', 'staff'])) sections.push({ key: 'retainer_actions', label: 'Retainer Actions' });
-  if (hasCategory(['contacts']))          sections.push({ key: 'contact_requests', label: 'Contact Requests' });
+  if (hasCategory(['allies']))            sections.push({ key: 'allies_actions',     label: 'Allies Actions' });
+  if (hasCategory(['status']))            sections.push({ key: 'status_actions',     label: 'Status Actions' });
+  if (hasCategory(['retainer', 'staff'])) sections.push({ key: 'retainer_actions',  label: 'Retainer Actions' });
+  if (hasCategory(['contacts']))          sections.push({ key: 'contact_requests',   label: 'Contact Requests' });
   if (hasCategory(['resources']))         sections.push({ key: 'resource_approvals', label: 'Resources/Skill Acquisitions' });
 
   if (hasCacophonySavvy(char)) {
@@ -241,9 +431,7 @@ function renderNavRail() {
     const charId = sub.character_id || sub._id;
     h += `<button class="dt-story-pill${stateClass}" data-char-id="${charId}" data-sub-id="${sub._id}">`;
     h += name;
-    if (state) {
-      h += `<span class="dt-story-pill-dot"></span>`;
-    }
+    if (state) h += `<span class="dt-story-pill-dot"></span>`;
     h += `</button>`;
   }
   return h;
@@ -255,7 +443,6 @@ function selectCharacter(charId) {
   _currentCharId = charId;
   _currentSub = _allSubmissions.find(s => s.character_id === charId || s._id === charId) || null;
 
-  // Update pill active state
   document.querySelectorAll('.dt-story-pill').forEach(p => {
     p.classList.toggle('active', p.dataset.charId === charId);
   });
@@ -281,20 +468,31 @@ function renderCharacterView(char, sub) {
   let h = '';
   h += `<div class="dt-story-char-header">`;
   h += `<h3 class="dt-story-char-name">${char ? displayName(char) : (sub?.character_name || 'Unknown')}</h3>`;
-  if (stNarrative?.locked) {
-    h += `<span class="dt-story-locked-badge">Locked</span>`;
-  }
+  if (stNarrative?.locked) h += `<span class="dt-story-locked-badge">Locked</span>`;
   h += `</div>`;
 
   for (const section of sections) {
-    h += renderSectionScaffold(section.key, section.label, stNarrative);
+    h += renderSection(section, char, sub, stNarrative);
   }
 
   h += renderSignOffPanel(stNarrative, sections, sub);
   return h;
 }
 
-// ── Section scaffold ──────────────────────────────────────────────────────────
+// ── Section dispatch ──────────────────────────────────────────────────────────
+
+/**
+ * Routes each section to its specific renderer, or falls back to the scaffold placeholder.
+ * B4–B7 add cases here as sections are implemented.
+ */
+function renderSection(section, char, sub, stNarrative) {
+  switch (section.key) {
+    case 'project_responses': return renderProjectSection(char, sub);
+    default: return renderSectionScaffold(section.key, section.label, stNarrative);
+  }
+}
+
+// ── Section scaffold (placeholder for unimplemented sections) ─────────────────
 
 function renderSectionScaffold(key, label, stNarrative) {
   const complete = isSectionComplete(stNarrative, key);
@@ -305,6 +503,124 @@ function renderSectionScaffold(key, label, stNarrative) {
   h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
   h += `</div>`;
   h += `<div class="dt-story-section-empty">Not yet implemented</div>`;
+  h += `</div>`;
+  return h;
+}
+
+// ── Project Reports section ───────────────────────────────────────────────────
+
+function renderProjectSection(char, sub) {
+  const complete = projectResponsesComplete(sub);
+  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  let h = `<div class="dt-story-section" data-section="project_responses">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Project Reports</span>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  const resolved = sub.projects_resolved || [];
+  const cards = resolved.slice(0, 4);
+
+  if (!cards.length) {
+    h += `<div class="dt-story-section-empty">No project actions for this submission.</div>`;
+  } else {
+    let rendered = 0;
+    for (let i = 0; i < cards.length; i++) {
+      const rev = cards[i] || {};
+      if (rev.pool_status === 'skipped') continue;
+      h += renderProjectCard(char, sub, i);
+      rendered++;
+    }
+    if (!rendered) {
+      h += `<div class="dt-story-section-empty">All project actions were skipped.</div>`;
+    }
+  }
+
+  h += `</div></div>`;
+  return h;
+}
+
+function renderProjectCard(char, sub, idx) {
+  const slot = idx + 1;
+  const rev = sub.projects_resolved?.[idx] || {};
+
+  const title       = sub.responses?.[`project_${slot}_title`]       || `Project ${slot}`;
+  const outcome     = sub.responses?.[`project_${slot}_outcome`]      || '';
+  const territory   = sub.responses?.[`project_${slot}_territory`]    || '';
+  const actionType  = rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
+  const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Action';
+
+  const pool = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '\u2014';
+  const roll = rev.roll || null;
+  const notes = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+
+  const saved    = sub.st_narrative?.project_responses?.[idx] || {};
+  const savedTxt = saved.response || '';
+  const isComplete = saved.status === 'complete';
+
+  // Build roll summary
+  let rollSummary = '';
+  if (roll) {
+    const s = roll.successes ?? 0;
+    const exc = roll.exceptional ? ', Exceptional' : '';
+    rollSummary = `${s} success${s !== 1 ? 'es' : ''}${exc}`;
+  } else if (rev.pool_status === 'no_roll') {
+    rollSummary = 'No roll';
+  }
+
+  // Build context text for display and copy
+  const contextText = buildProjectContext(char, sub, idx);
+
+  // Context block starts collapsed if textarea already has content
+  const ctxCollapsed = savedTxt ? ' collapsed' : '';
+  const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
+
+  let h = `<div class="dt-story-proj-card${isComplete ? ' complete' : ''}" data-proj-idx="${idx}">`;
+
+  // Header row
+  h += `<div class="dt-story-proj-header">`;
+  h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
+  h += `<span class="dt-story-proj-title">${title}</span>`;
+  h += `<button class="dt-story-copy-ctx-btn" data-proj-idx="${idx}">Copy Context</button>`;
+  h += `</div>`;
+
+  // Meta row
+  h += `<div class="dt-story-proj-meta">`;
+  if (outcome) h += `<span class="dt-story-proj-outcome">Outcome: ${outcome}</span>`;
+  const poolRoll = [pool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
+  if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
+  if (territory) h += `<span class="dt-story-proj-territory">Territory: ${territory}</span>`;
+  h += `</div>`;
+
+  // Context block (collapsible)
+  h += `<div class="dt-story-context-block${ctxCollapsed}">`;
+  h += `<pre class="dt-story-context-text">${contextText}</pre>`;
+  h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
+  h += `</div>`;
+
+  // ST Notes (read-only)
+  if (notes.length) {
+    h += `<div class="dt-story-notes-thread">`;
+    for (const note of notes) {
+      h += `<div class="dt-story-note"><span class="dt-story-note-author">${note.author_name || 'ST'}:</span> ${note.text || ''}</div>`;
+    }
+    h += `</div>`;
+  }
+
+  // Response textarea
+  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" rows="4" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
+
+  // Action buttons
+  const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-save-draft-btn" data-proj-idx="${idx}">Save Draft</button>`;
+  h += `<button class="dt-story-mark-complete-btn" data-proj-idx="${idx}">`;
+  h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
+  h += `</button>`;
+  h += `</div>`;
+
   h += `</div>`;
   return h;
 }
@@ -328,7 +644,7 @@ function renderSignOffPanel(stNarrative, applicableSections, sub) {
   return h;
 }
 
-// ── Sign-off handler ──────────────────────────────────────────────────────────
+// ── Event handlers ────────────────────────────────────────────────────────────
 
 async function handleSignOff(btn) {
   if (!_currentSub) return;
@@ -336,18 +652,94 @@ async function handleSignOff(btn) {
   btn.textContent = 'Saving\u2026';
   try {
     await saveNarrativeField(_currentSub._id, { 'st_narrative.locked': true });
-    // Update local cache
     _currentSub.st_narrative = { ...(_currentSub.st_narrative || {}), locked: true };
-    // Re-render character view
     const char = getCharForSub(_currentSub);
     const view = document.getElementById('dt-story-char-view');
     if (view) view.innerHTML = renderCharacterView(char, _currentSub);
-    // Refresh nav rail pill state
     const rail = document.getElementById('dt-story-nav-rail');
     if (rail) rail.innerHTML = renderNavRail();
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Mark all complete';
     console.error('Sign-off failed:', err);
+  }
+}
+
+function handleCopyProjectContext(btn) {
+  if (!_currentSub) return;
+  const card = btn.closest('.dt-story-proj-card');
+  if (!card) return;
+  const idx = parseInt(card.dataset.projIdx, 10);
+  const char = getCharForSub(_currentSub);
+  const text = buildProjectContext(char, _currentSub, idx);
+  copyToClipboard(text, btn);
+}
+
+function handleContextToggle(toggleEl) {
+  const block = toggleEl.closest('.dt-story-context-block');
+  if (!block) return;
+  const collapsed = block.classList.toggle('collapsed');
+  toggleEl.textContent = collapsed ? 'Show context' : 'Hide context';
+}
+
+async function handleProjectSave(btn, status) {
+  const card = btn.closest('.dt-story-proj-card');
+  if (!card || !_currentSub) return;
+  const idx = parseInt(card.dataset.projIdx, 10);
+
+  const ta = card.querySelector('.dt-story-response-ta');
+  const text = ta?.value || '';
+
+  const user = getUser();
+  const author = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  // Strip out the dot span from button text for restoration
+  btn.textContent = 'Saving\u2026';
+
+  try {
+    const updatedResponses = buildUpdatedProjectResponses(_currentSub, idx, {
+      response: text,
+      author,
+      status,
+    });
+
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.project_responses': updatedResponses,
+    });
+
+    // Update local cache
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.project_responses = updatedResponses;
+
+    // Re-render the project section in place
+    const char = getCharForSub(_currentSub);
+    const sectionEl = document.querySelector('.dt-story-section[data-section="project_responses"]');
+    if (sectionEl) {
+      const newHtml = renderProjectSection(char, _currentSub);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = newHtml;
+      sectionEl.replaceWith(tmp.firstElementChild);
+    }
+
+    // Re-render sign-off panel (completion count may have changed)
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const stNarrative = _currentSub.st_narrative;
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderSignOffPanel(stNarrative, sections, _currentSub);
+      signOff.replaceWith(tmp.firstElementChild);
+    }
+
+    // Refresh nav rail pill
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    console.error('Project save failed:', err);
   }
 }

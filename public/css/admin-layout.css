@@ -6177,36 +6177,155 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   padding: 24px 16px;
 }
 
+/* ── DT Story — Project Cards (B2) ──────────────────────────────────── */
 
-/* ── DT Story Tab ─────────────────────────────────────────────────── */
+.dt-story-section-body { padding: 10px 12px; }
 
-/* Sub-tab bar */
-#dt-sub-tab-bar {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-  padding-left: 16px;
+.dt-story-proj-card {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 5px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
 }
-.dt-sub-tab-btn {
+.dt-story-proj-card.complete { border-color: rgba(90,154,110,0.4); }
+
+.dt-story-proj-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dt-story-action-chip {
+  background: var(--surf3);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  flex-shrink: 0;
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+.dt-story-proj-title {
+  color: var(--txt);
+  flex: 1;
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-story-copy-ctx-btn {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt3);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
+}
+.dt-story-copy-ctx-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+
+.dt-story-proj-meta {
+  color: var(--txt3);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--fl);
+  font-size: 11px;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dt-story-context-block {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+}
+.dt-story-context-text {
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 0 0 6px 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dt-story-context-block.collapsed .dt-story-context-text { display: none; }
+.dt-story-context-toggle {
+  color: var(--gold2);
+  cursor: pointer;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.dt-story-context-toggle:hover { text-decoration: underline; }
+
+.dt-story-notes-thread {
+  background: var(--surf);
+  border-left: 2px solid var(--bdr2);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+.dt-story-note {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 3px;
+}
+.dt-story-note-author { color: var(--txt2); font-weight: 700; }
+
+.dt-story-response-ta {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--txt);
+  font-family: var(--fb);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
+}
+.dt-story-response-ta:focus { border-color: var(--gold2); outline: none; }
+
+.dt-story-card-actions { align-items: center; display: flex; gap: 8px; }
+.dt-story-save-draft-btn,
+.dt-story-mark-complete-btn {
+  align-items: center;
   background: transparent;
   border: 1px solid var(--bdr2);
   border-radius: 4px;
   color: var(--txt2);
   cursor: pointer;
+  display: inline-flex;
   font-family: var(--fl);
-  font-size: 11px;
+  font-size: 10px;
+  gap: 5px;
   letter-spacing: 0.06em;
-  padding: 4px 12px;
+  padding: 4px 10px;
   text-transform: uppercase;
-  transition: color 0.15s, border-color 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
-.dt-sub-tab-btn:hover { color: var(--txt); border-color: var(--bdr3); }
-.dt-sub-tab-btn.active {
-  background: var(--gold2);
-  border-color: var(--gold2);
-  color: #0d0b09;
-  font-weight: 700;
-}
+.dt-story-save-draft-btn:hover  { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-mark-complete-btn:hover { border-color: #5a9a6e; color: #5a9a6e; }
+.dt-story-save-draft-btn:disabled,
+.dt-story-mark-complete-btn:disabled { color: var(--txt3); cursor: default; }
 
-/* Panel display management */
-.dt-panel { width: 100
