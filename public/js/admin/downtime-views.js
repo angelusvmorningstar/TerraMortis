@@ -29,8 +29,6 @@ let allCycles = [];
 let activeCycle = null;
 let currentCycle = null;
 let selectedCycleId = null;
-let expandedId = null;
-const processingMode = true;
 const procExpandedKeys = new Set(); // tracks which action rows are expanded in processing mode
 let procHideDone = false;           // when true, hide fully-resolved action rows from the queue
 let cycleReminders = [];       // processing_reminders from the current cycle document
@@ -55,11 +53,7 @@ const PHASE_ORDER = {
   investigate: 4,
   attack: 5,
   patrol_scout: 6, support: 6,
-  misc: 7, xp_spend: 7, maintenance: 7,
-  block: 8, rumour: 8, grow: 8, acquisition: 8,
-  allies: 9,
-  contacts: 10,
-  resources_retainers: 11,
+  misc: 7, xp_spend: 7, maintenance: 7, block: 7, rumour: 7, grow: 7, acquisition: 7,
 };
 
 const PHASE_LABELS = {
@@ -71,10 +65,12 @@ const PHASE_LABELS = {
   attack: 'Step 6 — Hostile',
   support_patrol: 'Step 7 — Support & Patrol',
   misc: 'Step 8 — Miscellaneous',
-  sphere: 'Other Merit Actions',
-  allies: 'Allies & Status',
+  allies: 'Allies',
+  status: 'Status',
+  retainers: 'Retainers',
   contacts: 'Contacts',
   resources_retainers: 'Resources & Retainers',
+  other_merit: 'Other Merit Actions',
 };
 
 // Maps phase numeric key back to display label key
@@ -87,10 +83,12 @@ const PHASE_NUM_TO_LABEL = {
   5: 'attack',
   6: 'support_patrol',
   7: 'misc',
-  8: 'sphere',
-  9: 'allies',
-  10: 'contacts',
-  11: 'resources_retainers',
+  8: 'allies',
+  9: 'status',
+  10: 'retainers',
+  11: 'contacts',
+  12: 'resources_retainers',
+  13: 'other_merit',
 };
 
 const ACTION_TYPE_LABELS = {
@@ -810,7 +808,6 @@ async function loadCycleById(cycleId) {
   // Wire ambience apply button
   document.getElementById('dt-apply-ambience')?.addEventListener('click', () => handleApplyAmbience(cycleId, cycle));
 
-  expandedId = null;
   procExpandedKeys.clear();
   submissions = await getSubmissionsForCycle(cycleId);
   renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
@@ -866,476 +863,6 @@ function renderSubmissions() {
     ?.classList.add('dt-proc-sticky');
 
   renderProcessingMode(document.getElementById('dt-submissions'));
-}
-
-function _renderSubmissionCards() {
-  const el = document.getElementById('dt-submissions');
-  if (!submissions.length) {
-    el.innerHTML = '<p class="placeholder">No submissions in this cycle.</p>';
-    return;
-  }
-
-  const sorted = [...submissions].sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
-
-  el.innerHTML = '<div class="dt-sub-list">' + sorted.map(s => {
-    const raw = s._raw || {};
-    const sub = raw.submission || {};
-    const attended = sub.attended_last_game ? '\u2713' : '\u2717';
-    const attendedClass = sub.attended_last_game ? 'dt-attended' : 'dt-absent';
-
-    const char = findCharacter(s.character_name, s.player_name);
-    const matchIcon = char ? '<span class="dt-match-icon">\u2713</span>' : '<span class="dt-unmatch-icon">\u26A0</span>';
-    const isExpanded = expandedId === s._id;
-    const rollResult = s.feeding_roll;
-    const rollBadge = rollResult
-      ? `<span class="dt-roll-badge rolled">${rollResult.successes} succ</span>`
-      : '<span class="dt-roll-badge unrolled">No roll</span>';
-    const status = s.approval_status || 'pending';
-    const statusBadge = `<span class="dt-status-badge dt-status-${status}">${status}</span>`;
-    const narr = s.st_review?.narrative || {};
-    const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
-    const narrativeComplete = NARR_KEYS.every(k => narr[k]?.status === 'ready');
-    const isReady = s.st_review?.outcome_visibility === 'ready';
-    const isPublished = s.st_review?.outcome_visibility === 'published';
-    const narrativeBadge = narrativeComplete && !isReady && !isPublished ? '<span class="dt-narr-badge">&#x2710; Narrative ready</span>' : '';
-    const publishedBadge = isPublished ? '<span class="dt-pub-badge">&#x2713; Published</span>'
-      : isReady ? '<span class="dt-ready-badge">&#x23F3; Ready</span>' : '';
-    // Story 5.3 — XP approval status badge
-    let xpBadge = '';
-    try {
-      const xpRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
-      if (xpRows.length) {
-        const xpApproved = xpRows.filter((_, i) => s.st_review?.xp_approvals?.[i]?.status === 'approved').length;
-        xpBadge = xpApproved === xpRows.length
-          ? '<span class="dt-narr-badge">XP \u2713</span>'
-          : xpApproved > 0 ? `<span class="proc-narr-progress">${xpApproved}/${xpRows.length} XP</span>` : '';
-      }
-    } catch { /* ignore */ }
-
-    let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''} dt-sub-${status}" data-id="${s._id}">
-      <div class="dt-sub-top dt-sub-clickable">
-        ${matchIcon}
-        <span class="dt-sub-name">${esc(s.character_name || '?')}</span>
-        <span class="dt-sub-player">${esc(s.player_name || '')}</span>
-        <span class="${attendedClass}">${attended}</span>
-        ${statusBadge}
-        ${rollBadge}
-        ${narrativeBadge}${xpBadge}${publishedBadge}
-      </div>`;
-
-    if (isExpanded) {
-      // Story 5.2 — reference-only content (mechanical work lives in processing mode)
-      h += renderPlayerResponses(s);
-      h += renderMechanicalSummaryPanel(s);
-      h += renderStNotes(s, raw);
-      h += renderExpenditurePanel(s);
-      h += renderExportRow(s);
-    }
-
-    h += '</div>';
-    return h;
-  }).join('') + '</div>';
-
-  // Card click delegation
-  // Narrative textarea autosave on blur
-  el.querySelectorAll('.dt-narr-textarea').forEach(ta => {
-    ta.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const blockKey = ta.dataset.blockKey;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const text = ta.value;
-      const statusKey = `st_review.narrative.${blockKey}.text`;
-      try {
-        await updateSubmission(subId, { [statusKey]: text });
-        if (!sub.st_review) sub.st_review = {};
-        if (!sub.st_review.narrative) sub.st_review.narrative = {};
-        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
-        sub.st_review.narrative[blockKey].text = text;
-      } catch (err) { console.error('Narrative save error:', err.message); }
-    });
-  });
-
-  // Narrative block status toggle (draft/ready)
-  el.querySelectorAll('.dt-narr-status-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const blockKey = btn.dataset.blockKey;
-      const newStatus = btn.dataset.status;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      try {
-        await updateSubmission(subId, { [`st_review.narrative.${blockKey}.status`]: newStatus });
-        if (!sub.st_review) sub.st_review = {};
-        if (!sub.st_review.narrative) sub.st_review.narrative = {};
-        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
-        sub.st_review.narrative[blockKey].status = newStatus;
-        renderSubmissions();
-      } catch (err) { console.error('Narrative status error:', err.message); }
-    });
-  });
-
-  // Expenditure inputs autosave on blur (GC-3)
-  el.querySelectorAll('.dt-exp-input').forEach(input => {
-    input.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = input.dataset.subId;
-      const field = input.dataset.expField;
-      const val = parseInt(input.value, 10);
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      try {
-        await updateSubmission(subId, { [field]: isNaN(val) ? 0 : val });
-        if (!sub.st_review) sub.st_review = {};
-        const key = field.replace('st_review.', '');
-        sub.st_review[key] = isNaN(val) ? 0 : val;
-      } catch (err) { console.error('Expenditure save error:', err.message); }
-    });
-  });
-
-  // Publish button
-  el.querySelectorAll('.dt-publish-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (sub) handlePublish(sub);
-    });
-  });
-
-  // Restore pool builder select values (innerHTML can't set selected across render)
-  el.querySelectorAll('.dt-pool-sel').forEach(sel => {
-    const subId = sel.dataset.subId;
-    const field = sel.dataset.field;
-    const projIdx = sel.dataset.projIdx !== undefined ? +sel.dataset.projIdx : null;
-    const meritIdx = sel.dataset.meritIdx !== undefined ? +sel.dataset.meritIdx : null;
-    const sub = submissions.find(s => s._id === subId);
-    if (!sub) return;
-    let val = '';
-    if (projIdx !== null) val = (sub._proj_pending || [])[projIdx]?.[field] || '';
-    else if (meritIdx !== null) val = (sub._merit_pending || [])[meritIdx]?.[field] || '';
-    if (val) sel.value = val;
-  });
-
-  el.querySelectorAll('.dt-sub-clickable').forEach(row => {
-    row.addEventListener('click', () => {
-      const card = row.closest('.dt-sub-card');
-      const id = card.dataset.id;
-      expandedId = expandedId === id ? null : id;
-      renderSubmissions();
-    });
-  });
-
-  // Method button delegation
-  el.querySelectorAll('.dt-method-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const sub = submissions.find(s => s._id === btn.dataset.subId);
-      if (sub) { sub._feed_method = btn.dataset.method; renderSubmissions(); }
-    });
-  });
-
-  // Notes save delegation
-  el.querySelectorAll('.dt-notes-save').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); handleSaveNotes(btn.dataset.subId); });
-  });
-
-  // Approval button delegation
-  el.querySelectorAll('.dt-approval-btn').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); handleApproval(btn.dataset.subId, btn.dataset.status); });
-  });
-
-  // Project pool select delegation
-  el.querySelectorAll('.dt-proj-sel').forEach(sel => {
-    sel.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = sel.dataset.subId;
-      const idx = +sel.dataset.projIdx;
-      const field = sel.dataset.field;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx][field] = sel.value;
-      // When skill changes, update nine_again flag and reset active_specs
-      if (field === 'skill') {
-        const char = findCharacter(sub.character_name, sub.player_name);
-        sub._proj_pending[idx].nine_again = char ? skNineAgain(char, sel.value) : false;
-        sub._proj_pending[idx].active_specs = [];
-        sub._proj_pending[idx].spec_bonus = 0;
-      }
-      renderSubmissions();
-    });
-  });
-
-  // Project spec toggle delegation
-  el.querySelectorAll('.dt-spec-toggle').forEach(cb => {
-    cb.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = cb.dataset.subId;
-      const idx = +(cb.dataset.projIdx ?? cb.dataset.meritIdx);
-      const spec = cb.dataset.spec;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub || !spec || isNaN(idx)) return;
-      const pendingArr = cb.dataset.meritIdx !== undefined ? '_merit_pending' : '_proj_pending';
-      if (!sub[pendingArr]) sub[pendingArr] = [];
-      if (!sub[pendingArr][idx]) sub[pendingArr][idx] = {};
-      const activeSpecs = sub[pendingArr][idx].active_specs || [];
-      if (cb.checked) {
-        if (!activeSpecs.includes(spec)) activeSpecs.push(spec);
-      } else {
-        const i = activeSpecs.indexOf(spec);
-        if (i !== -1) activeSpecs.splice(i, 1);
-      }
-      sub[pendingArr][idx].active_specs = activeSpecs;
-      sub[pendingArr][idx].spec_bonus = activeSpecs.length;
-      renderSubmissions();
-    });
-  });
-
-  // Project modifier input delegation
-  el.querySelectorAll('.dt-proj-mod').forEach(inp => {
-    inp.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = inp.dataset.subId;
-      const idx = +inp.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx].modifier = parseInt(inp.value) || 0;
-      renderSubmissions();
-    });
-  });
-
-  // Project rote toggle delegation
-  el.querySelectorAll('.dt-proj-rote').forEach(cb => {
-    cb.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = cb.dataset.subId;
-      const idx = +cb.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx].rote = cb.checked;
-    });
-  });
-
-  // Project roll button delegation
-  el.querySelectorAll('.dt-proj-roll-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const idx = +btn.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
-      const pen = (sub?._proj_pending || [])[idx] || {};
-      const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-      const existingRoll = sub?.projects_resolved?.[idx]?.roll || null;
-      const specBonus = pen.spec_bonus || 0;
-      const nineAgain = pen.nine_again || false;
-      showRollModal({
-        size: pool.total + specBonus, expression: pool.expression, success: 8, exc: 5,
-        again: nineAgain ? 9 : 10,
-        existingRoll, initialRote: pen.rote || false,
-      }, result => {
-        handleProjectRollSave(subId, idx, pool, result);
-      });
-    });
-  });
-
-  // Project note delegation (save on blur)
-  el.querySelectorAll('.dt-proj-note').forEach(ta => {
-    ta.addEventListener('blur', e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const idx = +ta.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._proj_pending) sub._proj_pending = [];
-      if (!sub._proj_pending[idx]) sub._proj_pending[idx] = {};
-      sub._proj_pending[idx].st_note = ta.value;
-    });
-  });
-
-  // Project writeup delegation (save on blur)
-  el.querySelectorAll('.dt-proj-writeup').forEach(ta => {
-    ta.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const idx = +ta.dataset.projIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const resolved = [...(sub.projects_resolved || [])];
-      while (resolved.length <= idx) resolved.push(null);
-      if (!resolved[idx]) resolved[idx] = {};
-      resolved[idx] = { ...resolved[idx], writeup: ta.value };
-      try {
-        await updateSubmission(subId, { projects_resolved: resolved });
-        sub.projects_resolved = resolved;
-      } catch (err) { console.error('Writeup save error:', err.message); }
-    });
-  });
-
-  // Merit action pool select/mod delegation
-  el.querySelectorAll('.dt-merit-sel').forEach(sel => {
-    sel.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = sel.dataset.subId;
-      const idx = +sel.dataset.meritIdx;
-      const field = sel.dataset.field;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._merit_pending) sub._merit_pending = [];
-      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
-      sub._merit_pending[idx][field] = sel.value;
-      renderSubmissions();
-    });
-  });
-
-  // Merit modifier input delegation
-  el.querySelectorAll('.dt-merit-mod').forEach(inp => {
-    inp.addEventListener('change', e => {
-      e.stopPropagation();
-      const subId = inp.dataset.subId;
-      const idx = +inp.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._merit_pending) sub._merit_pending = [];
-      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
-      sub._merit_pending[idx].modifier = parseInt(inp.value) || 0;
-      renderSubmissions();
-    });
-  });
-
-  // Merit roll button delegation
-  el.querySelectorAll('.dt-merit-roll-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const idx = +btn.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
-      const pen = (sub?._merit_pending || [])[idx] || {};
-      const pool = buildGenericPool(char, pen.attr, pen.skill, pen.disc, pen.modifier || 0);
-      showRollModal({ size: pool.total, expression: pool.expression, success: 8, exc: 5, again: 10 }, result => {
-        handleMeritRollSave(subId, idx, pool, result);
-      });
-    });
-  });
-
-  // Merit note delegation (save on blur)
-  el.querySelectorAll('.dt-merit-note').forEach(ta => {
-    ta.addEventListener('blur', e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const idx = +ta.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      if (!sub._merit_pending) sub._merit_pending = [];
-      if (!sub._merit_pending[idx]) sub._merit_pending[idx] = {};
-      sub._merit_pending[idx].st_note = ta.value;
-    });
-  });
-
-  // Merit "no roll needed" delegation
-  el.querySelectorAll('.dt-merit-noroll-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const idx = +btn.dataset.meritIdx;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const pending = (sub._merit_pending || [])[idx] || {};
-      const resolved = [...(sub.merit_actions_resolved || [])];
-      while (resolved.length <= idx) resolved.push(null);
-      resolved[idx] = { no_roll: true, st_note: pending.st_note || '', resolved_at: new Date().toISOString() };
-      try {
-        await updateSubmission(subId, { merit_actions_resolved: resolved });
-        sub.merit_actions_resolved = resolved;
-        renderSubmissions();
-      } catch (err) { console.error('Failed to save merit no-roll:', err.message); }
-    });
-  });
-
-  // Rote toggle delegation (submission review feeding row)
-  el.querySelectorAll('.dt-feed-rote-chk').forEach(cb => {
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const subId = cb.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const val = cb.checked;
-      await updateSubmission(subId, { 'st_review.feeding_rote': val });
-      if (!sub.st_review) sub.st_review = {};
-      sub.st_review.feeding_rote = val;
-    });
-  });
-
-  // Pool modifier — persist on change and update display
-  el.querySelectorAll('.dt-pool-mod').forEach(inp => {
-    inp.addEventListener('change', async e => {
-      e.stopPropagation();
-      const subId = inp.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const val = parseInt(inp.value) || 0;
-      await updateSubmission(subId, { 'st_review.feeding_modifier': val });
-      if (!sub.st_review) sub.st_review = {};
-      sub.st_review.feeding_modifier = val;
-      renderSubmissions();
-    });
-  });
-
-  // Roll button delegation
-  el.querySelectorAll('.dt-feed-roll-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const id = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === id);
-      const char = sub ? findCharacter(sub.character_name, sub.player_name) : null;
-
-      let poolSize = 1, expression = '';
-      if (char && sub._feed_method) {
-        const modInput = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-mod');
-        const stMod = modInput ? (parseInt(modInput.value) || 0) : (sub.st_review?.feeding_modifier || 0);
-        const pool = buildFeedingPool(char, sub._feed_method, stMod);
-        poolSize = pool ? pool.total : 1;
-        if (pool) {
-          const bd = pool.breakdown;
-          expression = `${bd.attrVal} ${bd.attr} + ${bd.skillVal} ${bd.skill}`;
-          if (bd.fg) expression += ` + ${bd.fg} FG`;
-          if (stMod) expression += ` ${stMod >= 0 ? '+' : '-'} ${Math.abs(stMod)} ST`;
-          expression += ` = ${pool.total}`;
-        }
-      } else {
-        const input = btn.closest('.dt-feed-detail')?.querySelector('.dt-pool-input');
-        poolSize = input ? parseInt(input.value) || 1 : 1;
-        expression = `${poolSize} dice`;
-      }
-
-      const isRote = sub?.st_review?.feeding_rote || false;
-      const existingRoll = sub?.feeding_roll || rollPool(poolSize, 10, 8, 5, isRote);
-      showRollModal(
-        { size: poolSize, expression: `Feeding: ${expression}`, existingRoll },
-        async result => {
-          await updateSubmission(id, { feeding_roll: result });
-          const s = submissions.find(s => s._id === id);
-          if (s) s.feeding_roll = result;
-          renderMatchSummary();
-          renderSubmissions();
-        }
-      );
-    });
-  });
-
-  // Export button delegation
-  el.querySelectorAll('.dt-export-btn').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); handleExportSingle(btn.dataset.subId); });
-  });
 }
 
 function renderFeedingDetail(s, raw, char) {
@@ -2444,14 +1971,16 @@ function buildProcessingQueue(subs) {
       const actionType = meritResolved.action_type_override || originalActionType;
       let phaseNum;
       const isAlliesAction = meritCategory === 'allies' || meritCategory === 'status';
-      if (isAlliesAction) {
+      if (meritCategory === 'allies') {
+        phaseNum = PHASE_ORDER[actionType] ?? 8;
+      } else if (meritCategory === 'status') {
         phaseNum = PHASE_ORDER[actionType] ?? 9;
-      } else if (meritCategory === 'contacts') {
+      } else if (meritCategory === 'retainer' || meritCategory === 'staff') {
         phaseNum = 10;
-      } else if (meritCategory === 'retainer') {
+      } else if (meritCategory === 'contacts') {
         phaseNum = 11;
       } else {
-        phaseNum = PHASE_ORDER[actionType] ?? 8;
+        phaseNum = PHASE_ORDER[actionType] ?? 13;
       }
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
       queue.push({
@@ -2482,8 +2011,8 @@ function buildProcessingQueue(subs) {
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[10],
-        phaseNum: 10,
+        phase: PHASE_NUM_TO_LABEL[11],
+        phaseNum: 11,
         actionType: 'contacts',
         label: 'Contacts: Gather Info',
         description: req,
@@ -2499,8 +2028,8 @@ function buildProcessingQueue(subs) {
         key: `${sub._id}:merit:${meritFlatIdx}`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[11],
-        phaseNum: 11,
+        phase: PHASE_NUM_TO_LABEL[12],
+        phaseNum: 12,
         actionType: 'resources_retainers',
         label: 'Retainer: Directed Action',
         description: task,
@@ -3581,26 +3110,7 @@ function renderProcessingMode(container) {
               : null;
             const currentTerrId = isFeeding ? '' : (sub?.st_review?.territory_overrides?.[terrContext] || '');
             const feedingSet = isFeeding ? new Set(feedingOverrideArr) : null;
-            const TERR_PILLS = [
-              { id: '',           label: '\u2014' },
-              { id: 'academy',    label: 'Acad.' },
-              { id: 'harbour',    label: 'Harb.' },
-              { id: 'dockyards',  label: 'Dock.' },
-              { id: 'northshore', label: 'N.Shore' },
-              { id: 'secondcity', label: '2nd City' },
-            ];
-            h += `<div class="proc-terr-pill-row" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}">`;
-            h += `<span class="proc-terr-pill-label">Terr.</span>`;
-            for (const t of TERR_PILLS) {
-              let active = '';
-              if (isFeeding) {
-                active = (t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '';
-              } else {
-                active = currentTerrId === t.id ? ' active' : '';
-              }
-              h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
-            }
-            h += `</div>`;
+            h += _renderInlineTerrPills(entry.subId, terrContext, currentTerrId, feedingSet);
           }
           h += renderActionPanel(entry, review);
         }
@@ -5111,10 +4621,10 @@ function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, mod
 }
 
 /**
- * Render territory pill row for ambience actions inside the detail panel.
- * Uses proc-terr-pill-row class so the existing pill click handler wires up.
+ * Render a territory pill row. Wires up via the existing proc-terr-pill click handler.
+ * feedingSet: pass a Set of active territory IDs for feeding multi-select; null for single-select.
  */
-function _renderInlineTerrPills(subId, terrContext, currentTerrId) {
+function _renderInlineTerrPills(subId, terrContext, currentTerrId, feedingSet = null) {
   const TERR_PILLS = [
     { id: '',           label: '\u2014' },
     { id: 'academy',   label: 'Academy' },
@@ -5126,7 +4636,9 @@ function _renderInlineTerrPills(subId, terrContext, currentTerrId) {
   let h = `<span class="proc-terr-pill-row proc-terr-inline-pills" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}">`;
   h += `<span class="proc-feed-lbl">Terr.</span>`;
   for (const t of TERR_PILLS) {
-    const active = currentTerrId === t.id ? ' active' : '';
+    const active = feedingSet
+      ? ((t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '')
+      : (currentTerrId === t.id ? ' active' : '');
     h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
   }
   h += `</span>`;
@@ -5344,6 +4856,16 @@ function _updatePoolTotal(container, key) {
  * Render the right-side sidebar for a sorcery entry.
  * Dice Pool Modifiers (DT bonus + Mandragora Garden + equipment) + Roll + Status.
  */
+/** Render the proc-val-status button row. buttons = [[statusValue, label], ...] */
+function _renderValStatusButtons(key, poolStatus, buttons) {
+  let h = '<div class="proc-val-status">';
+  for (const [val, label] of buttons) {
+    h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(key)}" data-status="${val}">${label}</button>`;
+  }
+  h += '</div>';
+  return h;
+}
+
 /**
  * Render the right-side sidebar for a sphere merit action entry.
  * Shows: action mode + effect from matrix, equipment modifier, roll card (if rolled), status buttons.
@@ -5471,15 +4993,10 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  if (isAuto || mode === 'instant' || formula === 'none') {
-    h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Applied</button>`;
-  } else {
-    h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Resolved</button>`;
-    h += `<button class="proc-val-btn${poolStatus === 'no_effect' ? ' active no_effect' : ''}" data-proc-key="${esc(key)}" data-status="no_effect">No Effect</button>`;
-  }
-  h += `</div>`;
+  const meritBtns = isAuto || mode === 'instant' || formula === 'none'
+    ? [['pending', 'Pending'], ['resolved', 'Applied']]
+    : [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']];
+  h += _renderValStatusButtons(key, poolStatus, meritBtns);
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5552,11 +5069,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Resolved</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'no_effect' ? ' active no_effect' : ''}" data-proc-key="${esc(key)}" data-status="no_effect">No Effect</button>`;
-  h += `</div>`;
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]);
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5636,11 +5149,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'      ? ' active pending'      : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'validated'    ? ' active validated'    : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'no_roll'      ? ' active no_roll'      : ''}" data-proc-key="${esc(key)}" data-status="no_roll">No Roll Needed</button>`;
-  h += `</div>`;
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']]);
   // Committed pool expression with active specs
   const _activeProjSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -5909,11 +5418,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'    ? ' active pending'    : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'validated'  ? ' active validated'  : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'no_feed'    ? ' active no_feed'    : ''}" data-proc-key="${esc(key)}" data-status="no_feed">No Valid Feeding</button>`;
-  h += `</div>`;
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
   const _activeFeedSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -6627,11 +6132,7 @@ function renderActionPanel(entry, review) {
 
     h += '<div class="proc-section">';
     h += '<div class="proc-detail-label">Validation Status</div>';
-    h += '<div class="proc-val-status">';
-    for (const [val, label] of statusOptions) {
-      h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
-    }
-    h += '</div>';
+    h += _renderValStatusButtons(entry.key, poolStatus, statusOptions);
     h += '</div>';
   }
 
@@ -8123,8 +7624,6 @@ function renderFeedingMatrix() {
 
   el.querySelectorAll('.dt-matrix-row[data-sub-id]').forEach(row => {
     row.addEventListener('click', () => {
-      const id = row.dataset.subId;
-      expandedId = expandedId === id ? null : id;
       renderSubmissions();
       row.closest('.dt-matrix-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
