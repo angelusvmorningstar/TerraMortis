@@ -198,7 +198,7 @@ async function loadCharacters() {
   if (activeChars.length > 1) {
     selector.style.display = '';
     selector.innerHTML = activeChars.map((c, i) =>
-      `<option value="${i}">${esc(displayName(c))}</option>`
+      `<option value="${i}">${esc(sortName(c))}</option>`
     ).join('');
     selector.addEventListener('change', () => {
       localStorage.setItem('tm_active_char', String(activeChars[Number(selector.value)]._id));

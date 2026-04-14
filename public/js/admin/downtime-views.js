@@ -39,6 +39,10 @@ let ambDashCollapsed = true;   // collapse state for the Ambience Dashboard pane
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
 let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
+const preReadExpanded = new Set();   // subIds with pre-read body expanded in processing mode
+const narrativeExpanded = new Set(); // subIds with narrative body expanded in processing mode
+const xpReviewExpanded  = new Set(); // subIds with XP review body expanded in processing mode
+const signOffExpanded   = new Set(); // subIds with sign-off body expanded in processing mode
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -264,10 +268,9 @@ export async function initDowntimeView(passedChars) {
       inp.addEventListener('change', e => { if (e.target.files[0]) processFilePreview(e.target.files[0]); });
 
       const btn = document.createElement('button');
-      btn.className = 'dt-btn';
+      btn.className = 'dt-btn proc-mode-btn';
       btn.textContent = 'Preview CSV';
       btn.title = 'Load CSV for local preview — not saved to MongoDB';
-      btn.style.cssText = 'border-color:var(--accent);color:var(--accent)';
       btn.addEventListener('click', () => inp.click());
 
       toolbar.appendChild(inp);
@@ -311,9 +314,8 @@ function buildShell() {
     <div id="dt-match-summary"></div>
     <div id="dt-feeding-scene"></div>
     <div id="dt-conflicts"></div>
-    <div id="dt-investigations"></div>
-    <div id="dt-npcs"></div>
-    <div id="dt-submissions" class="dt-submissions"></div>`;
+    <div id="dt-submissions" class="dt-submissions"></div>
+    <div id="dt-npcs"></div>`;
 }
 
 // ── Character + player data bridge ──────────────────────────────────────────
@@ -688,7 +690,7 @@ async function loadCycleById(cycleId) {
   }
   if (isClosed || isGame) {
     const alreadyApplied = cycle.ambience_applied;
-    statusHtml += `<button class="dt-btn" id="dt-apply-ambience" style="${alreadyApplied ? 'opacity:.5' : ''}" title="${alreadyApplied ? 'Ambience already applied for this cycle' : 'Apply ambience changes from this cycle\'s resolved projects'}">
+    statusHtml += `<button class="dt-btn${alreadyApplied ? ' dt-btn-dim' : ''}" id="dt-apply-ambience" title="${alreadyApplied ? 'Ambience already applied for this cycle' : 'Apply ambience changes from this cycle\'s resolved projects'}">
       ${alreadyApplied ? '\u2713 Ambience applied' : 'Apply Ambience Changes'}
     </button>`;
   }
@@ -725,7 +727,7 @@ async function loadCycleById(cycleId) {
   document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
   renderSubmissionChecklist();
-  renderConflicts();
+  renderTerritoriesAtAGlance();
   await loadInvestigations(cycleId);
   renderInvestigations();
   await loadNpcs(cycleId);
@@ -806,6 +808,17 @@ function renderSubmissions() {
     const narrativeBadge = narrativeComplete && !isReady && !isPublished ? '<span class="dt-narr-badge">&#x2710; Narrative ready</span>' : '';
     const publishedBadge = isPublished ? '<span class="dt-pub-badge">&#x2713; Published</span>'
       : isReady ? '<span class="dt-ready-badge">&#x23F3; Ready</span>' : '';
+    // Story 5.3 — XP approval status badge
+    let xpBadge = '';
+    try {
+      const xpRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
+      if (xpRows.length) {
+        const xpApproved = xpRows.filter((_, i) => s.st_review?.xp_approvals?.[i]?.status === 'approved').length;
+        xpBadge = xpApproved === xpRows.length
+          ? '<span class="dt-narr-badge">XP \u2713</span>'
+          : xpApproved > 0 ? `<span class="proc-narr-progress">${xpApproved}/${xpRows.length} XP</span>` : '';
+      }
+    } catch { /* ignore */ }
 
     let h = `<div class="dt-sub-card${char ? '' : ' dt-sub-unmatched'}${isExpanded ? ' dt-sub-expanded' : ''} dt-sub-${status}" data-id="${s._id}">
       <div class="dt-sub-top dt-sub-clickable">
@@ -815,7 +828,7 @@ function renderSubmissions() {
         <span class="${attendedClass}">${attended}</span>
         ${statusBadge}
         ${rollBadge}
-        ${narrativeBadge}${publishedBadge}
+        ${narrativeBadge}${xpBadge}${publishedBadge}
       </div>
       <div class="dt-sub-stats">
         ${clan ? `<span class="dt-sub-tag">${clan}</span>` : ''}
@@ -825,16 +838,11 @@ function renderSubmissions() {
       </div>`;
 
     if (isExpanded) {
+      // Story 5.2 — reference-only content (mechanical work lives in processing mode)
       h += renderPlayerResponses(s);
-      h += renderFeedingDetail(s, raw, char);
-      h += renderProjectsPanel(s, raw, char);
-      h += renderMeritActionsPanel(s, raw, char);
-      h += renderNarrativePanel(s);
       h += renderMechanicalSummaryPanel(s);
       h += renderStNotes(s, raw);
-      h += renderApproval(s);
       h += renderExpenditurePanel(s);
-      h += renderPublishPanel(s);
       h += renderExportRow(s);
     }
 
@@ -1312,7 +1320,7 @@ function renderFeedingDetail(s, raw, char) {
         if (bd.unskilled) h += ` \u2212 ${Math.abs(bd.unskilled)} (unskilled)`;
         if (stMod) h += ` ${stMod >= 0 ? '+' : '\u2212'} ${Math.abs(stMod)} ST`;
         h += ` = <b>${pool.total}</b></span>`;
-        h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl" style="display:inline">Mod</label> <input type="number" class="dt-pool-mod" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1" style="width:52px"></span>`;
+        h += `<span class="dt-pool-mod-wrap"><label class="dt-feed-lbl">Mod</label> <input type="number" class="dt-pool-mod dt-num-input-sm" data-sub-id="${esc(s._id)}" value="${stMod}" min="-20" max="20" step="1"></span>`;
         h += '</div>';
       }
     }
@@ -1660,7 +1668,7 @@ export async function processDowntimeCsvFile(file) {
 
 async function processFilePreview(file) {
   const warnEl = document.getElementById('dt-warnings');
-  warnEl.innerHTML = '<div class="dt-warn" style="background:rgba(224,196,122,.08);border-color:var(--accent);color:var(--accent)">&#9888; Preview mode — data is not saved to MongoDB.</div>';
+  warnEl.innerHTML = '<div class="dt-warn dt-warn-preview">&#9888; Preview mode — data is not saved to MongoDB.</div>';
 
   const text = await file.text();
   const { submissions: parsed, warnings } = parseDowntimeCSV(text);
@@ -1733,7 +1741,7 @@ async function processFilePreview(file) {
   renderSnapshotPanel(devCycle);
   renderMatchSummary();
   renderSubmissionChecklist();
-  renderConflicts();
+  renderTerritoriesAtAGlance();
   renderInvestigations();
   renderNpcs();
   renderSubmissions();
@@ -2885,44 +2893,6 @@ function renderAmbienceDashboard() {
       h += '</div>';
     }
 
-    // ── Discipline Profile Matrix ──
-    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
-    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
-    h += `<button class="dt-btn proc-disc-retally" id="disc-retally-btn">Retally</button>`;
-    h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
-    h += `</div>`;
-
-    if (!discDashCollapsed) {
-      // Find disciplines and territories with any count > 0
-      const discSet = new Set();
-      const terrSet = new Set();
-      for (const [terrId, discs] of Object.entries(profile)) {
-        for (const [disc, count] of Object.entries(discs)) {
-          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
-        }
-      }
-      const discList = [...discSet].sort();
-      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
-
-      if (!discList.length) {
-        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
-      } else {
-        h += `<table class="proc-disc-table">`;
-        h += `<thead><tr><th>Discipline</th>`;
-        for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
-        h += `</tr></thead><tbody>`;
-        for (const disc of discList) {
-          h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
-          for (const t of terrList) {
-            const count = profile[t.id]?.[disc] || 0;
-            h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
-          }
-          h += `</tr>`;
-        }
-        h += `</tbody></table>`;
-      }
-    }
-
     // ── ST Notes ──
     h += `<div class="proc-amb-notes-block">`;
     h += `<label class="proc-amb-notes-lbl">ST Ambience Notes</label>`;
@@ -2936,8 +2906,376 @@ function renderAmbienceDashboard() {
   return h;
 }
 
+// ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
+
+function renderPreReadSection() {
+  const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
+  const COURT_LABELS = {
+    travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
+    correspondence: 'Dear X', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations',
+  };
+
+  const readable = submissions.filter(s => {
+    const r = s.responses || {};
+    return COURT_KEYS.some(k => r[k]?.trim?.()) || r.vamping?.trim?.() || r.lore_request?.trim?.();
+  });
+
+  if (!readable.length) return '';
+
+  const isExpanded = expandedPhases.has('preread');
+
+  let h = '<div class="proc-phase-section">';
+  h += `<div class="proc-phase-header" data-toggle-phase="preread">`;
+  h += `<span class="proc-phase-label">Step 0 \u2014 Pre-read</span>`;
+  h += `<span class="proc-phase-count">${readable.length} submission${readable.length !== 1 ? 's' : ''}</span>`;
+  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+
+  if (isExpanded) {
+    for (const s of readable) {
+      const r = s.responses || {};
+      const char = findCharacter(s.character_name, s.player_name);
+      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const isBlockExpanded = preReadExpanded.has(s._id);
+      const hasLore = !!r.lore_request?.trim?.();
+      const loreResponded = !!s.st_review?.lore_responded;
+      const loreBadge = hasLore && !loreResponded
+        ? '<span class="proc-preread-lore-badge">Lore ?</span>'
+        : '';
+
+      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-preread-id="${esc(s._id)}">`;
+      h += `<span class="proc-row-char">${esc(charName)}${loreBadge}</span>`;
+      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
+      h += `</div>`;
+
+      if (isBlockExpanded) {
+        h += `<div class="proc-preread-body">`;
+
+        // Court section
+        const courtVals = COURT_KEYS.filter(k => r[k]?.trim?.());
+        if (courtVals.length) {
+          h += `<div class="dt-resp-section">`;
+          h += `<div class="dt-resp-section-title">Court</div>`;
+          for (const k of courtVals) {
+            let val = r[k];
+            if (k === 'rp_shoutout') {
+              try {
+                val = JSON.parse(val).filter(Boolean).map(id => {
+                  const ch = characters.find(c => String(c._id) === String(id));
+                  return ch ? (ch.moniker || ch.name) : id;
+                }).join(', ');
+              } catch { /* ignore */ }
+            }
+            if (!val?.trim?.()) continue;
+            h += `<div class="dt-resp-row">`;
+            h += `<span class="dt-resp-label">${esc(COURT_LABELS[k] || k)}</span>`;
+            h += `<span class="dt-resp-val">${esc(val)}</span>`;
+            h += `</div>`;
+          }
+          h += `</div>`;
+        }
+
+        // Vamping
+        if (r.vamping?.trim?.()) {
+          h += `<div class="dt-resp-section">`;
+          h += `<div class="dt-resp-section-title">Vamping</div>`;
+          h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(r.vamping)}</span></div>`;
+          h += `</div>`;
+        }
+
+        // Lore request
+        if (hasLore) {
+          h += `<div class="dt-resp-section">`;
+          h += `<div class="dt-resp-section-title">Lore Request</div>`;
+          h += `<div class="dt-resp-row"><span class="dt-resp-val">${esc(r.lore_request)}</span></div>`;
+          h += `<button class="dt-btn dt-btn-sm proc-lore-btn${loreResponded ? ' active' : ''}" data-sub-id="${esc(s._id)}">${loreResponded ? '\u2713 Responded' : 'Mark responded'}</button>`;
+          h += `</div>`;
+        }
+
+        h += `</div>`; // proc-preread-body
+      }
+    }
+  }
+
+  h += `</div>`; // proc-phase-section
+  return h;
+}
+
+// ── Sign-off Step (Epic 4 — Stories 4.1 + 4.2 + 4.3) ────────────────────────
+
+function _signOffStatus(s) {
+  const reasons = [];
+  const approval = s.approval_status || 'pending';
+  if (approval !== 'approved' && approval !== 'modified') {
+    reasons.push('Submission not yet approved or modified');
+  }
+  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+  const NARR_LABELS = { letter_from_home: 'Letter from Home', touchstone_vignette: 'Touchstone Vignette', territory_report: 'Territory Report', intelligence_dossier: 'Intelligence Dossier' };
+  const narr = s.st_review?.narrative || {};
+  const unready = NARR_KEYS.filter(k => narr[k]?.status !== 'ready');
+  if (unready.length) reasons.push(`Narrative not ready: ${unready.map(k => NARR_LABELS[k]).join(', ')}`);
+  const flaggedXp = Object.values(s.st_review?.xp_approvals || {}).filter(a => a?.status === 'flagged').length;
+  if (flaggedXp) reasons.push(`${flaggedXp} flagged XP row${flaggedXp !== 1 ? 's' : ''} outstanding`);
+  return { ready: reasons.length === 0, reasons };
+}
+
+function renderSignOffStep() {
+  if (!submissions.length) return '';
+
+  const isExpanded = expandedPhases.has('sign_off');
+  const doneCount = submissions.filter(s => ['ready', 'published'].includes(s.st_review?.outcome_visibility)).length;
+  const stepBadge = doneCount === submissions.length && doneCount > 0
+    ? ' <span class="dt-narr-badge">\u2713 All staged</span>'
+    : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/${submissions.length}</span>` : '';
+
+  let h = '<div class="proc-phase-section">';
+  h += `<div class="proc-phase-header" data-toggle-phase="sign_off">`;
+  h += `<span class="proc-phase-label">Step 11 \u2014 Sign-off${stepBadge}</span>`;
+  h += `<span class="proc-phase-count">${submissions.length} submission${submissions.length !== 1 ? 's' : ''}</span>`;
+  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+
+  if (isExpanded) {
+    for (const s of submissions) {
+      const char = findCharacter(s.character_name, s.player_name);
+      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const isBlockExpanded = signOffExpanded.has(s._id);
+      const approval = s.approval_status || 'pending';
+      const visibility = s.st_review?.outcome_visibility || '';
+      const isReady     = visibility === 'ready';
+      const isPublished = visibility === 'published';
+
+      let charBadge = '';
+      if (isPublished)          charBadge = ' <span class="dt-pub-badge">\u2713 Published</span>';
+      else if (isReady)         charBadge = ' <span class="dt-ready-badge">\u23F3 Ready</span>';
+      else if (approval === 'approved')  charBadge = ' <span class="dt-narr-badge">\u2713 Approved</span>';
+      else if (approval === 'modified')  charBadge = ' <span class="proc-narr-progress">Modified</span>';
+      else if (approval === 'rejected')  charBadge = ' <span class="proc-signoff-rejected">Rejected</span>';
+
+      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-signoff-id="${esc(s._id)}">`;
+      h += `<span class="proc-row-char">${esc(charName)}${charBadge}</span>`;
+      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
+      h += `</div>`;
+
+      if (isBlockExpanded) {
+        h += `<div class="proc-preread-body">`;
+
+        // Approval buttons + resolution note (Story 4.1)
+        h += `<div class="proc-signoff-approval">`;
+        h += `<div class="proc-detail-label">Outcome</div>`;
+        h += `<div class="proc-signoff-btns">`;
+        for (const st of ['pending', 'approved', 'modified', 'rejected']) {
+          h += `<button class="dt-btn dt-approval-btn dt-appr-${st}${approval === st ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-status="${st}">${st}</button>`;
+        }
+        h += `</div>`;
+        h += `<textarea class="dt-notes-input dt-resolution-input proc-signoff-note" data-sub-id="${esc(s._id)}" rows="2" placeholder="Resolution note (visible to player when released)">${esc(s.resolution_note || '')}</textarea>`;
+        h += `</div>`;
+
+        // Mark ready / ready state / published state (Story 4.2)
+        h += `<div class="proc-signoff-ready-row">`;
+        if (isPublished) {
+          h += `<span class="dt-pub-badge">\u2713 Published \u2014 released to player</span>`;
+        } else if (isReady) {
+          h += `<span class="dt-ready-badge">\u23F3 Staged for release</span>`;
+          h += `<button class="dt-btn dt-btn-sm dt-btn-dim proc-signoff-revert" data-sub-id="${esc(s._id)}">Revert to draft</button>`;
+        } else {
+          const { ready, reasons } = _signOffStatus(s);
+          if (ready) {
+            h += `<button class="dt-btn dt-btn-gold proc-signoff-ready-btn" data-sub-id="${esc(s._id)}">Mark ready for release</button>`;
+          } else {
+            h += `<button class="dt-btn proc-signoff-ready-btn" disabled title="${esc(reasons.join('\n'))}">Mark ready for release</button>`;
+            h += `<ul class="proc-signoff-blockers">`;
+            for (const r of reasons) h += `<li>${esc(r)}</li>`;
+            h += `</ul>`;
+          }
+        }
+        h += `</div>`;
+
+        h += `</div>`; // proc-preread-body
+      }
+    }
+  }
+
+  h += `</div>`; // proc-phase-section
+  return h;
+}
+
+// ── XP Review Step (Epic 3 — Stories 3.1 + 3.2 + 3.3) ───────────────────────
+
+function renderXpReviewStep() {
+  // Only include submissions that have xp_spend rows
+  const xpSubs = submissions.filter(s => {
+    try {
+      const rows = JSON.parse(s.responses?.xp_spend || '[]');
+      return rows.some(r => r.category || r.item);
+    } catch { return false; }
+  });
+
+  if (!xpSubs.length) return '';
+
+  const isExpanded = expandedPhases.has('xp_review');
+
+  // Summary count across all subs
+  let totalRows = 0, totalApproved = 0;
+  for (const s of xpSubs) {
+    try {
+      const rows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
+      totalRows += rows.length;
+      totalApproved += rows.filter((_, i) => s.st_review?.xp_approvals?.[i]?.status === 'approved').length;
+    } catch { /* ignore */ }
+  }
+  const allApproved = totalRows > 0 && totalApproved === totalRows;
+  const stepBadge = allApproved
+    ? ' <span class="dt-narr-badge">\u2713 All approved</span>'
+    : totalApproved > 0 ? ` <span class="proc-narr-progress">${totalApproved}/${totalRows}</span>` : '';
+
+  let h = '<div class="proc-phase-section">';
+  h += `<div class="proc-phase-header" data-toggle-phase="xp_review">`;
+  h += `<span class="proc-phase-label">Step 10 \u2014 XP Review${stepBadge}</span>`;
+  h += `<span class="proc-phase-count">${xpSubs.length} submission${xpSubs.length !== 1 ? 's' : ''}</span>`;
+  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+
+  if (isExpanded) {
+    for (const s of xpSubs) {
+      let rows = [];
+      try { rows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item); } catch { /* ignore */ }
+      if (!rows.length) continue;
+
+      const char = findCharacter(s.character_name, s.player_name);
+      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const isBlockExpanded = xpReviewExpanded.has(s._id);
+      const approvals = s.st_review?.xp_approvals || {};
+      const doneHere = rows.filter((_, i) => approvals[i]?.status === 'approved').length;
+      const allDoneHere = doneHere === rows.length;
+      const charBadge = allDoneHere
+        ? ' <span class="dt-narr-badge">\u2713 Done</span>'
+        : doneHere > 0 ? ` <span class="proc-narr-progress">${doneHere}/${rows.length}</span>` : '';
+
+      // Count how many project slots are xp_spend actions (sets the "action slots" budget)
+      let xpActionSlots = 0;
+      for (let n = 1; n <= 4; n++) {
+        if (s.responses?.[`project_${n}_action`] === 'xp_spend') xpActionSlots++;
+      }
+
+      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-xp-review-id="${esc(s._id)}">`;
+      h += `<span class="proc-row-char">${esc(charName)}${charBadge}</span>`;
+      if (xpActionSlots) h += `<span class="proc-phase-count">${xpActionSlots} action slot${xpActionSlots !== 1 ? 's' : ''}</span>`;
+      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
+      h += `</div>`;
+
+      if (isBlockExpanded) {
+        h += `<div class="proc-preread-body">`;
+        h += `<table class="proc-xp-table">`;
+        h += `<thead><tr>`;
+        h += `<th>Category</th><th>Purchase</th><th>Cost</th><th>Status</th>`;
+        h += `</tr></thead><tbody>`;
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const appr = approvals[i] || {};
+          const status = appr.status || '';
+          const isApproved = status === 'approved';
+          const isFlagged  = status === 'flagged';
+
+          h += `<tr class="proc-xp-row${isFlagged ? ' flagged' : ''}">`;
+          h += `<td class="proc-xp-cat">${esc(row.category || '—')}</td>`;
+          h += `<td class="proc-xp-item">${esc(row.item || '—')}</td>`;
+          h += `<td class="proc-xp-cost">${row.cost ? esc(String(row.cost)) + ' XP' : '—'}</td>`;
+          h += `<td class="proc-xp-status">`;
+          h += `<button class="dt-btn dt-btn-sm proc-xp-approve-btn${isApproved ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-row-idx="${i}" data-status="approved">\u2713 Approve</button>`;
+          h += `<button class="dt-btn dt-btn-sm proc-xp-flag-btn${isFlagged ? ' active' : ''}" data-sub-id="${esc(s._id)}" data-row-idx="${i}" data-status="flagged">\u26A0 Flag</button>`;
+          h += `</td>`;
+          h += `</tr>`;
+
+          if (isFlagged) {
+            h += `<tr class="proc-xp-note-row">`;
+            h += `<td colspan="4">`;
+            h += `<input class="proc-xp-note-input" type="text" data-sub-id="${esc(s._id)}" data-row-idx="${i}" placeholder="Flag reason..." value="${esc(appr.note || '')}">`;
+            h += `</td></tr>`;
+          }
+        }
+
+        h += `</tbody></table>`;
+        h += `</div>`; // proc-preread-body
+      }
+    }
+  }
+
+  h += `</div>`; // proc-phase-section
+  return h;
+}
+
+// ── Narrative Step (Epic 2 — Stories 2.1 + 2.2 + 2.3) ───────────────────────
+
+function renderNarrativeStep() {
+  if (!submissions.length) return '';
+
+  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+  const isExpanded = expandedPhases.has('narrative');
+  const queue = buildProcessingQueue(submissions);
+
+  let h = '<div class="proc-phase-section">';
+  h += `<div class="proc-phase-header" data-toggle-phase="narrative">`;
+  h += `<span class="proc-phase-label">Step 9 \u2014 Narrative Output</span>`;
+  h += `<span class="proc-phase-count">${submissions.length} submission${submissions.length !== 1 ? 's' : ''}</span>`;
+  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+
+  if (isExpanded) {
+    for (const s of submissions) {
+      const char = findCharacter(s.character_name, s.player_name);
+      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const isBlockExpanded = narrativeExpanded.has(s._id);
+      const narr = s.st_review?.narrative || {};
+      const doneCount = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
+      const allDone = doneCount === NARR_KEYS.length;
+      const statusBadge = allDone
+        ? ' <span class="dt-narr-badge">\u2713 All ready</span>'
+        : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/4</span>` : '';
+
+      h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-narrative-id="${esc(s._id)}">`;
+      h += `<span class="proc-row-char">${esc(charName)}${statusBadge}</span>`;
+      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
+      h += `</div>`;
+
+      if (isBlockExpanded) {
+        h += `<div class="proc-preread-body">`;
+
+        // Story 2.2 — Action responses as read-only reference
+        const actionEntries = queue.filter(e => e.subId === s._id && e.source === 'project');
+        const respondedEntries = actionEntries.filter(e => getEntryReview(e)?.st_response?.trim?.());
+        if (respondedEntries.length) {
+          h += `<details class="dt-style-guide proc-narr-action-ref">`;
+          h += `<summary>Action responses (${respondedEntries.length})</summary>`;
+          for (const entry of respondedEntries) {
+            const rev = getEntryReview(entry);
+            h += `<div class="proc-narr-action-ref-row">`;
+            h += `<div class="proc-narr-action-ref-title">${esc(entry.label)}`;
+            if (entry.description) h += ` \u2014 <span class="proc-narr-action-ref-desc">${esc(entry.description.slice(0, 100))}</span>`;
+            h += `</div>`;
+            h += `<div class="proc-narr-action-ref-text">${esc(rev.st_response)}</div>`;
+            h += `</div>`;
+          }
+          h += `</details>`;
+        }
+
+        // Story 2.1 — Narrative panel (existing renderNarrativePanel, reused)
+        h += renderNarrativePanel(s);
+
+        h += `</div>`; // proc-preread-body
+      }
+    }
+  }
+
+  h += `</div>`; // proc-phase-section
+  return h;
+}
+
 /** Render the phase-ordered processing queue into the given container. */
 function renderProcessingMode(container) {
+  renderTerritoriesAtAGlance();
+
   if (!submissions.length) {
     container.innerHTML = '<p class="placeholder">No submissions in this cycle.</p>';
     return;
@@ -2960,6 +3298,9 @@ function renderProcessingMode(container) {
 
   // Ambience Dashboard — always shown at top of Processing Mode
   h += renderAmbienceDashboard();
+
+  // Pre-read — Step 0, player questionnaire responses
+  h += renderPreReadSection();
 
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
@@ -2985,17 +3326,69 @@ function renderProcessingMode(container) {
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
         h += '</div>';
 
+        // Territory pill row — project entries only
+        if (entry.source === 'project') {
+          const sub = submissions.find(s => s._id === entry.subId);
+          const currentTerrId = sub?.st_review?.territory_overrides?.[entry.actionIdx] || null;
+          const TERR_PILLS = [
+            { id: '',           label: '\u2014' },
+            { id: 'academy',    label: 'Acad.' },
+            { id: 'harbour',    label: 'Harb.' },
+            { id: 'dockyards',  label: 'Dock.' },
+            { id: 'northshore', label: 'N.Shore' },
+            { id: 'secondcity', label: '2nd City' },
+          ];
+          h += `<div class="proc-terr-pill-row" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-proj-idx="${entry.actionIdx}">`;
+          h += `<span class="proc-terr-pill-label">Terr.</span>`;
+          for (const t of TERR_PILLS) {
+            const active = (currentTerrId === t.id || (!currentTerrId && t.id === '')) ? ' active' : '';
+            h += `<button class="proc-terr-pill${active}" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-proj-idx="${entry.actionIdx}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
+          }
+          h += `</div>`;
+        }
+
         if (isExpanded) {
           h += renderActionPanel(entry, review);
         }
+      }
+
+      // Investigations tracker lives inside the Investigative phase
+      if (phaseKey === 'investigate') {
+        h += '<div id="dt-investigations"></div>';
       }
     }
 
     h += '</div>'; // proc-phase-section
   }
 
+  // If no investigate actions were submitted, still show the investigations tracker
+  if (!byPhase.has('investigate')) {
+    h += `<div class="proc-phase-section">`;
+    h += `<div class="proc-phase-header" data-toggle-phase="investigate">`;
+    h += `<span class="proc-phase-label">${PHASE_LABELS.investigate}</span>`;
+    h += `<span class="proc-phase-count">0 actions</span>`;
+    h += `<span class="proc-phase-toggle">${expandedPhases.has('investigate') ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+    h += `</div>`;
+    if (expandedPhases.has('investigate')) {
+      h += '<div id="dt-investigations"></div>';
+    }
+    h += '</div>';
+  }
+
+  // XP Review — Step 10, after action phases, before narrative
+  h += renderXpReviewStep();
+
+  // Narrative Output — Step 9
+  h += renderNarrativeStep();
+
+  // Sign-off — Step 11, final step before push
+  h += renderSignOffStep();
+
   h += '</div>'; // proc-queue
   container.innerHTML = h;
+
+  // Render investigations into its placeholder inside the investigate phase
+  renderInvestigations();
 
   // Wire row clicks
   container.querySelectorAll('.proc-action-row').forEach(row => {
@@ -3003,6 +3396,36 @@ function renderProcessingMode(container) {
       const key = row.dataset.procKey;
       procExpandedKey = procExpandedKey === key ? null : key;
       renderProcessingMode(container);
+    });
+  });
+
+  // Wire territory pill buttons — save override and refresh matrix only
+  container.querySelectorAll('.proc-terr-pill').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId   = btn.dataset.subId;
+      const projIdx = parseInt(btn.dataset.projIdx, 10);
+      const terrId  = btn.dataset.terrId; // '' = clear assignment
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub.st_review) sub.st_review = {};
+      if (!sub.st_review.territory_overrides) sub.st_review.territory_overrides = {};
+      if (terrId) {
+        sub.st_review.territory_overrides[projIdx] = terrId;
+        await updateSubmission(subId, { [`st_review.territory_overrides.${projIdx}`]: terrId });
+      } else {
+        delete sub.st_review.territory_overrides[projIdx];
+        await updateSubmission(subId, { [`st_review.territory_overrides.${projIdx}`]: null });
+      }
+      // Update pill active states in-place
+      const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-proj-idx="${projIdx}"]`);
+      if (pillRow) {
+        pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.terrId === terrId);
+        });
+      }
+      // Refresh the territories matrix
+      renderTerritoriesAtAGlance();
     });
   });
 
@@ -3618,21 +4041,195 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire pre-read character block toggles
+  container.querySelectorAll('.proc-preread-char').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.prereadId;
+      if (preReadExpanded.has(id)) preReadExpanded.delete(id);
+      else preReadExpanded.add(id);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire lore responded button — update in-place without full re-render
+  container.querySelectorAll('.proc-lore-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const newVal = !sub.st_review?.lore_responded;
+      try {
+        await updateSubmission(subId, { 'st_review.lore_responded': newVal });
+        if (!sub.st_review) sub.st_review = {};
+        sub.st_review.lore_responded = newVal;
+        btn.textContent = newVal ? '\u2713 Responded' : 'Mark responded';
+        btn.classList.toggle('active', newVal);
+        const charRow = container.querySelector(`.proc-preread-char[data-preread-id="${subId}"]`);
+        if (charRow) charRow.querySelector('.proc-preread-lore-badge')?.remove();
+      } catch (err) { console.error('Lore responded error:', err.message); }
+    });
+  });
+
+  // Wire XP review character block toggles (Step 10)
+  container.querySelectorAll('[data-xp-review-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.xpReviewId;
+      if (xpReviewExpanded.has(id)) xpReviewExpanded.delete(id);
+      else xpReviewExpanded.add(id);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire XP approve / flag buttons (Step 10)
+  container.querySelectorAll('.proc-xp-approve-btn, .proc-xp-flag-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId  = btn.dataset.subId;
+      const idx    = parseInt(btn.dataset.rowIdx, 10);
+      const status = btn.dataset.status;
+      const sub    = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      // Toggle off if already active
+      const current = sub.st_review?.xp_approvals?.[idx]?.status;
+      const newStatus = current === status ? '' : status;
+      if (!sub.st_review) sub.st_review = {};
+      if (!sub.st_review.xp_approvals) sub.st_review.xp_approvals = {};
+      if (!sub.st_review.xp_approvals[idx]) sub.st_review.xp_approvals[idx] = {};
+      sub.st_review.xp_approvals[idx].status = newStatus;
+      await updateSubmission(subId, { [`st_review.xp_approvals.${idx}.status`]: newStatus });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire XP flag note input — save on blur (Step 10)
+  container.querySelectorAll('.proc-xp-note-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', async () => {
+      const subId = inp.dataset.subId;
+      const idx   = parseInt(inp.dataset.rowIdx, 10);
+      const sub   = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      if (!sub.st_review) sub.st_review = {};
+      if (!sub.st_review.xp_approvals) sub.st_review.xp_approvals = {};
+      if (!sub.st_review.xp_approvals[idx]) sub.st_review.xp_approvals[idx] = {};
+      sub.st_review.xp_approvals[idx].note = inp.value;
+      await updateSubmission(subId, { [`st_review.xp_approvals.${idx}.note`]: inp.value });
+    });
+  });
+
+  // Wire sign-off character block toggles (Step 11)
+  container.querySelectorAll('[data-signoff-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.signoffId;
+      if (signOffExpanded.has(id)) signOffExpanded.delete(id);
+      else signOffExpanded.add(id);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire approval buttons in sign-off step (Step 11)
+  container.querySelectorAll('.proc-preread-body .dt-approval-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await handleApproval(btn.dataset.subId, btn.dataset.status);
+    });
+  });
+
+  // Wire resolution note autosave on blur (Step 11)
+  container.querySelectorAll('.proc-signoff-note').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('blur', async () => {
+      const subId = ta.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      const resolution = ta.value.trim();
+      await updateSubmission(subId, { resolution_note: resolution });
+      sub.resolution_note = resolution;
+    });
+  });
+
+  // Wire mark ready button (Step 11)
+  container.querySelectorAll('.proc-signoff-ready-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      await updateSubmission(subId, { 'st_review.outcome_visibility': 'ready' });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.outcome_visibility = 'ready';
+      renderMatchSummary();
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire revert to draft button (Step 11)
+  container.querySelectorAll('.proc-signoff-revert').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      await updateSubmission(subId, { 'st_review.outcome_visibility': null });
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.outcome_visibility = null;
+      renderMatchSummary();
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire narrative character block toggles (Step 9)
+  container.querySelectorAll('[data-narrative-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.narrativeId;
+      if (narrativeExpanded.has(id)) narrativeExpanded.delete(id);
+      else narrativeExpanded.add(id);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire narrative textarea autosave on blur (Step 9)
+  container.querySelectorAll('.dt-narr-textarea').forEach(ta => {
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const subId = ta.dataset.subId;
+      const blockKey = ta.dataset.blockKey;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      try {
+        await updateSubmission(subId, { [`st_review.narrative.${blockKey}.text`]: ta.value });
+        if (!sub.st_review) sub.st_review = {};
+        if (!sub.st_review.narrative) sub.st_review.narrative = {};
+        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
+        sub.st_review.narrative[blockKey].text = ta.value;
+      } catch (err) { console.error('Narrative save error:', err.message); }
+    });
+  });
+
+  // Wire narrative status toggle (draft/ready) — re-renders to update badge (Step 9)
+  container.querySelectorAll('.dt-narr-status-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const blockKey = btn.dataset.blockKey;
+      const newStatus = btn.dataset.status;
+      const sub = submissions.find(s => s._id === subId);
+      if (!sub) return;
+      try {
+        await updateSubmission(subId, { [`st_review.narrative.${blockKey}.status`]: newStatus });
+        if (!sub.st_review) sub.st_review = {};
+        if (!sub.st_review.narrative) sub.st_review.narrative = {};
+        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
+        sub.st_review.narrative[blockKey].status = newStatus;
+        renderProcessingMode(container);
+      } catch (err) { console.error('Narrative status error:', err.message); }
+    });
+  });
+
   // Wire Ambience Dashboard collapse toggles
   container.querySelector('[data-toggle="amb-dash"]')?.addEventListener('click', () => {
     ambDashCollapsed = !ambDashCollapsed;
-    renderProcessingMode(container);
-  });
-  container.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
-    discDashCollapsed = !discDashCollapsed;
-    renderProcessingMode(container);
-  });
-  container.querySelector('#disc-retally-btn')?.addEventListener('click', async e => {
-    e.stopPropagation();
-    const btn = e.currentTarget;
-    btn.textContent = 'Tallying…';
-    btn.disabled = true;
-    await recomputeDisciplineProfile();
     renderProcessingMode(container);
   });
   container.querySelector('[data-toggle="feed-matrix"]')?.addEventListener('click', () => {
@@ -3708,9 +4305,9 @@ function _renderAttachPanel(entry) {
   }
 
   let h = `<div class="proc-attach-panel" data-proc-key="${esc(entry.key)}">`;
-  h += '<div class="proc-detail-label" style="margin-bottom:6px">Reminder Text</div>';
-  h += `<input class="proc-attach-text" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae" style="width:100%;margin-bottom:12px">`;
-  h += '<div class="proc-detail-label" style="margin-bottom:6px">Attach to Actions:</div>';
+  h += '<div class="proc-detail-label">Reminder Text</div>';
+  h += `<input class="proc-attach-text proc-section" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae" style="width:100%">`;
+  h += '<div class="proc-detail-label">Attach to Actions:</div>';
   h += '<div class="proc-attach-actions">';
 
   for (const [charName, actions] of byChar) {
@@ -3730,7 +4327,7 @@ function _renderAttachPanel(entry) {
   }
 
   if (!allActions.length) {
-    h += '<p style="color:var(--txt3);font-size:12px">No other actions in this cycle.</p>';
+    h += '<p class="dt-empty-msg">No other actions in this cycle.</p>';
   }
 
   h += '</div>'; // proc-attach-actions
@@ -4174,7 +4771,7 @@ function _renderProjRightPanel(entry, char, rev) {
       displayPool = `${_base} + ${_activeProjSpecs.map(sp => `${sp} 1`).join(' + ')} = ${_tot + _activeProjSpecs.length}`;
     }
   }
-  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   // Validation notation: show active flags when validated
   if (poolStatus === 'validated') {
     const notes = [];
@@ -4196,7 +4793,7 @@ function _renderProjRightPanel(entry, char, rev) {
     const rollLabel = projRoll ? 'Re-roll' : 'Roll';
     h += `<button class="dt-btn proc-proj-roll-btn" data-proc-key="${esc(key)}">${rollLabel}</button>`;
   } else {
-    h += `<span style="color:var(--txt3);font-size:11px;font-style:italic">Validate pool first</span>`;
+    h += `<span class="dt-dim-italic dt-hint">Validate pool first</span>`;
   }
   if (projRoll) {
     const diceStr = _formatDiceString(projRoll.dice_string);
@@ -4384,7 +4981,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   // Rite costs row (always shown with manual input)
   h += `<div class="proc-mod-row proc-mod-rite-row">`;
   h += `<span class="proc-mod-label">Rite costs</span>`;
-  h += `<input type="number" class="proc-rite-cost-input" min="0" data-proc-key="${esc(key)}" value="${vitaeRite}" style="width:52px">`;
+  h += `<input type="number" class="proc-rite-cost-input dt-num-input-sm" min="0" data-proc-key="${esc(key)}" value="${vitaeRite}">`;
   h += `</div>`;
 
   // Manual adjustment ticker
@@ -4429,7 +5026,7 @@ function _renderFeedRightPanel(entry, char, rev) {
       displayPool = `${_base} + ${_activeFeedSpecs.map(sp => `${sp} 1`).join(' + ')} = ${_tot + _activeFeedSpecs.length}`;
     }
   }
-  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span style="color:var(--txt3);font-style:italic">Not yet committed</span>'}</div>`;
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
 
   h += `</div>`;
 
@@ -4488,7 +5085,7 @@ function renderActionPanel(entry, review) {
 
   // Full description if it was truncated (suppressed for project + feeding — shown inside detail block)
   if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding') {
-    h += `<p style="font-size:13px;color:var(--txt1);margin:0 0 12px">${esc(entry.description)}</p>`;
+    h += `<p class="proc-full-desc">${esc(entry.description)}</p>`;
   }
 
   // ── Merit action previous roll result ──
@@ -4508,7 +5105,10 @@ function renderActionPanel(entry, review) {
 
   // ── Project-specific detail display (inside left column) ──
   if (entry.source === 'project') {
-    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory || entry.description;
+    const projSub2 = submissions.find(s => s._id === entry.subId);
+    const xpTrait  = projSub2?.responses?.[`project_${entry.projSlot}_xp_trait`] || '';
+    const xpAmount = projSub2?.responses?.[`project_${entry.projSlot}_xp`] || '';
+    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory || entry.description || xpTrait;
     if (hasExtra) {
       h += '<div class="proc-proj-detail">';
       if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
@@ -4517,6 +5117,11 @@ function renderActionPanel(entry, review) {
       if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
       if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(entry.projMerits)}</div>`;
       if (entry.description)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Project Description</span> ${esc(entry.description)}</div>`;
+      // Story 3.2 — XP trait and amount attached to this project action
+      if (xpTrait) {
+        const xpLabel = xpAmount ? `XP Spend${xpAmount ? ' (' + esc(String(xpAmount)) + ' XP)' : ''}` : 'XP Spend';
+        h += `<div class="proc-proj-field proc-proj-xp"><span class="proc-feed-lbl">${xpLabel}</span> ${esc(xpTrait)}</div>`;
+      }
       h += '</div>';
     }
   }
@@ -4636,7 +5241,7 @@ function renderActionPanel(entry, review) {
       const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
 
       h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
-      h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder${!char ? ' <span style="color:var(--txt3);font-size:10px">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
       if (showParseRef) {
         h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
       }
@@ -4745,7 +5350,7 @@ function renderActionPanel(entry, review) {
     h += '</div>';
 
     h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
-    h += `<div class="proc-detail-label" style="margin-bottom:8px">ST Pool Builder${!char ? ' <span style="color:var(--txt3);font-size:10px">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
     if (showParseRef) {
       h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
     }
@@ -4794,8 +5399,8 @@ function renderActionPanel(entry, review) {
       ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
       : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
 
-    h += '<div style="margin-bottom:12px">';
-    h += '<div class="proc-detail-label" style="margin-bottom:6px">Validation Status</div>';
+    h += '<div class="proc-section">';
+    h += '<div class="proc-detail-label">Validation Status</div>';
     h += '<div class="proc-val-status">';
     for (const [val, label] of statusOptions) {
       h += `<button class="proc-val-btn${poolStatus === val ? ` active ${val}` : ''}" data-proc-key="${esc(entry.key)}" data-status="${val}">${label}</button>`;
@@ -4815,7 +5420,7 @@ function renderActionPanel(entry, review) {
         // Render the inline attach panel
         h += _renderAttachPanel(entry);
       } else {
-        h += `<div style="margin-bottom:12px">`;
+        h += `<div class="proc-section">`;
         h += `<button class="dt-btn proc-attach-open-btn" data-proc-key="${esc(entry.key)}">Attach Reminder</button>`;
         if (reminderCount) {
           h += ` <span class="proc-attach-count">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</span>`;
@@ -4823,13 +5428,13 @@ function renderActionPanel(entry, review) {
         h += `</div>`;
       }
     } else if (reminderCount) {
-      h += `<div class="proc-attach-count" style="margin-bottom:12px">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
+      h += `<div class="proc-attach-count">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
     }
   }
 
   // Roll button for validated merit entries (project roll is in the right sidebar)
   if (entry.source === 'merit' && poolStatus === 'validated') {
-    h += '<div style="margin-bottom:12px">';
+    h += '<div class="proc-section">';
     h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
     h += '</div>';
   }
@@ -4843,11 +5448,11 @@ function renderActionPanel(entry, review) {
     h += '<div class="proc-st-response-section">';
     h += '<div class="proc-st-response-header">';
     h += '<span class="proc-detail-label">ST Response</span>';
-    h += `<button class="dt-btn proc-st-response-copy" data-proc-key="${esc(entry.key)}" style="padding:2px 8px;font-size:11px">Copy context</button>`;
+    h += `<button class="dt-btn dt-btn-sm proc-st-response-copy" data-proc-key="${esc(entry.key)}">Copy context</button>`;
     h += '</div>';
     h += `<textarea class="proc-st-response-textarea" data-proc-key="${esc(entry.key)}" rows="5" placeholder="Narrative response for the player...">${esc(stResponse)}</textarea>`;
     h += `<div class="proc-st-response-footer">`;
-    h += `<button class="dt-btn proc-st-response-save" data-proc-key="${esc(entry.key)}" style="padding:3px 10px;font-size:11px">Save</button>`;
+    h += `<button class="dt-btn dt-btn-sm proc-st-response-save" data-proc-key="${esc(entry.key)}">Save</button>`;
     if (responseAuthor) {
       const statusBadge = responseStatus === 'reviewed'
         ? ` <span class="proc-response-status-badge proc-response-status-reviewed">Reviewed</span>`
@@ -4859,14 +5464,14 @@ function renderActionPanel(entry, review) {
   }
 
   // Player feedback
-  h += '<div style="margin-bottom:12px">';
-  h += '<div class="proc-detail-label" style="margin-bottom:6px">Player Feedback</div>';
+  h += '<div class="proc-section">';
+  h += '<div class="proc-detail-label">Player Feedback</div>';
   h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Visible to player (pool correction reason, etc.)...">`;
   h += '</div>';
 
   // ST Notes thread
-  h += '<div style="margin-bottom:12px">';
-  h += '<div class="proc-detail-label" style="margin-bottom:6px">ST Notes (ST only)</div>';
+  h += '<div class="proc-section">';
+  h += '<div class="proc-detail-label">ST Notes (ST only)</div>';
   if (thread.length) {
     h += '<div class="proc-notes-thread">';
     for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
@@ -4901,7 +5506,7 @@ function renderActionPanel(entry, review) {
   // Re-tag action type (for project actions only)
   if (entry.source === 'project') {
     h += '<div class="proc-retag-row">';
-    h += '<span class="proc-detail-label" style="text-transform:none;letter-spacing:0">Re-tag action type:</span>';
+    h += '<span class="proc-detail-label proc-detail-label-plain">Re-tag action type:</span>';
     h += `<select class="proc-retag-sel" data-proc-key="${esc(entry.key)}">`;
     for (const type of ALL_ACTION_TYPES) {
       h += `<option value="${type}"${type === entry.actionType ? ' selected' : ''}>${ACTION_TYPE_LABELS[type] || type}</option>`;
@@ -4911,7 +5516,7 @@ function renderActionPanel(entry, review) {
   }
 
   // Open full submission link
-  h += `<div style="margin-top:10px"><a class="proc-open-sub-link" data-sub-id="${esc(entry.subId)}">Open full submission for ${esc(entry.charName)}</a></div>`;
+  h += `<div class="proc-open-sub-wrap"><a class="proc-open-sub-link" data-sub-id="${esc(entry.subId)}">Open full submission for ${esc(entry.charName)}</a></div>`;
 
   h += '</div>'; // proc-action-detail
   return h;
@@ -4956,7 +5561,7 @@ function renderNarrativePanel(s) {
   const allReady = NARR_KEYS.every(k => narr[k]?.status === 'ready');
 
   let h = '<div class="dt-narr-detail">';
-  h += `<div class="dt-feed-header">Narrative Output ${allReady ? '<span class="dt-narr-badge" style="margin-left:8px">&#x2713; All ready</span>' : ''}</div>`;
+  h += `<div class="dt-feed-header">Narrative Output ${allReady ? '<span class="dt-narr-badge">&#x2713; All ready</span>' : ''}</div>`;
 
   // Style guide (collapsed by default)
   h += `<details class="dt-style-guide"><summary>Writing Rules</summary><ul class="dt-style-list">`;
@@ -5377,6 +5982,7 @@ async function loadInvestigations(cycleId) {
 function renderInvestigations() {
   const el = document.getElementById('dt-investigations');
   if (!el) return;
+  if (!processingMode) { el.innerHTML = ''; return; }
 
   let h = '<div class="dt-inv-panel">';
   h += `<div class="dt-matrix-toggle" id="dt-inv-toggle">${invPanelOpen ? '\u25BC' : '\u25BA'} Investigations <span class="domain-count">${investigations.length}</span></div>`;
@@ -5385,9 +5991,9 @@ function renderInvestigations() {
     h += '<div class="dt-inv-body">';
 
     // New investigation form
-    h += `<details class="dt-inv-new-wrap"><summary class="dt-btn" style="display:inline-block;cursor:pointer;margin-bottom:8px">+ New Investigation</summary>`;
+    h += `<details class="dt-inv-new-wrap"><summary class="dt-btn dt-summary-btn">+ New Investigation</summary>`;
     h += '<div class="dt-inv-form">';
-    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)" style="width:100%;margin-bottom:6px">`;
+    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)" style="width:100%">`;
     h += '<div class="dt-inv-row">';
     h += `<select class="dt-pool-sel" id="dt-inv-type">`;
     for (const t of THRESHOLD_TYPES) h += `<option value="${esc(t.id)}">${esc(t.label)} (${t.default})</option>`;
@@ -5398,7 +6004,7 @@ function renderInvestigations() {
     h += '</div></div></details>';
 
     if (investigations.length === 0) {
-      h += '<p class="placeholder" style="font-size:12px;padding:8px 0;">No active investigations.</p>';
+      h += '<p class="dt-empty-msg">No active investigations.</p>';
     } else {
       for (const inv of investigations) {
         const pct = Math.min(100, Math.round((inv.successes_accumulated / inv.threshold) * 100));
@@ -5423,7 +6029,7 @@ function renderInvestigations() {
           h += `<input class="dt-pool-mod" type="number" min="1" value="1" id="dt-inv-add-${esc(inv._id)}" title="Successes to add">`;
           h += `<input class="dt-inv-input" id="dt-inv-note-${esc(inv._id)}" placeholder="Note (source, roll)" style="flex:1">`;
           h += `<button class="dt-btn dt-inv-add-btn" data-inv-id="${esc(inv._id)}">Add successes</button>`;
-          h += `<button class="dt-btn dt-inv-resolve-btn" data-inv-id="${esc(inv._id)}" style="opacity:.6">Mark resolved</button>`;
+          h += `<button class="dt-btn dt-btn-muted dt-inv-resolve-btn" data-inv-id="${esc(inv._id)}">Mark resolved</button>`;
           h += '</div>';
         }
 
@@ -5529,7 +6135,7 @@ function renderNpcs() {
     }
 
     if (active.length === 0 && editingNpcId !== 'new') {
-      h += '<p class="placeholder" style="font-size:12px;padding:8px 0;">No NPCs recorded yet.</p>';
+      h += '<p class="dt-empty-msg">No NPCs recorded yet.</p>';
     } else {
       for (const npc of active) {
         if (editingNpcId === npc._id) {
@@ -5610,7 +6216,7 @@ function renderNpcCard(npc) {
   h += `<span class="dt-npc-name ${statusColour}">${esc(npc.name)}</span>`;
   h += `<span class="dt-npc-status-badge">${esc(npc.status)}</span>`;
   h += `<button class="dt-btn dt-npc-edit" data-npc-id="${esc(npc._id)}">Edit</button>`;
-  h += `<button class="dt-btn dt-npc-archive" data-npc-id="${esc(npc._id)}" style="opacity:.5">Archive</button>`;
+  h += `<button class="dt-btn dt-btn-dim dt-npc-archive" data-npc-id="${esc(npc._id)}">Archive</button>`;
   h += '</div>';
   if (npc.description) h += `<div class="dt-npc-desc">${esc(npc.description)}</div>`;
   if (npc.notes) h += `<div class="dt-npc-notes">${esc(npc.notes)}</div>`;
@@ -5622,8 +6228,8 @@ function renderNpcForm(npc) {
   const id = npc?._id || 'new';
   const v = (f) => esc(npc?.[f] || '');
   let h = `<div class="dt-npc-form">`;
-  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}" style="width:100%;margin-bottom:6px">`;
-  h += `<textarea class="dt-narr-textarea" id="dt-npc-desc-${id}" placeholder="Description" style="min-height:48px;margin-bottom:6px">${v('description')}</textarea>`;
+  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}" style="width:100%">`;
+  h += `<textarea class="dt-narr-textarea dt-narr-textarea-sm" id="dt-npc-desc-${id}" placeholder="Description">${v('description')}</textarea>`;
   h += '<div class="dt-npc-form-row">';
   h += `<select class="dt-pool-sel" id="dt-npc-status-${id}">`;
   for (const s of ['active', 'dead', 'unknown']) {
@@ -5631,9 +6237,9 @@ function renderNpcForm(npc) {
   }
   h += '</select>';
   h += `<button class="dt-btn dt-npc-save" data-form-id="${id}">Save</button>`;
-  h += `<button class="dt-btn dt-npc-cancel" style="opacity:.6">Cancel</button>`;
+  h += `<button class="dt-btn dt-btn-muted dt-npc-cancel">Cancel</button>`;
   h += '</div>';
-  h += `<textarea class="dt-narr-textarea" id="dt-npc-notes-${id}" placeholder="Notes (ST only)" style="min-height:36px;margin-top:6px">${v('notes')}</textarea>`;
+  h += `<textarea class="dt-narr-textarea dt-narr-textarea-xs" id="dt-npc-notes-${id}" placeholder="Notes (ST only)">${v('notes')}</textarea>`;
   h += '</div>';
   return h;
 }
@@ -5641,39 +6247,82 @@ function renderNpcForm(npc) {
 // ── Submission Checklist (feature.55) ───────────────────────────────────────
 
 const CHK_SECTIONS = [
-  { key: 'travel',            label: 'Travel' },
-  { key: 'feeding',           label: 'Feeding' },
-  { key: 'project_1',         label: 'P1' },
-  { key: 'project_2',         label: 'P2' },
-  { key: 'project_3',         label: 'P3' },
-  { key: 'project_4',         label: 'P4' },
-  { key: 'influence_allies',  label: 'Infl/Allies' },
-  { key: 'contacts',          label: 'Contacts' },
-  { key: 'resources',         label: 'Resources' },
-  { key: 'xp',                label: 'XP' },
+  { key: 'travel',         label: 'Travel' },
+  { key: 'feeding',        label: 'Feeding' },
+  { key: 'project_1',      label: 'P1' },
+  { key: 'project_2',      label: 'P2' },
+  { key: 'project_3',      label: 'P3' },
+  { key: 'project_4',      label: 'P4' },
+  { key: 'allies_1',       label: 'A1' },
+  { key: 'allies_2',       label: 'A2' },
+  { key: 'allies_3',       label: 'A3' },
+  { key: 'allies_4',       label: 'A4' },
+  { key: 'allies_5',       label: 'A5' },
+  { key: 'contacts_1',     label: 'C1' },
+  { key: 'contacts_2',     label: 'C2' },
+  { key: 'contacts_3',     label: 'C3' },
+  { key: 'contacts_4',     label: 'C4' },
+  { key: 'contacts_5',     label: 'C5' },
+  { key: 'resources',      label: 'Res.' },
+  { key: 'correspondence', label: 'Corresp.' },
+  { key: 'xp',             label: 'XP' },
 ];
 
 function _chkHasContent(sub, key) {
   if (!sub) return false;
   const raw = sub._raw || {};
+  const alliesM = key.match(/^allies_(\d+)$/);
+  const contactsM = key.match(/^contacts_(\d+)$/);
+  if (alliesM)   return !!(raw.sphere_actions?.[parseInt(alliesM[1]) - 1]);
+  if (contactsM) return !!(raw.contact_actions?.requests?.[parseInt(contactsM[1]) - 1]);
   switch (key) {
-    case 'travel':           return !!(raw.submission?.narrative?.travel_description);
-    case 'feeding':          return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
-    case 'project_1':        return !!(sub.responses?.project_1_action || raw.projects?.[0]);
-    case 'project_2':        return !!(sub.responses?.project_2_action || raw.projects?.[1]);
-    case 'project_3':        return !!(sub.responses?.project_3_action || raw.projects?.[2]);
-    case 'project_4':        return !!(sub.responses?.project_4_action || raw.projects?.[3]);
-    case 'influence_allies': return !!(raw.sphere_actions?.length);
-    case 'contacts':         return !!(raw.contact_actions?.requests?.length);
-    case 'resources':        return !!(raw.retainer_actions?.actions?.length);
-    case 'xp':               return !!(raw.meta?.xp_spend);
-    default:                 return false;
+    case 'travel':         return !!(raw.submission?.narrative?.travel_description);
+    case 'feeding':        return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
+    case 'project_1':      return !!(sub.responses?.project_1_action || raw.projects?.[0]);
+    case 'project_2':      return !!(sub.responses?.project_2_action || raw.projects?.[1]);
+    case 'project_3':      return !!(sub.responses?.project_3_action || raw.projects?.[2]);
+    case 'project_4':      return !!(sub.responses?.project_4_action || raw.projects?.[3]);
+    case 'resources':      return !!(raw.retainer_actions?.actions?.length);
+    case 'correspondence': return !!(raw.submission?.narrative?.correspondence);
+    case 'xp':             return !!(raw.meta?.xp_spend);
+    default:               return false;
   }
+}
+
+/** Return tooltip text describing what a specific allies/contacts slot contains. */
+function _chkTooltip(sub, key) {
+  const raw = sub?._raw || {};
+  const alliesM = key.match(/^allies_(\d+)$/);
+  if (alliesM) {
+    const action = raw.sphere_actions?.[parseInt(alliesM[1]) - 1];
+    return action ? `${action.merit_type}: ${action.action_type}` : '';
+  }
+  const contactsM = key.match(/^contacts_(\d+)$/);
+  if (contactsM) {
+    const req = raw.contact_actions?.requests?.[parseInt(contactsM[1]) - 1];
+    if (!req) return '';
+    const typeMatch = req.match(/Contact Type:\s*([^\n]+)/i);
+    return typeMatch ? `Contact: ${typeMatch[1].trim()}` : 'Contact';
+  }
+  return '';
 }
 
 function _chkState(sub, key) {
   if (!_chkHasContent(sub, key)) return 'empty';
   if (key === 'feeding' && (sub?.feeding_roll || sub?.feeding_review?.pool_status === 'validated')) return 'validated';
+  // Individual allies/contacts slots: validated if merit_actions_resolved entry has pool_status validated
+  const raw = sub._raw || {};
+  const resolved = sub.merit_actions_resolved || [];
+  const alliesM = key.match(/^allies_(\d+)$/);
+  if (alliesM) {
+    const idx = parseInt(alliesM[1]) - 1;
+    if (resolved[idx]?.pool_status === 'validated') return 'validated';
+  }
+  const contactsM = key.match(/^contacts_(\d+)$/);
+  if (contactsM) {
+    const idx = (raw.sphere_actions?.length || 0) + parseInt(contactsM[1]) - 1;
+    if (resolved[idx]?.pool_status === 'validated') return 'validated';
+  }
   if (sub?.st_review?.sighted?.[key]) return 'sighted';
   return 'unsighted';
 }
@@ -5729,14 +6378,15 @@ function renderSubmissionChecklist() {
 
       for (const sec of CHK_SECTIONS) {
         const state = _chkState(sub, sec.key);
+        const tip   = _chkTooltip(sub, sec.key);
         if (state === 'empty') {
-          h += '<td class="dt-chk-empty">\u2014</td>';
+          h += `<td class="dt-chk-empty"${tip ? ` title="${esc(tip)}"` : ''}>\u2014</td>`;
         } else if (state === 'validated') {
-          h += `<td class="dt-chk-validated" title="Validated">\u2605</td>`;
+          h += `<td class="dt-chk-validated" title="${tip ? esc(tip) + ' \u2014 ' : ''}Complete">\u2605</td>`;
         } else if (state === 'sighted') {
-          h += `<td class="dt-chk-sighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="Sighted \u2014 click to unsight">\u2713</td>`;
+          h += `<td class="dt-chk-sighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tip ? esc(tip) + ' \u2014 ' : ''}In progress \u2014 click to unsight">?</td>`;
         } else {
-          h += `<td class="dt-chk-unsighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="Has content \u2014 click to mark sighted">?</td>`;
+          h += `<td class="dt-chk-unsighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tip ? esc(tip) + ' \u2014 ' : ''}Not reviewed \u2014 click to mark sighted">\u2717</td>`;
         }
       }
 
@@ -6104,78 +6754,190 @@ function renderFeedingMatrix() {
 
 const COMPETING_ACTIONS = ['increase ambience', 'decrease ambience', 'ambience', 'patrol', 'scout', 'attack', 'hide', 'block', 'protect'];
 
-function renderConflicts() {
+/**
+ * Resolve territory for a project action. Priority:
+ * 1. ST override saved to st_review.territory_overrides[projIdx]
+ * 2. App form field: sub.responses.project_N_territory
+ * 3. Free-text scan of description
+ * Returns a TERRITORY_DATA id (e.g. 'academy') or null if unknown.
+ */
+function _resolveProjectTerritory(sub, projIdx) {
+  const overrides = sub.st_review?.territory_overrides || {};
+  if (overrides[projIdx]) return overrides[projIdx];
+  const n = projIdx + 1;
+  const formVal = sub.responses?.[`project_${n}_territory`];
+  if (formVal) {
+    const id = resolveTerrId(formVal);
+    if (id) return id;
+  }
+  const raw = sub._raw || {};
+  const proj = raw.projects?.[projIdx];
+  const text = [proj?.description, proj?.desired_outcome, proj?.title].filter(Boolean).join(' ');
+  return extractTerritoryFromText(text);
+}
+
+function renderTerritoriesAtAGlance() {
   const el = document.getElementById('dt-conflicts');
   if (!el) return;
+
+  // Only visible in processing mode
+  if (!processingMode) { el.innerHTML = ''; return; }
   if (!submissions.length) { el.innerHTML = ''; return; }
 
-  const conflicts = [];
+  const isOpen = el.dataset.open !== 'false';
+  const profile = currentCycle?.discipline_profile || {};
 
-  // Check for competing territory actions across submissions
-  const byTerritory = {};
-  for (const s of submissions) {
-    const raw = s._raw || {};
-    const projects = raw.projects || [];
-    for (const proj of projects) {
-      if (!proj.action_type) continue;
-      const lc = proj.action_type.toLowerCase();
-      const isCompeting = COMPETING_ACTIONS.some(a => lc.includes(a));
-      if (!isCompeting) continue;
-      const territory = proj.description?.match(/The (Academy|Harbour|Dockyards|Second City|North(?:ern)? Shore)/i)?.[0] || 'Unknown territory';
-      const key = lc + '::' + territory.toLowerCase();
-      if (!byTerritory[key]) byTerritory[key] = [];
-      byTerritory[key].push({ subId: s._id, name: s.character_name, action: proj.action_type, territory });
-    }
-  }
-  for (const [, entries] of Object.entries(byTerritory)) {
-    if (entries.length >= 2) {
-      conflicts.push({ type: 'Competing territory action', entries, detail: `${entries[0].action} — ${entries[0].territory}` });
-    }
+  // ── Build matrix data: phase → territory → [entries] ──
+  const TAAG_PHASES = [
+    { key: 'ambience',       label: 'Ambience' },
+    { key: 'hide_protect',   label: 'Defensive' },
+    { key: 'investigate',    label: 'Investigative' },
+    { key: 'attack',         label: 'Hostile' },
+    { key: 'support_patrol', label: 'Support/Patrol' },
+    { key: 'misc',           label: 'Misc' },
+  ];
+
+  // matrix[phaseKey][terrId] = [{ key, charName, subId }]
+  const matrix = {};
+  for (const p of TAAG_PHASES) matrix[p.key] = {};
+
+  const queue = buildProcessingQueue(submissions);
+  for (const entry of queue) {
+    if (entry.source !== 'project') continue;
+    const phaseKey = entry.phase;
+    if (!matrix[phaseKey]) continue; // not a territorial phase
+    const sub = submissions.find(s => s._id === entry.subId);
+    if (!sub) continue;
+    const terrId = _resolveProjectTerritory(sub, entry.actionIdx);
+    if (!terrId) continue; // no territory — not shown in matrix (pills let STs assign)
+    if (!matrix[phaseKey][terrId]) matrix[phaseKey][terrId] = [];
+    matrix[phaseKey][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
   }
 
-  // Check for characters targeting each other (Attack)
-  for (const s of submissions) {
-    const projects = (s._raw || {}).projects || [];
-    for (const proj of projects) {
-      if (!proj.action_type?.toLowerCase().includes('attack')) continue;
-      const targetName = proj.description?.match(/\b([A-Z][a-z]+(?: [A-Z][a-z]+)*)\b/)?.[0];
-      if (targetName && submissions.some(s2 => s2 !== s && (s2.character_name || '').includes(targetName))) {
-        conflicts.push({ type: 'Direct attack', entries: [{ subId: s._id, name: s.character_name, action: proj.action_type }], detail: `${s.character_name} targeting ${targetName}` });
+  // Only show rows that have at least one assignment
+  const activePhases = TAAG_PHASES.filter(p =>
+    TERRITORY_DATA.some(t => (matrix[p.key][t.id] || []).length > 0)
+  );
+
+  let h = `<div class="dt-conflict-panel">`;
+  h += `<div class="dt-matrix-toggle" id="dt-taag-toggle">${isOpen ? '\u25BC' : '\u25BA'} Territories at a Glance`;
+  if (!activePhases.length) h += ` <span class="dt-matrix-note">No territory assignments yet</span>`;
+  h += `</div>`;
+
+  if (isOpen) {
+    h += `<div class="dt-scroll-wrap">`;
+    h += `<table class="dt-taag-table">`;
+    h += `<thead><tr>`;
+    h += `<th>Action</th>`;
+    for (const t of TERRITORY_DATA) {
+      h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
+    }
+    h += `</tr></thead>`;
+    h += `<tbody>`;
+
+    if (!activePhases.length) {
+      h += `<tr class="dt-taag-empty-row"><td colspan="${1 + TERRITORY_DATA.length}">Assign territories to project actions using the pills in the processing queue.</td></tr>`;
+    } else {
+      for (const p of TAAG_PHASES) {
+        const rowEntries = matrix[p.key];
+        const hasAny = TERRITORY_DATA.some(t => (rowEntries[t.id] || []).length > 0);
+        if (!hasAny) continue;
+        h += `<tr>`;
+        h += `<td class="dt-taag-phase-lbl">${esc(p.label)}</td>`;
+        for (const t of TERRITORY_DATA) {
+          const chips = rowEntries[t.id] || [];
+          h += `<td class="dt-taag-cell">`;
+          if (chips.length) {
+            h += `<div class="dt-taag-chips">`;
+            for (const c of chips) {
+              h += `<span class="dt-taag-chip" data-proc-key="${esc(c.key)}" title="${esc(c.charName)}">${esc(c.charName)}</span>`;
+            }
+            h += `</div>`;
+          } else {
+            h += `<span class="dt-taag-empty">\u2014</span>`;
+          }
+          h += `</td>`;
+        }
+        h += `</tr>`;
+      }
+    }
+    h += `</tbody></table></div>`;
+
+    // ── Discipline Profile Matrix ──
+    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
+    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
+    h += `<button class="dt-btn proc-disc-retally" id="disc-retally-btn">Retally</button>`;
+    h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+
+    if (!discDashCollapsed) {
+      const discSet = new Set();
+      const terrSet = new Set();
+      for (const [terrId, discs] of Object.entries(profile)) {
+        for (const [disc, count] of Object.entries(discs)) {
+          if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
+        }
+      }
+      const discList = [...discSet].sort();
+      const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
+
+      if (!discList.length) {
+        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
+      } else {
+        h += `<div class="dt-scroll-wrap">`;
+        h += `<table class="proc-disc-table">`;
+        h += `<thead><tr><th>Discipline</th>`;
+        for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
+        h += `</tr></thead><tbody>`;
+        for (const disc of discList) {
+          h += `<tr><td class="proc-disc-name">${esc(disc)}</td>`;
+          for (const t of terrList) {
+            const count = profile[t.id]?.[disc] || 0;
+            h += `<td class="${count >= 3 ? 'proc-disc-high' : count > 0 ? 'proc-disc-used' : ''}">${count > 0 ? count : ''}</td>`;
+          }
+          h += `</tr>`;
+        }
+        h += `</tbody></table></div>`;
       }
     }
   }
 
-  const isOpen = el.dataset.open !== 'false';
-
-  let h = `<div class="dt-conflict-panel">`;
-  h += `<div class="dt-matrix-toggle" id="dt-conflicts-toggle">${isOpen ? '\u25BC' : '\u25BA'} Conflicts <span class="domain-count">${conflicts.length} detected</span>`;
-  if (!conflicts.length) h += ' <span class="dt-matrix-note" style="display:inline;margin-left:8px;">None detected</span>';
-  h += '</div>';
-
-  if (isOpen && conflicts.length) {
-    h += '<div class="dt-conflict-list">';
-    for (const c of conflicts) {
-      h += `<div class="dt-conflict-item"><span class="dt-conflict-type">${esc(c.type)}</span> — ${esc(c.detail)}: `;
-      h += c.entries.map(e => `<span class="dt-conflict-char" data-sub-id="${esc(e.subId)}">${esc(e.name)}</span>`).join(', ');
-      h += '</div>';
-    }
-    h += '</div>';
-  }
-
-  h += '</div>';
+  h += `</div>`; // dt-conflict-panel
   el.innerHTML = h;
 
-  document.getElementById('dt-conflicts-toggle')?.addEventListener('click', () => {
+  // Toggle
+  document.getElementById('dt-taag-toggle')?.addEventListener('click', () => {
     el.dataset.open = isOpen ? 'false' : 'true';
-    renderConflicts();
+    renderTerritoriesAtAGlance();
   });
 
-  el.querySelectorAll('.dt-conflict-char').forEach(span => {
-    span.addEventListener('click', () => {
-      expandedId = span.dataset.subId;
-      renderSubmissions();
-      document.getElementById('dt-submissions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Chips — jump to action in processing queue
+  el.querySelectorAll('.dt-taag-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const key = chip.dataset.procKey;
+      procExpandedKey = procExpandedKey === key ? null : key;
+      const procContainer = document.getElementById('dt-submissions');
+      if (procContainer) {
+        renderProcessingMode(procContainer);
+        procContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
+  });
+
+  // Disc-dash toggle
+  el.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
+    discDashCollapsed = !discDashCollapsed;
+    renderTerritoriesAtAGlance();
+  });
+
+  // Retally button
+  el.querySelector('#disc-retally-btn')?.addEventListener('click', async e => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    btn.textContent = 'Tallying\u2026';
+    btn.disabled = true;
+    await recomputeDisciplineProfile();
+    renderTerritoriesAtAGlance();
   });
 }
 
@@ -6612,8 +7374,8 @@ function renderMeritActionsPanel(s, raw, char) {
       h += `<button class="dt-btn dt-merit-roll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
         ${!pen.attr ? 'disabled title="Select an attribute first"' : ''}>${isResolved ? 'Re-roll' : 'Roll'}</button>`;
       if (!isResolved) {
-        h += `<button class="dt-btn dt-merit-noroll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
-          style="margin-left:8px;opacity:.7">No roll needed</button>`;
+        h += `<button class="dt-btn dt-btn-muted dt-merit-noroll-btn" data-sub-id="${esc(s._id)}" data-merit-idx="${i}"
+          style="margin-left:8px">No roll needed</button>`;
       }
     }
 
