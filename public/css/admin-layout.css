@@ -5361,9 +5361,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 6px;
-  padding-left: 10px;
-  border-left: 1px solid var(--bdr);
+  margin-left: 12px;
 }
 
 .proc-recat-select {
