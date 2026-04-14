@@ -3725,21 +3725,28 @@ function renderProcessingMode(container) {
               const eightAgainVal = rightPanel?.querySelector('.proc-proj-8a')?.checked   || false;
               await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainVal, rote: roteVal, eight_again: eightAgainVal });
             } else {
-              // Feeding: auto-detect nine_again from skill
-              const sub2  = submissions.find(s => s._id === entry.subId);
-              const char2 = sub2 ? findCharacter(sub2.character_name, sub2.player_name) : null;
-              let nineAgainAuto = false;
-              if (char2) {
-                const charDiscsArr2 = _charDiscsArray(char2).map(d => d.name);
-                const parsed2 = _parsePoolExpr(expr, ALL_ATTRS, ALL_SKILLS, charDiscsArr2);
-                if (parsed2?.skill) nineAgainAuto = skNineAgain(char2, parsed2.skill);
-              }
-              await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainAuto });
+              // Feeding: read nine_again and eight_again from right panel checkboxes
+              const rightPanel = container.querySelector(`.proc-feed-right[data-proc-key="${key}"]`);
+              const nineAgainVal  = rightPanel?.querySelector('.proc-proj-9a')?.checked  || false;
+              const eightAgainVal = rightPanel?.querySelector('.proc-proj-8a')?.checked  || false;
+              await saveEntryReview(entry, { pool_validated: expr, nine_again: nineAgainVal, eight_again: eightAgainVal });
             }
           }
         }
       }
       await saveEntryReview(entry, { pool_status: status });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire clear pool button — clears pool_validated so ST can rebuild from scratch
+  container.querySelectorAll('.proc-pool-clear-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_validated: '' });
       renderProcessingMode(container);
     });
   });
@@ -4174,24 +4181,6 @@ function renderProcessingMode(container) {
         : null;
       const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire 9-Again builder toggle → save rev.nine_again (for initial-render static toggles)
-  container.querySelectorAll('.dt-feed-9a-toggle').forEach(cb => {
-    cb.addEventListener('change', async e => {
-      e.stopPropagation();
-      const key = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
-      if (!entry) return;
-      // Snapshot builder expression before re-render wipes unsaved dropdown values
-      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
-      if (builder) {
-        const expr = _readBuilderExpr(builder);
-        if (expr) await saveEntryReview(entry, { pool_validated: expr });
-      }
-      await saveEntryReview(entry, { nine_again: cb.checked });
       renderProcessingMode(container);
     });
   });
@@ -5128,15 +5117,12 @@ function _updateFeedBuilderMeta(container, key) {
     return;
   }
 
-  // Feeding: existing behaviour — 9-again badge/toggle + spec toggles in meta
-  const nineAOverride = review.nine_again || false;
-  let h = '';
-  if (nineA) {
-    h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
-  } else {
-    const oChk = nineAOverride ? ' checked' : '';
-    h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${key}"${oChk}> 9-Again</label>`;
+  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox
+  const sidebarNineAFeed = container.querySelector(`.proc-proj-9a[data-proc-key="${key}"]`);
+  if (sidebarNineAFeed && review.nine_again == null) {
+    sidebarNineAFeed.checked = nineA;
   }
+  let h = '';
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
     const aoe = hasAoE(char, sp);
@@ -5163,17 +5149,6 @@ function _updateFeedBuilderMeta(container, key) {
       renderProcessingMode(container);
     });
   });
-  // Wire 9-Again override toggle injected into builder meta
-  const nineAToggleEl = metaEl.querySelector('.dt-feed-9a-toggle');
-  if (nineAToggleEl) {
-    nineAToggleEl.addEventListener('change', async e => {
-      e.stopPropagation();
-      const entry3 = buildProcessingQueue(submissions).find(q => q.key === nineAToggleEl.dataset.procKey);
-      if (!entry3) return;
-      await saveEntryReview(entry3, { nine_again: nineAToggleEl.checked });
-      renderProcessingMode(container);
-    });
-  }
 }
 
 /**
@@ -5516,6 +5491,7 @@ function _renderProjRightPanel(entry, char, rev) {
       h += `<div class="proc-proj-val-notation">${esc(notes.join(' \u00B7 '))}</div>`;
     }
   }
+  if (poolValidated) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   // ── Roll card ──
@@ -5734,11 +5710,25 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`; // proc-feed-vitae-panel
 
-  // ── Rote toggle ──
+  // ── Roll toggles: Rote, 9-Again, 8-Again ──
   const feedSubR = submissions.find(s => s._id === entry.subId);
-  const isRote   = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
+  const isRote = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
+  const eightAgainStateFeed = rev.eight_again || false;
+  let nineAgainStateFeed;
+  if (rev.nine_again != null) {
+    nineAgainStateFeed = rev.nine_again;
+  } else {
+    nineAgainStateFeed = false;
+    if (poolValidated && char) {
+      const _frdDiscs = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+      const _frdParsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, _frdDiscs);
+      if (_frdParsed?.skill) nineAgainStateFeed = skNineAgain(char, _frdParsed.skill);
+    }
+  }
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainStateFeed ? ' checked' : ''}> 9-Again</label>`;
+  h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-8a" data-proc-key="${esc(key)}"${eightAgainStateFeed ? ' checked' : ''}> 8-Again</label>`;
   h += `</div>`;
 
   // ── Validation Status ──
@@ -5763,6 +5753,14 @@ function _renderFeedRightPanel(entry, char, rev) {
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
+  if (poolValidated) {
+    const feedNotes = [];
+    if (isRote) feedNotes.push('Rote');
+    if (nineAgainStateFeed) feedNotes.push('9-Again');
+    if (eightAgainStateFeed) feedNotes.push('8-Again');
+    if (feedNotes.length > 0) h += `<div class="proc-proj-val-notation">${esc(feedNotes.join(' \u00B7 '))}</div>`;
+    h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  }
 
   h += `</div>`;
 
@@ -6109,19 +6107,10 @@ function renderActionPanel(entry, review) {
       // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
-      // Skill metadata: 9-again badge/toggle + spec checkboxes (live; updates on skill change)
-      const _fbnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
+      // Skill metadata: spec checkboxes only (9-again lives in the right panel)
       const _fbSp  = char && preSkill ? skSpecs(char, preSkill) : [];
       const _fbAct = rev.active_feed_specs || [];
-      const _fb9Ov = rev.nine_again || false;
       h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-      if (preSkill) {
-        if (_fbnA) {
-          h += '<span class="dt-pool-9a-auto">9-Again (asset skill)</span>';
-        } else {
-          h += `<label class="dt-spec-toggle-lbl dt-feed-9a-lbl-builder"><input type="checkbox" class="dt-feed-9a-toggle" data-proc-key="${esc(entry.key)}"${_fb9Ov ? ' checked' : ''}> 9-Again</label>`;
-        }
-      }
       for (const sp of _fbSp) {
         const checked = _fbAct.includes(sp);
         const aoe = hasAoE(char, sp);
