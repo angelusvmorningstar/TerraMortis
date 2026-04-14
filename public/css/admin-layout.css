@@ -5125,6 +5125,116 @@ body {
 }
 .proc-proj-field:last-child { margin-bottom: 0; }
 
+/* ── feature.68: Merit action validator ── */
+.proc-merit-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.proc-merit-cat-chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.proc-merit-cat-allies   { background: var(--gold2); color: #1a1208; }
+.proc-merit-cat-status   { background: rgba(139,0,0,0.55); color: var(--txt); border: 1px solid var(--crim); }
+.proc-merit-cat-retainer { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
+.proc-merit-cat-staff    { background: var(--surf1); color: var(--txt3); border: 1px solid var(--bdr); }
+.proc-merit-cat-contacts { background: var(--surf2); color: var(--gold2); border: 1px solid var(--bdr2); }
+
+.proc-merit-qualifier {
+  font-size: 12px;
+  color: var(--txt2);
+}
+
+.proc-merit-dots {
+  font-size: 11px;
+  letter-spacing: -0.08em;
+  color: var(--gold2);
+}
+
+/* Merit action mode chip (right panel) */
+.proc-merit-mode-chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.proc-merit-mode-instant  { background: rgba(60,120,60,0.35); color: #8ecf8e; border: 1px solid rgba(60,120,60,0.5); }
+.proc-merit-mode-contested{ background: rgba(180,120,30,0.35); color: var(--gold2); border: 1px solid rgba(180,120,30,0.5); }
+.proc-merit-mode-auto     { background: rgba(50,90,160,0.35); color: #8ab4e8; border: 1px solid rgba(50,90,160,0.5); }
+.proc-merit-mode-blocked  { background: rgba(100,0,0,0.45); color: #e08080; border: 1px solid rgba(139,0,0,0.6); }
+
+.proc-merit-mode-row,
+.proc-merit-effect-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.proc-merit-effect-row:last-child { margin-bottom: 0; }
+
+.proc-merit-effect-text {
+  font-size: 11px;
+  color: var(--txt2);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.proc-merit-effect-auto .proc-merit-effect-text {
+  color: var(--txt3);
+  font-style: italic;
+}
+
+/* Investigation matrix reference (collapsible) */
+.proc-inv-matrix-details {
+  margin-top: 8px;
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  background: var(--surf1);
+}
+.proc-inv-matrix-summary {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt2);
+  padding: 5px 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.proc-inv-matrix-summary::-webkit-details-marker { display: none; }
+.proc-inv-matrix-summary::before { content: '\25B6\00A0'; font-size: 9px; }
+.proc-inv-matrix-details[open] .proc-inv-matrix-summary::before { content: '\25BC\00A0'; }
+
+.proc-inv-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  color: var(--txt2);
+}
+.proc-inv-matrix-table th,
+.proc-inv-matrix-table td {
+  padding: 3px 5px;
+  border: 1px solid var(--bdr);
+  vertical-align: top;
+  line-height: 1.35;
+}
+.proc-inv-matrix-table th {
+  background: var(--surf2);
+  font-weight: 600;
+  color: var(--txt);
+  text-align: left;
+}
+.proc-inv-matrix-table tr:nth-child(even) td { background: var(--surf1); }
+
 /* ── Action type recategorisation ── */
 .proc-recat-row {
   display: flex;
@@ -5692,7 +5802,26 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
   border-color: var(--accent-a40) !important;
 }
 
+/* Roll button semantic colours (not inline styles) */
+.roll-btn-save  { border-color: #5a9a6e !important; color: #5a9a6e !important; }
+.roll-btn-close { border-color: var(--txt3) !important; color: var(--txt3) !important; }
+.roll-btn-save:hover  { border-color: #7fbf8f !important; color: #7fbf8f !important; }
+.roll-btn-close:hover { border-color: var(--txt2) !important; color: var(--txt2) !important; }
+
 /* ── Roll modal parchment overrides ── */
+html:not([data-theme="dark"]) .roll-overlay       { background: rgba(80,60,30,0.45); }
+html:not([data-theme="dark"]) .roll-panel         { background: var(--bg); box-shadow: 0 8px 32px rgba(0,0,0,0.22); border-color: var(--bdr2); }
+html:not([data-theme="dark"]) .roll-title         { color: var(--txt); }
+html:not([data-theme="dark"]) .roll-count         { color: var(--crim); }
 html:not([data-theme="dark"]) .roll-count.exceptional { color: #3a8a50; }
 html:not([data-theme="dark"]) .roll-count-label.exceptional { color: #3a8a50; }
-html:not([data-theme="dark"]) .roll-panel         { background: var(--bg); box-shadow: 0 8px 40px rgba(0,0,0,0.25); }
+html:not([data-theme="dark"]) .roll-count.failure { color: var(--crim2); }
+html:not([data-theme="dark"]) .roll-count-label.failure { color: var(--crim2); }
+html:not([data-theme="dark"]) .roll-die.again     { border-color: var(--crim) !important; box-shadow: 0 0 5px rgba(139,0,0,0.25); }
+html:not([data-theme="dark"]) .roll-rote-toggle   { color: var(--txt2) !important; border-color: var(--bdr2) !important; }
+html:not([data-theme="dark"]) .rote-tag           { color: var(--crim); border-color: rgba(139,0,0,0.35); }
+html:not([data-theme="dark"]) .roll-dice-wrap     { background: var(--surf2); border-color: var(--bdr); }
+html:not([data-theme="dark"]) .roll-die.succ      { background: rgba(60,100,70,0.15); color: #3a7a50; border-color: rgba(60,100,70,0.4); }
+html:not([data-theme="dark"]) .roll-die.fail      { background: var(--surf3); color: var(--txt3); border-color: var(--bdr); }
+html:not([data-theme="dark"]) .roll-btn-save      { border-color: #3a7a50 !important; color: #3a7a50 !important; }
+html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !important; color: #3a8a50 !important; }
