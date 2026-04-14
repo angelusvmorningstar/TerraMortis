@@ -5934,6 +5934,25 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
   }
 
+  // ── Connected Characters (project + merit + sorcery) — inside left column, below description ──
+  if (entry.source === 'project' || entry.source === 'merit' || isSorcery) {
+    const connectedChars = rev.connected_chars || [];
+    const otherChars = [...new Set(
+      submissions.map(s => s.character_name).filter(Boolean).filter(n => n !== entry.charName)
+    )].sort();
+    if (otherChars.length > 0) {
+      h += `<div class="proc-connected-section">`;
+      h += `<div class="proc-detail-label">Connected Characters</div>`;
+      h += `<div class="proc-connected-list">`;
+      for (const charN of otherChars) {
+        const chk = connectedChars.includes(charN) ? ' checked' : '';
+        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(charN)}"${chk}> ${esc(charN)}</label>`;
+      }
+      h += `</div>`;
+      h += `</div>`;
+    }
+  }
+
   // ── Attack target (project + merit attack actions only) ──
   if (entry.actionType === 'attack' && (entry.source === 'project' || entry.source === 'merit')) {
     const targetCharName = rev.attack_target_char || '';
@@ -6418,26 +6437,6 @@ function renderActionPanel(entry, review) {
     h += _renderMeritRightPanel(entry, rev);
     h += '</div>'; // proc-feed-layout
   }
-
-  // ── Connected Characters (project + merit + sorcery) ──
-  if (entry.source === 'project' || entry.source === 'merit' || isSorcery) {
-    const connectedChars = rev.connected_chars || [];
-    const otherChars = [...new Set(
-      submissions.map(s => s.character_name).filter(Boolean).filter(n => n !== entry.charName)
-    )].sort();
-    if (otherChars.length > 0) {
-      h += `<div class="proc-connected-section">`;
-      h += `<div class="proc-detail-label">Connected Characters</div>`;
-      h += `<div class="proc-connected-list">`;
-      for (const charN of otherChars) {
-        const chk = connectedChars.includes(charN) ? ' checked' : '';
-        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(charN)}"${chk}> ${esc(charN)}</label>`;
-      }
-      h += `</div>`;
-      h += `</div>`;
-    }
-  }
-
 
   h += '</div>'; // proc-action-detail
   return h;
