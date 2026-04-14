@@ -1365,9 +1365,12 @@ body {
 }
 .dt-resp-section { margin-bottom: 10px; }
 .dt-resp-section-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
   border-bottom: 1px solid var(--bdr);
   padding-bottom: 3px;
   margin-bottom: 5px;
@@ -1382,14 +1385,22 @@ body {
 }
 .dt-resp-label {
   flex: 0 0 140px;
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 600;
   color: var(--txt3);
-  font-size: 12px;
 }
 .dt-resp-val {
   flex: 1;
-  color: var(--txt1);
+  font-family: var(--ft);
+  font-size: 12px;
+  color: var(--txt);
   white-space: pre-wrap;
   word-break: break-word;
+}
+/* Value-only rows (projects, sorcery, equipment) — indent to match the label column */
+.dt-resp-row:not(:has(.dt-resp-label)) .dt-resp-val {
+  padding-left: 150px;
 }
 
 .dt-match-bar {
@@ -1841,9 +1852,21 @@ body {
 
 /* ── Mechanical Summary (1.8) ── */
 .dt-mech-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
-.dt-mech-actions { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-.dt-mech-hint { font-size: 11px; color: var(--txt-dim); }
-.dt-mech-textarea { width: 100%; background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; resize: vertical; min-height: 120px; box-sizing: border-box; }
+.dt-mech-compiled {
+  font-family: var(--ft);
+  font-size: 12px;
+  color: var(--txt);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 6px;
+}
+.dt-mech-compiled.dt-mech-empty {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
+}
 
 /* ── Publish Panel (1.9) ── */
 .dt-publish-panel { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bdr); }
@@ -3932,17 +3955,23 @@ body {
 }
 .proc-preread-char:hover { background: var(--surf3); }
 .proc-preread-char.expanded { background: var(--accent-a8); }
+.proc-preread-char-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .proc-preread-lore-badge {
   font-family: var(--fl);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .05em;
+  text-transform: uppercase;
   background: var(--accent-a25);
   color: var(--accent);
-  padding: 1px 6px;
-  border-radius: 3px;
-  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .proc-preread-body {
@@ -3956,6 +3985,7 @@ body {
   color: var(--accent);
   background: var(--accent-a8);
 }
+
 
 /* ── Narrative step (Step 9) ── */
 .proc-narr-progress {

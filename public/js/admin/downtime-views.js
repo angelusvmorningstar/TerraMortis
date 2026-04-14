@@ -784,15 +784,11 @@ function renderSubmissions() {
   el.innerHTML = '<div class="dt-sub-list">' + sorted.map(s => {
     const raw = s._raw || {};
     const sub = raw.submission || {};
-    const projects = (raw.projects || []).length;
-    const spheres = (raw.sphere_actions || []).length;
-    const feedMethod = raw.feeding?.method || '';
     const attended = sub.attended_last_game ? '\u2713' : '\u2717';
     const attendedClass = sub.attended_last_game ? 'dt-attended' : 'dt-absent';
 
     const char = findCharacter(s.character_name, s.player_name);
     const matchIcon = char ? '<span class="dt-match-icon">\u2713</span>' : '<span class="dt-unmatch-icon">\u26A0</span>';
-    const clan = char ? esc(char.clan || '') : '';
     const isExpanded = expandedId === s._id;
     const rollResult = s.feeding_roll;
     const rollBadge = rollResult
@@ -829,12 +825,6 @@ function renderSubmissions() {
         ${statusBadge}
         ${rollBadge}
         ${narrativeBadge}${xpBadge}${publishedBadge}
-      </div>
-      <div class="dt-sub-stats">
-        ${clan ? `<span class="dt-sub-tag">${clan}</span>` : ''}
-        ${projects ? `<span class="dt-sub-tag">${projects} project${projects > 1 ? 's' : ''}</span>` : ''}
-        ${spheres ? `<span class="dt-sub-tag">${spheres} sphere</span>` : ''}
-        ${feedMethod ? `<span class="dt-sub-tag">${esc(feedMethod)}</span>` : ''}
       </div>`;
 
     if (isExpanded) {
@@ -891,21 +881,6 @@ function renderSubmissions() {
     });
   });
 
-  // Mechanical summary textarea autosave on blur
-  el.querySelectorAll('.dt-mech-textarea').forEach(ta => {
-    ta.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      try {
-        await updateSubmission(subId, { 'st_review.mechanical_summary': ta.value });
-        if (!sub.st_review) sub.st_review = {};
-        sub.st_review.mechanical_summary = ta.value;
-      } catch (err) { console.error('Mech summary save error:', err.message); }
-    });
-  });
-
   // Expenditure inputs autosave on blur (GC-3)
   el.querySelectorAll('.dt-exp-input').forEach(input => {
     input.addEventListener('blur', async e => {
@@ -921,19 +896,6 @@ function renderSubmissions() {
         const key = field.replace('st_review.', '');
         sub.st_review[key] = isNaN(val) ? 0 : val;
       } catch (err) { console.error('Expenditure save error:', err.message); }
-    });
-  });
-
-  // Mechanical summary auto-draft button
-  el.querySelectorAll('.dt-mech-autodraft').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const draft = buildMechanicalDraft(sub);
-      const ta = btn.closest('.dt-mech-detail')?.querySelector('.dt-mech-textarea');
-      if (ta) { ta.value = draft; ta.dispatchEvent(new Event('blur')); }
     });
   });
 
@@ -2915,10 +2877,12 @@ function renderPreReadSection() {
     correspondence: 'Dear X', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations',
   };
 
-  const readable = submissions.filter(s => {
-    const r = s.responses || {};
-    return COURT_KEYS.some(k => r[k]?.trim?.()) || r.vamping?.trim?.() || r.lore_request?.trim?.();
-  });
+  const readable = submissions
+    .filter(s => {
+      const r = s.responses || {};
+      return COURT_KEYS.some(k => r[k]?.trim?.()) || r.vamping?.trim?.() || r.lore_request?.trim?.();
+    })
+    .sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
 
   if (!readable.length) return '';
 
@@ -2944,8 +2908,8 @@ function renderPreReadSection() {
         : '';
 
       h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-preread-id="${esc(s._id)}">`;
-      h += `<span class="proc-row-char">${esc(charName)}${loreBadge}</span>`;
-      h += `<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span>`;
+      h += `<span class="proc-row-char">${esc(charName)}</span>`;
+      h += `<span class="proc-preread-char-right">${loreBadge}<span class="proc-phase-toggle">${isBlockExpanded ? '&#9650;' : '&#9660;'}</span></span>`;
       h += `</div>`;
 
       if (isBlockExpanded) {
@@ -3326,28 +3290,33 @@ function renderProcessingMode(container) {
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
         h += '</div>';
 
-        // Territory pill row — project entries only
-        if (entry.source === 'project') {
-          const sub = submissions.find(s => s._id === entry.subId);
-          const currentTerrId = sub?.st_review?.territory_overrides?.[entry.actionIdx] || null;
-          const TERR_PILLS = [
-            { id: '',           label: '\u2014' },
-            { id: 'academy',    label: 'Acad.' },
-            { id: 'harbour',    label: 'Harb.' },
-            { id: 'dockyards',  label: 'Dock.' },
-            { id: 'northshore', label: 'N.Shore' },
-            { id: 'secondcity', label: '2nd City' },
-          ];
-          h += `<div class="proc-terr-pill-row" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-proj-idx="${entry.actionIdx}">`;
-          h += `<span class="proc-terr-pill-label">Terr.</span>`;
-          for (const t of TERR_PILLS) {
-            const active = (currentTerrId === t.id || (!currentTerrId && t.id === '')) ? ' active' : '';
-            h += `<button class="proc-terr-pill${active}" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-proj-idx="${entry.actionIdx}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
-          }
-          h += `</div>`;
-        }
-
         if (isExpanded) {
+          // Territory pill row — feeding, project, and allies entries (expanded only)
+          const showTerrPills = entry.source === 'project'
+            || entry.source === 'feeding'
+            || (entry.source === 'merit' && entry.isAlliesAction);
+          if (showTerrPills) {
+            const sub = submissions.find(s => s._id === entry.subId);
+            const terrContext = entry.source === 'project' ? String(entry.actionIdx)
+              : entry.source === 'feeding' ? 'feeding'
+              : `allies_${entry.actionIdx}`;
+            const currentTerrId = sub?.st_review?.territory_overrides?.[terrContext] || '';
+            const TERR_PILLS = [
+              { id: '',           label: '\u2014' },
+              { id: 'academy',    label: 'Acad.' },
+              { id: 'harbour',    label: 'Harb.' },
+              { id: 'dockyards',  label: 'Dock.' },
+              { id: 'northshore', label: 'N.Shore' },
+              { id: 'secondcity', label: '2nd City' },
+            ];
+            h += `<div class="proc-terr-pill-row" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}">`;
+            h += `<span class="proc-terr-pill-label">Terr.</span>`;
+            for (const t of TERR_PILLS) {
+              const active = currentTerrId === t.id ? ' active' : '';
+              h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
+            }
+            h += `</div>`;
+          }
           h += renderActionPanel(entry, review);
         }
       }
@@ -3404,21 +3373,21 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const subId   = btn.dataset.subId;
-      const projIdx = parseInt(btn.dataset.projIdx, 10);
+      const context = btn.dataset.terrContext; // numeric string for projects, 'feeding', 'allies_N'
       const terrId  = btn.dataset.terrId; // '' = clear assignment
       const sub = submissions.find(s => s._id === subId);
       if (!sub) return;
       if (!sub.st_review) sub.st_review = {};
       if (!sub.st_review.territory_overrides) sub.st_review.territory_overrides = {};
       if (terrId) {
-        sub.st_review.territory_overrides[projIdx] = terrId;
-        await updateSubmission(subId, { [`st_review.territory_overrides.${projIdx}`]: terrId });
+        sub.st_review.territory_overrides[context] = terrId;
+        await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: terrId });
       } else {
-        delete sub.st_review.territory_overrides[projIdx];
-        await updateSubmission(subId, { [`st_review.territory_overrides.${projIdx}`]: null });
+        delete sub.st_review.territory_overrides[context];
+        await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: null });
       }
       // Update pill active states in-place
-      const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-proj-idx="${projIdx}"]`);
+      const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-terr-context="${context}"]`);
       if (pillRow) {
         pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
           p.classList.toggle('active', p.dataset.terrId === terrId);
@@ -5867,16 +5836,14 @@ function buildMechanicalDraft(sub) {
 }
 
 function renderMechanicalSummaryPanel(s) {
-  const summary = s.st_review?.mechanical_summary || '';
-  const hasResolved = (s.projects_resolved?.some(r => r?.roll)) || (s.merit_actions_resolved?.some(r => r?.roll || r?.no_roll));
-
+  const summary = (s.st_review?.mechanical_summary || '').trim();
   let h = '<div class="dt-mech-detail">';
   h += '<div class="dt-feed-header">Resolution Summary</div>';
-  h += '<div class="dt-mech-actions">';
-  h += `<button class="dt-btn dt-mech-autodraft" data-sub-id="${esc(s._id)}"${!hasResolved ? ' disabled title="Resolve projects/merits first"' : ''}>Auto-draft</button>`;
-  h += '<span class="dt-mech-hint">Assembles from resolved rolls. Edit freely before publishing.</span>';
-  h += '</div>';
-  h += `<textarea class="dt-mech-textarea" data-sub-id="${esc(s._id)}" placeholder="Mechanical resolution summary...">${esc(summary)}</textarea>`;
+  if (summary) {
+    h += `<div class="dt-mech-compiled">${esc(summary)}</div>`;
+  } else {
+    h += '<div class="dt-mech-compiled dt-mech-empty">No summary drafted yet. Use processing mode to auto-draft from resolved rolls.</div>';
+  }
   h += '</div>';
   return h;
 }
