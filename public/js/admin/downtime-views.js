@@ -197,22 +197,43 @@ const INVESTIGATION_MATRIX = [
     results: ['Gain lead on Restricted information', 'Learn whether the information you seek exists', 'Gain vague Restricted information', 'Gain basic Restricted information', 'Gain detailed Restricted information'] },
 ];
 
-/** Parse "Allies 3 (Finance)" → { category: 'allies', label: 'Allies', dots: 3, qualifier: 'Finance' } */
+/**
+ * Parse merit_type strings in any of these formats:
+ *   "Allies 3 (Finance)"       — digit dot count, qualifier in parens
+ *   "Allies (Media) ***"       — qualifier in parens, asterisk dot count after
+ *   "Allies *** (Media)"       — asterisk dot count, qualifier in parens after
+ *   "Allies (Media) ●●●"       — filled-circle dot count
+ *   "Allies (Media)"           — qualifier only, no dot count
+ * Returns { category, label, dots, qualifier }
+ */
 function _parseMeritType(str) {
   if (!str) return { category: 'misc', label: '—', dots: null, qualifier: '' };
-  const m = str.match(/^([A-Za-z][A-Za-z\s']*?)(?:\s+(\d+))?(?:\s*\(([^)]+)\))?$/);
-  if (!m) return { category: 'misc', label: str, dots: null, qualifier: '' };
-  const label    = (m[1] || '').trim();
-  const dots     = m[2] ? parseInt(m[2], 10) : null;
-  const qualifier = (m[3] || '').trim();
+
+  // Extract qualifier from first parenthesised group
+  const qualMatch = str.match(/\(([^)]+)\)/);
+  const qualifier = qualMatch ? qualMatch[1].trim() : '';
+
+  // Strip qualifier parens, then find dot count (digit, run of *, or run of ●)
+  const stripped = str.replace(/\s*\([^)]*\)/g, '').trim();
+  const dotsMatch = stripped.match(/(\d+)|(\*+)|(●+)/);
+  let dots = null;
+  if (dotsMatch) {
+    if (dotsMatch[1]) dots = parseInt(dotsMatch[1], 10);
+    else              dots = (dotsMatch[2] || dotsMatch[3]).length;
+  }
+
+  // Label is the leading alphabetic/space portion before any digit or symbol run
+  const label = (stripped.replace(/\s*[\d*●].*$/, '').trim()) || stripped;
+
   const categoryRaw = label.toLowerCase();
   let category;
-  if (/allies/.test(categoryRaw))               category = 'allies';
-  else if (/status/.test(categoryRaw))          category = 'status';
-  else if (/retainer/.test(categoryRaw))        category = 'retainer';
-  else if (/staff/.test(categoryRaw))           category = 'staff';
-  else if (/contacts?/.test(categoryRaw))       category = 'contacts';
-  else                                           category = 'misc';
+  if (/allies/.test(categoryRaw))         category = 'allies';
+  else if (/status/.test(categoryRaw))    category = 'status';
+  else if (/retainer/.test(categoryRaw))  category = 'retainer';
+  else if (/staff/.test(categoryRaw))     category = 'staff';
+  else if (/contacts?/.test(categoryRaw)) category = 'contacts';
+  else                                    category = 'misc';
+
   return { category, label, dots, qualifier };
 }
 
@@ -5584,8 +5605,8 @@ function renderActionPanel(entry, review) {
     h += `<p class="proc-full-desc">${esc(entry.description)}</p>`;
   }
 
-  // ── Merit action previous roll result ──
-  if (entry.source === 'merit') {
+  // ── Merit action previous roll result (suppressed for auto-mode ambience actions) ──
+  if (entry.source === 'merit' && !isAmbienceMerit) {
     const meritSub  = submissions.find(s => s._id === entry.subId);
     const meritRoll = meritSub?.merit_actions_resolved?.[entry.actionIdx]?.roll;
     if (meritRoll) {
