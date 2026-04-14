@@ -2353,14 +2353,19 @@ function _gatherMeritAmbience(subs) {
           if (resolvedAct?.pool_status === 'resolved') {
             const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '');
             if (tid) {
+              // Prefer ST-linked qualifier over parsed submission text
+              const linkedQual = resolvedAct?.linked_merit_qualifier ?? parsed.qualifier;
               const actualMerit = subChar?.merits?.find(m =>
                 m.name?.toLowerCase() === parsed.label.toLowerCase() &&
-                (m.qualifier || '').toLowerCase() === parsed.qualifier.toLowerCase()
+                (m.qualifier || m.area || '').toLowerCase() === linkedQual.toLowerCase()
               );
               const dots = actualMerit
                 ? (actualMerit.rating || actualMerit.dots || parsed.dots || 0) + (actualMerit.bonus || 0)
                 : (parsed.dots || 0);
-              const value = dots >= 5 ? 2 : dots >= 3 ? 1 : 0;
+              const hasHWV = (subChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
+              const value = hasHWV
+                ? (dots >= 4 ? 2 : dots >= 2 ? 1 : 0)
+                : (dots >= 5 ? 2 : dots >= 3 ? 1 : 0);
               if (value > 0) {
                 if (isIncrease) alliesPos[tid] = (alliesPos[tid] || 0) + value;
                 else            alliesNeg[tid] = (alliesNeg[tid] || 0) + value;
@@ -4057,6 +4062,18 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire merit link dropdown — saves which specific merit the action is linked to
+  container.querySelectorAll('.proc-merit-link-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { linked_merit_qualifier: sel.value });
+    });
+  });
+
   // Wire investigate target character dropdown — save without re-render
   container.querySelectorAll('.proc-inv-char-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -5052,9 +5069,7 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  const meritBtns = isAuto || mode === 'instant' || formula === 'none'
-    ? [['pending', 'Pending'], ['resolved', 'Applied']]
-    : [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']];
+  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   h += `</div>`;
 
@@ -5533,6 +5548,19 @@ function renderActionPanel(entry, review) {
       null;
   }
 
+  // Hoist char lookup for merit entries
+  let meritEntSub = null;
+  let meritEntChar = null;
+  if (entry.source === 'merit') {
+    meritEntSub = submissions.find(s => s._id === entry.subId) || null;
+    const charIdStr   = meritEntSub?.character_id ? String(meritEntSub.character_id) : null;
+    const charNameKey = (meritEntSub?.character_name || '').toLowerCase().trim();
+    meritEntChar =
+      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+      charMap.get(charNameKey) ||
+      null;
+  }
+
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
 
   // ── Reminder badges (non-sorcery target actions) ──
@@ -5707,7 +5735,6 @@ function renderActionPanel(entry, review) {
 
   // ── Action type recategorisation for merit/sphere entries ──
   if (entry.source === 'merit') {
-    const isMeritOverridden = entry.originalActionType && entry.originalActionType !== entry.actionType;
     h += `<div class="proc-recat-row">`;
     h += `<span class="proc-feed-lbl">Action Type</span>`;
     h += `<select class="proc-recat-select" data-proc-key="${esc(entry.key)}">`;
@@ -5715,9 +5742,6 @@ function renderActionPanel(entry, review) {
       h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
     }
     h += `</select>`;
-    if (isMeritOverridden) {
-      h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
-    }
     if (entry.actionType === 'investigate') {
       const _invT = rev.investigate_target_char || '';
       h += `<span class="proc-feed-lbl">Target</span>`;
@@ -5739,6 +5763,27 @@ function renderActionPanel(entry, review) {
       }
       h += `</select>`;
     } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
+      if (['allies', 'status', 'retainer'].includes(entry.meritCategory)) {
+        const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
+        const _meritNameKey = (entry.meritLabel || '').toLowerCase();
+        const _charMerits   = (meritEntChar?.merits || [])
+          .filter(m => (m.name || '').toLowerCase() === _meritNameKey)
+          .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
+        const _hasHWV = (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
+        h += `<span class="proc-feed-lbl">Merit</span>`;
+        h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(entry.key)}">`;
+        h += `<option value="">\u2014 Select \u2014</option>`;
+        for (const m of _charMerits) {
+          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+          const mQual   = m.qualifier || m.area || '';
+          const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+          const mDots   = '\u25CF'.repeat(mRating);
+          const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
+          h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
+        }
+        h += `</select>`;
+        if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
+      }
       const _ambiSub = submissions.find(s => s._id === entry.subId);
       const _ambiCtx = `allies_${entry.actionIdx}`;
       const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';

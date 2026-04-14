@@ -5393,6 +5393,19 @@ body {
   border-left: 2px solid var(--surf3);
 }
 
+.proc-hwv-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(180, 120, 30, 0.2);
+  color: var(--gold2);
+  border: 1px solid rgba(180, 120, 30, 0.4);
+  white-space: nowrap;
+}
+
 /* ── Ambience Dashboard (feature.47) ─────────────────────────────────────── */
 
 .proc-amb-dashboard {
