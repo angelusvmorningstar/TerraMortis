@@ -3941,6 +3941,69 @@ body {
   color: var(--accent);
 }
 
+/* ── Character status strip ── */
+.proc-char-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+  flex-wrap: wrap;
+}
+
+.proc-char-strip-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.proc-char-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--bdr2);
+  background: var(--surf2);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  min-width: 60px;
+}
+.proc-char-chip:hover { background: var(--surf3); border-color: var(--txt3); }
+
+.proc-char-chip-name {
+  font-family: var(--fh);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt1);
+  white-space: nowrap;
+}
+
+.proc-char-chip-prog {
+  font-family: var(--fl);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--txt3);
+  white-space: nowrap;
+}
+
+/* State variants — left border colour communicates overall state */
+.proc-char-chip.state-none     { border-left: 3px solid var(--bdr2); }
+.proc-char-chip.state-partial  { border-left: 3px solid var(--gold2); }
+.proc-char-chip.state-complete { border-left: 3px solid var(--accent); }
+.proc-char-chip.state-ready    { border-left: 3px solid var(--result-succ); }
+.proc-char-chip.state-published{ border-left: 3px solid var(--txt3); opacity: 0.6; }
+
+.proc-char-chip.state-partial  .proc-char-chip-prog { color: var(--gold2); }
+.proc-char-chip.state-complete .proc-char-chip-prog { color: var(--accent); }
+.proc-char-chip.state-ready    .proc-char-chip-prog { color: var(--result-succ); }
+
 .proc-phase-header {
   background: var(--surf2);
   padding: 10px 16px;
@@ -5282,6 +5345,10 @@ html:not([data-theme="dark"]) .dt-chk-nosub-badge { font-size: 12px; }
 /* text-align: centre on Cinzel button variants */
 html:not([data-theme="dark"]) .btn-sm { text-align: center; }
 
+
+/* Character strip — gold2 is too bright on parchment */
+html:not([data-theme="dark"]) .proc-char-chip.state-partial  { border-left-color: var(--crim); }
+html:not([data-theme="dark"]) .proc-char-chip.state-partial  .proc-char-chip-prog { color: var(--crim); }
 
 /* Processing validation status buttons — neon colours fail on parchment */
 html:not([data-theme="dark"]) .proc-val-status button.active.pending      { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }

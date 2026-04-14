@@ -31,8 +31,8 @@ let currentCycle = null;
 let selectedCycleId = null;
 let expandedId = null;
 let processingMode = false;
-let procExpandedKey = null;    // tracks which action row is expanded in processing mode
-let procHideDone = false;      // when true, hide fully-resolved action rows from the queue
+const procExpandedKeys = new Set(); // tracks which action rows are expanded in processing mode
+let procHideDone = false;           // when true, hide fully-resolved action rows from the queue
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
@@ -250,7 +250,7 @@ export async function initDowntimeView(passedChars) {
   });
   document.getElementById('dt-processing-btn').addEventListener('click', async () => {
     processingMode = !processingMode;
-    procExpandedKey = null;
+    procExpandedKeys.clear();
     document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
     if (processingMode) {
       await ensureTerritories();
@@ -725,7 +725,7 @@ async function loadCycleById(cycleId) {
   document.getElementById('dt-apply-ambience')?.addEventListener('click', () => handleApplyAmbience(cycleId, cycle));
 
   expandedId = null;
-  procExpandedKey = null;
+  procExpandedKeys.clear();
   submissions = await getSubmissionsForCycle(cycleId);
   renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
@@ -3249,6 +3249,75 @@ function renderNarrativeStep() {
   return h;
 }
 
+/** Compute the display state of a submission for the character strip. */
+function _subChipState(sub, queue) {
+  const vis = sub.st_review?.outcome_visibility || '';
+  if (vis === 'published') return 'published';
+  if (vis === 'ready')     return 'ready';
+
+  const entries = queue.filter(e => e.subId === sub._id);
+  const doneCt  = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
+
+  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+  const narr = sub.st_review?.narrative || {};
+  const narrDone = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
+
+  const approval = sub.approval_status || 'pending';
+  const isApproved = approval === 'approved' || approval === 'modified';
+
+  if (doneCt === entries.length && narrDone === 4 && isApproved) return 'complete';
+  if (doneCt > 0 || narrDone > 0) return 'partial';
+  return 'none';
+}
+
+/** Render the compact character status strip above the processing queue. */
+function renderCharacterStrip(queue) {
+  if (!submissions.length) return '';
+
+  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+  const sorted = [...submissions].sort((a, b) => {
+    const na = a.character_name || '';
+    const nb = b.character_name || '';
+    return na.localeCompare(nb);
+  });
+
+  let h = '<div class="proc-char-strip">';
+  h += '<span class="proc-char-strip-label">Jump to</span>';
+
+  for (const s of sorted) {
+    const char = findCharacter(s.character_name, s.player_name);
+    const name = char ? (char.moniker || char.name) : (s.character_name || '?');
+    const state = _subChipState(s, queue);
+
+    const entries = queue.filter(e => e.subId === s._id);
+    const doneCt  = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
+    const total   = entries.length;
+    const narr    = s.st_review?.narrative || {};
+    const narrDone = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
+
+    // Progress label: action fraction + narrative fraction, omit when fully done/not started
+    let prog = '';
+    if (state === 'partial') {
+      const parts = [];
+      if (total > 0) parts.push(`${doneCt}/${total}`);
+      if (narrDone > 0 && narrDone < 4) parts.push(`\u270D${narrDone}/4`);
+      prog = parts.join(' ');
+    } else if (state === 'complete') {
+      prog = '\u2713';
+    } else if (state === 'ready' || state === 'published') {
+      prog = state === 'published' ? 'Published' : 'Ready';
+    }
+
+    h += `<button class="proc-char-chip state-${state}" data-sub-id="${esc(s._id)}" title="${esc(name)}">`;
+    h += `<span class="proc-char-chip-name">${esc(name)}</span>`;
+    if (prog) h += `<span class="proc-char-chip-prog">${esc(prog)}</span>`;
+    h += `</button>`;
+  }
+
+  h += '</div>';
+  return h;
+}
+
 /** Render the phase-ordered processing queue into the given container. */
 function renderProcessingMode(container) {
   renderTerritoriesAtAGlance();
@@ -3277,6 +3346,9 @@ function renderProcessingMode(container) {
   h += `<div class="proc-queue-controls">`;
   h += `<button class="proc-hide-done-btn${procHideDone ? ' active' : ''}" id="proc-hide-done-toggle">${procHideDone ? 'Show all' : 'Hide done'}</button>`;
   h += `</div>`;
+
+  // Character status strip — at-a-glance state + jump-to navigation
+  h += renderCharacterStrip(queue);
 
   // Ambience Dashboard — always shown at top of Processing Mode
   h += renderAmbienceDashboard();
@@ -3310,7 +3382,7 @@ function renderProcessingMode(container) {
 
     if (!isCollapsed) {
       for (const entry of visibleEntries) {
-        const isExpanded = procExpandedKey === entry.key;
+        const isExpanded = procExpandedKeys.has(entry.key);
         const review = getEntryReview(entry);
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
@@ -3411,6 +3483,24 @@ function renderProcessingMode(container) {
     renderProcessingMode(container);
   });
 
+  // Wire character strip chips — expand first pending action and scroll to it
+  container.querySelectorAll('.proc-char-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const subId = chip.dataset.subId;
+      const q = buildProcessingQueue(submissions);
+      const firstPending = q.find(e => e.subId === subId && !DONE_STATUSES.has(getEntryReview(e)?.pool_status));
+      const jumpEntry = firstPending || q.find(e => e.subId === subId);
+      if (!jumpEntry) return;
+      procExpandedKeys.add(jumpEntry.key);
+      expandedPhases.add(jumpEntry.phase);
+      renderProcessingMode(container);
+      requestAnimationFrame(() => {
+        container.querySelector(`.proc-action-row[data-proc-key="${jumpEntry.key}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  });
+
   // Wire action type recategorisation selects
   container.querySelectorAll('.proc-recat-select').forEach(sel => {
     sel.addEventListener('change', async e => {
@@ -3428,11 +3518,11 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire row clicks
+  // Wire row clicks — toggle individual rows independently
   container.querySelectorAll('.proc-action-row').forEach(row => {
     row.addEventListener('click', () => {
       const key = row.dataset.procKey;
-      procExpandedKey = procExpandedKey === key ? null : key;
+      if (procExpandedKeys.has(key)) { procExpandedKeys.delete(key); } else { procExpandedKeys.add(key); }
       renderProcessingMode(container);
     });
   });
@@ -3872,7 +3962,6 @@ function renderProcessingMode(container) {
         await updateSubmission(entry.subId, { projects_resolved: resolved });
         sub.projects_resolved = resolved;
       }
-      procExpandedKey = null;
       renderProcessingMode(container);
     });
   });
@@ -4354,7 +4443,7 @@ function renderProcessingMode(container) {
       const subId = link.dataset.subId;
       // Switch to per-character view and expand the relevant submission
       processingMode = false;
-      procExpandedKey = null;
+      procExpandedKeys.clear();
       document.getElementById('dt-processing-btn').classList.remove('active');
       expandedId = subId;
       renderSubmissions();
@@ -7023,7 +7112,7 @@ function renderTerritoriesAtAGlance() {
   el.querySelectorAll('.dt-taag-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const key = chip.dataset.procKey;
-      procExpandedKey = procExpandedKey === key ? null : key;
+      if (procExpandedKeys.has(key)) { procExpandedKeys.delete(key); } else { procExpandedKeys.add(key); }
       const procContainer = document.getElementById('dt-submissions');
       if (procContainer) {
         renderProcessingMode(procContainer);
