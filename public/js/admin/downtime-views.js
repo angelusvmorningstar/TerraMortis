@@ -2790,10 +2790,11 @@ function buildAmbienceData(terrs) {
       if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
       if (!proj.roll) continue;
       const n = idx + 1;
+      const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
       const terrRaw = sub.responses?.[`project_${n}_territory`] || '';
       const desc = sub.responses?.[`project_${n}_description`] || '';
       const outcome = sub.responses?.[`project_${n}_outcome`] || '';
-      const tid = resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
+      const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
       const successes = proj.roll.successes ?? 0;
       if (proj.action_type === 'ambience_increase') projPos[tid] = (projPos[tid] || 0) + successes;
@@ -3563,9 +3564,10 @@ function renderProcessingMode(container) {
 
         if (isExpanded) {
           // Territory pill row — feeding, project, and allies entries (expanded only)
-          const showTerrPills = entry.source === 'project'
-            || entry.source === 'feeding'
-            || (entry.source === 'merit' && entry.isAlliesAction);
+          const isAmbienceEntry = entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease';
+          const showTerrPills = entry.source === 'feeding'
+            || (entry.source === 'project' && !isAmbienceEntry)
+            || (entry.source === 'merit' && entry.isAlliesAction && !isAmbienceEntry);
           if (showTerrPills) {
             const sub = submissions.find(s => s._id === entry.subId);
             const terrContext = entry.source === 'project' ? String(entry.actionIdx)
@@ -5109,6 +5111,29 @@ function _poolTotalDisplay(attr, attrDots, skill, skillDots, disc, discDots, mod
 }
 
 /**
+ * Render territory pill row for ambience actions inside the detail panel.
+ * Uses proc-terr-pill-row class so the existing pill click handler wires up.
+ */
+function _renderInlineTerrPills(subId, terrContext, currentTerrId) {
+  const TERR_PILLS = [
+    { id: '',           label: '\u2014' },
+    { id: 'academy',   label: 'Academy' },
+    { id: 'harbour',   label: 'Harbour' },
+    { id: 'dockyards', label: 'Dockyards' },
+    { id: 'northshore', label: 'N. Shore' },
+    { id: 'secondcity', label: '2nd City' },
+  ];
+  let h = `<span class="proc-terr-pill-row proc-terr-inline-pills" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}">`;
+  h += `<span class="proc-feed-lbl">Terr.</span>`;
+  for (const t of TERR_PILLS) {
+    const active = currentTerrId === t.id ? ' active' : '';
+    h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
+  }
+  h += `</span>`;
+  return h;
+}
+
+/**
  * Read the current builder state from the DOM and return the pool expression string.
  * Returns null if attr or skill are not selected.
  */
@@ -6105,6 +6130,11 @@ function renderActionPanel(entry, review) {
         h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
       }
       h += `</select>`;
+    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
+      const _ambiSub = submissions.find(s => s._id === entry.subId);
+      const _ambiCtx = String(entry.actionIdx);
+      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {
@@ -6159,6 +6189,11 @@ function renderActionPanel(entry, review) {
         h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
       }
       h += `</select>`;
+    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
+      const _ambiSub = submissions.find(s => s._id === entry.subId);
+      const _ambiCtx = `allies_${entry.actionIdx}`;
+      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
     }
     h += `</div>`;
     if (entry.actionType === 'attack') {

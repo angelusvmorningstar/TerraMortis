@@ -5356,6 +5356,16 @@ body {
   border-top: 1px solid var(--bdr);
 }
 
+/* Territory pills rendered inline alongside the Action Type selector (ambience actions) */
+.proc-terr-inline-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px solid var(--bdr);
+}
+
 .proc-recat-select {
   font-family: var(--fl);
   font-size: 11px;
