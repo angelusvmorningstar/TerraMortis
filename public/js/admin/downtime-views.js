@@ -6385,11 +6385,29 @@ function renderActionPanel(entry, review) {
     h += '</div>';
     h += '</div>'; // proc-pool-builder
   } else if (isSorcery) {
-    // ── Sorcery: rite dropdown + computed pool display + result note ──
+    // ── Sorcery: player details card + rite dropdown + computed pool display + result note ──
     const allRites    = (_getRulesDB() || []).filter(r => r.category === 'rite');
     const selectedRite = rev.rite_override || entry.riteName || '';
     const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
     const overridden   = rev.rite_override && rev.rite_override !== entry.riteName;
+
+    // ── Player submission details card (read-only) ──
+    {
+      const sorcNotes   = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
+      const sorcTargets = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
+      const sorcPool    = entry.poolPlayer || '';
+
+      h += `<div class="proc-feed-desc-card">`;
+      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span></div>`;
+      h += `<div class="proc-feed-desc-view">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(entry.tradition || '\u2014')}</div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span> ${esc(entry.riteName || '\u2014')}</div>`;
+      if (sorcTargets) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(sorcTargets)}</div>`;
+      if (sorcNotes)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(sorcNotes)}</div>`;
+      if (sorcPool)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(sorcPool)}</div>`;
+      h += `</div>`;
+      h += `</div>`;
+    }
 
     // Rite selector
     h += '<div class="proc-rite-select-row">';
