@@ -257,7 +257,7 @@ const POOL_STATUS_LABELS = {
 };
 
 // Statuses considered fully resolved (used for phase counts and hide-done filter)
-const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect']);
+const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect', 'skipped']);
 
 /** Returns a stable action_key string for reminder targeting. Returns null for sorcery entries. */
 function entryActionKey(entry) {
@@ -4005,6 +4005,33 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Investigation: Target Secrecy dropdown ──
+  container.querySelectorAll('.proc-inv-secrecy-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const entry = _getQueueEntry(sel.dataset.procKey);
+      if (!entry) return;
+      await saveEntryReview(entry, { inv_secrecy: sel.value || null });
+      renderProcessingMode(container);
+    });
+  });
+
+  // ── Investigation: Has Lead toggle buttons ──
+  container.querySelectorAll('.proc-inv-lead-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const entry = _getQueueEntry(btn.dataset.procKey);
+      if (!entry) return;
+      const val = btn.dataset.lead === 'true';
+      const rev = getEntryReview(entry) || {};
+      // clicking the active button toggles it off (back to unset)
+      const next = rev.inv_has_lead === val ? null : val;
+      await saveEntryReview(entry, { inv_has_lead: next });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire "Attach Reminder" open button
   container.querySelectorAll('.proc-attach-open-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -4997,7 +5024,12 @@ function _renderMeritRightPanel(entry, rev) {
   const effectAuto = matrixRow?.effectAuto || '';
 
   const basePool   = formula === 'dots2plus2' && dots != null ? (dots * 2) + 2 : null;
-  const totalPool  = basePool != null ? basePool + eqMod : null;
+  const invSecrecy = actionType === 'investigate' ? (rev.inv_secrecy || '') : '';
+  const invHasLead = actionType === 'investigate' ? rev.inv_has_lead : undefined; // true | false | undefined
+  const invRow     = invSecrecy ? (INVESTIGATION_MATRIX.find(r => r.type === invSecrecy) || null) : null;
+  const innateMod  = invRow ? invRow.innate : 0;
+  const noLeadMod  = invRow && invHasLead === false ? invRow.noLead : 0;
+  const totalPool  = basePool != null ? basePool + eqMod + innateMod + noLeadMod : null;
   const roll       = rev.roll || null;
   const isRolled   = formula === 'dots2plus2';
   const isAuto     = mode === 'auto';
@@ -5046,9 +5078,37 @@ function _renderMeritRightPanel(entry, rev) {
     // Equipment modifier ticker
     h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
     h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
-    const poolDisplay = totalPool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
+    const poolDisplay = basePool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base pool</span><span class="proc-mod-static">${poolDisplay}</span></div>`;
     h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
+    if (actionType === 'investigate') {
+      // Target Secrecy
+      const innateStr = innateMod > 0 ? `+${innateMod}` : innateMod < 0 ? String(innateMod) : '';
+      const innateCls = innateMod > 0 ? ' proc-mod-pos' : innateMod < 0 ? ' proc-mod-neg' : ' proc-mod-muted';
+      h += `<div class="proc-mod-row">`;
+      h += `<span class="proc-mod-label">Target Secrecy</span>`;
+      h += `<select class="proc-recat-select proc-inv-secrecy-sel" data-proc-key="${esc(key)}">`;
+      h += `<option value="">\u2014 Not set \u2014</option>`;
+      for (const r of INVESTIGATION_MATRIX) {
+        h += `<option value="${esc(r.type)}"${r.type === invSecrecy ? ' selected' : ''}>${esc(r.type)}</option>`;
+      }
+      h += `</select>`;
+      if (innateStr) h += `<span class="proc-mod-val${innateCls}">${innateStr}</span>`;
+      h += `</div>`;
+      // Has Lead toggle
+      const noLeadStr = noLeadMod < 0 ? String(noLeadMod) : '';
+      h += `<div class="proc-mod-row">`;
+      h += `<span class="proc-mod-label">Lead</span>`;
+      h += `<div class="proc-inv-lead-btns">`;
+      h += `<button class="proc-inv-lead-btn${invHasLead === true ? ' active' : ''}" data-proc-key="${esc(key)}" data-lead="true">Lead</button>`;
+      h += `<button class="proc-inv-lead-btn${invHasLead === false ? ' active' : ''}" data-proc-key="${esc(key)}" data-lead="false">No Lead</button>`;
+      h += `</div>`;
+      if (noLeadStr) h += `<span class="proc-mod-val proc-mod-neg">${noLeadStr}</span>`;
+      h += `</div>`;
+      // Total
+      const totalStr = totalPool != null ? `${totalPool} dice` : '\u2014';
+      h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span><span class="proc-mod-total-val">${totalStr}</span></div>`;
+    }
     h += `</div>`; // mod panel
 
     // Roll card
@@ -5073,26 +5133,6 @@ function _renderMeritRightPanel(entry, rev) {
     h += `<div class="proc-mod-panel-title">Fixed Effect</div>`;
     h += `<span class="dt-dim-italic">No dice pool — effect applies as stated.</span>`;
     h += `</div>`;
-  }
-
-  // Investigation matrix reference (collapsed, for investigate actions)
-  if (actionType === 'investigate' && !isBlocked) {
-    const isOpen = rev._inv_matrix_open || false;
-    h += `<details class="proc-inv-matrix-details"${isOpen ? ' open' : ''}>`;
-    h += `<summary class="proc-inv-matrix-summary">Investigation Matrix reference</summary>`;
-    h += `<table class="proc-inv-matrix-table">`;
-    h += `<tr><th>Type</th><th>Innate</th><th>No lead</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5+</th></tr>`;
-    for (const row of INVESTIGATION_MATRIX) {
-      const innate = row.innate > 0 ? `+${row.innate}` : String(row.innate);
-      const noLead = row.noLead > 0 ? `+${row.noLead}` : String(row.noLead);
-      h += `<tr>`;
-      h += `<td>${esc(row.type)}</td><td>${esc(innate)}</td><td>${esc(noLead)}</td>`;
-      for (let i = 0; i < 5; i++) {
-        h += `<td>${esc(row.results[i] || '\u2014')}</td>`;
-      }
-      h += `</tr>`;
-    }
-    h += `</table></details>`;
   }
 
   // ── Status ──
@@ -5616,9 +5656,6 @@ function renderActionPanel(entry, review) {
     if (meritRoll) {
       h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(meritRoll.successes))} success${meritRoll.successes !== 1 ? 'es' : ''}${meritRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
     }
-    if (entry.isAlliesAction && poolStatus === 'pending' && !isAmbienceMerit) {
-      h += `<div class="proc-allies-hint">Allies actions within favour rating are typically automatic \u2014 consider "No Roll Needed".</div>`;
-    }
   }
 
   // ── Two-column layout wrapper (feeding + project + sorcery + merit) ──
@@ -5653,8 +5690,8 @@ function renderActionPanel(entry, review) {
       if (!outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
       h += `</div>`;
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-merit-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
       h += `</div>`;
       h += `</div>`;
@@ -5690,11 +5727,11 @@ function renderActionPanel(entry, review) {
 
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-detail-input proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-detail-input proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-detail-input proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-proj-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
       h += `</div>`;
       h += `</div>`;
@@ -5895,10 +5932,10 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
     // Edit mode (hidden by default)
     h += `<div class="proc-feed-desc-edit" style="display:none">`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><input type="text" class="proc-sorc-tradition-input" data-proc-key="${esc(entry.key)}" value="${esc(traditionVal)}" placeholder="Cruac or Theban Sorcery\u2026"></div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><input type="text" class="proc-sorc-rite-input" data-proc-key="${esc(entry.key)}" value="${esc(riteVal)}" placeholder="Rite name\u2026"></div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><input type="text" class="proc-detail-input proc-sorc-tradition-input" data-proc-key="${esc(entry.key)}" value="${esc(traditionVal)}" placeholder="Cruac or Theban Sorcery\u2026"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><input type="text" class="proc-detail-input proc-sorc-rite-input" data-proc-key="${esc(entry.key)}" value="${esc(riteVal)}" placeholder="Rite name\u2026"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-detail-input proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
     h += `</div>`;
     h += `</div>`;
@@ -5967,11 +6004,11 @@ function renderActionPanel(entry, review) {
       h += `</div>`;
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="Short action name"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3">${esc(descVal)}</textarea></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><input type="text" class="proc-feed-blood-input" data-proc-key="${esc(entry.key)}" value="${esc(bloodTypeVal)}" placeholder="e.g. Human, Animal, Kindred"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Bonuses</span><input type="text" class="proc-feed-bonuses-input" data-proc-key="${esc(entry.key)}" value="${esc(bonusesVal)}" placeholder="e.g. Herd +2, Rote"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-detail-input proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="Short action name"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><input type="text" class="proc-detail-input proc-feed-blood-input" data-proc-key="${esc(entry.key)}" value="${esc(bloodTypeVal)}" placeholder="e.g. Human, Animal, Kindred"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Bonuses</span><input type="text" class="proc-detail-input proc-feed-bonuses-input" data-proc-key="${esc(entry.key)}" value="${esc(bonusesVal)}" placeholder="e.g. Herd +2, Rote"></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-feed-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
       h += `</div>`;
       h += `</div>`;
@@ -7341,6 +7378,29 @@ function _chkState(sub, key) {
   return 'unsighted';
 }
 
+/** Map a checklist section key to its processing queue entry.key, or null if no queue entry exists. */
+function _chkNavKey(sub, section) {
+  if (!sub) return null;
+  if (section === 'feeding') return `${sub._id}:feeding`;
+  const projM = section.match(/^project_(\d+)$/);
+  if (projM) return `${sub._id}:proj:${parseInt(projM[1]) - 1}`;
+  const alliesM = section.match(/^allies_(\d+)$/);
+  if (alliesM) return `${sub._id}:merit:${parseInt(alliesM[1]) - 1}`;
+  const contactsM = section.match(/^contacts_(\d+)$/);
+  if (contactsM) {
+    const raw = sub._raw || {};
+    const numSphere = raw.sphere_actions?.length || 0;
+    return `${sub._id}:merit:${numSphere + parseInt(contactsM[1]) - 1}`;
+  }
+  if (section === 'resources') {
+    const raw = sub._raw || {};
+    const numSphere = raw.sphere_actions?.length || 0;
+    const numContacts = raw.contact_actions?.requests?.length || 0;
+    return `${sub._id}:merit:${numSphere + numContacts}`;
+  }
+  return null; // travel, correspondence, xp — no queue entry
+}
+
 function renderSubmissionChecklist() {
   const el = document.getElementById('dt-feeding-scene');
   if (!el) return;
@@ -7393,22 +7453,27 @@ function renderSubmissionChecklist() {
       h += '</td>';
 
       for (const sec of CHK_SECTIONS) {
-        const state = _chkState(sub, sec.key);
-        const tip   = _chkTooltip(sub, sec.key);
+        const state  = _chkState(sub, sec.key);
+        const tip    = _chkTooltip(sub, sec.key);
+        const navKey = state !== 'empty' ? _chkNavKey(sub, sec.key) : null;
+        const navA   = navKey ? ` data-chk-nav-key="${esc(navKey)}"` : '';
+        const navCls = navKey ? ' dt-chk-nav' : '';
+        const jump   = navKey ? ' \u2014 click to jump' : '';
+        const tipPfx = tip ? esc(tip) + ' \u2014 ' : '';
         if (state === 'empty') {
           h += `<td class="dt-chk-empty"${tip ? ` title="${esc(tip)}"` : ''}>\u2014</td>`;
         } else if (state === 'confirmed') {
-          h += `<td class="dt-chk-confirmed" title="${tip ? esc(tip) + ' \u2014 ' : ''}Confirmed">\u2605</td>`;
+          h += `<td class="dt-chk-confirmed${navCls}" title="${tipPfx}Confirmed${jump}"${navA}>\u2605</td>`;
         } else if (state === 'drafted') {
-          h += `<td class="dt-chk-drafted" title="${tip ? esc(tip) + ' \u2014 ' : ''}Draft written">\u270E</td>`;
+          h += `<td class="dt-chk-drafted${navCls}" title="${tipPfx}Draft written${jump}"${navA}>\u270E</td>`;
         } else if (state === 'dice_validated') {
-          h += `<td class="dt-chk-dice" title="${tip ? esc(tip) + ' \u2014 ' : ''}Dice validated">\u25C6</td>`;
+          h += `<td class="dt-chk-dice${navCls}" title="${tipPfx}Dice validated${jump}"${navA}>\u25C6</td>`;
         } else if (state === 'no_action') {
-          h += `<td class="dt-chk-no-action" title="${tip ? esc(tip) + ' \u2014 ' : ''}No action needed">\u25A0</td>`;
+          h += `<td class="dt-chk-no-action${navCls}" title="${tipPfx}No action needed${jump}"${navA}>\u25A0</td>`;
         } else if (state === 'sighted') {
-          h += `<td class="dt-chk-sighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tip ? esc(tip) + ' \u2014 ' : ''}In progress \u2014 click to unsight">?</td>`;
+          h += `<td class="dt-chk-sighted dt-chk-cell${navCls}" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tipPfx}In progress${jump} \u2014 Ctrl+click to unsight"${navA}>?</td>`;
         } else {
-          h += `<td class="dt-chk-unsighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tip ? esc(tip) + ' \u2014 ' : ''}Not reviewed \u2014 click to mark sighted">\u2717</td>`;
+          h += `<td class="dt-chk-unsighted dt-chk-cell${navCls}" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tipPfx}Not reviewed${jump} \u2014 Ctrl+click to mark sighted"${navA}>\u2717</td>`;
         }
       }
 
@@ -7426,9 +7491,28 @@ function renderSubmissionChecklist() {
     renderSubmissionChecklist();
   });
 
+  // Navigation — click any cell that has a linked queue entry
+  el.querySelectorAll('.dt-chk-nav').forEach(cell => {
+    cell.addEventListener('click', e => {
+      if (e.ctrlKey) return; // Ctrl+click handled by sighted toggle below
+      const navKey = cell.dataset.chkNavKey;
+      if (!navKey) return;
+      procExpandedKeys.add(navKey);
+      const procContainer = document.getElementById('dt-submissions');
+      if (!procContainer) return;
+      renderProcessingMode(procContainer);
+      requestAnimationFrame(() => {
+        const entryEl = procContainer.querySelector(`.proc-action-row[data-proc-key="${CSS.escape(navKey)}"]`);
+        (entryEl || procContainer).scrollIntoView({ behavior: 'smooth', block: entryEl ? 'center' : 'start' });
+      });
+    });
+  });
+
+  // Sighted toggle — Ctrl+click on pending/sighted cells
   el.querySelectorAll('.dt-chk-cell').forEach(cell => {
-    cell.addEventListener('click', async () => {
-      const subId  = cell.dataset.subId;
+    cell.addEventListener('click', async e => {
+      if (!e.ctrlKey) return; // navigation handled above
+      const subId   = cell.dataset.subId;
       const section = cell.dataset.section;
       if (!subId || !section) return;
       const sub = submissions.find(s => s._id === subId);
