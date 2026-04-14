@@ -5477,7 +5477,8 @@ function _renderProjRightPanel(entry, char, rev) {
       const _base = poolValidated.slice(0, _eqIdx).trim();
       const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
       const specTotal = _activeProjSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      displayPool = `${_base} + specs ${specTotal} = ${_tot + specTotal}`;
+      const specLabel = _activeProjSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
@@ -5749,7 +5750,8 @@ function _renderFeedRightPanel(entry, char, rev) {
       const _base = poolValidated.slice(0, _eqIdx).trim();
       const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
       const specTotal = _activeFeedSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      displayPool = `${_base} + specs ${specTotal} = ${_tot + specTotal}`;
+      const specLabel = _activeFeedSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
