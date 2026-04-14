@@ -2250,12 +2250,13 @@ function buildProcessingQueue(subs) {
   for (const sub of subs) {
     const raw = sub._raw || {};
     const resp = sub.responses || {};
-    const charName = sub.character_name || '?';
+    const _subChar = findCharacter(sub.character_name, sub.player_name);
+    const charName = _subChar ? (_subChar.moniker || _subChar.name) : (sub.character_name || '?');
 
     // ── Sorcery (resolve_first) ──
     const sorcCount = parseInt(resp['sorcery_slot_count'] || '1', 10);
     // Tradition detection: check character disciplines for Cruac or Theban
-    const sorcChar = charMap.get((charName || '').toLowerCase().trim());
+    const sorcChar = _subChar || charMap.get((sub.character_name || '').toLowerCase().trim());
     const discs = sorcChar?.disciplines || {};
     let tradition = 'Unknown';
     if (discs.Cruac) tradition = 'Cruac';
@@ -2430,7 +2431,7 @@ function buildProcessingQueue(subs) {
       const parsed     = _parseMeritType(action.merit_type || '');
       const { category: meritCategory, label: meritLabel, qualifier: meritQualifier } = parsed;
       // Use character's actual merit rating + bonus (catches VM bonus dots, shared merits, etc.)
-      const sphereChar  = charMap.get((charName || '').toLowerCase().trim());
+      const sphereChar  = _subChar || charMap.get((sub.character_name || '').toLowerCase().trim());
       const actualMerit = sphereChar?.merits?.find(m =>
         m.name?.toLowerCase() === meritLabel.toLowerCase() &&
         (m.qualifier || '').toLowerCase() === meritQualifier.toLowerCase()
@@ -3747,6 +3748,60 @@ function renderProcessingMode(container) {
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
       await saveEntryReview(entry, { pool_validated: '' });
+      renderProcessingMode(container);
+    });
+  });
+
+  // ── Feeding description card — Edit / Save / Cancel ──
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-blood-input, .proc-feed-pool-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input').forEach(el => {
+    el.addEventListener('click',  e => e.stopPropagation());
+    el.addEventListener('mousedown', e => e.stopPropagation());
+  });
+  container.querySelectorAll('.proc-feed-desc-edit-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const card = btn.closest('.proc-feed-desc-card');
+      card.querySelector('.proc-feed-desc-view').style.display = 'none';
+      card.querySelector('.proc-feed-desc-edit').style.display = '';
+      btn.style.display = 'none';
+    });
+  });
+  container.querySelectorAll('.proc-feed-desc-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const card = btn.closest('.proc-feed-desc-card');
+      card.querySelector('.proc-feed-desc-view').style.display = '';
+      card.querySelector('.proc-feed-desc-edit').style.display = 'none';
+      card.querySelector('.proc-feed-desc-edit-btn').style.display = '';
+    });
+  });
+  container.querySelectorAll('.proc-feed-desc-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const card       = btn.closest('.proc-feed-desc-card');
+      const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
+      const bloodType  = card.querySelector('.proc-feed-blood-input').value.trim();
+      const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
+      await saveEntryReview(entry, { description: desc, blood_type: bloodType, pool_player: playerPool });
+      renderProcessingMode(container);
+    });
+  });
+  container.querySelectorAll('.proc-proj-desc-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const card       = btn.closest('.proc-feed-desc-card');
+      const title      = card.querySelector('.proc-proj-title-input').value.trim();
+      const outcome    = card.querySelector('.proc-proj-outcome-input').value.trim();
+      const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
+      const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
+      const merits     = card.querySelector('.proc-proj-merits-input').value.trim();
+      await saveEntryReview(entry, { title, desired_outcome: outcome, description: desc, pool_player: playerPool, merits_bonuses: merits });
       renderProcessingMode(container);
     });
   });
@@ -5886,21 +5941,49 @@ function renderActionPanel(entry, review) {
     const projSub2 = submissions.find(s => s._id === entry.subId);
     const xpTrait  = projSub2?.responses?.[`project_${entry.projSlot}_xp_trait`] || '';
     const xpAmount = projSub2?.responses?.[`project_${entry.projSlot}_xp`] || '';
-    const hasExtra = entry.projTitle || entry.projOutcome || entry.projCast || entry.projMerits || entry.projTerritory || entry.description || xpTrait;
-    if (hasExtra) {
-      h += '<div class="proc-proj-detail">';
-      if (entry.projTitle)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(entry.projTitle)}</div>`;
-      if (entry.projOutcome)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(entry.projOutcome)}</div>`;
-      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
-      if (entry.projCast)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
-      if (entry.projMerits)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(entry.projMerits)}</div>`;
-      if (entry.description)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Project Description</span> ${esc(entry.description)}</div>`;
-      // Story 3.2 — XP trait and amount attached to this project action
+
+    // ── Editable Details card ──
+    {
+      const titleVal   = rev.title          ?? entry.projTitle   ?? '';
+      const outcomeVal = rev.desired_outcome ?? entry.projOutcome ?? '';
+      const descVal    = rev.description    ?? entry.description ?? '';
+      const meritsVal  = rev.merits_bonuses ?? entry.projMerits  ?? '';
+      const playerPoolVal = poolPlayer || '';
+
+      h += `<div class="proc-feed-desc-card">`;
+      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+
+      // View mode
+      h += `<div class="proc-feed-desc-view">`;
+      if (titleVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
+      if (outcomeVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
+      if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
+      if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
+      if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      h += `</div>`;
+
+      // Edit mode (hidden)
+      h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(playerPoolVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span><input type="text" class="proc-proj-merits-input" data-proc-key="${esc(entry.key)}" value="${esc(meritsVal)}"></div>`;
+      h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-proj-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+      h += `</div>`;
+      h += `</div>`;
+
+      // XP spend — kept outside the card (it's an approval item, not descriptive)
       if (xpTrait) {
-        const xpLabel = xpAmount ? `XP Spend${xpAmount ? ' (' + esc(String(xpAmount)) + ' XP)' : ''}` : 'XP Spend';
+        const xpLabel = xpAmount ? `XP Spend (${esc(String(xpAmount))} XP)` : 'XP Spend';
         h += `<div class="proc-proj-field proc-proj-xp"><span class="proc-feed-lbl">${xpLabel}</span> ${esc(xpTrait)}</div>`;
       }
-      h += '</div>';
+
+      // Territory (read-only — set via territory pills elsewhere)
+      if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      // Characters Involved (read-only — structural, not editable here)
+      if (entry.projCast) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
     }
 
     // ── Action type recategorisation ──
@@ -5938,7 +6021,10 @@ function renderActionPanel(entry, review) {
   if (entry.source === 'project' || entry.source === 'merit' || isSorcery) {
     const connectedChars = rev.connected_chars || [];
     const otherChars = [...new Set(
-      submissions.map(s => s.character_name).filter(Boolean).filter(n => n !== entry.charName)
+      submissions.map(s => {
+        const ch = findCharacter(s.character_name, s.player_name);
+        return ch ? (ch.moniker || ch.name) : (s.character_name || null);
+      }).filter(Boolean).filter(n => n !== entry.charName)
     )].sort();
     if (otherChars.length > 0) {
       h += `<div class="proc-connected-section">`;
@@ -5999,22 +6085,43 @@ function renderActionPanel(entry, review) {
   if (entry.source === 'feeding') {
     if (entry.noMethod) {
       h += `<div class="proc-feed-no-method">No feeding method declared by player.</div>`;
-    } else {
-      h += '<div class="proc-feed-info">';
-      h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Method</span> ${esc(entry.feedMethodLabel || entry.feedMethod)}</span>`;
-      if (entry.feedDisc) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Discipline</span> ${esc(entry.feedDisc)}</span>`;
-      if (entry.feedSpec) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Specialisation</span> ${esc(entry.feedSpec)}</span>`;
-      if (entry.feedRote) h += `<span class="proc-feed-field proc-feed-rote-badge">Rote</span>`;
-      const activeTerms = Object.entries(entry.feedTerrs || {}).filter(([, v]) => v && v !== 'none')
-        .map(([k, v]) => `${k.replace(/_/g, ' ')} (${v})`).join(', ');
-      if (activeTerms) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Territory</span> ${esc(activeTerms)}</span>`;
-      if (entry.primaryTerr) {
-        const terrRec = TERRITORY_DATA.find(t => t.id === entry.primaryTerr || t.name === entry.primaryTerr || t.name?.toLowerCase() === entry.primaryTerr.replace(/_/g, ' ').toLowerCase());
-        const amb = terrRec?.ambienceMod ?? 0;
-        if (amb !== 0) h += `<span class="proc-feed-field"><span class="proc-feed-lbl">Ambience</span> ${amb > 0 ? '+' : ''}${amb}</span>`;
+    }
+    // ── Details card: Description (editable) + Blood Type (editable) + Player's Submitted Pool ──
+    {
+      const resp         = feedSub?.responses || {};
+      const isAppForm    = !!(resp.feed_attr);
+      const descVal      = rev.description ?? entry.feedDesc ?? '';
+      const bloodTypeVal = rev.blood_type  ?? '';
+      // Player's submitted pool string
+      let playerPoolStr;
+      if (isAppForm) {
+        const pAttr  = resp.feed_attr || '';
+        const pSkill = resp.feed_skill || '';
+        const pDisc  = resp.feed_discipline || '';
+        playerPoolStr = [pAttr, pSkill, pDisc].filter(Boolean).join(' + ') || '\u2014';
+      } else {
+        playerPoolStr = (entry.feedMethod === 'other' && (!poolPlayer || poolPlayer === 'Other') && entry.feedDesc)
+          ? entry.feedDesc
+          : (poolPlayer || '\u2014');
       }
-      h += '</div>';
-      if (entry.feedDesc) h += `<div class="proc-proj-field proc-feed-desc-field"><span class="proc-feed-lbl">Description</span> ${esc(entry.feedDesc)}</div>`;
+
+      h += `<div class="proc-feed-desc-card">`;
+      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+      // View mode
+      h += `<div class="proc-feed-desc-view">`;
+      if (descVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (bloodTypeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span> ${esc(bloodTypeVal)}</div>`;
+      if (!descVal && !bloodTypeVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No description recorded</div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolStr)}</div>`;
+      h += `</div>`;
+      // Edit mode (hidden)
+      h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><input type="text" class="proc-feed-blood-input" data-proc-key="${esc(entry.key)}" value="${esc(bloodTypeVal)}" placeholder="e.g. Human, Animal, Kindred"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
+      h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-feed-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+      h += `</div>`;
+      h += `</div>`;
     }
     // Previous roll result (use hoisted feedSub from top of function)
     const feedRoll = feedSub?.feeding_roll;
@@ -6028,26 +6135,7 @@ function renderActionPanel(entry, review) {
   if (entry.source === 'feeding') {
     // Use hoisted feedSub / feedChar from top of function
     const resp = feedSub?.responses || {};
-    const isAppForm = !!(resp.feed_attr);
     const char = feedChar;
-
-    // Player's submitted pool (source-aware, read-only)
-    h += '<div class="proc-pool-player-row">';
-    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
-    if (isAppForm) {
-      const pAttr  = resp.feed_attr || '';
-      const pSkill = resp.feed_skill || '';
-      const pDisc  = resp.feed_discipline || '';
-      const pStr   = pAttr + (pSkill ? ' + ' + pSkill : '') + (pDisc ? ' + ' + pDisc : '');
-      h += `<div class="proc-detail-value proc-pool-player-structured">${esc(pStr || '\u2014')}</div>`;
-    } else {
-      // For 'other' method with no structured custom fields, poolPlayer is just 'Other' — show feedDesc instead
-      const displayPoolPlayer = (entry.feedMethod === 'other' && (!poolPlayer || poolPlayer === 'Other') && entry.feedDesc)
-        ? entry.feedDesc
-        : (poolPlayer || '\u2014');
-      h += `<div class="proc-detail-value proc-pool-player-csv">${esc(displayPoolPlayer)}</div>`;
-    }
-    h += '</div>';
 
     // ST Pool Builder — always rendered; dot values filled from char data when available
     {
@@ -6206,12 +6294,6 @@ function renderActionPanel(entry, review) {
     // 9-again auto-detect (used for pool total annotation and sidebar initial state)
     const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
     const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill, _pnA);
-
-    // Player's submitted pool (read-only)
-    h += '<div class="proc-pool-player-row">';
-    h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
-    h += `<div class="proc-detail-value proc-pool-player-csv">${esc(poolPlayer || '\u2014')}</div>`;
-    h += '</div>';
 
     h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
     h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
