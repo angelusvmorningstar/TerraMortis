@@ -5787,6 +5787,7 @@ function renderActionPanel(entry, review) {
       h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
     }
     h += `</select>`;
+    // Action-type-specific extras (Target character or Protects merit selector)
     if (entry.actionType === 'investigate') {
       const _invT = rev.investigate_target_char || '';
       h += `<span class="proc-feed-lbl">Target</span>`;
@@ -5824,35 +5825,31 @@ function renderActionPanel(entry, review) {
         h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
       }
       h += `</select>`;
-    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
-      if (['allies', 'status', 'retainer'].includes(entry.meritCategory)) {
-        const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
-        const _meritNameKey = (entry.meritLabel || '').toLowerCase();
-        const _charMerits   = (meritEntChar?.merits || [])
-          .filter(m => (m.name || '').toLowerCase() === _meritNameKey)
-          .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
-        const _hasHWV = (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
-        h += `<span class="proc-feed-lbl">Merit</span>`;
-        h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(entry.key)}">`;
-        h += `<option value="">\u2014 Select \u2014</option>`;
-        for (const m of _charMerits) {
-          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-          const mQual   = m.qualifier || m.area || '';
-          const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
-          const mDots   = '\u25CF'.repeat(mRating);
-          const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
-          h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
-        }
-        h += `</select>`;
-        if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
-      }
-      const _ambiSub = submissions.find(s => s._id === entry.subId);
-      const _ambiCtx = `allies_${entry.actionIdx}`;
-      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
     }
-    // Territory pills for allies/status/retainer non-ambience actions
-    if (entry.isAlliesAction && !isAmbienceMerit) {
+    // Merit link dropdown — universal for all named-merit categories
+    if (['allies', 'status', 'retainer', 'contacts', 'staff'].includes(entry.meritCategory)) {
+      const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
+      const _meritNameKey = (entry.meritLabel || '').toLowerCase();
+      const _charMerits   = (meritEntChar?.merits || [])
+        .filter(m => (m.name || '').toLowerCase() === _meritNameKey)
+        .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
+      const _hasHWV = isAmbienceMerit && (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
+      h += `<span class="proc-feed-lbl">Merit</span>`;
+      h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const m of _charMerits) {
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mQual   = m.qualifier || m.area || '';
+        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+        const mDots   = '\u25CF'.repeat(mRating);
+        const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
+        h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
+      }
+      h += `</select>`;
+      if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
+    }
+    // Territory pills — allies/status/retainer actions (all action types)
+    if (entry.isAlliesAction) {
       const _mCtx = `allies_${entry.actionIdx}`;
       const _mTid = meritEntSub?.st_review?.territory_overrides?.[_mCtx] || '';
       h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
