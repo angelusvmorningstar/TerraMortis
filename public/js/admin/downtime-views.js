@@ -3910,15 +3910,20 @@ function renderProcessingMode(container) {
         `Validated Pool: ${pool || '—'}`,
         rollLine.trimEnd(),
         '',
-        'Write a narrative response (2–4 paragraphs) describing what happened during this action from the Storyteller\'s perspective.',
+        'Write a narrative response (2–3 short paragraphs, max 150 words) describing what happened during this action from the Storyteller\'s perspective.',
         '',
         'Style rules:',
         '- Second person, present tense',
         '- British English',
-        '- No mechanical terms — no discipline names, dot ratings, or success counts in narrative',
+        '- No mechanical terms: no discipline names, dot ratings, success counts, or merit names in narrative',
         '- No em dashes',
         '- Do not editorialise about what the result means mechanically',
         '- Never dictate what the character felt or chose',
+        '- Compression over expansion: direct statement over periphrasis',
+        '- No stacked declaratives (two or three short sentences in a row that should be folded into one)',
+        '- No negative framing openers (do not begin sections with what the character did not find or what went wrong)',
+        '- Show what happened, not what it means',
+        '- Tone: dry, grounded, specific. Prefer concrete detail over atmosphere. Name streets, objects, and people where possible',
       ].filter(l => l !== null).join('\n');
 
       try {
