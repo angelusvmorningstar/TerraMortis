@@ -247,13 +247,131 @@ body {
 /* ── Profile modal ── */
 .sidebar-avatar-click { cursor: pointer; transition: opacity 0.15s; }
 .sidebar-avatar-click:hover { opacity: 0.8; }
-.prof-readonly { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--bdr); }
-.prof-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px 16px; }
+
+/* Floating dialog shell (scoped to player app — admin.html has its own .plm-* rules) */
+.plm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  padding: 24px;
+  animation: plm-fade-in 0.15s ease-out;
+}
+@keyframes plm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.plm-dialog {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--gold-a20) inset;
+  width: 640px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 22px 26px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--txt);
+  animation: plm-rise 0.18s ease-out;
+}
+@keyframes plm-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.plm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--bdr);
+}
+.plm-header h3 {
+  margin: 0;
+  font-family: var(--fh);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.plm-dialog .cd-close {
+  background: none;
+  border: none;
+  color: var(--txt3);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.plm-dialog .cd-close:hover { color: var(--accent); background: var(--gold-a20); }
+
+.plm-dialog .plm-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt);
+  font-family: var(--ft);
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color 0.15s, background 0.15s;
+}
+.plm-dialog .plm-input::placeholder { color: var(--txt3); opacity: 0.7; }
+.plm-dialog .plm-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surf3, var(--surf2));
+}
+.plm-dialog textarea.plm-input { resize: vertical; min-height: 64px; font-family: var(--ft); }
+
+.plm-loading { color: var(--txt3); font-size: 13px; margin: 0; }
+.plm-error   { color: var(--crim2); font-size: 13px; margin: 0; }
+
+/* Buttons inside the profile dialog (.dt-btn lives in admin.css — redefine locally) */
+.plm-dialog .dt-btn {
+  padding: 8px 18px;
+  background: var(--gold-a8, var(--gold-a20));
+  border: 1px solid var(--gold);
+  border-radius: 5px;
+  color: var(--gold2);
+  font-family: var(--fl);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.plm-dialog .dt-btn:hover { background: var(--gold); color: var(--bg); }
+.plm-dialog #profile-cancel {
+  background: transparent;
+  border-color: var(--bdr2);
+  color: var(--txt3);
+}
+.plm-dialog #profile-cancel:hover {
+  background: var(--surf2);
+  border-color: var(--txt3);
+  color: var(--txt);
+}
+
+.prof-readonly { display: flex; gap: 20px; flex-wrap: wrap; margin: 0; padding-bottom: 14px; border-bottom: 1px solid var(--bdr); }
+.prof-readonly .prof-field { min-width: 180px; }
+.prof-readonly .prof-field > span:not(.prof-label) { color: var(--txt); font-size: 13px; }
+.prof-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px 18px; }
 .prof-wide { grid-column: 1 / -1; }
-.prof-field { display: flex; flex-direction: column; gap: 3px; }
-.prof-label { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: 0.04em; text-transform: uppercase; }
-.prof-privacy { font-size: 11px; font-style: italic; color: var(--txt3); margin: 12px 0 4px; }
-.prof-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.prof-field { display: flex; flex-direction: column; gap: 4px; }
+.prof-label { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+.prof-privacy { font-size: 11px; font-style: italic; color: var(--txt3); margin: 4px 0 0; padding-top: 10px; border-top: 1px solid var(--bdr); }
+.prof-actions { display: flex; gap: 10px; align-items: center; margin-top: 4px; justify-content: flex-end; }
 
 /* ── Tab panels ── */
 
