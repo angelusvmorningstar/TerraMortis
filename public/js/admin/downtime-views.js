@@ -4098,6 +4098,19 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire protected merit dropdown — saves which merit a hide/protect action covers
+  container.querySelectorAll('.proc-prot-merit-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const [name, qual] = sel.value.split('|');
+      await saveEntryReview(entry, { protected_merit_name: name || '', protected_merit_qualifier: qual || '' });
+    });
+  });
+
   // Wire merit link dropdown — saves which specific merit the action is linked to
   container.querySelectorAll('.proc-merit-link-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -5807,6 +5820,23 @@ function renderActionPanel(entry, review) {
       for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
         const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
         h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
+      }
+      h += `</select>`;
+    } else if (entry.actionType === 'hide_protect') {
+      const _protName = rev?.protected_merit_name      ?? '';
+      const _protQual = rev?.protected_merit_qualifier ?? '';
+      const _allMerits = (meritEntChar?.merits || [])
+        .slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      h += `<span class="proc-feed-lbl">Protects</span>`;
+      h += `<select class="proc-recat-select proc-prot-merit-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select merit \u2014</option>`;
+      for (const m of _allMerits) {
+        const mQual   = m.qualifier || m.area || '';
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+        const mDots   = '\u25CF'.repeat(mRating);
+        const isSelected = (m.name || '') === _protName && mQual === _protQual;
+        h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
       }
       h += `</select>`;
     } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
