@@ -2806,16 +2806,20 @@ function buildAmbienceData(terrs) {
   const alliesPos = {}, alliesNeg = {};
   for (const sub of submissions) {
     const raw = sub._raw || {};
-    const spheres  = raw.sphere_actions?.actions  || [];
-    const contacts = raw.contact_actions?.actions || [];
+    // sphere_actions is a flat array; contact_actions uses .requests; retainer_actions uses .actions
+    const spheres   = raw.sphere_actions || [];
+    const contacts  = raw.contact_actions?.requests || [];
     const retainers = raw.retainer_actions?.actions || [];
     const subChar = findCharacter(sub.character_name, sub.player_name);
     let meritFlatIdx = 0;
 
     for (const action of spheres) {
       const resolvedAct = (sub.merit_actions_resolved || [])[meritFlatIdx];
-      const actionType = resolvedAct?.action_type_override || action.action_type || 'misc';
-      if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+      const rawType = resolvedAct?.action_type_override || action.action_type || 'misc';
+      // Normalise raw form label to enum if not already (e.g. "Ambience Change (Increase):...")
+      const isIncrease = rawType === 'ambience_increase' || /ambience.*increas/i.test(rawType);
+      const isDecrease = rawType === 'ambience_decrease' || /ambience.*decreas/i.test(rawType);
+      if (isIncrease || isDecrease) {
         const parsed = _parseMeritType(action.merit_type || '');
         if (parsed.category === 'allies' || parsed.category === 'status' || parsed.category === 'retainer') {
           if (resolvedAct?.pool_status === 'resolved') {
@@ -2831,8 +2835,8 @@ function buildAmbienceData(terrs) {
                 : (parsed.dots || 0);
               const value = dots >= 5 ? 2 : dots >= 3 ? 1 : 0;
               if (value > 0) {
-                if (actionType === 'ambience_increase') alliesPos[tid] = (alliesPos[tid] || 0) + value;
-                else alliesNeg[tid] = (alliesNeg[tid] || 0) + value;
+                if (isIncrease) alliesPos[tid] = (alliesPos[tid] || 0) + value;
+                else            alliesNeg[tid] = (alliesNeg[tid] || 0) + value;
               }
             }
           }
