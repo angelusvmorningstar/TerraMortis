@@ -3050,6 +3050,48 @@ function renderCharacterStrip(queue) {
  */
 function _getQueueEntry(key) { return _procQueueMap?.get(key) ?? null; }
 
+/**
+ * Wire ± ticker buttons (dec/inc) inside a processing-mode container.
+ * All three modifier tickers share this logic; they differ only in selectors,
+ * clamping, an optional secondary display, and which function runs after update.
+ *
+ * opts:
+ *   decCls      — CSS class of the decrement button (e.g. 'proc-equip-mod-dec')
+ *   incCls      — CSS class of the increment button
+ *   panelCls    — CSS class of the panel that contains the input + display
+ *   inputCls    — CSS class of the hidden value input inside the panel
+ *   dispCls     — CSS class of the display span inside the panel
+ *   clamp       — { min, max } to clamp the value, or null for free-range
+ *   totalCls    — optional extra display span class (e.g. proc-proj-succ-total-val); null to skip
+ *   afterUpdate — optional fn(container, key) called after the display is updated
+ *   saveField   — key written to saveEntryReview (e.g. 'pool_mod_equipment')
+ */
+function _wireTickerHandler(container, { decCls, incCls, panelCls, inputCls, dispCls, clamp = null, totalCls = null, afterUpdate = null, saveField }) {
+  container.querySelectorAll(`.${decCls}, .${incCls}`).forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const panel = container.querySelector(`.${panelCls}[data-proc-key="${key}"]`);
+      if (!panel) return;
+      const valInp = panel.querySelector(`.${inputCls}`);
+      const disp   = panel.querySelector(`.${dispCls}[data-proc-key="${key}"]`);
+      let val = parseInt(valInp?.value || '0', 10);
+      if (btn.classList.contains(decCls)) { if (!clamp || val > clamp.min) val--; }
+      else                                { if (!clamp || val < clamp.max) val++; }
+      if (valInp) valInp.value = val;
+      const str = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      if (disp) disp.textContent = str;
+      if (totalCls) {
+        const total = panel.querySelector(`.${totalCls}[data-proc-key="${key}"]`);
+        if (total) total.textContent = str;
+      }
+      afterUpdate?.(container, key);
+      const entry = _getQueueEntry(key);
+      if (entry) await saveEntryReview(entry, { [saveField]: val });
+    });
+  });
+}
+
 function renderProcessingMode(container) {
   renderTerritoriesAtAGlance();
 
@@ -3514,65 +3556,28 @@ function renderProcessingMode(container) {
   });
 
   // ── feature.51: Equipment modifier ticker (pool mod panel) ──
-  container.querySelectorAll('.proc-equip-mod-dec, .proc-equip-mod-inc').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key    = btn.dataset.procKey;
-      const panel  = container.querySelector(`.proc-feed-mod-panel[data-proc-key="${key}"]`);
-      if (!panel) return;
-      const valInp = panel.querySelector('.proc-equip-mod-val');
-      const disp   = panel.querySelector(`.proc-equip-mod-disp[data-proc-key="${key}"]`);
-      let val = parseInt(valInp?.value || '0', 10);
-      if (btn.classList.contains('proc-equip-mod-dec')) { if (val > -5) val--; }
-      else                                               { if (val < 5)  val++; }
-      if (valInp) valInp.value = val;
-      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
-      _refreshPoolBuilder(container, key);
-      const entry = _getQueueEntry(key);
-      if (entry) await saveEntryReview(entry, { pool_mod_equipment: val });
-    });
+  _wireTickerHandler(container, {
+    decCls: 'proc-equip-mod-dec', incCls: 'proc-equip-mod-inc',
+    panelCls: 'proc-feed-mod-panel', inputCls: 'proc-equip-mod-val', dispCls: 'proc-equip-mod-disp',
+    clamp: { min: -5, max: 5 },
+    afterUpdate: _refreshPoolBuilder,
+    saveField: 'pool_mod_equipment',
   });
 
   // ── feature.51: Manual vitae adjustment ticker (vitae panel) ──
-  container.querySelectorAll('.proc-vitae-mod-dec, .proc-vitae-mod-inc').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const panel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
-      if (!panel) return;
-      const valInp = panel.querySelector('.proc-vitae-mod-val');
-      const disp   = panel.querySelector(`.proc-vitae-mod-disp[data-proc-key="${key}"]`);
-      let val = parseInt(valInp?.value || '0', 10);
-      if (btn.classList.contains('proc-vitae-mod-dec')) val--;
-      else                                               val++;
-      if (valInp) valInp.value = val;
-      if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
-      _updateVitaeTotal(container, key);
-      const entry = _getQueueEntry(key);
-      if (entry) await saveEntryReview(entry, { vitae_mod_manual: val });
-    });
+  _wireTickerHandler(container, {
+    decCls: 'proc-vitae-mod-dec', incCls: 'proc-vitae-mod-inc',
+    panelCls: 'proc-feed-vitae-panel', inputCls: 'proc-vitae-mod-val', dispCls: 'proc-vitae-mod-disp',
+    afterUpdate: _updateVitaeTotal,
+    saveField: 'vitae_mod_manual',
   });
 
   // ── feature.59: Success modifier ticker (project right panel) ──
-  container.querySelectorAll('.proc-succmod-dec, .proc-succmod-inc').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const panel = container.querySelector(`.proc-proj-succ-panel[data-proc-key="${key}"]`);
-      if (!panel) return;
-      const valInp = panel.querySelector('.proc-succmod-val');
-      const disp   = panel.querySelector(`.proc-succmod-disp[data-proc-key="${key}"]`);
-      const total  = panel.querySelector(`.proc-proj-succ-total-val[data-proc-key="${key}"]`);
-      let val = parseInt(valInp?.value || '0', 10);
-      if (btn.classList.contains('proc-succmod-dec')) val--;
-      else                                             val++;
-      if (valInp) valInp.value = val;
-      const str = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
-      if (disp)  disp.textContent  = str;
-      if (total) total.textContent = str;
-      const entry = _getQueueEntry(key);
-      if (entry) await saveEntryReview(entry, { succ_mod_manual: val });
-    });
+  _wireTickerHandler(container, {
+    decCls: 'proc-succmod-dec', incCls: 'proc-succmod-inc',
+    panelCls: 'proc-proj-succ-panel', inputCls: 'proc-succmod-val', dispCls: 'proc-succmod-disp',
+    totalCls: 'proc-proj-succ-total-val',
+    saveField: 'succ_mod_manual',
   });
 
   // ── feature.51: Rite cost input (vitae panel) ──
