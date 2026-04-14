@@ -776,6 +776,10 @@ function renderMatchSummary() {
 // ── Submission rendering ────────────────────────────────────────────────────
 
 function renderSubmissions() {
+  // Stick the checklist to the top of the scroll area while in processing mode
+  document.getElementById('dt-feeding-scene')
+    ?.classList.toggle('dt-proc-sticky', processingMode);
+
   if (processingMode) {
     renderProcessingMode(document.getElementById('dt-submissions'));
     return;
