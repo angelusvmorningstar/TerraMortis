@@ -76,6 +76,7 @@ export function initDataPortabilityView(charData) {
       if (!window.confirm(`Import ${label} from "${file.name}"?\nThis will overwrite matching records in the live database.\nContinue?`)) return;
       if (collection === 'characters') await handleExcelImport(file);
       else if (collection === 'downtime_submissions') await handleDowntimeCSVImport(file);
+      else if (collection === 'rules') await handleRulesCSVImport(file);
       else await handleImport(collection, file);
     });
   });
@@ -159,7 +160,8 @@ function buildShell() {
       <button class="dt-btn dp-export-json-btn" data-collection="rules">Export JSON</button>
       <button class="dt-btn dp-import-json-btn" data-collection="rules">Import JSON</button>
       <input type="file" accept=".json" class="dp-file-json-input" data-collection="rules" style="display:none">
-      <button class="dt-btn" disabled title="Rules CSV import not supported — use JSON">Import CSV</button>
+      <button class="dt-btn dp-import-btn" data-collection="rules">Import CSV</button>
+      <input type="file" accept=".csv" class="dp-file-input" data-collection="rules" style="display:none">
     </div>
     <div class="dp-rules-import-note">Import applies to all documents in the file regardless of filter.</div>
   </div>`;
@@ -331,6 +333,56 @@ async function handleImport(collection, file) {
     renderResult(resultEl, rows.length, written, rejected, errors);
   } catch (err) {
     resultEl.innerHTML = `<p class="dp-result-err">Import failed: ${err.message}</p>`;
+  }
+}
+
+async function handleRulesCSVImport(file) {
+  const resultEl = document.getElementById('dp-result');
+  resultEl.innerHTML = '<p class="dp-result-loading">Parsing rules CSV\u2026</p>';
+  try {
+    const rows = parseCSV(await file.text());
+    if (!rows.length) { resultEl.innerHTML = '<p class="dp-result-err">No data rows found.</p>'; return; }
+
+    let written = 0, rejected = 0;
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const key = (row.key || '').trim();
+      if (!key) { rejected++; errors.push({ row: i + 2, error: 'Missing key' }); continue; }
+
+      const rankRaw = (row.rank || '').trim();
+      const rank = rankRaw !== '' ? parseInt(rankRaw, 10) : null;
+
+      const body = {};
+      if (row.name        !== undefined) body.name         = row.name.trim()         || null;
+      if (row.parent      !== undefined) body.parent       = row.parent.trim()       || null;
+      if (row.sub_category !== undefined) body.sub_category = row.sub_category.trim() || null;
+      if (row.description !== undefined) body.description  = row.description.trim()  || '';
+      body.rank = (rankRaw !== '' && !isNaN(rank)) ? rank : null;
+
+      try {
+        try {
+          await apiPut(`/api/rules/${encodeURIComponent(key)}`, body);
+        } catch (putErr) {
+          if (putErr.message === 'Power not found') {
+            const category = (row.category || '').trim();
+            if (!category) throw new Error('New record missing category');
+            await apiPost('/api/rules', { key, category, ...body });
+          } else {
+            throw putErr;
+          }
+        }
+        written++;
+      } catch (e) {
+        rejected++;
+        errors.push({ row: i + 2, error: e.message });
+      }
+    }
+
+    renderResult(resultEl, rows.length, written, rejected, errors);
+  } catch (err) {
+    resultEl.innerHTML = `<p class="dp-result-err">Rules CSV import failed: ${err.message}</p>`;
   }
 }
 
