@@ -5558,6 +5558,9 @@ html:not([data-theme="dark"]) .cc-audit-err {
 /* Ambience pending chip — dark background/neon text don't suit parchment */
 html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a12); color: var(--crim2); border-color: var(--crim-a30); }
 
+/* Vitae tally positive values — bright green illegible on cream parchment */
+html:not([data-theme="dark"]) .proc-mod-pos { color: var(--green3); }
+
 /* Ambience pos/neg colour values — neon green/red replaced with legible theme tokens */
 html:not([data-theme="dark"]) .proc-amb-pos,
 html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green3); }
