@@ -3994,29 +3994,90 @@ function renderProcessingMode(container) {
       const pool      = review.pool_validated || entry.poolPlayer || '';
       const actionLbl = ACTION_TYPE_LABELS[entry.actionType] || entry.actionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-      let rollLine = '';
+      // ── Roll result + mechanical outcome interpretation ──
+      let rollSection = 'Roll: No roll recorded.';
       if (roll) {
+        const s       = roll.successes;
+        const exc     = roll.exceptional;
+        const excTag  = exc ? ' — EXCEPTIONAL SUCCESS' : '';
         const diceStr = _formatDiceString(roll.dice_string);
-        const excTag  = roll.exceptional ? ', Exceptional' : '';
-        rollLine = `Roll Result: ${roll.successes} success${roll.successes !== 1 ? 'es' : ''}${excTag} — Dice: ${diceStr}\n`;
+        const type    = entry.actionType || 'misc';
+
+        let outcome;
+        if (s === 0) {
+          outcome = 'Failure — no effect. The action produces no result this downtime.';
+        } else {
+          switch (type) {
+            case 'ambience_increase':
+              outcome = `Ambience increases by ${s}${exc ? ' (exceptional — consider a notable secondary effect)' : ''}.`;
+              break;
+            case 'ambience_decrease':
+              outcome = `Ambience decreases by ${s}${exc ? ' (exceptional — consider a notable secondary effect)' : ''}.`;
+              break;
+            case 'attack':
+              outcome = `${s} gross success${s !== 1 ? 'es' : ''}${excTag}. Subtract opposing Hide/Protect successes for net; halve net (round up) = levels removed from target merit. Contested — do not narrate a definitive outcome if net is unknown.`;
+              break;
+            case 'hide_protect':
+              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag}. These are subtracted from any Attack, Patrol/Scout, or Investigate targeting this action this downtime.`;
+              break;
+            case 'support':
+              outcome = `+${s} uncapped Teamwork bonus${excTag} added to the pool of the supported action.`;
+              break;
+            case 'patrol_scout': {
+              const detail = s >= 5 ? 'highly detailed' : s >= 3 ? 'reasonably clear' : 'vague';
+              outcome = `${s} action${s !== 1 ? 's' : ''} observed${excTag}. Information quality: ${detail}. Priority order: Attack > Patrol/Scout > Investigate > Ambience > Support — reveal the highest-priority visible actions first.`;
+              break;
+            }
+            case 'investigate': {
+              const detail = s >= 5 ? 'detailed' : s >= 4 ? 'basic' : s >= 3 ? 'vague' : s >= 2 ? 'existence confirmed' : 'lead only';
+              outcome = `${s} gross success${s !== 1 ? 'es' : ''}${excTag}. Contested — subtract Hide/Protect for net. At net ${s}: ${detail} information at the requested classification. Apply Investigation Matrix for exact result. At 2+ gross: also gain a lead on the next tier.`;
+              break;
+            }
+            case 'rumour': {
+              const detail = s >= 5 ? 'detailed' : s >= 3 ? 'reasonably clear' : 'vague';
+              outcome = `${s} similar-merit action${s !== 1 ? 's' : ''} revealed by rumour${excTag}. Information quality: ${detail}. Priority order: Attack > Patrol/Scout > Investigate > Ambience > Support.`;
+              break;
+            }
+            case 'feed':
+              outcome = `Success${excTag} — Rote Action granted for the character's game-start feeding pool. If disciplines were used and the roll had failed, failures would have become Dramatic Failures.`;
+              break;
+            case 'block':
+              outcome = 'Automatic — no roll required. Merit auto-blocks any merit of equal or lower level targeting this action.';
+              break;
+            case 'xp_spend':
+              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag} — XP spend approved.`;
+              break;
+            default:
+              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag}.`;
+          }
+        }
+
+        rollSection = `Roll: ${s} success${s !== 1 ? 'es' : ''}${excTag}\nDice: ${diceStr}\nMechanical outcome: ${outcome}`;
       }
 
-      const prompt = [
+      const lines = [
         'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
         '',
+        '── CHARACTER ──────────────────────────',
         `Character: ${entry.charName}`,
-        `Action: ${actionLbl}`,
-        `Territory: ${entry.projTerritory || '—'}`,
-        `Title: ${entry.projTitle || '—'}`,
-        `Desired Outcome: ${entry.projOutcome || '—'}`,
-        `Description: ${entry.projDescription || entry.description || '—'}`,
-        `Merits & Bonuses: ${entry.projMerits || '—'}`,
-        `Validated Pool: ${pool || '—'}`,
-        rollLine.trimEnd(),
+        `Action type: ${actionLbl}`,
+        entry.projTitle     ? `Title: ${entry.projTitle}`                             : null,
+        entry.projTerritory ? `Territory: ${entry.projTerritory}`                     : null,
+        entry.projCast      ? `Characters involved: ${entry.projCast}`                : null,
+        entry.projMerits    ? `Merits & bonuses applied: ${entry.projMerits}`         : null,
+        `Desired outcome: ${entry.projOutcome || entry.meritDesiredOutcome || '—'}`,
+        `Player description: ${entry.projDescription || entry.description || '—'}`,
+        `Validated pool: ${pool || '—'}`,
         '',
-        'Write a narrative response (2–3 short paragraphs, max 150 words) describing what happened during this action from the Storyteller\'s perspective.',
+        '── ROLL RESULT ─────────────────────────',
+        rollSection,
         '',
-        'Style rules:',
+        '── YOUR TASK ───────────────────────────',
+        'Write a narrative response (2–3 short paragraphs, max 150 words) describing what happened during this downtime action.',
+        'The mechanical outcome above dictates the scale and direction of the narrative — calibrate accordingly.',
+        'A failure narrates an attempt that produced no result. An exceptional success narrates something notably beyond the baseline.',
+        '',
+        '── STYLE RULES ─────────────────────────',
         '- Second person, present tense',
         '- British English',
         '- No mechanical terms: no discipline names, dot ratings, success counts, or merit names in narrative',
@@ -4031,7 +4092,7 @@ function renderProcessingMode(container) {
       ].filter(l => l !== null).join('\n');
 
       try {
-        await navigator.clipboard.writeText(prompt);
+        await navigator.clipboard.writeText(lines);
         const orig = btn.textContent;
         btn.textContent = 'Copied!';
         setTimeout(() => { btn.textContent = orig; }, 1500);
@@ -7101,22 +7162,59 @@ function _chkTooltip(sub, key) {
   return '';
 }
 
+// _chkState returns one of:
+//   'empty'         — section not present in this submission
+//   'unsighted'     — present but ST hasn't touched it          ✗
+//   'no_action'     — reviewed; skipped / no valid action        □
+//   'dice_validated'— pool confirmed and/or dice rolled          ◆
+//   'drafted'       — narrative response drafted                 ✎
+//   'confirmed'     — fully signed off                           ★
+//   'sighted'       — manually marked in-progress               ?
 function _chkState(sub, key) {
   if (!_chkHasContent(sub, key)) return 'empty';
-  if (key === 'feeding' && (sub?.feeding_roll || sub?.feeding_review?.pool_status === 'validated')) return 'validated';
-  // Individual allies/contacts slots: validated if merit_actions_resolved entry has pool_status validated
-  const raw = sub._raw || {};
+
+  // ── Feeding ──
+  if (key === 'feeding') {
+    const fr  = sub.feeding_review || {};
+    const ps  = fr.pool_status;
+    if (ps === 'no_feed')   return 'no_action';
+    if (sub.feeding_roll || ps === 'validated') return 'dice_validated';
+  }
+
+  // ── Projects ──
+  const projM = key.match(/^project_(\d+)$/);
+  if (projM) {
+    const slot = parseInt(projM[1]) - 1;
+    const pr   = (sub.projects_resolved || [])[slot] || {};
+    const ps   = pr.pool_status;
+    if (ps === 'no_roll' || ps === 'maintenance') return 'no_action';
+    if (ps === 'validated') {
+      if (pr.response_status === 'reviewed')        return 'confirmed';
+      if (pr.st_response)                           return 'drafted';
+      return 'dice_validated';
+    }
+  }
+
+  // ── Allies / sphere merit slots ──
+  const raw      = sub._raw || {};
   const resolved = sub.merit_actions_resolved || [];
-  const alliesM = key.match(/^allies_(\d+)$/);
+  const alliesM  = key.match(/^allies_(\d+)$/);
   if (alliesM) {
     const idx = parseInt(alliesM[1]) - 1;
-    if (resolved[idx]?.pool_status === 'validated') return 'validated';
+    const ps  = resolved[idx]?.pool_status;
+    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action') return 'no_action';
+    if (ps === 'validated') return 'dice_validated';
   }
+
+  // ── Contacts ──
   const contactsM = key.match(/^contacts_(\d+)$/);
   if (contactsM) {
     const idx = (raw.sphere_actions?.length || 0) + parseInt(contactsM[1]) - 1;
-    if (resolved[idx]?.pool_status === 'validated') return 'validated';
+    const ps  = resolved[idx]?.pool_status;
+    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action') return 'no_action';
+    if (ps === 'validated') return 'dice_validated';
   }
+
   if (sub?.st_review?.sighted?.[key]) return 'sighted';
   return 'unsighted';
 }
@@ -7144,7 +7242,7 @@ function renderSubmissionChecklist() {
     if (!sub) continue;
     const allDone = CHK_SECTIONS.every(sec => {
       const st = _chkState(sub, sec.key);
-      return st === 'empty' || st === 'sighted' || st === 'validated';
+      return st === 'empty' || st === 'sighted' || st === 'no_action' || st === 'dice_validated' || st === 'drafted' || st === 'confirmed';
     });
     if (allDone) fullySighted++;
   }
@@ -7175,8 +7273,14 @@ function renderSubmissionChecklist() {
         const tip   = _chkTooltip(sub, sec.key);
         if (state === 'empty') {
           h += `<td class="dt-chk-empty"${tip ? ` title="${esc(tip)}"` : ''}>\u2014</td>`;
-        } else if (state === 'validated') {
-          h += `<td class="dt-chk-validated" title="${tip ? esc(tip) + ' \u2014 ' : ''}Complete">\u2605</td>`;
+        } else if (state === 'confirmed') {
+          h += `<td class="dt-chk-confirmed" title="${tip ? esc(tip) + ' \u2014 ' : ''}Confirmed">\u2605</td>`;
+        } else if (state === 'drafted') {
+          h += `<td class="dt-chk-drafted" title="${tip ? esc(tip) + ' \u2014 ' : ''}Draft written">\u270E</td>`;
+        } else if (state === 'dice_validated') {
+          h += `<td class="dt-chk-dice" title="${tip ? esc(tip) + ' \u2014 ' : ''}Dice validated">\u25C6</td>`;
+        } else if (state === 'no_action') {
+          h += `<td class="dt-chk-no-action" title="${tip ? esc(tip) + ' \u2014 ' : ''}No action needed">\u25A1</td>`;
         } else if (state === 'sighted') {
           h += `<td class="dt-chk-sighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tip ? esc(tip) + ' \u2014 ' : ''}In progress \u2014 click to unsight">?</td>`;
         } else {
