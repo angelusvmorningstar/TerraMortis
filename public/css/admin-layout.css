@@ -4334,6 +4334,8 @@ body {
 .proc-row-status.no_roll     { background: rgba(100,100,100,.25); color: var(--txt2); }
 .proc-row-status.no_feed     { background: var(--crim-a25); color: var(--result-pend); }
 .proc-row-status.maintenance { background: var(--accent-a15); color: var(--accent); }
+.proc-row-status.resolved    { background: rgba(60,140,60,.25); color: var(--result-succ); }
+.proc-row-status.no_effect   { background: rgba(100,100,100,.25); color: var(--txt2); }
 
 .proc-row-author {
   font-family: var(--fl);
@@ -4556,6 +4558,8 @@ body {
 .proc-val-status button.active.no_roll     { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
 .proc-val-status button.active.no_feed     { border-color: var(--result-pend); color: var(--result-pend); background: var(--crim-a15); }
 .proc-val-status button.active.maintenance { border-color: var(--accent); color: var(--accent); background: var(--accent-a15); }
+.proc-val-status button.active.resolved    { border-color: var(--result-succ); color: var(--result-succ); background: var(--result-succ-bg); }
+.proc-val-status button.active.no_effect   { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
 
 .proc-notes-thread {
   display: flex;
@@ -4975,7 +4979,8 @@ body {
   font-style: italic;
   font-size: 12px;
 }
-.proc-feed-desc-ta {
+.proc-feed-desc-ta,
+.proc-sorc-notes-input {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
@@ -4994,7 +4999,8 @@ body {
 .proc-feed-bonuses-input,
 .proc-proj-title-input,
 .proc-proj-outcome-input,
-.proc-proj-merits-input {
+.proc-proj-merits-input,
+.proc-sorc-targets-input {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
@@ -5644,9 +5650,19 @@ html:not([data-theme="dark"]) .proc-char-chip.state-partial  .proc-char-chip-pro
 /* Processing validation status buttons — neon colours fail on parchment */
 html:not([data-theme="dark"]) .proc-val-status button.active.pending      { border-color: var(--crim); color: var(--crim); background: var(--crim-a12); }
 html:not([data-theme="dark"]) .proc-val-status button.active.validated    { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
+html:not([data-theme="dark"]) .proc-val-status button.active.resolved     { border-color: var(--green3); color: var(--green3); background: var(--green-a15); }
+html:not([data-theme="dark"]) .proc-val-status button.active.no_effect    { border-color: var(--txt2); color: var(--txt2); background: var(--gold-a10); }
 html:not([data-theme="dark"]) .proc-val-status button.active.maintenance  { border-color: var(--accent); color: var(--accent); background: var(--accent-a12); }
 html:not([data-theme="dark"]) .proc-val-status button:hover               { border-color: var(--crim-a40); color: var(--txt); }
 html:not([data-theme="dark"]) .proc-row-status.maintenance                { background: var(--accent-a12); color: var(--accent); }
+html:not([data-theme="dark"]) .proc-row-status.resolved                   { background: var(--green-a15); color: var(--green3); }
+html:not([data-theme="dark"]) .proc-row-status.no_effect                  { background: var(--gold-a10); color: var(--txt2); }
+
+/* Merit action mode chips — dark-mode neon colours fail on parchment */
+html:not([data-theme="dark"]) .proc-merit-mode-instant   { background: var(--green-a15); color: var(--green3); border-color: var(--green3); }
+html:not([data-theme="dark"]) .proc-merit-mode-contested { background: var(--accent-a12); color: var(--accent); border-color: var(--accent); }
+html:not([data-theme="dark"]) .proc-merit-mode-auto      { background: var(--gold-a10); color: var(--txt2); border-color: var(--bdr); }
+html:not([data-theme="dark"]) .proc-merit-mode-blocked   { background: var(--crim-a12); color: var(--crim); border-color: var(--crim-a40); }
 
 
 /* Audit badges — base colours are too faint on cream parchment.

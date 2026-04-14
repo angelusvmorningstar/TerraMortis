@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Downtime Test — Terra Mortis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@400;600;700;900&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<!-- Live CSS files — edit these and refresh to see changes immediately -->
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/components.css">
+<link rel="stylesheet" href="../css/admin-layout.css">
+<!-- Theme init: run before body renders to prevent flash -->
+<script>(function(){var t=localStorage.getItem('tm-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})()</script>
+<style>
+  /* ── Test toolbar ── */
+  .test-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--surf2);
+    border-bottom: 1px solid var(--bdr);
+    font-family: var(--fl, 'Lato', sans-serif);
+    font-size: 11px;
+  }
+  .test-toolbar label {
+    color: var(--txt3);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .test-toolbar button {
+    background: none;
+    border: 1px solid var(--bdr2);
+    border-radius: 4px;
+    color: var(--label-secondary);
+    font-family: var(--fl, 'Lato', sans-serif);
+    font-size: 11px;
+    font-variant: small-caps;
+    font-weight: 600;
+    letter-spacing: .06em;
+    padding: 4px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .test-toolbar button:hover { background: var(--surf3); color: var(--txt); }
+  .test-toolbar .test-badge {
+    margin-left: auto;
+    color: var(--txt3);
+    font-size: 10px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+  /* Mirror the admin domain layout so CSS classes apply correctly */
+  #admin-app { padding: 0; }
+  #content { padding: 20px 24px; }
+  .domain { display: block; }
+  .domain-header { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div class="test-toolbar">
+  <label>Downtime Test</label>
+  <span style="width:1px;height:16px;background:var(--bdr);flex-shrink:0"></span>
+  <button id="theme-btn">Mode</button>
+  <span class="test-badge">Design Test — live CSS, static data</span>
+</div>
+
+<!-- Mirror admin app structure so all CSS selectors resolve correctly -->
+<div id="admin-app">
+  <main id="content">
+    <section id="d-downtime" class="domain active">
+      <div class="domain-header">
+        <h2>Downtime</h2>
+      </div>
+      <div id="downtime-content"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  // ── Step 1: Load static data files before anything else ──
+  const [chars, territories, cycles, submissions] = await Promise.all([
+    fetch('./data/chars.json').then(r => r.json()),
+    fetch('./data/territories.json').then(r => r.json()).catch(() => []),
+    fetch('./data/downtime_cycles.json').then(r => r.json()).catch(() => []),
+    fetch('./data/downtime_submissions.json').then(r => r.json()).catch(() => []),
+  ]);
+
+  // ── Step 2: Intercept fetch — serve static data instead of hitting Render ──
+  // api.js on localhost uses http://localhost:3000 as the base URL.
+  const _native = window.fetch.bind(window);
+  window.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || 'GET').toUpperCase();
+
+    // Only intercept GET requests to the API
+    if (method === 'GET') {
+      if (/\/api\/characters(\?|$)/.test(u))
+        return new Response(JSON.stringify(chars), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/downtime_cycles(\?|$)/.test(u))
+        return new Response(JSON.stringify(cycles), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/downtime_submissions(\?|$)/.test(u))
+        return new Response(JSON.stringify(submissions), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/territories(\?|$)/.test(u))
+        return new Response(JSON.stringify(territories), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/players(\?|$)/.test(u))
+        return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/rules(\?|$)/.test(u))
+        return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/downtime_investigations(\?|$)/.test(u))
+        return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/npcs(\?|$)/.test(u))
+        return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
+
+      if (/\/api\/questionnaire(\?|$)/.test(u))
+        return new Response(JSON.stringify(null), { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Mutating calls (PUT/POST/DELETE) — silently no-op in test mode
+    if (['PUT', 'POST', 'DELETE', 'PATCH'].includes(method) && u.includes('/api/')) {
+      console.info(`[test mock] blocked ${method} ${u}`);
+      return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
+    return _native(url, opts);
+  };
+
+  // ── Step 3: Seed rules from localStorage (populated by live app login) ──
+  // If localStorage has no rules cache, merit descriptions will be blank but
+  // the view still renders. Log into the live app once to populate the cache.
+  try {
+    const { loadRulesFromApi } = await import('../js/data/loader.js');
+    await loadRulesFromApi();
+  } catch { /* ignore */ }
+
+  // ── Step 4: Seed game XP (will fail offline — XP shows as 0) ──
+  try {
+    const { loadGameXP } = await import('../js/data/game-xp.js');
+    await loadGameXP(chars);
+  } catch { /* ignore */ }
+
+  // ── Step 5: Import and initialise the downtime view ──
+  // ?v= cache-bust forces module reload on every refresh during development
+  const { initDowntimeView } = await import('../js/admin/downtime-views.js?v=' + Date.now());
+  await initDowntimeView(chars);
+
+  // ── Theme toggle ──
+  const themeBtn = document.getElementById('theme-btn');
+  const updateTheme = () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    themeBtn.textContent = dark ? '☀ Light Mode' : '☾ Dark Mode';
+  };
+  updateTheme();
+  themeBtn.addEventListener('click', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (dark) { document.documentElement.removeAttribute('data-theme'); localStorage.removeItem('tm-theme'); }
+    else { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('tm-theme', 'dark'); }
+    updateTheme();
+  });
+</script>
+
+</body>
+</html>
