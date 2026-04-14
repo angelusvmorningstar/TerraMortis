@@ -4342,6 +4342,61 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire connected character checkboxes
+  container.querySelectorAll('.proc-conn-char-chk').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = cb.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const allChks   = container.querySelectorAll(`.proc-conn-char-chk[data-proc-key="${key}"]`);
+      const connected = [...allChks].filter(c => c.checked).map(c => c.dataset.charName);
+      await saveEntryReview(entry, { connected_chars: connected });
+    });
+  });
+
+  // Wire attack target — character dropdown repopulates merit list; both save without re-render
+  container.querySelectorAll('.proc-attack-char-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { attack_target_char: sel.value, attack_target_merit: '' });
+      // Repopulate merit dropdown inline — no full re-render needed
+      const meritSel = container.querySelector(`.proc-attack-merit-sel[data-proc-key="${key}"]`);
+      if (meritSel) {
+        const targetChar = characters.find(c => c.name === sel.value) || null;
+        meritSel.innerHTML = '<option value="">\u2014 Select merit \u2014</option>';
+        if (targetChar) {
+          const merits = [...(targetChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''));
+          for (const m of merits) {
+            const mName   = m.name || '';
+            const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+            const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
+            const opt     = document.createElement('option');
+            opt.value       = mName;
+            opt.textContent = `${mName}${mQual} \u25CF${mRating}`;
+            meritSel.appendChild(opt);
+          }
+        }
+      }
+    });
+  });
+
+  container.querySelectorAll('.proc-attack-merit-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { attack_target_merit: sel.value });
+    });
+  });
+
   // Wire rite selector (sorcery) — save rite_override and re-render
   container.querySelectorAll('.proc-rite-select').forEach(sel => {
     sel.addEventListener('change', async e => {
@@ -5889,6 +5944,48 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
   }
 
+  // ── Attack target (project + merit attack actions only) ──
+  if (entry.actionType === 'attack' && (entry.source === 'project' || entry.source === 'merit')) {
+    const targetCharName = rev.attack_target_char || '';
+    const targetChar     = characters.find(c => c.name === targetCharName) || null;
+    const targetMerit    = rev.attack_target_merit || '';
+
+    h += `<div class="proc-attack-target-section">`;
+    h += `<div class="proc-detail-label">Attack Target</div>`;
+
+    h += `<div class="proc-attack-row">`;
+    h += `<span class="proc-feed-lbl">Character</span>`;
+    h += `<select class="proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
+    h += `<option value="">\u2014 Select target \u2014</option>`;
+    const _atkChars = [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)));
+    for (const c of _atkChars) {
+      const sel = c.name === targetCharName ? ' selected' : '';
+      h += `<option value="${esc(c.name || '')}"${sel}>${esc(displayName(c))}</option>`;
+    }
+    h += `</select>`;
+    h += `</div>`;
+
+    h += `<div class="proc-attack-row">`;
+    h += `<span class="proc-feed-lbl">Merit</span>`;
+    h += `<select class="proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
+    h += `<option value="">\u2014 Select merit \u2014</option>`;
+    if (targetChar) {
+      const _atkMerits = [...(targetChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''));
+      for (const m of _atkMerits) {
+        const mName   = m.name || '';
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
+        const mLabel  = `${mName}${mQual} \u25CF${mRating}`;
+        const sel = mName === targetMerit ? ' selected' : '';
+        h += `<option value="${esc(mName)}"${sel}>${esc(mLabel)}</option>`;
+      }
+    }
+    h += `</select>`;
+    h += `</div>`;
+
+    h += `</div>`; // proc-attack-target-section
+  }
+
   // ── Feeding-specific detail display ──
   if (entry.source === 'feeding') {
     if (entry.noMethod) {
@@ -6335,6 +6432,25 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-feed-left
     h += _renderMeritRightPanel(entry, rev);
     h += '</div>'; // proc-feed-layout
+  }
+
+  // ── Connected Characters (project + merit + sorcery) ──
+  if (entry.source === 'project' || entry.source === 'merit' || isSorcery) {
+    const connectedChars = rev.connected_chars || [];
+    const otherChars = [...new Set(
+      submissions.map(s => s.character_name).filter(Boolean).filter(n => n !== entry.charName)
+    )].sort();
+    if (otherChars.length > 0) {
+      h += `<div class="proc-connected-section">`;
+      h += `<div class="proc-detail-label">Connected Characters</div>`;
+      h += `<div class="proc-connected-list">`;
+      for (const charN of otherChars) {
+        const chk = connectedChars.includes(charN) ? ' checked' : '';
+        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(charN)}"${chk}> ${esc(charN)}</label>`;
+      }
+      h += `</div>`;
+      h += `</div>`;
+    }
   }
 
   // Open full submission link
