@@ -2439,7 +2439,7 @@ function buildProcessingQueue(subs) {
     let meritFlatIdx = 0;
 
     spheres.forEach((action, idx) => {
-      const actionType = action.action_type || 'misc';
+      const originalActionType = action.action_type || 'misc';
       const parsed     = _parseMeritType(action.merit_type || '');
       const { category: meritCategory, label: meritLabel, qualifier: meritQualifier } = parsed;
       // Use character's actual merit rating + bonus (catches VM bonus dots, shared merits, etc.)
@@ -2451,6 +2451,9 @@ function buildProcessingQueue(subs) {
       const meritDots = actualMerit
         ? (actualMerit.rating || actualMerit.dots || parsed.dots || 0) + (actualMerit.bonus || 0)
         : (parsed.dots || 0);
+      // Apply ST action-type override if present
+      const meritResolved = (sub.merit_actions_resolved || [])[meritFlatIdx] || {};
+      const actionType = meritResolved.action_type_override || originalActionType;
       let phaseNum;
       const isAlliesAction = meritCategory === 'allies' || meritCategory === 'status';
       if (isAlliesAction) {
@@ -2470,6 +2473,7 @@ function buildProcessingQueue(subs) {
         phase: phaseKey,
         phaseNum,
         actionType,
+        originalActionType,
         label: `${action.merit_type || 'Merit'}: ${ACTION_TYPE_LABELS[actionType] || actionType}`,
         description: action.description || action.desired_outcome || '',
         source: 'merit',
@@ -5864,6 +5868,22 @@ function renderActionPanel(entry, review) {
     }
     h += `</select>`;
     if (isOverridden) {
+      h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
+    }
+    h += `</div>`;
+  }
+
+  // ── Action type recategorisation for merit/sphere entries ──
+  if (entry.source === 'merit') {
+    const isMeritOverridden = entry.originalActionType && entry.originalActionType !== entry.actionType;
+    h += `<div class="proc-recat-row">`;
+    h += `<span class="proc-feed-lbl">Action Type</span>`;
+    h += `<select class="proc-recat-select" data-proc-key="${esc(entry.key)}">`;
+    for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
+      h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
+    }
+    h += `</select>`;
+    if (isMeritOverridden) {
       h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
     }
     h += `</div>`;
