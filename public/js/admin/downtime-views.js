@@ -6669,14 +6669,23 @@ const TRADITION_POOL = {
 function _getRiteInfo(riteName) {
   const db = _getRulesDB();
 
-  // Try rules DB first (ideal path: has structured pool object and rank)
+  // Try rules DB first — use rank if present, derive pool from parent tradition if pool is null
   if (db) {
     const riteRule = db.find(r => r.category === 'rite' && r.name === riteName);
-    if (riteRule?.pool && riteRule.rank) {
-      const attr  = riteRule.pool.attr  || '';
-      const skill = riteRule.pool.skill || '';
-      const disc  = riteRule.pool.disc  || '';
-      return { poolExpr: [attr, skill, disc].filter(Boolean).join(' + '), target: riteRule.rank, attr, skill, disc };
+    if (riteRule?.rank) {
+      // Pool: use stored pool object if populated, otherwise derive from parent tradition
+      let attr, skill, disc;
+      if (riteRule.pool?.attr || riteRule.pool?.skill) {
+        attr  = riteRule.pool.attr  || '';
+        skill = riteRule.pool.skill || '';
+        disc  = riteRule.pool.disc  || '';
+      } else {
+        const trad = TRADITION_POOL[riteRule.parent] || null;
+        if (trad) { attr = trad.attr; skill = trad.skill; disc = trad.disc; }
+      }
+      if (attr || skill) {
+        return { poolExpr: [attr, skill, disc].filter(Boolean).join(' + '), target: riteRule.rank, attr, skill, disc };
+      }
     }
   }
 
