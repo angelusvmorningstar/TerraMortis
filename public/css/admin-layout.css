@@ -5344,6 +5344,12 @@ html:not([data-theme="dark"]) .proc-row-status.no_feed  { background: var(--crim
 /* Character name in processing row — 700 for prominence (Cinzel entity name) */
 html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }
 
+/* Feeding Matrix / Checklist toggles — surf2 blends into parchment bg; use surf3 */
+html:not([data-theme="dark"]) .dt-matrix-toggle,
+html:not([data-theme="dark"]) .dt-chk-toggle { background: var(--surf3); }
+html:not([data-theme="dark"]) .dt-matrix-toggle:hover,
+html:not([data-theme="dark"]) .dt-chk-toggle:hover { background: var(--surf4, var(--bdr)); }
+
 /* Font size floor: bump 10px readable-text elements to 12px on parchment */
 html:not([data-theme="dark"]) .dt-scene-mod,
 html:not([data-theme="dark"]) .dt-matrix-amb,
