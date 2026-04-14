@@ -4399,7 +4399,7 @@ function renderProcessingMode(container) {
       const base         = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
       const mandUsed     = rev.ritual_mg_used || false;
-      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) : 0); }, 0);
+      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) + (m.bonus||0) : 0); }, 0);
       const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
@@ -5299,7 +5299,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
 
   const isCruac      = entry.tradition === 'Cruac';
   const mandUsed     = rev.ritual_mg_used || false;
-  const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) : 0); }, 0);
+  const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) + (m.bonus||0) : 0); }, 0);
   const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
   const eqMod        = rev.pool_mod_equipment || 0;
   const eqStr        = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
@@ -6160,7 +6160,7 @@ function renderActionPanel(entry, review) {
       const base         = _computeRitePool(sorcChar, ritInfo.attr, ritInfo.skill, ritInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
       const mandUsed     = rev.ritual_mg_used || false;
-      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) : 0); }, 0);
+      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) + (m.bonus||0) : 0); }, 0);
       const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
