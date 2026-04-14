@@ -1678,15 +1678,15 @@ body {
 .dt-chk-name { text-align: left; white-space: nowrap; font-family: var(--fl); font-size: 12px; font-variant: small-caps; font-weight: 600; color: var(--txt2); }
 .dt-chk-nosub td { opacity: .45; }
 .dt-chk-nosub-badge { font-size: 10px; color: var(--txt-dim); font-style: italic; margin-left: 4px; }
-.dt-chk-empty { color: var(--txt-dim); opacity: .4; }
-.dt-chk-unsighted { color: var(--txt3); cursor: pointer; font-weight: 600; }
-.dt-chk-unsighted:hover { background: var(--surf3); }
-.dt-chk-sighted { color: var(--txt2); cursor: pointer; font-weight: 700; }
-.dt-chk-sighted:hover { background: var(--surf3); }
-.dt-chk-confirmed   { color: var(--accent); font-weight: 700; }
-.dt-chk-drafted     { color: var(--gold2); opacity: .85; }
-.dt-chk-dice        { color: var(--txt2); }
-.dt-chk-no-action   { color: var(--txt2); }
+.dt-chk-empty     { color: var(--txt-dim); opacity: .4; }
+.dt-chk-unsighted { color: var(--txt3); font-weight: 600; }
+.dt-chk-sighted   { color: var(--txt2); font-weight: 700; }
+.dt-chk-confirmed { color: var(--accent); font-weight: 700; }
+.dt-chk-drafted   { color: var(--gold2); opacity: .85; }
+.dt-chk-dice      { color: var(--txt2); }
+.dt-chk-no-action { color: var(--txt2); }
+.dt-chk-nav       { cursor: pointer; }
+.dt-chk-nav:hover { background: var(--surf2); }
 .dt-chk-legend      { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--txt3); letter-spacing: .01em; }
 
 .dt-conflict-list { padding: 8px 12px; }
@@ -1767,11 +1767,7 @@ body {
 .proc-terr-pill-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 5px;
-  padding: 4px 16px;
-  background: var(--surf1);
-  border-bottom: 1px solid var(--bdr);
 }
 .proc-terr-pill-label {
   font-family: var(--fl);
@@ -4075,8 +4071,9 @@ body {
   text-transform: uppercase;
   background: var(--accent-a25);
   color: var(--accent);
+  border: 1px solid var(--accent-a40);
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 3px;
 }
 
 .proc-preread-body {
@@ -4672,6 +4669,7 @@ body {
 
 .proc-response-status-badge {
   font-size: 10px;
+  font-weight: 700;
   font-family: var(--fl);
   letter-spacing: 0.05em;
   padding: 1px 6px;
@@ -4937,15 +4935,7 @@ body {
   margin-right: 4px;
 }
 
-.proc-feed-rote-badge {
-  background: var(--accent-a8);
-  color: var(--accent);
-  border: 1px solid var(--accent-a25);
-  border-radius: 10px;
-  padding: 1px 8px;
-  font-size: 11px;
-  font-family: var(--fl);
-}
+
 
 .proc-feed-no-method {
   font-size: 12px;
@@ -4980,8 +4970,9 @@ body {
   font-style: italic;
   font-size: 12px;
 }
-.proc-feed-desc-ta,
-.proc-sorc-notes-input {
+/* ── Detail card shared input styles (feeding / project / sorcery / merit) ── */
+.proc-detail-input,
+.proc-detail-ta {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
@@ -4992,28 +4983,9 @@ body {
   padding: 6px 8px;
   font-family: var(--fl);
   font-size: 13px;
-  resize: vertical;
 }
-.proc-feed-name-input,
-.proc-feed-blood-input,
-.proc-feed-pool-input,
-.proc-feed-bonuses-input,
-.proc-proj-title-input,
-.proc-proj-outcome-input,
-.proc-proj-merits-input,
-.proc-sorc-targets-input,
-.proc-sorc-tradition-input,
-.proc-sorc-rite-input {
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 4px;
-  background: var(--surf2);
-  color: var(--txt1);
-  border: 1px solid var(--surf3);
-  border-radius: 3px;
-  padding: 5px 8px;
-  font-family: var(--fl);
-  font-size: 13px;
+.proc-detail-ta {
+  resize: vertical;
 }
 .proc-feed-desc-actions {
   display: flex;
@@ -5307,45 +5279,29 @@ body {
 }
 
 /* Investigation matrix reference (collapsible) */
-.proc-inv-matrix-details {
-  margin-top: 8px;
-  border: 1px solid var(--bdr);
-  border-radius: 4px;
-  background: var(--surf1);
+/* ── Investigation: Lead toggle buttons ── */
+.proc-inv-lead-btns {
+  display: flex;
+  gap: 4px;
 }
-.proc-inv-matrix-summary {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--txt2);
-  padding: 5px 8px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-.proc-inv-matrix-summary::-webkit-details-marker { display: none; }
-.proc-inv-matrix-summary::before { content: '\25B6\00A0'; font-size: 9px; }
-.proc-inv-matrix-details[open] .proc-inv-matrix-summary::before { content: '\25BC\00A0'; }
-
-.proc-inv-matrix-table {
-  width: 100%;
-  border-collapse: collapse;
+.proc-inv-lead-btn {
+  font-family: var(--fl);
   font-size: 10px;
-  color: var(--txt2);
-}
-.proc-inv-matrix-table th,
-.proc-inv-matrix-table td {
-  padding: 3px 5px;
-  border: 1px solid var(--bdr);
-  vertical-align: top;
-  line-height: 1.35;
-}
-.proc-inv-matrix-table th {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--bdr2);
   background: var(--surf2);
-  font-weight: 600;
-  color: var(--txt);
-  text-align: left;
+  color: var(--txt3);
+  cursor: pointer;
 }
-.proc-inv-matrix-table tr:nth-child(even) td { background: var(--surf1); }
+.proc-inv-lead-btn.active {
+  background: var(--accent-a8);
+  border-color: var(--accent-a40);
+  color: var(--accent);
+}
 
 /* ── Action type recategorisation ── */
 .proc-recat-row {
@@ -5385,14 +5341,7 @@ body {
   font-style: italic;
 }
 
-.proc-allies-hint {
-  font-size: 12px;
-  color: var(--txt3);
-  font-style: italic;
-  margin-bottom: 12px;
-  padding: 4px 8px;
-  border-left: 2px solid var(--surf3);
-}
+
 
 .proc-hwv-badge {
   font-size: 10px;
@@ -5455,14 +5404,16 @@ body {
 }
 
 .proc-amb-pending-chip {
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--fl);
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   background: var(--warn-dk-bg);
   color: var(--warn-dk);
   border: 1px solid var(--gold2-a25);
-  border-radius: 10px;
-  padding: 1px 8px;
+  border-radius: 3px;
+  padding: 2px 7px;
   margin-left: 10px;
 }
 
