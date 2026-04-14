@@ -2772,6 +2772,7 @@ function buildAmbienceData(terrs) {
     }
     // Resolved merit actions (ST-tagged post-processing)
     for (const act of (sub.merit_actions_resolved || [])) {
+      if (!act) continue;
       if (!['validated', 'no_roll'].includes(act.status)) continue;
       const tid = resolveTerrId(act.territory || '');
       if (!tid) continue;
