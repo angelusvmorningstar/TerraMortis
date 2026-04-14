@@ -5443,7 +5443,6 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<button class="proc-val-btn${poolStatus === 'pending'      ? ' active pending'      : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
   h += `<button class="proc-val-btn${poolStatus === 'validated'    ? ' active validated'    : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
   h += `<button class="proc-val-btn${poolStatus === 'no_roll'      ? ' active no_roll'      : ''}" data-proc-key="${esc(key)}" data-status="no_roll">No Roll Needed</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'maintenance'  ? ' active maintenance'  : ''}" data-proc-key="${esc(key)}" data-status="maintenance">Maintenance</button>`;
   h += `</div>`;
   // Committed pool expression with active specs
   const _activeProjSpecs = rev.active_feed_specs || [];
