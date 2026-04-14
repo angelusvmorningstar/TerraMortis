@@ -102,8 +102,17 @@
 
     <!-- Downtime domain -->
     <section id="d-downtime" class="domain">
-      <div class="domain-header"><h2>Downtime</h2></div>
-      <div id="downtime-content"></div>
+      <div class="domain-header">
+        <h2>Downtime</h2>
+        <div id="dt-sub-tab-bar">
+          <button class="dt-sub-tab-btn active" data-tab="processing">DT Processing</button>
+          <button class="dt-sub-tab-btn" data-tab="story">DT Story</button>
+        </div>
+      </div>
+      <div id="dt-processing-panel" class="dt-panel">
+        <div id="downtime-content"></div>
+      </div>
+      <div id="dt-story-panel" class="dt-panel" style="display:none"></div>
     </section>
 
     <!-- Ordeals domain -->

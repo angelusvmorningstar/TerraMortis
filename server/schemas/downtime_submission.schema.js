@@ -320,6 +320,26 @@ export const downtimeSubmissionSchema = {
     feeding_roll:        { $ref: '#/definitions/rollResult' },
     feeding_roll_player: { $ref: '#/definitions/rollResult' },  // Player-side roll (persisted)
 
+    // ── ST narrative authoring (DT Story tab) ───────────────────
+    // Written by STs via the DT Story tab; persisted as a top-level object.
+    // Internal shape is not strictly enforced here (additionalProperties: true)
+    // to allow B stories to extend it incrementally without schema conflicts.
+    st_narrative: {
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        locked:             { type: 'boolean' },
+        letter_from_home:   { type: 'object', additionalProperties: true },
+        touchstone:         { type: 'object', additionalProperties: true },
+        feeding_validation: { type: 'object', additionalProperties: true },
+        territory_reports:  { type: 'array' },
+        project_responses:  { type: 'array' },
+        action_responses:   { type: 'array' },
+        resource_approvals: { type: 'array' },
+        cacophony_savvy:    { type: 'array' },
+      },
+    },
+
     // ── Published outcome (promoted from st_review for players) ──
     published_outcome: { type: 'string' },
 
