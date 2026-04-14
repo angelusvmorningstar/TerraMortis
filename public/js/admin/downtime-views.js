@@ -2229,45 +2229,25 @@ function resolveTerrId(raw) {
   return null;
 }
 
+// ── Ambience source gatherers ─────────────────────────────────────────────────
+// Each reads the module-level `submissions` array, normalises territory keys via
+// resolveTerrId, and returns id-keyed accumulators. Extracted so buildAmbienceData
+// reads as a coordinator rather than a 180-line monolith.
+
 /**
- * Build the per-territory aggregation data for the ambience dashboard.
- * Returns an array of row objects (one per territory).
+ * Count feeders per territory for overfeeding calculation.
+ * Reads responses.feeding_territories (slug keys); falls back to _raw.feeding.territories
+ * (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
+ * Returns { [terrId]: count }
  */
-function buildAmbienceData(terrs) {
-  // terrs: array from cachedTerritories / TERRITORY_DATA, keyed by .id
-  const terrById = {};
-  for (const t of TERRITORY_DATA) terrById[t.id] = t;
-
-  // Find current ambience from DB records (which may differ from TERRITORY_DATA defaults)
-  const startingAmbience    = {};
-  const startingAmbienceMod = {};
-  if (terrs && terrs.length) {
-    for (const t of terrs) {
-      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
-      if (td) {
-        startingAmbience[td.id]    = t.ambience    || td.ambience;
-        startingAmbienceMod[td.id] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
-          ? t.ambienceMod : td.ambienceMod;
-      }
-    }
-  }
-  // Fallback to TERRITORY_DATA
-  for (const td of TERRITORY_DATA) {
-    if (!startingAmbience[td.id])    startingAmbience[td.id]    = td.ambience;
-    if (startingAmbienceMod[td.id] === undefined) startingAmbienceMod[td.id] = td.ambienceMod;
-  }
-
-  // ── Overfeeding: count feeders per territory ──
-  // Reads from responses.feeding_territories (slug keys) with fallback to _raw.feeding.territories
-  // (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
+function _gatherFeeders(subs) {
   const feederCounts = {};
-  for (const sub of submissions) {
+  for (const sub of subs) {
     let grid = {};
     const respStr = sub.responses?.feeding_territories;
     if (respStr) {
       try { grid = JSON.parse(respStr); } catch { grid = {}; }
     } else {
-      // Fallback: _raw feeding territories use display-name keys ('The Academy': 'Resident')
       grid = sub._raw?.feeding?.territories || {};
     }
     for (const [k, v] of Object.entries(grid)) {
@@ -2277,12 +2257,17 @@ function buildAmbienceData(terrs) {
       feederCounts[tid] = (feederCounts[tid] || 0) + 1;
     }
   }
+  return feederCounts;
+}
 
-  // ── Influence: sum numeric amounts per territory ──
-  // influence_territories stores { "The Academy": 3, "The Dockyards": -2, ... }
-  // Positive values = ambience increase; negative = decrease.
+/**
+ * Sum influence spend per territory.
+ * influence_territories: { "The Academy": 3, "The Dockyards": -2, ... } or legacy array.
+ * Returns { infPos: { [terrId]: n }, infNeg: { [terrId]: n } }
+ */
+function _gatherInfluence(subs) {
   const infPos = {}, infNeg = {};
-  for (const sub of submissions) {
+  for (const sub of subs) {
     let infObj = {};
     try { infObj = JSON.parse(sub.responses?.influence_territories || '{}'); } catch { infObj = {}; }
     // Handle legacy format (array of names from old uploads) — treat each as +1
@@ -2301,17 +2286,23 @@ function buildAmbienceData(terrs) {
       }
     }
   }
+  return { infPos, infNeg };
+}
 
-  // ── Projects: sum roll successes from ambience project actions ──
+/**
+ * Sum ambience project roll successes per territory.
+ * Returns { projPos: { [terrId]: n }, projNeg: { [terrId]: n }, pendingCount: n }
+ */
+function _gatherProjectAmbience(subs) {
   const projPos = {}, projNeg = {};
-  let pendingAmbienceCount = 0;
-  for (const sub of submissions) {
+  let pendingCount = 0;
+  for (const sub of subs) {
     // Count pending: ambience project actions in form responses with no resolved roll
     for (let n = 1; n <= 4; n++) {
       const action = sub.responses?.[`project_${n}_action`];
       if (action !== 'ambience_increase' && action !== 'ambience_decrease') continue;
       const resolved = (sub.projects_resolved || [])[n - 1];
-      if ((resolved?.pool_status || 'pending') === 'pending') pendingAmbienceCount++;
+      if ((resolved?.pool_status || 'pending') === 'pending') pendingCount++;
     }
     // Sum resolved roll successes
     for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
@@ -2321,7 +2312,7 @@ function buildAmbienceData(terrs) {
       const n = idx + 1;
       const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
       const terrRaw = sub.responses?.[`project_${n}_territory`] || '';
-      const desc = sub.responses?.[`project_${n}_description`] || '';
+      const desc    = sub.responses?.[`project_${n}_description`] || '';
       const outcome = sub.responses?.[`project_${n}_outcome`] || '';
       const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
@@ -2330,17 +2321,23 @@ function buildAmbienceData(terrs) {
       else projNeg[tid] = (projNeg[tid] || 0) + successes;
     }
   }
+  return { projPos, projNeg, pendingCount };
+}
 
-  // ── Allies / Status / Retainer ambience actions ──
-  // Level-based automatic: dots 3–4 = ±1, dots 5 = ±2. Territory from st_review overrides.
+/**
+ * Sum Allies / Status / Retainer automatic ambience contributions per territory.
+ * Level-based: dots 3–4 = ±1, dots 5 = ±2. Territory resolved from st_review overrides.
+ * Returns { alliesPos: { [terrId]: n }, alliesNeg: { [terrId]: n }, pendingCount: n }
+ */
+function _gatherMeritAmbience(subs) {
   const alliesPos = {}, alliesNeg = {};
-  for (const sub of submissions) {
-    const raw = sub._raw || {};
-    // sphere_actions is a flat array; contact_actions uses .requests; retainer_actions uses .actions
+  let pendingCount = 0;
+  for (const sub of subs) {
+    const raw       = sub._raw || {};
     const spheres   = raw.sphere_actions || [];
     const contacts  = raw.contact_actions?.requests || [];
     const retainers = raw.retainer_actions?.actions || [];
-    const subChar = findCharacter(sub.character_name, sub.player_name);
+    const subChar   = findCharacter(sub.character_name, sub.player_name);
     let meritFlatIdx = 0;
 
     for (const action of spheres) {
@@ -2353,8 +2350,7 @@ function buildAmbienceData(terrs) {
         const parsed = _parseMeritType(action.merit_type || '');
         if (parsed.category === 'allies' || parsed.category === 'status' || parsed.category === 'retainer') {
           if (resolvedAct?.pool_status === 'resolved') {
-            const terrKey = `allies_${meritFlatIdx}`;
-            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[terrKey] || '');
+            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '');
             if (tid) {
               const actualMerit = subChar?.merits?.find(m =>
                 m.name?.toLowerCase() === parsed.label.toLowerCase() &&
@@ -2371,7 +2367,7 @@ function buildAmbienceData(terrs) {
             }
           }
           // Count as pending if not yet resolved
-          if (!resolvedAct || resolvedAct.pool_status === 'pending') pendingAmbienceCount++;
+          if (!resolvedAct || resolvedAct.pool_status === 'pending') pendingCount++;
         }
       }
       meritFlatIdx++;
@@ -2379,6 +2375,39 @@ function buildAmbienceData(terrs) {
     // contacts and retainers don't do ambience but advance the flat index
     meritFlatIdx += contacts.length + retainers.length;
   }
+  return { alliesPos, alliesNeg, pendingCount };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build the per-territory aggregation data for the ambience dashboard.
+ * Returns { rows, pendingAmbienceCount }.
+ */
+function buildAmbienceData(terrs) {
+  // Starting ambience from DB records (fallback to TERRITORY_DATA defaults)
+  const startingAmbience = {}, startingAmbienceMod = {};
+  if (terrs?.length) {
+    for (const t of terrs) {
+      const td = TERRITORY_DATA.find(d => d.id === t.id || d.name === t.name);
+      if (td) {
+        startingAmbience[td.id]    = t.ambience    || td.ambience;
+        startingAmbienceMod[td.id] = (t.ambienceMod !== undefined && t.ambienceMod !== null)
+          ? t.ambienceMod : td.ambienceMod;
+      }
+    }
+  }
+  for (const td of TERRITORY_DATA) {
+    if (!startingAmbience[td.id])              startingAmbience[td.id]    = td.ambience;
+    if (startingAmbienceMod[td.id] === undefined) startingAmbienceMod[td.id] = td.ambienceMod;
+  }
+
+  // Aggregate each change source (all accumulators keyed by canonical territory id)
+  const feederCounts                                          = _gatherFeeders(submissions);
+  const { infPos, infNeg }                                    = _gatherInfluence(submissions);
+  const { projPos, projNeg, pendingCount: projPending }       = _gatherProjectAmbience(submissions);
+  const { alliesPos, alliesNeg, pendingCount: alliesPending } = _gatherMeritAmbience(submissions);
+  const pendingAmbienceCount = projPending + alliesPending;
 
   // ── Assemble rows ──
   const rows = TERRITORY_DATA.map(td => {
