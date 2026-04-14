@@ -4951,8 +4951,11 @@ body {
   font-size: 13px;
   resize: vertical;
 }
+.proc-feed-name-input,
 .proc-feed-blood-input,
 .proc-feed-pool-input,
+.proc-feed-bonuses-input,
+.proc-proj-name-input,
 .proc-proj-title-input,
 .proc-proj-outcome-input,
 .proc-proj-merits-input {

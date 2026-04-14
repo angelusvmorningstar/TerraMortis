@@ -3753,7 +3753,7 @@ function renderProcessingMode(container) {
   });
 
   // ── Feeding description card — Edit / Save / Cancel ──
-  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-blood-input, .proc-feed-pool-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input').forEach(el => {
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input').forEach(el => {
     el.addEventListener('click',  e => e.stopPropagation());
     el.addEventListener('mousedown', e => e.stopPropagation());
   });
@@ -3782,10 +3782,12 @@ function renderProcessingMode(container) {
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
+      const name       = card.querySelector('.proc-feed-name-input').value.trim();
       const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
       const bloodType  = card.querySelector('.proc-feed-blood-input').value.trim();
       const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
-      await saveEntryReview(entry, { description: desc, blood_type: bloodType, pool_player: playerPool });
+      const bonuses    = card.querySelector('.proc-feed-bonuses-input').value.trim();
+      await saveEntryReview(entry, { name, description: desc, blood_type: bloodType, pool_player: playerPool, bonuses });
       renderProcessingMode(container);
     });
   });
@@ -3796,12 +3798,13 @@ function renderProcessingMode(container) {
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
+      const name       = card.querySelector('.proc-proj-name-input').value.trim();
       const title      = card.querySelector('.proc-proj-title-input').value.trim();
       const outcome    = card.querySelector('.proc-proj-outcome-input').value.trim();
       const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
       const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
       const merits     = card.querySelector('.proc-proj-merits-input').value.trim();
-      await saveEntryReview(entry, { title, desired_outcome: outcome, description: desc, pool_player: playerPool, merits_bonuses: merits });
+      await saveEntryReview(entry, { name, title, desired_outcome: outcome, description: desc, pool_player: playerPool, merits_bonuses: merits });
       renderProcessingMode(container);
     });
   });
@@ -5150,6 +5153,7 @@ function _updateFeedBuilderMeta(container, key) {
       h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char)) {
+      if (fromSkill === skillName) continue; // already present as a native spec on this skill
       const checked = activeSpecs.includes(isSp);
       const aoe = hasAoE(char, isSp);
       h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
@@ -5184,6 +5188,7 @@ function _updateFeedBuilderMeta(container, key) {
     h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
   }
   for (const { spec: isSp, fromSkill } of isSpecs(char)) {
+    if (fromSkill === skillName) continue; // already present as a native spec on this skill
     const checked = activeSpecs.includes(isSp);
     const aoe = hasAoE(char, isSp);
     h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
@@ -5944,6 +5949,7 @@ function renderActionPanel(entry, review) {
 
     // ── Editable Details card ──
     {
+      const nameVal    = rev.name           ?? '';
       const titleVal   = rev.title          ?? entry.projTitle   ?? '';
       const outcomeVal = rev.desired_outcome ?? entry.projOutcome ?? '';
       const descVal    = rev.description    ?? entry.description ?? '';
@@ -5955,16 +5961,18 @@ function renderActionPanel(entry, review) {
 
       // View mode
       h += `<div class="proc-feed-desc-view">`;
+      if (nameVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span> ${esc(nameVal)}</div>`;
       if (titleVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
       if (outcomeVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
       if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
       if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
-      if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      if (!nameVal && !titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
       h += `</div>`;
 
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-proj-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="Short action name"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
@@ -6090,8 +6098,10 @@ function renderActionPanel(entry, review) {
     {
       const resp         = feedSub?.responses || {};
       const isAppForm    = !!(resp.feed_attr);
+      const nameVal      = rev.name        ?? '';
       const descVal      = rev.description ?? entry.feedDesc ?? '';
       const bloodTypeVal = rev.blood_type  ?? '';
+      const bonusesVal   = rev.bonuses     ?? '';
       // Player's submitted pool string
       let playerPoolStr;
       if (isAppForm) {
@@ -6109,16 +6119,20 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
       // View mode
       h += `<div class="proc-feed-desc-view">`;
-      if (descVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (nameVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span> ${esc(nameVal)}</div>`;
+      if (descVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
       if (bloodTypeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span> ${esc(bloodTypeVal)}</div>`;
-      if (!descVal && !bloodTypeVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No description recorded</div>`;
+      if (!nameVal && !descVal && !bloodTypeVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolStr)}</div>`;
+      if (bonusesVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Bonuses</span> ${esc(bonusesVal)}</div>`;
       h += `</div>`;
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="Short action name"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3">${esc(descVal)}</textarea></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><input type="text" class="proc-feed-blood-input" data-proc-key="${esc(entry.key)}" value="${esc(bloodTypeVal)}" placeholder="e.g. Human, Animal, Kindred"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Bonuses</span><input type="text" class="proc-feed-bonuses-input" data-proc-key="${esc(entry.key)}" value="${esc(bonusesVal)}" placeholder="e.g. Herd +2, Rote"></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-feed-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
       h += `</div>`;
       h += `</div>`;
@@ -6226,6 +6240,7 @@ function renderActionPanel(entry, review) {
         h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
       }
       for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
+        if (fromSkill === preSkill) continue; // already present as a native spec on this skill
         const checked = _fbAct.includes(isSp);
         const aoe = hasAoE(char, isSp);
         h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
@@ -6319,6 +6334,7 @@ function renderActionPanel(entry, review) {
       h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
+      if (fromSkill === preSkill) continue; // already present as a native spec on this skill
       const checked = _pAct.includes(isSp);
       const aoe = hasAoE(char, isSp);
       h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
