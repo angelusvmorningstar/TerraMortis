@@ -2041,8 +2041,8 @@ async function runWizardPhases(overlay, cycle, nextNum) {
     const influenceSpent = sub.st_review?.influence_spent || 0;
     if (!vitaeSpent && !wpSpent && !influenceSpent) continue;
 
-    const resolve   = (char.attributes?.mental?.resolve?.dots   || 0) + (char.attributes?.mental?.resolve?.bonus   || 0);
-    const composure = (char.attributes?.social?.composure?.dots || 0) + (char.attributes?.social?.composure?.bonus || 0);
+    const resolve   = getAttrVal(char, 'Resolve');
+    const composure = getAttrVal(char, 'Composure');
     const wpMax = resolve + composure;
 
     rollback.tracks_prev.push({
