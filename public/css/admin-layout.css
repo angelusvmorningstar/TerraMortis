@@ -1686,7 +1686,8 @@ body {
 .dt-chk-confirmed   { color: var(--accent); font-weight: 700; }
 .dt-chk-drafted     { color: var(--gold2); opacity: .85; }
 .dt-chk-dice        { color: var(--txt2); }
-.dt-chk-no-action   { color: var(--txt3); opacity: .55; }
+.dt-chk-no-action   { color: var(--txt2); }
+.dt-chk-legend      { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--txt3); letter-spacing: .01em; }
 
 .dt-conflict-list { padding: 8px 12px; }
 .dt-conflict-section-head { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--txt3); padding: 6px 0 4px; }
@@ -5587,6 +5588,9 @@ html:not([data-theme="dark"]) .dt-matrix-toggle,
 html:not([data-theme="dark"]) .dt-chk-toggle { background: var(--surf3); }
 html:not([data-theme="dark"]) .dt-matrix-toggle:hover,
 html:not([data-theme="dark"]) .dt-chk-toggle:hover { background: var(--surf4, var(--bdr)); }
+/* Discipline Profile Matrix header — match dark parchment tier */
+html:not([data-theme="dark"]) .proc-disc-header { background: var(--surf3); }
+html:not([data-theme="dark"]) .proc-disc-header:hover { background: var(--surf4, var(--bdr)); }
 
 /* Font size floor: bump 10px readable-text elements to 12px on parchment */
 html:not([data-theme="dark"]) .dt-scene-mod,
