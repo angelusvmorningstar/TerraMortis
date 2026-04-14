@@ -120,24 +120,27 @@ export async function initDtStory(cycleId) {
     // Copy Context
     const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
     if (copyBtn) {
-      if (sectionKey === 'project_responses') { handleCopyProjectContext(copyBtn); return; }
-      if (sectionKey === 'letter_from_home')  { handleCopyLetterContext(copyBtn);  return; }
+      if (sectionKey === 'project_responses') { handleCopyProjectContext(copyBtn);   return; }
+      if (sectionKey === 'letter_from_home')  { handleCopyLetterContext(copyBtn);    return; }
+      if (sectionKey === 'touchstone')        { handleCopyTouchstoneContext(copyBtn); return; }
       return;
     }
 
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
-      if (sectionKey === 'project_responses') { handleProjectSave(saveDraftBtn, 'draft'); return; }
-      if (sectionKey === 'letter_from_home')  { handleLetterSave(saveDraftBtn, 'draft');  return; }
+      if (sectionKey === 'project_responses') { handleProjectSave(saveDraftBtn, 'draft');    return; }
+      if (sectionKey === 'letter_from_home')  { handleLetterSave(saveDraftBtn, 'draft');     return; }
+      if (sectionKey === 'touchstone')        { handleTouchstoneSave(saveDraftBtn, 'draft'); return; }
       return;
     }
 
     // Mark Complete
     const completeBtn = e.target.closest('.dt-story-mark-complete-btn');
     if (completeBtn && !completeBtn.disabled) {
-      if (sectionKey === 'project_responses') { handleProjectSave(completeBtn, 'complete'); return; }
-      if (sectionKey === 'letter_from_home')  { handleLetterSave(completeBtn, 'complete');  return; }
+      if (sectionKey === 'project_responses') { handleProjectSave(completeBtn, 'complete');    return; }
+      if (sectionKey === 'letter_from_home')  { handleLetterSave(completeBtn, 'complete');     return; }
+      if (sectionKey === 'touchstone')        { handleTouchstoneSave(completeBtn, 'complete'); return; }
       return;
     }
   });
@@ -311,7 +314,7 @@ function buildProjectContext(char, sub, idx) {
   const lines = [
     'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
     '',
-    `Character: ${char ? displayName(char) : (sub.character_name || 'Unknown')}`,
+    `Character: ${char ? displayName(char) : 'Unknown'}`,
     `Action: ${actionLabel}`,
   ];
 
@@ -373,9 +376,7 @@ function buildUpdatedProjectResponses(sub, idx, patch) {
 
 function getCharForSub(sub) {
   if (!sub) return null;
-  return _allCharacters.find(c =>
-    c._id === sub.character_id || c.name === sub.character_name
-  ) || null;
+  return _allCharacters.find(c => c._id === sub.character_id) || null;
 }
 
 // ── Section suppression helpers ───────────────────────────────────────────────
@@ -440,7 +441,7 @@ function renderNavRail() {
   let h = '';
   for (const sub of _allSubmissions) {
     const char = getCharForSub(sub);
-    const name = char ? displayName(char) : (sub.character_name || 'Unknown');
+    const name = char ? displayName(char) : 'Unknown';
     const state = getNavPillState(sub);
     const stateClass = state ? ` ${state}` : '';
     const charId = sub.character_id || sub._id;
@@ -482,7 +483,7 @@ function renderCharacterView(char, sub) {
 
   let h = '';
   h += `<div class="dt-story-char-header">`;
-  h += `<h3 class="dt-story-char-name">${char ? displayName(char) : (sub?.character_name || 'Unknown')}</h3>`;
+  h += `<h3 class="dt-story-char-name">${char ? displayName(char) : 'Unknown'}</h3>`;
   if (stNarrative?.locked) h += `<span class="dt-story-locked-badge">Locked</span>`;
   h += `</div>`;
 
@@ -503,6 +504,7 @@ function renderCharacterView(char, sub) {
 function renderSection(section, char, sub, stNarrative) {
   switch (section.key) {
     case 'letter_from_home':  return renderLetterFromHome(char, sub, stNarrative);
+    case 'touchstone':        return renderTouchstone(char, sub, stNarrative);
     case 'project_responses': return renderProjectSection(char, sub);
     default: return renderSectionScaffold(section.key, section.label, stNarrative);
   }
@@ -664,7 +666,7 @@ function buildLetterContext(char, sub) {
   const lines = [
     'You are helping a Storyteller draft a Letter from Home for a Vampire: The Requiem 2nd Edition LARP character.',
     '',
-    `Character: ${char ? displayName(char) : (sub.character_name || 'Unknown')}`,
+    `Character: ${char ? displayName(char) : 'Unknown'}`,
   ];
 
   if (char?.clan)     lines.push(`Clan: ${char.clan}`);
@@ -695,6 +697,60 @@ function buildLetterContext(char, sub) {
   lines.push('- British English');
   lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
   lines.push('- No em dashes');
+  lines.push('- Do not editorialise \u2014 write the scene, not its significance');
+
+  return lines.join('\n');
+}
+
+// ── Touchstone Vignette context builder ───────────────────────────────────────
+
+/**
+ * Assembles the Copy Context prompt for the Touchstone Vignette section.
+ * Pure function — no side effects, no DOM access.
+ */
+function buildTouchstoneContext(char, sub) {
+  const humanity = char?.humanity ?? 0;
+  const touchstones = char?.touchstones || [];
+  const playerAspirations = sub.responses?.aspirations || null;
+
+  const lines = [
+    'You are helping a Storyteller write a Touchstone Vignette for a Vampire: The Requiem 2nd Edition LARP character.',
+    '',
+    `Character: ${char ? displayName(char) : 'Unknown'}`,
+  ];
+
+  if (char?.clan)           lines.push(`Clan: ${char.clan}`);
+  if (char?.covenant)       lines.push(`Covenant: ${char.covenant}`);
+  if (char?.humanity != null) lines.push(`Humanity: ${char.humanity}`);
+  if (char?.mask)           lines.push(`Mask: ${char.mask}`);
+  if (char?.dirge)          lines.push(`Dirge: ${char.dirge}`);
+
+  if (touchstones.length) {
+    lines.push('');
+    lines.push('Touchstones:');
+    for (const t of touchstones) {
+      const attached = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
+      const desc = t.desc ? ` (${t.desc})` : '';
+      lines.push(`- ${t.name}${desc} \u2014 Humanity ${t.humanity} \u2014 ${attached}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('Player\'s aspirations:');
+  lines.push(playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]');
+
+  lines.push('');
+  lines.push('Write a short vignette (~100 words) of an in-person moment between the character and one of the above touchstones (or an invented mortal if none fit).');
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Second person, present tense \u2014 the ST narrates to the character');
+  lines.push('- The living mortal is the primary subject of the scene');
+  lines.push('- The first referent cannot be a pronoun \u2014 open with the mortal\'s name');
+  lines.push('- In-person contact only \u2014 not a letter or phone call');
+  lines.push('- Character moments only \u2014 no plot hooks, no supernatural revelations, no foreshadowing');
+  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
+  lines.push('- No em dashes');
+  lines.push('- British English');
   lines.push('- Do not editorialise \u2014 write the scene, not its significance');
 
   return lines.join('\n');
@@ -770,6 +826,102 @@ function renderLetterFromHome(char, sub, stNarrative) {
 
   // Response textarea
   h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
+
+  // Action buttons
+  const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
+  h += `<button class="dt-story-mark-complete-btn">`;
+  h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
+  h += `</button>`;
+  h += `</div>`;
+
+  h += `</div>`; // section-body
+  h += `</div>`; // dt-story-section
+  return h;
+}
+
+// ── Touchstone Vignette section ───────────────────────────────────────────────
+
+function renderTouchstone(char, sub, stNarrative) {
+  const complete = isSectionComplete(stNarrative, 'touchstone');
+  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  // Pre-fill: st_narrative first, then DT1 legacy fallback (legacy key: touchstone_vignette)
+  const savedTxt =
+    stNarrative?.touchstone?.response ||
+    sub.st_review?.narrative?.touchstone_vignette?.text ||
+    '';
+
+  const humanity = char?.humanity ?? 0;
+  const touchstones = char?.touchstones || [];
+  const playerAspirations = sub.responses?.aspirations || null;
+
+  const ctxCollapsed = savedTxt ? ' collapsed' : '';
+  const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
+
+  let h = `<div class="dt-story-section" data-section="touchstone">`;
+
+  // Section header
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Touchstone Vignette</span>`;
+  h += `<div class="dt-story-section-header-actions">`;
+  h += `<button class="dt-story-copy-ctx-btn">Copy Context</button>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  // Section body + collapsible context block
+  h += `<div class="dt-story-section-body">`;
+  h += `<div class="dt-story-context-block${ctxCollapsed}">`;
+
+  // Character identity row
+  const identityParts = [
+    char?.clan     ? `Clan: ${char.clan}`         : null,
+    char?.covenant ? `Covenant: ${char.covenant}` : null,
+    char?.humanity != null ? `Humanity: ${char.humanity}` : null,
+    char?.mask     ? `Mask: ${char.mask}`         : null,
+    char?.dirge    ? `Dirge: ${char.dirge}`       : null,
+  ].filter(Boolean);
+  if (identityParts.length) {
+    h += `<div class="dt-story-context-identity">${identityParts.join(' \u00b7 ')}</div>`;
+  }
+
+  // Touchstone list (classes shared with Letter from Home / B4)
+  if (touchstones.length) {
+    h += `<div class="dt-story-touchstone-list">`;
+    for (const t of touchstones) {
+      const attached = humanity >= (t.humanity || 0);
+      const stateClass = attached ? 'dt-story-ts-attached' : 'dt-story-ts-detached';
+      const stateLabel = attached ? 'Attached' : 'Detached';
+      const desc = t.desc ? ` (${t.desc})` : '';
+      h += `<div class="dt-story-touchstone-entry ${stateClass}">`;
+      h += `${t.name}${desc} \u2014 Hum ${t.humanity} \u2014 <em>${stateLabel}</em>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  } else {
+    h += `<div class="dt-story-section-empty">No touchstones on character record.</div>`;
+  }
+
+  // Player's aspirations
+  h += `<div class="dt-story-aspirations">`;
+  h += `<span class="dt-story-note-author">Player's aspirations:</span> `;
+  if (playerAspirations) {
+    const display = playerAspirations.length > 200
+      ? playerAspirations.slice(0, 200) + '\u2026'
+      : playerAspirations;
+    h += `<span>${display}</span>`;
+  } else {
+    h += `<em class="dt-story-section-empty">[No aspirations recorded]</em>`;
+  }
+  h += `</div>`;
+
+  h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
+  h += `</div>`; // context-block
+
+  // Response textarea
+  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -896,6 +1048,62 @@ function handleContextToggle(toggleEl) {
   if (!block) return;
   const collapsed = block.classList.toggle('collapsed');
   toggleEl.textContent = collapsed ? 'Show context' : 'Hide context';
+}
+
+function handleCopyTouchstoneContext(btn) {
+  if (!_currentSub) return;
+  const char = getCharForSub(_currentSub);
+  const text = buildTouchstoneContext(char, _currentSub);
+  copyToClipboard(text, btn);
+}
+
+async function handleTouchstoneSave(btn, status) {
+  const section = btn.closest('.dt-story-section[data-section="touchstone"]');
+  if (!section || !_currentSub) return;
+
+  const ta = section.querySelector('.dt-story-response-ta');
+  const text = ta?.value || '';
+
+  const user = getUser();
+  const author = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  btn.textContent = 'Saving\u2026';
+
+  try {
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.touchstone': { response: text, author, status },
+    });
+
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.touchstone = {
+      ...(_currentSub.st_narrative.touchstone || {}),
+      response: text, author, status,
+    };
+
+    const char = getCharForSub(_currentSub);
+    const newHtml = renderTouchstone(char, _currentSub, _currentSub.st_narrative);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = newHtml;
+    section.replaceWith(tmp.firstElementChild);
+
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp2 = document.createElement('div');
+      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      signOff.replaceWith(tmp2.firstElementChild);
+    }
+
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    console.error('Touchstone save failed:', err);
+  }
 }
 
 async function handleProjectSave(btn, status) {

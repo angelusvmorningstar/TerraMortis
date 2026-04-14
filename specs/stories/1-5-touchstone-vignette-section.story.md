@@ -1,6 +1,6 @@
 # Story 1.5: Touchstone Vignette Section
 
-## Status: ready-for-dev
+## Status: review
 
 ## Story
 
@@ -165,31 +165,31 @@ The Touchstone Vignette section is complete when `sub.st_narrative?.touchstone?.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: buildTouchstoneContext(char, sub) pure function
-  - [ ] Reads char.touchstones, char.humanity for attachment status
-  - [ ] Reads char.clan, char.covenant, char.mask, char.dirge for character context
-  - [ ] Reads sub.responses?.aspirations for optional player context
-  - [ ] Assembles prompt string with all sections; omits mask/dirge/aspirations lines gracefully if absent
-  - [ ] Returns string
+- [x] Task 1: buildTouchstoneContext(char, sub) pure function
+  - [x] Reads char.touchstones, char.humanity for attachment status
+  - [x] Reads char.clan, char.covenant, char.mask, char.dirge for character context
+  - [x] Reads sub.responses?.aspirations for optional player context
+  - [x] Assembles prompt string with all sections; omits mask/dirge/aspirations lines gracefully if absent
+  - [x] Returns string
 
-- [ ] Task 2: renderTouchstone(char, sub, stNarrative) renderer
-  - [ ] Replaces B1 scaffold placeholder for 'touchstone' section
-  - [ ] Context block: touchstone list + optional aspirations + character identity
-  - [ ] Context block collapsed if stNarrative?.touchstone?.response is present
-  - [ ] Pre-fill textarea: stNarrative?.touchstone?.response || sub.st_review?.narrative?.touchstone_vignette?.text || ''
-  - [ ] Copy Context button, textarea (min 5 rows), Save Draft, Mark Complete
+- [x] Task 2: renderTouchstone(char, sub, stNarrative) renderer
+  - [x] Replaces B1 scaffold placeholder for 'touchstone' section
+  - [x] Context block: touchstone list + optional aspirations + character identity
+  - [x] Context block collapsed if stNarrative?.touchstone?.response is present
+  - [x] Pre-fill textarea: stNarrative?.touchstone?.response || sub.st_review?.narrative?.touchstone_vignette?.text || ''
+  - [x] Copy Context button, textarea (min 5 rows), Save Draft, Mark Complete
 
-- [ ] Task 3: Event delegation for touchstone section
-  - [ ] Copy Context → buildTouchstoneContext → copyToClipboard
-  - [ ] Context toggle (Show/Hide context)
-  - [ ] Save Draft → saveNarrativeField with 'st_narrative.touchstone', status: 'draft' → re-render section
-  - [ ] Mark Complete → saveNarrativeField with status: 'complete' → re-render + update pill rail
+- [x] Task 3: Event delegation for touchstone section
+  - [x] Copy Context → buildTouchstoneContext → copyToClipboard
+  - [x] Context toggle (Show/Hide context)
+  - [x] Save Draft → saveNarrativeField with 'st_narrative.touchstone', status: 'draft' → re-render section
+  - [x] Mark Complete → saveNarrativeField with status: 'complete' → re-render + update pill rail
 
-- [ ] Task 4: CSS (if not already added by B4)
-  - [ ] `.dt-story-touchstone-list` — touchstone entries in context block (may already exist from B4)
-  - [ ] `.dt-story-touchstone-entry` — individual touchstone row (may already exist from B4)
-  - [ ] `.dt-story-ts-attached` / `.dt-story-ts-detached` — attachment state styling (may already exist from B4)
-  - [ ] `.dt-story-aspirations` — player aspirations block in context (italic, indented)
+- [x] Task 4: CSS (if not already added by B4)
+  - [x] `.dt-story-touchstone-list` — touchstone entries in context block (existed from B4)
+  - [x] `.dt-story-touchstone-entry` — individual touchstone row (existed from B4)
+  - [x] `.dt-story-ts-attached` / `.dt-story-ts-detached` — attachment state styling (existed from B4)
+  - [x] `.dt-story-aspirations` — player aspirations block in context (italic, indented)
 
 ---
 
@@ -279,17 +279,21 @@ No new imports needed for B5.
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+| 2026-04-15 | 1.1 | Implementation complete | Dev Agent (claude-sonnet-4-6) |
 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
-_to be filled by dev agent_
+None — no blocking issues.
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Touchstone classes (list/entry/attached/detached) already present from B4; only .dt-story-aspirations and .dt-story-context-identity added
+- Legacy pre-fill key is `touchstone_vignette` (with suffix) in st_review.narrative; new st_narrative key is `touchstone` (no suffix)
+- Player aspirations truncated to 200 chars in display block; full text included in clipboard prompt
+- Character SSOT fix applied in same commit: removed sub.character_name fallback from getCharForSub and all displayName call sites — pills and headers now show 'Unknown' if character_id has no match in _allCharacters
 
 ### File List
 - `public/js/admin/downtime-story.js`

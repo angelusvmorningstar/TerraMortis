@@ -6361,3 +6361,18 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   overflow-y: auto;
 }
 
+/* B5 — Touchstone Vignette */
+.dt-story-context-identity {
+  color: var(--txt3);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+.dt-story-aspirations {
+  background: var(--surf);
+  border-left: 2px solid var(--bdr2);
+  font-style: italic;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+
