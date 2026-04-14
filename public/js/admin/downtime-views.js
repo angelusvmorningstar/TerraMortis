@@ -4492,6 +4492,18 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire investigate target character dropdown — save without re-render
+  container.querySelectorAll('.proc-inv-char-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { investigate_target_char: sel.value });
+    });
+  });
+
   // Wire rite selector (sorcery) — save rite_override and re-render
   container.querySelectorAll('.proc-rite-select').forEach(sel => {
     sel.addEventListener('change', async e => {
@@ -6175,6 +6187,26 @@ function renderActionPanel(entry, review) {
     h += `</select>`;
     h += `</div>`;
 
+    h += `</div>`; // proc-attack-target-section
+  }
+
+  // ── Investigate target (project + merit investigate actions only) ──
+  if (entry.actionType === 'investigate' && (entry.source === 'project' || entry.source === 'merit')) {
+    const invTargetName = rev.investigate_target_char || '';
+
+    h += `<div class="proc-attack-target-section">`;
+    h += `<div class="proc-detail-label">Investigation Target</div>`;
+    h += `<div class="proc-attack-row">`;
+    h += `<span class="proc-feed-lbl">Character</span>`;
+    h += `<select class="proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
+    h += `<option value="">\u2014 Select target \u2014</option>`;
+    const _invChars = [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)));
+    for (const c of _invChars) {
+      const sel = c.name === invTargetName ? ' selected' : '';
+      h += `<option value="${esc(c.name || '')}"${sel}>${esc(sortName(c))}</option>`;
+    }
+    h += `</select>`;
+    h += `</div>`;
     h += `</div>`; // proc-attack-target-section
   }
 
