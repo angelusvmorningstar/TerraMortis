@@ -4975,7 +4975,8 @@ body {
   font-style: italic;
   font-size: 12px;
 }
-.proc-feed-desc-ta {
+.proc-feed-desc-ta,
+.proc-sorc-notes-input {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
@@ -4994,7 +4995,8 @@ body {
 .proc-feed-bonuses-input,
 .proc-proj-title-input,
 .proc-proj-outcome-input,
-.proc-proj-merits-input {
+.proc-proj-merits-input,
+.proc-sorc-targets-input {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;
