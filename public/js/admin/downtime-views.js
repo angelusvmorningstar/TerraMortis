@@ -5608,8 +5608,8 @@ function renderActionPanel(entry, review) {
     h += `<div class="proc-reminder-badge proc-ritual-note-banner">\u2731 ${esc(rev.ritual_result_note)}</div>`;
   }
 
-  // Full description if it was truncated (suppressed for project + feeding + sorcery + ambience merit)
-  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && !isSorcery && !isAmbienceMerit) {
+  // Full description if it was truncated (suppressed for all sources that have a details card)
+  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && entry.source !== 'merit' && !isSorcery) {
     h += `<p class="proc-full-desc">${esc(entry.description)}</p>`;
   }
 
