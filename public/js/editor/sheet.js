@@ -112,7 +112,7 @@ function _renderPoolCounters(c, category) {
     else if (p.category === 'inv') { pTotal = p.amount; pUsed = investedUsed(c); }
     else { const lookupName = p.names ? p.names[0] : p.name; pTotal = getPoolTotal(c, lookupName); pUsed = getPoolUsed(c, lookupName); }
     const cls = pUsed > pTotal ? 'sc-over' : pUsed === pTotal ? 'sc-full' : 'sc-val';
-    h += '<div class="grant-pool-row"><span style="color:var(--accent)">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
+    h += '<div class="grant-pool-row"><span class="grant-pool-tag">' + esc(p.source) + '</span>: ' + esc(label) + ' free dots <span class="' + cls + '">' + pUsed + '/' + pTotal + '</span></div>';
   });
   h += '</div>'; return h;
 }
@@ -126,13 +126,12 @@ function _alertBadge(lvl) {
 /** Render merit dots split into purchased (full gold) and bonus (empty circle). */
 function shDotsMixed(purchased, bonus) {
   if (!purchased && !bonus) return '';
-  return '<span class="merit-dots-sh">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
+  return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
 }
 
-/** Gold log of all derived dot sources on a merit. Only emits lines where the field > 0. */
-const _DN = 'font-size:10px;color:var(--accent);padding:2px 8px';
+/** Derived dot source notes on a merit. Only emits lines where the field > 0. */
 function _derivedNotes(m) {
-  const _n = (v, lbl, why) => v ? '<div style="' + _DN + '">' + lbl + ': +' + v + ' dot' + (v !== 1 ? 's' : '') + ' (auto) \u2014 ' + why + '</div>' : '';
+  const _n = (v, lbl, why) => v ? '<div class="derived-note">' + lbl + ': +' + v + ' dot' + (v !== 1 ? 's' : '') + ' (auto) \u2014 ' + why + '</div>' : '';
   return _n(m.free_mci,       'MCI',        'removed if MCI drops')
        + _n(m.free_vm,        'VM',         'removed if VM removed')
        + _n(m.free_ohm,       'OHM',        'removed if oath is removed')
@@ -143,7 +142,7 @@ function _derivedNotes(m) {
        + _n(m.free_pt,        'PT Bonus',   'removed if PT is removed')
        + _n(m.free_mdb,       'MDB Bonus',  'equals Mentor rating')
        + _n(m.free_sw,        'Safe Word',  'removed if oath is removed')
-       + (m.free_attache ? '<div style="' + _DN + '">Attach\u00e9 (' + (m.retainer_source || '?') + '): +' + m.free_attache + ' dot' + (m.free_attache !== 1 ? 's' : '') + ' (auto) \u2014 removed if retainer removed</div>' : '');
+       + (m.free_attache ? '<div class="derived-note">Attach\u00e9 (' + (m.retainer_source || '?') + '): +' + m.free_attache + ' dot' + (m.free_attache !== 1 ? 's' : '') + ' (auto) \u2014 removed if retainer removed</div>' : '');
 }
 function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
   const dot = i => {
@@ -167,38 +166,26 @@ function _statusTrack(base, bonus, bonusColor, maxDots = 5) {
 function _statusEditBtns(downFn, upFn) {
   return '<div class="sh-status-btns"><button class="sh-stat-lr" onclick="' + downFn + '">&#9664;</button><button class="sh-stat-lr" onclick="' + upFn + '">&#9654;</button></div>';
 }
-function _cityStatusDots(base, titleBonus) {
-  if (!base && !titleBonus) return '';
-  const total = base + titleBonus;
-  let h = '<div class="sh-city-dots">';
-  for (let i = 1; i <= 10; i++) {
-    if (i <= base) h += '<span class="sh-city-dot crim">\u25CF</span>';
-    else if (i <= total) h += '<span class="sh-city-dot gold">\u25CF</span>';
-    else h += '<span class="sh-city-dot empty">\u25CB</span>';
-    if (i === 5) h += '<br>';
+/* Render only the dots that exist — inherent full, bonus hollow, nothing beyond total.
+   maxDots caps the scale (10 for city, 5 for cov/clan). */
+function _statusDots(base, bonus, maxDots) {
+  const total = Math.min(base + bonus, maxDots);
+  if (!total) return '';
+  const cappedBase = Math.min(base, maxDots);
+  const dot = i => i <= cappedBase
+    ? '<span class="sh-sdot sh-sdot-base">\u25CF</span>'
+    : '<span class="sh-sdot sh-sdot-bonus">\u25CB</span>';
+  if (total > 5) {
+    let h = '<div class="sh-sdot-track sh-sdot-rows">';
+    h += '<div class="sh-sdot-row">'; for (let i = 1; i <= 5; i++) h += dot(i); h += '</div>';
+    h += '<div class="sh-sdot-row">'; for (let i = 6; i <= total; i++) h += dot(i); h += '</div>';
+    return h + '</div>';
   }
+  let h = '<div class="sh-sdot-track">';
+  for (let i = 1; i <= total; i++) h += dot(i);
   return h + '</div>';
 }
-function _cityStatusPip(editMode, base, total, titleBonus) {
-  if (editMode) return '<div class="sh-stat-pip">'
-    + '<div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div>'
-    + '<div class="sh-status-lbl">City</div>'
-    + _statusTrack(base, titleBonus, 'var(--accent)', 10)
-    + _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')')
-    + '</div>';
-  return '<div class="sh-stat-pip"><div class="sh-status-shape">' + CITY_SVG + '<span class="sh-status-n">' + total + '</span></div><div class="sh-status-lbl">City</div></div>';
-}
-
-function _statusPip(editMode, svg, val, lbl, key, trackBase, bonusDots, bonusColor) {
-  if (editMode) {
-    const tb = trackBase !== undefined ? trackBase : val, bd = bonusDots || 0, bc = bonusColor || '';
-    return '<div class="sh-stat-pip">'
-      + '<div class="sh-status-shape">' + svg + '<span class="sh-status-n">' + val + '</span></div>'
-      + '<div class="sh-status-lbl">' + lbl + '</div>'
-      + _statusTrack(tb, bd, bc)
-      + _statusEditBtns('shStatusDown(\'' + key + '\')', 'shStatusUp(\'' + key + '\')')
-      + '</div>';
-  }
+function _statusPip(svg, val, lbl) {
   return '<div class="sh-stat-pip"><div class="sh-status-shape">' + svg + '<span class="sh-status-n">' + val + '</span></div><div class="sh-status-lbl">' + lbl + '</div></div>';
 }
 
@@ -265,8 +252,9 @@ export function shRenderAttributes(c, editMode) {
   const _attrAlert = editMode ? (catOrder.some(cat => { const budget = PRI_BUDGETS[(c.attribute_priorities || {})[cat] || 'Tertiary'] || 3, usedCP = (ATTR_CATS[cat] || []).reduce((s, a) => s + ((c.attributes?.[a]?.cp) || 0), 0); return budget - usedCP < 0; }) ? 'red' : null) : null;
   let h = '<div class="sh-sec"><div class="sh-sec-title">Attributes' + _alertBadge(_attrAlert) + '</div>';
   if (editMode) {
-    const caOpts = (CLAN_ATTR_OPTIONS[c.clan] || []).map(a => '<option' + (c.clan_attribute === a ? ' selected' : '') + '>' + a + '</option>').join('');
-    h += '<div class="sh-clan-attr-row">Favoured Attribute <select onchange="shSetClanAttr(this.value)">' + caOpts + '</select></div>';
+    const caList = CLAN_ATTR_OPTIONS[c.clan] || [];
+    const caPills = caList.map(a => '<button class="cap-btn' + (c.clan_attribute === a ? ' active' : '') + '" onclick="shSetClanAttr(\'' + a.replace(/'/g, "\\'") + '\')">' + esc(a) + '</button>').join('');
+    h += '<div class="sh-clan-attr-row"><span>Favoured Attribute</span><div class="clan-attr-pill">' + caPills + '</div></div>';
     const pri = c.attribute_priorities || {};
     if (!pri.Mental && !pri.Physical && !pri.Social) { pri.Mental = 'Primary'; pri.Physical = 'Secondary'; pri.Social = 'Tertiary'; }
     h += '<div class="sh-attr-col-hdr">';
@@ -287,7 +275,7 @@ export function shRenderAttributes(c, editMode) {
         h += '<div><div class="attr-cell attr-cell-edit"><div class="attr-name-sh">' + a + (isClan ? '<span class="attr-clan-star">\u2605</span>' : '') + '</div><div class="attr-dots-sh">' + shDotsWithBonus(base, autoBonus + bonus) + '</div></div>';
         h += '<div class="attr-bd-panel"><div class="attr-bd-row"><div class="bd-grp"><span class="bd-lbl">Base</span> <span class="attr-bd-ro">' + baseDots + '</span></div><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.cp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (ao.xp || 0) + '" onchange="shEditAttrPt(\'' + aE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + tot + '</span></div></div>';
         { const aE2 = a.replace(/'/g, "\\'"), src = BONUS_SOURCE[a] || '', effTotal = tot + autoBonus + bonus;
-          if (autoBonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">' + src + '</span><span class="bd-src" style="color:rgba(220,160,120,.8)">+' + autoBonus + '</span></div>';
+          if (autoBonus > 0) h += '<div class="attr-derived-row"><span class="bd-lbl">' + src + '</span><span class="bd-src">+' + autoBonus + '</span></div>';
           h += '<div class="attr-derived-row"><span class="bd-lbl">Bonus</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',-1)"' + (bonus === 0 ? ' disabled' : '') + '>&#x25BC;</button><span class="bd-src">' + (bonus > 0 ? '+' + bonus : '0') + '</span><button class="sh-stat-adj" onclick="shAdjAttrBonus(\'' + aE2 + '\',1)">&#x25B2;</button>' + (autoBonus > 0 || bonus > 0 ? '<div class="bd-eff"><span class="bd-lbl">Eff</span> <span class="bd-val">' + effTotal + '</span></div>' : '') + '</div>'; }
         h += '</div></div>';
       }); h += '</div>';
@@ -337,9 +325,9 @@ export function shRenderSkills(c, editMode) {
     if (ptFreeSpec) bonusParts.push('PT: ' + ptFreeCov + '/' + ptFreeSpec + ' (asset skills)');
     if (blTotal) bonusParts.push('Bloodline: ' + blTotal);
     h += '<div class="sh-spec-counter">Specialisations <span class="' + cpCls + '">' + cpSp + ' / 3 CP</span>'
-      + (specXP ? ' + <span style="font-size:10px;color:var(--crim)">' + specXP + ' XP</span>' : '')
-      + (bonusTotal ? ' + <span style="font-size:10px;color:var(--accent)">Bonus: ' + bonusUsed + '/' + bonusTotal + '</span>' : '')
-      + (bonusParts.length ? '<div style="font-size:10px;color:var(--txt3);margin-top:1px">' + bonusParts.join(' \u00B7 ') + '</div>' : '')
+      + (specXP ? ' + <span class="sc-xp">' + specXP + ' XP</span>' : '')
+      + (bonusTotal ? ' + <span class="sc-bonus">Bonus: ' + bonusUsed + '/' + bonusTotal + '</span>' : '')
+      + (bonusParts.length ? '<div class="sc-parts">' + bonusParts.join(' \u00B7 ') + '</div>' : '')
       + '</div>';
   }
   h += '<div class="skills-3col">';
@@ -405,23 +393,22 @@ export function shRenderDisciplines(c, editMode) {
     return parts.length ? parts.join('  \u2022  ') : '';
   }
 
-  function renderDiscRow(d, r, nameStyle) {
+  function renderDiscRow(d, r, nameClass) {
     const dp = _discPowers(d, r || 0), hasPow = dp.length > 0, id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    const nTag = (nameStyle ? '<span class="disc-tap-name" style="' + nameStyle + '">' : '<span class="disc-tap-name">') + esc(d) + '</span>', dTag = r ? '<span class="disc-tap-dots">' + shDots(r) + '</span>' : '';
-    if (!hasPow) return '<div class="disc-tap-row"><div class="disc-tap-left">' + nTag + dTag + '</div></div>';
-    return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"><div class="disc-tap-left">' + nTag + dTag + '</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
+    const nTag = '<span class="trait-name' + (nameClass ? ' ' + nameClass : '') + '">' + esc(d) + '</span>', dTag = r ? '<span class="trait-dots' + (nameClass ? ' ' + nameClass : '') + '">' + shDots(r) + '</span>' : '';
+    const _trInner = '<div class="trait-row"><div class="trait-main">' + nTag + '<div class="trait-right">' + dTag + (hasPow ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div></div></div>';
+    if (!hasPow) return '<div class="disc-tap-row">' + _trInner + '</div>';
+    return '<div class="disc-tap-row" id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')">' + _trInner + '</div><div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
   }
-  function renderDiscEditRow(d, r, isIC, style) {
-    const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = dObj.cp || 0, xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd, ns = style ? 'style="' + style + '"' : '';
+  function renderDiscEditRow(d, r, isIC, nameClass) {
+    const dObj = (c.disciplines || {})[d] || {}, dE = d.replace(/'/g, "\\'"), cm = isIC ? 3 : 4, db2 = dObj.cp || 0, xd = xpToDots(dObj.xp || 0, db2, cm), dt = db2 + xd;
     const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
     // Derive powers from rules cache (same as view mode)
     const dp = _discPowers(d, dt);
     let dr = ''; dp.forEach(p => { dr += '<div class="disc-power"><div class="disc-power-name">' + esc(p.name) + '</div>' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div>'; });
-    let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="disc-tap-left"><span class="disc-tap-name" ' + ns + '>' + esc(d) + '</span>' + (isIC ? '<span class="disc-clan-tag">in-clan</span>' : '');
-    if (r > 0) h2 += '<span class="disc-tap-dots">' + shDots(r) + '</span>';
-    if (dp.length) h2 += '</div><span class="disc-tap-arr">\u203A</span></div>';
-    else h2 += '</div></div>';
+    const _eR = '<div class="trait-right">' + (r > 0 ? '<span class="trait-dots' + (nameClass ? ' ' + nameClass : '') + '">' + shDots(r) + '</span>' : '') + (dp.length ? '<span class="disc-tap-arr">\u203A</span>' : '') + '</div>';
+    let h2 = '<div class="disc-tap-row disc-edit"' + (dp.length ? ' id="disc-row-' + id + '" onclick="toggleDisc(\'' + id + '\')"' : '') + '><div class="trait-row"><div class="trait-main"><span class="trait-name' + (nameClass ? ' ' + nameClass : '') + '">' + esc(d) + '</span>' + _eR + '</div>' + (isIC ? '<div class="trait-sub"><span class="disc-clan-tag">in-clan</span></div>' : '') + '</div></div>';
     h2 += '<div class="disc-bd-panel"><div class="disc-bd-row"><div class="bd-grp"><span class="bd-lbl">CP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.cp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'cp\',+this.value)"></div><div class="bd-grp"><span class="bd-lbl">XP</span> <input class="attr-bd-input" type="number" min="0" value="' + (dObj.xp || 0) + '" onchange="shEditDiscPt(\'' + dE + '\',\'xp\',+this.value)"></div><div class="bd-eq"><span class="bd-val">' + dt + '</span></div></div></div>';
     if (dp.length) h2 += '<div class="disc-drawer" id="disc-drawer-' + id + '">' + dr + '</div>';
     return h2;
@@ -443,8 +430,8 @@ export function shRenderDisciplines(c, editMode) {
     if (showCr || showTh) {
       h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
       // Cruac and Theban are always out-of-clan (4 XP/dot) regardless of covenant.
-      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'color:rgba(220,160,120,.9)');
-      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'color:rgba(220,160,120,.9)');
+      if (showCr) h += renderDiscEditRow('Cruac', (c.disciplines || {}).Cruac?.dots || 0, false, 'sorcery');
+      if (showTh) h += renderDiscEditRow('Theban', (c.disciplines || {}).Theban?.dots || 0, false, 'sorcery');
       h += '</div></div>';
     }
   } else if (c.disciplines && Object.keys(c.disciplines).length) {
@@ -454,7 +441,7 @@ export function shRenderDisciplines(c, editMode) {
     if (core.length) { h += '<div class="sh-sec"><div class="sh-sec-title">Disciplines</div><div class="disc-list">'; core.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, null); }); h += '</div></div>'; }
     if (rit.length) {
       h += '<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">';
-      rit.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); });
+      rit.forEach(([d, r]) => { h += renderDiscRow(d, r?.dots || 0, 'sorcery'); });
       h += '</div></div>';
     }
   }
@@ -464,8 +451,8 @@ export function shRenderDisciplines(c, editMode) {
     h += '<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">';
     devP.forEach((p, i) => {
       const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i, db = DEVOTIONS_DB.find(d => d.n === p.name);
-      if (editMode) { h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">' + esc(p.name) + '</span>' + (db ? '<span class="dev-xp-tag">' + db.xp + ' XP</span>' : '') + '</div><div style="display:flex;align-items:center;gap:4px"><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveDevotion(' + i + ')" title="Remove">&times;</button></div></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (db ? '<div class="dev-prereq">Requires: ' + devPrereqStr(db) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
-      else { h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">' + esc(p.name) + '</span></div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
+      if (editMode) { h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right">' + (db ? '<span class="dev-xp-tag">' + db.xp + ' XP</span>' : '') + '<span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveDevotion(' + i + ')" title="Remove">&times;</button></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (db ? '<div class="dev-prereq">Requires: ' + devPrereqStr(db) + '</div>' : '') + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
+      else { h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right">' + (db && db.xp ? '<span class="trait-dots">' + '\u25CF'.repeat(db.xp) + '</span>' : '') + '<span class="disc-tap-arr">\u203A</span></div></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>'; }
     });
     if (editMode) {
       const owned = new Set(devP.map(p => p.name)), avail = DEVOTIONS_DB.filter(d => !owned.has(d.n) && meetsDevPrereqs(c, d));
@@ -487,8 +474,8 @@ export function shRenderDisciplines(c, editMode) {
     h += '<div class="sh-sec"><div class="sh-sec-title">Rites' + _riteBadge + '</div>';
     if (editMode) {
       h += '<div class="grant-pools">';
-      if (cruacDots > 0) { const cls = cruacFreeUsed > cruacPool ? ' sc-over' : cruacFreeUsed === cruacPool ? ' sc-full' : ' sc-val'; h += '<div class="grant-pool-row"><span style="color:rgba(220,160,120,.9)">Cruac</span> free rites <span class="' + cls + '">' + cruacFreeUsed + '/' + cruacPool + '</span><span style="font-size:9px;color:var(--txt3);margin-left:6px">rank \u2264 ' + cruacDots + '</span></div>'; }
-      if (thebanDots > 0) { const cls = thebanFreeUsed > thebanPool ? ' sc-over' : thebanFreeUsed === thebanPool ? ' sc-full' : ' sc-val'; h += '<div class="grant-pool-row"><span style="color:rgba(220,160,120,.9)">Theban</span> free rites <span class="' + cls + '">' + thebanFreeUsed + '/' + thebanPool + '</span><span style="font-size:9px;color:var(--txt3);margin-left:6px">rank \u2264 ' + thebanDots + '</span></div>'; }
+      if (cruacDots > 0) { const cls = cruacFreeUsed > cruacPool ? ' sc-over' : cruacFreeUsed === cruacPool ? ' sc-full' : ' sc-val'; h += '<div class="grant-pool-row"><span class="grant-pool-tag">Cruac</span> free rites <span class="' + cls + '">' + cruacFreeUsed + '/' + cruacPool + '</span><span class="grant-pool-rank">rank \u2264 ' + cruacDots + '</span></div>'; }
+      if (thebanDots > 0) { const cls = thebanFreeUsed > thebanPool ? ' sc-over' : thebanFreeUsed === thebanPool ? ' sc-full' : ' sc-val'; h += '<div class="grant-pool-row"><span class="grant-pool-tag">Theban</span> free rites <span class="' + cls + '">' + thebanFreeUsed + '/' + thebanPool + '</span><span class="grant-pool-rank">rank \u2264 ' + thebanDots + '</span></div>'; }
       h += '</div>';
     }
     h += '<div class="disc-list">';
@@ -504,9 +491,9 @@ export function shRenderDisciplines(c, editMode) {
         const canFree = !p.free && p.level <= discDots && usedFree < freePool;
         const freeLbl = p.free ? 'Free' : (xpCost + ' XP');
         const freeCls = p.free ? 'rite-free-badge' : 'rite-xp-badge';
-        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><span class="disc-tap-dots" style="margin-left:6px;color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><span style="font-family:var(--fh);font-size:10px;color:var(--txt3);margin-left:6px">' + esc(p.tradition) + '</span></div><div style="display:flex;align-items:center;gap:4px"><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row disc-edit" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><button class="' + freeCls + '" onclick="event.stopPropagation();shToggleRiteFree(' + pi + ')"' + (p.free || canFree ? '' : ' disabled title="rank exceeds ' + p.tradition + ' dots or pool full"') + '>' + freeLbl + '</button><span class="disc-tap-arr">\u203A</span><button class="dev-rm-btn" onclick="event.stopPropagation();shRemoveRite(' + pi + ')" title="Remove">&times;</button></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span></div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
       } else {
-        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')"><div class="disc-tap-left"><span class="disc-tap-name" style="color:rgba(220,160,120,.9)">' + esc(p.name) + '</span><span class="disc-tap-dots" style="margin-left:6px;color:rgba(220,160,120,.75)">' + shDots(p.level) + '</span><span style="font-family:var(--fh);font-size:10px;color:var(--txt3);margin-left:6px">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span style="font-size:9px;color:var(--txt3);margin-left:6px">' + xpCost + ' XP</span>' : '') + '</div><span class="disc-tap-arr">\u203A</span></div><div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
+        h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(p.name) + '</span><div class="trait-right"><span class="trait-dots">' + shDots(p.level) + '</span><span class="disc-tap-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual dim">' + esc(p.tradition) + '</span>' + (p.free === false ? '<span class="trait-chip">' + xpCost + ' XP</span>' : '') + '</div></div></div>' + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">' + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '') + '<div class="disc-power-effect">' + esc(p.effect || '') + '</div></div></div>';
       }
     });
     if (editMode) {
@@ -561,16 +548,18 @@ export function shRenderDisciplines(c, editMode) {
       const reqDots = dbEntry && dbEntry.rating ? parseInt(dbEntry.rating) || 0 : 0;
       if (editMode) {
         const pcp = p.cp || 0, pxp = p.xp || 0, ptotal = pcp + pxp;
-        const ptColor = ptotal >= reqDots && (reqDots === 0 || ptotal === reqDots) ? 'var(--accent)' : ptotal > 0 ? 'var(--err)' : 'var(--txt3)';
+        const ptCls = ptotal >= reqDots && (reqDots === 0 || ptotal === reqDots) ? ' met' : ptotal > 0 ? ' over' : '';
         h += '<div class="pact-edit-block">'
           + '<div class="pact-edit-hdr">'
-          + '<span class="disc-tap-name" style="font-size:12px;color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span>'
-          + (reqDots ? '<span class="pact-req-dots">\u25CF'.repeat(reqDots) + ' required</span>' : '')
+          + '<span class="trait-name secondary">' + esc(_toTitle(p.name)) + '</span>'
+          + '<div class="trait-right">'
+          + (reqDots ? '<span class="trait-dots">' + '\u25CF'.repeat(reqDots) + '</span>' : '')
+          + '</div>'
+          + '</div>'
           + '<div class="pact-cp-xp">'
           + '<span class="bd-lbl">CP</span><input class="merit-bd-input" type="number" min="0" value="' + pcp + '" onchange="shEditPact(' + realPi + ',\'cp\',+this.value)" style="width:36px">'
           + '<span class="bd-lbl">XP</span><input class="merit-bd-input" type="number" min="0" value="' + pxp + '" onchange="shEditPact(' + realPi + ',\'xp\',+this.value)" style="width:36px">'
-          + '<span style="font-size:11px;color:' + ptColor + '">= ' + ptotal + ' dot' + (ptotal === 1 ? '' : 's') + '</span>'
-          + '</div>'
+          + '<span class="pact-total' + ptCls + '">= ' + ptotal + ' dot' + (ptotal === 1 ? '' : 's') + '</span>'
           + '<button class="dev-rm-btn" onclick="shRemovePact(' + realPi + ')" title="Remove oath">&times;</button>'
           + '</div>';
         // OHM-specific controls
@@ -581,11 +570,11 @@ export function shRenderDisciplines(c, editMode) {
           const _alliesMerits = (c.merits || []).filter(m => m.category === 'influence' && m.name === 'Allies' && m.area);
           const _alliesOpts = _alliesMerits.map(m => '<option value="' + esc(m.area) + '"' + ((m.area || '').toLowerCase() === ohmSphere.toLowerCase() ? ' selected' : '') + '>' + esc(m.area) + '</option>').join('');
           h += '<div class="pact-controls">'
-            + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Auto grants:</span><span style="color:var(--accent)">+1 Contacts, +1 Resources</span></div>'
+            + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Auto grants:</span><span class="grant-pool-tag">+1 Contacts, +1 Resources</span></div>'
             + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">+1 Allies:</span>'
             + (_alliesMerits.length
               ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'ohm_allies_sphere\',this.value)"><option value="">-- pick Allies merit --</option>' + _alliesOpts + '</select>'
-              : '<span style="font-size:10px;color:var(--txt3);font-style:italic">Add an Allies merit first</span>')
+              : '<span class="pact-hint">Add an Allies merit first</span>')
             + '</div>'
             + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">9-Again skills:</span>'
             + '<select class="gen-qual-input" style="width:120px" onchange="shEditPact(' + realPi + ',\'ohm_skill_0\',this.value)"><option value="">-- skill 1 --</option>' + _allSkillOpts.replace('value="' + esc(sk0) + '"', 'value="' + esc(sk0) + '" selected') + '</select>'
@@ -602,21 +591,21 @@ export function shRenderDisciplines(c, editMode) {
           h += '<div class="pact-controls">'
             + '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Partner:</span>'
             + '<select class="gen-qual-input" style="width:160px" onchange="shEditPact(' + realPi + ',\'partner\',this.value)"><option value="">-- select character --</option>' + _charNames.replace('value="' + esc(partner) + '"', 'value="' + esc(partner) + '" selected') + '</select>'
-            + (partner && !partnerHasSW ? '<span style="font-size:10px;color:var(--txt3);font-style:italic;margin-left:4px">partner must also take this oath</span>' : '')
-            + (partnerHasSW ? '<span style="font-size:10px;color:var(--accent);margin-left:4px">\u2713 mutually linked</span>' : '')
+            + (partner && !partnerHasSW ? '<span class="pact-hint">partner must also take this oath</span>' : '')
+            + (partnerHasSW ? '<span class="pact-linked">\u2713 mutually linked</span>' : '')
             + '</div>'
-            + (() => { const _sm = (c.merits || []).filter(m => m.category === 'influence'); const _smOpts = _sm.map(m => { const _lbl = m.name + (m.qualifier ? ' (' + m.qualifier + ')' : m.area ? ' (' + m.area + ')' : ''); return '<option value="' + esc(_lbl) + '"' + (sharedMerit === _lbl ? ' selected' : '') + '>' + esc(_lbl) + '</option>'; }).join(''); return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>' + (_sm.length ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>' + _smOpts + '</select>' : '<span style="font-size:10px;color:var(--txt3);font-style:italic">No Social Merits on sheet</span>') + '</div>'; })()
+            + (() => { const _sm = (c.merits || []).filter(m => m.category === 'influence'); const _smOpts = _sm.map(m => { const _lbl = m.name + (m.qualifier ? ' (' + m.qualifier + ')' : m.area ? ' (' + m.area + ')' : ''); return '<option value="' + esc(_lbl) + '"' + (sharedMerit === _lbl ? ' selected' : '') + '>' + esc(_lbl) + '</option>'; }).join(''); return '<div class="pact-ctrl-row"><span class="pact-ctrl-lbl">Shared Social Merit:</span>' + (_sm.length ? '<select class="gen-qual-input" style="width:180px" onchange="shEditPact(' + realPi + ',\'shared_merit\',this.value)"><option value="">\u2014 pick Social Merit \u2014</option>' + _smOpts + '</select>' : '<span class="pact-hint">No Social Merits on sheet</span>') + '</div>'; })()
 
             + '</div>';
         }
         h += '</div>';
       } else {
+        const _pNotes = [isOHM && p.ohm_allies_sphere ? 'Allies: ' + esc(p.ohm_allies_sphere) : '', isOHM && p.ohm_skills && p.ohm_skills.filter(Boolean).length ? '9-again: ' + p.ohm_skills.filter(Boolean).map(esc).join(', ') : '', isSW && p.partner ? 'w/ ' + esc(p.partner) + (p.shared_merit ? ' \u00B7 ' + esc(p.shared_merit) : '') : ''].filter(Boolean).join(' \u00B7 ');
+        const _pvTotal = (p.cp || 0) + (p.xp || 0);
         h += '<div class="disc-tap-row" id="disc-row-' + gid + '" onclick="toggleDisc(\'' + gid + '\')">'
-          + '<div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">' + esc(_toTitle(p.name)) + '</span>'
-          + (isOHM && p.ohm_allies_sphere ? '<span style="font-size:11px;color:var(--txt3);margin-left:8px">Allies: ' + esc(p.ohm_allies_sphere) + '</span>' : '')
-          + (isOHM && p.ohm_skills && p.ohm_skills.filter(Boolean).length ? '<span style="font-size:11px;color:var(--txt3);margin-left:8px">9-again: ' + p.ohm_skills.filter(Boolean).map(esc).join(', ') + '</span>' : '')
-          + (isSW && p.partner ? '<span style="font-size:11px;color:var(--txt3);margin-left:8px">w/ ' + esc(p.partner) + (p.shared_merit ? ' | ' + esc(p.shared_merit) : '') + '</span>' : '')
-          + '</div><span class="disc-tap-arr">\u203A</span></div>'
+          + '<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">' + esc(_toTitle(p.name)) + '</span><div class="trait-right">' + (_pvTotal ? '<span class="trait-dots">' + '\u25CF'.repeat(_pvTotal) + '</span>' : '') + '<span class="disc-tap-arr">\u203A</span></div></div>'
+          + (_pNotes ? '<div class="trait-sub"><span class="trait-qual">' + _pNotes + '</span></div>' : '')
+          + '</div></div>'
           + '<div class="disc-drawer" id="disc-drawer-' + gid + '"><div class="disc-power">'
           + (p.stats ? '<div class="disc-power-stats">' + esc(p.stats) + '</div>' : '')
           + '<div class="disc-power-effect">' + esc(effect) + '</div>'
@@ -652,7 +641,7 @@ export function shRenderInfluenceMerits(c, editMode) {
   _inflOhmPools.forEach(p => { const u = ohmUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
   _inflInvPools.forEach(p => { const u = investedUsed(c); if (u > p.amount) _inflAlert = 'red'; else if (u < p.amount && _inflAlert !== 'red') _inflAlert = 'yellow'; });
   const _inflBadge = editMode ? _alertBadge(_inflAlert) : '';
-  let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Influence Merits' + _inflBadge + '</div><div class="merit-list">';
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Influence Merits' + _inflBadge + '</div><div class="merit-list">';
   if (editMode) {
     // All non-Contacts influence merits
     const _inflMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
@@ -668,7 +657,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     nonContacts.forEach(m => {
       const idx = inflM.indexOf(m), inf = calcMeritInfluence(m, _inflHWV), tOpts = INFLUENCE_MERIT_TYPES.map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + t + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_attache || 0) + (m.xp || 0);
       const _iPurch = (m.cp || 0) + (m.xp || 0);
-      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _inflArea(m, idx, false) + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="inf-val">' + inf + '</span> inf' : '') + '</span>';
+      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _inflArea(m, idx, false) + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
       const _attacheShow = _inflHasAtt && _inflAttPool > 0 && _inflAttKeys.length && m.name === 'Resources' ? { keys: _inflAttKeys } : null;
@@ -732,7 +721,7 @@ export function shRenderDomainMerits(c, editMode) {
   _domLkPools.forEach(p => { const u = lorekeeperUsed(c); if (u > p.amount) _domAlert = 'red'; else if (u < p.amount && _domAlert !== 'red') _domAlert = 'yellow'; });
   _domInvPools.forEach(p => { const u = investedUsed(c); if (u > p.amount) _domAlert = 'red'; else if (u < p.amount && _domAlert !== 'red') _domAlert = 'yellow'; });
   const _domBadge = editMode ? _alertBadge(_domAlert) : '';
-  let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Domain Merits' + _domBadge + '</div><div class="merit-list">';
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Domain Merits' + _domBadge + '</div><div class="merit-list">';
   if (editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c);
@@ -753,9 +742,9 @@ export function shRenderDomainMerits(c, editMode) {
       const _domAttShow = _domHasAtt && _domAttPool > 0 && _domAttKeys.length && m.name === 'Safe Place' ? { keys: _domAttKeys } : null;
       h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, showAttache: _domAttShow }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
-      if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
-      if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
-      if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
+      if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div class="derived-note">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
+      if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
+      if (m.name === 'Herd') { const flockB = flockHerdBonus(c); if (flockB) h += '<div class="derived-note">Flock Bonus: +' + flockB + ' dots (' + shDots(flockB) + ') \u2014 equals Flock rating, can exceed 5</div>'; }
       if (m.name !== 'Herd' && parts.length) { h += '<div class="dom-partners-row">'; parts.forEach(pN => { const p = chars.find(ch => ch.name === pN), pD = p ? domMeritShareable(p, m.name) : 0; h += '<span class="dom-partner-tag">' + esc(pN) + (pD ? ' ' + shDots(pD) : ' \u25CB') + '<button class="dom-partner-rm" onclick="shRemoveDomainPartner(' + di + ',\'' + pN.replace(/'/g, "\\'") + '\')">\u00D7</button></span>'; }); h += '</div>'; }
       if (m.name !== 'Herd' && avP.length) h += '<div class="dom-add-partner-row"><select class="dom-partner-sel" onchange="if(this.value){shAddDomainPartner(' + di + ',this.value);this.value=\'\';}"><option value="">+ Add shared partner\u2026</option>' + avP.map(p => '<option value="' + esc(p.name) + '">' + esc(displayNameRaw(p)) + '</option>').join('') + '</select></div>';
       h += '</div>';
@@ -764,12 +753,12 @@ export function shRenderDomainMerits(c, editMode) {
   } else {
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
       const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_attache || 0) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, dPurch = (ssjB > 0 || flockB > 0) ? _dRaw : Math.min(5, _dRaw);
-      const dotHtml = (ssjB > 0 || flockB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="merit-dots-sh">' + shDots(de) + '</span>';
+      const dotHtml = (ssjB > 0 || flockB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="trait-dots">' + shDots(de) + '</span>';
       // Shared display: own dots filled + partner contribution hollow.
       const _shOwn = Math.min(dO, de);
       const _shPart = Math.max(0, de - _shOwn);
       const _shHtml = '<div class="dom-total-view" title="\u25CF own, \u25CB partners">' + shDotsMixed(_shOwn, _shPart) + '</div>';
-      h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (dp ? '<div class="merit-sub-sh dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</div>' : '') + '</div><div style="text-align:right">' + (dp ? _shHtml : dotHtml) + '</div></div>';
+      h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + (dp ? _shHtml : dotHtml) + '</div></div>' + (dp ? '<div class="trait-sub"><span class="trait-qual dom-shared-lbl">Shared \u00B7 ' + dp.map(n => { const p = chars.find(ch => ch.name === n), pd = p ? domMeritShareable(p, m.name) : 0; return esc(n) + (pd ? ' ' + shDots(pd) : ''); }).join(', ') + '</span></div>' : '') + '</div></div>';
     });
   }
   h += '</div></div>'; return h;
@@ -778,7 +767,7 @@ export function shRenderDomainMerits(c, editMode) {
 export function shRenderStandingMerits(c, editMode) {
   const standM = (c.merits || []).filter(m => m.category === 'standing');
   if (!editMode && !standM.length) return '';
-  let h = '<div class="sh-sec"><div class="sh-sec-subtitle">Standing Merits</div><div class="merit-list">';
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="merit-list">';
   const _standMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
   const _standSorted = editMode ? standM : standM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   _standSorted.forEach((m, si) => {
@@ -792,11 +781,11 @@ export function shRenderStandingMerits(c, editMode) {
       h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Oath of the Scapegoat' && dd > 0) {
-        if (c.covenant === 'Invictus') h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
-        h += '<div style="font-size:10px;color:var(--accent);padding:2px 8px">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
+        if (c.covenant === 'Invictus') h += '<div class="derived-note">OTS: grants +' + dd + ' Invictus Covenant Status (no normal purchase) ' + shDots(dd) + '</div>';
+        h += '<div class="derived-note">OTS: +' + (dd * 2) + ' free style/merit dots (' + (c._ots_free_dots || 0) + ' pool)</div>';
       }
     }
-    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; h += '<div class="merit-plain"><div style="flex:1"><div class="merit-name-sh">' + esc(m.name) + '</div>' + (sub ? '<div class="merit-sub-sh">' + esc(sub) + '</div>' : '') + (assets ? '<div class="merit-sub-sh" style="font-style:italic;color:var(--txt3)">Asset Skills: ' + esc(assets) + '</div>' : '') + '</div>' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div>'; }
+    else { const sub = m.cult_name || m.role || '', assets = m.asset_skills && m.asset_skills.length ? m.asset_skills.join(', ') : ''; const _sSub = [sub ? esc(sub) : '', assets ? 'Asset Skills: ' + esc(assets) : ''].filter(Boolean).join(' \u00B7 '); h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(m.name) + '</span><div class="trait-right">' + shDotsMixed(_stPurch, Math.max(0, (m.rating || 0) - _stPurch)) + '</div></div>' + (_sSub ? '<div class="trait-sub"><span class="trait-qual">' + _sSub + '</span></div>' : '') + '</div></div>'; }
   });
   if (editMode) {
     const hasMCI = standM.some(m => m.name === 'Mystery Cult Initiation');
@@ -813,11 +802,11 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
   const dots = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
   let h = '<div class="mci-block' + (inactive ? ' mci-inactive' : '') + '"><div class="mci-header"><div class="mci-title"><span class="merit-name-sh">' + esc(m.name) + '</span>';
   if (editMode) h += '<input type="text" class="stand-name-input" value="' + esc(m.cult_name || '') + '" placeholder="Cult name" onchange="shEditStandMerit(' + si + ',\'cult_name\',this.value)">';
-  else if (m.cult_name) h += '<span class="merit-sub-sh mci-cult-name">' + esc(m.cult_name) + '</span>';
+  else if (m.cult_name) h += '<span class="trait-qual">' + esc(m.cult_name) + '</span>';
   h += '</div><div class="mci-header-right">';
   if (editMode) { h += '<button class="mci-toggle-btn" onclick="shToggleMCI(' + si + ')" title="' + (inactive ? 'Activate cult' : 'Suspend cult') + '">' + (inactive ? 'Suspended' : 'Active') + '</button>'; h += '<button class="dev-rm-btn" onclick="shRemoveStandMerit(' + si + ')" title="Remove MCI">\u00D7</button>'; }
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
-  h += '<span class="merit-dots-sh">' + shDots(eDots) + '</span></div></div>';
+  h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
     h += meritBdRow(rIdx, m, meritFixedRating(m.name)); h += _prereqWarn(c, m.name);
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
@@ -859,24 +848,21 @@ function _renderMCI(c, m, si, rIdx, mc, dd, editMode) {
     if (pool > 0) h += '<div class="mci-pool-row"><span class="mci-pool-lbl">Merit Pool</span><span class="mci-pool-val">' + pool + ' dot' + (pool === 1 ? '' : 's') + ' \u2014 allocate via MCI field on each merit</span></div>';
   } else if (!inactive) {
     const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
-    const tg = m.tier_grants || [];
-    const tierGrant = (tier) => { const g = tg.find(t => t.tier === tier); return g ? esc(g.name) + (g.qualifier ? ' (' + esc(g.qualifier) + ')' : '') + ' ' + shDots(g.rating) : null; };
     for (let d = 0; d < 5 && d < m.rating; d++) {
       let txt;
-      const tier = d + 1;
       if (d === 0) {
         if (d1c === 'speciality') txt = 'Spec: ' + (m.dot1_spec_skill ? esc(m.dot1_spec_skill) + (m.dot1_spec ? ' (' + esc(m.dot1_spec) + ')' : '') : '<span class="mci-unset">(unset)</span>');
-        else txt = tierGrant(tier) || '1 merit dot <span class="mci-unset">(unassigned)</span>';
+        else txt = '1 merit dot';
       } else if (d === 1) {
-        txt = tierGrant(tier) || '1 merit dot <span class="mci-unset">(unassigned)</span>';
+        txt = '1 merit dot';
       } else if (d === 2) {
         if (d3c === 'skill') txt = 'Skill: ' + (m.dot3_skill ? esc(m.dot3_skill) + ' +1' : '<span class="mci-unset">(unset)</span>');
-        else txt = tierGrant(tier) || '2 merit dots <span class="mci-unset">(unassigned)</span>';
+        else txt = '2 merit dots';
       } else if (d === 3) {
-        txt = tierGrant(tier) || '3 merit dots <span class="mci-unset">(unassigned)</span>';
+        txt = '3 merit dots';
       } else if (d === 4) {
         if (d5c === 'advantage') txt = 'Advantage: ' + (m.dot5_text ? esc(m.dot5_text) : '<span class="mci-unset">(unset)</span>');
-        else txt = tierGrant(tier) || '3 merit dots <span class="mci-unset">(unassigned)</span>';
+        else txt = '3 merit dots';
       }
       h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><span class="mci-benefit-text">' + (txt || '') + '</span></div>';
     }
@@ -890,11 +876,11 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
   const _skSel = (slotIdx, label) => { const cur = as[slotIdx] || ''; return '<select class="pt-skill-sel" onchange="shEditStandAssetSkill(' + si + ',' + slotIdx + ',this.value)"><option value="">' + (cur || label) + '</option>' + ALL_SKILLS.map(sk => '<option' + (cur === sk ? ' selected' : '') + '>' + esc(sk) + '</option>').join('') + '</select>'; };
   let h = '<div class="pt-block' + (inactive ? ' mci-inactive' : '') + '"><div class="pt-header"><div class="mci-title"><span class="merit-name-sh">' + esc(m.name) + '</span>';
   if (editMode) h += '<input type="text" class="stand-name-input" value="' + esc(m.role || '') + '" placeholder="Role" onchange="shEditStandMerit(' + si + ',\'role\',this.value)">';
-  else if (m.role) h += '<span class="merit-sub-sh">' + esc(m.role) + '</span>';
+  else if (m.role) h += '<span class="trait-qual">' + esc(m.role) + '</span>';
   h += '</div><div class="mci-header-right">';
   if (editMode) { h += '<button class="mci-toggle-btn" onclick="shTogglePT(' + si + ')" title="' + (inactive ? 'Activate PT' : 'Suspend PT') + '">' + (inactive ? 'Suspended' : 'Active') + '</button>'; h += '<button class="dev-rm-btn" onclick="shRemoveStandMerit(' + si + ')" title="Remove PT">\u00D7</button>'; }
   else if (inactive) h += '<span class="mci-toggle-btn" style="opacity:0.5">Suspended</span>';
-  h += '<span class="merit-dots-sh">' + shDots(eDots) + '</span></div></div>';
+  h += '<span class="trait-dots">' + shDots(eDots) + '</span></div></div>';
   if (editMode) {
     h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: mciPool > 0 });
     h += _prereqWarn(c, m.name);
@@ -921,13 +907,13 @@ function _renderPT(c, m, si, rIdx, mc, dd, editMode, mciPool = 0) {
     if (eDots >= 5) h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">\u25CF\u25CF\u25CF\u25CF\u25CF</span><span class="mci-benefit-text">The Routine: spend 1 WP for Rote quality on any Asset Skill action. Adds +3 to roll</span></div>';
     h += '</div>';
   } else {
-    if (as.filter(Boolean).length) h += '<div class="pt-assets">' + as.filter(Boolean).map(s => '<span class="pt-skill-tag">' + esc(s) + '</span>').join('') + '</div>';
+    if (as.filter(Boolean).length) h += '<div class="pt-assets"><span class="mci-benefit-text" style="flex-shrink:0">Asset Skills (9-Again):</span>' + as.filter(Boolean).map(s => '<span class="pt-skill-tag">' + esc(s) + '</span>').join('') + '</div>';
     const PT_BENEFITS = [
-      'Networking: 2 dots Contacts (' + (m.role || 'field') + ')',
-      'Continuing Education: 9-Again on Asset Skills (' + as.slice(0, 2).filter(Boolean).join(', ') + ')',
-      'Breadth of Knowledge: 3rd Asset Skill + 2 PT Specialisations (Asset Skills only)',
-      'On the Job Training: +1 dot in ' + (m.dot4_skill ? esc(m.dot4_skill) : 'an Asset Skill'),
-      'The Routine: spend 1 WP for Rote quality on any Asset Skill action. Adds +3 to roll'
+      '2 dots of Contacts',
+      '2 Asset Skills',
+      '3rd Asset Skill, +2 Specialisations on Asset Skills',
+      '+1 dot in ' + (m.dot4_skill ? esc(m.dot4_skill) : 'an Asset Skill'),
+      '1WP for Rote quality on any Asset Skill action'
     ];
     for (let d = 0; d < eDots && d < 5; d++) h += '<div class="mci-benefit-row"><span class="mci-dot-lbl">' + dots[d] + '</span><span class="mci-benefit-text">' + PT_BENEFITS[d] + '</span></div>';
   }
@@ -1011,7 +997,7 @@ export function shRenderGeneralMerits(c, editMode) {
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
-        h += shRenderMeritRow(m.name + qual, 'gmerit', i, grantTag + dotH);
+        h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag);
         if (pw) h += pw;
       } else { h += shRenderMeritRow(m.name + qual + (m.rating ? ' ' + shDots(m.rating) : ''), 'merit', i, dotH); if (pw) h += pw; }
     });
@@ -1250,24 +1236,24 @@ export function shRenderManoeuvres(c, editMode) {
     h += '<div class="sh-merit-cp-row" style="margin-bottom:6px"><span style="color:var(--txt2)">' + totalDots + ' dot' + (totalDots === 1 ? '' : 's') + ', ' + totalPicks + ' pick' + (totalPicks === 1 ? '' : 's') + '</span></div>';
     if (otsFreeDots > 0) {
       const otsCls = otsUsed > otsFreeDots ? ' sc-over' : otsUsed === otsFreeDots ? ' sc-full' : ' sc-val';
-      h += '<div class="grant-pool-row"><span style="color:var(--accent)">Oath of the Scapegoat</span> free style/merit dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
+      h += '<div class="grant-pool-row"><span class="grant-pool-tag">Oath of the Scapegoat</span> free style/merit dots <span class="' + otsCls + '">' + otsUsed + '/' + otsFreeDots + '</span></div>';
     }
 
     // Style Points — tag totals for unorthodox access
     const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
     if (tagEntries.length) {
       h += '<div class="grant-pools">';
-      h += '<div style="font-size:9px;letter-spacing:.07em;color:var(--txt3);margin-bottom:3px">STYLE POINTS (unorthodox access)</div>';
+      h += '<div class="sh-sub-title">STYLE POINTS (unorthodox access)</div>';
       tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
-        h += '<div class="grant-pool-row"><span style="color:var(--accent)">' + esc(tag) + '</span>'
+        h += '<div class="grant-pool-row"><span class="grant-pool-tag">' + esc(tag) + '</span>'
           + '<span style="margin-left:6px">' + shDots(Math.min(count, 5)) + '</span>'
-          + '<span style="font-size:10px;color:var(--txt3);margin-left:6px">rank 1\u2013' + count + '</span></div>';
+          + '<span class="grant-pool-rank">rank 1\u2013' + count + '</span></div>';
       });
       h += '</div>';
     }
 
     // ── Fighting Styles ──────────────────────────────────────
-    h += '<div class="sh-sub-title" style="color:var(--accent);font-size:11px;letter-spacing:.05em;margin:6px 0 2px">Fighting Styles</div>';
+    h += '<div class="sh-sub-title">Fighting Styles</div>';
     h += '<div class="man-list">';
     fStyles.forEach(fs => {
       const si = styles.indexOf(fs);
@@ -1289,8 +1275,8 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">orthodox rank 1\u2013' + dots + '</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
-      if (fs.free_mci) h += '<div style="' + _DN + '">MCI: +' + fs.free_mci + ' dot' + (fs.free_mci !== 1 ? 's' : '') + ' (auto) \u2014 removed if MCI drops</div>';
-      if (fs.free_ots) h += '<div style="' + _DN + '">OTS: +' + fs.free_ots + ' dot' + (fs.free_ots !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
+      if (fs.free_mci) h += '<div class="derived-note">MCI: +' + fs.free_mci + ' dot' + (fs.free_mci !== 1 ? 's' : '') + ' (auto) \u2014 removed if MCI drops</div>';
+      if (fs.free_ots) h += '<div class="derived-note">OTS: +' + fs.free_ots + ' dot' + (fs.free_ots !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
 
       h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove">&times; Remove</button>';
       h += '<div style="clear:both"></div></div>';
@@ -1305,7 +1291,7 @@ export function shRenderManoeuvres(c, editMode) {
     h += '</select></div></div>';
 
     // ── Fighting Merits ──────────────────────────────────────
-    h += '<div class="sh-sub-title" style="color:var(--accent);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Fighting Merits</div>';
+    h += '<div class="sh-sub-title">Fighting Merits</div>';
     h += '<div class="man-list">';
     const fmEntry = fMerits.find(fs => fs.name === 'Fighting Merit');
     if (fmEntry) {
@@ -1324,8 +1310,8 @@ export function shRenderManoeuvres(c, editMode) {
         + '<div class="bd-eq"><span class="bd-val">' + dots + ' dot' + (dots === 1 ? '' : 's') + '</span>'
         + (dots > 0 ? '<span style="font-size:9px;color:var(--txt3);margin-left:4px">1 pick / dot</span>' : '')
         + (fsUp ? '<span class="bd-up-warn">+' + fsUp + ' unaccounted</span>' : '') + '</div></div>';
-      if (fmEntry.free_mci) h += '<div style="' + _DN + '">MCI: +' + fmEntry.free_mci + ' dot' + (fmEntry.free_mci !== 1 ? 's' : '') + ' (auto) \u2014 removed if MCI drops</div>';
-      if (fmEntry.free_ots) h += '<div style="' + _DN + '">OTS: +' + fmEntry.free_ots + ' dot' + (fmEntry.free_ots !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
+      if (fmEntry.free_mci) h += '<div class="derived-note">MCI: +' + fmEntry.free_mci + ' dot' + (fmEntry.free_mci !== 1 ? 's' : '') + ' (auto) \u2014 removed if MCI drops</div>';
+      if (fmEntry.free_ots) h += '<div class="derived-note">OTS: +' + fmEntry.free_ots + ' dot' + (fmEntry.free_ots !== 1 ? 's' : '') + ' (auto) \u2014 removed if oath is removed</div>';
       h += '<button class="sk-spec-rm" style="float:right;margin:4px" onclick="shRemoveStyle(' + si + ')" title="Remove">&times; Remove</button>';
       h += '<div style="clear:both"></div></div>';
     } else {
@@ -1335,7 +1321,7 @@ export function shRenderManoeuvres(c, editMode) {
 
     // ── Picks editor ─────────────────────────────────────────
     const remaining = maxPicks - totalPicks;
-    h += '<div class="sh-sub-title" style="color:var(--accent);font-size:11px;letter-spacing:.05em;margin:10px 0 2px">Manoeuvres Picked'
+    h += '<div class="sh-sub-title">Manoeuvres Picked'
       + '<span style="font-weight:normal;color:var(--txt2);margin-left:8px">' + totalPicks + ' / ' + maxPicks + '</span></div>';
     h += '<div class="man-list">';
 
@@ -1377,43 +1363,39 @@ export function shRenderManoeuvres(c, editMode) {
     const tagEntries = Object.entries(tc).filter(([, v]) => v > 0);
     if (tagEntries.length) {
       h += '<div class="grant-pools">';
-      h += '<div style="font-size:9px;letter-spacing:.07em;color:var(--txt3);margin-bottom:3px">STYLE POINTS</div>';
+      h += '<div class="sh-sub-title">STYLE POINTS</div>';
       tagEntries.sort((a, b) => a[0].localeCompare(b[0])).forEach(([tag, count]) => {
-        h += '<div class="grant-pool-row"><span style="color:var(--accent)">' + esc(tag) + '</span>'
+        h += '<div class="grant-pool-row"><span class="grant-pool-tag">' + esc(tag) + '</span>'
           + '<span style="margin-left:6px">' + shDots(Math.min(count, 5)) + '</span>'
-          + '<span style="font-size:10px;color:var(--txt3);margin-left:6px">rank 1\u2013' + count + '</span></div>';
+          + '<span class="grant-pool-rank">rank 1\u2013' + count + '</span></div>';
       });
       h += '</div>';
     }
 
     if (fStyles.length) {
-      h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:2px 0 2px">FIGHTING STYLES</div>';
+      h += '<div class="sh-sub-title">FIGHTING STYLES</div>';
       h += '<div class="man-list">';
       fStyles.forEach(fs => {
         const _vPurch = (fs.cp || 0) + (fs.xp || 0), _vDerived = (fs.free_mci || 0) + (fs.free_ots || 0);
         const tags = STYLE_TAGS[fs.name] || [];
-        h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
-          + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
-          + shDotsMixed(_vPurch, _vDerived) + '</div>';
+        h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(fs.name) + '</span><div class="trait-right">' + shDotsMixed(_vPurch, _vDerived) + '</div></div>' + (tags.length ? '<div class="trait-sub"><span class="trait-qual">' + tags.map(t => esc(t)).join(', ') + '</span></div>' : '') + '</div></div>';
       });
       h += '</div>';
     }
 
     if (fMerits.length) {
-      h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:6px 0 2px">FIGHTING MERITS</div>';
+      h += '<div class="sh-sub-title">FIGHTING MERITS</div>';
       h += '<div class="man-list">';
       fMerits.forEach(fs => {
         const _vPurch = (fs.cp || 0) + (fs.xp || 0), _vDerived = (fs.free_mci || 0) + (fs.free_ots || 0);
         const tags = STYLE_TAGS[fs.name] || [];
-        h += '<div class="merit-plain"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(fs.name) + '</div>'
-          + (tags.length ? '<div class="merit-sub-sh">' + tags.map(t => esc(t)).join(', ') + '</div>' : '') + '</div>'
-          + shDotsMixed(_vPurch, _vDerived) + '</div>';
+        h += '<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(fs.name) + '</span><div class="trait-right">' + shDotsMixed(_vPurch, _vDerived) + '</div></div>' + (tags.length ? '<div class="trait-sub"><span class="trait-qual">' + tags.map(t => esc(t)).join(', ') + '</span></div>' : '') + '</div></div>';
       });
       h += '</div>';
     }
 
     if (allPicks.length) {
-      h += '<div class="sh-sub-title" style="color:var(--txt3);font-size:10px;letter-spacing:.08em;margin:6px 0 2px">MANOEUVRES</div>';
+      h += '<div class="sh-sub-title">MANOEUVRES</div>';
       h += '<div class="man-list">';
       allPicks.forEach((pk, pi) => {
         const manName = typeof pk === 'string' ? pk : pk.manoeuvre;
@@ -1423,9 +1405,7 @@ export function shRenderManoeuvres(c, editMode) {
         const body = db
           ? '<div class="man-exp-body"><div class="man-style">' + esc(db.style) + ' \u2014 Rank ' + esc(db.rank) + '</div><div>' + esc(db.effect || '') + '</div>' + (db.prereqStr ? '<div class="man-prereq">Prerequisite: ' + esc(db.prereqStr) + '</div>' : '') + '</div>'
           : '<div>' + esc(manName) + '</div>';
-        h += '<div class="exp-row' + (prereqOk ? '' : ' merit-prereq-fail') + '" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0"><div class="merit-name-sh">' + esc(manName) + '</div>'
-          + (db ? '<div class="merit-sub-sh">' + esc(db.style) + ' \u2014 Rank ' + db.rank + (prereqOk ? '' : ' \u2014 prereq not met') + '</div>' : '') + '</div>'
-          + '<span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
+        h += '<div class="exp-row' + (prereqOk ? '' : ' merit-prereq-fail') + '" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(manName) + '</span><div class="trait-right"><span class="exp-arr">\u203A</span></div></div>' + (db ? '<div class="trait-sub"><span class="trait-qual">' + esc(db.style) + ' \u2014 Rank ' + db.rank + (prereqOk ? '' : ' \u2014 prereq not met') + '</span></div>' : '') + '</div></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
       });
       h += '</div>';
     }
@@ -1435,15 +1415,15 @@ export function shRenderManoeuvres(c, editMode) {
   return h;
 }
 
-export function shRenderMeritRow(m, idPrefix, i, dotHtml) {
+export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
   const b2 = meritBase(m), dc = meritDotCount(m), ds = dc ? shDots(dc) : '', pm = b2.match(/^([^(]+?)\s*\((.+)\)$/), mn = pm ? pm[1].trim() : b2, sn = pm ? pm[2].trim() : null;
-  const nh = sn ? '<div class="merit-name-sh">' + esc(mn) + '</div><div class="merit-sub-sh">' + esc(sn) + '</div>' : '<div class="merit-name-sh">' + esc(mn) + '</div>';
-  const db = meritLookup(m), dt = dotHtml !== undefined ? dotHtml : (ds ? '<span class="merit-dots-sh">' + ds + '</span>' : '');
+  const db = meritLookup(m), dt = dotHtml !== undefined ? dotHtml : (ds ? '<span class="trait-dots">' + ds + '</span>' : '');
+  const _inner = (hasArr) => '<div class="trait-row"><div class="trait-main"><span class="trait-name">' + esc(mn) + '</span><div class="trait-right">' + (dt || '') + '<span class="exp-arr' + (hasArr ? '' : ' trait-arr-hidden') + '">\u203A</span></div></div>' + ((sn || chipHtml) ? '<div class="trait-sub">' + (chipHtml || '') + (sn ? '<span class="trait-qual">' + esc(sn) + '</span>' : '') + '</div>' : '') + '</div>';
   if (db && db.desc) {
     const id2 = idPrefix + i, pqStr = db.prereq ? prereqLabel(db.prereq) : '', body = '<div>' + esc(db.desc) + '</div>' + (pqStr ? '<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ' + esc(pqStr) + '</div>' : '');
-    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')"><div style="flex:1;min-width:0">' + nh + '</div>' + dt + '<span class="exp-arr">\u203A</span></div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
+    return '<div class="exp-row" id="exp-row-' + id2 + '" onclick="toggleExp(\'' + id2 + '\')">' + _inner(true) + '</div><div class="exp-body" id="exp-body-' + id2 + '">' + body + '</div>';
   }
-  return '<div class="merit-plain"><div style="flex:1;min-width:0">' + nh + '</div>' + dt + '</div>';
+  return '<div class="merit-plain">' + _inner(false) + '</div>';
 }
 
 /* ── renderSheet orchestrator ── */
@@ -1456,7 +1436,7 @@ export function renderSheet(c, target = null) {
   if (!c) { el.innerHTML = ''; return; }
   applyDerivedMerits(c, chars); ensureMeritSync(c);
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '', st = c.status || {}, wp = getWillpower(c);
-  const clanIconHtml = clanIcon(c.clan, 36), covIconHtml = covIcon(c.covenant, 36);
+  const clanIconHtml = clanIcon(c.clan, 48), covIconHtml = covIcon(c.covenant, 48);
   const allB = c.banes || [], curseIdx = allB.findIndex(b => b.name.toLowerCase().includes('curse')), curse = curseIdx >= 0 ? allB[curseIdx] : null, regB = allB.filter((_, i) => i !== curseIdx);
   let h = '';
   // Desktop layout hint — admin CSS uses this for 3-col grid
@@ -1493,18 +1473,6 @@ export function renderSheet(c, target = null) {
   if (curse) h += expRow('curse', 'Curse', esc(curse.name), '<div>' + esc(curse.effect || '') + '</div>');
   if (editMode) { regB.forEach((b, bi) => { const ri = allB.indexOf(b); h += '<div class="exp-row" style="flex-direction:column;align-items:stretch;padding:8px 10px"><div class="sh-bane-edit-row"><span class="exp-lbl" style="min-width:36px">Bane</span><select class="sh-edit-select" style="flex:1" onchange="shEditBaneName(' + ri + ',this.value)"><option value="">(select)</option>' + BANE_LIST.map(bn => '<option' + (b.name === bn ? ' selected' : '') + '>' + esc(bn) + '</option>').join('') + '</select><button class="sh-bane-rm" onclick="shRemoveBane(' + ri + ')" title="Remove">&times;</button></div><input class="sh-edit-input" value="' + esc(b.effect || '') + '" onchange="shEditBaneEffect(' + ri + ',this.value)" placeholder="Effect text" style="margin-top:4px;font-size:11px"></div>'; }); h += '<button class="sh-bane-add" onclick="shAddBane()">+ Add Bane</button>'; }
   else regB.forEach((b, i) => { h += expRow('bane' + i, 'Bane', esc(b.name), '<div>' + esc(b.effect || '') + '</div>'); });
-  // Features: auto-detected + manual notes
-  const _autoFeat = derivedFeatures(c);
-  if (editMode || _autoFeat.length || c.features) {
-    h += '<div class="sh-features-block">';
-    h += '<div class="sh-features-row"><span class="exp-lbl labeled">Features</span><span class="sh-features-auto">' + (_autoFeat.length ? _autoFeat.map(f => '<span class="sh-feat-tag">' + esc(f) + '</span>').join('') : '<span class="sh-feat-none">None detected</span>') + '</span></div>';
-    if (editMode) {
-      h += '<input class="sh-edit-input sh-features-extra" value="' + esc(c.features || '') + '" onchange="shEdit(\'features\',this.value)" placeholder="Additional features\u2026" style="margin-top:4px;font-size:11px">';
-    } else if (c.features) {
-      h += '<div class="sh-features-extra-view">' + esc(c.features) + '</div>';
-    }
-    h += '</div>';
-  }
   // Touchstones
   const ts = c.touchstones || [];
   if (editMode) {
@@ -1515,6 +1483,18 @@ export function renderSheet(c, target = null) {
   // Date of Embrace + Apparent Age
   if (editMode || c.date_of_embrace) { const _ded = c.date_of_embrace || ''; const _dedDisp = _ded ? new Date(_ded + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; h += '<div class="exp-row"><span class="exp-lbl labeled">Embrace</span>' + (editMode ? '<input type="date" class="sh-edit-input" value="' + esc(_ded) + '" onchange="shEdit(\'date_of_embrace\',this.value)">' : '<span class="exp-val">' + esc(_dedDisp) + '</span>') + '</div>'; }
   if (editMode || c.apparent_age) h += '<div class="exp-row"><span class="exp-lbl labeled">App. Age</span>' + (editMode ? '<input class="sh-edit-input" value="' + esc(c.apparent_age || '') + '" onchange="shEdit(\'apparent_age\',this.value)" placeholder="Apparent Age">' : '<span class="exp-val">' + esc(c.apparent_age) + '</span>') + '</div>';
+  // Features: auto-detected stats + manual notes — single card
+  const _autoFeat = derivedFeatures(c);
+  if (editMode || _autoFeat.length || c.features) {
+    h += '<div class="sh-features-card">';
+    h += '<div class="sh-features-top"><span class="exp-lbl labeled">Features</span><span class="exp-val sh-features-auto">' + (_autoFeat.length ? _autoFeat.join(', ') : '<span class="sh-feat-none">None detected</span>') + '</span></div>';
+    if (editMode) {
+      h += '<div class="sh-features-top"><span class="exp-lbl labeled"></span><input class="sh-edit-input" style="flex:1" value="' + esc(c.features || '') + '" onchange="shEdit(\'features\',this.value)" placeholder="Additional features\u2026"></div>';
+    } else if (c.features) {
+      h += '<div class="sh-features-top"><span class="exp-lbl labeled"></span><span class="exp-val">' + esc(c.features) + '</span></div>';
+    }
+    h += '</div>';
+  }
   h += '</div>'; // end left
   // Right panel
   h += '<div class="sh-hdr-right">';
@@ -1525,15 +1505,30 @@ export function renderSheet(c, target = null) {
   if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--accent)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), cityTotal = cityBase + titleBonus;
-  h += '<div class="sh-faction-sub">Title</div>' + _cityStatusDots(cityBase, titleBonus) + '</div>' + _cityStatusPip(editMode, cityBase, cityTotal, titleBonus) + '</div>';
-  const covRow = (iconHtml, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) => { h += '<div class="sh-hdr-row">' + (iconHtml ? '<div class="sh-faction-icon">' + iconHtml + '</div>' : '<div class="sh-icon-slot"></div>') + '<div class="sh-faction-text">' + (editMode ? editH : viewH) + '<div class="sh-faction-sub">' + sub + '</div></div>' + _statusPip(editMode, svg, sVal, sLbl, sKey, tBase, tBonus, tColor) + '</div>'; };
+  h += '<div class="sh-faction-sub">Title</div>'
+    + _statusDots(cityBase, titleBonus, 10)
+    + (editMode ? _statusEditBtns('shStatusDown(\'city\')', 'shStatusUp(\'city\')') : '')
+    + '</div>' + _statusPip(CITY_SVG, cityTotal, 'City') + '</div>';
+  // covRow: dots + arrows live in the text column; pip is just diamond + number + label
+  const covRow = (iconHtml, editH, viewH, sub, svg, sVal, sLbl, sKey, tBase, tBonus) => {
+    h += '<div class="sh-hdr-row">'
+      + (iconHtml ? '<div class="sh-faction-icon">' + iconHtml + '</div>' : '<div class="sh-icon-slot"></div>')
+      + '<div class="sh-faction-text">'
+      + (editMode ? editH : viewH)
+      + '<div class="sh-faction-sub">' + sub + '</div>'
+      + _statusDots(tBase, tBonus, 5)
+      + (editMode ? _statusEditBtns('shStatusDown(\'' + sKey + '\')', 'shStatusUp(\'' + sKey + '\')') : '')
+      + '</div>'
+      + _statusPip(svg, sVal, sLbl)
+      + '</div>';
+  };
   const _covBase = st.covenant || 0, _covOTSBonus = c._ots_covenant_bonus || 0, _covBonusDots = Math.max(0, _covOTSBonus - _covBase), _covEffective = Math.max(_covBase, _covOTSBonus);
-  covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', (_covBonusDots > 0 ? '<div style="font-size:9px;letter-spacing:.03em">Covenant ' + shDotsWithBonus(_covBase, _covBonusDots) + '<span style="color:#9E7AE0;margin-left:3px">OTS</span></div>' : 'Covenant'), OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots, '#9E7AE0');
+  covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots);
   if (editMode) {
     const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = (BLOODLINE_CLANS[c.clan] || []).slice().sort(), blO = bls.map(b => '<option' + (c.bloodline === b ? ' selected' : '') + '>' + b + '</option>').join('');
-    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
+    covRow(clanIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'clan\',this.value)">' + cOpts + '</select><select class="sh-edit-select" style="margin-top:3px;font-size:10px" onchange="shEdit(\'bloodline\',this.value||null);renderSheet(chars[editIdx])"><option value="">(no bloodline)</option>' + blO + '</select>', '', 'Clan / Bloodline', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   }
-  else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0, '');
+  else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   h += '</div></div></div>'; // end right, body, hdr
   // Covenant strip
   const covLbls = ['Carthian', 'Crone', 'Invictus', 'Lance'], covSM = { 'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone', 'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance' }, pLbl = covSM[c.covenant] || c.covenant;
