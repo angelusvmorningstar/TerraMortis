@@ -64,6 +64,71 @@ function resolveTerrId(raw) {
   return null;
 }
 
+// ── Merit action constants (duplicated from downtime-views.js per NFR-DS-01) ─
+
+const MERIT_MATRIX = {
+  allies: {
+    ambience_increase: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3\u20134: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3\u20134: \u22121 ambience; Lvl 5: \u22122 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk \u2212 Hide/Protect) halved (round up) removed from target merit level', effectAuto: '(Level \u2212 Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit', effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool', effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1\u20135+)', effectAuto: '(Level \u2212 Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate \u2212 Hide/Protect = net successes)', effectAuto: 'See Investigation Matrix (Level \u2212 Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1\u20135+)', effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of same level or lower' },
+  },
+  status: {
+    ambience_increase: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3\u20134: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3\u20134: \u22121 ambience; Lvl 5: \u22122 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk \u2212 Hide/Protect) halved (round up) removed from target merit level', effectAuto: '(Level \u2212 Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit', effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool', effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1\u20135+)', effectAuto: '(Level \u2212 Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate \u2212 Hide/Protect = net successes)', effectAuto: 'See Investigation Matrix (Level \u2212 Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1\u20135+)', effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of lower level' },
+  },
+  retainer: {
+    ambience_increase: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3\u20134: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none',       mode: 'auto',      effect: 'Lvl 3\u20134: \u22121 ambience; Lvl 5: \u22122 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk \u2212 Hide/Protect) halved (round up) removed from target merit level', effectAuto: '(Level \u2212 Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit', effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool', effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1\u20135+)', effectAuto: '(Level \u2212 Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate \u2212 Hide/Protect = net successes)', effectAuto: 'See Investigation Matrix (Level \u2212 Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1\u20135+)', effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'blocked',   effect: 'Cannot perform Block' },
+  },
+  staff: {
+    ambience_increase: { poolFormula: 'none', mode: 'auto',      effect: '+1 ambience' },
+    ambience_decrease: { poolFormula: 'none', mode: 'auto',      effect: '\u22121 ambience' },
+    attack:            { poolFormula: 'none', mode: 'contested', effect: '(1 \u2212 Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'none', mode: 'instant',   effect: '\u22121 success from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'none', mode: 'instant',   effect: '+1 success to supported action' },
+    patrol_scout:      { poolFormula: 'none', mode: 'contested', effect: '1 action revealed (1 \u2212 Hide/Protect = net successes; detail scales 1\u20135+)' },
+    investigate:       { poolFormula: 'none', mode: 'contested', effect: 'See Investigation Matrix (1 \u2212 Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'none', mode: 'instant',   effect: '1 similar-merit action revealed (1 success)' },
+    block:             { poolFormula: 'none', mode: 'blocked',   effect: 'Cannot perform Block' },
+  },
+  contacts: {
+    investigate:  { poolFormula: 'contacts', mode: 'contested', effect: 'If \u22651 success: information appropriate to sphere/theme asked' },
+    patrol_scout: { poolFormula: 'contacts', mode: 'contested', effect: 'If \u22651 success: information appropriate to sphere/theme asked' },
+    rumour:       { poolFormula: 'contacts', mode: 'contested', effect: 'If \u22651 success: information appropriate to sphere/theme asked' },
+  },
+};
+
+const INVESTIGATION_MATRIX = [
+  { type: 'Public',       innate: +3, noLead: -1,
+    results: ['Gain all publicly available information', 'Also gain lead on Internal information', 'Also gain lead on Confidential information', 'Also gain lead on Restricted information', 'Also one Rumour'] },
+  { type: 'Internal',     innate: -1, noLead: -2,
+    results: ['Gain lead on Internal information', 'Learn whether the information you seek exists', 'Gain vague Internal information', 'Gain basic Internal information', 'Gain detailed Internal information'] },
+  { type: 'Confidential', innate: -2, noLead: -4,
+    results: ['Gain lead on Confidential information', 'Learn whether the information you seek exists', 'Gain vague Confidential information', 'Gain basic Confidential information', 'Gain detailed Confidential information'] },
+  { type: 'Restricted',   innate: -3, noLead: -5,
+    results: ['Gain lead on Restricted information', 'Learn whether the information you seek exists', 'Gain vague Restricted information', 'Gain basic Restricted information', 'Gain detailed Restricted information'] },
+];
+
 // ── Module state ─────────────────────────────────────────────────────────────
 
 let _allSubmissions = [];   // GET /api/downtime_submissions?cycle_id=
@@ -147,33 +212,43 @@ export async function initDtStory(cycleId) {
     // Determine which section the clicked element belongs to
     const sectionKey = e.target.closest('.dt-story-section')?.dataset.section;
 
+    const MERIT_SECTIONS = new Set(['allies_actions', 'status_actions', 'retainer_actions', 'contact_requests']);
+
     // Copy Context
     const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
     if (copyBtn) {
-      if (sectionKey === 'project_responses') { handleCopyProjectContext(copyBtn);    return; }
-      if (sectionKey === 'letter_from_home')  { handleCopyLetterContext(copyBtn);     return; }
-      if (sectionKey === 'touchstone')        { handleCopyTouchstoneContext(copyBtn); return; }
-      if (sectionKey === 'territory_reports') { handleCopyTerritoryContext(copyBtn);  return; }
+      if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);    return; }
+      if (sectionKey === 'letter_from_home')    { handleCopyLetterContext(copyBtn);     return; }
+      if (sectionKey === 'touchstone')          { handleCopyTouchstoneContext(copyBtn); return; }
+      if (sectionKey === 'territory_reports')   { handleCopyTerritoryContext(copyBtn);  return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);     return; }
       return;
     }
+
+    // Approve / Flag (resources only)
+    const approveBtn = e.target.closest('.dt-story-approve-btn, .dt-story-flag-btn');
+    if (approveBtn && sectionKey === 'resource_approvals') { handleResourceApproval(approveBtn); return; }
 
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
-      if (sectionKey === 'project_responses') { handleProjectSave(saveDraftBtn, 'draft');       return; }
-      if (sectionKey === 'letter_from_home')  { handleLetterSave(saveDraftBtn, 'draft');        return; }
-      if (sectionKey === 'touchstone')        { handleTouchstoneSave(saveDraftBtn, 'draft');    return; }
-      if (sectionKey === 'territory_reports') { handleTerritorySave(saveDraftBtn, 'draft');     return; }
+      if (sectionKey === 'project_responses')   { handleProjectSave(saveDraftBtn, 'draft');    return; }
+      if (sectionKey === 'letter_from_home')    { handleLetterSave(saveDraftBtn, 'draft');     return; }
+      if (sectionKey === 'touchstone')          { handleTouchstoneSave(saveDraftBtn, 'draft'); return; }
+      if (sectionKey === 'territory_reports')   { handleTerritorySave(saveDraftBtn, 'draft');  return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(saveDraftBtn, 'draft');     return; }
+      if (sectionKey === 'resource_approvals')  { handleFlagNoteSave(saveDraftBtn);            return; }
       return;
     }
 
     // Mark Complete
     const completeBtn = e.target.closest('.dt-story-mark-complete-btn');
     if (completeBtn && !completeBtn.disabled) {
-      if (sectionKey === 'project_responses') { handleProjectSave(completeBtn, 'complete');     return; }
-      if (sectionKey === 'letter_from_home')  { handleLetterSave(completeBtn, 'complete');      return; }
-      if (sectionKey === 'touchstone')        { handleTouchstoneSave(completeBtn, 'complete');  return; }
-      if (sectionKey === 'territory_reports') { handleTerritorySave(completeBtn, 'complete');   return; }
+      if (sectionKey === 'project_responses')   { handleProjectSave(completeBtn, 'complete');    return; }
+      if (sectionKey === 'letter_from_home')    { handleLetterSave(completeBtn, 'complete');     return; }
+      if (sectionKey === 'touchstone')          { handleTouchstoneSave(completeBtn, 'complete'); return; }
+      if (sectionKey === 'territory_reports')   { handleTerritorySave(completeBtn, 'complete');  return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(completeBtn, 'complete');     return; }
       return;
     }
   });
@@ -224,35 +299,24 @@ function isSectionDone(stNarrative, sectionKey, sub) {
     case 'project_responses':
       return projectResponsesComplete(sub);
     case 'resource_approvals': {
+      // Complete when every resource action has been reviewed (approved or flagged)
+      const applicable = (sub?.merit_actions || []).filter((a, i) => {
+        const cat = deriveMeritCategory(a.merit_type);
+        const rev = sub?.merit_actions_resolved?.[i] || {};
+        return cat === 'resources' && rev.pool_status !== 'skipped';
+      });
+      if (!applicable.length) return true;
       const approvals = stNarrative.resource_approvals || [];
-      return approvals.length > 0 && approvals.every(r => r.approved === true);
+      return applicable.every((_, i) => approvals[i]?.approved !== undefined);
     }
     case 'cacophony_savvy': {
       const cs = stNarrative.cacophony_savvy || [];
       return cs.length > 0 && cs.every(r => r.status === 'complete');
     }
-    case 'allies_actions':
-    case 'status_actions':
-    case 'retainer_actions':
-    case 'contact_requests': {
-      const catMap = {
-        allies_actions:   ['allies'],
-        status_actions:   ['status'],
-        retainer_actions: ['retainer', 'staff'],
-        contact_requests: ['contacts'],
-      };
-      const cats = catMap[sectionKey];
-      const indices = (sub?.merit_actions_resolved || [])
-        .map((a, i) => ({ a, i }))
-        .filter(({ a }) => cats.includes(a.meritCategory))
-        .map(({ i }) => i);
-      if (!indices.length) return false;
-      const responses = stNarrative.action_responses || [];
-      return indices.every(idx => {
-        const rsp = responses.find(r => r.action_index === idx);
-        return rsp?.status === 'complete';
-      });
-    }
+    case 'allies_actions':   return actionResponsesComplete(sub, ['allies']);
+    case 'status_actions':   return actionResponsesComplete(sub, ['status']);
+    case 'retainer_actions': return actionResponsesComplete(sub, ['retainer', 'staff']);
+    case 'contact_requests': return actionResponsesComplete(sub, ['contacts']);
     default:
       return isSectionComplete(stNarrative, sectionKey);
   }
@@ -403,6 +467,17 @@ function buildUpdatedProjectResponses(sub, idx, patch) {
   return arr;
 }
 
+/**
+ * Generic array patcher. Creates/extends arr to include idx, deep-merges patch.
+ * Used by merit action and resource approval save handlers.
+ */
+function buildUpdatedArray(arr, idx, patch) {
+  const updated = [...arr];
+  while (updated.length <= idx) updated.push(null);
+  updated[idx] = { ...(updated[idx] || {}), ...patch };
+  return updated;
+}
+
 // ── Character lookup ──────────────────────────────────────────────────────────
 
 function getCharForSub(sub) {
@@ -435,8 +510,12 @@ function getApplicableSections(char, sub) {
     sections.push({ key: 'project_responses', label: 'Project Reports' });
   }
 
-  const meritActions = sub?.merit_actions_resolved || [];
-  const hasCategory = (cats) => meritActions.some(a => cats.includes(a.meritCategory));
+  const hasCategory = (cats) => (sub?.merit_actions || []).some((a, i) => {
+    const cat = deriveMeritCategory(a.merit_type);
+    if (!cats.includes(cat)) return false;
+    const rev = sub?.merit_actions_resolved?.[i] || {};
+    return rev.pool_status !== 'skipped';
+  });
 
   if (hasCategory(['allies']))            sections.push({ key: 'allies_actions',     label: 'Allies Actions' });
   if (hasCategory(['status']))            sections.push({ key: 'status_actions',     label: 'Status Actions' });
@@ -538,6 +617,11 @@ function renderSection(section, char, sub, stNarrative) {
     case 'touchstone':         return renderTouchstone(char, sub, stNarrative);
     case 'project_responses':  return renderProjectSection(char, sub);
     case 'territory_reports':  return renderTerritoryReports(char, sub, stNarrative, _allSubmissions, _allCharacters);
+    case 'allies_actions':     return renderAlliesSection(char, sub);
+    case 'status_actions':     return renderStatusSection(char, sub);
+    case 'retainer_actions':   return renderRetainerSection(char, sub);
+    case 'contact_requests':   return renderContactsSection(char, sub);
+    case 'resource_approvals': return renderResourcesSection(char, sub);
     default: return renderSectionScaffold(section.key, section.label, stNarrative);
   }
 }
@@ -966,6 +1050,450 @@ function renderTouchstone(char, sub, stNarrative) {
 
   h += `</div>`; // section-body
   h += `</div>`; // dt-story-section
+  return h;
+}
+
+// ── Merit action helpers (B3) ─────────────────────────────────────────────────
+
+/**
+ * Derives the merit category from a merit type string.
+ * Mirrors _parseMeritType in downtime-views.js — duplicated per NFR-DS-01.
+ */
+function deriveMeritCategory(meritTypeStr) {
+  const s = (meritTypeStr || '').toLowerCase();
+  if (/allies/.test(s))    return 'allies';
+  if (/status/.test(s))    return 'status';
+  if (/retainer/.test(s))  return 'retainer';
+  if (/staff/.test(s))     return 'staff';
+  if (/contacts?/.test(s)) return 'contacts';
+  if (/resources?/.test(s)) return 'resources';
+  return 'misc';
+}
+
+/**
+ * Looks up a merit's dot count and qualifier from the character sheet.
+ * Returns { dots, qualifier, label }.
+ */
+function getMeritDetails(char, action) {
+  const meritName = (action.merit_type || '').replace(/\s*\d+\s*$/, '').trim();
+  const merit = char?.merits?.find(m =>
+    m.name?.toLowerCase().includes(meritName.toLowerCase()) ||
+    meritName.toLowerCase().includes((m.name || '').toLowerCase())
+  );
+  return {
+    dots:      merit ? (merit.dots || 0) : 0,
+    qualifier: merit?.qualifier || action.qualifier || '',
+    label:     merit?.name || meritName,
+  };
+}
+
+/**
+ * Computes the Investigation Matrix outcome string from a resolved entry.
+ * Returns null if rev.roll or rev.inv_secrecy is absent.
+ */
+function getInvestigateInterpretation(rev) {
+  if (!rev.roll || !rev.inv_secrecy) return null;
+  const tier = INVESTIGATION_MATRIX.find(t => t.type === rev.inv_secrecy);
+  if (!tier) return null;
+  let modifier = tier.innate;
+  if (!rev.inv_has_lead) modifier += tier.noLead;
+  const net = (rev.roll.successes || 0) + modifier;
+  if (net < 1) return `Matrix result (${tier.type}, net ${net}): insufficient successes`;
+  const resultIdx = Math.min(Math.max(net - 1, 0), tier.results.length - 1);
+  return `Matrix result (${tier.type}, net ${net}): ${tier.results[resultIdx]}`;
+}
+
+/**
+ * Returns true when all non-skipped merit actions in the given categories are complete.
+ * Returns true if no applicable actions exist (section suppressed = trivially complete).
+ * Uses global indices so responses[idx] aligns with merit_actions[idx].
+ */
+function actionResponsesComplete(sub, categories) {
+  const applicable = [];
+  (sub?.merit_actions || []).forEach((a, globalIdx) => {
+    const cat = deriveMeritCategory(a.merit_type);
+    if (!categories.includes(cat)) return;
+    const rev = sub?.merit_actions_resolved?.[globalIdx] || {};
+    if (rev.pool_status !== 'skipped') applicable.push(globalIdx);
+  });
+  if (!applicable.length) return true;
+  const responses = sub?.st_narrative?.action_responses || [];
+  return applicable.every(globalIdx => responses[globalIdx]?.status === 'complete');
+}
+
+// ── A1: Cross-action derivation functions (Story 1.8) ─────────────────────────
+// These are pure derivation functions — no new schema fields. Wired into buildActionContext.
+// NOTE: The "Supported" chip is not implemented — support_target_char does not exist as a
+// structured field. Support context surfaces via notes_thread entries set during DT Processing.
+
+/**
+ * Returns hide/protect project actions by the same character in the given territory.
+ * Returns [] if terrId is null or no matching actions exist.
+ */
+function getHideProtectCover(sub, terrId) {
+  if (!terrId) return [];
+  return (sub.projects_resolved || []).filter((rev, idx) => {
+    if (!rev || rev.action_type !== 'hide_protect') return false;
+    if (rev.pool_status === 'skipped') return false;
+    const slot = idx + 1;
+    return resolveTerrId(sub.responses?.[`project_${slot}_territory`] || '') === terrId;
+  }).map(rev => ({ successes: rev.roll?.successes ?? null }));
+}
+
+/**
+ * Returns attack/investigate actions from other characters targeting this character.
+ * Checks both projects_resolved and merit_actions_resolved on other submissions.
+ */
+function getContestingActions(sub, char, allSubmissions) {
+  const charName = char ? displayName(char) : '';
+  const contesters = [];
+  for (const s of allSubmissions) {
+    if (s._id === sub._id) continue;
+    (s.projects_resolved || []).forEach(rev => {
+      if (!rev || rev.pool_status === 'skipped') return;
+      const isAttack = rev.action_type === 'attack' && rev.attack_target_char === charName;
+      const isInvest = rev.action_type === 'investigate' && rev.investigate_target_char === charName;
+      if (!isAttack && !isInvest) return;
+      contesters.push({ type: isAttack ? 'attack' : 'investigate', characterName: s.character_name || 'Unknown', successes: rev.roll?.successes ?? null });
+    });
+    (s.merit_actions_resolved || []).forEach(rev => {
+      if (!rev || rev.pool_status === 'skipped') return;
+      const isAttack = rev.action_type === 'attack' && rev.attack_target_char === charName;
+      const isInvest = rev.action_type === 'investigate' && rev.investigate_target_char === charName;
+      if (!isAttack && !isInvest) return;
+      contesters.push({ type: isAttack ? 'attack' : 'investigate', characterName: s.character_name || 'Unknown', successes: rev.roll?.successes ?? null });
+    });
+  }
+  return contesters;
+}
+
+/**
+ * Returns other characters' allies/status/retainer merit actions in the same territory.
+ * Territory is read from sub.st_review.territory_overrides[`allies_${meritFlatIdx}`].
+ * Returns [] if no territory override is set for this action.
+ */
+function getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) {
+  const rawOverride = sub.st_review?.territory_overrides?.[`allies_${meritFlatIdx}`] || '';
+  const terrId = resolveTerrId(rawOverride);
+  if (!terrId) return [];
+  const overlaps = [];
+  for (const s of allSubmissions) {
+    if (s._id === sub._id) continue;
+    (s.merit_actions_resolved || []).forEach((rev, idx) => {
+      if (!rev || rev.pool_status === 'skipped') return;
+      const cat = deriveMeritCategory(rev.merit_type || '');
+      if (!['allies', 'status', 'retainer'].includes(cat)) return;
+      const otherTerr = resolveTerrId(s.st_review?.territory_overrides?.[`allies_${idx}`] || '');
+      if (otherTerr !== terrId) return;
+      overlaps.push({ characterName: s.character_name || 'Unknown', meritType: rev.merit_type || '' });
+    });
+  }
+  return overlaps;
+}
+
+// ── Action context builder (B3 + A1) ─────────────────────────────────────────
+
+/**
+ * Assembles the Copy Context prompt for a single merit action.
+ * Pure function — reads module-level _allSubmissions / _allCharacters for cross-action chips.
+ */
+function buildActionContext(char, sub, idx) {
+  const action = sub.merit_actions?.[idx] || {};
+  const rev    = sub.merit_actions_resolved?.[idx] || {};
+
+  const actionType  = rev.action_type_override || action.action_type || '';
+  const meritCat    = deriveMeritCategory(action.merit_type);
+  const { dots, qualifier, label } = getMeritDetails(char, action);
+  const matrixEntry = MERIT_MATRIX[meritCat]?.[actionType] || {};
+  const isAuto      = matrixEntry.poolFormula === 'none';
+  const mode        = isAuto ? 'Auto (no roll)' : 'Rolled';
+
+  // Pool display
+  const basePool = matrixEntry.poolFormula === 'dots2plus2' ? (dots * 2) + 2 : null;
+  const pool = rev.pool_validated || action.primary_pool ||
+    (basePool ? `${basePool} dice` : (matrixEntry.poolFormula === 'contacts' ? 'Contacts pool' : 'Auto'));
+
+  // Territory (allies/status only)
+  const territory = ['allies', 'status'].includes(meritCat)
+    ? (sub.st_review?.territory_overrides?.[`allies_${idx}`] || '')
+    : '';
+
+  // Cross-action context (A1)
+  const terrId    = territory ? resolveTerrId(territory) : null;
+  const covered   = getHideProtectCover(sub, terrId);
+  const contested = getContestingActions(sub, char, _allSubmissions);
+  const overlaps  = getTerritoryOverlap(sub, idx, _allSubmissions, _allCharacters);
+
+  // Investigation interpretation (investigate actions only)
+  const matrixNote = (actionType === 'investigate') ? getInvestigateInterpretation(rev) : null;
+
+  const notes = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+
+  const dotStr = dots ? '\u25CF'.repeat(dots) : '';
+  const qualStr = qualifier ? ` (${qualifier})` : '';
+  const meritDisplay = `${label}${dotStr ? ' ' + dotStr : ''}${qualStr}`;
+
+  const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Unknown';
+  const effect = (isAuto && matrixEntry.effectAuto) ? matrixEntry.effectAuto : (matrixEntry.effect || '');
+
+  const lines = [
+    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
+    '',
+    `Character: ${char ? displayName(char) : 'Unknown'}`,
+    `Action: ${meritDisplay} \u2014 ${actionLabel}`,
+    `Mode: ${mode}`,
+  ];
+
+  if (territory) lines.push(`Territory: ${territory}`);
+  if (action.desired_outcome) lines.push(`Desired Outcome: ${action.desired_outcome}`);
+  if (action.description)     lines.push(`Description: ${action.description}`);
+
+  lines.push(`Validated Pool: ${pool}`);
+
+  if (rev.roll && !isAuto) {
+    const diceStr = rev.roll.dice_string || (Array.isArray(rev.roll.dice) ? '[' + rev.roll.dice.join(', ') + ']' : '');
+    const s = rev.roll.successes ?? 0;
+    const exc = rev.roll.exceptional ? ', Exceptional' : '';
+    lines.push(`Roll Result: ${s} success${s !== 1 ? 'es' : ''}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+  }
+
+  if (matrixNote) lines.push(`Matrix Outcome: ${matrixNote}`);
+  if (effect)     lines.push(`Effect: ${effect}`);
+
+  // Cross-action context chips
+  const chips = [];
+  if (covered.length) {
+    covered.forEach(c => chips.push(`Covered by Hide/Protect (${c.successes !== null ? c.successes + ' successes' : 'unresolved'})`));
+  }
+  if (contested.length) {
+    contested.forEach(c => {
+      const sStr = c.successes !== null ? ` (${c.successes} successes)` : '';
+      chips.push(`${c.type === 'attack' ? 'Under Attack' : 'Under Investigation'} by ${c.characterName}${sStr}`);
+    });
+  }
+  if (overlaps.length) {
+    overlaps.forEach(o => chips.push(`Territory Overlap: ${o.characterName} (${o.meritType})`));
+  }
+  if (chips.length) {
+    lines.push('');
+    lines.push('Cross-action context:');
+    chips.forEach(chip => lines.push(`- ${chip}`));
+  }
+
+  if (notes.length) {
+    lines.push('');
+    lines.push('ST Notes:');
+    notes.forEach(n => lines.push(`- ${n.author_name || 'ST'}: ${n.text || ''}`));
+  }
+
+  lines.push('');
+  lines.push('Write a brief narrative note (1\u20132 sentences, ~50 words) from the Storyteller\u2019s perspective describing the outcome of this action through the merit/contact/ally.');
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Third person (the action is by an NPC merit, not the player character directly)');
+  lines.push('- British English');
+  lines.push('- No mechanical terms \u2014 no dot ratings, pool numbers, or success counts');
+  lines.push('- No em dashes');
+  lines.push('- Do not name game-mechanical concepts (no "Investigate", "Patrol/Scout", etc.)');
+  lines.push('- Focus on what the ally/contact/retainer actually did');
+
+  return lines.join('\n');
+}
+
+// ── Merit action section renderers (B3) ───────────────────────────────────────
+
+/**
+ * Renders a single merit action card (shared by allies/status/retainer/contacts sections).
+ */
+function renderActionCard(char, sub, idx) {
+  const action = sub.merit_actions?.[idx] || {};
+  const rev    = sub.merit_actions_resolved?.[idx] || {};
+
+  const actionType  = rev.action_type_override || action.action_type || '';
+  const meritCat    = deriveMeritCategory(action.merit_type);
+  const { dots, qualifier, label } = getMeritDetails(char, action);
+  const matrixEntry = MERIT_MATRIX[meritCat]?.[actionType] || {};
+  const isAuto      = matrixEntry.poolFormula === 'none';
+  const modeLabel   = isAuto ? 'Auto' : 'Rolled';
+
+  const basePool = matrixEntry.poolFormula === 'dots2plus2' ? (dots * 2) + 2 : null;
+  const pool = formatPool(rev.pool_validated) || action.primary_pool ||
+    (basePool ? `${basePool} dice` : (matrixEntry.poolFormula === 'contacts' ? 'Contacts pool' : 'Auto'));
+
+  const territory = ['allies', 'status'].includes(meritCat)
+    ? (sub.st_review?.territory_overrides?.[`allies_${idx}`] || '')
+    : '';
+
+  const roll  = (!isAuto && rev.roll) ? rev.roll : null;
+  const notes = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+
+  const saved      = sub.st_narrative?.action_responses?.[idx] || {};
+  const savedTxt   = saved.response || '';
+  const isComplete = saved.status === 'complete';
+
+  const dotStr  = dots ? '\u25CF'.repeat(dots) : '';
+  const qualStr = qualifier ? ` (${qualifier})` : '';
+  const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Action';
+
+  // Roll summary
+  let rollSummary = '';
+  if (roll) {
+    const s = roll.successes ?? 0;
+    const exc = roll.exceptional ? ', Exceptional' : '';
+    rollSummary = `${s} success${s !== 1 ? 'es' : ''}${exc}`;
+  } else if (rev.pool_status === 'no_roll') {
+    rollSummary = 'No roll';
+  }
+
+  const ctxCollapsed   = savedTxt ? ' collapsed' : '';
+  const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
+  const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  let h = `<div class="dt-story-merit-card${isComplete ? ' complete' : ''}" data-action-idx="${idx}">`;
+
+  // Header
+  h += `<div class="dt-story-merit-header">`;
+  h += `<span class="dt-story-mode-chip ${isAuto ? 'auto' : 'rolled'}">${modeLabel}</span>`;
+  h += `<span class="dt-story-merit-label">${label}${dotStr ? ' ' + dotStr : ''}${qualStr}</span>`;
+  h += `<button class="dt-story-copy-ctx-btn" data-action-idx="${idx}">Copy Context</button>`;
+  h += `</div>`;
+
+  // Meta row
+  h += `<div class="dt-story-merit-meta">`;
+  h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
+  if (territory) h += `<span class="dt-story-proj-territory">Territory: ${territory}</span>`;
+  const poolRoll = [pool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
+  if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
+  if (action.desired_outcome) h += `<span class="dt-story-proj-outcome">Outcome: ${action.desired_outcome}</span>`;
+  h += `</div>`;
+
+  // Collapsible context block
+  h += `<div class="dt-story-context-block${ctxCollapsed}">`;
+  h += `<pre class="dt-story-context-text">${buildActionContext(char, sub, idx)}</pre>`;
+  h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
+  h += `</div>`;
+
+  // ST Notes (read-only)
+  if (notes.length) {
+    h += `<div class="dt-story-notes-thread">`;
+    notes.forEach(n => { h += `<div class="dt-story-note"><span class="dt-story-note-author">${n.author_name || 'ST'}:</span> ${n.text || ''}</div>`; });
+    h += `</div>`;
+  }
+
+  // Response textarea
+  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" rows="3" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
+
+  // Buttons
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-save-draft-btn" data-action-idx="${idx}">Save Draft</button>`;
+  h += `<button class="dt-story-mark-complete-btn" data-action-idx="${idx}">`;
+  h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
+  h += `</button>`;
+  h += `</div>`;
+
+  h += `</div>`;
+  return h;
+}
+
+/**
+ * Renders a section containing merit action cards for the given categories.
+ * Skipped actions are suppressed. Returns '' if all actions in the category are skipped.
+ */
+function renderMeritSection(char, sub, sectionKey, sectionLabel, categories) {
+  const actions    = sub.merit_actions || [];
+  const resolved   = sub.merit_actions_resolved || [];
+  const stNarrative = sub.st_narrative;
+
+  const applicable = actions
+    .map((a, i) => ({ a, i, rev: resolved[i] || {} }))
+    .filter(({ a, rev }) => categories.includes(deriveMeritCategory(a.merit_type)) && rev.pool_status !== 'skipped');
+
+  const complete = actionResponsesComplete(sub, categories);
+  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  let h = `<div class="dt-story-section" data-section="${sectionKey}">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">${sectionLabel}</span>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  if (!applicable.length) {
+    h += `<div class="dt-story-section-empty">No actions for this section.</div>`;
+  } else {
+    applicable.forEach(({ i }) => { h += renderActionCard(char, sub, i); });
+  }
+
+  h += `</div></div>`;
+  return h;
+}
+
+function renderAlliesSection(char, sub)   { return renderMeritSection(char, sub, 'allies_actions',   'Allies Actions',   ['allies']); }
+function renderStatusSection(char, sub)   { return renderMeritSection(char, sub, 'status_actions',   'Status Actions',   ['status']); }
+function renderRetainerSection(char, sub) { return renderMeritSection(char, sub, 'retainer_actions', 'Retainer Actions', ['retainer', 'staff']); }
+function renderContactsSection(char, sub) { return renderMeritSection(char, sub, 'contact_requests', 'Contact Requests', ['contacts']); }
+
+// ── Resources/Skill Acquisitions section (B3 Task 5) ─────────────────────────
+
+function renderResourcesSection(char, sub) {
+  const actions    = sub.merit_actions || [];
+  const resolved   = sub.merit_actions_resolved || [];
+  const stNarrative = sub.st_narrative;
+
+  const applicable = actions
+    .map((a, i) => ({ a, i, rev: resolved[i] || {} }))
+    .filter(({ a, rev }) => deriveMeritCategory(a.merit_type) === 'resources' && rev.pool_status !== 'skipped');
+
+  // Resources complete when all have approved !== undefined
+  const approvals    = stNarrative?.resource_approvals || [];
+  const allApproved  = applicable.length > 0
+    && applicable.every(({ i }) => approvals[i]?.approved !== undefined);
+  const dotClass = allApproved ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  let h = `<div class="dt-story-section" data-section="resource_approvals">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Resources / Skill Acquisitions</span>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  if (!applicable.length) {
+    h += `<div class="dt-story-section-empty">No resource actions for this submission.</div>`;
+  } else {
+    applicable.forEach(({ a, i }) => {
+      const approval     = approvals[i] || {};
+      const isApproved   = approval.approved === true;
+      const isFlagged    = approval.approved === false;
+      const flagNote     = approval.flag_note || '';
+      const { dots, qualifier, label } = getMeritDetails(char, a);
+      const dotStr  = dots ? '\u25CF'.repeat(dots) : '';
+      const qualStr = qualifier ? ` (${qualifier})` : '';
+
+      h += `<div class="dt-story-resources-card" data-action-idx="${i}">`;
+      h += `<div class="dt-story-merit-header">`;
+      h += `<span class="dt-story-merit-label">${label}${dotStr ? ' ' + dotStr : ''}${qualStr}</span>`;
+      h += `<div class="dt-story-resource-btns">`;
+      h += `<button class="dt-story-approve-btn${isApproved ? ' active' : ''}" data-action-idx="${i}" data-approved="true">Approve</button>`;
+      h += `<button class="dt-story-flag-btn${isFlagged ? ' active' : ''}" data-action-idx="${i}" data-approved="false">Flag</button>`;
+      h += `</div>`;
+      h += `</div>`;
+      if (a.desired_outcome || a.description) {
+        h += `<div class="dt-story-merit-meta">`;
+        if (a.desired_outcome) h += `<span class="dt-story-proj-outcome">Requested: ${a.desired_outcome}</span>`;
+        if (a.description)     h += `<span class="dt-story-proj-outcome">${a.description}</span>`;
+        h += `</div>`;
+      }
+      if (isFlagged) {
+        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" rows="2" placeholder="Flag note\u2026">${flagNote}</textarea>`;
+        h += `<div class="dt-story-card-actions">`;
+        h += `<button class="dt-story-save-draft-btn dt-story-flag-note-save" data-action-idx="${i}">Save Note</button>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    });
+  }
+
+  h += `</div></div>`;
   return h;
 }
 
@@ -1568,5 +2096,148 @@ async function handleTerritorySave(btn, status) {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
     console.error('Territory save failed:', err);
+  }
+}
+
+// ── Merit action event handlers (B3) ─────────────────────────────────────────
+
+function handleCopyActionContext(btn) {
+  if (!_currentSub) return;
+  const card = btn.closest('.dt-story-merit-card');
+  if (!card) return;
+  const idx  = parseInt(card.dataset.actionIdx, 10);
+  const char = getCharForSub(_currentSub);
+  copyToClipboard(buildActionContext(char, _currentSub, idx), btn);
+}
+
+async function handleActionSave(btn, status) {
+  const card = btn.closest('.dt-story-merit-card');
+  if (!card || !_currentSub) return;
+  const idx  = parseInt(card.dataset.actionIdx, 10);
+
+  const ta   = card.querySelector('.dt-story-response-ta');
+  const text = ta?.value || '';
+  const user = getUser();
+  const author = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  btn.textContent = 'Saving\u2026';
+
+  try {
+    const existing   = _currentSub.st_narrative?.action_responses || [];
+    const updated    = buildUpdatedArray(existing, idx, { action_index: idx, response: text, author, status });
+
+    await saveNarrativeField(_currentSub._id, { 'st_narrative.action_responses': updated });
+
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.action_responses = updated;
+
+    const char       = getCharForSub(_currentSub);
+    const sectionKey = card.closest('.dt-story-section')?.dataset.section;
+    const sectionEl  = document.querySelector(`.dt-story-section[data-section="${sectionKey}"]`);
+    if (sectionEl) {
+      const renderers = {
+        allies_actions:   () => renderAlliesSection(char, _currentSub),
+        status_actions:   () => renderStatusSection(char, _currentSub),
+        retainer_actions: () => renderRetainerSection(char, _currentSub),
+        contact_requests: () => renderContactsSection(char, _currentSub),
+      };
+      const render = renderers[sectionKey];
+      if (render) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = render();
+        sectionEl.replaceWith(tmp.firstElementChild);
+      }
+    }
+
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp2 = document.createElement('div');
+      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      signOff.replaceWith(tmp2.firstElementChild);
+    }
+
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    console.error('Action save failed:', err);
+  }
+}
+
+async function handleResourceApproval(btn) {
+  const card = btn.closest('.dt-story-resources-card');
+  if (!card || !_currentSub) return;
+  const idx      = parseInt(card.dataset.actionIdx, 10);
+  const approved = btn.dataset.approved === 'true';
+
+  btn.disabled = true;
+  try {
+    const user   = getUser();
+    const author = user?.global_name || user?.username || 'ST';
+    const existing = _currentSub.st_narrative?.resource_approvals || [];
+    const updated  = buildUpdatedArray(existing, idx, { action_index: idx, approved, flag_note: '', reviewed_by: author });
+
+    await saveNarrativeField(_currentSub._id, { 'st_narrative.resource_approvals': updated });
+
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.resource_approvals = updated;
+
+    const char      = getCharForSub(_currentSub);
+    const sectionEl = document.querySelector('.dt-story-section[data-section="resource_approvals"]');
+    if (sectionEl) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderResourcesSection(char, _currentSub);
+      sectionEl.replaceWith(tmp.firstElementChild);
+    }
+
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp2 = document.createElement('div');
+      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      signOff.replaceWith(tmp2.firstElementChild);
+    }
+
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+
+  } catch (err) {
+    btn.disabled = true;
+    console.error('Resource approval failed:', err);
+  }
+}
+
+async function handleFlagNoteSave(btn) {
+  const card = btn.closest('.dt-story-resources-card');
+  if (!card || !_currentSub) return;
+  const idx      = parseInt(card.dataset.actionIdx, 10);
+  const ta       = card.querySelector('.dt-story-response-ta');
+  const flagNote = ta?.value || '';
+
+  btn.disabled = true;
+  btn.textContent = 'Saving\u2026';
+  try {
+    const user     = getUser();
+    const author   = user?.global_name || user?.username || 'ST';
+    const existing = _currentSub.st_narrative?.resource_approvals || [];
+    const updated  = buildUpdatedArray(existing, idx, { action_index: idx, approved: false, flag_note: flagNote, reviewed_by: author });
+
+    await saveNarrativeField(_currentSub._id, { 'st_narrative.resource_approvals': updated });
+
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.resource_approvals = updated;
+
+    btn.textContent = 'Saved';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Save Note'; }, 1500);
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Save Note';
+    console.error('Flag note save failed:', err);
   }
 }

@@ -1,6 +1,6 @@
 # Story 1.3: Prompt Generator — Merit Actions
 
-## Status: ready-for-dev
+## Status: review
 
 ## Story
 
@@ -286,57 +286,58 @@ function actionResponsesComplete(sub, category) {
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add constants to downtime-story.js
-  - [ ] MERIT_MATRIX — copy exactly from downtime-views.js lines 136–186
-  - [ ] INVESTIGATION_MATRIX — copy exactly from downtime-views.js lines 189–198
+- [x] Task 1: Add constants to downtime-story.js
+  - [x] MERIT_MATRIX — copy exactly from downtime-views.js lines 136–186
+  - [x] INVESTIGATION_MATRIX — copy exactly from downtime-views.js lines 189–198
 
-- [ ] Task 2: Helper functions
-  - [ ] `deriveMeritCategory(meritTypeStr)` — regex-based category detection
-  - [ ] `groupActionsByCategory(sub, char)` — splits merit_actions into category buckets, filters skipped
-  - [ ] `getMeritDetails(char, action)` — looks up dots and qualifier from char.merits
-  - [ ] `getInvestigateInterpretation(rev)` — computes matrix outcome string
-  - [ ] `actionResponsesComplete(sub, category)` — completion check for array sections
-  - [ ] `buildUpdatedArray(arr, idx, patch)` — already in module from B2; confirm shared
+- [x] Task 2: Helper functions
+  - [x] `deriveMeritCategory(meritTypeStr)` — regex-based category detection
+  - [x] `getMeritDetails(char, action)` — looks up dots and qualifier from char.merits
+  - [x] `getInvestigateInterpretation(rev)` — computes matrix outcome string
+  - [x] `actionResponsesComplete(sub, categories)` — completion check using global indices (bug-fix vs spec)
+  - [x] `buildUpdatedArray(arr, idx, patch)` — added as generic helper (B2 had project-specific version only)
 
-- [ ] Task 3: buildActionContext(char, sub, idx) pure function
-  - [ ] Reads merit action from `sub.merit_actions[idx]`
-  - [ ] Reads resolved data from `sub.merit_actions_resolved[idx]`
-  - [ ] Calls getMeritDetails, deriveMeritCategory, MERIT_MATRIX lookup
-  - [ ] Calls getInvestigateInterpretation for investigate actions
-  - [ ] Reads territory from `sub.st_review?.territory_overrides?.[allies_${idx}]`
-  - [ ] Omits empty lines, omits roll result if no roll, omits investigation if not investigate
-  - [ ] Returns prompt string
+- [x] Task 3: buildActionContext(char, sub, idx) pure function
+  - [x] Reads merit action from `sub.merit_actions[idx]`
+  - [x] Reads resolved data from `sub.merit_actions_resolved[idx]`
+  - [x] Calls getMeritDetails, deriveMeritCategory, MERIT_MATRIX lookup
+  - [x] Calls getInvestigateInterpretation for investigate actions
+  - [x] Reads territory from `sub.st_review?.territory_overrides?.[allies_${idx}]`
+  - [x] Includes A1 cross-action chips (covered/contested/overlap) — implemented together
+  - [x] Omits empty lines, omits roll result if no roll, omits investigation if not investigate
+  - [x] Returns prompt string
 
-- [ ] Task 4: renderAlliesSection, renderStatusSection, renderRetainerSection, renderContactsSection
-  - [ ] Each calls groupActionsByCategory and renders cards for its category
-  - [ ] Card: mode chip, merit label + dots + qualifier, action type, outcome, pool, roll summary, notes (read-only), context block, Copy Context, textarea (pre-filled), Save Draft, Mark Complete
-  - [ ] Context block collapsed if textarea has content
-  - [ ] Completion indicators per card
+- [x] Task 4: renderAlliesSection, renderStatusSection, renderRetainerSection, renderContactsSection
+  - [x] Shared renderMeritSection helper + renderActionCard for card rendering
+  - [x] Card: mode chip, merit label + dots + qualifier, action type, outcome, pool, roll summary, notes (read-only), context block, Copy Context, textarea (pre-filled), Save Draft, Mark Complete
+  - [x] Context block collapsed if textarea has content
+  - [x] Completion dot per card
 
-- [ ] Task 5: renderResourcesSection
-  - [ ] Lists resources-category actions as approval cards
-  - [ ] Each card: merit/skill name, dots, Approve toggle, flag note field
-  - [ ] Saves to st_narrative.resource_approvals[idx]
-  - [ ] No textarea, no Copy Context button
+- [x] Task 5: renderResourcesSection
+  - [x] Lists resources-category actions as approval cards
+  - [x] Each card: merit/skill name, dots, Approve toggle, flag note field
+  - [x] Saves to st_narrative.resource_approvals[idx]
+  - [x] No textarea, no Copy Context button
 
-- [ ] Task 6: Event delegation for merit action cards
-  - [ ] Copy Context → buildActionContext → copyToClipboard
-  - [ ] Context block toggle
-  - [ ] Save Draft / Mark Complete → saveNarrativeField with action_responses
-  - [ ] Resources Approve/Flag → saveResourceApproval
+- [x] Task 6: Event delegation for merit action cards
+  - [x] Copy Context → buildActionContext → copyToClipboard (handleCopyActionContext)
+  - [x] Context block toggle (shared handleContextToggle)
+  - [x] Save Draft / Mark Complete → handleActionSave → saveNarrativeField with action_responses
+  - [x] Resources Approve/Flag → handleResourceApproval; flag note save → handleFlagNoteSave
 
-- [ ] Task 7: Update pill rail and sign-off counter
-  - [ ] Include all action category sections in completion calculation
-  - [ ] Use actionResponsesComplete per category
-  - [ ] Resources section complete when all resource_approvals have approved !== undefined
+- [x] Task 7: Update pill rail and sign-off counter
+  - [x] renderSection switch updated for all 5 merit sections
+  - [x] isSectionDone updated: allies/status/retainer/contacts use actionResponsesComplete
+  - [x] isSectionDone resource_approvals updated to check approved !== undefined per item
+  - [x] getApplicableSections fixed to use deriveMeritCategory (was using .meritCategory field which doesn't exist)
 
-- [ ] Task 8: CSS for merit action cards
-  - [ ] `.dt-story-merit-card` — action card container
-  - [ ] `.dt-story-mode-chip` — "Rolled" / "Auto" chip
-  - [ ] `.dt-story-merit-header` — header row: mode chip + merit name + copy button
-  - [ ] `.dt-story-merit-meta` — dots, qualifier, action type, territory pill
-  - [ ] `.dt-story-resources-card` — approval card (narrower, no textarea)
-  - [ ] `.dt-story-approve-btn`, `.dt-story-flag-btn` — approve/flag toggles
+- [x] Task 8: CSS for merit action cards
+  - [x] `.dt-story-merit-card` — action card container
+  - [x] `.dt-story-mode-chip` — "Rolled" / "Auto" chip (gold vs crimson)
+  - [x] `.dt-story-merit-header` — header row: mode chip + merit name + copy button
+  - [x] `.dt-story-merit-meta` — action type, territory, pool/roll
+  - [x] `.dt-story-resources-card` — approval card
+  - [x] `.dt-story-approve-btn`, `.dt-story-flag-btn` — approve/flag toggles with active states
 
 ---
 
@@ -419,18 +420,35 @@ Already confirmed in B2: import from `../auth/discord.js`. Do not re-declare.
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+| 2026-04-15 | 1.1 | Implementation complete (B3 + A1 together) | claude-sonnet-4-6 |
 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
-_to be filled by dev agent_
+- Syntax validated: `node --input-type=module --check` — clean
+- MERIT_MATRIX copied exactly from downtime-views.js lines 136–186 (all 5 categories)
+- INVESTIGATION_MATRIX copied exactly from lines 189–198
 
 ### Completion Notes List
-_to be filled by dev agent_
+- MERIT_MATRIX + INVESTIGATION_MATRIX added before module state with NFR-DS-01 comment
+- deriveMeritCategory: regex pattern per spec (allies/status/retainer/staff/contacts/resources/misc)
+- getMeritDetails: fuzzy name match on char.merits
+- getInvestigateInterpretation: uses innate + noLead modifier from INVESTIGATION_MATRIX
+- actionResponsesComplete: uses global indices (spec version had filtered-index bug; corrected)
+- buildUpdatedArray: generic helper added (B2 had project-specific buildUpdatedProjectResponses only)
+- buildActionContext: includes A1 cross-action chips (covered/contested/overlap) — B3+A1 implemented together
+- renderActionCard: shared card renderer for all merit action sections
+- renderMeritSection: generic section renderer; renderAlliesSection/Status/Retainer/Contacts are one-liners
+- renderResourcesSection: approval cards with Approve/Flag toggles and flag note textarea
+- isSectionDone: merit sections rewritten to use actionResponsesComplete with global index; resource_approvals fixed to approved !== undefined check
+- getApplicableSections: fixed from a.meritCategory (undefined field) to deriveMeritCategory(a.merit_type)
+- Event delegation: MERIT_SECTIONS Set for routing; handleCopyActionContext, handleActionSave, handleResourceApproval, handleFlagNoteSave
+- Re-render on save: resolves correct renderer by sectionKey from closest section element
 
 ### File List
-- `public/js/admin/downtime-story.js`
-- `public/css/admin-layout.css`
+- `public/js/admin/downtime-story.js` — modified: MERIT_MATRIX, INVESTIGATION_MATRIX, buildUpdatedArray, deriveMeritCategory, getMeritDetails, getInvestigateInterpretation, actionResponsesComplete, getHideProtectCover, getContestingActions, getTerritoryOverlap (A1), buildActionContext, renderActionCard, renderMeritSection, renderAlliesSection/Status/Retainer/Contacts, renderResourcesSection, handleCopyActionContext, handleActionSave, handleResourceApproval, handleFlagNoteSave; isSectionDone merit cases; getApplicableSections fix; renderSection switch; event delegation
+- `public/css/admin-layout.css` — modified: B3 merit action card CSS block
+- `specs/stories/sprint-status.yaml` — updated: 1-3 and 1-8 → review

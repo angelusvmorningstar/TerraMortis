@@ -1,6 +1,6 @@
 # Story 1.8: Action Data Completeness
 
-## Status: ready-for-dev
+## Status: review
 
 ## Story
 
@@ -231,34 +231,34 @@ These functions are defined in downtime-story.js alongside the rest of the merit
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: getHideProtectCover(sub, terrId) pure function
-  - [ ] Scans sub.projects_resolved for hide_protect actions in terrId
-  - [ ] Excludes skipped entries
-  - [ ] Returns array of { successes }
+- [x] Task 1: getHideProtectCover(sub, terrId) pure function
+  - [x] Scans sub.projects_resolved for hide_protect actions in terrId
+  - [x] Excludes skipped entries
+  - [x] Returns array of { successes }
 
-- [ ] Task 2: getContestingActions(sub, char, allSubmissions) pure function
-  - [ ] Scans all other submissions' projects_resolved and merit_actions_resolved
-  - [ ] Checks attack_target_char and investigate_target_char fields
-  - [ ] Returns array of { type, characterName, successes }
+- [x] Task 2: getContestingActions(sub, char, allSubmissions) pure function
+  - [x] Scans all other submissions' projects_resolved and merit_actions_resolved
+  - [x] Checks attack_target_char and investigate_target_char fields
+  - [x] Returns array of { type, characterName, successes }
 
-- [ ] Task 3: getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) pure function
-  - [ ] Reads territory from sub.st_review.territory_overrides[`allies_${meritFlatIdx}`]
-  - [ ] Returns early (empty array) if no territory linked
-  - [ ] Scans all other submissions' merit_actions_resolved for same-territory allies/status/retainer actions
-  - [ ] Returns array of { characterName, meritType }
+- [x] Task 3: getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) pure function
+  - [x] Reads territory from sub.st_review.territory_overrides[`allies_${meritFlatIdx}`]
+  - [x] Returns early (empty array) if no territory linked
+  - [x] Scans all other submissions' merit_actions_resolved for same-territory allies/status/retainer actions
+  - [x] Returns array of { characterName, meritType }
 
-- [ ] Task 4: getInvestigateInterpretation(rev, INVESTIGATION_MATRIX) pure function
-  - [ ] Reads rev.inv_secrecy, rev.inv_has_lead, rev.roll.successes
-  - [ ] Returns null if inputs absent
-  - [ ] Returns readable interpretation string from INVESTIGATION_MATRIX
+- [x] Task 4: getInvestigateInterpretation(rev, INVESTIGATION_MATRIX) pure function
+  - [x] Reads rev.inv_secrecy, rev.inv_has_lead, rev.roll.successes
+  - [x] Returns null if inputs absent
+  - [x] Returns readable interpretation string from INVESTIGATION_MATRIX
 
-- [ ] Task 5: Wire cross-action functions into buildActionContext (B3)
-  - [ ] Call all four functions with correct parameters
-  - [ ] Append cross-action chip lines to prompt if non-empty
-  - [ ] No chip lines emitted if arrays are empty or function returns null
+- [x] Task 5: Wire cross-action functions into buildActionContext (B3)
+  - [x] All four functions called with correct parameters
+  - [x] Cross-action chip lines appended to prompt if non-empty
+  - [x] No chip lines emitted if arrays are empty or function returns null
 
-- [ ] Task 6: Document the "Supported" chip decision in a code comment in downtime-story.js
-  - [ ] Note that support_target_char does not exist; support context surfaces via notes_thread
+- [x] Task 6: Document the "Supported" chip decision in a code comment in downtime-story.js
+  - [x] Comment added in A1 section header in downtime-story.js
 
 ---
 
@@ -308,17 +308,23 @@ No CSS changes. No schema changes. No changes to downtime-views.js.
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+| 2026-04-15 | 1.1 | Implementation complete (with B3) | claude-sonnet-4-6 |
 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
-_to be filled by dev agent_
+- Implemented together with B3 (Story 1.3) in a single session per sprint-status dependency note
 
 ### Completion Notes List
-_to be filled by dev agent_
+- getHideProtectCover: uses resolveTerrId (added by B6) to match project territory
+- getContestingActions: checks both projects_resolved and merit_actions_resolved on other subs; matches by displayName(char)
+- getTerritoryOverlap: reads territory_overrides[allies_${meritFlatIdx}]; uses deriveMeritCategory (B3) to filter allies/status/retainer
+- getInvestigateInterpretation: uses INVESTIGATION_MATRIX (B3 constant); applies innate + conditional noLead modifier
+- All four functions wired into buildActionContext; cross-action chips section omitted gracefully when empty
+- "Supported" chip intentionally not implemented — comment in A1 section header in downtime-story.js
 
 ### File List
-- `public/js/admin/downtime-story.js`
+- `public/js/admin/downtime-story.js` — modified: getHideProtectCover, getContestingActions, getTerritoryOverlap, getInvestigateInterpretation; wired into buildActionContext (B3)

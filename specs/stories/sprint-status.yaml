@@ -65,7 +65,7 @@ development_status:
   # B2–B3 — prompt generators; can run in parallel after B1
   # Implement A1 before or alongside B3 (cross-action derivation functions)
   1-2-prompt-generator-projects: review
-  1-3-prompt-generator-merit-actions: ready-for-dev
+  1-3-prompt-generator-merit-actions: review
 
   # B4–B7 — section implementations; depend on B1; can run in parallel with each other
   # B5 reuses CSS classes from B4 (implement B4 first or in same commit)
@@ -78,7 +78,7 @@ development_status:
   # A1–A2 — action data + validation; can run in parallel with B stories
   # A1: pure derivation functions in downtime-story.js; no schema changes; no downtime-views.js changes
   # A2: 3 one-line changes to downtime-views.js only; standalone
-  1-8-action-data-completeness: ready-for-dev
+  1-8-action-data-completeness: review
   1-9-validation-button-consistency: ready-for-dev
 
   epic-1-retrospective: optional

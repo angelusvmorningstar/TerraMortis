@@ -6383,6 +6383,83 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   font-size: 11px;
 }
 
+/* B3 — Merit Action Cards */
+.dt-story-merit-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+}
+.dt-story-merit-card.complete { border-color: var(--gold2); opacity: 0.8; }
+
+.dt-story-merit-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.dt-story-merit-label {
+  color: var(--txt1);
+  flex: 1;
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dt-story-mode-chip {
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  text-transform: uppercase;
+}
+.dt-story-mode-chip.rolled { background: rgba(224,196,122,0.15); color: var(--gold2); }
+.dt-story-mode-chip.auto   { background: rgba(139,0,0,0.15); color: var(--crim); }
+
+.dt-story-merit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--fl);
+  font-size: 11px;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+/* B3 — Resources Approval Cards */
+.dt-story-resources-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+}
+
+.dt-story-resource-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.dt-story-approve-btn,
+.dt-story-flag-btn {
+  background: transparent;
+  border: 1px solid var(--bdr3);
+  border-radius: 3px;
+  color: var(--txt3);
+  cursor: pointer;
+  font-family: var(--fl);
+  font-size: 11px;
+  padding: 2px 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.dt-story-approve-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-flag-btn:hover    { border-color: var(--crim);  color: var(--crim); }
+.dt-story-approve-btn.active { background: rgba(224,196,122,0.2); border-color: var(--gold2); color: var(--gold2); }
+.dt-story-flag-btn.active    { background: rgba(139,0,0,0.2); border-color: var(--crim); color: var(--crim); }
+
 /* B6 — Territory Report */
 .dt-story-terr-section {
   border-top: 1px solid var(--bdr2);
