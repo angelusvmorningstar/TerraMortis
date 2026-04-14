@@ -3,7 +3,7 @@
    above the read-only character sheet in t-editor. */
 
 import {
-  getAttrEffective, getAttrBonus, skDots, skBonus, skNineAgain,
+  getAttrEffective, getAttrBonus, skTotal, skNineAgain,
   calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, calcSpeed,
 } from '../data/accessors.js';
 import { getPool } from '../shared/pools.js';
@@ -77,10 +77,7 @@ export function renderCharPools(el, char, onTap) {
   // Include PT dot-4 and MCI dot-3 bonus dots from applyDerivedMerits
   let skillHtml = '';
   for (const sk of SKILL_ORDER) {
-    const baseDots = skDots(char, sk);
-    const ptBonus = (char._pt_dot4_bonus_skills?.has(sk) && baseDots < 5) ? 1 : 0;
-    const mciBonus = (char._mci_dot3_skills?.has(sk) && baseDots < 5) ? 1 : 0;
-    const skD = Math.min(baseDots + skBonus(char, sk) + ptBonus + mciBonus, 5);
+    const skD = skTotal(char, sk);
     if (!skD) continue;
     const attr  = SKILL_ATTR[sk];
     const attrV = getAttrEffective(char, attr) + getAttrBonus(char, attr);

@@ -81,7 +81,12 @@ export function setSkillObj(c, skill, obj) {
 
 export function skDots(c, skill) { return c.skills?.[skill]?.dots || 0; }
 export function skBonus(c, skill) { return c.skills?.[skill]?.bonus || 0; }
-export function skTotal(c, skill) { return skDots(c, skill) + skBonus(c, skill); }
+export function skTotal(c, skill) {
+  const base = skDots(c, skill) + skBonus(c, skill);
+  const ptBonus  = (c._pt_dot4_bonus_skills  instanceof Set && c._pt_dot4_bonus_skills.has(skill)  && base < 5) ? 1 : 0;
+  const mciBonus = (c._mci_dot3_skills        instanceof Set && c._mci_dot3_skills.has(skill)        && base < 5) ? 1 : 0;
+  return Math.min(base + ptBonus + mciBonus, 5);
+}
 export function skSpecs(c, skill) { return c.skills?.[skill]?.specs || []; }
 export function skSpecStr(c, skill) { return skSpecs(c, skill).join(', '); }
 export function skNineAgain(c, skill) {
