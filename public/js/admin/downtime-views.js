@@ -7627,7 +7627,7 @@ function renderSubmissionChecklist() {
       const rowCls = hasSub ? '' : ' dt-chk-nosub';
 
       h += `<tr class="${rowCls}">`;
-      h += `<td class="dt-chk-name">${esc(displayName(char))}`;
+      h += `<td class="dt-chk-name">${esc(sortName(char))}`;
       if (!hasSub) h += ' <span class="dt-chk-nosub-badge">No submission</span>';
       h += '</td>';
 
