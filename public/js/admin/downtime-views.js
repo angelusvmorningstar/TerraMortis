@@ -6074,7 +6074,45 @@ function renderActionPanel(entry, review) {
     if (isOverridden) {
       h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
     }
+    if (entry.actionType === 'investigate') {
+      const _invT = rev.investigate_target_char || '';
+      h += `<span class="proc-feed-lbl">Target</span>`;
+      h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+        h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
+      }
+      h += `</select>`;
+    } else if (entry.actionType === 'attack') {
+      const _atkT = rev.attack_target_char || '';
+      h += `<span class="proc-feed-lbl">Target</span>`;
+      h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+        h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
+      }
+      h += `</select>`;
+    }
     h += `</div>`;
+    if (entry.actionType === 'attack') {
+      const _atkChar = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
+      const _atkMerit = rev.attack_target_merit || '';
+      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<span class="proc-feed-lbl">Merit</span>`;
+      h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select merit \u2014</option>`;
+      if (_atkChar) {
+        for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''))) {
+          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+          const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
+          h += `<option value="${esc(m.name||'')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name||'')}${esc(mQual)} \u25CF${mRating}</option>`;
+        }
+      }
+      h += `</select>`;
+      h += `</div>`;
+    }
   }
 
   // ── Action type recategorisation for merit/sphere entries ──
@@ -6090,7 +6128,45 @@ function renderActionPanel(entry, review) {
     if (isMeritOverridden) {
       h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
     }
+    if (entry.actionType === 'investigate') {
+      const _invT = rev.investigate_target_char || '';
+      h += `<span class="proc-feed-lbl">Target</span>`;
+      h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+        h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
+      }
+      h += `</select>`;
+    } else if (entry.actionType === 'attack') {
+      const _atkT = rev.attack_target_char || '';
+      h += `<span class="proc-feed-lbl">Target</span>`;
+      h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+        h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
+      }
+      h += `</select>`;
+    }
     h += `</div>`;
+    if (entry.actionType === 'attack') {
+      const _atkChar = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
+      const _atkMerit = rev.attack_target_merit || '';
+      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<span class="proc-feed-lbl">Merit</span>`;
+      h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select merit \u2014</option>`;
+      if (_atkChar) {
+        for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''))) {
+          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+          const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
+          h += `<option value="${esc(m.name||'')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name||'')}${esc(mQual)} \u25CF${mRating}</option>`;
+        }
+      }
+      h += `</select>`;
+      h += `</div>`;
+    }
   }
 
   // ── Sorcery details card (editable) — above connected characters ──
@@ -6148,67 +6224,6 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // ── Attack target (project + merit attack actions only) ──
-  if (entry.actionType === 'attack' && (entry.source === 'project' || entry.source === 'merit')) {
-    const targetCharName = rev.attack_target_char || '';
-    const targetChar     = characters.find(c => c.name === targetCharName) || null;
-    const targetMerit    = rev.attack_target_merit || '';
-
-    h += `<div class="proc-attack-target-section">`;
-    h += `<div class="proc-detail-label">Attack Target</div>`;
-
-    h += `<div class="proc-attack-row">`;
-    h += `<span class="proc-feed-lbl">Character</span>`;
-    h += `<select class="proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
-    h += `<option value="">\u2014 Select target \u2014</option>`;
-    const _atkChars = [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)));
-    for (const c of _atkChars) {
-      const sel = c.name === targetCharName ? ' selected' : '';
-      h += `<option value="${esc(c.name || '')}"${sel}>${esc(displayName(c))}</option>`;
-    }
-    h += `</select>`;
-    h += `</div>`;
-
-    h += `<div class="proc-attack-row">`;
-    h += `<span class="proc-feed-lbl">Merit</span>`;
-    h += `<select class="proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
-    h += `<option value="">\u2014 Select merit \u2014</option>`;
-    if (targetChar) {
-      const _atkMerits = [...(targetChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''));
-      for (const m of _atkMerits) {
-        const mName   = m.name || '';
-        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-        const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
-        const mLabel  = `${mName}${mQual} \u25CF${mRating}`;
-        const sel = mName === targetMerit ? ' selected' : '';
-        h += `<option value="${esc(mName)}"${sel}>${esc(mLabel)}</option>`;
-      }
-    }
-    h += `</select>`;
-    h += `</div>`;
-
-    h += `</div>`; // proc-attack-target-section
-  }
-
-  // ── Investigate target (project + merit investigate actions only) ──
-  if (entry.actionType === 'investigate' && (entry.source === 'project' || entry.source === 'merit')) {
-    const invTargetName = rev.investigate_target_char || '';
-
-    h += `<div class="proc-attack-target-section">`;
-    h += `<div class="proc-detail-label">Investigation Target</div>`;
-    h += `<div class="proc-attack-row">`;
-    h += `<span class="proc-feed-lbl">Character</span>`;
-    h += `<select class="proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
-    h += `<option value="">\u2014 Select target \u2014</option>`;
-    const _invChars = [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)));
-    for (const c of _invChars) {
-      const sel = c.name === invTargetName ? ' selected' : '';
-      h += `<option value="${esc(c.name || '')}"${sel}>${esc(sortName(c))}</option>`;
-    }
-    h += `</select>`;
-    h += `</div>`;
-    h += `</div>`; // proc-attack-target-section
-  }
 
   // ── Feeding-specific detail display ──
   if (entry.source === 'feeding') {
