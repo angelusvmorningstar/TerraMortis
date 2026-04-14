@@ -2444,7 +2444,7 @@ function buildProcessingQueue(subs) {
       let phaseNum;
       const isAlliesAction = meritCategory === 'allies' || meritCategory === 'status';
       if (isAlliesAction) {
-        phaseNum = 9;
+        phaseNum = PHASE_ORDER[actionType] ?? 9;
       } else if (meritCategory === 'contacts') {
         phaseNum = 10;
       } else if (meritCategory === 'retainer') {

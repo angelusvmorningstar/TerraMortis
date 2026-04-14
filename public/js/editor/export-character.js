@@ -9,7 +9,7 @@
 
 import { displayName, displayNameRaw, getWillpower, findRegentTerritory } from '../data/helpers.js';
 import {
-  getAttrEffective, getAttrBonus, skDots, skBonus, skSpecs, skNineAgain,
+  getAttrEffective, getAttrBonus, skDots, skBonus, skTotal, skSpecs, skNineAgain,
   calcHealth, calcWillpowerMax, calcSize, calcSpeed, calcDefence, calcVitaeMax,
   calcCityStatus, titleStatusBonus, BP_TABLE,
 } from '../data/accessors.js';
@@ -123,11 +123,7 @@ export function serialiseForPrint(c, territories) {
   const ALL_SKILLS = [...SKILLS_MENTAL, ...SKILLS_PHYSICAL, ...SKILLS_SOCIAL];
   const skills = [];
   for (const s of ALL_SKILLS) {
-    const baseDots = skDots(c, s);
-    const ptBonus = (c._pt_dot4_bonus_skills?.has(s) && baseDots < 5) ? 1 : 0;
-    const mciBonus = (c._mci_dot3_skills?.has(s) && baseDots < 5) ? 1 : 0;
-    const bonus = skBonus(c, s);
-    const effective = Math.min(baseDots + bonus + ptBonus + mciBonus, 5);
+    const effective = skTotal(c, s);
     const specs = skSpecs(c, s);
     const naStored = skNineAgain(c, s);
     const naPT = c._pt_nine_again_skills?.has(s) || false;
