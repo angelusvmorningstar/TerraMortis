@@ -2,7 +2,7 @@
 
 import { apiGet, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
-import { esc, displayName, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
+import { esc, displayName, displayNameRaw, sortName, discordAvatarUrl, findRegentTerritory } from './data/helpers.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getPlayerInfo, getRole, isSTRole } from './auth/discord.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
@@ -198,7 +198,7 @@ async function loadCharacters() {
   if (activeChars.length > 1) {
     selector.style.display = '';
     selector.innerHTML = activeChars.map((c, i) =>
-      `<option value="${i}">${esc(sortName(c))}</option>`
+      `<option value="${i}">${esc(displayNameRaw(c))}</option>`
     ).join('');
     selector.addEventListener('change', () => {
       localStorage.setItem('tm_active_char', String(activeChars[Number(selector.value)]._id));
