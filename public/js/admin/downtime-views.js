@@ -4219,7 +4219,7 @@ function renderProcessingMode(container) {
       if (!entry || !spec) return;
       const review = getEntryReview(entry) || {};
 
-      // Snapshot the current builder expression before re-render wipes unsaved dropdown values
+      // Snapshot current builder expression so it survives future re-renders
       const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
       if (builder) {
         const expr = _readBuilderExpr(builder);
@@ -4238,8 +4238,8 @@ function renderProcessingMode(container) {
         ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
         : null;
       const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
+      // pool_mod_spec is applied at roll time only — no re-render needed; checkbox state already reflects the change
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
-      renderProcessingMode(container);
     });
   });
 
@@ -5170,7 +5170,6 @@ function _updateFeedBuilderMeta(container, key) {
         else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
         const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
         await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
-        renderProcessingMode(container);
       });
     });
     return;
@@ -5194,7 +5193,7 @@ function _updateFeedBuilderMeta(container, key) {
     h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
   }
   metaEl.innerHTML = h;
-  // Wire spec toggles injected after renderProcessingMode ran
+  // Wire spec toggles injected by _updateFeedBuilderMeta — no re-render; pool_mod_spec applied at roll time
   metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
@@ -5206,7 +5205,6 @@ function _updateFeedBuilderMeta(container, key) {
       else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
       const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
-      renderProcessingMode(container);
     });
   });
 }
@@ -7456,7 +7454,9 @@ function renderSubmissionChecklist() {
 
   let h = '<div class="dt-chk-panel">';
   h += `<div class="dt-chk-toggle" id="dt-chk-toggle">${isOpen ? '\u25BC' : '\u25BA'} Submission Checklist`;
-  h += ` <span class="domain-count">${fullySighted} / ${sorted.length} processed</span></div>`;
+  h += ` <span class="domain-count">${fullySighted} / ${sorted.length} processed</span>`;
+  h += ` <span class="dt-chk-legend">\u2605\u202Fdone &nbsp; \u270E\u202Fdraft &nbsp; \u25C6\u202Fdice &nbsp; \u25A0\u202Fskip &nbsp; ?\u202Fsighted &nbsp; \u2717\u202Fpending &nbsp; \u2014\u202Fn/a</span>`;
+  h += `</div>`;
 
   if (isOpen) {
     h += '<div class="dt-chk-wrap"><table class="dt-chk-table"><thead><tr>';
@@ -7487,7 +7487,7 @@ function renderSubmissionChecklist() {
         } else if (state === 'dice_validated') {
           h += `<td class="dt-chk-dice" title="${tip ? esc(tip) + ' \u2014 ' : ''}Dice validated">\u25C6</td>`;
         } else if (state === 'no_action') {
-          h += `<td class="dt-chk-no-action" title="${tip ? esc(tip) + ' \u2014 ' : ''}No action needed">\u25A1</td>`;
+          h += `<td class="dt-chk-no-action" title="${tip ? esc(tip) + ' \u2014 ' : ''}No action needed">\u25A0</td>`;
         } else if (state === 'sighted') {
           h += `<td class="dt-chk-sighted dt-chk-cell" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tip ? esc(tip) + ' \u2014 ' : ''}In progress \u2014 click to unsight">?</td>`;
         } else {
