@@ -35,6 +35,7 @@ let cycleReminders = [];       // processing_reminders from the current cycle do
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let ambDashCollapsed = true;   // collapse state for the Ambience Dashboard panel
+let _procQueueMap = null;      // Map<key, entry> built once per renderProcessingMode call; null outside render
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
 let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
@@ -3043,6 +3044,12 @@ function renderCharacterStrip(queue) {
 }
 
 /** Render the phase-ordered processing queue into the given container. */
+/**
+ * Look up a queue entry by key using the map built at the start of the current
+ * renderProcessingMode call. O(1); avoids rebuilding the queue on every event.
+ */
+function _getQueueEntry(key) { return _procQueueMap?.get(key) ?? null; }
+
 function renderProcessingMode(container) {
   renderTerritoriesAtAGlance();
 
@@ -3056,6 +3063,7 @@ function renderProcessingMode(container) {
     container.innerHTML = '<p class="placeholder">No actions found in this cycle.</p>';
     return;
   }
+  _procQueueMap = new Map(queue.map(e => [e.key, e]));
 
   // Group by phase
   const byPhase = new Map();
@@ -3213,7 +3221,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key = sel.dataset.procKey;
       const newType = sel.value;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       // Clear override if ST selects the original player-submitted type
       const patch = { action_type_override: newType === entry.originalActionType ? null : newType };
@@ -3300,7 +3308,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key    = btn.dataset.procKey;
       const status = btn.dataset.status;
-      const entry  = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry  = _getQueueEntry(key);
       if (!entry) return;
       // For feeding + project entries: read builder state and save pool_validated before status
       if (entry.source === 'feeding' || entry.source === 'project') {
@@ -3335,7 +3343,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { pool_validated: '' });
       renderProcessingMode(container);
@@ -3369,7 +3377,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
       const name       = card.querySelector('.proc-feed-name-input').value.trim();
@@ -3385,7 +3393,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
       const title      = card.querySelector('.proc-proj-title-input').value.trim();
@@ -3403,7 +3411,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
       const tradition  = card.querySelector('.proc-sorc-tradition-input').value.trim();
@@ -3425,7 +3433,7 @@ function renderProcessingMode(container) {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
       const key   = inp.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { pool_validated: inp.value.trim() });
     });
@@ -3441,7 +3449,7 @@ function renderProcessingMode(container) {
         // Set nineAgain flag and render spec toggles before computing pool total
         _updateFeedBuilderMeta(container, procKey);
         // Reset spec selection when skill changes — specs from old skill no longer apply
-        const skillChgEntry = buildProcessingQueue(submissions).find(q => q.key === procKey);
+        const skillChgEntry = _getQueueEntry(procKey);
         if (skillChgEntry && (skillChgEntry.source === 'feeding' || skillChgEntry.source === 'project')) {
           saveEntryReview(skillChgEntry, { active_feed_specs: [], pool_mod_spec: 0 });
         }
@@ -3490,7 +3498,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       if (entry.source === 'project') {
         await saveEntryReview(entry, { rote: cb.checked });
@@ -3520,7 +3528,7 @@ function renderProcessingMode(container) {
       if (valInp) valInp.value = val;
       if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
       _refreshPoolBuilder(container, key);
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (entry) await saveEntryReview(entry, { pool_mod_equipment: val });
     });
   });
@@ -3540,7 +3548,7 @@ function renderProcessingMode(container) {
       if (valInp) valInp.value = val;
       if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
       _updateVitaeTotal(container, key);
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (entry) await saveEntryReview(entry, { vitae_mod_manual: val });
     });
   });
@@ -3562,7 +3570,7 @@ function renderProcessingMode(container) {
       const str = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
       if (disp)  disp.textContent  = str;
       if (total) total.textContent = str;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (entry) await saveEntryReview(entry, { succ_mod_manual: val });
     });
   });
@@ -3579,7 +3587,7 @@ function renderProcessingMode(container) {
       const key  = inp.dataset.procKey;
       const val  = Math.max(0, parseInt(inp.value || '0', 10));
       inp.value  = val;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (entry) await saveEntryReview(entry, { vitae_rite_cost: val });
     });
   });
@@ -3589,7 +3597,7 @@ function renderProcessingMode(container) {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
       const key = inp.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { player_feedback: inp.value.trim() });
     });
@@ -3603,7 +3611,7 @@ function renderProcessingMode(container) {
       const ta = container.querySelector(`.proc-note-textarea[data-proc-key="${key}"]`);
       const text = ta ? ta.value.trim() : '';
       if (!text) return;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const user = getUser();
       const note = {
@@ -3625,7 +3633,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key  = btn.dataset.procKey;
       const idx  = parseInt(btn.dataset.noteIdx, 10);
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry) || {};
       const thread = [...(review.notes_thread || [])];
@@ -3645,7 +3653,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const textarea = container.querySelector(`.proc-st-response-textarea[data-proc-key="${CSS.escape(key)}"]`);
       if (!textarea) return;
@@ -3670,7 +3678,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review    = getEntryReview(entry) || {};
       const roll      = review.roll || null;
@@ -3791,7 +3799,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const user     = getUser();
       const reviewer = user?.display_name || user?.username || 'Unknown ST';
@@ -3805,7 +3813,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
       const poolValidated = review?.pool_validated || '';
@@ -3826,7 +3834,7 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const key  = cb.dataset.procKey;
       const spec = cb.dataset.spec;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry || !spec) return;
       const review = getEntryReview(entry) || {};
 
@@ -3860,7 +3868,7 @@ function renderProcessingMode(container) {
       const key   = btn.dataset.procKey;
       const subId = btn.dataset.subId;
       const isRote = btn.dataset.rote === 'true';
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
       const poolValidated = review?.pool_validated || '';
@@ -3893,7 +3901,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { nine_again: cb.checked });
       // Update pool total annotation in-place
@@ -3912,7 +3920,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { eight_again: cb.checked });
       renderProcessingMode(container);
@@ -3924,7 +3932,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review = getEntryReview(entry);
       // Prefer the refreshed expression baked into the button's data attribute at render time
@@ -3955,7 +3963,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const review    = getEntryReview(entry);
       const diceCount = parseInt(btn.dataset.pool, 10) || 0;
@@ -3995,7 +4003,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       const allChks   = container.querySelectorAll(`.proc-conn-char-chk[data-proc-key="${key}"]`);
       const connected = [...allChks].filter(c => c.checked).map(c => c.dataset.charName);
@@ -4009,7 +4017,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { attack_target_char: sel.value, attack_target_merit: '' });
       // Repopulate merit dropdown inline — no full re-render needed
@@ -4038,7 +4046,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { attack_target_merit: sel.value });
     });
@@ -4050,7 +4058,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { investigate_target_char: sel.value });
     });
@@ -4061,7 +4069,7 @@ function renderProcessingMode(container) {
     sel.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = sel.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { rite_override: sel.value || null });
       renderProcessingMode(container);
@@ -4073,7 +4081,7 @@ function renderProcessingMode(container) {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
       const key   = cb.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { ritual_mg_used: cb.checked });
       renderProcessingMode(container);
@@ -4085,7 +4093,7 @@ function renderProcessingMode(container) {
     ta.addEventListener('blur', async e => {
       e.stopPropagation();
       const key   = ta.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { ritual_result_note: ta.value.trim() });
     });
@@ -4096,7 +4104,7 @@ function renderProcessingMode(container) {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
 
       const sub = submissions.find(s => s._id === entry.subId);
@@ -4180,7 +4188,7 @@ function renderProcessingMode(container) {
 
       if (!reminderText) { textInput?.focus(); return; }
 
-      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      const entry = _getQueueEntry(key);
       if (!entry) return;
 
       const user = getUser();
@@ -4779,7 +4787,7 @@ function _updateFeedBuilderMeta(container, key) {
   if (!char) { metaEl.innerHTML = ''; return; }
   const nineA = skNineAgain(char, skillName);
   const specs = skSpecs(char, skillName);
-  const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+  const entry = _getQueueEntry(key);
   const review = entry ? (getEntryReview(entry) || {}) : {};
   const activeSpecs = review.active_feed_specs || [];
 
@@ -4806,7 +4814,7 @@ function _updateFeedBuilderMeta(container, key) {
     metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
       cb.addEventListener('change', async e => {
         e.stopPropagation();
-        const entry2 = buildProcessingQueue(submissions).find(q => q.key === cb.dataset.procKey);
+        const entry2 = _getQueueEntry(cb.dataset.procKey);
         if (!entry2 || !cb.dataset.spec) return;
         const rev2 = getEntryReview(entry2) || {};
         const activeSpecs2 = [...(rev2.active_feed_specs || [])];
@@ -4841,7 +4849,7 @@ function _updateFeedBuilderMeta(container, key) {
   metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
     cb.addEventListener('change', async e => {
       e.stopPropagation();
-      const entry2 = buildProcessingQueue(submissions).find(q => q.key === cb.dataset.procKey);
+      const entry2 = _getQueueEntry(cb.dataset.procKey);
       if (!entry2 || !cb.dataset.spec) return;
       const rev2 = getEntryReview(entry2) || {};
       const activeSpecs2 = [...(rev2.active_feed_specs || [])];
