@@ -30,7 +30,7 @@ let activeCycle = null;
 let currentCycle = null;
 let selectedCycleId = null;
 let expandedId = null;
-let processingMode = false;
+const processingMode = true;
 const procExpandedKeys = new Set(); // tracks which action rows are expanded in processing mode
 let procHideDone = false;           // when true, hide fully-resolved action rows from the queue
 let cycleReminders = [];       // processing_reminders from the current cycle document
@@ -346,17 +346,6 @@ export async function initDowntimeView(passedChars) {
     await processDowntimeCsvFile(file);
     await renderCycle();
   });
-  document.getElementById('dt-processing-btn').addEventListener('click', async () => {
-    processingMode = !processingMode;
-    procExpandedKeys.clear();
-    document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
-    if (processingMode) {
-      await ensureTerritories();
-      renderProcessingMode(document.getElementById('dt-submissions'));
-    } else {
-      renderSubmissions();
-    }
-  });
   document.getElementById('dt-cycle-sel').addEventListener('change', e => {
     selectedCycleId = e.target.value;
     loadCycleById(selectedCycleId);
@@ -406,7 +395,6 @@ function buildShell() {
       <button class="dt-btn dt-btn-export" id="dt-export-json" style="display:none">Export JSON</button>
       <button class="dt-btn dt-btn-export" id="dt-import-csv">Import CSV</button>
       <input type="file" id="dt-import-csv-input" accept=".csv" style="display:none">
-      <button class="dt-btn proc-mode-btn" id="dt-processing-btn">Processing</button>
     </div>
     <div id="dt-cycle-bar" class="dt-cycle-bar">
       <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
@@ -828,10 +816,9 @@ async function loadCycleById(cycleId) {
   renderPhaseRibbon(currentCycle, submissions); // update sub-ribbon now submissions are loaded
   document.getElementById('dt-export-all').style.display = submissions.length ? '' : 'none';
   document.getElementById('dt-export-json').style.display = submissions.length ? '' : 'none';
-  // Keep processing mode on across cycle switches — just re-render appropriately
-  document.getElementById('dt-processing-btn').classList.toggle('active', processingMode);
   renderMatchSummary();
   renderSubmissionChecklist();
+  await ensureTerritories();
   renderTerritoriesAtAGlance();
   await loadInvestigations(cycleId);
   renderInvestigations();
@@ -874,14 +861,14 @@ function renderMatchSummary() {
 // ── Submission rendering ────────────────────────────────────────────────────
 
 function renderSubmissions() {
-  // Stick the checklist to the top of the scroll area while in processing mode
+  // Stick the checklist to the top of the scroll area
   document.getElementById('dt-feeding-scene')
-    ?.classList.toggle('dt-proc-sticky', processingMode);
+    ?.classList.add('dt-proc-sticky');
 
-  if (processingMode) {
-    renderProcessingMode(document.getElementById('dt-submissions'));
-    return;
-  }
+  renderProcessingMode(document.getElementById('dt-submissions'));
+}
+
+function _renderSubmissionCards() {
   const el = document.getElementById('dt-submissions');
   if (!submissions.length) {
     el.innerHTML = '<p class="placeholder">No submissions in this cycle.</p>';
@@ -4281,7 +4268,8 @@ function renderProcessingMode(container) {
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
       const review = getEntryReview(entry);
-      const poolValidated = review?.pool_validated || '';
+      // Prefer the refreshed expression baked into the button's data attribute at render time
+      const poolValidated = btn.dataset.poolValidated || review?.pool_validated || '';
       if (!poolValidated) return;
       const match = poolValidated.match(/(\d+)\s*$/);
       const diceCount = match ? parseInt(match[1], 10) : 0;
@@ -4786,24 +4774,6 @@ function renderProcessingMode(container) {
     } catch (err) { console.error('Failed to save ambience notes:', err.message); }
   });
 
-  // Wire open-sub links
-  container.querySelectorAll('.proc-open-sub-link').forEach(link => {
-    link.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = link.dataset.subId;
-      // Switch to per-character view and expand the relevant submission
-      processingMode = false;
-      procExpandedKeys.clear();
-      document.getElementById('dt-processing-btn').classList.remove('active');
-      expandedId = subId;
-      renderSubmissions();
-      // Scroll to submission card
-      setTimeout(() => {
-        const card = document.querySelector(`.dt-sub-card[data-id="${subId}"]`);
-        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
-    });
-  });
 }
 
 /** Render the inline Attach Reminder panel for a resolved sorcery entry. */
@@ -4936,6 +4906,24 @@ function _charDiscsArray(char) {
 function _unskilledPenalty(skillName, skillDots) {
   if (!skillName || skillDots > 0) return 0;
   return SKILLS_MENTAL.includes(skillName) ? -3 : -1;
+}
+
+/**
+ * Re-sync a pool_validated expression string with current character effective stats.
+ * Parses component names from the saved string, then rebuilds using getAttrVal / skTotal
+ * so bonus dots are always included. Returns the refreshed string, or the original if
+ * char is null or the expression cannot be parsed.
+ */
+function _refreshPoolExpr(str, char) {
+  if (!str || !char) return str;
+  const discNames = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+  const parsed = _parsePoolExpr(str, ALL_ATTRS, ALL_SKILLS, discNames);
+  if (!parsed?.attr || !parsed?.skill) return str;
+  const attrDots  = getAttrVal(char, parsed.attr)  || 0;
+  const skillDots = skTotal(char, parsed.skill)     || 0;
+  const discDots  = parsed.disc && parsed.disc !== 'none'
+    ? (_charDiscsArray(char).find(d => d.name === parsed.disc)?.dots || 0) : 0;
+  return _buildPoolExpr(parsed.attr, attrDots, parsed.skill, skillDots, parsed.disc, discDots, parsed.modifier || 0);
 }
 
 /**
@@ -5432,7 +5420,8 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
  */
 function _renderProjRightPanel(entry, char, rev) {
   const key = entry.key;
-  const poolValidated = rev.pool_validated || '';
+  // Always derive pool expression from current effective character stats (dots + bonus)
+  const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
   const poolStatus    = rev.pool_status    || 'pending';
 
   const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
@@ -5535,7 +5524,7 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Roll</div>`;
   if (showRollBtn) {
     const rollLabel = projRoll ? 'Re-roll' : 'Roll';
-    h += `<button class="dt-btn proc-proj-roll-btn" data-proc-key="${esc(key)}">${rollLabel}</button>`;
+    h += `<button class="dt-btn proc-proj-roll-btn" data-proc-key="${esc(key)}" data-pool-validated="${esc(poolValidated)}">${rollLabel}</button>`;
   } else {
     h += `<span class="dt-dim-italic dt-hint">Validate pool first</span>`;
   }
@@ -5578,8 +5567,8 @@ function _renderFeedRightPanel(entry, char, rev) {
   const fg = (char?.merits || []).find(m => m.name === 'Feeding Grounds');
   const fgDice = fg ? (fg.rating || 0) : null; // null = char not loaded
 
-  // Initial unskilled from pool_validated (may be '' if nothing saved yet)
-  const poolValidated = rev.pool_validated || '';
+  // Always derive pool expression from current effective character stats (dots + bonus)
+  const poolValidated = _refreshPoolExpr(rev.pool_validated || '', char);
   let initSkillName = '', initSkillDots = 0;
   if (poolValidated && char) {
     const charDiscs0 = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
@@ -6457,8 +6446,6 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Open full submission link
-  h += `<div class="proc-open-sub-wrap"><a class="proc-open-sub-link" data-sub-id="${esc(entry.subId)}">Open full submission for ${esc(entry.charName)}</a></div>`;
 
   h += '</div>'; // proc-action-detail
   return h;
@@ -6969,7 +6956,6 @@ async function loadInvestigations(cycleId) {
 function renderInvestigations() {
   const el = document.getElementById('dt-investigations');
   if (!el) return;
-  if (!processingMode) { el.innerHTML = ''; return; }
 
   let h = '<div class="dt-inv-panel">';
   h += `<div class="dt-matrix-toggle" id="dt-inv-toggle">${invPanelOpen ? '\u25BC' : '\u25BA'} Investigations <span class="domain-count">${investigations.length}</span></div>`;
@@ -7820,9 +7806,6 @@ function _resolveProjectTerritory(sub, projIdx) {
 function renderTerritoriesAtAGlance() {
   const el = document.getElementById('dt-conflicts');
   if (!el) return;
-
-  // Only visible in processing mode
-  if (!processingMode) { el.innerHTML = ''; return; }
   if (!submissions.length) { el.innerHTML = ''; return; }
 
   const isOpen = el.dataset.open !== 'false';
