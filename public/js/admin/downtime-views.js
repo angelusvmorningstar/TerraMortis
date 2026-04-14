@@ -3407,17 +3407,17 @@ function renderProcessingMode(container) {
     sel.addEventListener('click', e => e.stopPropagation());
     sel.addEventListener('change', e => {
       e.stopPropagation();
-      _updatePoolTotal(container, sel.dataset.procKey);
-      // AC 3 / Task 5: also update unskilled row in right panel when skill changes
+      const procKey = sel.dataset.procKey;
       if (sel.classList.contains('proc-pool-skill')) {
-        _updateUnskilledRow(container, sel.dataset.procKey);
-        _updateFeedBuilderMeta(container, sel.dataset.procKey);
+        // Set nineAgain flag and render spec toggles before computing pool total
+        _updateFeedBuilderMeta(container, procKey);
         // Reset spec selection when skill changes — specs from old skill no longer apply
-        const skillChgEntry = buildProcessingQueue(submissions).find(q => q.key === sel.dataset.procKey);
+        const skillChgEntry = buildProcessingQueue(submissions).find(q => q.key === procKey);
         if (skillChgEntry && (skillChgEntry.source === 'feeding' || skillChgEntry.source === 'project')) {
           saveEntryReview(skillChgEntry, { active_feed_specs: [], pool_mod_spec: 0 });
         }
       }
+      _refreshPoolBuilder(container, procKey);
     });
   });
 
@@ -3490,7 +3490,7 @@ function renderProcessingMode(container) {
       else                                               { if (val < 5)  val++; }
       if (valInp) valInp.value = val;
       if (disp)   disp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
-      _updatePoolModTotal(container, key);
+      _refreshPoolBuilder(container, key);
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (entry) await saveEntryReview(entry, { pool_mod_equipment: val });
     });
@@ -4689,10 +4689,7 @@ function _updatePoolModTotal(container, key) {
 
   // Sync total to pool builder hidden modifier input so the pool total display updates
   const builderModInp = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-mod-val`);
-  if (builderModInp) {
-    builderModInp.value = String(total);
-    _updatePoolTotal(container, key);
-  }
+  if (builderModInp) builderModInp.value = String(total);
 }
 
 /**
@@ -4736,7 +4733,6 @@ function _updateUnskilledRow(container, key) {
       if (valEl) valEl.textContent = String(penalty);
     }
   }
-  _updatePoolModTotal(container, key);
 }
 
 /**
@@ -4765,7 +4761,6 @@ function _updateFeedBuilderMeta(container, key) {
     if (sidebarNineA) sidebarNineA.checked = nineA;
     const poolTotalEl = container.querySelector(`.proc-pool-total[data-proc-key="${key}"]`);
     if (poolTotalEl) poolTotalEl.dataset.nineAgain = nineA ? '1' : '0';
-    _updatePoolTotal(container, key);
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
@@ -4827,6 +4822,17 @@ function _updateFeedBuilderMeta(container, key) {
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
     });
   });
+}
+
+/**
+ * Coordinator: recompute all pool builder displays for one entry in dependency order.
+ * Sequence: unskilled row → mod panel total (syncs builder mod input) → pool total.
+ * Call this instead of individual helpers when the skill, attr, or disc has changed.
+ */
+function _refreshPoolBuilder(container, key) {
+  _updateUnskilledRow(container, key);
+  _updatePoolModTotal(container, key);
+  _updatePoolTotal(container, key);
 }
 
 /**
