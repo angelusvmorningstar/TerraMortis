@@ -3496,6 +3496,21 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire merit details card save
+  container.querySelectorAll('.proc-merit-desc-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const card    = btn.closest('.proc-feed-desc-card');
+      const outcome = card.querySelector('.proc-merit-outcome-input').value.trim();
+      const desc    = card.querySelector('.proc-merit-desc-ta').value.trim();
+      await saveEntryReview(entry, { desired_outcome: outcome, description: desc });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire pool_validated free-text input (non-feeding fallback — save on blur)
   container.querySelectorAll('.proc-pool-input').forEach(inp => {
     inp.addEventListener('click', e => e.stopPropagation());
@@ -5090,7 +5105,7 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved']];
+  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   h += `</div>`;
 
@@ -5638,11 +5653,22 @@ function renderActionPanel(entry, review) {
       h += '</div>';
     }
 
-    if (mOutcome || mDesc) {
-      h += '<div class="proc-proj-detail">';
-      if (mOutcome) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(mOutcome)}</div>`;
-      if (mDesc)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(mDesc)}</div>`;
-      h += '</div>';
+    {
+      const outcomeVal = rev?.desired_outcome ?? mOutcome;
+      const descVal    = rev?.description     ?? mDesc;
+      h += `<div class="proc-feed-desc-card">`;
+      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+      h += `<div class="proc-feed-desc-view">`;
+      if (outcomeVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
+      if (descVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
+      if (!outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      h += `</div>`;
+      h += `<div class="proc-feed-desc-edit" style="display:none">`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-merit-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-merit-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-merit-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+      h += `</div>`;
+      h += `</div>`;
     }
   }
 
