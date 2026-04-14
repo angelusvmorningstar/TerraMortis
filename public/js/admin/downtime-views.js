@@ -5379,6 +5379,12 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-merit-mode-row">`;
   h += `<span class="proc-mod-label">Action Mode</span>`;
   h += `<span class="proc-merit-mode-chip proc-merit-mode-${mode}">${MODE_LABELS[mode] || mode}</span>`;
+  if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+    const mLbl = entry.meritLabel || '';
+    const mQual = entry.meritQualifier || '';
+    h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(category)}">${esc(mLbl.toUpperCase())}</span>`;
+    if (mQual) h += `<span class="proc-merit-qualifier">${esc(mQual)}</span>`;
+  }
   h += `</div>`;
   if (effect) {
     h += `<div class="proc-merit-effect-row">`;
@@ -5945,7 +5951,8 @@ function renderActionPanel(entry, review) {
   const poolStatus    = rev.pool_status    || 'pending';
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
-  const isSorcery     = entry.source === 'sorcery';
+  const isSorcery        = entry.source === 'sorcery';
+  const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
 
   // Hoist char lookup for feeding entries (needed by right panel and pool builder)
   let feedSub = null;
@@ -6004,8 +6011,8 @@ function renderActionPanel(entry, review) {
     h += `<div class="proc-reminder-badge proc-ritual-note-banner">\u2731 ${esc(rev.ritual_result_note)}</div>`;
   }
 
-  // Full description if it was truncated (suppressed for project + feeding + sorcery)
-  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && !isSorcery) {
+  // Full description if it was truncated (suppressed for project + feeding + sorcery + ambience merit)
+  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && !isSorcery && !isAmbienceMerit) {
     h += `<p class="proc-full-desc">${esc(entry.description)}</p>`;
   }
 
@@ -6016,7 +6023,7 @@ function renderActionPanel(entry, review) {
     if (meritRoll) {
       h += `<div class="proc-feed-roll-result">\u2713 Rolled: ${esc(String(meritRoll.successes))} success${meritRoll.successes !== 1 ? 'es' : ''}${meritRoll.exceptional ? ' \u2014 exceptional' : ''}</div>`;
     }
-    if (entry.isAlliesAction && poolStatus === 'pending') {
+    if (entry.isAlliesAction && poolStatus === 'pending' && !isAmbienceMerit) {
       h += `<div class="proc-allies-hint">Allies actions within favour rating are typically automatic \u2014 consider "No Roll Needed".</div>`;
     }
   }
@@ -6034,11 +6041,13 @@ function renderActionPanel(entry, review) {
     const mDesc      = entry.description || '';
     const mDotsStr   = mDots != null ? '\u25CF'.repeat(mDots) : '';
 
-    h += '<div class="proc-merit-header">';
-    h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(mCat)}">${esc(mLabel.toUpperCase())}</span>`;
-    if (mQual)    h += `<span class="proc-merit-qualifier">${esc(mQual)}</span>`;
-    if (mDotsStr) h += `<span class="proc-merit-dots">${esc(mDotsStr)}</span>`;
-    h += '</div>';
+    if (!isAmbienceMerit) {
+      h += '<div class="proc-merit-header">';
+      h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(mCat)}">${esc(mLabel.toUpperCase())}</span>`;
+      if (mQual)    h += `<span class="proc-merit-qualifier">${esc(mQual)}</span>`;
+      if (mDotsStr) h += `<span class="proc-merit-dots">${esc(mDotsStr)}</span>`;
+      h += '</div>';
+    }
 
     if (mOutcome || mDesc) {
       h += '<div class="proc-proj-detail">';
