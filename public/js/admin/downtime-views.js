@@ -71,7 +71,7 @@ const PHASE_LABELS = {
   attack: 'Step 6 — Hostile',
   support_patrol: 'Step 7 — Support & Patrol',
   misc: 'Step 8 — Miscellaneous',
-  sphere: 'Sphere Actions',
+  sphere: 'Other Merit Actions',
   allies: 'Allies & Status',
   contacts: 'Contacts',
   resources_retainers: 'Resources & Retainers',
