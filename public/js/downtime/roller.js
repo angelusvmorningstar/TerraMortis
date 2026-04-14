@@ -162,8 +162,8 @@ export function showRollModal(pool, onSave) {
     btnRow.className = 'roll-btn-row';
     btnRow.innerHTML = `
       <button class="btn" id="roll-reroll-btn">Re-roll</button>
-      ${onSave ? '<button class="btn" id="roll-save-btn" style="border-color:#7fbf8f;color:#7fbf8f">Save Roll</button>' : ''}
-      <button class="btn" id="roll-done-btn" style="border-color:var(--muted);color:var(--muted)">Close</button>`;
+      ${onSave ? '<button class="btn roll-btn-save" id="roll-save-btn">Save Roll</button>' : ''}
+      <button class="btn roll-btn-close" id="roll-done-btn">Close</button>`;
     panel.appendChild(btnRow);
 
     overlay.appendChild(panel);

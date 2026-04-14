@@ -127,6 +127,104 @@ const KNOWN_DISCIPLINES = [
   'Obfuscate', 'Resilience', 'Vigor', 'Vigour', 'Protean', 'Cruac', 'Theban',
 ];
 
+// ── Merit action matrix (from DT Merits.xlsx) ──────────────────────────────
+// Defines pool formula, action mode, and effect text per merit category × action type.
+// poolFormula: 'dots2plus2' | 'none' | 'contacts'
+// mode: 'instant' | 'contested' | 'auto'
+// effect: primary effect text (rolled option)
+// effectAuto: fixed/unrolled effect (used when poolFormula is 'none' or ST chooses auto)
+
+const MERIT_MATRIX = {
+  allies: {
+    ambience_increase: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = positive ambience change',                                                                             effectAuto: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = negative ambience change',                                                                             effectAuto: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of same level or lower' },
+  },
+  status: {
+    ambience_increase: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = positive ambience change',                                                                             effectAuto: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = negative ambience change',                                                                             effectAuto: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of lower level' },
+  },
+  retainer: {
+    ambience_increase: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = positive ambience change',                                                                             effectAuto: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = negative ambience change',                                                                             effectAuto: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
+    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
+    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
+    block:             { poolFormula: 'none',       mode: 'blocked',   effect: 'Cannot perform Block' },
+  },
+  staff: {
+    ambience_increase: { poolFormula: 'none', mode: 'instant',   effect: '+1 ambience' },
+    ambience_decrease: { poolFormula: 'none', mode: 'instant',   effect: '−1 ambience' },
+    attack:            { poolFormula: 'none', mode: 'contested', effect: '(1 − Hide/Protect) halved (round up) removed from target merit level' },
+    hide_protect:      { poolFormula: 'none', mode: 'instant',   effect: '−1 success from any Attack, Scout, or Investigate targeting this merit' },
+    support:           { poolFormula: 'none', mode: 'instant',   effect: '+1 success to supported action' },
+    patrol_scout:      { poolFormula: 'none', mode: 'contested', effect: '1 action revealed (1 − Hide/Protect = net successes; detail scales 1–5+)' },
+    investigate:       { poolFormula: 'none', mode: 'contested', effect: 'See Investigation Matrix (1 − Hide/Protect = net successes)' },
+    rumour:            { poolFormula: 'none', mode: 'instant',   effect: '1 similar-merit action revealed (1 success)' },
+    block:             { poolFormula: 'none', mode: 'blocked',   effect: 'Cannot perform Block' },
+  },
+  contacts: {
+    investigate:          { poolFormula: 'contacts', mode: 'contested', effect: 'If ≥1 success: information appropriate to sphere/theme asked' },
+    patrol_scout:         { poolFormula: 'contacts', mode: 'contested', effect: 'If ≥1 success: information appropriate to sphere/theme asked' },
+    rumour:               { poolFormula: 'contacts', mode: 'contested', effect: 'If ≥1 success: information appropriate to sphere/theme asked' },
+  },
+};
+
+// Investigation Matrix: innate modifier and no-lead penalty per information type
+const INVESTIGATION_MATRIX = [
+  { type: 'Public',       innate: +3, noLead: -1,
+    results: ['Gain all publicly available information', 'Also gain lead on Internal information', 'Also gain lead on Confidential information', 'Also gain lead on Restricted information', 'Also one Rumour'] },
+  { type: 'Internal',     innate: -1, noLead: -2,
+    results: ['Gain lead on Internal information', 'Learn whether the information you seek exists', 'Gain vague Internal information', 'Gain basic Internal information', 'Gain detailed Internal information'] },
+  { type: 'Confidential', innate: -2, noLead: -4,
+    results: ['Gain lead on Confidential information', 'Learn whether the information you seek exists', 'Gain vague Confidential information', 'Gain basic Confidential information', 'Gain detailed Confidential information'] },
+  { type: 'Restricted',   innate: -3, noLead: -5,
+    results: ['Gain lead on Restricted information', 'Learn whether the information you seek exists', 'Gain vague Restricted information', 'Gain basic Restricted information', 'Gain detailed Restricted information'] },
+];
+
+/** Parse "Allies 3 (Finance)" → { category: 'allies', label: 'Allies', dots: 3, qualifier: 'Finance' } */
+function _parseMeritType(str) {
+  if (!str) return { category: 'misc', label: '—', dots: null, qualifier: '' };
+  const m = str.match(/^([A-Za-z][A-Za-z\s']*?)(?:\s+(\d+))?(?:\s*\(([^)]+)\))?$/);
+  if (!m) return { category: 'misc', label: str, dots: null, qualifier: '' };
+  const label    = (m[1] || '').trim();
+  const dots     = m[2] ? parseInt(m[2], 10) : null;
+  const qualifier = (m[3] || '').trim();
+  const categoryRaw = label.toLowerCase();
+  let category;
+  if (/allies/.test(categoryRaw))               category = 'allies';
+  else if (/status/.test(categoryRaw))          category = 'status';
+  else if (/retainer/.test(categoryRaw))        category = 'retainer';
+  else if (/staff/.test(categoryRaw))           category = 'staff';
+  else if (/contacts?/.test(categoryRaw))       category = 'contacts';
+  else                                           category = 'misc';
+  return { category, label, dots, qualifier };
+}
+
+/** Compute dice pool size for a merit category + dots level. Returns null for non-rolled merits. */
+function _computeMeritPoolSize(category, dots) {
+  if (category === 'allies' || category === 'status' || category === 'retainer') {
+    return dots != null ? (dots * 2) + 2 : null;
+  }
+  return null; // staff = fixed; contacts = char pool (not auto-computed)
+}
+
 // Human-readable labels for pool_status values across all action types
 const POOL_STATUS_LABELS = {
   pending:     'Pending',
@@ -2336,14 +2434,15 @@ function buildProcessingQueue(subs) {
 
     spheres.forEach((action, idx) => {
       const actionType = action.action_type || 'misc';
-      const meritType  = (action.merit_type || '').toLowerCase();
+      const parsed     = _parseMeritType(action.merit_type || '');
+      const { category: meritCategory, label: meritLabel, dots: meritDots, qualifier: meritQualifier } = parsed;
       let phaseNum;
-      const isAlliesAction = /allies|status/.test(meritType);
+      const isAlliesAction = meritCategory === 'allies' || meritCategory === 'status';
       if (isAlliesAction) {
         phaseNum = 9;
-      } else if (/contact/.test(meritType)) {
+      } else if (meritCategory === 'contacts') {
         phaseNum = 10;
-      } else if (/retainer|resource/.test(meritType)) {
+      } else if (meritCategory === 'retainer') {
         phaseNum = 11;
       } else {
         phaseNum = PHASE_ORDER[actionType] ?? 8;
@@ -2362,6 +2461,11 @@ function buildProcessingQueue(subs) {
         actionIdx: meritFlatIdx,
         poolPlayer: action.primary_pool?.expression || '',
         isAlliesAction,
+        meritCategory,
+        meritLabel,
+        meritDots,
+        meritQualifier,
+        meritDesiredOutcome: action.desired_outcome || '',
       });
       meritFlatIdx++;
     });
@@ -3910,15 +4014,20 @@ function renderProcessingMode(container) {
         `Validated Pool: ${pool || '—'}`,
         rollLine.trimEnd(),
         '',
-        'Write a narrative response (2–4 paragraphs) describing what happened during this action from the Storyteller\'s perspective.',
+        'Write a narrative response (2–3 short paragraphs, max 150 words) describing what happened during this action from the Storyteller\'s perspective.',
         '',
         'Style rules:',
         '- Second person, present tense',
         '- British English',
-        '- No mechanical terms — no discipline names, dot ratings, or success counts in narrative',
+        '- No mechanical terms: no discipline names, dot ratings, success counts, or merit names in narrative',
         '- No em dashes',
         '- Do not editorialise about what the result means mechanically',
         '- Never dictate what the character felt or chose',
+        '- Compression over expansion: direct statement over periphrasis',
+        '- No stacked declaratives (two or three short sentences in a row that should be folded into one)',
+        '- No negative framing openers (do not begin sections with what the character did not find or what went wrong)',
+        '- Show what happened, not what it means',
+        '- Tone: dry, grounded, specific. Prefer concrete detail over atmosphere. Name streets, objects, and people where possible',
       ].filter(l => l !== null).join('\n');
 
       try {
@@ -4133,6 +4242,27 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire merit roll button (auto-computed pool from data-pool attribute)
+  container.querySelectorAll('.proc-merit-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const review    = getEntryReview(entry);
+      const diceCount = parseInt(btn.dataset.pool, 10) || 0;
+      if (!diceCount) return;
+      showRollModal({
+        size: diceCount, expression: `(${entry.meritDots || '?'} \u00d7 2) + 2`,
+        existingRoll: review?.roll || null,
+        again: 10, initialRote: false,
+      }, async result => {
+        await saveEntryReview(entry, { roll: result });
+        renderProcessingMode(container);
+      });
+    });
+  });
+
   // Wire "Attach Reminder" open button
   container.querySelectorAll('.proc-attach-open-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -4148,6 +4278,105 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       attachReminderKey = null;
       renderProcessingMode(container);
+    });
+  });
+
+  // Wire rite selector (sorcery) — save rite_override and re-render
+  container.querySelectorAll('.proc-rite-select').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { rite_override: sel.value || null });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire Mandragora Garden toggle (sorcery) — save and re-render
+  container.querySelectorAll('.proc-ritual-mg-toggle').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = cb.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { ritual_mg_used: cb.checked });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire ritual result note (sorcery) — save on blur
+  container.querySelectorAll('.proc-ritual-note-input').forEach(ta => {
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = ta.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      await saveEntryReview(entry, { ritual_result_note: ta.value.trim() });
+    });
+  });
+
+  // Wire ritual roll buttons (sorcery entries — single roll with DT bonus + MG)
+  container.querySelectorAll('.proc-ritual-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+
+      const sub = submissions.find(s => s._id === entry.subId);
+      if (!sub) return;
+
+      const rev      = (sub.sorcery_review || {})[entry.actionIdx] || {};
+      const riteName = rev.rite_override || entry.riteName || '';
+      const ritInfo  = riteName ? _getRiteInfo(riteName) : null;
+      if (!ritInfo) { alert(`Rite "${riteName}" not found in the rules database.`); return; }
+
+      // Resolve character
+      const charIdStr   = sub.character_id ? String(sub.character_id) : null;
+      const charNameKey = (sub.character_name || '').toLowerCase().trim();
+      const char        = (charIdStr && characters.find(c => String(c._id) === charIdStr))
+                        || charMap.get(charNameKey) || null;
+
+      // Pool = tradition stats + 3 (DT) + Mandragora (Cruac, if toggled)
+      const base     = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
+      const isCruac  = entry.tradition === 'Cruac';
+      const mandUsed = rev.ritual_mg_used || false;
+      const mgMerit  = char?.merits?.find(m => m.name === 'Mandragora Garden');
+      const mgDots   = (isCruac && mandUsed && mgMerit) ? (mgMerit.rating || mgMerit.dots || 0) : 0;
+      const eqMod    = rev.pool_mod_equipment || 0;
+      const total    = base + 3 + mgDots + eqMod;
+      if (!total) { alert('Cannot compute pool — character stats unavailable.'); return; }
+
+      const parts = char
+        ? [
+            `${ritInfo.attr} ${getAttrVal(char, ritInfo.attr) || 0}`,
+            `${ritInfo.skill} ${skDots(char, ritInfo.skill) || 0}`,
+            ritInfo.disc ? `${ritInfo.disc} ${char.disciplines?.[ritInfo.disc]?.dots || 0}` : null,
+            '+3 (downtime)',
+            mgDots ? `+${mgDots} (Mandragora)` : null,
+            eqMod  ? `${eqMod > 0 ? '+' : ''}${eqMod} (equip)` : null,
+          ].filter(Boolean)
+        : [ritInfo.poolExpr, '+3 (downtime)'];
+      const poolExpr = parts.join(' + ') + ` = ${total}`;
+
+      showRollModal(
+        { size: total, expression: `${riteName}: ${poolExpr}`, existingRoll: rev.ritual_roll || null },
+        async result => {
+          const hit    = result.successes >= ritInfo.target;
+          const status = hit ? 'resolved' : 'no_effect';
+          const sorcReview = { ...(sub.sorcery_review || {}) };
+          sorcReview[entry.actionIdx] = {
+            ...(sorcReview[entry.actionIdx] || {}),
+            ritual_roll:   result,
+            ritual_target: ritInfo.target,
+            pool_status:   status,
+          };
+          await updateSubmission(entry.subId, { sorcery_review: sorcReview });
+          sub.sorcery_review = sorcReview;
+          renderProcessingMode(container);
+        }
+      );
     });
   });
 
@@ -4865,6 +5094,223 @@ function _updatePoolTotal(container, key) {
 }
 
 /**
+ * Render the right-side sidebar for a sorcery entry.
+ * Dice Pool Modifiers (DT bonus + Mandragora Garden + equipment) + Roll + Status.
+ */
+/**
+ * Render the right-side sidebar for a sphere merit action entry.
+ * Shows: action mode + effect from matrix, equipment modifier, roll card (if rolled), status buttons.
+ */
+function _renderMeritRightPanel(entry, rev) {
+  const key        = entry.key;
+  const poolStatus = rev.pool_status || 'pending';
+  const category   = entry.meritCategory || 'misc';
+  const actionType = entry.actionType || 'misc';
+  const dots       = entry.meritDots;
+  const eqMod      = rev.pool_mod_equipment || 0;
+  const eqStr      = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+
+  const matrixRow  = MERIT_MATRIX[category]?.[actionType] || null;
+  const formula    = matrixRow?.poolFormula || 'none';
+  const mode       = matrixRow?.mode || 'instant';
+  const effect     = matrixRow?.effect || '';
+  const effectAuto = matrixRow?.effectAuto || '';
+
+  const basePool   = formula === 'dots2plus2' && dots != null ? (dots * 2) + 2 : null;
+  const totalPool  = basePool != null ? basePool + eqMod : null;
+  const roll       = rev.roll || null;
+  const isRolled   = formula === 'dots2plus2';
+  const isAuto     = mode === 'auto';
+  const isBlocked  = mode === 'blocked';
+
+  const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automatic', blocked: 'Cannot' };
+
+  let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+
+  // ── Action mode + effect panel ──
+  h += `<div class="proc-feed-mod-panel proc-merit-effect-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-merit-mode-row">`;
+  h += `<span class="proc-mod-label">Action Mode</span>`;
+  h += `<span class="proc-merit-mode-chip proc-merit-mode-${mode}">${MODE_LABELS[mode] || mode}</span>`;
+  h += `</div>`;
+  if (effect) {
+    h += `<div class="proc-merit-effect-row">`;
+    h += `<span class="proc-mod-label">Effect</span>`;
+    h += `<span class="proc-merit-effect-text">${esc(effect)}</span>`;
+    h += `</div>`;
+  }
+  if (effectAuto) {
+    h += `<div class="proc-merit-effect-row proc-merit-effect-auto">`;
+    h += `<span class="proc-mod-label">Auto</span>`;
+    h += `<span class="proc-merit-effect-text">${esc(effectAuto)}</span>`;
+    h += `</div>`;
+  }
+  h += `</div>`; // proc-merit-effect-panel
+
+  if (isBlocked) {
+    // Cannot perform this action at all
+    h += `<div class="proc-feed-right-section"><span class="dt-dim-italic">This merit cannot perform this action type.</span></div>`;
+  } else if (isAuto) {
+    // Auto effect — no roll needed
+    h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
+    h += `<div class="proc-mod-panel-title">Automatic</div>`;
+    h += `<span class="dt-dim-italic">No roll required — effect applies automatically.</span>`;
+    h += `</div>`;
+  } else if (isRolled) {
+    // Equipment modifier ticker
+    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+    const poolDisplay = totalPool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Base pool</span><span class="proc-mod-static">${poolDisplay}</span></div>`;
+    h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
+    h += `<span class="proc-mod-ticker">`;
+    h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+    h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
+    h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
+    h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+    h += `</span></div>`;
+    h += `</div>`; // mod panel
+
+    // Roll card
+    const rollLabel = totalPool != null ? ` \u2014 ${totalPool} dice` : '';
+    h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
+    h += `<div class="proc-mod-panel-title">Roll${rollLabel}</div>`;
+    if (totalPool != null && totalPool > 0) {
+      h += `<button class="dt-btn proc-merit-roll-btn" data-proc-key="${esc(key)}" data-pool="${totalPool}">${roll ? 'Re-roll' : 'Roll'}</button>`;
+      if (roll) {
+        const dStr   = _formatDiceString(roll.dice_string);
+        const suc    = roll.successes;
+        const excTag = roll.exceptional ? ' \u00b7 Exceptional' : '';
+        h += `<div class="proc-proj-roll-result">${esc(dStr)} \u2014 ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
+      }
+    } else {
+      h += `<span class="dt-dim-italic">Merit dots unknown \u2014 set pool manually</span>`;
+    }
+    h += `</div>`;
+  } else if (formula === 'none') {
+    // Staff — fixed effect, no roll
+    h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
+    h += `<div class="proc-mod-panel-title">Fixed Effect</div>`;
+    h += `<span class="dt-dim-italic">No dice pool — effect applies as stated.</span>`;
+    h += `</div>`;
+  }
+
+  // Investigation matrix reference (collapsed, for investigate actions)
+  if (actionType === 'investigate' && !isBlocked) {
+    const isOpen = rev._inv_matrix_open || false;
+    h += `<details class="proc-inv-matrix-details"${isOpen ? ' open' : ''}>`;
+    h += `<summary class="proc-inv-matrix-summary">Investigation Matrix reference</summary>`;
+    h += `<table class="proc-inv-matrix-table">`;
+    h += `<tr><th>Type</th><th>Innate</th><th>No lead</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5+</th></tr>`;
+    for (const row of INVESTIGATION_MATRIX) {
+      const innate = row.innate > 0 ? `+${row.innate}` : String(row.innate);
+      const noLead = row.noLead > 0 ? `+${row.noLead}` : String(row.noLead);
+      h += `<tr>`;
+      h += `<td>${esc(row.type)}</td><td>${esc(innate)}</td><td>${esc(noLead)}</td>`;
+      for (let i = 0; i < 5; i++) {
+        h += `<td>${esc(row.results[i] || '\u2014')}</td>`;
+      }
+      h += `</tr>`;
+    }
+    h += `</table></details>`;
+  }
+
+  // ── Status ──
+  h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
+  h += `<div class="proc-mod-panel-title">Status</div>`;
+  h += `<div class="proc-val-status">`;
+  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
+  if (isAuto || mode === 'instant' || formula === 'none') {
+    h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Applied</button>`;
+  } else {
+    h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Resolved</button>`;
+    h += `<button class="proc-val-btn${poolStatus === 'no_effect' ? ' active no_effect' : ''}" data-proc-key="${esc(key)}" data-status="no_effect">No Effect</button>`;
+  }
+  h += `</div>`;
+  h += `</div>`;
+
+  h += `</div>`; // proc-feed-right
+  return h;
+}
+
+function _renderSorceryRightPanel(entry, char, sub, rev) {
+  const key         = entry.key;
+  const poolStatus  = rev.pool_status || 'pending';
+  const selectedRite = rev.rite_override || entry.riteName || '';
+  const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
+
+  const isCruac  = entry.tradition === 'Cruac';
+  const mandUsed = rev.ritual_mg_used || false;
+  const mgMerit  = char?.merits?.find(m => m.name === 'Mandragora Garden');
+  const mgDots   = (isCruac && mandUsed && mgMerit) ? (mgMerit.rating || mgMerit.dots || 0) : 0;
+  const eqMod    = rev.pool_mod_equipment || 0;
+  const eqStr    = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const base     = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
+  const total    = base + 3 + mgDots + eqMod;
+
+  let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
+
+  // ── Dice Pool Modifiers ──
+  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+
+  // +3 Downtime bonus (always on)
+  h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
+
+  // Mandragora Garden toggle (Cruac only)
+  if (isCruac && mgMerit) {
+    const mgTotal = mgMerit.rating || mgMerit.dots || 0;
+    h += `<div class="proc-mod-row">`;
+    h += `<label class="proc-pool-rote-label proc-feed-rote-right">`;
+    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}> Mandragora Garden (+${mgTotal})`;
+    h += `</label></div>`;
+  }
+
+  // Equipment / other ticker
+  h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Equipment / other</span>`;
+  h += `<span class="proc-mod-ticker">`;
+  h += `<button class="proc-equip-mod-dec" type="button" data-proc-key="${esc(key)}">\u2212</button>`;
+  h += `<span class="proc-equip-mod-disp" data-proc-key="${esc(key)}">${eqStr}</span>`;
+  h += `<input type="hidden" class="proc-equip-mod-val" data-proc-key="${esc(key)}" value="${eqMod}">`;
+  h += `<button class="proc-equip-mod-inc" type="button" data-proc-key="${esc(key)}">+</button>`;
+  h += `</span></div>`;
+
+  h += `</div>`; // proc-feed-mod-panel
+
+  // ── Roll card ──
+  const ritRoll    = rev.ritual_roll || null;
+  const canRoll    = !!(ritInfo && base > 0);
+  h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
+  h += `<div class="proc-mod-panel-title">Roll${canRoll ? ` \u2014 ${total} dice \u00b7 target ${ritInfo.target}` : ''}</div>`;
+  if (canRoll) {
+    h += `<button class="dt-btn proc-ritual-roll-btn" data-proc-key="${esc(key)}">${ritRoll ? 'Re-roll' : 'Roll'}</button>`;
+    if (ritRoll) {
+      const hit    = ritRoll.successes >= (ritInfo.target || 1);
+      const dStr   = _formatDiceString(ritRoll.dice_string);
+      const suc    = ritRoll.successes;
+      const excTag = ritRoll.exceptional ? ' \u00b7 Exceptional' : '';
+      h += `<div class="proc-proj-roll-result${hit ? '' : ' proc-ritual-fail'}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${hit ? ` \u2014 Potency ${suc}` : ' \u2014 no effect'}${excTag}</div>`;
+    }
+  } else {
+    h += `<span class="dt-dim-italic dt-hint">Select a rite first</span>`;
+  }
+  h += `</div>`;
+
+  // ── Validation Status ──
+  h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
+  h += `<div class="proc-mod-panel-title">Status</div>`;
+  h += `<div class="proc-val-status">`;
+  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'resolved'  ? ' active resolved'  : ''}" data-proc-key="${esc(key)}" data-status="resolved">Resolved</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'no_effect' ? ' active no_effect' : ''}" data-proc-key="${esc(key)}" data-status="no_effect">No Effect</button>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  h += `</div>`; // proc-feed-right
+  return h;
+}
+
+/**
  * Render the right-side sidebar for a project/ambience entry (feature.59).
  * Dice Pool Modifiers (equipment only) + Success Modifier + Rote + Validation Status.
  */
@@ -5248,6 +5694,19 @@ function renderActionPanel(entry, review) {
       null;
   }
 
+  // Hoist char lookup for sorcery entries
+  let sorcSub = null;
+  let sorcChar = null;
+  if (isSorcery) {
+    sorcSub = submissions.find(s => s._id === entry.subId) || null;
+    const charIdStr   = sorcSub?.character_id ? String(sorcSub.character_id) : null;
+    const charNameKey = (sorcSub?.character_name || '').toLowerCase().trim();
+    sorcChar =
+      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+      charMap.get(charNameKey) ||
+      null;
+  }
+
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
 
   // ── Reminder badges (non-sorcery target actions) ──
@@ -5261,8 +5720,13 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Full description if it was truncated (suppressed for project + feeding — shown inside detail block)
-  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding') {
+  // Ritual result note reminder (sorcery — shown at top of every expansion as a reminder)
+  if (isSorcery && rev.ritual_result_note) {
+    h += `<div class="proc-reminder-badge proc-ritual-note-banner">\u2731 ${esc(rev.ritual_result_note)}</div>`;
+  }
+
+  // Full description if it was truncated (suppressed for project + feeding + sorcery)
+  if (entry.description && entry.description.length > 80 && entry.source !== 'project' && entry.source !== 'feeding' && !isSorcery) {
     h += `<p class="proc-full-desc">${esc(entry.description)}</p>`;
   }
 
@@ -5278,8 +5742,32 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // ── Two-column layout wrapper (feeding + project) ──
-  if (entry.source === 'feeding' || entry.source === 'project') h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+  // ── Two-column layout wrapper (feeding + project + sorcery + merit) ──
+  if (entry.source === 'feeding' || entry.source === 'project' || isSorcery || entry.source === 'merit') h += `<div class="proc-feed-layout"><div class="proc-feed-left">`;
+
+  // ── Merit-specific detail display (inside left column) ──
+  if (entry.source === 'merit') {
+    const mCat       = entry.meritCategory || 'misc';
+    const mLabel     = entry.meritLabel    || '';
+    const mDots      = entry.meritDots;
+    const mQual      = entry.meritQualifier || '';
+    const mOutcome   = entry.meritDesiredOutcome || '';
+    const mDesc      = entry.description || '';
+    const mDotsStr   = mDots != null ? '\u25CF'.repeat(mDots) : '';
+
+    h += '<div class="proc-merit-header">';
+    h += `<span class="proc-merit-cat-chip proc-merit-cat-${esc(mCat)}">${esc(mLabel.toUpperCase())}</span>`;
+    if (mQual)    h += `<span class="proc-merit-qualifier">${esc(mQual)}</span>`;
+    if (mDotsStr) h += `<span class="proc-merit-dots">${esc(mDotsStr)}</span>`;
+    h += '</div>';
+
+    if (mOutcome || mDesc) {
+      h += '<div class="proc-proj-detail">';
+      if (mOutcome) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(mOutcome)}</div>`;
+      if (mDesc)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(mDesc)}</div>`;
+      h += '</div>';
+    }
+  }
 
   // ── Project-specific detail display (inside left column) ──
   if (entry.source === 'project') {
@@ -5571,8 +6059,76 @@ function renderActionPanel(entry, review) {
     }
     h += '</div>';
     h += '</div>'; // proc-pool-builder
-  } else {
-    // Non-feeding, non-project: standard 2-column layout
+  } else if (isSorcery) {
+    // ── Sorcery: rite dropdown + computed pool display + result note ──
+    const allRites    = (_getRulesDB() || []).filter(r => r.category === 'rite');
+    const selectedRite = rev.rite_override || entry.riteName || '';
+    const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
+    const overridden   = rev.rite_override && rev.rite_override !== entry.riteName;
+
+    // Rite selector
+    h += '<div class="proc-rite-select-row">';
+    h += '<span class="proc-detail-label">Rite</span>';
+    h += `<select class="proc-rite-select" data-proc-key="${esc(entry.key)}">`;
+    h += '<option value="">\u2014 Select Rite \u2014</option>';
+    const tradOrder = ['Cruac', 'Theban'];
+    const byTrad = {};
+    for (const r of allRites) {
+      const t = r.parent || 'Unknown';
+      if (!byTrad[t]) byTrad[t] = [];
+      byTrad[t].push(r);
+    }
+    const tradKeys = [...tradOrder.filter(t => byTrad[t]), ...Object.keys(byTrad).filter(t => !tradOrder.includes(t))];
+    for (const trad of tradKeys) {
+      const group = (byTrad[trad] || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+      h += `<optgroup label="${esc(trad)}">`;
+      for (const r of group) {
+        const sel = selectedRite === r.name ? ' selected' : '';
+        h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.rank || '?'})</option>`;
+      }
+      h += '</optgroup>';
+    }
+    h += '</select>';
+    if (overridden) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName || '\u2014')}</span>`;
+    h += '</div>';
+
+    // Pool + target display (auto-computed from selected rite + char)
+    if (ritInfo) {
+      const base     = _computeRitePool(sorcChar, ritInfo.attr, ritInfo.skill, ritInfo.disc);
+      const isCruac  = entry.tradition === 'Cruac';
+      const mandUsed = rev.ritual_mg_used || false;
+      const mgMerit  = sorcChar?.merits?.find(m => m.name === 'Mandragora Garden');
+      const mgDots   = (isCruac && mandUsed && mgMerit) ? (mgMerit.rating || mgMerit.dots || 0) : 0;
+      const eqMod    = rev.pool_mod_equipment || 0;
+      const total    = base + 3 + mgDots + eqMod;
+
+      let exprParts = sorcChar
+        ? [
+            `${ritInfo.attr} ${getAttrVal(sorcChar, ritInfo.attr) || 0}`,
+            `${ritInfo.skill} ${skDots(sorcChar, ritInfo.skill) || 0}`,
+            ritInfo.disc ? `${ritInfo.disc} ${sorcChar.disciplines?.[ritInfo.disc]?.dots || 0}` : null,
+            '+3',
+          ].filter(Boolean)
+        : [ritInfo.poolExpr, '+3'];
+      if (mgDots) exprParts.push(`+${mgDots}`);
+      if (eqMod)  exprParts.push(eqMod > 0 ? `+${eqMod}` : String(eqMod));
+
+      h += `<div class="proc-ritual-info">`;
+      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Pool</span> ${esc(exprParts.join(' + '))} = ${total}</span>`;
+      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Target</span> ${ritInfo.target} success${ritInfo.target !== 1 ? 'es' : ''} (Level ${ritInfo.target})</span>`;
+      h += '</div>';
+    } else if (selectedRite) {
+      h += `<div class="proc-ritual-no-rule">Rite not found in rules database.</div>`;
+    }
+
+    // Mechanical result note
+    const resultNote = rev.ritual_result_note || '';
+    h += '<div class="proc-section">';
+    h += '<div class="proc-detail-label">Mechanical Result</div>';
+    h += `<textarea class="proc-ritual-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Potency, duration, effect on target\u2026">${esc(resultNote)}</textarea>`;
+    h += '</div>';
+  } else if (entry.source !== 'merit') {
+    // Non-feeding, non-project, non-sorcery, non-merit: standard 2-column layout
     h += '<div class="proc-detail-grid">';
     h += '<div class="proc-detail-col">';
     h += `<div class="proc-detail-label">Player's Submitted Pool</div>`;
@@ -5585,8 +6141,8 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-detail-grid
   }
 
-  // Validation status — feeding + project move to right panel; others rendered here
-  if (entry.source !== 'feeding' && entry.source !== 'project') {
+  // Validation status — feeding, project, sorcery, merit move to right panel; others rendered here
+  if (entry.source !== 'feeding' && entry.source !== 'project' && !isSorcery && entry.source !== 'merit') {
     const statusOptions = isSorcery
       ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
       : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
@@ -5624,12 +6180,6 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Roll button for validated merit entries (project roll is in the right sidebar)
-  if (entry.source === 'merit' && poolStatus === 'validated') {
-    h += '<div class="proc-section">';
-    h += `<button class="dt-btn proc-action-roll-btn" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">Roll</button>`;
-    h += '</div>';
-  }
 
   // ST Response (all personal project actions — feature.66 extended)
   if (entry.source === 'project') {
@@ -5684,7 +6234,7 @@ function renderActionPanel(entry, review) {
   h += '</div>';
   h += '</div>';
 
-  // ── Close left column; render right panel for feeding + project entries ──
+  // ── Close left column; render right panel for feeding + project + sorcery + merit entries ──
   if (entry.source === 'feeding') {
     h += '</div>'; // proc-feed-left
     h += _renderFeedRightPanel(entry, feedChar, rev);
@@ -5692,6 +6242,14 @@ function renderActionPanel(entry, review) {
   } else if (entry.source === 'project') {
     h += '</div>'; // proc-feed-left
     h += _renderProjRightPanel(entry, projChar, rev);
+    h += '</div>'; // proc-feed-layout
+  } else if (isSorcery) {
+    h += '</div>'; // proc-feed-left
+    h += _renderSorceryRightPanel(entry, sorcChar, sorcSub, rev);
+    h += '</div>'; // proc-feed-layout
+  } else if (entry.source === 'merit') {
+    h += '</div>'; // proc-feed-left
+    h += _renderMeritRightPanel(entry, rev);
     h += '</div>'; // proc-feed-layout
   }
 
@@ -5712,6 +6270,52 @@ function renderActionPanel(entry, review) {
 
   h += '</div>'; // proc-action-detail
   return h;
+}
+
+// ── Ritual helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Look up a rite's casting pool and target successes from the rules DB.
+ * Pool components are the same for every rite within a tradition.
+ * Target successes = rite rank (level 1–5).
+ *
+ * Returns { poolExpr, target, attr, skill, disc } or null.
+ */
+function _getRiteInfo(riteName) {
+  const db = _getRulesDB();
+  if (!db) return null;
+
+  const riteRule = db.find(r => r.category === 'rite' && r.name === riteName);
+  if (!riteRule?.pool || !riteRule.rank) return null;
+
+  const attr  = riteRule.pool.attr  || '';
+  const skill = riteRule.pool.skill || '';
+  const disc  = riteRule.pool.disc  || '';
+  const target = riteRule.rank;
+  const poolExpr = [attr, skill, disc].filter(Boolean).join(' + ');
+
+  return { poolExpr, target, attr, skill, disc };
+}
+
+/**
+ * Compute the ritual dice pool total for a character: attr + skill + tradition disc.
+ */
+function _computeRitePool(char, attr, skill, disc) {
+  if (!char) return 0;
+  return (getAttrVal(char, attr) || 0)
+       + (skDots(char, skill)    || 0)
+       + (char.disciplines?.[disc]?.dots || 0);
+}
+
+/**
+ * Read the rules DB synchronously from localStorage (key: 'tm_rules_db').
+ */
+function _getRulesDB() {
+  try {
+    const raw = localStorage.getItem('tm_rules_db');
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return null;
 }
 
 // ── Narrative Output Authoring (Story 1.7) ───────────────────────────────────
