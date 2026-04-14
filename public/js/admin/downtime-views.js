@@ -3798,7 +3798,7 @@ function renderProcessingMode(container) {
   });
 
   // ── Feeding description card — Edit / Save / Cancel ──
-  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input').forEach(el => {
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-targets-input, .proc-sorc-notes-input').forEach(el => {
     el.addEventListener('click',  e => e.stopPropagation());
     el.addEventListener('mousedown', e => e.stopPropagation());
   });
@@ -3849,6 +3849,21 @@ function renderProcessingMode(container) {
       const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
       const merits     = card.querySelector('.proc-proj-merits-input').value.trim();
       await saveEntryReview(entry, { title, desired_outcome: outcome, description: desc, pool_player: playerPool, merits_bonuses: merits });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire sorcery details card save
+  container.querySelectorAll('.proc-sorc-desc-save-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      const card    = btn.closest('.proc-feed-desc-card');
+      const targets = card.querySelector('.proc-sorc-targets-input').value.trim();
+      const notes   = card.querySelector('.proc-sorc-notes-input').value.trim();
+      await saveEntryReview(entry, { sorc_targets: targets || null, sorc_notes: notes || null });
       renderProcessingMode(container);
     });
   });
@@ -6066,6 +6081,32 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
   }
 
+  // ── Sorcery details card (editable) — above connected characters ──
+  if (isSorcery) {
+    const sorcRawNotes    = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
+    const sorcRawTargets  = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
+    const targetsVal      = rev.sorc_targets ?? sorcRawTargets;
+    const notesVal        = rev.sorc_notes   ?? sorcRawNotes;
+
+    h += `<div class="proc-feed-desc-card">`;
+    h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
+    // View mode
+    h += `<div class="proc-feed-desc-view">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(entry.tradition || '\u2014')}</div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span> ${esc(entry.riteName || '\u2014')}</div>`;
+    if (targetsVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(targetsVal)}</div>`;
+    if (notesVal)        h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(notesVal)}</div>`;
+    if (entry.poolPlayer) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(entry.poolPlayer)}</div>`;
+    h += `</div>`;
+    // Edit mode
+    h += `<div class="proc-feed-desc-edit" style="display:none">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
+    h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+
   // ── Connected Characters (project + merit + sorcery) — inside left column, below description ──
   // Ambience merit actions are level-based automatic effects; no connected characters needed
   const isAmbienceMerit = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
@@ -6390,24 +6431,6 @@ function renderActionPanel(entry, review) {
     const selectedRite = rev.rite_override || entry.riteName || '';
     const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
     const overridden   = rev.rite_override && rev.rite_override !== entry.riteName;
-
-    // ── Player submission details card (read-only) ──
-    {
-      const sorcNotes   = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
-      const sorcTargets = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
-      const sorcPool    = entry.poolPlayer || '';
-
-      h += `<div class="proc-feed-desc-card">`;
-      h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span></div>`;
-      h += `<div class="proc-feed-desc-view">`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(entry.tradition || '\u2014')}</div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span> ${esc(entry.riteName || '\u2014')}</div>`;
-      if (sorcTargets) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(sorcTargets)}</div>`;
-      if (sorcNotes)   h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(sorcNotes)}</div>`;
-      if (sorcPool)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(sorcPool)}</div>`;
-      h += `</div>`;
-      h += `</div>`;
-    }
 
     // Rite selector
     h += '<div class="proc-rite-select-row">';
