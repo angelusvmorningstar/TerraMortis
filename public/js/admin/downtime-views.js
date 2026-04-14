@@ -6032,7 +6032,11 @@ function renderActionPanel(entry, review) {
       const pStr   = pAttr + (pSkill ? ' + ' + pSkill : '') + (pDisc ? ' + ' + pDisc : '');
       h += `<div class="proc-detail-value proc-pool-player-structured">${esc(pStr || '\u2014')}</div>`;
     } else {
-      h += `<div class="proc-detail-value proc-pool-player-csv">${esc(poolPlayer || '\u2014')}</div>`;
+      // For 'other' method with no structured custom fields, poolPlayer is just 'Other' — show feedDesc instead
+      const displayPoolPlayer = (entry.feedMethod === 'other' && (!poolPlayer || poolPlayer === 'Other') && entry.feedDesc)
+        ? entry.feedDesc
+        : (poolPlayer || '\u2014');
+      h += `<div class="proc-detail-value proc-pool-player-csv">${esc(displayPoolPlayer)}</div>`;
     }
     h += '</div>';
 
