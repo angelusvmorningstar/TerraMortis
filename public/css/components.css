@@ -634,6 +634,18 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-desktop{display:grid;grid-template-columns:4fr 3fr 3fr;gap:0 24px;align-items:start;}
 .sh-dcol{min-width:0;overflow:hidden;}
 
+/* Narrow viewports: collapse the 3-col sheet into a single column.
+   We do not touch sheet.js — this is a pure CSS override of the outer
+   grid plus the two most likely inner grids that would otherwise still
+   force a 3-wide layout inside the now-stacked column. */
+@media (max-width: 900px) {
+  .sh-desktop { grid-template-columns: 1fr; gap: 16px; }
+  .sh-desktop .sh-dcol { overflow: visible; }
+  .sh-desktop .attr-grid,
+  .sh-desktop .sh-sec .attr-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .sh-desktop .skills-3col { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+}
+
 /* Hide name row in view mode only when inside admin panel (header already shows it).
    Player portal has no panel header, so name row stays visible there. */
 .char-detail .sh-desktop .sh-namerow{display:none;}
