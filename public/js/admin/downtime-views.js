@@ -32,6 +32,7 @@ let selectedCycleId = null;
 let expandedId = null;
 let processingMode = false;
 let procExpandedKey = null;    // tracks which action row is expanded in processing mode
+let procHideDone = false;      // when true, hide fully-resolved action rows from the queue
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
@@ -54,7 +55,7 @@ const PHASE_ORDER = {
   investigate: 4,
   attack: 5,
   patrol_scout: 6, support: 6,
-  misc: 7, xp_spend: 7,
+  misc: 7, xp_spend: 7, maintenance: 7,
   block: 8, rumour: 8, grow: 8, acquisition: 8,
   allies: 9,
   contacts: 10,
@@ -101,6 +102,7 @@ const ACTION_TYPE_LABELS = {
   patrol_scout: 'Patrol / Scout',
   support: 'Support',
   misc: 'Miscellaneous',
+  maintenance: 'Maintenance',
   xp_spend: 'XP Spend',
   block: 'Block',
   rumour: 'Rumour',
@@ -110,7 +112,7 @@ const ACTION_TYPE_LABELS = {
 
 const ALL_ACTION_TYPES = [
   'ambience_increase', 'ambience_decrease', 'attack', 'hide_protect',
-  'investigate', 'patrol_scout', 'support', 'misc', 'xp_spend',
+  'investigate', 'patrol_scout', 'support', 'misc', 'maintenance', 'xp_spend',
   'block', 'rumour', 'grow', 'acquisition',
 ];
 
@@ -127,12 +129,17 @@ const KNOWN_DISCIPLINES = [
 
 // Human-readable labels for pool_status values across all action types
 const POOL_STATUS_LABELS = {
-  pending:   'Pending',
-  validated: 'Validated',
-  no_roll:   'No Roll',
-  resolved:  'Resolved',
-  no_effect: 'No Effect',
+  pending:     'Pending',
+  validated:   'Validated',
+  no_roll:     'No Roll',
+  no_feed:     'No Valid Feeding',
+  maintenance: 'Maintenance',
+  resolved:    'Resolved',
+  no_effect:   'No Effect',
 };
+
+// Statuses considered fully resolved (used for phase counts and hide-done filter)
+const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect']);
 
 /** Returns a stable action_key string for reminder targeting. Returns null for sorcery entries. */
 function entryActionKey(entry) {
@@ -2246,7 +2253,12 @@ function buildProcessingQueue(subs) {
     projects.forEach((proj, idx) => {
       const actionType = proj.action_type || 'misc';
       if (actionType === 'feed') return; // AC10: feeding rote projects shown in feeding phase
-      const phaseNum = PHASE_ORDER[actionType] ?? 7;
+
+      // ST recategorisation override — changes phase and label without altering player data
+      const projReview = (sub.projects_resolved || [])[idx] || {};
+      const effectiveActionType = projReview.action_type_override || actionType;
+
+      const phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
       const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
       const slot = idx + 1; // 1-indexed response key
 
@@ -2293,8 +2305,9 @@ function buildProcessingQueue(subs) {
         charName,
         phase: phaseKey,
         phaseNum,
-        actionType,
-        label: ACTION_TYPE_LABELS[actionType] || actionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        actionType: effectiveActionType,
+        originalActionType: actionType,
+        label: ACTION_TYPE_LABELS[effectiveActionType] || effectiveActionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
         description: projDescription || proj.desired_outcome || '',
         source: 'project',
         actionIdx: idx,
@@ -3260,6 +3273,11 @@ function renderProcessingMode(container) {
 
   let h = '<div class="proc-queue">';
 
+  // Controls bar — queue-level toggles
+  h += `<div class="proc-queue-controls">`;
+  h += `<button class="proc-hide-done-btn${procHideDone ? ' active' : ''}" id="proc-hide-done-toggle">${procHideDone ? 'Show all' : 'Hide done'}</button>`;
+  h += `</div>`;
+
   // Ambience Dashboard — always shown at top of Processing Mode
   h += renderAmbienceDashboard();
 
@@ -3269,25 +3287,41 @@ function renderProcessingMode(container) {
   for (const [phaseKey, entries] of byPhase) {
     const label = PHASE_LABELS[phaseKey] || phaseKey;
     const isCollapsed = !expandedPhases.has(phaseKey);
+
+    // Completion count for this phase
+    const doneCount = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
+    const allPhaseDone = entries.length > 0 && doneCount === entries.length;
+    const phaseProgressBadge = allPhaseDone
+      ? ' <span class="dt-narr-badge">\u2713</span>'
+      : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/${entries.length}</span>` : '';
+
+    // When hiding done, skip phases where every action is resolved
+    const visibleEntries = procHideDone
+      ? entries.filter(e => !DONE_STATUSES.has(getEntryReview(e)?.pool_status))
+      : entries;
+    if (procHideDone && visibleEntries.length === 0) continue;
+
     h += `<div class="proc-phase-section">`;
     h += `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
-    h += `<span class="proc-phase-label">${esc(label)}</span>`;
+    h += `<span class="proc-phase-label">${esc(label)}${phaseProgressBadge}</span>`;
     h += `<span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span>`;
     h += `<span class="proc-phase-toggle">${isCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
 
     if (!isCollapsed) {
-      for (const entry of entries) {
+      for (const entry of visibleEntries) {
         const isExpanded = procExpandedKey === entry.key;
         const review = getEntryReview(entry);
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
+        const lastAuthor = review?.response_author || '';
 
         h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+        h += lastAuthor ? `<span class="proc-row-author">${esc(lastAuthor)}</span>` : '<span></span>';
         h += '</div>';
 
         if (isExpanded) {
@@ -3300,7 +3334,14 @@ function renderProcessingMode(container) {
             const terrContext = entry.source === 'project' ? String(entry.actionIdx)
               : entry.source === 'feeding' ? 'feeding'
               : `allies_${entry.actionIdx}`;
-            const currentTerrId = sub?.st_review?.territory_overrides?.[terrContext] || '';
+            const isFeeding = terrContext === 'feeding';
+            // Feeding: multi-select (array); others: single-select (string)
+            const feedingOverrideArr = isFeeding
+              ? (Array.isArray(sub?.st_review?.territory_overrides?.feeding)
+                  ? sub.st_review.territory_overrides.feeding : [])
+              : null;
+            const currentTerrId = isFeeding ? '' : (sub?.st_review?.territory_overrides?.[terrContext] || '');
+            const feedingSet = isFeeding ? new Set(feedingOverrideArr) : null;
             const TERR_PILLS = [
               { id: '',           label: '\u2014' },
               { id: 'academy',    label: 'Acad.' },
@@ -3312,7 +3353,12 @@ function renderProcessingMode(container) {
             h += `<div class="proc-terr-pill-row" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}">`;
             h += `<span class="proc-terr-pill-label">Terr.</span>`;
             for (const t of TERR_PILLS) {
-              const active = currentTerrId === t.id ? ' active' : '';
+              let active = '';
+              if (isFeeding) {
+                active = (t.id === '' ? feedingSet.size === 0 : feedingSet.has(t.id)) ? ' active' : '';
+              } else {
+                active = currentTerrId === t.id ? ' active' : '';
+              }
               h += `<button class="proc-terr-pill${active}" data-sub-id="${esc(entry.subId)}" data-terr-context="${esc(terrContext)}" data-terr-id="${esc(t.id)}">${esc(t.label)}</button>`;
             }
             h += `</div>`;
@@ -3359,6 +3405,29 @@ function renderProcessingMode(container) {
   // Render investigations into its placeholder inside the investigate phase
   renderInvestigations();
 
+  // Wire hide-done toggle
+  document.getElementById('proc-hide-done-toggle')?.addEventListener('click', () => {
+    procHideDone = !procHideDone;
+    renderProcessingMode(container);
+  });
+
+  // Wire action type recategorisation selects
+  container.querySelectorAll('.proc-recat-select').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key = sel.dataset.procKey;
+      const newType = sel.value;
+      const entry = buildProcessingQueue(submissions).find(q => q.key === key);
+      if (!entry) return;
+      // Clear override if ST selects the original player-submitted type
+      const patch = { action_type_override: newType === entry.originalActionType ? null : newType };
+      // Maintenance auto-resolves as no-roll
+      if (newType === 'maintenance') patch.pool_status = 'maintenance';
+      await saveEntryReview(entry, patch);
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire row clicks
   container.querySelectorAll('.proc-action-row').forEach(row => {
     row.addEventListener('click', () => {
@@ -3374,25 +3443,56 @@ function renderProcessingMode(container) {
       e.stopPropagation();
       const subId   = btn.dataset.subId;
       const context = btn.dataset.terrContext; // numeric string for projects, 'feeding', 'allies_N'
-      const terrId  = btn.dataset.terrId; // '' = clear assignment
+      const terrId  = btn.dataset.terrId; // '' = clear/deselect
       const sub = submissions.find(s => s._id === subId);
       if (!sub) return;
       if (!sub.st_review) sub.st_review = {};
       if (!sub.st_review.territory_overrides) sub.st_review.territory_overrides = {};
-      if (terrId) {
-        sub.st_review.territory_overrides[context] = terrId;
-        await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: terrId });
+
+      if (context === 'feeding') {
+        // Multi-select: toggle id in/out of array; em-dash clears all
+        let arr = Array.isArray(sub.st_review.territory_overrides.feeding)
+          ? [...sub.st_review.territory_overrides.feeding] : [];
+        if (!terrId) {
+          arr = []; // clear all
+        } else {
+          const idx = arr.indexOf(terrId);
+          if (idx >= 0) arr.splice(idx, 1); else arr.push(terrId);
+        }
+        if (arr.length) {
+          sub.st_review.territory_overrides.feeding = arr;
+          await updateSubmission(subId, { 'st_review.territory_overrides.feeding': arr });
+        } else {
+          delete sub.st_review.territory_overrides.feeding;
+          await updateSubmission(subId, { 'st_review.territory_overrides.feeding': null });
+        }
+        // Update pill active states in-place
+        const newSet = new Set(sub.st_review.territory_overrides?.feeding || []);
+        const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-terr-context="feeding"]`);
+        if (pillRow) {
+          pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
+            const pid = p.dataset.terrId;
+            p.classList.toggle('active', pid === '' ? newSet.size === 0 : newSet.has(pid));
+          });
+        }
       } else {
-        delete sub.st_review.territory_overrides[context];
-        await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: null });
+        // Single-select: existing behaviour
+        if (terrId) {
+          sub.st_review.territory_overrides[context] = terrId;
+          await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: terrId });
+        } else {
+          delete sub.st_review.territory_overrides[context];
+          await updateSubmission(subId, { [`st_review.territory_overrides.${context}`]: null });
+        }
+        // Update pill active states in-place
+        const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-terr-context="${context}"]`);
+        if (pillRow) {
+          pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
+            p.classList.toggle('active', p.dataset.terrId === terrId);
+          });
+        }
       }
-      // Update pill active states in-place
-      const pillRow = container.querySelector(`.proc-terr-pill-row[data-sub-id="${subId}"][data-terr-context="${context}"]`);
-      if (pillRow) {
-        pillRow.querySelectorAll('.proc-terr-pill').forEach(p => {
-          p.classList.toggle('active', p.dataset.terrId === terrId);
-        });
-      }
+
       // Refresh the territories matrix
       renderTerritoriesAtAGlance();
     });
@@ -3806,6 +3906,14 @@ function renderProcessingMode(container) {
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry || !spec) return;
       const review = getEntryReview(entry) || {};
+
+      // Snapshot the current builder expression before re-render wipes unsaved dropdown values
+      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      if (builder) {
+        const expr = _readBuilderExpr(builder);
+        if (expr) await saveEntryReview(entry, { pool_validated: expr });
+      }
+
       const activeFeedSpecs = [...(review.active_feed_specs || [])];
       if (cb.checked) {
         if (!activeFeedSpecs.includes(spec)) activeFeedSpecs.push(spec);
@@ -3830,6 +3938,12 @@ function renderProcessingMode(container) {
       const key = cb.dataset.procKey;
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
+      // Snapshot builder expression before re-render wipes unsaved dropdown values
+      const builder = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"]`);
+      if (builder) {
+        const expr = _readBuilderExpr(builder);
+        if (expr) await saveEntryReview(entry, { pool_validated: expr });
+      }
       await saveEntryReview(entry, { nine_again: cb.checked });
       renderProcessingMode(container);
     });
@@ -4725,9 +4839,10 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += `<div class="proc-val-status">`;
-  h += `<button class="proc-val-btn${poolStatus === 'pending'   ? ' active pending'   : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'validated' ? ' active validated' : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
-  h += `<button class="proc-val-btn${poolStatus === 'no_roll'   ? ' active no_roll'   : ''}" data-proc-key="${esc(key)}" data-status="no_roll">No Roll Needed</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'pending'      ? ' active pending'      : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'validated'    ? ' active validated'    : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'no_roll'      ? ' active no_roll'      : ''}" data-proc-key="${esc(key)}" data-status="no_roll">No Roll Needed</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'maintenance'  ? ' active maintenance'  : ''}" data-proc-key="${esc(key)}" data-status="maintenance">Maintenance</button>`;
   h += `</div>`;
   // Committed pool expression with active specs
   const _activeProjSpecs = rev.active_feed_specs || [];
@@ -4983,6 +5098,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<div class="proc-val-status">`;
   h += `<button class="proc-val-btn${poolStatus === 'pending'    ? ' active pending'    : ''}" data-proc-key="${esc(key)}" data-status="pending">Pending</button>`;
   h += `<button class="proc-val-btn${poolStatus === 'validated'  ? ' active validated'  : ''}" data-proc-key="${esc(key)}" data-status="validated">Validated</button>`;
+  h += `<button class="proc-val-btn${poolStatus === 'no_feed'    ? ' active no_feed'    : ''}" data-proc-key="${esc(key)}" data-status="no_feed">No Valid Feeding</button>`;
   h += `</div>`;
   // Committed pool expression display — augmented with active spec names if any
   const _activeFeedSpecs = rev.active_feed_specs || [];
@@ -5093,6 +5209,20 @@ function renderActionPanel(entry, review) {
       }
       h += '</div>';
     }
+
+    // ── Action type recategorisation ──
+    const isOverridden = entry.originalActionType && entry.originalActionType !== entry.actionType;
+    h += `<div class="proc-recat-row">`;
+    h += `<span class="proc-feed-lbl">Action Type</span>`;
+    h += `<select class="proc-recat-select" data-proc-key="${esc(entry.key)}">`;
+    for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
+      h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
+    }
+    h += `</select>`;
+    if (isOverridden) {
+      h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
+    }
+    h += `</div>`;
   }
 
   // ── Feeding-specific detail display ──
@@ -6571,6 +6701,17 @@ function _normTerrKeys(rawTerrs) {
 function _getSubFedTerrs(sub) {
   const fed = new Set();
   let grid = null;
+
+  // ST override takes priority: array of TERRITORY_DATA ids set via feeding pills
+  const overrideArr = sub.st_review?.territory_overrides?.feeding;
+  if (Array.isArray(overrideArr) && overrideArr.length > 0) {
+    for (const tid of overrideArr) {
+      if (!tid) continue;
+      const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
+      if (mt) fed.add(mt.csvKey);
+    }
+    return fed;
+  }
 
   // Prefer responses.feeding_territories (slug keys — new form format)
   if (sub.responses?.feeding_territories) {
