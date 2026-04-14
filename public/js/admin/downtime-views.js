@@ -136,8 +136,8 @@ const KNOWN_DISCIPLINES = [
 
 const MERIT_MATRIX = {
   allies: {
-    ambience_increase: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = positive ambience change',                                                                             effectAuto: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
-    ambience_decrease: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = negative ambience change',                                                                             effectAuto: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
     attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
     hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
     support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
@@ -147,8 +147,8 @@ const MERIT_MATRIX = {
     block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of same level or lower' },
   },
   status: {
-    ambience_increase: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = positive ambience change',                                                                             effectAuto: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
-    ambience_decrease: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = negative ambience change',                                                                             effectAuto: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
     attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
     hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
     support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
@@ -158,8 +158,8 @@ const MERIT_MATRIX = {
     block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of lower level' },
   },
   retainer: {
-    ambience_increase: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = positive ambience change',                                                                             effectAuto: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
-    ambience_decrease: { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes = negative ambience change',                                                                             effectAuto: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
+    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
+    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
     attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
     hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
     support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
@@ -169,8 +169,8 @@ const MERIT_MATRIX = {
     block:             { poolFormula: 'none',       mode: 'blocked',   effect: 'Cannot perform Block' },
   },
   staff: {
-    ambience_increase: { poolFormula: 'none', mode: 'instant',   effect: '+1 ambience' },
-    ambience_decrease: { poolFormula: 'none', mode: 'instant',   effect: '−1 ambience' },
+    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: '+1 ambience' },
+    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: '−1 ambience' },
     attack:            { poolFormula: 'none', mode: 'contested', effect: '(1 − Hide/Protect) halved (round up) removed from target merit level' },
     hide_protect:      { poolFormula: 'none', mode: 'instant',   effect: '−1 success from any Attack, Scout, or Investigate targeting this merit' },
     support:           { poolFormula: 'none', mode: 'instant',   effect: '+1 success to supported action' },
@@ -2771,15 +2771,6 @@ function buildAmbienceData(terrs) {
         else if (val < 0) infNeg[tid] = (infNeg[tid] || 0) + Math.abs(val);
       }
     }
-    // Resolved merit actions (ST-tagged post-processing)
-    for (const act of (sub.merit_actions_resolved || [])) {
-      if (!act) continue;
-      if (!['validated', 'no_roll'].includes(act.status)) continue;
-      const tid = resolveTerrId(act.territory || '');
-      if (!tid) continue;
-      if (act.action_type === 'ambience_increase') infPos[tid] = (infPos[tid] || 0) + 1;
-      else if (act.action_type === 'ambience_decrease') infNeg[tid] = (infNeg[tid] || 0) + 1;
-    }
   }
 
   // ── Projects: sum roll successes from ambience project actions ──
@@ -2810,6 +2801,51 @@ function buildAmbienceData(terrs) {
     }
   }
 
+  // ── Allies / Status / Retainer ambience actions ──
+  // Level-based automatic: dots 3–4 = ±1, dots 5 = ±2. Territory from st_review overrides.
+  const alliesPos = {}, alliesNeg = {};
+  for (const sub of submissions) {
+    const raw = sub._raw || {};
+    const spheres  = raw.sphere_actions?.actions  || [];
+    const contacts = raw.contact_actions?.actions || [];
+    const retainers = raw.retainer_actions?.actions || [];
+    const subChar = findCharacter(sub.character_name, sub.player_name);
+    let meritFlatIdx = 0;
+
+    for (const action of spheres) {
+      const resolvedAct = (sub.merit_actions_resolved || [])[meritFlatIdx];
+      const actionType = resolvedAct?.action_type_override || action.action_type || 'misc';
+      if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+        const parsed = _parseMeritType(action.merit_type || '');
+        if (parsed.category === 'allies' || parsed.category === 'status' || parsed.category === 'retainer') {
+          if (resolvedAct?.pool_status === 'resolved') {
+            const terrKey = `allies_${meritFlatIdx}`;
+            const tid = resolveTerrId(sub.st_review?.territory_overrides?.[terrKey] || '');
+            if (tid) {
+              const actualMerit = subChar?.merits?.find(m =>
+                m.name?.toLowerCase() === parsed.label.toLowerCase() &&
+                (m.qualifier || '').toLowerCase() === parsed.qualifier.toLowerCase()
+              );
+              const dots = actualMerit
+                ? (actualMerit.rating || actualMerit.dots || parsed.dots || 0) + (actualMerit.bonus || 0)
+                : (parsed.dots || 0);
+              const value = dots >= 5 ? 2 : dots >= 3 ? 1 : 0;
+              if (value > 0) {
+                if (actionType === 'ambience_increase') alliesPos[tid] = (alliesPos[tid] || 0) + value;
+                else alliesNeg[tid] = (alliesNeg[tid] || 0) + value;
+              }
+            }
+          }
+          // Count as pending if not yet resolved
+          if (!resolvedAct || resolvedAct.pool_status === 'pending') pendingAmbienceCount++;
+        }
+      }
+      meritFlatIdx++;
+    }
+    // contacts and retainers don't do ambience but advance the flat index
+    meritFlatIdx += contacts.length + retainers.length;
+  }
+
   // ── Assemble rows ──
   const rows = TERRITORY_DATA.map(td => {
     const id = td.id;
@@ -2824,7 +2860,10 @@ function buildAmbienceData(terrs) {
     const proj_pos = projPos[id] || 0;
     const proj_neg = projNeg[id] || 0;
     const projects = proj_pos - proj_neg;
-    const net = entropy + overfeedVal + influence + projects;
+    const allies_pos = alliesPos[id] || 0;
+    const allies_neg = alliesNeg[id] || 0;
+    const allies = allies_pos - allies_neg;
+    const net = entropy + overfeedVal + influence + projects + allies;
     const startIdx = AMBIENCE_STEPS_LIST.indexOf(ambience);
     let projStep = ambience;
     if (startIdx >= 0) {
@@ -2836,7 +2875,7 @@ function buildAmbienceData(terrs) {
       projStep = AMBIENCE_STEPS_LIST[newIdx];
     }
     const ambienceMod = startingAmbienceMod[id] ?? td.ambienceMod;
-    return { id, name: td.name, ambience, ambienceMod, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, net, projStep };
+    return { id, name: td.name, ambience, ambienceMod, entropy, overfeed: overfeedVal, feeders, cap, inf_pos, inf_neg, influence, proj_pos, proj_neg, projects, allies_pos, allies_neg, allies, net, projStep };
   });
   return { rows, pendingAmbienceCount };
 }
@@ -2867,6 +2906,7 @@ function renderAmbienceDashboard() {
       <th title="Feeders vs cap">Overfeeding</th>
       <th title="Influence spend from CSV: +positive / -negative / net">Influence</th>
       <th title="Ambience project roll successes">Projects</th>
+      <th title="Allies / Status / Retainer automatic ambience actions">Allies</th>
       <th title="Sum of all columns">Net Change</th>
       <th title="Projected new ambience step (preview only)">Projected</th>
       <th title="Confirm this ambience change for cycle push">Confirm</th>
@@ -2894,6 +2934,11 @@ function renderAmbienceDashboard() {
       const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
       const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
       h += `<td>${projDisplay}</td>`;
+      const alliesNet = r.allies_pos - r.allies_neg;
+      const alliesNetStr = alliesNet > 0 ? `+${alliesNet}` : String(alliesNet);
+      const alliesNetClass = alliesNet > 0 ? 'proc-amb-pos' : alliesNet < 0 ? 'proc-amb-neg' : '';
+      const alliesDisplay = `<span class="proc-amb-pos">+${r.allies_pos}</span> | <span class="proc-amb-neg">-${r.allies_neg}</span> | <span class="${alliesNetClass}">${alliesNetStr}</span>`;
+      h += `<td>${alliesDisplay}</td>`;
       h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
       h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
       // Confirm cell
@@ -3798,13 +3843,12 @@ function renderProcessingMode(container) {
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
-      const name       = card.querySelector('.proc-proj-name-input').value.trim();
       const title      = card.querySelector('.proc-proj-title-input').value.trim();
       const outcome    = card.querySelector('.proc-proj-outcome-input').value.trim();
       const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
       const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
       const merits     = card.querySelector('.proc-proj-merits-input').value.trim();
-      await saveEntryReview(entry, { name, title, desired_outcome: outcome, description: desc, pool_player: playerPool, merits_bonuses: merits });
+      await saveEntryReview(entry, { title, desired_outcome: outcome, description: desc, pool_player: playerPool, merits_bonuses: merits });
       renderProcessingMode(container);
     });
   });
@@ -4494,8 +4538,9 @@ function renderProcessingMode(container) {
       const base         = _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
       const mandUsed     = rev.ritual_mg_used || false;
-      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) + (m.bonus||0) : 0); }, 0);
-      const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
+      const mgMerit      = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
+      const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
+      const mgDots       = (isCruac && mandUsed) ? mgPool : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
       if (!total) { alert('Cannot compute pool — character stats unavailable.'); return; }
@@ -5380,8 +5425,9 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
 
   const isCruac      = entry.tradition === 'Cruac';
   const mandUsed     = rev.ritual_mg_used || false;
-  const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) + (m.bonus||0) : 0); }, 0);
-  const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
+  const mgMerit      = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
+  const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
+  const mgDots       = (isCruac && mandUsed) ? mgPool : 0;
   const eqMod        = rev.pool_mod_equipment || 0;
   const eqStr        = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
@@ -5396,11 +5442,11 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // +3 Downtime bonus (always on)
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
 
-  // Mandragora Garden toggle (Cruac only — shared pool across all chars with the merit)
-  if (isCruac && mgSharedPool > 0) {
+  // Mandragora Garden toggle (Cruac only — only if this character has the merit)
+  if (isCruac && mgPool > 0) {
     h += `<div class="proc-mod-row">`;
     h += `<label class="proc-pool-rote-label proc-feed-rote-right">`;
-    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}> Mandragora Garden (+${mgSharedPool})`;
+    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}> Mandragora Garden (+${mgPool})`;
     h += `</label></div>`;
   }
 
@@ -5947,7 +5993,6 @@ function renderActionPanel(entry, review) {
 
     // ── Editable Details card ──
     {
-      const nameVal    = rev.name           ?? '';
       const titleVal   = rev.title          ?? entry.projTitle   ?? '';
       const outcomeVal = rev.desired_outcome ?? entry.projOutcome ?? '';
       const descVal    = rev.description    ?? entry.description ?? '';
@@ -5959,18 +6004,16 @@ function renderActionPanel(entry, review) {
 
       // View mode
       h += `<div class="proc-feed-desc-view">`;
-      if (nameVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span> ${esc(nameVal)}</div>`;
       if (titleVal)      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span> ${esc(titleVal)}</div>`;
       if (outcomeVal)    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span> ${esc(outcomeVal)}</div>`;
       if (descVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span> ${esc(descVal)}</div>`;
       if (playerPoolVal) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(playerPoolVal)}</div>`;
       if (meritsVal)     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Merits &amp; Bonuses</span> ${esc(meritsVal)}</div>`;
-      if (!nameVal && !titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
+      if (!titleVal && !outcomeVal && !descVal) h += `<div class="proc-proj-field proc-feed-desc-empty">\u2014 No details recorded</div>`;
       h += `</div>`;
 
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-proj-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="Short action name"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Title</span><input type="text" class="proc-proj-title-input" data-proc-key="${esc(entry.key)}" value="${esc(titleVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Desired Outcome</span><input type="text" class="proc-proj-outcome-input" data-proc-key="${esc(entry.key)}" value="${esc(outcomeVal)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="4">${esc(descVal)}</textarea></div>`;
@@ -6024,7 +6067,9 @@ function renderActionPanel(entry, review) {
   }
 
   // ── Connected Characters (project + merit + sorcery) — inside left column, below description ──
-  if (entry.source === 'project' || entry.source === 'merit' || isSorcery) {
+  // Ambience merit actions are level-based automatic effects; no connected characters needed
+  const isAmbienceMerit = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
+  if (!isAmbienceMerit && (entry.source === 'project' || entry.source === 'merit' || isSorcery)) {
     const connectedChars = rev.connected_chars || [];
     const otherChars = [...new Set(
       submissions.map(s => {
@@ -6364,7 +6409,8 @@ function renderActionPanel(entry, review) {
       h += `<optgroup label="${esc(trad)}">`;
       for (const r of group) {
         const sel = selectedRite === r.name ? ' selected' : '';
-        h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${r.rank || '?'})</option>`;
+        const lvl = r.rank || _getRiteLevel(r.name) || '?';
+        h += `<option value="${esc(r.name)}"${sel}>${esc(r.name)} (Level ${lvl})</option>`;
       }
       h += '</optgroup>';
     }
@@ -6377,8 +6423,9 @@ function renderActionPanel(entry, review) {
       const base         = _computeRitePool(sorcChar, ritInfo.attr, ritInfo.skill, ritInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
       const mandUsed     = rev.ritual_mg_used || false;
-      const mgSharedPool = characters.reduce((s, c) => { const m = (c.merits||[]).find(x => x.name === 'Mandragora Garden'); return s + (m ? (m.rating||m.dots||0) + (m.bonus||0) : 0); }, 0);
-      const mgDots       = (isCruac && mandUsed) ? mgSharedPool : 0;
+      const mgMeritL     = isCruac ? (sorcChar?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
+      const mgPoolL      = mgMeritL ? (mgMeritL.rating || mgMeritL.dots || 0) + (mgMeritL.bonus || 0) : 0;
+      const mgDots       = (isCruac && mandUsed) ? mgPoolL : 0;
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
 
@@ -6547,20 +6594,79 @@ function renderActionPanel(entry, review) {
  *
  * Returns { poolExpr, target, attr, skill, disc } or null.
  */
+/**
+ * Compute the shared Mandragora Garden pool across all characters.
+ * Deduplicates paired "Shared (X)" merits — a garden shared between two characters
+ * counts only once (at the rating of the first partner encountered).
+ */
+function _mandragoraSharedPool() {
+  let total = 0;
+  const countedPairs = new Set();
+  for (const c of characters) {
+    const m = (c.merits || []).find(x => x.name === 'Mandragora Garden');
+    if (!m) continue;
+    const qual = (m.qualifier || '');
+    const sharedMatch = qual.match(/^[Ss]hared\s*\(([^)]+)\)$/);
+    if (sharedMatch) {
+      const pairedName = sharedMatch[1].trim().toLowerCase();
+      const pairKey = [c.name.toLowerCase(), pairedName].sort().join('::');
+      if (countedPairs.has(pairKey)) continue;
+      countedPairs.add(pairKey);
+    }
+    total += (m.rating || m.dots || 0) + (m.bonus || 0);
+  }
+  return total;
+}
+
+// Tradition pool formulas — all rites within a tradition use the same base pool
+const TRADITION_POOL = {
+  Cruac:             { attr: 'Intelligence', skill: 'Occult',    disc: 'Cruac' },
+  'Theban Sorcery':  { attr: 'Resolve',     skill: 'Academics', disc: 'Theban Sorcery' },
+  Theban:            { attr: 'Resolve',     skill: 'Academics', disc: 'Theban Sorcery' },
+};
+
 function _getRiteInfo(riteName) {
   const db = _getRulesDB();
-  if (!db) return null;
 
-  const riteRule = db.find(r => r.category === 'rite' && r.name === riteName);
-  if (!riteRule?.pool || !riteRule.rank) return null;
+  // Try rules DB first (ideal path: has structured pool object and rank)
+  if (db) {
+    const riteRule = db.find(r => r.category === 'rite' && r.name === riteName);
+    if (riteRule?.pool && riteRule.rank) {
+      const attr  = riteRule.pool.attr  || '';
+      const skill = riteRule.pool.skill || '';
+      const disc  = riteRule.pool.disc  || '';
+      return { poolExpr: [attr, skill, disc].filter(Boolean).join(' + '), target: riteRule.rank, attr, skill, disc };
+    }
+  }
 
-  const attr  = riteRule.pool.attr  || '';
-  const skill = riteRule.pool.skill || '';
-  const disc  = riteRule.pool.disc  || '';
-  const target = riteRule.rank;
-  const poolExpr = [attr, skill, disc].filter(Boolean).join(' + ');
+  // Fallback: scan all loaded characters' powers to find rite level + tradition
+  for (const char of characters) {
+    const rite = (char.powers || []).find(p => p.category === 'rite' && p.name === riteName);
+    if (rite?.level && rite.tradition) {
+      const pool = TRADITION_POOL[rite.tradition] || null;
+      if (pool) {
+        return { poolExpr: [pool.attr, pool.skill, pool.disc].filter(Boolean).join(' + '), target: rite.level, ...pool };
+      }
+    }
+  }
 
-  return { poolExpr, target, attr, skill, disc };
+  return null;
+}
+
+/**
+ * Return the known level of a rite by name: checks DB first, then all character powers.
+ */
+function _getRiteLevel(riteName) {
+  const db = _getRulesDB();
+  if (db) {
+    const r = db.find(r => r.category === 'rite' && r.name === riteName);
+    if (r?.rank) return r.rank;
+  }
+  for (const char of characters) {
+    const p = (char.powers || []).find(p => p.category === 'rite' && p.name === riteName);
+    if (p?.level) return p.level;
+  }
+  return null;
 }
 
 /**
