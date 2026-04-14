@@ -695,7 +695,24 @@ export function shRenderInfluenceMerits(c, editMode) {
       h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + (m.rating ? ' ' + shDots(m.rating) : '') + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
-    if (ce.length) { const td = Math.min(5, ce.reduce((s, m) => s + (m.rating || 0), 0)); const allSp = []; ce.forEach(m => { if (m.spheres && m.spheres.length) allSp.push(...m.spheres); else if (m.area) allSp.push(m.area.trim()); else if (m.qualifier) allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean)); }); const sp = [...new Set(allSp)].join(', '); h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : '') + (td ? ' ' + shDots(td) : ''), 'infl', 'contacts'); }
+    if (ce.length) {
+      let totalPurch = 0, totalRating = 0;
+      ce.forEach(m => {
+        totalPurch += (m.cp || 0) + (m.xp || 0);
+        totalRating += (m.rating || 0);
+      });
+      totalRating = Math.min(5, totalRating);
+      const cPurch = Math.min(totalPurch, totalRating);
+      const cBon = Math.max(0, totalRating - cPurch);
+      const allSp = [];
+      ce.forEach(m => {
+        if (m.spheres && m.spheres.length) allSp.push(...m.spheres);
+        else if (m.area) allSp.push(m.area.trim());
+        else if (m.qualifier) allSp.push(...m.qualifier.split(/,\s*/).filter(Boolean));
+      });
+      const sp = [...new Set(allSp)].join(', ');
+      h += shRenderMeritRow('Contacts' + (sp ? ' (' + sp + ')' : ''), 'infl', 'contacts', shDotsMixed(cPurch, cBon));
+    }
     h += '<div class="infl-total" title="' + _inflTip + '">Total Influence: <span class="inf-n">' + totalInfl + '</span></div>';
   }
   h += '</div></div>'; return h;
