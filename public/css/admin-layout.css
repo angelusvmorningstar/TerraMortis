@@ -5000,7 +5000,9 @@ body {
 .proc-proj-title-input,
 .proc-proj-outcome-input,
 .proc-proj-merits-input,
-.proc-sorc-targets-input {
+.proc-sorc-targets-input,
+.proc-sorc-tradition-input,
+.proc-sorc-rite-input {
   width: 100%;
   box-sizing: border-box;
   margin-top: 4px;

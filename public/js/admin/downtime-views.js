@@ -3798,7 +3798,7 @@ function renderProcessingMode(container) {
   });
 
   // ── Feeding description card — Edit / Save / Cancel ──
-  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-targets-input, .proc-sorc-notes-input').forEach(el => {
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-targets-input, .proc-sorc-notes-input, .proc-sorc-tradition-input, .proc-sorc-rite-input').forEach(el => {
     el.addEventListener('click',  e => e.stopPropagation());
     el.addEventListener('mousedown', e => e.stopPropagation());
   });
@@ -3860,10 +3860,17 @@ function renderProcessingMode(container) {
       const key   = btn.dataset.procKey;
       const entry = buildProcessingQueue(submissions).find(q => q.key === key);
       if (!entry) return;
-      const card    = btn.closest('.proc-feed-desc-card');
-      const targets = card.querySelector('.proc-sorc-targets-input').value.trim();
-      const notes   = card.querySelector('.proc-sorc-notes-input').value.trim();
-      await saveEntryReview(entry, { sorc_targets: targets || null, sorc_notes: notes || null });
+      const card       = btn.closest('.proc-feed-desc-card');
+      const tradition  = card.querySelector('.proc-sorc-tradition-input').value.trim();
+      const riteName   = card.querySelector('.proc-sorc-rite-input').value.trim();
+      const targets    = card.querySelector('.proc-sorc-targets-input').value.trim();
+      const notes      = card.querySelector('.proc-sorc-notes-input').value.trim();
+      await saveEntryReview(entry, {
+        sorc_tradition: tradition || null,
+        sorc_rite_name: riteName  || null,
+        sorc_targets:   targets   || null,
+        sorc_notes:     notes     || null,
+      });
       renderProcessingMode(container);
     });
   });
@@ -6173,26 +6180,29 @@ function renderActionPanel(entry, review) {
   if (isSorcery) {
     const sorcRawNotes    = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
     const sorcRawTargets  = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
-    const targetsVal      = rev.sorc_targets ?? sorcRawTargets;
-    const notesVal        = rev.sorc_notes   ?? sorcRawNotes;
-
-    // Rite name from DT1 submissions may be an entire blob — truncate display
-    const riteDisplay   = entry.riteName || '\u2014';
-    const riteTruncated = riteDisplay.length > 100 ? riteDisplay.slice(0, 100) + '\u2026' : riteDisplay;
+    const targetsVal      = rev.sorc_targets    ?? sorcRawTargets;
+    const notesVal        = rev.sorc_notes      ?? sorcRawNotes;
+    // ST overrides for tradition and rite name — fall back to submission values
+    const traditionVal    = rev.sorc_tradition  ?? entry.tradition ?? '';
+    // Rite: prefer ST-set name, then right-panel rite_override, skip blob if >60 chars
+    const blobRite        = (entry.riteName && entry.riteName.length <= 60) ? entry.riteName : '';
+    const riteVal         = rev.sorc_rite_name  ?? rev.rite_override ?? blobRite;
+    const riteRaw         = entry.riteName || '\u2014';
 
     h += `<div class="proc-feed-desc-card">`;
     h += `<div class="proc-feed-desc-card-hd"><span class="proc-detail-label">Details</span><button class="dt-btn proc-feed-desc-edit-btn" data-proc-key="${esc(entry.key)}">Edit</button></div>`;
-    // Always-visible static fields (not toggled by Edit)
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(entry.tradition || '\u2014')}</div>`;
-    h += `<div class="proc-proj-field" title="${esc(riteDisplay)}"><span class="proc-feed-lbl">Rite</span> ${esc(riteTruncated)}</div>`;
     // View mode (hidden when editing)
     h += `<div class="proc-feed-desc-view">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(traditionVal || '\u2014')}</div>`;
+    h += `<div class="proc-proj-field" title="${esc(riteRaw)}"><span class="proc-feed-lbl">Rite</span> ${esc(riteVal || '\u2014')}</div>`;
     if (targetsVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(targetsVal)}</div>`;
     if (notesVal)         h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(notesVal)}</div>`;
     if (entry.poolPlayer) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(entry.poolPlayer)}</div>`;
     h += `</div>`;
     // Edit mode (hidden by default)
     h += `<div class="proc-feed-desc-edit" style="display:none">`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><input type="text" class="proc-sorc-tradition-input" data-proc-key="${esc(entry.key)}" value="${esc(traditionVal)}" placeholder="Cruac or Theban Sorcery\u2026"></div>`;
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><input type="text" class="proc-sorc-rite-input" data-proc-key="${esc(entry.key)}" value="${esc(riteVal)}" placeholder="Rite name\u2026"></div>`;
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
