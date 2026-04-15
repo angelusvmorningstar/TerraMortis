@@ -51,6 +51,7 @@ const stActionAddExpandedSubs = new Set(); // subIds with "Add ST Action" form e
 const PHASE_ORDER = {
   resolve_first: 0,
   feeding: 1,
+  feed: 1,
   ambience_increase: 2, ambience_decrease: 2,
   hide_protect: 3,
   investigate: 4,
@@ -60,14 +61,15 @@ const PHASE_ORDER = {
 };
 
 const PHASE_LABELS = {
-  resolve_first: 'Step 1 — Blood Sorcery & Rituals',
-  feeding: 'Step 2 — Feeding',
-  ambience: 'Step 3 — Ambience',
-  hide_protect: 'Step 4 — Defensive',
-  investigate: 'Step 5 — Investigative',
-  attack: 'Step 6 — Hostile',
-  support_patrol: 'Step 7 — Support & Patrol',
-  misc: 'Step 8 — Miscellaneous',
+  travel: 'Step 1 — Travel Review',
+  resolve_first: 'Step 2 — Blood Sorcery & Rituals',
+  feeding: 'Step 3 — Feeding',
+  ambience: 'Step 4 — Ambience',
+  hide_protect: 'Step 5 — Defensive',
+  investigate: 'Step 6 — Investigative',
+  attack: 'Step 7 — Hostile',
+  support_patrol: 'Step 8 — Support & Patrol',
+  misc: 'Step 9 — Miscellaneous',
   allies: 'Allies',
   status: 'Status',
   retainers: 'Retainers',
@@ -104,6 +106,7 @@ const ST_ACTION_PHASE_MAP = {
 const ACTION_TYPE_LABELS = {
   ambience_increase: 'Ambience Increase',
   ambience_decrease: 'Ambience Decrease',
+  feed: 'Rote Feed',
   attack: 'Attack',
   hide_protect: 'Hide / Protect',
   investigate: 'Investigate',
@@ -119,7 +122,7 @@ const ACTION_TYPE_LABELS = {
 };
 
 const ALL_ACTION_TYPES = [
-  'ambience_increase', 'ambience_decrease', 'attack', 'hide_protect',
+  'ambience_increase', 'ambience_decrease', 'feed', 'attack', 'hide_protect',
   'investigate', 'patrol_scout', 'support', 'misc', 'maintenance', 'xp_spend',
   'block', 'rumour', 'grow', 'acquisition',
 ];
@@ -264,10 +267,13 @@ const POOL_STATUS_LABELS = {
   maintenance: 'Maintenance',
   resolved:    'Resolved',
   no_effect:   'No Effect',
+  obvious:     'Obvious',
+  neutral:     'Neutral',
+  subtle:      'Subtle',
 };
 
 // Statuses considered fully resolved (used for phase counts and hide-done filter)
-const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect', 'skipped']);
+const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect', 'skipped', 'obvious', 'neutral', 'subtle']);
 
 /** Returns a stable action_key string for reminder targeting. Returns null for sorcery entries. */
 function entryActionKey(entry) {
@@ -1812,6 +1818,26 @@ function buildProcessingQueue(subs) {
     const _subChar = findCharacter(sub.character_name, sub.player_name);
     const charName = _subChar ? (_subChar.moniker || _subChar.name) : (sub.character_name || '?');
 
+    // ── Travel Review (Step 1 — phaseNum -1 sorts before sorcery) ──
+    const travelDesc = (raw.submission?.narrative?.travel_description || '').trim();
+    if (travelDesc) {
+      const shortDesc = travelDesc.length > 80 ? travelDesc.slice(0, 77) + '\u2026' : travelDesc;
+      queue.push({
+        key: `${sub._id}:travel`,
+        subId: sub._id,
+        charName,
+        phase: 'travel',
+        phaseNum: -1,
+        actionType: 'travel',
+        label: 'Travel',
+        description: shortDesc,
+        source: 'travel',
+        actionIdx: 0,
+        poolPlayer: '',
+        travelDesc,
+      });
+    }
+
     // ── Sorcery (resolve_first) ──
     const sorcCount = parseInt(resp['sorcery_slot_count'] || '1', 10);
     // Tradition detection: check character disciplines for Cruac or Theban
@@ -2148,6 +2174,7 @@ function buildProcessingQueue(subs) {
   return queue;
 }
 
+
 /**
  * Recompute discipline × territory profile from all currently-validated feeding reviews.
  * Called after any feeding pool_status or pool_validated change. Saves to cycle document.
@@ -2169,19 +2196,24 @@ async function recomputeDisciplineProfile() {
       }
     }
   }
-  // Also scan ambience project actions
+  // Also scan territory-relevant project actions: ambience and rote feed
+  // Rote feed (+1, or +2 exceptional) and ambience (+1, or +2 exceptional)
   for (const sub of submissions) {
     for (const [pIdx, proj] of (sub.projects_resolved || []).entries()) {
       if (!proj?.pool_validated) continue;
       if (proj.pool_status !== 'validated') continue;
-      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
-      const territory = resolveTerrId(sub.responses?.[`project_${pIdx + 1}_territory`] || '');
+      const actionType = proj.action_type_override || proj.action_type;
+      const isAmbience = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+      const isRoteFeed = actionType === 'feed';
+      if (!isAmbience && !isRoteFeed) continue;
+      const territory = _resolveProjectTerritory(sub, pIdx);
       if (!territory) continue;
       const foundDiscs = KNOWN_DISCIPLINES.filter(d => proj.pool_validated.includes(d));
       if (!foundDiscs.length) continue;
+      const points = proj.roll?.exceptional ? 2 : 1;
       if (!profile[territory]) profile[territory] = {};
       for (const disc of foundDiscs) {
-        profile[territory][disc] = (profile[territory][disc] || 0) + 1;
+        profile[territory][disc] = (profile[territory][disc] || 0) + points;
       }
     }
   }
@@ -2200,6 +2232,7 @@ async function recomputeDisciplineProfile() {
 function getEntryReview(entry) {
   const sub = submissions.find(s => s._id === entry.subId);
   if (!sub) return null;
+  if (entry.source === 'travel')   return { pool_status: sub.st_review?.travel_discretion || 'pending' };
   if (entry.source === 'feeding') return sub.feeding_review || null;
   if (entry.source === 'project') return (sub.projects_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
@@ -2212,6 +2245,13 @@ function getEntryReview(entry) {
 async function saveEntryReview(entry, patch) {
   const sub = submissions.find(s => s._id === entry.subId);
   if (!sub) return;
+
+  if (entry.source === 'travel') {
+    const stReview = { ...(sub.st_review || {}), travel_discretion: patch.pool_status };
+    await updateSubmission(entry.subId, { st_review: stReview });
+    sub.st_review = stReview;
+    return;
+  }
 
   if (entry.source === 'feeding') {
     const current = sub.feeding_review || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
@@ -4669,6 +4709,18 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Travel discretion buttons ──
+  container.querySelectorAll('.proc-travel-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_status: btn.dataset.discretion });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire Add ST Action toggle buttons
   container.querySelectorAll('.proc-add-st-toggle-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -6117,9 +6169,24 @@ function _renderActionTypeRow(entry, rev, char) {
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
+  const poolStatus    = rev.pool_status    || 'pending';
+
+  // ── Travel Review — simple layout, no pool builder ──
+  if (entry.source === 'travel') {
+    const discretion = poolStatus; // 'obvious' | 'neutral' | 'subtle' | 'pending'
+    let h = `<div class="proc-action-detail proc-travel-detail" data-proc-key="${esc(entry.key)}">`;
+    h += `<div class="proc-travel-desc">${esc(entry.travelDesc || entry.description)}</div>`;
+    h += `<div class="proc-travel-btns">`;
+    for (const [val, lbl] of [['obvious', 'Obvious'], ['neutral', 'Neutral'], ['subtle', 'Subtle']]) {
+      h += `<button class="proc-travel-btn${discretion === val ? ' active' : ''}" data-proc-key="${esc(entry.key)}" data-discretion="${val}">${lbl}</button>`;
+    }
+    h += `</div>`;
+    h += `</div>`;
+    return h;
+  }
+
   const poolPlayer    = rev.pool_player    || entry.poolPlayer || '';
   const poolValidated = rev.pool_validated || '';
-  const poolStatus    = rev.pool_status    || 'pending';
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
   const isSorcery        = entry.source === 'sorcery';
@@ -6388,8 +6455,8 @@ function renderActionPanel(entry, review) {
     const connectedChars = rev.connected_chars || [];
     const otherChars = characters
       .filter(c => !c.retired)
-      .map(c => ({ key: sortName(c), label: displayName(c) }))
-      .filter(({ key }) => key !== entry.charName)
+      .map(c => ({ key: sortName(c), label: c.moniker || c.name }))
+      .filter(({ key }) => key !== entry.charName.toLowerCase())
       .sort((a, b) => a.key.localeCompare(b.key));
     if (otherChars.length > 0) {
       h += `<div class="proc-connected-section">`;
@@ -8434,6 +8501,7 @@ function renderTerritoriesAtAGlance() {
 
   // ── Build matrix data: phase → territory → [entries] ──
   const TAAG_PHASES = [
+    { key: 'feeding',        label: 'Feeding' },
     { key: 'ambience',       label: 'Ambience' },
     { key: 'hide_protect',   label: 'Defensive' },
     { key: 'investigate',    label: 'Investigative' },
@@ -8448,15 +8516,24 @@ function renderTerritoriesAtAGlance() {
 
   const queue = buildProcessingQueue(submissions);
   for (const entry of queue) {
-    if (entry.source !== 'project') continue;
-    const phaseKey = entry.phase;
-    if (!matrix[phaseKey]) continue; // not a territorial phase
-    const sub = submissions.find(s => s._id === entry.subId);
-    if (!sub) continue;
-    const terrId = _resolveProjectTerritory(sub, entry.actionIdx);
-    if (!terrId) continue; // no territory — not shown in matrix (pills let STs assign)
-    if (!matrix[phaseKey][terrId]) matrix[phaseKey][terrId] = [];
-    matrix[phaseKey][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
+    if (entry.source === 'project') {
+      const phaseKey = entry.phase;
+      if (!matrix[phaseKey]) continue; // not a territorial phase
+      const sub = submissions.find(s => s._id === entry.subId);
+      if (!sub) continue;
+      const terrId = _resolveProjectTerritory(sub, entry.actionIdx);
+      if (!terrId) continue; // no territory — not shown in matrix (pills let STs assign)
+      if (!matrix[phaseKey][terrId]) matrix[phaseKey][terrId] = [];
+      matrix[phaseKey][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
+    } else if (entry.source === 'feeding') {
+      for (const [terrKey, val] of Object.entries(entry.feedTerrs || {})) {
+        if (!val || val === 'none') continue;
+        const terrId = resolveTerrId(terrKey);
+        if (!terrId) continue;
+        if (!matrix['feeding'][terrId]) matrix['feeding'][terrId] = [];
+        matrix['feeding'][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
+      }
+    }
   }
 
   // Only show rows that have at least one assignment
