@@ -5331,7 +5331,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
   // ── Dice Pool Modifiers ──
-  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
+  h += `<div class="proc-feed-right-section proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
   h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
   // Feeding Grounds row
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val${fgDice !== null && fgDice > 0 ? ' proc-mod-pos' : ''}">${fgDisplay}</span></div>`;
@@ -5413,7 +5413,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const herdData      = herdVitae     !== null ? String(herdVitae)    : '';
   const ambienceData  = ambienceVitae !== null ? String(ambienceVitae): '';
 
-  h += `<div class="proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
+  h += `<div class="proc-feed-right-section proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
   h += `<div class="proc-mod-panel-title">Vitae Tally</div>`;
 
   // Herd
