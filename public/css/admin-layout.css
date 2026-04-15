@@ -4949,6 +4949,16 @@ body {
 }
 .proc-rite-select:focus { outline: none; border-color: var(--accent); }
 
+.proc-rite-custom-lbl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--txt2);
+  font-family: var(--fl);
+  white-space: nowrap;
+}
+
 /* Mechanical result textarea */
 .proc-ritual-note-input {
   width: 100%;

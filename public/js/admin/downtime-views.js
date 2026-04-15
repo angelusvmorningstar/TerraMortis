@@ -4198,6 +4198,23 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire custom rite level input — save rite_custom_level on change and re-render
+  container.querySelectorAll('.proc-rite-custom-level-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('mousedown', e => e.stopPropagation());
+    inp.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const val = parseInt(inp.value, 10);
+      if (val >= 1 && val <= 5) {
+        await saveEntryReview(entry, { rite_custom_level: val });
+        renderProcessingMode(container);
+      }
+    });
+  });
+
   // Wire Mandragora Garden toggle (sorcery) — save and re-render
   container.querySelectorAll('.proc-ritual-mg-toggle').forEach(cb => {
     cb.addEventListener('change', async e => {
@@ -6503,6 +6520,7 @@ function renderActionPanel(entry, review) {
     h += '<span class="proc-detail-label">Rite</span>';
     h += `<select class="proc-rite-select" data-proc-key="${esc(entry.key)}">`;
     h += '<option value="">\u2014 Select Rite \u2014</option>';
+    h += `<option value="__custom__"${selectedRite === '__custom__' ? ' selected' : ''}>Custom\u2026</option>`;
     const tradOrder = ['Cruac', 'Theban'];
     const byTrad = {};
     for (const r of allRites) {
@@ -6522,12 +6540,32 @@ function renderActionPanel(entry, review) {
       h += '</optgroup>';
     }
     h += '</select>';
-    if (overridden) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName || '\u2014')}</span>`;
+    // Custom level input — only when Custom is selected
+    if (selectedRite === '__custom__') {
+      const lvl = rev.rite_custom_level || '';
+      h += `<label class="proc-rite-custom-lbl">Level <input type="number" class="proc-rite-custom-level-input dt-num-input-sm" min="1" max="5" data-proc-key="${esc(entry.key)}" value="${esc(String(lvl))}"></label>`;
+    }
+    // Override indicator — only for short rite names (suppress blobs from CSV submissions)
+    const shortRiteName = entry.riteName && entry.riteName.length <= 60;
+    if (overridden && shortRiteName) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName)}</span>`;
     h += '</div>';
 
     // Pool + target display (auto-computed from selected rite + char)
-    if (ritInfo) {
-      const base         = _computeRitePool(sorcChar, ritInfo.attr, ritInfo.skill, ritInfo.disc);
+    // For Custom, build a fake ritInfo from tradition pool + entered level
+    let resolvedRitInfo = ritInfo;
+    if (!resolvedRitInfo && selectedRite === '__custom__' && rev.rite_custom_level) {
+      const pool = TRADITION_POOL[entry.tradition] || null;
+      if (pool) {
+        resolvedRitInfo = {
+          attr: pool.attr, skill: pool.skill, disc: pool.disc,
+          poolExpr: [pool.attr, pool.skill, pool.disc].filter(Boolean).join(' + '),
+          target: rev.rite_custom_level,
+        };
+      }
+    }
+
+    if (resolvedRitInfo) {
+      const base         = _computeRitePool(sorcChar, resolvedRitInfo.attr, resolvedRitInfo.skill, resolvedRitInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
       const mandUsed     = rev.ritual_mg_used || false;
       const mgMeritL     = isCruac ? (sorcChar?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
@@ -6536,23 +6574,23 @@ function renderActionPanel(entry, review) {
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
 
-      const _slEntry = ritInfo.disc ? _charDiscsArray(sorcChar).find(d => d.name === ritInfo.disc) : null;
+      const _slEntry = resolvedRitInfo.disc ? _charDiscsArray(sorcChar).find(d => d.name === resolvedRitInfo.disc) : null;
       let exprParts = sorcChar
         ? [
-            `${ritInfo.attr} ${getAttrVal(sorcChar, ritInfo.attr) || 0}`,
-            `${ritInfo.skill} ${skTotal(sorcChar, ritInfo.skill) || 0}`,
-            ritInfo.disc ? `${ritInfo.disc} ${_slEntry?.dots || 0}` : null,
+            `${resolvedRitInfo.attr} ${getAttrVal(sorcChar, resolvedRitInfo.attr) || 0}`,
+            `${resolvedRitInfo.skill} ${skTotal(sorcChar, resolvedRitInfo.skill) || 0}`,
+            resolvedRitInfo.disc ? `${resolvedRitInfo.disc} ${_slEntry?.dots || 0}` : null,
             '+3',
           ].filter(Boolean)
-        : [ritInfo.poolExpr, '+3'];
+        : [resolvedRitInfo.poolExpr, '+3'];
       if (mgDots) exprParts.push(`+${mgDots}`);
       if (eqMod)  exprParts.push(eqMod > 0 ? `+${eqMod}` : String(eqMod));
 
       h += `<div class="proc-ritual-info">`;
       h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Pool</span> ${esc(exprParts.join(' + '))} = ${total}</span>`;
-      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Target</span> ${ritInfo.target} success${ritInfo.target !== 1 ? 'es' : ''} (Level ${ritInfo.target})</span>`;
+      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Target</span> ${resolvedRitInfo.target} success${resolvedRitInfo.target !== 1 ? 'es' : ''} (Level ${resolvedRitInfo.target})</span>`;
       h += '</div>';
-    } else if (selectedRite) {
+    } else if (selectedRite && selectedRite !== '__custom__') {
       h += `<div class="proc-ritual-no-rule">Rite not found in rules database.</div>`;
     }
 
