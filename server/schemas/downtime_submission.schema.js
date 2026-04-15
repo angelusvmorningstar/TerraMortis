@@ -319,6 +319,7 @@ export const downtimeSubmissionSchema = {
     },
     feeding_roll:        { $ref: '#/definitions/rollResult' },
     feeding_roll_player: { $ref: '#/definitions/rollResult' },  // Player-side roll (persisted)
+    feeding_deferred:    { type: 'boolean' },                   // Player chose to defer — see Storytellers at game
 
     // ── ST narrative authoring (DT Story tab) ───────────────────
     // Written by STs via the DT Story tab; persisted as a top-level object.
