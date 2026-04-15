@@ -1820,7 +1820,7 @@ function buildProcessingQueue(subs) {
     const charName = _subChar ? (_subChar.moniker || _subChar.name) : (sub.character_name || '?');
 
     // ── Travel Review (Step 1 — phaseNum -1 sorts before sorcery) ──
-    const travelDesc = (raw.submission?.narrative?.travel_description || '').trim();
+    const travelDesc = (raw.submission?.narrative?.travel_description || resp.travel || '').trim();
     if (travelDesc) {
       const shortDesc = travelDesc.length > 80 ? travelDesc.slice(0, 77) + '\u2026' : travelDesc;
       queue.push({
@@ -8091,7 +8091,7 @@ function _chkHasContent(sub, key) {
   if (alliesM)   return !!(raw.sphere_actions?.[parseInt(alliesM[1]) - 1]);
   if (contactsM) return !!(raw.contact_actions?.requests?.[parseInt(contactsM[1]) - 1]);
   switch (key) {
-    case 'travel':         return !!(raw.submission?.narrative?.travel_description);
+    case 'travel':         return !!(raw.submission?.narrative?.travel_description || sub.responses?.travel);
     case 'feeding':        return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
     case 'project_1':      return !!(sub.responses?.project_1_action || raw.projects?.[0]);
     case 'project_2':      return !!(sub.responses?.project_2_action || raw.projects?.[1]);
