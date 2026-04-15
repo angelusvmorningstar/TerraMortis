@@ -5237,21 +5237,12 @@ function _renderMeritRightPanel(entry, rev) {
     h += `</div>`; // mod panel
 
     // Roll card
-    const rollLabel = totalPool != null ? ` \u2014 ${totalPool} dice` : '';
-    h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
-    h += `<div class="proc-mod-panel-title">Roll${rollLabel}</div>`;
-    if (totalPool != null && totalPool > 0) {
-      h += `<button class="dt-btn proc-merit-roll-btn" data-proc-key="${esc(key)}" data-pool="${totalPool}">${roll ? 'Re-roll' : 'Roll'}</button>`;
-      if (roll) {
-        const dStr   = _formatDiceString(roll.dice_string);
-        const suc    = roll.successes;
-        const excTag = roll.exceptional ? ' \u00b7 Exceptional' : '';
-        h += `<div class="proc-proj-roll-result">${esc(dStr)} \u2014 ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
-      }
-    } else {
-      h += `<span class="dt-dim-italic">Merit dots unknown \u2014 set pool manually</span>`;
-    }
-    h += `</div>`;
+    h += _renderRollCard(key, roll, totalPool, {
+      btnClass:     'proc-merit-roll-btn',
+      btnDataAttrs: totalPool != null ? ` data-pool="${totalPool}"` : '',
+      canRoll:       totalPool != null && totalPool > 0,
+      noRollMsg:    'Merit dots unknown \u2014 set pool manually',
+    });
   } else if (formula === 'none') {
     // Staff — fixed effect, no roll
     h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
@@ -5310,23 +5301,14 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   h += `</div>`; // proc-feed-mod-panel
 
   // ── Roll card ──
-  const ritRoll    = rev.ritual_roll || null;
-  const canRoll    = !!ritInfo;
-  h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
-  h += `<div class="proc-mod-panel-title">Roll${canRoll ? ` \u2014 ${total} dice \u00b7 target ${ritInfo.target}` : ''}</div>`;
-  if (canRoll) {
-    h += `<button class="dt-btn proc-ritual-roll-btn" data-proc-key="${esc(key)}">${ritRoll ? 'Re-roll' : 'Roll'}</button>`;
-    if (ritRoll) {
-      const hit    = ritRoll.successes >= (ritInfo.target || 1);
-      const dStr   = _formatDiceString(ritRoll.dice_string);
-      const suc    = ritRoll.successes;
-      const excTag = ritRoll.exceptional ? ' \u00b7 Exceptional' : '';
-      h += `<div class="proc-proj-roll-result${hit ? '' : ' proc-ritual-fail'}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${hit ? ` \u2014 Potency ${suc}` : ' \u2014 no effect'}${excTag}</div>`;
-    }
-  } else {
-    h += `<span class="dt-dim-italic dt-hint">Select a rite first</span>`;
-  }
-  h += `</div>`;
+  const ritRoll = rev.ritual_roll || null;
+  const canRoll = !!ritInfo;
+  h += _renderRollCard(key, ritRoll, canRoll ? total : null, {
+    btnClass:        'proc-ritual-roll-btn',
+    canRoll,
+    noRollMsg:       'Select a rite first',
+    targetSuccesses:  ritInfo?.target ?? null,
+  });
 
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
@@ -5428,23 +5410,14 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `</div>`;
 
   // ── Roll card ──
-  const projRoll = rev.roll || null;
+  const projRoll    = rev.roll || null;
   const showRollBtn = poolStatus === 'validated' || !!projRoll;
-  h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
-  h += `<div class="proc-mod-panel-title">Roll</div>`;
-  if (showRollBtn) {
-    const rollLabel = projRoll ? 'Re-roll' : 'Roll';
-    h += `<button class="dt-btn proc-proj-roll-btn" data-proc-key="${esc(key)}" data-pool-validated="${esc(poolValidated)}">${rollLabel}</button>`;
-  } else {
-    h += `<span class="dt-dim-italic dt-hint">Validate pool first</span>`;
-  }
-  if (projRoll) {
-    const diceStr = _formatDiceString(projRoll.dice_string);
-    const suc = projRoll.successes;
-    const excTag = projRoll.exceptional ? ' \u2014 Exceptional' : '';
-    h += `<div class="proc-proj-roll-result">${esc(diceStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
-  }
-  h += `</div>`;
+  h += _renderRollCard(key, projRoll, null, {
+    btnClass:     'proc-proj-roll-btn',
+    btnDataAttrs: ` data-pool-validated="${esc(poolValidated)}"`,
+    canRoll:       showRollBtn,
+    noRollMsg:    'Validate pool first',
+  });
 
   // ── Review section (all personal project actions — feature.66 extended) ──
   const stResponse = rev.st_response || '';
@@ -5693,6 +5666,69 @@ function _renderFeedRightPanel(entry, char, rev) {
 }
 
 /**
+ * Resolve a character object from a submission.
+ * Tries character_id first, then character_name via charMap.
+ */
+function _findCharForSub(sub) {
+  if (!sub) return null;
+  const charIdStr   = sub.character_id ? String(sub.character_id) : null;
+  const charNameKey = (sub.character_name || '').toLowerCase().trim();
+  return (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+         charMap.get(charNameKey) || null;
+}
+
+/**
+ * Renders the standard roll card section for a right-panel.
+ * @param {string} key          - proc entry key
+ * @param {object|null} roll    - the roll object (rev.roll / rev.ritual_roll etc.)
+ * @param {number|null} poolTotal - total dice to display in card title (null = omit)
+ * @param {object} opts
+ *   @param {string}  opts.btnClass        - CSS class on the Roll button
+ *   @param {string}  opts.btnDataAttrs    - extra data-* attrs string for the button
+ *   @param {boolean} opts.canRoll         - whether the Roll button should appear (default true)
+ *   @param {string}  opts.noRollMsg       - hint shown when canRoll is false
+ *   @param {number}  opts.targetSuccesses - sorcery: target for potency/fail display
+ */
+function _renderRollCard(key, roll, poolTotal, opts = {}) {
+  const {
+    btnClass        = 'proc-proj-roll-btn',
+    btnDataAttrs    = '',
+    canRoll         = true,
+    noRollMsg       = 'No roll available',
+    targetSuccesses = null,
+  } = opts;
+
+  const poolLabel   = (poolTotal != null && canRoll) ? ` \u2014 ${poolTotal} dice` : '';
+  const targetLabel = (targetSuccesses != null && canRoll) ? ` \u00b7 target ${targetSuccesses}` : '';
+
+  let h = `<div class="proc-feed-right-section proc-proj-roll-card">`;
+  h += `<div class="proc-mod-panel-title">Roll${poolLabel}${targetLabel}</div>`;
+
+  if (canRoll) {
+    const btnLabel = roll ? 'Re-roll' : 'Roll';
+    h += `<button class="dt-btn ${esc(btnClass)}" data-proc-key="${esc(key)}"${btnDataAttrs}>${btnLabel}</button>`;
+    if (roll) {
+      const dStr   = _formatDiceString(roll.dice_string);
+      const suc    = roll.successes ?? 0;
+      const excTag = roll.exceptional ? ' \u00b7 Exceptional' : '';
+      if (targetSuccesses != null) {
+        const hit     = suc >= targetSuccesses;
+        const failCls = hit ? '' : ' proc-ritual-fail';
+        const resText = hit ? ` \u2014 Potency ${suc}` : ' \u2014 no effect';
+        h += `<div class="proc-proj-roll-result${failCls}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${resText}${excTag}</div>`;
+      } else {
+        h += `<div class="proc-proj-roll-result">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
+      }
+    }
+  } else {
+    h += `<span class="dt-dim-italic dt-hint">${esc(noRollMsg)}</span>`;
+  }
+
+  h += `</div>`;
+  return h;
+}
+
+/**
  * Renders the action-type recategorisation row (dropdown + conditional target selectors).
  * Handles the full recat row content for both project and merit entries.
  *
@@ -5848,57 +5884,19 @@ function renderActionPanel(entry, review) {
   const isSorcery        = entry.source === 'sorcery';
   const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
 
-  // Hoist char lookup for feeding entries (needed by right panel and pool builder)
-  let feedSub = null;
-  let feedChar = null;
-  if (entry.source === 'feeding') {
-    feedSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = feedSub?.character_id ? String(feedSub.character_id) : null;
-    const charNameKey = (feedSub?.character_name || '').toLowerCase().trim();
-    feedChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
+  // Single character lookup — resolved once for all source types
+  const entrySub  = submissions.find(s => s._id === entry.subId) || null;
+  const entryChar = _findCharForSub(entrySub);
 
-  // Hoist char lookup for project entries
-  let projSub = null;
-  let projChar = null;
-  if (entry.source === 'project') {
-    projSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = projSub?.character_id ? String(projSub.character_id) : null;
-    const charNameKey = (projSub?.character_name || '').toLowerCase().trim();
-    projChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
-
-  // Hoist char lookup for sorcery entries
-  let sorcSub = null;
-  let sorcChar = null;
-  if (isSorcery) {
-    sorcSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = sorcSub?.character_id ? String(sorcSub.character_id) : null;
-    const charNameKey = (sorcSub?.character_name || '').toLowerCase().trim();
-    sorcChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
-
-  // Hoist char lookup for merit entries
-  let meritEntSub = null;
-  let meritEntChar = null;
-  if (entry.source === 'merit') {
-    meritEntSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = meritEntSub?.character_id ? String(meritEntSub.character_id) : null;
-    const charNameKey = (meritEntSub?.character_name || '').toLowerCase().trim();
-    meritEntChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
+  // Source-specific aliases (used by downstream renderers and pool builders)
+  const feedSub      = entry.source === 'feeding' ? entrySub  : null;
+  const feedChar     = entry.source === 'feeding' ? entryChar : null;
+  const projSub      = entry.source === 'project' ? entrySub  : null;
+  const projChar     = entry.source === 'project' ? entryChar : null;
+  const sorcSub      = isSorcery               ? entrySub  : null;
+  const sorcChar     = isSorcery               ? entryChar : null;
+  const meritEntSub  = entry.source === 'merit' ? entrySub  : null;
+  const meritEntChar = entry.source === 'merit' ? entryChar : null;
 
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
 
