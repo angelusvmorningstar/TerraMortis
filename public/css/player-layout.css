@@ -2538,6 +2538,12 @@ body {
 .feeding-method-label { font-size: 14px; color: var(--txt2); }
 .feeding-method-desc { font-size: 13px; color: var(--txt3); font-style: italic; margin-top: 4px; margin-bottom: 12px; }
 .feeding-rote-badge { display: inline-block; font-size: 11px; font-family: var(--fl); text-transform: uppercase; letter-spacing: .05em; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
+.feeding-again-badge { display: inline-block; font-size: 10px; font-family: var(--fl); letter-spacing: .06em; text-transform: uppercase; background: var(--surf3); border: 1px solid var(--bdr); border-radius: 3px; padding: 1px 5px; color: var(--txt3); margin-left: 4px; vertical-align: middle; }
+.feeding-defer-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--bdr); }
+.feeding-defer-or { font-size: 11px; color: var(--txt3); flex-shrink: 0; }
+.feeding-defer-btn { font-family: var(--fl); font-size: 12px; background: transparent; border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt3); padding: 5px 12px; cursor: pointer; }
+.feeding-defer-btn:hover { border-color: var(--crim); color: var(--crim); }
+.feeding-deferred-msg { font-family: var(--fl); font-size: 13px; color: var(--result-pend); padding: 12px 0; }
 
 /* ── Feeding summary (synced from downtime submission) ── */
 .feeding-summary {

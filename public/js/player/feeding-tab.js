@@ -16,20 +16,20 @@ import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
 
-// Dice math (10-again)
+// Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
-function mkDie(v) { return { v, s: v >= 8, x: v >= 10 }; }
-function mkChain(rv) {
-  const r = mkDie(rv); const ch = [];
-  let l = r; while (l.x) { const c = mkDie(d10()); ch.push(c); l = c; }
+function mkDie(v, again = 10)  { return { v, s: v >= 8, x: v >= again }; }
+function mkChain(rv, again = 10) {
+  const r = mkDie(rv, again); const ch = [];
+  let l = r; while (l.x) { const c = mkDie(d10(), again); ch.push(c); l = c; }
   return { r, ch };
 }
-function rollDice(n) { const c = []; for (let i = 0; i < n; i++) c.push(mkChain(d10())); return c; }
+function rollDice(n, again = 10) { const c = []; for (let i = 0; i < n; i++) c.push(mkChain(d10(), again)); return c; }
 function cntSuc(cols) { let s = 0; cols.forEach(col => { if (col.r.s) s++; col.ch.forEach(d => { if (d.s) s++; }); }); return s; }
 
 let currentChar = null;
 let container = null;
-let feedingState = 'loading'; // loading | ready | rolled | no_submission
+let feedingState = 'loading'; // loading | ready | rolled | no_submission | deferred
 let declaredMethod = null; // FEED_METHODS entry from downtime submission
 let declaredDisc = '';
 let declaredSpec = '';
@@ -38,7 +38,8 @@ let selectedDisc = '';
 let selectedSpec = '';
 let poolTotal = 0;
 let poolBreakdown = '';
-let stRote = false; // rote flag confirmed by ST in downtime processing
+let stRote  = false; // rote flag confirmed by ST in downtime processing
+let stAgain = 10;   // again threshold (8/9/10) confirmed by ST
 let rollResult = null;
 let vitaeAllocation = null; // array of ints after player confirms, or null
 let feedingRecord = null; // persisted feeding_rolls record from DB
@@ -60,7 +61,8 @@ export async function renderFeedingTab(el, char) {
   feedingRecord = null;
   declaredMethod = null;
   selectedMethodId = '';
-  stRote = false;
+  stRote  = false;
+  stAgain = 10;
   responseSubId = null;
   publishedFeedingText = null;
   currentSub = null;
@@ -108,18 +110,13 @@ export async function renderFeedingTab(el, char) {
       render();
       return;
     }
-  }
 
-  // Fall back to localStorage lock
-  const lockKey = `tm_feed_rolled_${char._id}`;
-  const existing = localStorage.getItem(lockKey);
-  if (existing) {
-    try {
-      rollResult = JSON.parse(existing);
-      feedingState = 'rolled';
+    // Check deferred flag (player chose to see STs at game)
+    if (mySub.feeding_deferred) {
+      feedingState = 'deferred';
       render();
       return;
-    } catch { /* ignore */ }
+    }
   }
 
   // Load declared method for display (used in both paths below)
@@ -133,7 +130,8 @@ export async function renderFeedingTab(el, char) {
   // Prefer ST-confirmed pool from downtime processing (feeding_roll.params)
   if (mySub?.feeding_roll?.params?.size) {
     poolTotal = mySub.feeding_roll.params.size;
-    stRote = mySub.feeding_roll.params.rote || false;
+    stRote  = mySub.feeding_roll.params.rote  || false;
+    stAgain = mySub.feeding_roll.params.again ?? 10;
     const roteLabel = stRote ? ' \u2014 Rote quality' : '';
     poolBreakdown = `ST confirmed: ${poolTotal} dice${roteLabel}`;
     feedingState = declaredMethod ? 'ready' : 'no_submission';
@@ -335,7 +333,9 @@ function render() {
   if (feedingState === 'ready' && declaredMethod) {
     h += '<div class="feeding-ready">';
     h += `<p class="feeding-method-label">Method: <strong>${esc(declaredMethod.name)}</strong>`;
-    if (stRote) h += ' <span class="feeding-rote-badge">Rote</span>';
+    if (stRote)    h += ' <span class="feeding-rote-badge">Rote</span>';
+    if (stAgain === 9) h += ' <span class="feeding-again-badge">9-Again</span>';
+    if (stAgain === 8) h += ' <span class="feeding-again-badge">8-Again</span>';
     h += '</p>';
     h += `<p class="feeding-method-desc">${esc(declaredMethod.desc)}</p>`;
     h += `<div class="feeding-pool-display">`;
@@ -391,7 +391,19 @@ function render() {
         h += `<button id="feeding-roll-btn" class="feeding-roll-btn">Roll Feeding (${poolTotal} dice)</button>`;
       }
     }
+
+    // "See Storytellers" defer path — always available until roll or defer chosen
+    h += '<div class="feeding-defer-row">';
+    h += '<span class="feeding-defer-or">or</span>';
+    h += '<button id="feeding-defer-btn" class="feeding-defer-btn">See Storytellers at Start of Game</button>';
     h += '</div>';
+
+    h += '</div>';
+  }
+
+  // ── DEFERRED ──
+  if (feedingState === 'deferred') {
+    h += '<div class="feeding-deferred-msg">See your Storytellers at the start of game.</div>';
   }
 
   // ── ROLLED ──
@@ -508,20 +520,17 @@ function wireEvents() {
 
   // ST re-roll
   container.querySelector('#feeding-reroll-btn')?.addEventListener('click', async () => {
-    const lockKey = `tm_feed_rolled_${currentChar._id}`;
-    localStorage.removeItem(lockKey);
     rollResult = null;
     vitaeAllocation = null;
-    // Clear DB lock
     if (responseSubId) {
       try {
         await apiPut(`/api/downtime_submissions/${responseSubId}`, {
           feeding_roll_player: null,
           feeding_vitae_allocation: null,
+          feeding_deferred: null,
         });
       } catch { /* ignore */ }
     }
-    // Reset to ready or no_submission
     if (declaredMethod) {
       feedingState = 'ready';
       buildPool(declaredMethod, declaredDisc, declaredSpec);
@@ -529,6 +538,18 @@ function wireEvents() {
       feedingState = 'no_submission';
     }
     render();
+  });
+
+  // Defer button
+  container.querySelector('#feeding-defer-btn')?.addEventListener('click', async () => {
+    if (!responseSubId) return;
+    try {
+      await apiPut(`/api/downtime_submissions/${responseSubId}`, { feeding_deferred: true });
+      feedingState = 'deferred';
+      render();
+    } catch {
+      alert('Could not save — please try again.');
+    }
   });
 }
 
@@ -569,16 +590,15 @@ async function doConfirmAllocation() {
   render();
 }
 
-function rollDiceRote(n) {
-  // Roll twice, take the best result (WoD rote quality)
-  const r1 = rollDice(n), r2 = rollDice(n);
+function rollDiceRote(n, again = 10) {
+  const r1 = rollDice(n, again), r2 = rollDice(n, again);
   return cntSuc(r1) >= cntSuc(r2) ? r1 : r2;
 }
 
 async function doFeedingRoll() {
   if (poolTotal <= 0) return;
 
-  const cols = stRote ? rollDiceRote(poolTotal) : rollDice(poolTotal);
+  const cols = stRote ? rollDiceRote(poolTotal, stAgain) : rollDice(poolTotal, stAgain);
   const successes = cntSuc(cols);
   const methodName = declaredMethod?.name || FEED_METHODS.find(m => m.id === selectedMethodId)?.name || 'Unknown';
   const usedDisc = !!(declaredDisc || selectedDisc);
@@ -590,6 +610,7 @@ async function doFeedingRoll() {
     safeVitae: successes * 2,
     methodName,
     pool: poolTotal,
+    again: stAgain,
     breakdown: poolBreakdown,
     rolledAt: new Date().toISOString(),
     dramaticFailure: usedDisc && successes === 0,
@@ -597,15 +618,13 @@ async function doFeedingRoll() {
 
   feedingState = 'rolled';
 
-  // Persist to localStorage as fallback
-  const lockKey = `tm_feed_rolled_${currentChar._id}`;
-  localStorage.setItem(lockKey, JSON.stringify(rollResult));
-
-  // Persist to DB submission record (primary lock source)
+  // Persist to DB (sole lock source — no localStorage)
   if (responseSubId) {
     try {
       await apiPut(`/api/downtime_submissions/${responseSubId}`, { feeding_roll_player: rollResult });
-    } catch { /* localStorage fallback already set */ }
+    } catch {
+      alert('Roll saved locally but could not be recorded to the server. Please refresh and try again, or contact your Storyteller.');
+    }
   }
 
   render();
