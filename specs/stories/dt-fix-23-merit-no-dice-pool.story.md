@@ -1,6 +1,6 @@
 # Story DT-Fix-23: Merit Actions — Remove Dice Pool and Roll for Roll-Formula Merits
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -37,9 +37,9 @@ The correct behaviour: show the dot level as automatic successes. The investigat
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Remove dice pool section for merit roll-formula actions (`downtime-views.js`)
-  - [ ] 1.1: In `_renderMeritRightPanel` (line ~5165), find the `else if (isRolled)` block (line ~5246). This is the condition that currently renders the full dice pool section.
-  - [ ] 1.2: Replace the entire `else if (isRolled) { ... }` block (lines ~5246–5290) with an auto-successes display:
+- [x] Task 1: Remove dice pool section for merit roll-formula actions (`downtime-views.js`)
+  - [x] 1.1: In `_renderMeritRightPanel` (line ~5165), find the `else if (isRolled)` block (line ~5246). This is the condition that currently renders the full dice pool section.
+  - [x] 1.2: Replace the entire `else if (isRolled) { ... }` block (lines ~5246–5290) with an auto-successes display:
     ```js
     } else if (isRolled) {
       // Merit actions do not use dice pools — show automatic successes instead
@@ -80,9 +80,9 @@ The correct behaviour: show the dot level as automatic successes. The investigat
     }
     ```
 
-- [ ] Task 2: Confirm Roll section is gated by `isRolled` and remove for merit
-  - [ ] 2.1: Locate where the ROLL – N DICE section renders in `_renderMeritRightPanel` — verify it is inside the `isRolled` block or gated by it
-  - [ ] 2.2: If the Roll section renders outside the `isRolled` block, wrap it in `if (isRolled && !isMerit)` — but prefer keeping it inside the replaced block from Task 1
+- [x] Task 2: Confirm Roll section is gated by `isRolled` and remove for merit
+  - [x] 2.1: Locate where the ROLL – N DICE section renders in `_renderMeritRightPanel` — verify it is inside the `isRolled` block or gated by it
+  - [x] 2.2: If the Roll section renders outside the `isRolled` block, wrap it in `if (isRolled && !isMerit)` — but prefer keeping it inside the replaced block from Task 1
 
 ---
 
@@ -137,10 +137,14 @@ Manual verification: open an Allies (Bureaucracy) Investigate action — confirm
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Replaced `else if (isRolled)` block in `_renderMeritRightPanel` (line ~5252): removed "Dice Pool Modifiers" panel, removed `_renderRollCard` call entirely
+- New block shows "Automatic Successes" panel with base successes = dots
+- For `investigate` actionType: Equipment ticker, Target Secrecy selector, Lead toggle, and Net successes total row all preserved; net formula is `dots + eqMod + innateMod + noLeadMod`
+- Roll section was already inside the replaced block — removed automatically, no extra gating needed
+- Success Modifier section (`if (isRolled)` at line ~5297) intentionally retained — manual ST adjustment still applies to auto successes
 
 ### File List
 - `public/js/admin/downtime-views.js`
