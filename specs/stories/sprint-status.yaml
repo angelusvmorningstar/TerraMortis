@@ -204,7 +204,7 @@ development_status:
   dt-fix-6-feeding-action-row-labels: ready-for-dev
   dt-fix-7-remove-st-response-dt-processing: done
   dt-fix-8-validator-chip-redesign: ready-for-dev
-  dt-fix-9-feeding-committed-validated-buttons: ready-for-dev
+  dt-fix-9-feeding-committed-validated-buttons: done
   dt-fix-10-clear-pool-button-size: ready-for-dev
   dt-fix-11-territory-ticker-pool-builder-padding: ready-for-dev
   dt-fix-12-feeding-panel-layout: ready-for-dev
