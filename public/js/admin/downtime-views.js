@@ -3411,7 +3411,7 @@ function renderProcessingMode(container) {
   });
 
   // ── Feeding description card — Edit / Save / Cancel ──
-  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-targets-input, .proc-sorc-notes-input, .proc-sorc-tradition-input, .proc-sorc-rite-input').forEach(el => {
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-notes-input').forEach(el => {
     el.addEventListener('click',  e => e.stopPropagation());
     el.addEventListener('mousedown', e => e.stopPropagation());
   });
@@ -3474,13 +3474,15 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
-      const tradition  = card.querySelector('.proc-sorc-tradition-input').value.trim();
-      const riteName   = card.querySelector('.proc-sorc-rite-input').value.trim();
-      const targets    = card.querySelector('.proc-sorc-targets-input').value.trim();
+      const tradition  = card.querySelector('.proc-sorc-tradition-sel').value;
+      const riteName   = card.querySelector('.proc-sorc-rite-sel').value;
+      const targSel    = card.querySelector('.proc-sorc-targets-sel');
+      const targets    = targSel ? [...targSel.selectedOptions].map(o => o.value).join(', ') : '';
       const notes      = card.querySelector('.proc-sorc-notes-input').value.trim();
       await saveEntryReview(entry, {
         sorc_tradition: tradition || null,
         sorc_rite_name: riteName  || null,
+        rite_override:  riteName  || null,
         sorc_targets:   targets   || null,
         sorc_notes:     notes     || null,
       });
@@ -5947,9 +5949,33 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
     // Edit mode (hidden by default)
     h += `<div class="proc-feed-desc-edit" style="display:none">`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><input type="text" class="proc-detail-input proc-sorc-tradition-input" data-proc-key="${esc(entry.key)}" value="${esc(traditionVal)}" placeholder="Cruac or Theban Sorcery\u2026"></div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><input type="text" class="proc-detail-input proc-sorc-rite-input" data-proc-key="${esc(entry.key)}" value="${esc(riteVal)}" placeholder="Rite name\u2026"></div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-detail-input proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
+    // Tradition selector
+    const _tradOpts = ['Cruac', 'Theban Sorcery'];
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><select class="proc-recat-select proc-sorc-tradition-sel" data-proc-key="${esc(entry.key)}">${_tradOpts.map(o => `<option value="${o}"${traditionVal === o ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    // Rite dropdown — same structure as right-panel rite selector
+    {
+      const _allRites = (_getRulesDB() || []).filter(r => r.category === 'rite');
+      const _tradOrder = ['Cruac', 'Theban'];
+      const _byTrad = {};
+      for (const r of _allRites) { const t = r.parent || 'Unknown'; if (!_byTrad[t]) _byTrad[t] = []; _byTrad[t].push(r); }
+      const _tradKeys = [..._tradOrder.filter(t => _byTrad[t]), ...Object.keys(_byTrad).filter(t => !_tradOrder.includes(t))];
+      let _riteOpts = `<option value="">\u2014 Select Rite \u2014</option>`;
+      for (const trad of _tradKeys) {
+        const grp = (_byTrad[trad] || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+        _riteOpts += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}"${riteVal === r.name ? ' selected' : ''}>${esc(r.name)} (Level ${r.rank || _getRiteLevel(r.name) || '?'})</option>`).join('')}</optgroup>`;
+      }
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><select class="proc-recat-select proc-sorc-rite-sel" data-proc-key="${esc(entry.key)}">${_riteOpts}</select></div>`;
+    }
+    // Targets multi-select — active characters sorted by sortName, excluding current
+    {
+      const _activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const _selectedTargets = new Set((targetsVal || '').split(',').map(s => s.trim()).filter(Boolean));
+      const _charOpts = _activeChars.map(c => {
+        const n = sortName(c);
+        return `<option value="${esc(n)}"${_selectedTargets.has(n) ? ' selected' : ''}>${esc(n)}</option>`;
+      }).join('');
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><select class="proc-sorc-targets-sel" data-proc-key="${esc(entry.key)}" multiple size="4">${_charOpts}</select></div>`;
+    }
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
     h += `</div>`;
