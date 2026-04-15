@@ -7341,7 +7341,8 @@ const CHK_SECTIONS = [
   { key: 'contacts_3',     label: 'C3' },
   { key: 'contacts_4',     label: 'C4' },
   { key: 'contacts_5',     label: 'C5' },
-  { key: 'resources',      label: 'Res.' },
+  { key: 'resources',      label: 'Res. Acq.' },
+  { key: 'skill_acq',      label: 'Skill Acq.' },
   { key: 'correspondence', label: 'Corresp.' },
   { key: 'xp',             label: 'XP' },
 ];
@@ -7360,7 +7361,8 @@ function _chkHasContent(sub, key) {
     case 'project_2':      return !!(sub.responses?.project_2_action || raw.projects?.[1]);
     case 'project_3':      return !!(sub.responses?.project_3_action || raw.projects?.[2]);
     case 'project_4':      return !!(sub.responses?.project_4_action || raw.projects?.[3]);
-    case 'resources':      return !!(raw.retainer_actions?.actions?.length);
+    case 'resources':      return !!(raw.acquisitions?.resource_acquisitions);
+    case 'skill_acq':      return !!(raw.acquisitions?.skill_acquisitions);
     case 'correspondence': return !!(raw.submission?.narrative?.correspondence);
     case 'xp':             return !!(raw.meta?.xp_spend);
     default:               return false;
@@ -7410,7 +7412,12 @@ function _chkState(sub, key) {
     const slot = parseInt(projM[1]) - 1;
     const pr   = (sub.projects_resolved || [])[slot] || {};
     const ps   = pr.pool_status;
+    const rawProjType = pr.action_type_override
+      || (sub._raw?.projects || [])[slot]?.action_type
+      || sub.responses?.[`project_${slot + 1}_action`]
+      || '';
     if (ps === 'no_roll' || ps === 'maintenance') return 'no_action';
+    if (rawProjType === 'no_action_taken') return 'no_action';
     if (ps === 'validated') {
       if (pr.response_status === 'reviewed')        return 'confirmed';
       if (pr.st_response)                           return 'drafted';
@@ -7456,13 +7463,7 @@ function _chkNavKey(sub, section) {
     const numSphere = raw.sphere_actions?.length || 0;
     return `${sub._id}:merit:${numSphere + parseInt(contactsM[1]) - 1}`;
   }
-  if (section === 'resources') {
-    const raw = sub._raw || {};
-    const numSphere = raw.sphere_actions?.length || 0;
-    const numContacts = raw.contact_actions?.requests?.length || 0;
-    return `${sub._id}:merit:${numSphere + numContacts}`;
-  }
-  return null; // travel, correspondence, xp — no queue entry
+  return null; // travel, resources, skill_acq, correspondence, xp — no queue entry
 }
 
 function renderSubmissionChecklist() {
@@ -7483,6 +7484,7 @@ function renderSubmissionChecklist() {
 
   // Count how many chars have all present sections sighted/validated
   let fullySighted = 0;
+  const submittedCount = sorted.filter(c => subByCharId.has(String(c._id))).length;
   for (const char of sorted) {
     const sub = subByCharId.get(String(char._id)) || null;
     if (!sub) continue;
@@ -7495,7 +7497,7 @@ function renderSubmissionChecklist() {
 
   let h = '<div class="dt-chk-panel">';
   h += `<div class="dt-chk-toggle" id="dt-chk-toggle">${isOpen ? '\u25BC' : '\u25BA'} Submission Checklist`;
-  h += ` <span class="domain-count">${fullySighted} / ${sorted.length} processed</span>`;
+  h += ` <span class="domain-count">${fullySighted} / ${submittedCount} processed</span>`;
   h += ` <span class="dt-chk-legend">\u2605\u202Fdone &nbsp; \u270E\u202Fdraft &nbsp; \u25C6\u202Fdice &nbsp; \u25A0\u202Fskip &nbsp; ?\u202Fsighted &nbsp; \u2717\u202Fpending &nbsp; \u2014\u202Fn/a</span>`;
   h += `</div>`;
 

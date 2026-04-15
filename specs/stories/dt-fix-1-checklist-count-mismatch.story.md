@@ -1,6 +1,6 @@
 # Story DT-Fix-1: Submission Checklist Count Mismatch
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -131,10 +131,15 @@ h += `<span class="domain-count">${fullySighted} / ${sorted.length} processed</s
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Root cause 1 confirmed: `_chkHasContent` for `resources` was checking `raw.retainer_actions?.actions?.length` — retainers, not resource acquisitions. Fixed to check `raw.acquisitions?.resource_acquisitions`.
+- Root cause 2: No `skill_acq` section existed in `CHK_SECTIONS`. Added with key `skill_acq`, label `Skill Acq.`, checking `raw.acquisitions?.skill_acquisitions`.
+- Root cause 3 confirmed: Denominator was `sorted.length` (all active chars). Fixed to `sorted.filter(c => subByCharId.has(...)).length` — only chars with submissions.
+- Root cause 4: Projects with `action_type === 'no_action_taken'` were returning `unsighted` because `projects_resolved[slot]` was empty. Added raw action_type check — if player selected no_action_taken, `_chkState` now returns `no_action` immediately without requiring ST to process the slot.
+- `_chkNavKey` for `resources` was navigating to the retainer merit queue position. Changed to return null — resource/skill acquisitions have no queue entry; the ST marks them sighted manually.
+- Retainer actions have no dedicated checklist column after this fix (they were previously incorrectly tracked under `resources`). Retainer entries remain in the merit actions queue and are processed there; a future story can add a dedicated retainer checklist column if needed.
 
 ### File List
 - `public/js/admin/downtime-views.js`
