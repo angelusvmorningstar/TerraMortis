@@ -5111,7 +5111,7 @@ function _renderMeritRightPanel(entry, rev) {
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${poolValidatedMerit ? esc(poolValidatedMerit) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
-  if (poolValidatedMerit) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  if (poolValidatedMerit) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5272,7 +5272,7 @@ function _renderProjRightPanel(entry, char, rev) {
       h += `<div class="proc-proj-val-notation">${esc(notes.join(' \u00B7 '))}</div>`;
     }
   }
-  if (poolValidated) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  if (poolValidated) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   // ── Roll card ──
@@ -5508,7 +5508,7 @@ function _renderFeedRightPanel(entry, char, rev) {
     if (nineAgainStateFeed) feedNotes.push('9-Again');
     if (eightAgainStateFeed) feedNotes.push('8-Again');
     if (feedNotes.length > 0) h += `<div class="proc-proj-val-notation">${esc(feedNotes.join(' \u00B7 '))}</div>`;
-    h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+    h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   }
 
   h += `</div>`;

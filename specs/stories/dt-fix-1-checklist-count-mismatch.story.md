@@ -18,6 +18,33 @@ The submission checklist in DT Processing shows a "N / M processed" badge. Repor
 
 ---
 
+## Known Data Discrepancies (DT2 audit — 2026-04-15)
+
+A manual review of the DT matrix against the submission checklist revealed the following gaps. These are real submissions that the checklist either missed or miscounted:
+
+### Resource acquisitions — 6 submitted, only 2 checkmarked
+The checklist shows 2 resource checkmarks. These correspond to the two **retainer** actions submitted in DT2. The remaining 6 resource acquisitions were not ingested:
+- **Reed** — narrative-only resource, not ingested (should be)
+- **Yusuf-NFC** — not ingested (should be)
+- **Etsy** — ingested but details blank
+- **Keeper** — not ingested
+- **Eve** — not ingested
+- **Ballsack** — not ingested
+
+**Root cause hypothesis:** "Resources" checkmark is mapping to retainer submissions, not resource acquisition submissions. The two categories are conflated.
+
+### Anichka — projects miscounted
+All of Anichka's project actions have action type "no action taken", but 4 actions were actually taken. The checklist counted 0 processed for her projects.
+
+### Eve — A4 skipped
+A3 was blank; A4 was not ingested. A5 has an asset type (LGL) then "no action taken" — A5 was not ingested.
+
+### Keeper — A5 not ingested
+
+### Contacts — correct (no issues found)
+
+---
+
 ## Relevant Code
 
 **File:** `public/js/admin/downtime-views.js`
@@ -54,13 +81,15 @@ h += `<span class="domain-count">${fullySighted} / ${sorted.length} processed</s
 
 ## Investigation Steps
 
-1. **Audit `CHK_SECTIONS`** — read the full array in the file. Do resource request sections (`resource`, `skill_request`, or similar) appear? If not, that's the bug.
+1. **Audit `CHK_SECTIONS`** — read the full array in the file. Do resource acquisition sections appear separately from retainer sections? The audit shows retainer actions are being counted as "resources" — these may be the same key or the resource acquisition key is missing entirely.
 
-2. **Check `_chkState()` return values** — for a submission with resource/skill sections, what does `_chkState(sub, 'resource')` return? Is it one of the accepted terminal states?
+2. **Check `_chkState()` for action type "no action taken"** — Anichka's projects all have this action type but were real actions. Confirm what `_chkState` returns for a project section where `action_type === 'no_action_taken'` — if it returns a non-terminal state the section will block the `allDone` check.
 
-3. **Denominator issue** — `sorted.length` includes characters without submissions. Should the denominator be `sorted.filter(c => subByCharId.has(String(c._id))).length`?
+3. **Check skipped/blank action slots** — Eve A3 blank → A4 not ingested; Keeper A5 not ingested. Confirm whether blank intermediate action slots block the checklist or are treated as `empty` (acceptable).
 
-4. **Confirm expected behaviour with Angelus** — should "processed" mean:
+4. **Denominator issue** — `sorted.length` includes characters without submissions. Should the denominator be `sorted.filter(c => subByCharId.has(String(c._id))).length`?
+
+5. **Confirm expected behaviour with Angelus** — should "processed" mean:
    - All CHK_SECTIONS sighted for all characters who submitted?
    - All CHK_SECTIONS sighted for all characters (including those who didn't submit)?
 

@@ -5193,6 +5193,11 @@ body {
   font-family: monospace;
   word-break: break-word;
 }
+.proc-pool-clear-btn {
+  display: block;
+  margin-left: auto;
+  margin-top: 4px;
+}
 
 /* ── feature.46: Project detail and allies hint ── */
 .proc-proj-detail {
