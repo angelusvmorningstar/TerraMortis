@@ -5728,12 +5728,12 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
 .proc-attack-char-sel:focus,
 .proc-attack-merit-sel:focus { outline: none; border-color: var(--accent); }
 
-/* Vitae tally positive values — bright green illegible on cream parchment */
-html:not([data-theme="dark"]) .proc-mod-pos { color: var(--green3); }
+/* Vitae tally positive values — use --green2 (medium forest green, matches dice success on parchment) */
+html:not([data-theme="dark"]) .proc-mod-pos { color: var(--green2); }
 
 /* Ambience pos/neg colour values — neon green/red replaced with legible theme tokens */
 html:not([data-theme="dark"]) .proc-amb-pos,
-html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green3); }
+html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green2); }
 html:not([data-theme="dark"]) .proc-amb-neg,
 html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-neg { color: var(--crim); }
 
