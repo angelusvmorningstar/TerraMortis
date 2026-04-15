@@ -282,3 +282,19 @@ development_status:
   dts-2-duplicate-action: done
 
   epic-dts-retrospective: optional
+
+  # ============================================================
+  # EPIC DTP: DOWNTIME PLAYER DELIVERY — IN PROGRESS
+  # ============================================================
+  # Privacy scrub, per-action project cards, feeding tab delivery
+  # Publishing Cycle 2 results Thursday 2026-04-17
+  # DTP-1 must ship before DTP-2 (privacy gates the feature)
+  # Epic file: specs/epic-dtp-downtime-player-delivery.md
+
+  epic-dtp: in-progress
+
+  dtp-1-privacy-scrub: ready-for-dev
+  dtp-2-project-result-cards: ready-for-dev
+  dtp-3-feeding-tab-delivery: ready-for-dev
+
+  epic-dtp-retrospective: optional
