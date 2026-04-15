@@ -20,74 +20,113 @@ The flag should be passive (a badge on the action) rather than an active notific
 
 ### 1. Data model
 
-Add a boolean field to each resolved action entry:
+`second_opinion` is stored as a boolean on the **review** object for each action type:
 
-```js
-// In feeding_review, projects_resolved[n], merit_actions_resolved[n]:
-second_opinion: true  // or false / absent
-```
+- Feeding: `sub.feeding_review.second_opinion`
+- Project: `sub.projects_resolved[n].second_opinion`
+- Merit: `sub.merit_actions_resolved[n].second_opinion`
+- Sorcery: `sub.sorcery_review[n].second_opinion`
 
-### 2. UI — flagging
+All review shapes have `additionalProperties: true` in the schema — no schema change needed. `saveEntryReview(entry, { second_opinion: true })` handles all four types transparently via the existing branch logic (line 2155–2193).
 
-A small `[Second Opinion]` badge-style toggle button on the expanded action panel. Toggle on/off. Saves immediately.
+### 2. UI — toggle button
 
-**Placement:** In the ST notes zone, below the notes thread, above player feedback. Or as a standalone row in the action header zone.
+An amber `[Second Opinion]` toggle button in the expanded action panel. Placed in the panel header zone alongside the existing status chips, or as a standalone row below the action header and above the notes thread.
 
-**Visual:** When active — amber/gold accent badge (matches the amber state used elsewhere in the system). When inactive — subtle outline button.
+**Implementation:** A single button rendered via a helper call. When active:
+- Button background: `var(--gold2)` (`#E0C47A`), dark text
+- Button text: `Second Opinion`
 
-### 3. UI — surfacing flagged actions
+When inactive:
+- Subtle outline, muted text: `Flag for 2nd opinion`
 
-**Option A — In-queue indicator:** Flagged collapsed rows show an amber `●` badge on the queue row (like the existing amber state dot in DT Story).
+### 3. Queue row indicator
 
-**Option B — Checklist filter:** Add a "Flagged" filter to the checklist view so an ST can see all flagged actions at once.
-
-**Option C — Both.**
-
-**Recommendation:** Option A (amber badge on queue row) is low-cost and immediately visible. Option B adds filter-mode complexity. Implement A; defer B.
+When `second_opinion: true`, the collapsed queue row shows an amber `●` badge (same visual token as other status indicators) immediately after the status cell. Class: `proc-row-second-opinion-dot`.
 
 ### 4. Workflow
 
-- Either ST can flag any action
-- Either ST can clear the flag
-- No notification sent — passive indicator only
-- Flagged actions do not count as incomplete for checklist purposes
+- Either ST can toggle the flag on any action
+- Flagged actions do not block status progression — `DONE_STATUSES` is not changed
+- No external notification; purely a visual marker
 
 ---
 
 ## Acceptance Criteria
 
-1. ST can toggle a `second_opinion` flag on any action in DT Processing.
-2. Flagged actions show an amber indicator on the collapsed queue row.
-3. The flag persists in the submission data and survives page reload.
-4. The flag can be cleared by any ST.
-5. Flagged actions are not blocked from progressing to validated/done status.
-6. No external notification is sent.
+1. ST can toggle `second_opinion` on any action in DT Processing — feeding, project, merit, sorcery.
+2. Toggle button renders in the expanded action panel; active state is visually distinct (amber).
+3. Flagged collapsed queue rows show an amber dot badge.
+4. Flag persists in the submission document and survives page reload.
+5. Flag can be cleared (toggling off) by any ST.
+6. Flagged actions are not blocked from reaching validated/done status.
+7. No external notification is sent.
 
 ---
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `second_opinion` field to action resolved entry schema in `downtime_submission.schema.js`
-- [ ] Task 2: Add toggle button to expanded action panel — amber badge style when active
-- [ ] Task 3: Wire save to `saveEntryReview(entry, { second_opinion: true/false })`
-- [ ] Task 4: Update queue row renderer to show amber badge when `second_opinion: true`
-- [ ] Task 5: Verify flag persists; verify it doesn't block status progression
-- [ ] Task 6: Verify flag works for all action types (feeding, project, merit)
+- [ ] Task 1: Render toggle button in expanded action panel
+  - [ ] 1.1: In `renderActionPanel` (the shared panel renderer), add a `second_opinion` toggle button. Placement: in the panel header zone, as a standalone row, or below the pool status chips — use a consistent location across all action types
+  - [ ] 1.2: Read `review?.second_opinion` to determine active state
+  - [ ] 1.3: Active: `<button class="proc-second-opinion-btn active" data-proc-key="${key}">Second Opinion</button>`; inactive: same class without `active`, label `Flag for 2nd opinion`
+
+- [ ] Task 2: Wire toggle handler in event wiring section
+  - [ ] 2.1: In the event wiring section (near line 4118), add a `querySelectorAll('.proc-second-opinion-btn')` click handler
+  - [ ] 2.2: On click: read current `review.second_opinion`, call `await saveEntryReview(entry, { second_opinion: !current })`, then `renderProcessingMode(container)`
+  - [ ] 2.3: No special-casing per action type — `saveEntryReview` handles all sources via its existing branch logic
+
+- [ ] Task 3: Add amber badge to collapsed queue row (line ~3211)
+  - [ ] 3.1: In the `proc-action-row` block, after the `proc-row-status-cell` closing `</span>`, add:
+    ```js
+    if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">●</span>`;
+    ```
+  - [ ] 3.2: Style `.proc-row-second-opinion-dot` with `color: var(--gold2)` (`#E0C47A`), `font-size: 0.65rem`, `margin-left: 0.3rem`
+
+- [ ] Task 4: Manual verification
+  - [ ] 4.1: Open DT Processing; expand any action panel
+  - [ ] 4.2: Click "Flag for 2nd opinion" — confirm button turns amber, collapsed row shows amber dot
+  - [ ] 4.3: Reload page — confirm flag persists
+  - [ ] 4.4: Click again — confirm flag clears, amber dot disappears
+  - [ ] 4.5: Confirm the action can still be validated/resolved with the flag active
+  - [ ] 4.6: Test at least one feeding, one project, and one merit/sorcery action
 
 ---
 
 ## Dev Notes
 
-### Amber colour token
+### `saveEntryReview` — no new branch needed
 
-Use `--gold2` (`#E0C47A`) or `--amber` if defined. Check existing amber state usage in queue rows for the exact class/token.
+The existing four branches in `saveEntryReview` (line 2155) patch the review object for each source using spread: `{ ...current, ...patch }`. Calling `saveEntryReview(entry, { second_opinion: true })` works for all action types without any modification.
+
+### Queue row exact location
+
+The collapsed row is rendered at line ~3211–3220:
+```js
+h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
+h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
+h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
+h += `<span class="proc-row-desc" ...>${esc(shortDesc || '—')}</span>`;
+h += `<span class="proc-row-status-cell">`;
+// ... validator name + status badge
+h += `</span>`;
+// ADD second-opinion dot here, before closing </div>
+h += '</div>';
+```
+
+### Amber colour
+
+Use `var(--gold2)` (`#E0C47A`). This is the same gold accent used for amber state indicators elsewhere in the system. Do not introduce a new CSS variable.
+
+### Schema — no change needed
+
+The `resolvedAction` definition used by `projects_resolved` and `merit_actions_resolved` has `additionalProperties: true` (line ~325 in the schema file). `feeding_review` and `sorcery_review` slots also allow additional properties. No schema file changes needed.
 
 ### Key files
 
 | File | Action |
 |------|--------|
-| `public/js/admin/downtime-views.js` | Add toggle button, queue row indicator, save wiring |
-| `server/schemas/downtime_submission.schema.js` | Add `second_opinion` to resolved action entry schema |
+| `public/js/admin/downtime-views.js` | Toggle button in `renderActionPanel`, handler in event wiring, amber badge in queue row renderer |
 
 ---
 
@@ -96,6 +135,7 @@ Use `--gold2` (`#E0C47A`) or `--amber` if defined. Check existing amber state us
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+| 2026-04-15 | 1.1 | Implementation paths fleshed out: exact save wiring, queue row location, no schema change needed | Claude (SM assist) |
 
 ## Dev Agent Record
 
@@ -107,4 +147,3 @@ _to be filled by dev agent_
 
 ### File List
 - `public/js/admin/downtime-views.js`
-- `server/schemas/downtime_submission.schema.js`
