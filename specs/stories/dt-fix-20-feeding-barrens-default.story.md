@@ -1,6 +1,6 @@
 # Story DT-Fix-20: Feeding Ambience Defaults to −4 When No Territory Selected
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -27,8 +27,8 @@ The `_renderFeedRightPanel` function computes `ambienceVitae` by iterating `fedT
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Apply Barrens default in `_renderFeedRightPanel` (`downtime-views.js`)
-  - [ ] 1.1: After the `primaryTerr` fallback block (line ~5604), add:
+- [x] Task 1: Apply Barrens default in `_renderFeedRightPanel` (`downtime-views.js`)
+  - [x] 1.1: After the `primaryTerr` fallback block (line ~5604), add:
     ```js
     // No territory resolved = Barrens: −4 ambience
     if (ambienceVitae === null) {
@@ -36,7 +36,7 @@ The `_renderFeedRightPanel` function computes `ambienceVitae` by iterating `fedT
       bestTerrLabel = 'Barrens';
     }
     ```
-  - [ ] 1.2: The existing `autoSum` at line ~5617 already uses `(ambienceVitae ?? 0)` — with the fix, `ambienceVitae` will always be a number, so `?? 0` becomes a no-op. No further changes to the sum or finalVitae calculation.
+  - [x] 1.2: The existing `autoSum` at line ~5617 already uses `(ambienceVitae ?? 0)` — with the fix, `ambienceVitae` will always be a number, so `?? 0` becomes a no-op. No further changes to the sum or finalVitae calculation.
 
 ---
 
@@ -96,10 +96,12 @@ Manual verification: open a feeding action panel with the `—` pill active — 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Inserted 4-line Barrens default block at line 5605 in `_renderFeedRightPanel`, immediately after the `primaryTerr` fallback block closing brace.
+- No display logic changes required; existing `ambLabel`/`proc-mod-neg` path handles `ambienceVitae = -4` and `bestTerrLabel = 'Barrens'` correctly.
+- The `?? 0` in `autoSum` is now a no-op but left in place as specified.
 
 ### File List
 - `public/js/admin/downtime-views.js`

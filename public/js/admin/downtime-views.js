@@ -5602,6 +5602,11 @@ function _renderFeedRightPanel(entry, char, rev) {
     ambienceVitae = confirmedAmb != null ? (confirmedAmb.ambienceMod ?? 0) : (terrRec?.ambienceMod ?? null);
     bestTerrLabel = entry.primaryTerr ? entry.primaryTerr.replace(/_/g, ' ') : null;
   }
+  // No territory resolved = Barrens: −4 ambience
+  if (ambienceVitae === null) {
+    ambienceVitae = -4;
+    bestTerrLabel = 'Barrens';
+  }
 
   const ghoulCount = (char?.merits || []).filter(m =>
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
