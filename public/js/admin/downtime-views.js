@@ -4192,6 +4192,30 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire rumour detail level selector
+  container.querySelectorAll('.proc-rumour-detail-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { rumour_detail_level: sel.value || null });
+    });
+  });
+
+  // Wire rumour content textarea
+  container.querySelectorAll('.proc-rumour-content-ta').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = ta.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { rumour_content: ta.value.trim() || null });
+    });
+  });
+
   // Wire investigate target character dropdown — save without re-render
   container.querySelectorAll('.proc-inv-char-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -5996,6 +6020,20 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
       h += `<span class="proc-feed-lbl">Observed</span>`;
       h += `<textarea class="proc-detail-ta proc-patrol-observed-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was observed\u2026">${esc(_patObs)}</textarea>`;
+      h += `</div>`;
+    }
+    // Rumour outcome fields
+    if (entry.actionType === 'rumour') {
+      const _rumCont  = rev.rumour_content      || '';
+      const _rumLevel = rev.rumour_detail_level || '';
+      const _rumLevels = ['1 \u2014 Vague', '2', '3', '4', '5+ \u2014 Detailed'];
+      h += `<div class="proc-recat-row" style="margin-top:8px;padding-top:8px">`;
+      h += `<span class="proc-feed-lbl">Detail Level</span>`;
+      h += `<select class="proc-recat-select proc-rumour-detail-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_rumLevels.map(l => `<option value="${l}"${_rumLevel === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<span class="proc-feed-lbl">Rumour Surfaced</span>`;
+      h += `<textarea class="proc-detail-ta proc-rumour-content-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was heard\u2026">${esc(_rumCont)}</textarea>`;
       h += `</div>`;
     }
   }

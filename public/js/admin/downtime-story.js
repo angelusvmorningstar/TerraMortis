@@ -1302,6 +1302,9 @@ function buildActionContext(char, sub, idx) {
   if (rev.patrol_detail_level) lines.push(`Detail Level: ${rev.patrol_detail_level}`);
   if (rev.patrol_observed)     lines.push(`Observed: ${rev.patrol_observed}`);
 
+  if (rev.rumour_detail_level) lines.push(`Detail Level: ${rev.rumour_detail_level}`);
+  if (rev.rumour_content)      lines.push(`Rumour Surfaced: ${rev.rumour_content}`);
+
   // Cross-action context chips
   const chips = [];
   if (covered.length) {
