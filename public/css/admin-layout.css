@@ -4737,6 +4737,17 @@ body {
 }
 .proc-note-textarea:focus { border-color: var(--accent); outline: none; }
 
+/* ── DTX-3: notes / feedback visual hierarchy ──────────────────── */
+.proc-feedback-section {
+  background: var(--surf2);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+.proc-feedback-section .proc-detail-label {
+  margin-bottom: 4px;
+}
+
 /* ── ST Response section (feature.66) ─────────────────────────── */
 .proc-st-response-section {
   margin-bottom: 12px;

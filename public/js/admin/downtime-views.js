@@ -6688,15 +6688,9 @@ function renderActionPanel(entry, review) {
     }
   }
 
-  // Player feedback
-  h += '<div class="proc-section">';
-  h += '<div class="proc-detail-label">Player Feedback</div>';
-  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Visible to player (pool correction reason, etc.)...">`;
-  h += '</div>';
-
   // ST Notes thread
-  h += '<div class="proc-section">';
-  h += '<div class="proc-detail-label">ST Notes (ST only)</div>';
+  h += '<div class="proc-section proc-notes-panel proc-notes-primary">';
+  h += '<div class="proc-detail-label">ST Notes</div>';
   if (thread.length) {
     h += '<div class="proc-notes-thread">';
     for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
@@ -6715,6 +6709,12 @@ function renderActionPanel(entry, review) {
   h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="2"></textarea>`;
   h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
   h += '</div>';
+  h += '</div>';
+
+  // Player feedback
+  h += '<div class="proc-section proc-feedback-section">';
+  h += '<div class="proc-detail-label">Player Feedback</div>';
+  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Visible to player (pool correction reason, etc.)...">`;
   h += '</div>';
 
   // ── Close left column; render right panel for feeding + project + sorcery + merit entries ──

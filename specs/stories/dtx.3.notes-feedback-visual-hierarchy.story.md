@@ -1,6 +1,6 @@
 # Story DTX.3: Notes and Feedback Visual Hierarchy
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -18,7 +18,7 @@ so that the primary analytical tool (ST notes) has higher visual prominence and 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Reorder sections and update titles in `downtime-views.js` (AC: 1, 2, 3, 4)
+- [x] Task 1: Reorder sections and update titles in `downtime-views.js` (AC: 1, 2, 3, 4)
   - [ ] Locate the two rendering blocks at lines ~6691–6718 in `_renderLeftPanel` (or its equivalent note/feedback render section):
     - Block A (currently first): Player Feedback — `proc-section` wrapper, label "Player Feedback", `proc-feedback-input`
     - Block B (currently second): ST Notes — `proc-section` wrapper, label "ST Notes (ST only)", `proc-notes-thread` + `proc-note-add`
@@ -32,7 +32,7 @@ so that the primary analytical tool (ST notes) has higher visual prominence and 
     - **Do not rename** `proc-section`
   - [ ] Leave all other HTML, class names, data attributes, and event bindings unchanged
 
-- [ ] Task 2: Add CSS for visual differentiation (AC: 3, 5)
+- [x] Task 2: Add CSS for visual differentiation (AC: 3, 5)
   - [ ] Open `public/css/admin-layout.css` (this is where all `proc-*` CSS lives — **not** `admin-processing.css`)
   - [ ] Find the `.proc-note-add` / `.proc-note-textarea` block (~line 4720) as the insertion anchor
   - [ ] Add the following rules after the existing `proc-notes-thread` / `proc-note-*` block:
@@ -57,7 +57,7 @@ so that the primary analytical tool (ST notes) has higher visual prominence and 
 
   - [ ] Verify the Player Feedback section now has a surface-level background distinct from a plain `proc-section`, making it visually clear it is a separate outbound context from the ST notes above
 
-- [ ] Task 3: Smoke-test in browser (AC: 1–5)
+- [ ] Task 3: Smoke-test in browser (AC: 1–5)  <!-- pending manual verification -->
   - [ ] Open admin processing panel on any entry with existing notes and a feedback value
   - [ ] Confirm: ST Notes section appears first, "ST Notes" label (no suffix)
   - [ ] Confirm: Player Feedback section appears below, has tinted background
@@ -149,6 +149,9 @@ This story is purely a rendering reorder + CSS addition. No changes to:
 ### Debug Log References
 
 ### Completion Notes List
+
+- Swapped render order in `renderActionPanel` (~line 6691): ST Notes now renders first with classes `proc-section proc-notes-panel proc-notes-primary`, label changed from "ST Notes (ST only)" to "ST Notes". Player Feedback renders second with classes `proc-section proc-feedback-section`.
+- Added CSS in `admin-layout.css` after `.proc-note-textarea:focus`: `.proc-feedback-section` gets `background: var(--surf2)`, `border-radius: 4px`, `padding: 8px 10px`, `margin-top: 4px`. No class renames — `proc-section` preserved on both wrappers.
 
 ### File List
 
