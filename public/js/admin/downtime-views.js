@@ -3708,14 +3708,11 @@ function renderProcessingMode(container) {
       const card       = btn.closest('.proc-feed-desc-card');
       const tradition  = card.querySelector('.proc-sorc-tradition-sel').value;
       const riteName   = card.querySelector('.proc-sorc-rite-sel').value;
-      const targChks   = card.querySelectorAll('.proc-sorc-target-chk');
-      const targets    = [...targChks].filter(c => c.checked).map(c => c.dataset.charName).join(', ');
       const notes      = card.querySelector('.proc-sorc-notes-input').value.trim();
       await saveEntryReview(entry, {
         sorc_tradition: tradition || null,
         sorc_rite_name: riteName  || null,
         rite_override:  riteName  || null,
-        sorc_targets:   targets   || null,
         sorc_notes:     notes     || null,
       });
       renderProcessingMode(container);
@@ -4142,6 +4139,20 @@ function renderProcessingMode(container) {
       const allChks   = container.querySelectorAll(`.proc-conn-char-chk[data-proc-key="${key}"]`);
       const connected = [...allChks].filter(c => c.checked).map(c => c.dataset.charName);
       await saveEntryReview(entry, { connected_chars: connected });
+    });
+  });
+
+  // Wire sorcery target checkboxes (auto-save on change)
+  container.querySelectorAll('.proc-sorc-target-chk').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = cb.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const allChks = container.querySelectorAll(`.proc-sorc-target-chk[data-proc-key="${key}"]`);
+      const targets = [...allChks].filter(c => c.checked).map(c => c.dataset.charName).join(', ');
+      await saveEntryReview(entry, { sorc_targets: targets || null });
     });
   });
 
@@ -6593,7 +6604,6 @@ function renderActionPanel(entry, review) {
     h += `<div class="proc-feed-desc-view">`;
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span> ${esc(traditionVal || '\u2014')}</div>`;
     h += `<div class="proc-proj-field" title="${esc(riteRaw)}"><span class="proc-feed-lbl">Rite</span> ${esc(riteVal || '\u2014')}</div>`;
-    if (targetsVal)       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span> ${esc(targetsVal)}</div>`;
     if (notesVal)         h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span> ${esc(notesVal)}</div>`;
     if (entry.poolPlayer) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span> ${esc(entry.poolPlayer)}</div>`;
     h += `</div>`;
@@ -6616,23 +6626,28 @@ function renderActionPanel(entry, review) {
       }
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><select class="proc-recat-select proc-sorc-rite-sel" data-proc-key="${esc(entry.key)}">${_riteOpts}</select></div>`;
     }
-    // Targets checkbox list — active characters sorted by sortName
-    {
-      const _activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
-      const _selectedTargets = new Set((targetsVal || '').split(',').map(s => s.trim()).filter(Boolean));
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span>`;
-      h += `<div class="proc-targets-checkbox-list">`;
-      for (const c of _activeChars) {
-        const n = sortName(c);
-        const chk = _selectedTargets.has(n) ? ' checked' : '';
-        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-sorc-target-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(n)}"${chk}> ${esc(n)}</label>`;
-      }
-      h += `</div></div>`;
-    }
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
     h += `</div>`;
     h += `</div>`;
+  }
+
+  // ── Targets — wide checkbox section, above connected characters ──
+  if (isSorcery) {
+    const _tRaw         = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
+    const _tVal         = rev.sorc_targets ?? _tRaw;
+    const _tActiveChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+    const _tSelected    = new Set((_tVal || '').split(',').map(s => s.trim()).filter(Boolean));
+    h += `<div class="proc-connected-section">`;
+    h += `<div class="proc-detail-label">Targets</div>`;
+    h += `<div class="proc-connected-list">`;
+    for (const c of _tActiveChars) {
+      const n = sortName(c);
+      const lbl = c.moniker || c.name;
+      const chk = _tSelected.has(n) ? ' checked' : '';
+      h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-sorc-target-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(n)}"${chk}> ${esc(lbl)}</label>`;
+    }
+    h += `</div></div>`;
   }
 
   // ── Connected Characters (project + merit + sorcery) — inside left column, below description ──
