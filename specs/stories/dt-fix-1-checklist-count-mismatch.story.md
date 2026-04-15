@@ -89,16 +89,14 @@ h += `<span class="domain-count">${fullySighted} / ${sorted.length} processed</s
 
 4. **Denominator issue** — `sorted.length` includes characters without submissions. Should the denominator be `sorted.filter(c => subByCharId.has(String(c._id))).length`?
 
-5. **Confirm expected behaviour with Angelus** — should "processed" mean:
-   - All CHK_SECTIONS sighted for all characters who submitted?
-   - All CHK_SECTIONS sighted for all characters (including those who didn't submit)?
+5. **Confirm denominator logic** — determine whether `sorted` should be filtered to characters with submissions before computing the count. Adjust and document the finding in completion notes.
 
 ---
 
 ## Acceptance Criteria
 
 1. The "N / M processed" count matches the number of characters whose submissions have all sections sighted.
-2. Characters with no submission are excluded from both numerator and denominator (or are counted as "complete" if no submission means nothing to process — confirm with SM).
+2. The denominator reflects only characters who have a submission for the current cycle — characters without a submission are excluded. Dev agent to confirm correct behaviour and adjust if needed.
 3. Resource and skill request sections are included in the sighted check if they exist as checklist sections.
 4. `_chkState()` returns a terminal state for sighted resource/skill sections.
 
