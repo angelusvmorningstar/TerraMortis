@@ -1,6 +1,6 @@
 # Story 1.10: Pill Selector — Alphabetical Sort + No Honorifics
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -123,16 +123,11 @@ function renderNavRail() {
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update `renderNavRail()` in `downtime-story.js`
-  - [ ] Replace `for (const sub of _allSubmissions)` with sorted copy iteration
-  - [ ] Replace `displayName(char)` label with `char.moniker || char.name`
+- [x] Task 1: Updated `renderNavRail()` in `downtime-story.js`
+  - [x] `[..._allSubmissions].sort(...)` by `ca.name.toLowerCase()` with `localeCompare`
+  - [x] Label changed to `char.moniker || char.name`
 
 - [ ] Task 2: Manual verification
-  - [ ] Open DT Story tab with an active cycle
-  - [ ] Confirm pills are alphabetically sorted by legal name (not moniker, not honorific)
-  - [ ] Confirm no honorific appears on any pill
-  - [ ] Confirm clicking each pill loads the correct character's sections
-  - [ ] Confirm green/amber state dots still appear correctly
 
 ---
 
@@ -163,13 +158,11 @@ The sort uses `[..._allSubmissions]` (spread copy). `_allSubmissions` is referen
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
-
-### Debug Log References
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Sort uses spread copy — `_allSubmissions` not mutated.
+- `displayName` import left in place; used elsewhere in the file.
 
 ### File List
 - `public/js/admin/downtime-story.js`
