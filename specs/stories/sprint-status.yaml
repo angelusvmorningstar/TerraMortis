@@ -212,5 +212,12 @@ development_status:
   dt-fix-14-second-opinion-flag: done
   dt-fix-15-rite-vitae-cost-auto-populate: done
   dt-fix-16-rite-selector-fixes: done
+  dt-fix-17-committed-chip-amber: ready-for-dev
+  dt-fix-18-rolled-status: ready-for-dev
+  dt-fix-19-character-selectors: ready-for-dev
+  dt-fix-20-feeding-barrens-default: ready-for-dev
+  dt-fix-21-investigate-territory-pills: ready-for-dev
+  dt-fix-22-roll-button-on-committed: backlog
+  dt-fix-23-merit-no-dice-pool: ready-for-dev
 
   epic-dt-fixes-retrospective: optional
