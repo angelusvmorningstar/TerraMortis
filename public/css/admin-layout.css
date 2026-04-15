@@ -4326,13 +4326,28 @@ body {
   text-align: center;
   font-family: var(--fl);
 }
+.proc-row-status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.proc-row-validator {
+  font-size: 11px;
+  font-family: var(--fl);
+  font-style: italic;
+  color: var(--txt3);
+  white-space: nowrap;
+}
 .proc-row-status.pending     { background: var(--crim-a25); color: var(--result-pend); }
 .proc-row-status.validated   { background: rgba(60,140,60,.25); color: var(--result-succ); }
+.proc-row-status.committed   { background: rgba(100,100,100,.25); color: var(--txt2); }
 .proc-row-status.no_roll     { background: rgba(100,100,100,.25); color: var(--txt2); }
 .proc-row-status.no_feed     { background: var(--crim-a25); color: var(--result-pend); }
 .proc-row-status.maintenance { background: var(--accent-a15); color: var(--accent); }
 .proc-row-status.resolved    { background: rgba(60,140,60,.25); color: var(--result-succ); }
 .proc-row-status.no_effect   { background: rgba(100,100,100,.25); color: var(--txt2); }
+.proc-row-status.skipped     { background: rgba(100,100,100,.18); color: var(--txt3); }
 
 .proc-row-author {
   font-family: var(--fl);
@@ -5064,6 +5079,19 @@ body {
   letter-spacing: 0.02em;
 }
 
+.proc-validated-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--surf3);
+  color: var(--txt2);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
 .proc-mod-panel-title {
   font-family: var(--fl);
   font-size: 11px;
@@ -5615,8 +5643,10 @@ body {
 /* Status row badges — dark-mode colours (#ff9090 / #90d090) are unreadable on cream */
 html:not([data-theme="dark"]) .proc-row-status.pending  { background: var(--crim-a15); color: var(--crim); }
 html:not([data-theme="dark"]) .proc-row-status.validated{ background: var(--green-a15); color: var(--green3); }
+html:not([data-theme="dark"]) .proc-row-status.committed { background: rgba(100,100,100,.15); color: var(--label-secondary); }
 html:not([data-theme="dark"]) .proc-row-status.no_roll  { background: var(--gold-a10); color: var(--txt2); }
 html:not([data-theme="dark"]) .proc-row-status.no_feed  { background: var(--crim-a15); color: var(--crim); }
+html:not([data-theme="dark"]) .proc-row-status.skipped  { background: rgba(100,100,100,.12); color: var(--label-tertiary); }
 
 /* Character name in processing row — 700 for prominence (Cinzel entity name) */
 html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }

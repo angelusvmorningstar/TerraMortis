@@ -3212,7 +3212,11 @@ function renderProcessingMode(container) {
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+        const _validatorName = (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by : '';
+        h += `<span class="proc-row-status-cell">`;
+        if (_validatorName) h += `<span class="proc-row-validator">${esc(_validatorName)}</span>`;
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
+        h += `</span>`;
         h += '</div>';
 
         if (isExpanded) {
@@ -3411,7 +3415,12 @@ function renderProcessingMode(container) {
           }
         }
       }
-      await saveEntryReview(entry, { pool_status: status });
+      const statusPatch = { pool_status: status };
+      if (status === 'validated') {
+        const user = getUser();
+        statusPatch.pool_validated_by = user?.global_name || user?.username || 'ST';
+      }
+      await saveEntryReview(entry, statusPatch);
       renderProcessingMode(container);
     });
   });
@@ -5277,7 +5286,7 @@ function _renderProjRightPanel(entry, char, rev) {
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
-  // Validation notation: show active flags when validated
+  // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
     const notes = [];
     if (isRote) notes.push('Rote');
@@ -5285,6 +5294,9 @@ function _renderProjRightPanel(entry, char, rev) {
     if (eightAgainState) notes.push('8-Again');
     if (notes.length > 0) {
       h += `<div class="proc-proj-val-notation">${esc(notes.join(' \u00B7 '))}</div>`;
+    }
+    if (rev.pool_validated_by) {
+      h += `<div class="proc-validated-chip">[Validated \u00B7 ${esc(rev.pool_validated_by)}]</div>`;
     }
   }
   if (poolValidated) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
@@ -5523,6 +5535,9 @@ function _renderFeedRightPanel(entry, char, rev) {
     if (nineAgainStateFeed) feedNotes.push('9-Again');
     if (eightAgainStateFeed) feedNotes.push('8-Again');
     if (feedNotes.length > 0) h += `<div class="proc-proj-val-notation">${esc(feedNotes.join(' \u00B7 '))}</div>`;
+    if (poolStatus === 'validated' && rev.pool_validated_by) {
+      h += `<div class="proc-validated-chip">[Validated \u00B7 ${esc(rev.pool_validated_by)}]</div>`;
+    }
     h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   }
 
