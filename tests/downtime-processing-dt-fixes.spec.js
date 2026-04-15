@@ -1358,3 +1358,54 @@ test.describe('DTX-1: Cross-reference callouts', () => {
   });
 
 });
+
+// ── DTR-1: Net success display ────────────────────────────────────────────────
+
+test.describe('DTR-1: Net success display', () => {
+
+  const SUBMISSION_PROJ_WITH_ROLL_AND_MOD = {
+    ...SUBMISSION_PROJECT_COMMITTED,
+    _id: 'sub-proj-roll-mod',
+    projects_resolved: [
+      {
+        pool_status: 'validated',
+        pool_validated: 'Strength 3 + Weaponry 4 = 7',
+        roll: { dice_string: '[8,7,3,2,1,6,5]', successes: 3, exceptional: false },
+        succ_mod_manual: -1,
+      },
+    ],
+  };
+
+  const SUBMISSION_PROJ_WITH_ROLL_NO_MOD = {
+    ...SUBMISSION_PROJECT_COMMITTED,
+    _id: 'sub-proj-roll-nomod',
+    projects_resolved: [
+      {
+        pool_status: 'validated',
+        pool_validated: 'Strength 3 + Weaponry 4 = 7',
+        roll: { dice_string: '[8,7,3,2,1,6,5]', successes: 3, exceptional: false },
+        succ_mod_manual: 0,
+      },
+    ],
+  };
+
+  test('non-zero modifier shows net label and correct value', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJ_WITH_ROLL_AND_MOD]);
+    await openFirstAction(page, 'Ambience');
+
+    const rollResult = page.locator('.proc-proj-roll-result').first();
+    await expect(rollResult).toBeVisible({ timeout: 5000 });
+    await expect(rollResult).toContainText('net');
+    await expect(rollResult).toContainText('2');   // 3 + (-1) = 2
+  });
+
+  test('zero modifier shows no net label', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJ_WITH_ROLL_NO_MOD]);
+    await openFirstAction(page, 'Ambience');
+
+    const rollResult = page.locator('.proc-proj-roll-result').first();
+    await expect(rollResult).toBeVisible({ timeout: 5000 });
+    await expect(rollResult).not.toContainText('net');
+  });
+
+});

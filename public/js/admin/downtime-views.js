@@ -5691,10 +5691,11 @@ function _renderProjRightPanel(entry, char, rev) {
   const projRoll    = rev.roll || null;
   const showRollBtn = poolStatus === 'committed' || poolStatus === 'validated' || !!projRoll;
   h += _renderRollCard(key, projRoll, null, {
-    btnClass:     'proc-proj-roll-btn',
-    btnDataAttrs: ` data-pool-validated="${esc(poolValidated)}"`,
-    canRoll:       showRollBtn,
-    noRollMsg:    'Validate pool first',
+    btnClass:        'proc-proj-roll-btn',
+    btnDataAttrs:    ` data-pool-validated="${esc(poolValidated)}"`,
+    canRoll:          showRollBtn,
+    noRollMsg:       'Validate pool first',
+    successModifier:  succMod,
   });
 
   h += `</div>`; // proc-feed-right
@@ -5982,6 +5983,7 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
     canRoll         = true,
     noRollMsg       = 'No roll available',
     targetSuccesses = null,
+    successModifier = 0,   // DTR-1: succ_mod_manual from rev
   } = opts;
 
   const poolLabel   = (poolTotal != null && canRoll) ? ` \u2014 ${poolTotal} dice` : '';
@@ -6003,7 +6005,16 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
         const resText = hit ? ` \u2014 Potency ${suc}` : ' \u2014 no effect';
         h += `<div class="proc-proj-roll-result${failCls}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${resText}${excTag}</div>`;
       } else {
-        h += `<div class="proc-proj-roll-result">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
+        // DTR-2: also subtract contestedRoll.successes when present
+        const net    = suc + successModifier;
+        const modStr = successModifier > 0 ? ` +${successModifier}` : successModifier < 0 ? ` ${successModifier}` : '';
+        const netCls = (successModifier !== 0 && net <= 0) ? ' proc-roll-net-zero' : '';
+        const netExc = (successModifier !== 0 && net >= 5) ? ' \u00b7 Exceptional' : excTag;
+        if (successModifier !== 0) {
+          h += `<div class="proc-proj-roll-result${netCls}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${modStr} = ${net} net${netExc}</div>`;
+        } else {
+          h += `<div class="proc-proj-roll-result">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
+        }
       }
     }
   } else {

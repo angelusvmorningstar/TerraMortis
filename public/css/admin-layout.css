@@ -5313,6 +5313,9 @@ body {
   word-break: break-word;
   line-height: 1.5;
 }
+.proc-proj-roll-result.proc-roll-net-zero {
+  color: var(--result-pend);
+}
 
 .proc-proj-val-notation {
   font-size: 11px;
