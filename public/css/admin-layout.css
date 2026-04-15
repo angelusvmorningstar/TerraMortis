@@ -4291,6 +4291,75 @@ body {
   text-overflow: ellipsis;
 }
 
+.proc-row-st-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold2);
+  font-family: var(--fl);
+  margin-left: 5px;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
+
+.proc-add-st-action-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--surf3);
+}
+
+.proc-add-st-char {
+  font-size: 12px;
+  color: var(--txt2);
+  font-family: var(--fh);
+  min-width: 140px;
+}
+
+.proc-add-st-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.proc-add-st-form select,
+.proc-add-st-form input[type="text"] {
+  font-size: 12px;
+  background: var(--surf2);
+  border: 1px solid var(--surf3);
+  color: var(--txt);
+  border-radius: 3px;
+  padding: 3px 7px;
+}
+
+.proc-add-st-form .proc-add-st-label {
+  flex: 1;
+  min-width: 180px;
+}
+
+.proc-add-st-form .proc-add-st-desc {
+  flex: 2;
+  min-width: 220px;
+}
+
+.proc-delete-st-action {
+  color: var(--crim);
+  border-color: var(--crim);
+  opacity: 0.8;
+}
+.proc-delete-st-action:hover {
+  opacity: 1;
+  background: var(--crim-a15);
+}
+
+.proc-add-st-section .proc-phase-header {
+  cursor: pointer;
+}
+
 .proc-row-desc {
   font-size: 12px;
   color: var(--txt2);

@@ -43,6 +43,7 @@ const preReadExpanded = new Set();   // subIds with pre-read body expanded in pr
 const narrativeExpanded = new Set(); // subIds with narrative body expanded in processing mode
 const xpReviewExpanded  = new Set(); // subIds with XP review body expanded in processing mode
 const signOffExpanded   = new Set(); // subIds with sign-off body expanded in processing mode
+const stActionAddExpandedSubs = new Set(); // subIds with "Add ST Action" form expanded
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -90,6 +91,13 @@ const PHASE_NUM_TO_LABEL = {
   11: 'contacts',
   12: 'resources_retainers',
   13: 'other_merit',
+};
+
+// Maps simplified ST-created action category to phase number
+const ST_ACTION_PHASE_MAP = {
+  sorcery: 0,  // resolve_first
+  project: 7,  // misc
+  merit:   8,  // allies
 };
 
 const ACTION_TYPE_LABELS = {
@@ -2077,10 +2085,31 @@ function buildProcessingQueue(subs) {
       });
       meritFlatIdx++;
     });
+
+    // ── ST-created actions ──
+    for (let idx = 0; idx < (sub.st_actions || []).length; idx++) {
+      const stAction = sub.st_actions[idx];
+      const phaseNum = ST_ACTION_PHASE_MAP[stAction.action_type] ?? 7;
+      const phase = PHASE_NUM_TO_LABEL[phaseNum];
+      queue.push({
+        key: `${sub._id}:st:${idx}`,
+        subId: sub._id,
+        source: 'st_created',
+        actionIdx: idx,
+        charName,
+        phase,
+        phaseNum,
+        actionType: stAction.action_type,
+        label: stAction.label,
+        description: stAction.description || '',
+        poolPlayer: stAction.pool_player || '',
+        riteName: stAction.label,
+      });
+    }
   }
 
   // Sort: phase first, then source type, then character name
-  const SOURCE_ORDER = { project: 0, sorcery: 1, merit: 2, feeding: 3 };
+  const SOURCE_ORDER = { project: 0, sorcery: 1, merit: 2, feeding: 3, st_created: 4 };
   queue.sort((a, b) => {
     if (a.phaseNum !== b.phaseNum) return a.phaseNum - b.phaseNum;
     const sa = SOURCE_ORDER[a.source] ?? 9;
@@ -2148,6 +2177,7 @@ function getEntryReview(entry) {
   if (entry.source === 'project') return (sub.projects_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'sorcery') return (sub.sorcery_review || {})[entry.actionIdx] || null;
+  if (entry.source === 'st_created') return (sub.st_actions_resolved || [])[entry.actionIdx] || null;
   return null;
 }
 
@@ -2190,6 +2220,13 @@ async function saveEntryReview(entry, patch) {
     sorcReview[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { sorcery_review: sorcReview });
     sub.sorcery_review = sorcReview;
+  } else if (entry.source === 'st_created') {
+    const resolved = [...(sub.st_actions_resolved || [])];
+    while (resolved.length <= entry.actionIdx) resolved.push(null);
+    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    resolved[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { st_actions_resolved: resolved });
+    sub.st_actions_resolved = resolved;
   }
 }
 
@@ -3210,7 +3247,7 @@ function renderProcessingMode(container) {
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
         h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
-        h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
+        h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
         const _validatorName = (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by : '';
         h += `<span class="proc-row-status-cell">`;
@@ -3246,6 +3283,40 @@ function renderProcessingMode(container) {
     }
     h += '</div>';
   }
+
+  // Add ST Actions — one expandable form per submission
+  h += `<div class="proc-phase-section proc-add-st-section">`;
+  h += `<div class="proc-phase-header" data-toggle-phase="add_st_actions">`;
+  h += `<span class="proc-phase-label">Add ST Actions</span>`;
+  h += `<span class="proc-phase-count">${submissions.length} character${submissions.length !== 1 ? 's' : ''}</span>`;
+  h += `<span class="proc-phase-toggle">${expandedPhases.has('add_st_actions') ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+  if (expandedPhases.has('add_st_actions')) {
+    for (const sub of submissions) {
+      const subCharName = (() => {
+        const c = findCharacter(sub.character_name, sub.player_name);
+        return c ? (c.moniker || c.name) : (sub.character_name || '?');
+      })();
+      const isExpanded = stActionAddExpandedSubs.has(sub._id);
+      h += `<div class="proc-add-st-action-row" data-sub-id="${esc(sub._id)}">`;
+      h += `<span class="proc-add-st-char">${esc(subCharName)}</span>`;
+      h += `<button class="dt-btn proc-add-st-toggle-btn" data-sub-id="${esc(sub._id)}">${isExpanded ? '− Cancel' : '+ Add action'}</button>`;
+      if (isExpanded) {
+        h += `<div class="proc-add-st-form">`;
+        h += `<select class="proc-add-st-type" data-sub-id="${esc(sub._id)}">`;
+        h += `<option value="sorcery">Sorcery</option>`;
+        h += `<option value="project">Project</option>`;
+        h += `<option value="merit">Merit action</option>`;
+        h += `</select>`;
+        h += `<input class="proc-add-st-label" type="text" placeholder="Label (e.g. Theban: Rite of X)" data-sub-id="${esc(sub._id)}">`;
+        h += `<input class="proc-add-st-desc" type="text" placeholder="Description / notes (optional)" data-sub-id="${esc(sub._id)}">`;
+        h += `<button class="dt-btn proc-add-st-submit-btn" data-sub-id="${esc(sub._id)}">Add</button>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
+  }
+  h += `</div>`;
 
   // XP Review — Step 10, after action phases, before narrative
   h += renderXpReviewStep();
@@ -4504,6 +4575,86 @@ function renderProcessingMode(container) {
     } catch (err) { console.error('Failed to save ambience notes:', err.message); }
   });
 
+  // Wire Add ST Action toggle buttons
+  container.querySelectorAll('.proc-add-st-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      if (stActionAddExpandedSubs.has(subId)) {
+        stActionAddExpandedSubs.delete(subId);
+      } else {
+        stActionAddExpandedSubs.add(subId);
+      }
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire Add ST Action submit buttons
+  container.querySelectorAll('.proc-add-st-submit-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const row = container.querySelector(`.proc-add-st-action-row[data-sub-id="${subId}"]`);
+      if (!row) return;
+      const actionType = row.querySelector('.proc-add-st-type').value;
+      const label = row.querySelector('.proc-add-st-label').value.trim();
+      const description = row.querySelector('.proc-add-st-desc').value.trim();
+      if (!label) { row.querySelector('.proc-add-st-label').focus(); return; }
+      await addStAction(subId, { action_type: actionType, label, description });
+      stActionAddExpandedSubs.delete(subId);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Prevent form inputs in Add ST Action forms from bubbling up
+  container.querySelectorAll('.proc-add-st-form input, .proc-add-st-form select').forEach(el => {
+    el.addEventListener('click', e => e.stopPropagation());
+    el.addEventListener('mousedown', e => e.stopPropagation());
+  });
+
+  // Wire Delete ST action buttons
+  container.querySelectorAll('.proc-delete-st-action').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const actionIdx = parseInt(btn.dataset.actionIdx, 10);
+      await deleteStAction(subId, actionIdx);
+      renderProcessingMode(container);
+    });
+  });
+
+}
+
+/** Add an ST-created action to a submission's st_actions array. */
+async function addStAction(subId, actionDef) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const stActions = [...(sub.st_actions || [])];
+  stActions.push({
+    action_type: actionDef.action_type,
+    label:       actionDef.label,
+    description: actionDef.description || '',
+    pool_player: actionDef.pool_player || '',
+  });
+  await updateSubmission(subId, { st_actions: stActions });
+  sub.st_actions = stActions;
+}
+
+/** Delete an ST-created action (and its resolved review) from a submission. */
+async function deleteStAction(subId, actionIdx) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const stActions   = [...(sub.st_actions || [])];
+  const stResolved  = [...(sub.st_actions_resolved || [])];
+  stActions.splice(actionIdx, 1);
+  stResolved.splice(actionIdx, 1);
+  await updateSubmission(subId, { st_actions: stActions, st_actions_resolved: stResolved });
+  sub.st_actions = stActions;
+  sub.st_actions_resolved = stResolved;
+  // Remove any expanded key that referenced this entry or later entries (indices shifted)
+  for (const key of [...procExpandedKeys]) {
+    if (key.startsWith(`${subId}:st:`)) procExpandedKeys.delete(key);
+  }
 }
 
 /** Render the inline Attach Reminder panel for a resolved sorcery entry. */
@@ -6482,6 +6633,13 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-feed-left
     h += _renderMeritRightPanel(entry, rev);
     h += '</div>'; // proc-feed-layout
+  }
+
+  // Delete button for ST-created actions
+  if (entry.source === 'st_created') {
+    h += `<div class="proc-section">`;
+    h += `<button class="dt-btn proc-delete-st-action" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-action-idx="${entry.actionIdx}">Delete action</button>`;
+    h += `</div>`;
   }
 
   h += '</div>'; // proc-action-detail

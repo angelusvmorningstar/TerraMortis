@@ -192,11 +192,11 @@ development_status:
   # EPIC DT-FIXES: DT PROCESSING + STORY CLEANUP — BACKLOG
   # ============================================================
   # Bugs, quick features, feeding panel parity, DT Story pill fix
-  # 15 items; no story files yet
+  # 16 items; all story files exist
 
   epic-dt-fixes: in-progress
 
-  dt-fix-1-checklist-count-mismatch: ready-for-dev
+  dt-fix-1-checklist-count-mismatch: done
   dt-fix-2-herd-vitae-bug: done
   dt-fix-3-vitae-tally-parchment-colour: done
   dt-fix-4-sort-projects-before-merits: done
@@ -208,8 +208,9 @@ development_status:
   dt-fix-10-clear-pool-button-size: done
   dt-fix-11-territory-ticker-pool-builder-padding: done
   dt-fix-12-feeding-panel-layout: done
-  dt-fix-13-st-created-actions: ready-for-dev
+  dt-fix-13-st-created-actions: done
   dt-fix-14-second-opinion-flag: ready-for-dev
   dt-fix-15-rite-vitae-cost-auto-populate: ready-for-dev
+  dt-fix-16-rite-selector-fixes: ready-for-dev
 
   epic-dt-fixes-retrospective: optional
