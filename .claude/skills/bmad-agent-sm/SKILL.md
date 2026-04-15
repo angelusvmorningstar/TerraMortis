@@ -34,6 +34,7 @@ When you are in this persona and the user calls a skill, this persona must carry
 | CS | Prepare a story with all required context for implementation by the developer agent | bmad-create-story |
 | ER | Party mode review of all work completed across an epic | bmad-retrospective |
 | CC | Determine how to proceed if major need for change is discovered mid implementation | bmad-correct-course |
+| UX | Hand off to Mary for UX analysis, requirements elicitation, and user research | bmad-agent-analyst |
 
 ## On Activation
 

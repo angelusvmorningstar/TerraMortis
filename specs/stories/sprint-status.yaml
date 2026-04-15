@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-15 (DT-Fixes all done; tests added)
+last_updated: 2026-04-15 (DTX epic added; dtx-3 ready-for-dev)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -224,3 +224,29 @@ development_status:
   dt-fix-25-second-opinion-to-sidebar: done
 
   epic-dt-fixes-retrospective: optional
+
+  # ============================================================
+  # EPIC DTQ: DT QUALITY FIXES — IN PROGRESS
+  # ============================================================
+  # Targeted DT processing + story tab corrections from 2026-04-15 notes session
+
+  epic-dtq: in-progress
+
+  dtq-1-feed-rote-project-in-feed-phase: review
+  dtq-2-dt-story-merit-actions-population: review
+  dtq-3-investigate-lead-ticker-project-only: review
+
+  # ============================================================
+  # EPIC DTX: DT PROCESSING EXPERIENCE — BACKLOG
+  # ============================================================
+  # UX improvements from 2026-04-15 party mode review (Winston, Mary, Sally)
+  # Epic file: specs/epic-dtx-dt-experience.md
+  # DTX-2 depends on DTX-3; DTX-1 is independent
+
+  epic-dtx: in-progress
+
+  dtx-1-cross-reference-callouts: ready-for-dev
+  dtx-2-compact-panel-binary-actions: ready-for-dev
+  dtx-3-notes-feedback-visual-hierarchy: ready-for-dev
+
+  epic-dtx-retrospective: optional
