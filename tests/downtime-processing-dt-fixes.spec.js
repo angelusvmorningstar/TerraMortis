@@ -1562,3 +1562,88 @@ test.describe('DTS-1: ST-created sorcery full panel', () => {
   });
 
 });
+
+// ── DTS-2: Duplicate action ───────────────────────────────────────────────────
+
+test.describe('DTS-2: Duplicate action', () => {
+
+  const CHAR_CRUAC_DTS2 = {
+    ...CHAR_PT4,
+    _id: 'char-cruac-dts2',
+    name: 'Keeper Test',
+    moniker: 'Keeper',
+    disciplines: { Cruac: { dots: 3 } },
+    merits: [],
+  };
+
+  const SUBMISSION_SORC_FOR_DUP = {
+    _id: 'sub-sorc-dup',
+    cycle_id: 'cycle-001',
+    character_name: 'Keeper Test',
+    character_id: 'char-cruac-dts2',
+    player_name: 'Test Player',
+    submitted_at: '2026-04-15T00:00:00Z',
+    _raw: { projects: [], feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] } },
+    responses: {
+      sorcery_slot_count: '1',
+      sorcery_1_rite: 'Fires of Inspiration',
+      sorcery_1_targets: '',
+      sorcery_1_notes: 'Four rites listed here',
+      sorcery_1_pool_expr: 'Intelligence 2 + Occult 3 = 5',
+    },
+    projects_resolved: [],
+    feeding_review: null,
+    merit_actions_resolved: [],
+    sorcery_review: { 1: { pool_status: 'pending', sorc_tradition: 'Cruac' } },
+    st_review: { territory_overrides: {} },
+    st_actions: [],
+    st_actions_resolved: [],
+  };
+
+  test('duplicate button is present on sorcery row header', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_SORC_FOR_DUP], [CHAR_CRUAC_DTS2, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
+
+    // Phase header must be expanded to see action rows
+    const phaseHeader = page.locator('.proc-phase-header', { hasText: 'Sorcery' }).first();
+    await phaseHeader.click();
+    await expect(page.locator('.proc-duplicate-btn').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('clicking duplicate creates a new ST sorcery entry in the phase', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_SORC_FOR_DUP], [CHAR_CRUAC_DTS2, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
+
+    const phaseHeader = page.locator('.proc-phase-header', { hasText: 'Sorcery' }).first();
+    await phaseHeader.click();
+
+    const dupBtn = page.locator('.proc-duplicate-btn').first();
+    await expect(dupBtn).toBeVisible({ timeout: 5000 });
+    const initialRows = await page.locator('.proc-action-row').count();
+    await dupBtn.click({ force: true });
+
+    // A new row should have appeared (ST badge visible)
+    await expect(page.locator('.proc-row-st-badge')).toBeVisible({ timeout: 5000 });
+    const newRows = await page.locator('.proc-action-row').count();
+    expect(newRows).toBeGreaterThan(initialRows);
+  });
+
+  test('duplicate button present on ST-created sorcery row too', async ({ page }) => {
+    const subWithStSorc = {
+      ...SUBMISSION_SORC_FOR_DUP,
+      _id: 'sub-sorc-dup-st',
+      st_actions: [
+        { action_type: 'sorcery', label: 'Fires of Inspiration', tradition: 'Cruac', rite_name: 'Fires of Inspiration', description: '' },
+      ],
+      st_actions_resolved: [{ pool_status: 'pending' }],
+    };
+    await setupDowntimeProcessing(page, [subWithStSorc], [CHAR_CRUAC_DTS2, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
+
+    const phaseHeader = page.locator('.proc-phase-header', { hasText: 'Sorcery' }).first();
+    await phaseHeader.click();
+
+    // Both the player sorcery and ST sorcery rows should have duplicate buttons
+    await expect(page.locator('.proc-duplicate-btn').first()).toBeVisible({ timeout: 5000 });
+    const dupBtns = await page.locator('.proc-duplicate-btn').count();
+    expect(dupBtns).toBe(2);
+  });
+
+});

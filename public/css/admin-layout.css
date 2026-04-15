@@ -4302,6 +4302,23 @@ body {
   letter-spacing: 0.02em;
 }
 
+.proc-duplicate-btn {
+  margin-left: 8px;
+  padding: 2px 7px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  color: var(--txt3);
+  cursor: pointer;
+  font-family: var(--ft);
+  vertical-align: middle;
+}
+.proc-duplicate-btn:hover {
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+
 .proc-add-st-action-row {
   display: flex;
   align-items: center;

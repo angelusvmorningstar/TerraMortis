@@ -3346,7 +3346,12 @@ function renderProcessingMode(container) {
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
         h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
-        h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
+        {
+          const _isRowSorcery = entry.source === 'sorcery' || (entry.source === 'st_created' && entry.actionType === 'sorcery');
+          h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}`;
+          if (_isRowSorcery) h += ` <button class="proc-duplicate-btn" data-proc-key="${esc(entry.key)}" title="Duplicate this action">\u2398 Dup</button>`;
+          h += `</span>`;
+        }
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
         const _attributedName =
           (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
@@ -4800,6 +4805,26 @@ function renderProcessingMode(container) {
       if (!poolTotal || poolTotal < 1) return;
       const result = await rollPool(poolTotal, false, false, false);
       await saveEntryReview(entry, { contested_roll: result });
+      renderProcessingMode(container);
+    });
+  });
+
+  // ── Duplicate sorcery action ──
+  container.querySelectorAll('.proc-duplicate-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const rev      = getEntryReview(entry) || {};
+      const tradition = rev.sorc_tradition || entry.tradition || '';
+      const riteName  = rev.sorc_rite_name || rev.rite_override || entry.riteName || '';
+      const notes     = rev.sorc_notes     || entry.description || '';
+      const label     = riteName || entry.label;
+      await addStAction(entry.subId, { action_type: 'sorcery', label, description: notes, tradition, rite_name: riteName });
+      const sub    = submissions.find(s => s._id === entry.subId);
+      const newIdx = (sub?.st_actions || []).length - 1;
+      if (newIdx >= 0) procExpandedKeys.add(`${entry.subId}:st:${newIdx}`);
       renderProcessingMode(container);
     });
   });
