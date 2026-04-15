@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-04-15 (DT-Fix-3/4/5/6/8/12 done this session; dt-fix-15 added)
+# last_updated: 2026-04-15 (DT-Fixes epic complete; E2E test suite added 33 tests)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-15
+last_updated: 2026-04-15 (DT-Fixes all done; tests added)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -189,12 +189,13 @@ development_status:
   epic-pp-retrospective: optional
 
   # ============================================================
-  # EPIC DT-FIXES: DT PROCESSING + STORY CLEANUP — BACKLOG
+  # EPIC DT-FIXES: DT PROCESSING + STORY CLEANUP — DONE
   # ============================================================
-  # Bugs, quick features, feeding panel parity, DT Story pill fix
-  # 16 items; all story files exist
+  # 25 items (DT-Fix-1 through 25); fix-18 superseded by fix-22
+  # E2E test suite: tests/downtime-processing-dt-fixes.spec.js (33 tests)
+  # All shipped to dev; ready to merge to main
 
-  epic-dt-fixes: in-progress
+  epic-dt-fixes: done
 
   dt-fix-1-checklist-count-mismatch: done
   dt-fix-2-herd-vitae-bug: done
@@ -212,5 +213,14 @@ development_status:
   dt-fix-14-second-opinion-flag: done
   dt-fix-15-rite-vitae-cost-auto-populate: done
   dt-fix-16-rite-selector-fixes: done
+  dt-fix-17-committed-chip-amber: done
+  dt-fix-18-rolled-status: superseded  # superseded by dt-fix-22
+  dt-fix-19-character-selectors: done
+  dt-fix-20-feeding-barrens-default: done
+  dt-fix-21-investigate-territory-pills: done
+  dt-fix-22-roll-button-on-committed: done
+  dt-fix-23-merit-no-dice-pool: done
+  dt-fix-24-rite-blob-to-notes: done
+  dt-fix-25-second-opinion-to-sidebar: done
 
   epic-dt-fixes-retrospective: optional

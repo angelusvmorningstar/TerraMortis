@@ -58,49 +58,49 @@ export async function renderPrimerTab(el) {
   h += '</div>';
   el.innerHTML = h;
 
-  // Intercept every #slug anchor inside the tab — both the sticky sidebar
-  // TOC and the markdown's own in-document Contents section. Scroll the
-  // tab panel (the actual scroll container), not the window. We compute
-  // the scroll delta from getBoundingClientRect instead of offsetTop
-  // because offsetTop is relative to the nearest positioned ancestor, which
-  // isn't guaranteed to be `el` — whereas getBoundingClientRect is
-  // viewport-relative and works regardless of the containing-block chain.
-  const scrollToAnchor = (href) => {
-    if (!href || href.length < 2) return false;
-    const slug = href.slice(1);
-    const sel  = '#' + (window.CSS && CSS.escape ? CSS.escape(slug) : slug);
-    const target = el.querySelector(sel);
-    if (!target) return false;
-    const elRect     = el.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-    const top = el.scrollTop + (targetRect.top - elRect.top) - 16;
-    el.scrollTo({ top, behavior: 'smooth' });
-    return true;
-  };
+  // The real scroll container for the player portal is #content (flex:1;
+  // overflow-y:auto). #tab-primer has overflow-y:auto too, but since the
+  // panel grows to fit its content it never overflows — its scrollTo is a
+  // silent no-op, which is why the previous attempts to scroll `el` failed.
+  const scrollRoot = document.getElementById('content') || document.scrollingElement || document.documentElement;
 
+  // Intercept every #slug anchor inside the tab — both the sticky sidebar
+  // TOC and the markdown's own in-document Contents section. Use the
+  // browser's own scrollIntoView, which handles finding the right scroll
+  // ancestor automatically and respects scroll-margin-top for the gutter
+  // above the heading (set on .primer-content headings in components.css).
   el.addEventListener('click', e => {
     const a = e.target.closest('a[href^="#"]');
     if (!a || !el.contains(a)) return;
-    if (scrollToAnchor(a.getAttribute('href'))) e.preventDefault();
+    const href = a.getAttribute('href');
+    if (!href || href.length < 2) return;
+    const slug = href.slice(1);
+    const sel  = '#' + (window.CSS && CSS.escape ? CSS.escape(slug) : slug);
+    const target = el.querySelector(sel);
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  // Highlight active TOC link on scroll. Uses getBoundingClientRect for the
-  // same reason — offsetTop was lying to us.
-  const content  = el.querySelector('.primer-content');
+  // Highlight active TOC link on scroll. Listen on #content (the real
+  // scroll container) and compute positions via getBoundingClientRect
+  // instead of scrollTop/offsetTop, which are brittle across flex + sticky
+  // layouts. If the user leaves the primer tab we stop listening.
   const headings = [...el.querySelectorAll('.primer-content [id]')];
   const links    = [...el.querySelectorAll('.primer-toc-link')];
 
-  if (headings.length && content) {
+  if (headings.length) {
     const onScroll = () => {
-      const elTop = el.getBoundingClientRect().top;
+      // Only update highlights while the primer tab is the active one.
+      if (!el.classList.contains('active')) return;
       let active = 0;
       for (let i = 0; i < headings.length; i++) {
-        const hTop = headings[i].getBoundingClientRect().top - elTop;
-        if (hTop <= 80) active = i;
+        const hTop = headings[i].getBoundingClientRect().top;
+        if (hTop <= 120) active = i;
       }
       links.forEach((l, i) => l.classList.toggle('primer-toc-active', i === active));
     };
-    el.addEventListener('scroll', onScroll, { passive: true });
+    scrollRoot.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
   }
 }

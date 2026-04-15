@@ -39,7 +39,7 @@ const CHAR_PT4 = {
     { name: 'Allies', category: 'influence', rating: 3, qualifier: 'Criminal' },
   ],
   powers: [],
-  ordeals: {},
+  ordeals: [],
   // Simulated computed Sets (normally set by applyDerivedMerits in browser)
   _pt_dot4_bonus_skills_arr: ['Weaponry'],
 };
@@ -55,7 +55,7 @@ const CHAR_OTHER = {
     Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
     Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
   },
-  skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {},
+  skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
 };
 
 const TEST_CYCLE = {
@@ -166,53 +166,36 @@ const SUBMISSION_FEEDING = {
 // ── Setup helpers ──────────────────────────────────────────────────────────────
 
 async function setupDowntimeProcessing(page, submissions) {
-  // Seed auth tokens before page load — same pattern as loginAsST in admin.spec.js
   await page.addInitScript(({ user }) => {
-    localStorage.setItem('tm_auth_token', 'fake-test-token');
+    // 'local-test-token' triggers the localhost bypass in validateToken()
+    localStorage.setItem('tm_auth_token', 'local-test-token');
     localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
     localStorage.setItem('tm_auth_user', JSON.stringify(user));
   }, { user: ST_USER });
 
-  await page.route('**/api/auth/me', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ST_USER) })
-  );
-  await page.route(/\/api\/characters$/, route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CHAR_PT4, CHAR_OTHER]) })
-  );
-  await page.route('**/api/characters/names', route =>
-    route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify([CHAR_PT4, CHAR_OTHER].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific }))) })
-  );
-  await page.route('**/api/game_sessions*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-  );
-  await page.route('**/api/downtime_cycles*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([TEST_CYCLE]) })
-  );
-  await page.route('**/api/downtime_submissions*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(submissions) })
-  );
-  await page.route('**/api/territories*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-  );
-  await page.route('**/api/session_logs*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
-  );
-  // Intercept saves — return success without hitting real API
-  await page.route('**/api/downtime_submissions/**', route => {
-    if (route.request().method() === 'PATCH' || route.request().method() === 'PUT') {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
-    } else {
-      route.continue();
-    }
+  // Single string-glob handler for all API calls on localhost:3000
+  // RegExp patterns do NOT reliably intercept these cross-port requests in Playwright
+  await page.route('http://localhost:3000/**', route => {
+    const url = route.request().url();
+    const method = route.request().method();
+    const ok = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+    if (method === 'PUT' || method === 'PATCH' || method === 'POST') return ok({ ok: true });
+
+    if (url.includes('/api/downtime_submissions'))    return ok(submissions);
+    if (url.includes('/api/downtime_cycles'))         return ok([TEST_CYCLE]);
+    if (url.includes('/api/characters/names'))        return ok([CHAR_PT4, CHAR_OTHER].map(c => ({ _id: c._id, name: c.name, moniker: c.moniker, honorific: c.honorific })));
+    if (url.includes('/api/characters'))              return ok([CHAR_PT4, CHAR_OTHER]);
+    if (url.includes('/api/territories'))             return ok([]);
+    if (url.includes('/api/game_sessions'))           return ok([]);
+    if (url.includes('/api/session_logs'))            return ok([]);
+    return ok([]);
   });
 
   await page.goto('/admin.html');
-  // Wait for auth to resolve and app to show (mirrors admin.spec.js pattern)
-  await page.waitForSelector('#admin-app:not([style*="display: none"])', { timeout: 10000 });
-  // Navigate to Downtime domain
+  await page.waitForSelector('#admin-app', { state: 'visible', timeout: 10000 });
   await page.click('[data-domain="downtime"]');
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(1000);
 }
 
 async function openFirstAction(page, phaseLabel) {
