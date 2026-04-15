@@ -1359,6 +1359,91 @@ test.describe('DTX-1: Cross-reference callouts', () => {
 
 });
 
+// ── DTR-2: Contested roll ─────────────────────────────────────────────────────
+
+test.describe('DTR-2: Contested roll', () => {
+
+  const SUBMISSION_PROJ_UNCONTESTED = {
+    ...SUBMISSION_PROJECT_COMMITTED,
+    _id: 'sub-proj-uncontested',
+    projects_resolved: [
+      {
+        pool_status: 'committed',
+        pool_validated: 'Strength 3 + Weaponry 4 = 7',
+      },
+    ],
+  };
+
+  const SUBMISSION_PROJ_CONTESTED_ON = {
+    ...SUBMISSION_PROJECT_COMMITTED,
+    _id: 'sub-proj-contested-on',
+    projects_resolved: [
+      {
+        pool_status: 'committed',
+        pool_validated: 'Strength 3 + Weaponry 4 = 7',
+        contested: true,
+        contested_char: 'charlie test',
+        contested_pool_label: 'Resolve + Composure = 4',
+      },
+    ],
+  };
+
+  const SUBMISSION_PROJ_CONTESTED_ROLLED = {
+    ...SUBMISSION_PROJECT_COMMITTED,
+    _id: 'sub-proj-contested-rolled',
+    projects_resolved: [
+      {
+        pool_status: 'validated',
+        pool_validated: 'Strength 3 + Weaponry 4 = 7',
+        roll: { dice_string: '[9,8,7,3,2]', successes: 3, exceptional: false },
+        contested: true,
+        contested_char: 'charlie test',
+        contested_pool_label: 'Resolve + Composure = 4',
+        contested_roll: { dice_string: '[7,3,2,1]', successes: 1, exceptional: false },
+      },
+    ],
+  };
+
+  test('contested toggle is present in project right panel', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJ_UNCONTESTED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-contested-toggle').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('toggling contested on shows character selector and pool input', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJ_CONTESTED_ON]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-contested-char-sel').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-contested-pool-input').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('after rolling defence, roll card shows att − def = net format', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJ_CONTESTED_ROLLED]);
+    await openFirstAction(page, 'Ambience');
+
+    // Target the roll card result specifically (not the defence result inside the contested panel)
+    const rollResult = page.locator('.proc-proj-roll-card .proc-proj-roll-result').first();
+    await expect(rollResult).toBeVisible({ timeout: 5000 });
+    await expect(rollResult).toContainText('att');
+    await expect(rollResult).toContainText('def');
+    await expect(rollResult).toContainText('net');
+    await expect(rollResult).toContainText('2');  // 3 att − 1 def = 2 net
+  });
+
+  test('toggling contested off hides char selector and pool input', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJ_UNCONTESTED]);
+    await openFirstAction(page, 'Ambience');
+
+    // Toggle is present but char selector is absent (contested is off)
+    await expect(page.locator('.proc-contested-toggle').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-contested-char-sel')).toHaveCount(0);
+    await expect(page.locator('.proc-contested-pool-input')).toHaveCount(0);
+  });
+
+});
+
 // ── DTR-1: Net success display ────────────────────────────────────────────────
 
 test.describe('DTR-1: Net success display', () => {

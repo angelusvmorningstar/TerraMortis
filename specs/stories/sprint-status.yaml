@@ -230,24 +230,26 @@ development_status:
   # ============================================================
   # Targeted DT processing + story tab corrections from 2026-04-15 notes session
 
-  epic-dtq: in-progress
+  epic-dtq: done
 
-  dtq-1-feed-rote-project-in-feed-phase: review
-  dtq-2-dt-story-merit-actions-population: review
-  dtq-3-investigate-lead-ticker-project-only: review
+  dtq-1-feed-rote-project-in-feed-phase: done
+  dtq-2-dt-story-merit-actions-population: done
+  dtq-3-investigate-lead-ticker-project-only: done
+
+  epic-dtq-retrospective: optional
 
   # ============================================================
-  # EPIC DTX: DT PROCESSING EXPERIENCE — BACKLOG
+  # EPIC DTX: DT PROCESSING EXPERIENCE — DONE
   # ============================================================
   # UX improvements from 2026-04-15 party mode review (Winston, Mary, Sally)
   # Epic file: specs/epic-dtx-dt-experience.md
-  # DTX-2 depends on DTX-3; DTX-1 is independent
+  # Merged to main 2026-04-16
 
-  epic-dtx: in-progress
+  epic-dtx: done
 
-  dtx-1-cross-reference-callouts: review
-  dtx-2-compact-panel-binary-actions: review
-  dtx-3-notes-feedback-visual-hierarchy: review
+  dtx-1-cross-reference-callouts: done
+  dtx-2-compact-panel-binary-actions: done
+  dtx-3-notes-feedback-visual-hierarchy: done
 
   epic-dtx-retrospective: optional
 

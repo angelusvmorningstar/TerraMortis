@@ -4721,6 +4721,64 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Contested toggle ──
+  container.querySelectorAll('.proc-contested-toggle').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const rev   = getEntryReview(entry) || {};
+      if (rev.contested) {
+        await saveEntryReview(entry, { contested: false, contested_char: '', contested_pool_label: '', contested_roll: null });
+      } else {
+        await saveEntryReview(entry, { contested: true });
+      }
+      renderProcessingMode(container);
+    });
+  });
+
+  // ── Contested char selector ──
+  container.querySelectorAll('.proc-contested-char-sel').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contested_char: sel.value });
+      renderProcessingMode(container);
+    });
+  });
+
+  // ── Contested pool label input ──
+  container.querySelectorAll('.proc-contested-pool-input').forEach(input => {
+    input.addEventListener('change', async e => {
+      const key   = input.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contested_pool_label: input.value.trim() });
+      renderProcessingMode(container);
+    });
+  });
+
+  // ── Roll defence button ──
+  container.querySelectorAll('.proc-contested-roll-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const rev   = getEntryReview(entry) || {};
+      const poolLabel = rev.contested_pool_label || '';
+      const match = poolLabel.match(/=\s*(\d+)\s*$/);
+      if (!match) return;
+      const poolTotal = parseInt(match[1], 10);
+      if (!poolTotal || poolTotal < 1) return;
+      const result = await rollPool(poolTotal, false, false, false);
+      await saveEntryReview(entry, { contested_roll: result });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire Add ST Action toggle buttons
   container.querySelectorAll('.proc-add-st-toggle-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -5630,6 +5688,43 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `</div>`;
   h += `</div>`; // proc-proj-succ-panel
 
+  // ── Contested Roll ──
+  {
+    const isContested   = !!rev.contested;
+    const contestedChar = rev.contested_char        || '';
+    const contestedPool = rev.contested_pool_label  || '';
+    const contestedRoll = rev.contested_roll        || null;
+    h += `<div class="proc-proj-contested-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Contested Roll</div>`;
+    h += `<button class="proc-contested-toggle${isContested ? ' active' : ''}" data-proc-key="${esc(key)}">${isContested ? 'Contested \u2014 ON' : 'Mark as Contested'}</button>`;
+    if (isContested) {
+      h += `<div class="proc-mod-row" style="margin-top:8px">`;
+      h += `<span class="proc-mod-label">Opposing Char</span>`;
+      h += `<select class="proc-contested-char-sel" data-proc-key="${esc(key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const c of [...characters].filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+        const val = sortName(c);
+        const lbl = c.moniker || c.name;
+        h += `<option value="${esc(val)}"${val === contestedChar ? ' selected' : ''}>${esc(lbl)}</option>`;
+      }
+      h += `</select>`;
+      h += `</div>`;
+      h += `<div class="proc-mod-row">`;
+      h += `<span class="proc-mod-label">Resistance Pool</span>`;
+      h += `<input type="text" class="proc-contested-pool-input" data-proc-key="${esc(key)}" placeholder="e.g. Resolve + BP = 4" value="${esc(contestedPool)}" />`;
+      h += `</div>`;
+      if (contestedPool) {
+        const defBtnLabel = contestedRoll ? 'Re-roll Defence' : 'Roll Defence';
+        h += `<button class="dt-btn proc-contested-roll-btn" data-proc-key="${esc(key)}">${defBtnLabel}</button>`;
+        if (contestedRoll) {
+          const dStr = _formatDiceString(contestedRoll.dice_string);
+          h += `<div class="proc-proj-roll-result">${esc(dStr)} ${contestedRoll.successes} defence success${contestedRoll.successes !== 1 ? 'es' : ''}</div>`;
+        }
+      }
+    }
+    h += `</div>`;
+  }
+
   // ── Roll toggles: Rote, 9-Again, 8-Again ──
   const isRote        = rev.rote        || false;
   const eightAgainState = rev.eight_again || false;
@@ -5696,6 +5791,7 @@ function _renderProjRightPanel(entry, char, rev) {
     canRoll:          showRollBtn,
     noRollMsg:       'Validate pool first',
     successModifier:  succMod,
+    contestedRoll:    rev.contested_roll || null,
   });
 
   h += `</div>`; // proc-feed-right
@@ -5984,6 +6080,7 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
     noRollMsg       = 'No roll available',
     targetSuccesses = null,
     successModifier = 0,   // DTR-1: succ_mod_manual from rev
+    contestedRoll   = null, // DTR-2: defender roll object
   } = opts;
 
   const poolLabel   = (poolTotal != null && canRoll) ? ` \u2014 ${poolTotal} dice` : '';
@@ -6005,13 +6102,15 @@ function _renderRollCard(key, roll, poolTotal, opts = {}) {
         const resText = hit ? ` \u2014 Potency ${suc}` : ' \u2014 no effect';
         h += `<div class="proc-proj-roll-result${failCls}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${resText}${excTag}</div>`;
       } else {
-        // DTR-2: also subtract contestedRoll.successes when present
-        const net    = suc + successModifier;
-        const modStr = successModifier > 0 ? ` +${successModifier}` : successModifier < 0 ? ` ${successModifier}` : '';
-        const netCls = (successModifier !== 0 && net <= 0) ? ' proc-roll-net-zero' : '';
-        const netExc = (successModifier !== 0 && net >= 5) ? ' \u00b7 Exceptional' : excTag;
-        if (successModifier !== 0) {
-          h += `<div class="proc-proj-roll-result${netCls}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${modStr} = ${net} net${netExc}</div>`;
+        const defSuc  = contestedRoll ? (contestedRoll.successes ?? 0) : 0;
+        const net     = suc - defSuc + successModifier;
+        const defPart = contestedRoll ? ` \u2212 ${defSuc} def` : '';
+        const manPart = successModifier !== 0 ? (successModifier > 0 ? ` +${successModifier}` : ` ${successModifier}`) : '';
+        const netCls  = (contestedRoll || successModifier !== 0) && net <= 0 ? ' proc-roll-net-zero' : '';
+        const netExc  = (contestedRoll || successModifier !== 0) && net >= 5 ? ' \u00b7 Exceptional' : excTag;
+        if (contestedRoll || successModifier !== 0) {
+          const attLabel = contestedRoll ? 'att' : `success${suc !== 1 ? 'es' : ''}`;
+          h += `<div class="proc-proj-roll-result${netCls}">${esc(dStr)} ${suc} ${attLabel}${defPart}${manPart} = ${net} net${netExc}</div>`;
         } else {
           h += `<div class="proc-proj-roll-result">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
         }

@@ -4835,6 +4835,47 @@ body {
   font-weight: 600;
 }
 
+/* ── DTR-2: contested roll panel ───────────────────────────────── */
+.proc-proj-contested-panel {
+  padding: 10px 12px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--crim);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proc-contested-toggle {
+  padding: 5px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt2);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--ft);
+}
+
+.proc-contested-toggle.active {
+  background: var(--crim-a25);
+  border-color: var(--crim);
+  color: var(--result-pend);
+  font-weight: 600;
+}
+
+.proc-contested-pool-input {
+  flex: 1;
+  padding: 4px 8px;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt1);
+  font-size: 12px;
+  font-family: var(--ft);
+}
+
 /* ── DTX-2: compact merit panel ────────────────────────────────── */
 .proc-compact-merit-panel {
   display: flex;
