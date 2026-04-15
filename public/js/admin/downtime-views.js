@@ -3254,6 +3254,7 @@ function renderProcessingMode(container) {
         if (_validatorName) h += `<span class="proc-row-validator">${esc(_validatorName)}</span>`;
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
         h += `</span>`;
+        if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">\u25CF</span>`;
         h += '</div>';
 
         if (isExpanded) {
@@ -4573,6 +4574,19 @@ function renderProcessingMode(container) {
       if (idx >= 0) allCycles[idx].ambience_notes = val;
       if (currentCycle) currentCycle.ambience_notes = val;
     } catch (err) { console.error('Failed to save ambience notes:', err.message); }
+  });
+
+  // Wire second-opinion flag toggle
+  container.querySelectorAll('.proc-second-opinion-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      await saveEntryReview(entry, { second_opinion: !review?.second_opinion });
+      renderProcessingMode(container);
+    });
   });
 
   // Wire Add ST Action toggle buttons
@@ -6586,6 +6600,14 @@ function renderActionPanel(entry, review) {
     }
   }
 
+
+  // Second-opinion flag toggle
+  {
+    const isActive = !!rev.second_opinion;
+    h += `<div class="proc-section proc-second-opinion-row">`;
+    h += `<button class="proc-second-opinion-btn${isActive ? ' active' : ''}" data-proc-key="${esc(entry.key)}">${isActive ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
+    h += `</div>`;
+  }
 
   // Player feedback
   h += '<div class="proc-section">';

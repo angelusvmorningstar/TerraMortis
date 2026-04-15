@@ -1,6 +1,6 @@
 # Story DT-Fix-14: Second-Opinion Flag on Actions
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -66,22 +66,19 @@ When `second_opinion: true`, the collapsed queue row shows an amber `●` badge 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Render toggle button in expanded action panel
-  - [ ] 1.1: In `renderActionPanel` (the shared panel renderer), add a `second_opinion` toggle button. Placement: in the panel header zone, as a standalone row, or below the pool status chips — use a consistent location across all action types
-  - [ ] 1.2: Read `review?.second_opinion` to determine active state
-  - [ ] 1.3: Active: `<button class="proc-second-opinion-btn active" data-proc-key="${key}">Second Opinion</button>`; inactive: same class without `active`, label `Flag for 2nd opinion`
+- [x] Task 1: Render toggle button in expanded action panel
+  - [x] 1.1: Added as standalone row in `renderActionPanel`, just before Player Feedback — consistent location across all action types
+  - [x] 1.2: Reads `rev.second_opinion` to determine active state
+  - [x] 1.3: Active: button with `active` class + text "Second Opinion"; inactive: outline + "Flag for 2nd opinion"
 
-- [ ] Task 2: Wire toggle handler in event wiring section
-  - [ ] 2.1: In the event wiring section (near line 4118), add a `querySelectorAll('.proc-second-opinion-btn')` click handler
-  - [ ] 2.2: On click: read current `review.second_opinion`, call `await saveEntryReview(entry, { second_opinion: !current })`, then `renderProcessingMode(container)`
-  - [ ] 2.3: No special-casing per action type — `saveEntryReview` handles all sources via its existing branch logic
+- [x] Task 2: Wire toggle handler in event wiring section
+  - [x] 2.1: Handler on `.proc-second-opinion-btn` added in event wiring section
+  - [x] 2.2: Reads `review?.second_opinion`, calls `saveEntryReview(entry, { second_opinion: !current })`, re-renders
+  - [x] 2.3: No action-type branching needed — `saveEntryReview` handles all sources transparently
 
-- [ ] Task 3: Add amber badge to collapsed queue row (line ~3211)
-  - [ ] 3.1: In the `proc-action-row` block, after the `proc-row-status-cell` closing `</span>`, add:
-    ```js
-    if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">●</span>`;
-    ```
-  - [ ] 3.2: Style `.proc-row-second-opinion-dot` with `color: var(--gold2)` (`#E0C47A`), `font-size: 0.65rem`, `margin-left: 0.3rem`
+- [x] Task 3: Add amber badge to collapsed queue row
+  - [x] 3.1: `proc-row-second-opinion-dot` span injected after `proc-row-status-cell` when `review?.second_opinion` is true
+  - [x] 3.2: Styled with `color: var(--gold2)`, `font-size: 0.65rem`, `margin-left: 0.3rem`
 
 - [ ] Task 4: Manual verification
   - [ ] 4.1: Open DT Processing; expand any action panel
@@ -140,10 +137,12 @@ The `resolvedAction` definition used by `projects_resolved` and `merit_actions_r
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Toggle button placed just before Player Feedback section — last consistent zone in all action types before the notes thread.
+- `saveEntryReview` required no changes; the spread patch handles `second_opinion` for all four source branches.
+- `st_created` entries also get the flag (no exclusion needed).
 
 ### File List
 - `public/js/admin/downtime-views.js`

@@ -4356,6 +4356,34 @@ body {
   background: var(--crim-a15);
 }
 
+.proc-row-second-opinion-dot {
+  color: var(--gold2);
+  font-size: 0.65rem;
+  margin-left: 0.3rem;
+  flex-shrink: 0;
+}
+
+.proc-second-opinion-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid var(--surf4);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--txt3);
+  cursor: pointer;
+  font-family: var(--fl);
+}
+.proc-second-opinion-btn:hover {
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+.proc-second-opinion-btn.active {
+  background: var(--gold2);
+  border-color: var(--gold2);
+  color: #1a1208;
+  font-weight: 600;
+}
+
 .proc-add-st-section .proc-phase-header {
   cursor: pointer;
 }
