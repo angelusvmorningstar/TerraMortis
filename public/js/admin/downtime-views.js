@@ -1853,7 +1853,18 @@ function buildProcessingQueue(subs) {
       const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
                        || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
                        || '';
-      const methodLabel = feedMethod ? (FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod) : '';
+      const truncDesc = feedDesc.length > 40 ? feedDesc.slice(0, 40) + '\u2026' : feedDesc;
+      let methodLabel = '';
+      if (feedMethod) {
+        const baseLabel = FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod;
+        if (feedMethod === 'other' && truncDesc) {
+          methodLabel = truncDesc;
+        } else if (truncDesc && truncDesc !== baseLabel) {
+          methodLabel = `${baseLabel} \u2014 ${truncDesc}`;
+        } else {
+          methodLabel = baseLabel;
+        }
+      }
       // For "other" method, use the player's custom attr/skill/disc as the pool label
       const poolLabel = feedMethod === 'other' && (feedCustomAttr || feedCustomSkill)
         ? [feedCustomAttr, feedCustomSkill, feedCustomDisc || feedDisc].filter(Boolean).join(' + ')
