@@ -439,15 +439,19 @@ function buildProjectContext(char, sub, idx) {
   if (cast)      lines.push(`Characters Involved: ${cast}`);
   if (merits)    lines.push(`Merits & Bonuses: ${merits}`);
 
-  lines.push(`Validated Pool: ${pool}`);
-
-  if (roll) {
-    const diceStr = roll.dice_string
-      || (Array.isArray(roll.dice) ? '[' + roll.dice.join(', ') + ']' : '');
-    const successes = roll.successes ?? 0;
-    const plural = successes !== 1 ? 'es' : '';
-    const exc = roll.exceptional ? ', Exceptional' : '';
-    lines.push(`Roll Result: ${successes} success${plural}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+  const poolStatus = rev.pool_status || 'pending';
+  if (poolStatus === 'no_roll' || poolStatus === 'maintenance') {
+    lines.push('No roll required');
+  } else {
+    if (pool && pool !== '\u2014') lines.push(`Validated Pool: ${pool}`);
+    if (roll) {
+      const diceStr = roll.dice_string
+        || (Array.isArray(roll.dice) ? '[' + roll.dice.join(', ') + ']' : '');
+      const successes = roll.successes ?? 0;
+      const plural = successes !== 1 ? 'es' : '';
+      const exc = roll.exceptional ? ', Exceptional' : '';
+      lines.push(`Roll Result: ${successes} success${plural}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+    }
   }
 
   if (notes.length) {
@@ -460,6 +464,8 @@ function buildProjectContext(char, sub, idx) {
 
   lines.push('');
   lines.push('Write a narrative response (2\u20134 paragraphs) describing what happened during this action from the Storyteller\u2019s perspective.');
+  lines.push('');
+  lines.push('Note: Character dossiers (background, relationships, voice, touchstones) are held in the project files for this chronicle. If you have access to them, calibrate the narrative to the character\u2019s established details. If not, flag any assumptions made.');
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Second person, present tense');
@@ -743,7 +749,8 @@ function renderProjectCard(char, sub, idx) {
   // Meta row
   h += `<div class="dt-story-proj-meta">`;
   if (outcome) h += `<span class="dt-story-proj-outcome">Outcome: ${outcome}</span>`;
-  const poolRoll = [pool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
+  const _showPool = rev.pool_status !== 'no_roll' && rev.pool_status !== 'maintenance' && pool !== '\u2014';
+  const poolRoll = [_showPool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
   if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
   if (territory) h += `<span class="dt-story-proj-territory">Territory: ${territory}</span>`;
   h += `</div>`;
@@ -1268,7 +1275,7 @@ function buildActionContext(char, sub, idx) {
   if (action.desired_outcome) lines.push(`Desired Outcome: ${action.desired_outcome}`);
   if (action.description)     lines.push(`Description: ${action.description}`);
 
-  lines.push(`Validated Pool: ${pool}`);
+  if (!isAuto) lines.push(`Validated Pool: ${pool}`);
 
   if (rev.roll && !isAuto) {
     const diceStr = rev.roll.dice_string || (Array.isArray(rev.roll.dice) ? '[' + rev.roll.dice.join(', ') + ']' : '');
@@ -1308,6 +1315,8 @@ function buildActionContext(char, sub, idx) {
 
   lines.push('');
   lines.push('Write a brief narrative note (1\u20132 sentences, ~50 words) from the Storyteller\u2019s perspective describing the outcome of this action through the merit/contact/ally.');
+  lines.push('');
+  lines.push('Note: Character dossiers (background, relationships, voice, touchstones) are held in the project files for this chronicle. If you have access to them, calibrate the narrative to the character\u2019s established details. If not, flag any assumptions made.');
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Third person (the action is by an NPC merit, not the player character directly)');
