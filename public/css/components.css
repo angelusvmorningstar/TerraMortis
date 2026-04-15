@@ -1049,6 +1049,16 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
    ══════════════════════════════════════════ */
 
 .reading-pane h1,
+.reading-pane h2,
+.reading-pane h3,
+.reading-pane h4,
+.reading-pane h5,
+.reading-pane h6 {
+  /* Gutter above headings when anchor-scrolled to via scrollIntoView */
+  scroll-margin-top: 20px;
+}
+
+.reading-pane h1,
 .reading-pane h2 {
   font-family: 'Cinzel Decorative', 'Cinzel', serif;
   color: #5A1A1A;
