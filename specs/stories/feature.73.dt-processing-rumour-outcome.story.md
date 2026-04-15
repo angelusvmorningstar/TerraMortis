@@ -1,6 +1,6 @@
 # Story feature.73: Rumour Outcome Recording (C2)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

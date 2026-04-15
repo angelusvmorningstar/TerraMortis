@@ -1,6 +1,6 @@
 # Story feature.75: Block — Outcome Display (C4)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story feature.80: Committed Pool Status (E2)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

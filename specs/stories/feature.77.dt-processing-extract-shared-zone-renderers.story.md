@@ -1,6 +1,6 @@
 # Story feature.77: Extract Shared Zone Renderers (D2)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

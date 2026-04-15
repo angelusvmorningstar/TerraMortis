@@ -1,6 +1,6 @@
 # Story 1.4: Letter from Home Section
 
-## Status: review
+## Status: done
 
 ## Story
 

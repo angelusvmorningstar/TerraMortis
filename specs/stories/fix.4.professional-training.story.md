@@ -1,6 +1,6 @@
 # Story Fix.4: Professional Training — Bug Fix and PT 4 XP Reward
 
-## Status: review
+## Status: done
 
 ## Story
 

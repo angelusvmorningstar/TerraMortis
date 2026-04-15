@@ -1,6 +1,6 @@
 # Story feature.76: Extract Duplicated Action-Type Row (D1)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

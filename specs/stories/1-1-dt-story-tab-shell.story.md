@@ -1,6 +1,6 @@
 # Story 1.1: DT Story Tab Shell
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

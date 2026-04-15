@@ -3193,14 +3193,11 @@ function renderProcessingMode(container) {
         const review = getEntryReview(entry);
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
-        const lastAuthor = review?.response_author || '';
-
         h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
-        h += lastAuthor ? `<span class="proc-row-author">${esc(lastAuthor)}</span>` : '<span></span>';
         h += '</div>';
 
         if (isExpanded) {
@@ -3685,171 +3682,6 @@ function renderProcessingMode(container) {
       const thread = [...(review.notes_thread || [])];
       thread.splice(idx, 1);
       await saveEntryReview(entry, { notes_thread: thread });
-      renderProcessingMode(container);
-    });
-  });
-
-  // Prevent click on ST Response textarea from collapsing the row
-  container.querySelectorAll('.proc-st-response-textarea').forEach(ta => {
-    ta.addEventListener('click', e => e.stopPropagation());
-  });
-
-  // Wire ST Response save buttons (feature.66)
-  container.querySelectorAll('.proc-st-response-save').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      const textarea = container.querySelector(`.proc-st-response-textarea[data-proc-key="${CSS.escape(key)}"]`);
-      if (!textarea) return;
-      const text   = textarea.value.trim();
-      const user   = getUser();
-      const author = user?.display_name || user?.username || 'Unknown ST';
-      const review = getEntryReview(entry) || {};
-      // Re-saving resets reviewed status (AC 11)
-      const patch = {
-        st_response: text,
-        response_author: review.response_author || author,
-        response_status: 'draft',
-        response_reviewed_by: null,
-      };
-      await saveEntryReview(entry, patch);
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire ST Response copy-context buttons (feature.66)
-  container.querySelectorAll('.proc-st-response-copy').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      const review    = getEntryReview(entry) || {};
-      const roll      = review.roll || null;
-      const pool      = review.pool_validated || entry.poolPlayer || '';
-      const actionLbl = ACTION_TYPE_LABELS[entry.actionType] || entry.actionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-      // ── Roll result + mechanical outcome interpretation ──
-      let rollSection = 'Roll: No roll recorded.';
-      if (roll) {
-        const s       = roll.successes;
-        const exc     = roll.exceptional;
-        const excTag  = exc ? ' — EXCEPTIONAL SUCCESS' : '';
-        const diceStr = _formatDiceString(roll.dice_string);
-        const type    = entry.actionType || 'misc';
-
-        let outcome;
-        if (s === 0) {
-          outcome = 'Failure — no effect. The action produces no result this downtime.';
-        } else {
-          switch (type) {
-            case 'ambience_increase':
-              outcome = `Ambience increases by ${s}${exc ? ' (exceptional — consider a notable secondary effect)' : ''}.`;
-              break;
-            case 'ambience_decrease':
-              outcome = `Ambience decreases by ${s}${exc ? ' (exceptional — consider a notable secondary effect)' : ''}.`;
-              break;
-            case 'attack':
-              outcome = `${s} gross success${s !== 1 ? 'es' : ''}${excTag}. Subtract opposing Hide/Protect successes for net; halve net (round up) = levels removed from target merit. Contested — do not narrate a definitive outcome if net is unknown.`;
-              break;
-            case 'hide_protect':
-              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag}. These are subtracted from any Attack, Patrol/Scout, or Investigate targeting this action this downtime.`;
-              break;
-            case 'support':
-              outcome = `+${s} uncapped Teamwork bonus${excTag} added to the pool of the supported action.`;
-              break;
-            case 'patrol_scout': {
-              const detail = s >= 5 ? 'highly detailed' : s >= 3 ? 'reasonably clear' : 'vague';
-              outcome = `${s} action${s !== 1 ? 's' : ''} observed${excTag}. Information quality: ${detail}. Priority order: Attack > Patrol/Scout > Investigate > Ambience > Support — reveal the highest-priority visible actions first.`;
-              break;
-            }
-            case 'investigate': {
-              const detail = s >= 5 ? 'detailed' : s >= 4 ? 'basic' : s >= 3 ? 'vague' : s >= 2 ? 'existence confirmed' : 'lead only';
-              outcome = `${s} gross success${s !== 1 ? 'es' : ''}${excTag}. Contested — subtract Hide/Protect for net. At net ${s}: ${detail} information at the requested classification. Apply Investigation Matrix for exact result. At 2+ gross: also gain a lead on the next tier.`;
-              break;
-            }
-            case 'rumour': {
-              const detail = s >= 5 ? 'detailed' : s >= 3 ? 'reasonably clear' : 'vague';
-              outcome = `${s} similar-merit action${s !== 1 ? 's' : ''} revealed by rumour${excTag}. Information quality: ${detail}. Priority order: Attack > Patrol/Scout > Investigate > Ambience > Support.`;
-              break;
-            }
-            case 'feed':
-              outcome = `Success${excTag} — Rote Action granted for the character's game-start feeding pool. If disciplines were used and the roll had failed, failures would have become Dramatic Failures.`;
-              break;
-            case 'block':
-              outcome = 'Automatic — no roll required. Merit auto-blocks any merit of equal or lower level targeting this action.';
-              break;
-            case 'xp_spend':
-              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag} — XP spend approved.`;
-              break;
-            default:
-              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag}.`;
-          }
-        }
-
-        rollSection = `Roll: ${s} success${s !== 1 ? 'es' : ''}${excTag}\nDice: ${diceStr}\nMechanical outcome: ${outcome}`;
-      }
-
-      const lines = [
-        'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
-        '',
-        '── CHARACTER ──────────────────────────',
-        `Character: ${entry.charName}`,
-        `Action type: ${actionLbl}`,
-        entry.projTitle     ? `Title: ${entry.projTitle}`                             : null,
-        entry.projTerritory ? `Territory: ${entry.projTerritory}`                     : null,
-        entry.projCast      ? `Characters involved: ${entry.projCast}`                : null,
-        entry.projMerits    ? `Merits & bonuses applied: ${entry.projMerits}`         : null,
-        `Desired outcome: ${entry.projOutcome || entry.meritDesiredOutcome || '—'}`,
-        `Player description: ${entry.projDescription || entry.description || '—'}`,
-        `Validated pool: ${pool || '—'}`,
-        '',
-        '── ROLL RESULT ─────────────────────────',
-        rollSection,
-        '',
-        '── YOUR TASK ───────────────────────────',
-        'Write a narrative response (2–3 short paragraphs, max 150 words) describing what happened during this downtime action.',
-        'The mechanical outcome above dictates the scale and direction of the narrative — calibrate accordingly.',
-        'A failure narrates an attempt that produced no result. An exceptional success narrates something notably beyond the baseline.',
-        '',
-        '── STYLE RULES ─────────────────────────',
-        '- Second person, present tense',
-        '- British English',
-        '- No mechanical terms: no discipline names, dot ratings, success counts, or merit names in narrative',
-        '- No em dashes',
-        '- Do not editorialise about what the result means mechanically',
-        '- Never dictate what the character felt or chose',
-        '- Compression over expansion: direct statement over periphrasis',
-        '- No stacked declaratives (two or three short sentences in a row that should be folded into one)',
-        '- No negative framing openers (do not begin sections with what the character did not find or what went wrong)',
-        '- Show what happened, not what it means',
-        '- Tone: dry, grounded, specific. Prefer concrete detail over atmosphere. Name streets, objects, and people where possible',
-      ].filter(l => l !== null).join('\n');
-
-      try {
-        await navigator.clipboard.writeText(lines);
-        const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      } catch {
-        btn.textContent = 'Failed';
-        setTimeout(() => { btn.textContent = 'Copy context'; }, 1500);
-      }
-    });
-  });
-
-  // Wire ST Response review buttons (feature.66)
-  container.querySelectorAll('.proc-response-review-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      const user     = getUser();
-      const reviewer = user?.display_name || user?.username || 'Unknown ST';
-      await saveEntryReview(entry, { response_status: 'reviewed', response_reviewed_by: reviewer });
       renderProcessingMode(container);
     });
   });
@@ -5453,20 +5285,6 @@ function _renderProjRightPanel(entry, char, rev) {
     noRollMsg:    'Validate pool first',
   });
 
-  // ── Review section (all personal project actions — feature.66 extended) ──
-  const stResponse = rev.st_response || '';
-  const responseStatus = rev.response_status || '';
-  const reviewedBy = rev.response_reviewed_by || '';
-  if (stResponse) {
-    h += `<div class="proc-response-review-section">`;
-    if (responseStatus === 'reviewed') {
-      h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(reviewedBy)}</div>`;
-    } else {
-      h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
-    }
-    h += `</div>`;
-  }
-
   h += `</div>`; // proc-feed-right
   return h;
 }
@@ -5695,19 +5513,6 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`;
 
-  // ── Response review section ──
-  const feedResponseStatus = rev.response_status || '';
-  const feedReviewedBy     = rev.response_reviewed_by || '';
-  const feedStResponse     = rev.st_response || '';
-  if (feedStResponse) {
-    h += `<div class="proc-response-review-section">`;
-    if (feedResponseStatus === 'reviewed') {
-      h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(feedReviewedBy)}</div>`;
-    } else {
-      h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
-    }
-    h += `</div>`;
-  }
 
   h += `</div>`; // proc-feed-right
   return h;
@@ -6600,30 +6405,6 @@ function renderActionPanel(entry, review) {
     }
   }
 
-
-  // ST Response (all personal project actions — feature.66 extended)
-  if (entry.source === 'project') {
-    const stResponse     = rev.st_response       || '';
-    const responseAuthor = rev.response_author   || '';
-    const responseStatus = rev.response_status   || '';
-    const reviewedBy     = rev.response_reviewed_by || '';
-    h += '<div class="proc-st-response-section">';
-    h += '<div class="proc-st-response-header">';
-    h += '<span class="proc-detail-label">ST Response</span>';
-    h += `<button class="dt-btn dt-btn-sm proc-st-response-copy" data-proc-key="${esc(entry.key)}">Copy context</button>`;
-    h += '</div>';
-    h += `<textarea class="proc-st-response-textarea" data-proc-key="${esc(entry.key)}" rows="5" placeholder="Narrative response for the player...">${esc(stResponse)}</textarea>`;
-    h += `<div class="proc-st-response-footer">`;
-    h += `<button class="dt-btn dt-btn-sm proc-st-response-save" data-proc-key="${esc(entry.key)}">Save</button>`;
-    if (responseAuthor) {
-      const statusBadge = responseStatus === 'reviewed'
-        ? ` <span class="proc-response-status-badge proc-response-status-reviewed">Reviewed</span>`
-        : ` <span class="proc-response-status-badge proc-response-status-draft">Draft</span>`;
-      h += `<span class="proc-st-response-author">Drafted by ${esc(responseAuthor)}${statusBadge}</span>`;
-    }
-    h += '</div>';
-    h += '</div>';
-  }
 
   // Player feedback
   h += '<div class="proc-section">';

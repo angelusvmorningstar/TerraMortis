@@ -1,6 +1,6 @@
 # Story feature.68: ST Notes + Player Feedback → DT Story (A1)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

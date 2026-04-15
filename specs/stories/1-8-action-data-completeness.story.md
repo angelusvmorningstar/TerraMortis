@@ -1,6 +1,6 @@
 # Story 1.8: Action Data Completeness
 
-## Status: review
+## Status: done
 
 ## Story
 

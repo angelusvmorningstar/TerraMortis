@@ -1,6 +1,6 @@
 # Story 1.6: Territory Report Section
 
-## Status: review
+## Status: done
 
 ## Story
 

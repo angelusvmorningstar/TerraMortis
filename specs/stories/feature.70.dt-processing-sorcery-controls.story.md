@@ -1,6 +1,6 @@
 # Story feature.70: Sorcery Structured Controls (B2)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

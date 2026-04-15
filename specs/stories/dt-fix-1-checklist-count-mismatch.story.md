@@ -1,0 +1,113 @@
+# Story DT-Fix-1: Submission Checklist Count Mismatch
+
+## Status: ready-for-dev
+
+## Story
+
+**As an** ST reviewing submission progress,
+**I want** the checklist count badge ("N / M processed") to accurately reflect how many submissions have all resource and skill requests sighted,
+**so that** I can trust the progress indicator without manually counting.
+
+## Background
+
+The submission checklist in DT Processing shows a "N / M processed" badge. Reports indicate the count does not match the number of submissions where all resource/skill request sections are fully sighted. The mismatch may stem from:
+
+1. Resource or skill request checklist sections not being included in the `CHK_SECTIONS` array
+2. `_chkState()` returning an unexpected value for resource/skill sections that causes the `allDone` check to fail
+3. The `sorted` array including characters who have no submission (which would never increment `fullySighted`)
+
+---
+
+## Relevant Code
+
+**File:** `public/js/admin/downtime-views.js`
+**Function:** `renderSubmissionChecklist()` (~line 7657)
+
+```js
+const CHK_SECTIONS = [
+  { key: 'travel',    label: 'Travel' },
+  { key: 'feeding',   label: 'Feeding' },
+  { key: 'project_1', label: 'P1' },
+  { key: 'project_2', label: 'P2' },
+  { key: 'project_3', label: 'P3' },
+  // ... more sections?
+];
+
+let fullySighted = 0;
+for (const char of sorted) {
+  const sub = subByCharId.get(String(char._id)) || null;
+  if (!sub) continue;
+  const allDone = CHK_SECTIONS.every(sec => {
+    const st = _chkState(sub, sec.key);
+    return st === 'empty' || st === 'sighted' || st === 'no_action' || st === 'dice_validated'
+        || st === 'drafted' || st === 'confirmed';
+  });
+  if (allDone) fullySighted++;
+}
+
+h += `<span class="domain-count">${fullySighted} / ${sorted.length} processed</span>`;
+```
+
+**Note:** `sorted.length` includes all characters, not just those with submissions. A character with no submission always passes (`sub` is null → `continue` → not counted in `fullySighted` but still in denominator).
+
+---
+
+## Investigation Steps
+
+1. **Audit `CHK_SECTIONS`** — read the full array in the file. Do resource request sections (`resource`, `skill_request`, or similar) appear? If not, that's the bug.
+
+2. **Check `_chkState()` return values** — for a submission with resource/skill sections, what does `_chkState(sub, 'resource')` return? Is it one of the accepted terminal states?
+
+3. **Denominator issue** — `sorted.length` includes characters without submissions. Should the denominator be `sorted.filter(c => subByCharId.has(String(c._id))).length`?
+
+4. **Confirm expected behaviour with Angelus** — should "processed" mean:
+   - All CHK_SECTIONS sighted for all characters who submitted?
+   - All CHK_SECTIONS sighted for all characters (including those who didn't submit)?
+
+---
+
+## Acceptance Criteria
+
+1. The "N / M processed" count matches the number of characters whose submissions have all sections sighted.
+2. Characters with no submission are excluded from both numerator and denominator (or are counted as "complete" if no submission means nothing to process — confirm with SM).
+3. Resource and skill request sections are included in the sighted check if they exist as checklist sections.
+4. `_chkState()` returns a terminal state for sighted resource/skill sections.
+
+---
+
+## Tasks / Subtasks
+
+- [ ] Task 1: Read full `CHK_SECTIONS` array — identify if resource/skill sections are present
+- [ ] Task 2: Log `_chkState()` for a known resource submission — confirm return value
+- [ ] Task 3: Determine correct denominator (chars with submissions vs. all chars)
+- [ ] Task 4: Fix whichever issue is the root cause
+- [ ] Task 5: Verify count matches manual count across a real cycle's submission list
+
+---
+
+## Dev Notes
+
+### Key files
+
+| File | Action |
+|------|--------|
+| `public/js/admin/downtime-views.js` | Investigate + fix `renderSubmissionChecklist` and/or `CHK_SECTIONS` |
+
+---
+
+## Change Log
+
+| Date | Version | Description | Author |
+|------|---------|-------------|--------|
+| 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+
+## Dev Agent Record
+
+### Agent Model Used
+_to be filled by dev agent_
+
+### Completion Notes List
+_to be filled by dev agent_
+
+### File List
+- `public/js/admin/downtime-views.js`
