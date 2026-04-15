@@ -6637,6 +6637,17 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 
 .dt-story-section-body { padding: 10px 12px; }
 
+/* ── Feeding Validation section ── */
+.dt-feed-val-status { font-size: 13px; color: var(--txt2); font-style: italic; margin: 4px 0 0; }
+.dt-feed-val-dl { display: flex; flex-direction: column; gap: 5px; margin: 0 0 10px; }
+.dt-feed-val-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.dt-feed-val-row dt { font-family: var(--fl); font-size: 11px; color: var(--txt3); letter-spacing: .3px; white-space: nowrap; min-width: 110px; }
+.dt-feed-val-row dd { margin: 0; color: var(--txt1); }
+.dt-feed-val-dice { font-family: monospace; font-size: 12px; color: var(--txt2); }
+.dt-feed-val-feedback-row dd { color: var(--txt2); font-style: italic; }
+.dt-feed-val-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.dt-feed-val-approved-lbl { font-size: 12px; color: var(--accent); font-family: var(--fl); }
+
 .dt-story-proj-card {
   background: var(--surf2);
   border: 1px solid var(--bdr);

@@ -247,6 +247,10 @@ export async function initDtStory(cycleId) {
       return;
     }
 
+    // Feeding Validation approve / undo
+    const feedApproveBtn = e.target.closest('.dt-feed-val-approve-btn');
+    if (feedApproveBtn) { handleFeedingApproval(feedApproveBtn); return; }
+
     // Approve / Flag (resources only)
     const approveBtn = e.target.closest('.dt-story-approve-btn, .dt-story-flag-btn');
     if (approveBtn && sectionKey === 'resource_approvals') { handleResourceApproval(approveBtn); return; }
@@ -656,6 +660,7 @@ function renderCharacterView(char, sub) {
  */
 function renderSection(section, char, sub, stNarrative) {
   switch (section.key) {
+    case 'feeding_validation': return renderFeedingValidation(char, sub, stNarrative);
     case 'letter_from_home':   return renderLetterFromHome(char, sub, stNarrative);
     case 'touchstone':         return renderTouchstone(char, sub, stNarrative);
     case 'project_responses':  return renderProjectSection(char, sub);
@@ -682,6 +687,75 @@ function renderSectionScaffold(key, label, stNarrative) {
   h += `</div>`;
   h += `<div class="dt-story-section-empty">Not yet implemented</div>`;
   h += `</div>`;
+  return h;
+}
+
+// ── Feeding Validation section ────────────────────────────────────────────────
+
+function renderFeedingValidation(char, sub, stNarrative) {
+  const fr         = sub.feeding_review || {};
+  const roll       = sub.feeding_roll   || null;
+  const poolStatus = fr.pool_status     || 'pending';
+  const approved   = stNarrative?.feeding_validation?.approved === true;
+
+  let h = `<div class="dt-story-section" data-section="feeding_validation">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Feeding Validation</span>`;
+  h += `<span class="dt-story-completion-dot ${approved ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  if (poolStatus === 'no_feed') {
+    h += `<p class="dt-feed-val-status">No feeding this cycle.</p>`;
+  } else if (poolStatus === 'pending' && !roll) {
+    h += `<p class="dt-feed-val-status dt-story-section-empty">Feeding not yet validated.</p>`;
+  } else {
+    h += `<dl class="dt-feed-val-dl">`;
+
+    // Pool
+    const poolStr = fr.pool_validated || fr.pool_player || '';
+    if (poolStr) {
+      const isRote = sub.st_review?.feeding_rote || roll?.params?.rote || false;
+      const again  = roll?.params?.again;
+      const mods   = [isRote ? 'Rote' : null, again === 8 ? '8-Again' : again === 9 ? '9-Again' : null].filter(Boolean);
+      const poolDisp = poolStr + (mods.length ? ` \u2014 ${mods.join(', ')}` : '');
+      h += `<div class="dt-feed-val-row"><dt>Pool</dt><dd>${esc(poolDisp)}</dd></div>`;
+    }
+
+    // Roll result
+    if (roll) {
+      const vitae     = roll.successes * 2;
+      const resultStr = `${roll.successes} ${roll.successes === 1 ? 'success' : 'successes'}${roll.exceptional ? ' (exceptional)' : ''} \u2014 ${vitae} Vitae`;
+      h += `<div class="dt-feed-val-row"><dt>Result</dt><dd>${esc(resultStr)}</dd></div>`;
+      if (roll.dice_string) {
+        h += `<div class="dt-feed-val-row"><dt>Dice</dt><dd class="dt-feed-val-dice">${esc(roll.dice_string)}</dd></div>`;
+      }
+    } else if (poolStatus === 'validated') {
+      h += `<div class="dt-feed-val-row"><dt>Result</dt><dd class="dt-story-section-empty">Pool validated — roll pending</dd></div>`;
+    }
+
+    // Player feedback
+    const feedback = fr.player_feedback || '';
+    h += `<div class="dt-feed-val-row dt-feed-val-feedback-row"><dt>Player Feedback</dt>`;
+    h += feedback
+      ? `<dd>${esc(feedback)}</dd>`
+      : `<dd class="dt-story-section-empty">None recorded</dd>`;
+    h += `</div>`;
+
+    h += `</dl>`;
+
+    // Approve / Undo
+    h += `<div class="dt-feed-val-actions">`;
+    if (approved) {
+      h += `<span class="dt-feed-val-approved-lbl">\u2713 Approved</span>`;
+      h += `<button class="dt-story-btn dt-feed-val-approve-btn" data-approve="false" data-sub-id="${esc(String(sub._id))}">Undo</button>`;
+    } else {
+      h += `<button class="dt-story-btn dt-feed-val-approve-btn" data-approve="true" data-sub-id="${esc(String(sub._id))}">Approve</button>`;
+    }
+    h += `</div>`;
+  }
+
+  h += `</div></div>`;
   return h;
 }
 
@@ -2489,6 +2563,23 @@ async function handleActionSave(btn, status) {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
     console.error('Action save failed:', err);
+  }
+}
+
+async function handleFeedingApproval(btn) {
+  if (!_currentSub) return;
+  const approved = btn.dataset.approve === 'true';
+  btn.disabled = true;
+  try {
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.feeding_validation': { approved },
+    });
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.feeding_validation = { approved };
+    rerenderStoryPanel();
+  } catch (err) {
+    console.error('Failed to save feeding validation:', err.message);
+    btn.disabled = false;
   }
 }
 

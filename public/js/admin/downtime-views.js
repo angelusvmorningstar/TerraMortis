@@ -8083,7 +8083,7 @@ function _chkHasContent(sub, key) {
   if (alliesM)   return !!(raw.sphere_actions?.[parseInt(alliesM[1]) - 1]);
   if (contactsM) return !!(raw.contact_actions?.requests?.[parseInt(contactsM[1]) - 1]);
   switch (key) {
-    case 'travel':         return DONE_STATUSES.has(sub.st_review?.travel_discretion);
+    case 'travel':         return !!(raw.submission?.narrative?.travel_description || sub.responses?.travel);
     case 'feeding':        return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
     case 'project_1':      return !!(sub.responses?.project_1_action || raw.projects?.[0]);
     case 'project_2':      return !!(sub.responses?.project_2_action || raw.projects?.[1]);
@@ -8125,6 +8125,11 @@ function _chkTooltip(sub, key) {
 //   'sighted'       — manually marked in-progress               ?
 function _chkState(sub, key) {
   if (!_chkHasContent(sub, key)) return 'empty';
+
+  // ── Travel ──
+  if (key === 'travel') {
+    if (DONE_STATUSES.has(sub.st_review?.travel_discretion)) return 'confirmed';
+  }
 
   // ── Feeding ──
   if (key === 'feeding') {
@@ -8923,7 +8928,58 @@ function _exportCityOverview(matrix) {
     if (Object.keys(rows).length) actions[p.label] = rows;
   }
 
-  // Spheres
+  // Ambience data (per territory)
+  const { rows: ambienceRows } = buildAmbienceData(cachedTerritories || TERRITORY_DATA);
+  const ambience_by_territory = {};
+  for (const r of ambienceRows) {
+    const confirmed = currentCycle?.confirmed_ambience?.[r.id];
+    ambience_by_territory[r.name] = {
+      current_state:    r.ambience,
+      entropy:          r.entropy,
+      overfeeding_gap:  r.cap - r.feeders,
+      influence_net:    r.inf_pos - r.inf_neg,
+      projects_net:     r.proj_pos - r.proj_neg,
+      allies_net:       r.allies_pos - r.allies_neg,
+      net_change:       r.net,
+      projected_state:  r.projStep,
+      confirmed_state:  confirmed?.ambience || null,
+    };
+  }
+
+  // Territory summary (regent, residents, poachers)
+  const terrs = cachedTerritories || TERRITORY_DATA;
+  const territories = {};
+  for (const td of terrs) {
+    if (!td.name) continue;
+    const regentChar = td.regent_id ? characters.find(c => String(c._id) === String(td.regent_id)) : null;
+    const residents = new Set(td.feeding_rights || []);
+    if (td.regent_id)      residents.add(String(td.regent_id));
+    if (td.lieutenant_id)  residents.add(String(td.lieutenant_id));
+    // Count poachers: chars who fed here but are not residents
+    const mt = MATRIX_TERRS.find(t => (TERRITORY_SLUG_MAP[t.csvKey] ?? null) === td.id);
+    let poachers = 0;
+    if (mt) {
+      for (const [charId, sub] of _mSubByCharId) {
+        if (residents.has(charId)) continue;
+        const fedTerrs = _getSubFedTerrs(sub);
+        if (fedTerrs.has(mt.csvKey)) poachers++;
+      }
+    }
+    const amb = td.ambienceKey ? getTerritoryAmbience(td.ambienceKey) : null;
+    territories[td.name] = {
+      ambience_state: amb || 'Unknown',
+      regent:         regentChar ? displayName(regentChar) : null,
+      residents:      residents.size,
+      poachers,
+    };
+  }
+
+  // Spheres — canonical only, retainers/job-status filtered out
+  const CANONICAL_SPHERES = new Set([
+    'Bureaucracy', 'Church', 'Finance', 'Health', 'High Society',
+    'Industry', 'Legal', 'Media', 'Military', 'Occult',
+    'Police', 'Politics', 'Street', 'Transportation', 'Underworld', 'University',
+  ]);
   function _ns(raw) { return raw.trim().toLowerCase().replace(/\s+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
   const spheres = {};
   for (const c of characters.filter(ch => !ch.retired)) {
@@ -8932,13 +8988,14 @@ function _exportCityOverview(matrix) {
       const raw = (m.area || m.qualifier || '').toString();
       if (!raw) continue;
       for (const part of raw.split(',')) {
-        const key = _ns(part); if (!key) continue;
+        const key = _ns(part);
+        if (!key || !CANONICAL_SPHERES.has(key)) continue;
         if (!spheres[key]) spheres[key] = {};
         const cn = displayName(c);
         if (!spheres[key][cn]) spheres[key][cn] = { allies: 0, status: 0, contacts: false };
-        if (m.name === 'Allies')    spheres[key][cn].allies   += m.rating || 0;
-        else if (m.name === 'Status')   spheres[key][cn].status   += m.rating || 0;
-        else if (m.name === 'Contacts') spheres[key][cn].contacts  = true;
+        if (m.name === 'Allies')         spheres[key][cn].allies   += m.rating || 0;
+        else if (m.name === 'Status')    spheres[key][cn].status   += m.rating || 0;
+        else if (m.name === 'Contacts')  spheres[key][cn].contacts  = true;
       }
     }
   }
@@ -8946,6 +9003,8 @@ function _exportCityOverview(matrix) {
   const payload = {
     generated_at: new Date().toISOString(),
     cycle: currentCycle?.label || 'Unknown',
+    territories,
+    ambience_by_territory,
     feeding_matrix: feeding,
     actions_in_territories: actions,
     discipline_profile: profile,
