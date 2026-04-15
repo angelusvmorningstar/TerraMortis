@@ -462,6 +462,15 @@ function buildProjectContext(char, sub, idx) {
     }
   }
 
+  if (rev.player_feedback) {
+    lines.push('');
+    lines.push(`Player Feedback: ${rev.player_feedback}`);
+  }
+  if (sub.st_notes) {
+    lines.push('');
+    lines.push(`ST Notes (not for player): ${sub.st_notes}`);
+  }
+
   lines.push('');
   lines.push('Write a narrative response (2\u20134 paragraphs) describing what happened during this action from the Storyteller\u2019s perspective.');
   lines.push('');
@@ -1311,6 +1320,15 @@ function buildActionContext(char, sub, idx) {
     lines.push('');
     lines.push('ST Notes:');
     notes.forEach(n => lines.push(`- ${n.author_name || 'ST'}: ${n.text || ''}`));
+  }
+
+  if (rev.player_feedback) {
+    lines.push('');
+    lines.push(`Player Feedback: ${rev.player_feedback}`);
+  }
+  if (sub.st_notes) {
+    lines.push('');
+    lines.push(`ST Notes (not for player): ${sub.st_notes}`);
   }
 
   lines.push('');
