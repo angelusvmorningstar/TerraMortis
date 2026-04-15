@@ -951,6 +951,62 @@ body {
 .sphere-table td { white-space: nowrap; }
 .sphere-table .infl-name { white-space: nowrap; padding-right: 20px; }
 
+/* ── Spheres compact grid (City Overview) ── */
+.spheres-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+  padding: 8px 0;
+}
+.sphere-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.sphere-card-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sphere-card-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.sphere-char-name {
+  font-size: 12px;
+  color: var(--txt1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sphere-char-meta {
+  font-size: 11px;
+  color: var(--txt3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── City Overview ambience confirm button ── */
+.city-amb-confirm-btn {
+  padding: 3px 8px;
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  font-size: 11px;
+  font-family: var(--fl);
+  letter-spacing: .05em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.city-amb-confirm-btn:hover { border-color: var(--accent-a40); color: var(--accent); }
+
 /* ── Downtime domain ── */
 
 .dt-toolbar {

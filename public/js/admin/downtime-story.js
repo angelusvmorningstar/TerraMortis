@@ -824,36 +824,57 @@ function buildLetterContext(char, sub) {
     sub.responses?.personal_message ||
     null;
 
+  const playerAspirations = sub.responses?.aspirations || null;
+
+  const courtTitle = char?.honorific || '';
+  const charName   = char ? displayName(char) : 'Unknown';
+  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
+
   const lines = [
     'You are helping a Storyteller draft a Letter from Home for a Vampire: The Requiem 2nd Edition LARP character.',
     '',
-    `Character: ${char ? displayName(char) : 'Unknown'}`,
+    `Character: ${fullTitle}`,
   ];
 
   if (char?.clan)     lines.push(`Clan: ${char.clan}`);
   if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
+  if (char?.mask || char?.dirge) {
+    const mask  = char.mask  || '—';
+    const dirge = char.dirge || '—';
+    lines.push(`Mask: ${mask} | Dirge: ${dirge}`);
+  }
+  lines.push(`Humanity: ${humanity}`);
 
   if (touchstones.length) {
     lines.push('');
     lines.push('Touchstones:');
     for (const t of touchstones) {
-      const attached = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
-      const desc = t.desc ? ` (${t.desc})` : '';
-      lines.push(`- ${t.name}${desc} \u2014 Humanity ${t.humanity} \u2014 ${attached}`);
+      const status = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
+      lines.push(`- ${t.name} \u2014 Humanity ${t.humanity} \u2014 ${status}`);
     }
   }
+
+  lines.push('');
+  lines.push('Player\'s aspirations:');
+  lines.push(playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]');
 
   lines.push('');
   lines.push('Player\'s submitted letter:');
   lines.push(playerLetter ? playerLetter.trim() : '[No player letter submitted]');
 
   lines.push('');
-  lines.push('Write a reply letter (~100 words) from one of the above touchstones (or an invented correspondent if none fit) to the character.');
+  lines.push('Write a reply letter (~100-300 words) from one of the above touchstones (or an invented correspondent if none fit) to the character.');
+  lines.push('');
+  lines.push('Purpose: The letter makes the world feel larger than the character\'s immediate situation. Someone beyond Court still thinks about them, still has opinions about what they are doing.');
+  lines.push('');
+  lines.push('Correspondent selection: prefer the player\'s implied recipient first, then an attached touchstone, then a background NPC. If inventing a correspondent, flag it with [ST: Invented NPC \u2014 confirm before sending].');
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Written by the NPC to the character, never from the character');
   lines.push('- Character moments only \u2014 no plot hooks, no hints of future events');
   lines.push('- Match the correspondent\'s voice based on their relationship to the character');
+  lines.push('- Calibrate voice to the character\'s Mask and Dirge');
   lines.push('- Second person (the NPC writes "you" addressing the character)');
   lines.push('- British English');
   lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
@@ -874,25 +895,29 @@ function buildTouchstoneContext(char, sub) {
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
 
+  const courtTitle = char?.honorific || '';
+  const charName   = char ? displayName(char) : 'Unknown';
+  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
+
   const lines = [
     'You are helping a Storyteller write a Touchstone Vignette for a Vampire: The Requiem 2nd Edition LARP character.',
     '',
-    `Character: ${char ? displayName(char) : 'Unknown'}`,
+    `Character: ${fullTitle}`,
   ];
 
-  if (char?.clan)           lines.push(`Clan: ${char.clan}`);
-  if (char?.covenant)       lines.push(`Covenant: ${char.covenant}`);
-  if (char?.humanity != null) lines.push(`Humanity: ${char.humanity}`);
-  if (char?.mask)           lines.push(`Mask: ${char.mask}`);
-  if (char?.dirge)          lines.push(`Dirge: ${char.dirge}`);
+  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
+  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
+  lines.push(`Humanity: ${humanity}`);
+  if (char?.mask)     lines.push(`Mask: ${char.mask}`);
+  if (char?.dirge)    lines.push(`Dirge: ${char.dirge}`);
 
   if (touchstones.length) {
     lines.push('');
     lines.push('Touchstones:');
     for (const t of touchstones) {
-      const attached = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
-      const desc = t.desc ? ` (${t.desc})` : '';
-      lines.push(`- ${t.name}${desc} \u2014 Humanity ${t.humanity} \u2014 ${attached}`);
+      const status = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
+      lines.push(`- ${t.name} \u2014 Humanity ${t.humanity} \u2014 ${status}`);
     }
   }
 
@@ -901,18 +926,29 @@ function buildTouchstoneContext(char, sub) {
   lines.push(playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]');
 
   lines.push('');
-  lines.push('Write a short vignette (~100 words) of an in-person moment between the character and one of the above touchstones (or an invented mortal if none fit).');
+  lines.push('Write a short vignette (~100-300 words) of an in-person moment between the character and one of the above touchstones (or an invented mortal if none fit).');
+  lines.push('');
+  lines.push('Purpose: The touchstone reminds the character what it is like to be human. There is always a bittersweet edge: they are close to something warm and real, and they can no longer fully inhabit it.');
+  lines.push('');
+  lines.push('Emotional calibration:');
+  lines.push('- High Humanity + attached: the bittersweet note is faint, a whisper underneath warmth');
+  lines.push('- Mid Humanity + attached: the gap is apparent; warmth is real but requires effort');
+  lines.push('- Low Humanity + attached: hollower; the feeling arrives muffled, as though through glass');
+  lines.push('- Detached (any Humanity): the pang is sharper; the mortal has not changed, the character has');
+  lines.push('- Low Humanity + detached: observation more than participation; a photograph of a place one used to live');
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Second person, present tense \u2014 the ST narrates to the character');
   lines.push('- The living mortal is the primary subject of the scene');
-  lines.push('- The first referent cannot be a pronoun \u2014 open with the mortal\'s name');
+  lines.push('- The first referent cannot be a pronoun \u2014 open with the mortal\'s name or a concrete noun');
   lines.push('- In-person contact only \u2014 not a letter or phone call');
   lines.push('- Character moments only \u2014 no plot hooks, no supernatural revelations, no foreshadowing');
   lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
   lines.push('- No em dashes');
   lines.push('- British English');
   lines.push('- Do not editorialise \u2014 write the scene, not its significance');
+  lines.push('- Draw scene details from the character\'s actual life, skills, and relationships \u2014 not from generic domestic templates');
+  lines.push('- Detached does not mean narratively irrelevant \u2014 write the scene regardless of attachment status');
 
   return lines.join('\n');
 }

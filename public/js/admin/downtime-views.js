@@ -39,7 +39,8 @@ let _procQueueMap = null;      // Map<key, entry> built once per renderProcessin
 let _xrefIndex = new Map();   // cross-reference index built once per renderProcessingMode call
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
 let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
-let ovSpheresCollapsed = true; // City Overview: spheres section collapse state
+let ovAmbienceCollapsed = true; // City Overview: ambience section collapse state
+let ovSpheresCollapsed = true;  // City Overview: spheres section collapse state
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
 const preReadExpanded = new Set();   // subIds with pre-read body expanded in processing mode
 const narrativeExpanded = new Set(); // subIds with narrative body expanded in processing mode
@@ -8686,6 +8687,66 @@ function _resolveProjectTerritory(sub, projIdx) {
 
 // ── City Overview helpers ─────────────────────────────────────────
 
+function _buildAmbienceHtml() {
+  const terrs = cachedTerritories || TERRITORY_DATA;
+  const { rows } = buildAmbienceData(terrs);
+
+  let h = `<div class="dt-scroll-wrap">`;
+  h += `<table class="proc-amb-table">`;
+  h += `<thead><tr>
+    <th>Territory</th>
+    <th title="Current ambience step">Starting</th>
+    <th title="Fixed -1 entropy per cycle">Entropy</th>
+    <th title="Feeders vs cap">Overfeeding</th>
+    <th title="Influence spend: +positive / -negative / net">Influence</th>
+    <th title="Ambience project roll successes">Projects</th>
+    <th title="Allies / Status / Retainer automatic actions">Allies</th>
+    <th title="Sum of all columns">Net Change</th>
+    <th title="Projected new ambience step">Projected</th>
+    <th title="Confirm this ambience change for cycle push">Confirm</th>
+  </tr></thead><tbody>`;
+  for (const r of rows) {
+    const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
+    const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
+    const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
+    const gap = r.cap - r.feeders;
+    const gapStr = gap >= 0 ? `+${gap}` : String(gap);
+    const gapClass = gap < 0 ? 'proc-amb-neg' : '';
+    const infNet = r.inf_pos - r.inf_neg;
+    const infNetStr = infNet > 0 ? `+${infNet}` : String(infNet);
+    const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
+    const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span> | <span class="proc-amb-neg">-${r.inf_neg}</span> | <span class="${infNetClass}">${infNetStr}</span>`;
+    const projNet = r.proj_pos - r.proj_neg;
+    const projNetStr = projNet > 0 ? `+${projNet}` : String(projNet);
+    const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
+    const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
+    const alliesNet = r.allies_pos - r.allies_neg;
+    const alliesNetStr = alliesNet > 0 ? `+${alliesNet}` : String(alliesNet);
+    const alliesNetClass = alliesNet > 0 ? 'proc-amb-pos' : alliesNet < 0 ? 'proc-amb-neg' : '';
+    const alliesDisplay = `<span class="proc-amb-pos">+${r.allies_pos}</span> | <span class="proc-amb-neg">-${r.allies_neg}</span> | <span class="${alliesNetClass}">${alliesNetStr}</span>`;
+    const confirmed = currentCycle?.confirmed_ambience?.[r.id];
+    const projMod = AMBIENCE_MODS[r.projStep] ?? r.ambienceMod ?? 0;
+    const confirmCell = confirmed
+      ? `<td class="proc-amb-confirmed">\u2713 ${esc(confirmed.ambience)} <button class="city-amb-confirm-btn proc-amb-reconfirm" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Re-confirm</button></td>`
+      : `<td><button class="city-amb-confirm-btn" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Confirm ${esc(r.projStep)}</button></td>`;
+    h += `<tr>`;
+    h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
+    h += `<td>${esc(r.ambience)}</td>`;
+    h += `<td class="proc-amb-neg">${r.entropy}</td>`;
+    h += `<td>${r.feeders}/${r.cap} | <span class="${gapClass}">${gapStr}</span></td>`;
+    h += `<td>${infDisplay}</td>`;
+    h += `<td>${projDisplay}</td>`;
+    h += `<td>${alliesDisplay}</td>`;
+    h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
+    h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' \u2191' : ' \u2193') : ''}</td>`;
+    h += confirmCell;
+    h += `</tr>`;
+  }
+  h += `</tbody></table></div>`;
+  h += `<p class="proc-amb-note">Positive net = +1 step. Negative net = -1 step. Net below -5 = -2 steps.</p>`;
+  return h;
+}
+
 function _buildFeedingMatrixHtml() {
   const _mCols = MATRIX_TERRS;
   const _mResidents = {};
@@ -8793,24 +8854,23 @@ function _buildSpheresHtml() {
 
   if (!data.length) return '<p class="proc-amb-empty">No sphere data. Add Allies, Status, or Contacts influence merits with sphere qualifiers.</p>';
 
-  let h = '<div class="spheres-list">';
+  let h = '<div class="spheres-grid">';
   for (const { sphere, rows, total } of data) {
-    h += `<div class="sphere-block">`;
+    h += `<div class="sphere-card">`;
     h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} dots</span></div>`;
-    h += '<table class="infl-table sphere-table"><thead><tr>'
-      + '<th>#</th><th>Character</th><th>Allies</th><th>Status</th><th>Total</th><th>Contact</th>'
-      + '</tr></thead><tbody>';
-    rows.forEach((r, i) => {
-      h += `<tr>`
-        + `<td class="infl-num">${i + 1}</td>`
-        + `<td class="infl-name">${esc(r.name)}</td>`
-        + `<td class="infl-num">${r.allies || '\u2014'}</td>`
-        + `<td class="infl-num">${r.status || '\u2014'}</td>`
-        + `<td class="infl-num infl-total">${r.total || '\u2014'}</td>`
-        + `<td class="infl-num">${r.hasContacts ? '\u2713' : ''}</td>`
-        + `</tr>`;
-    });
-    h += '</tbody></table></div>';
+    h += `<ol class="sphere-card-list">`;
+    for (const r of rows) {
+      const parts = [];
+      if (r.allies)       parts.push(`${r.allies}A`);
+      if (r.status)       parts.push(`${r.status}S`);
+      if (r.hasContacts)  parts.push('\u2713');
+      const meta = parts.join(' \u00B7 ') || '\u2014';
+      h += `<li class="sphere-card-item">`
+        + `<span class="sphere-char-name">${esc(r.name)}</span>`
+        + `<span class="sphere-char-meta">${meta}</span>`
+        + `</li>`;
+    }
+    h += `</ol></div>`;
   }
   h += '</div>';
   return h;
@@ -8968,7 +9028,14 @@ function renderCityOverview() {
     h += `</div>`;
     if (!matrixCollapsed) h += _buildFeedingMatrixHtml();
 
-    // ── 2. Actions in Territories ─────────────────────────────────
+    // ── 2. Ambience ───────────────────────────────────────────────
+    h += `<div class="proc-disc-header" data-toggle="city-ambience">`;
+    h += `<span class="proc-amb-title">Ambience</span>`;
+    h += `<span class="proc-amb-toggle">${ovAmbienceCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+    if (!ovAmbienceCollapsed) h += _buildAmbienceHtml();
+
+    // ── 3. Actions in Territories ─────────────────────────────────
     h += `<div class="proc-disc-header dt-city-actions-head">`;
     h += `<span class="proc-amb-title">Actions in Territories</span>`;
     if (!activePhases.length) h += ` <span class="dt-matrix-note">No territory assignments yet</span>`;
@@ -9043,7 +9110,7 @@ function renderCityOverview() {
     // ── 5. ST Notes ───────────────────────────────────────────────
     h += `<div class="proc-amb-notes-block">`;
     h += `<label class="proc-amb-notes-lbl">ST Notes</label>`;
-    h += `<textarea class="city-ov-notes" placeholder="Working notes about the city this cycle...">${esc(notes)}</textarea>`;
+    h += `<textarea class="proc-amb-notes city-ov-notes" placeholder="Working notes about the city this cycle...">${esc(notes)}</textarea>`;
     h += `</div>`;
   }
 
@@ -9076,6 +9143,26 @@ function renderCityOverview() {
         renderProcessingMode(procContainer);
         procContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+    });
+  });
+
+  el.querySelector('[data-toggle="city-ambience"]')?.addEventListener('click', () => {
+    ovAmbienceCollapsed = !ovAmbienceCollapsed;
+    renderCityOverview();
+  });
+
+  el.querySelectorAll('.city-amb-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!currentCycle) return;
+      const terrId      = btn.dataset.terrId;
+      const ambience    = btn.dataset.projStep;
+      const ambienceMod = parseInt(btn.dataset.projMod, 10);
+      const updated = { ...(currentCycle.confirmed_ambience || {}), [terrId]: { ambience, ambienceMod } };
+      try {
+        await updateCycle(currentCycle._id, { confirmed_ambience: updated });
+        currentCycle.confirmed_ambience = updated;
+        renderCityOverview();
+      } catch (err) { console.error('Failed to confirm ambience:', err.message); }
     });
   });
 
