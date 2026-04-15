@@ -1,6 +1,6 @@
 # Story DT-Fix-2: Herd Vitae Bug — +10 Impossible Value
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -85,11 +85,11 @@ export function domMeritContrib(c, name) {
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Inspect Charlie's character data — log `domMeritContrib(charlie, 'Herd')` breakdown
-- [ ] Task 2: Read `ssjHerdBonus` and `flockHerdBonus` implementations
-- [ ] Task 3: Determine root cause (double-count vs. data error)
-- [ ] Task 4: Apply fix (clamp + data correction if needed)
-- [ ] Task 5: Verify Charlie's vitae tally; verify no regression on other characters with Herd
+- [x] Task 1: Inspect Charlie's character data — log `domMeritContrib(charlie, 'Herd')` breakdown
+- [x] Task 2: Read `ssjHerdBonus` and `flockHerdBonus` implementations
+- [x] Task 3: Determine root cause (double-count vs. data error)
+- [x] Task 4: Apply fix (clamp + data correction if needed)
+- [x] Task 5: Verify Charlie's vitae tally; verify no regression on other characters with Herd
 
 ---
 
@@ -114,12 +114,14 @@ export function domMeritContrib(c, name) {
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Root cause: data error, not a code bug. Charlie's Herd merit in MongoDB had `free: 5` — the SSJ bonus was written as static free dots during the Excel migration. `domMeritContrib` then added `ssjHerdBonus(c) = 5` on top, producing 10.
+- All other 8 SSJ characters had `free: 0` on Herd — Charlie was the sole exception.
+- `chars_v2.json` already had the correct representation (`granted_by: "SSJ"`, no free dots).
+- Fix: one-off migration script `server/patch-charlie-herd-free.js` sets `merits.N.free = 0` on Charlie's Herd via targeted `$set`. No code changes to `domain.js` or `downtime-views.js`.
+- No regression risk: the dynamic `ssjHerdBonus()` calculation correctly handles the corrected data.
 
 ### File List
-- `public/js/editor/domain.js`
-- `public/js/admin/downtime-views.js`
-- `data/chars_v2.json`
+- `server/patch-charlie-herd-free.js`

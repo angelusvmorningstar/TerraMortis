@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-04-15 (DT-Fix-3/4/5/6/8/12 done this session)
+# last_updated: 2026-04-15 (DT-Fix-3/4/5/6/8/12 done this session; dt-fix-15 added)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -197,7 +197,7 @@ development_status:
   epic-dt-fixes: in-progress
 
   dt-fix-1-checklist-count-mismatch: ready-for-dev
-  dt-fix-2-herd-vitae-bug: ready-for-dev
+  dt-fix-2-herd-vitae-bug: done
   dt-fix-3-vitae-tally-parchment-colour: done
   dt-fix-4-sort-projects-before-merits: done
   dt-fix-5-placeholder-calibration: done
@@ -210,5 +210,6 @@ development_status:
   dt-fix-12-feeding-panel-layout: done
   dt-fix-13-st-created-actions: ready-for-dev
   dt-fix-14-second-opinion-flag: ready-for-dev
+  dt-fix-15-rite-vitae-cost-auto-populate: ready-for-dev
 
   epic-dt-fixes-retrospective: optional
