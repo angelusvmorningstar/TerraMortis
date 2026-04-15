@@ -1895,7 +1895,7 @@ body {
 .dt-inv-new-wrap summary { font-size: 12px; }
 .dt-inv-form { padding: 8px 0; }
 .dt-inv-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.dt-inv-input { background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 6px; box-sizing: border-box; }
+.dt-inv-input { background: var(--surf); border: 1px solid var(--bdr); color: var(--txt); padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 6px; box-sizing: border-box; width: 100%; }
 .dt-inv-item { border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
 .dt-inv-resolved { opacity: .65; border-left: 3px solid var(--green3); }
 .dt-inv-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
@@ -4796,6 +4796,7 @@ body {
   border-radius: 4px;
   padding: 6px 10px;
   font-size: 13px;
+  width: 100%;
 }
 .proc-attach-text:focus { outline: none; border-color: var(--accent); }
 
@@ -5312,6 +5313,8 @@ body {
   padding-top: 10px;
   border-top: 1px solid var(--bdr);
 }
+.proc-recat-row-tight  { margin-top: 4px; padding-top: 4px; border-top: none; }
+.proc-recat-row-spaced { margin-top: 8px; padding-top: 8px; }
 
 /* Territory pills rendered inline alongside the Action Type selector (ambience actions) */
 .proc-terr-inline-pills {
@@ -5956,7 +5959,7 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
 }
 
 /* Roll button semantic colours (not inline styles) */
-.roll-btn-save  { border-color: #5a9a6e !important; color: #5a9a6e !important; }
+.roll-btn-save  { border-color: var(--story-compl) !important; color: var(--story-compl) !important; }
 .roll-btn-close { border-color: var(--txt3) !important; color: var(--txt3) !important; }
 .roll-btn-save:hover  { border-color: #7fbf8f !important; color: #7fbf8f !important; }
 .roll-btn-close:hover { border-color: var(--txt2) !important; color: var(--txt2) !important; }
@@ -6049,9 +6052,9 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   width: 7px;
 }
 .dt-story-pill.amber .dt-story-pill-dot { background: #c89040; }
-.dt-story-pill.green  .dt-story-pill-dot { background: #5a9a6e; }
+.dt-story-pill.green  .dt-story-pill-dot { background: var(--story-compl); }
 .dt-story-pill.amber { border-color: rgba(200,144,64,0.4); }
-.dt-story-pill.green  { border-color: rgba(90,154,110,0.4); }
+.dt-story-pill.green  { border-color: var(--story-compl-a40); }
 
 /* Character view */
 .dt-story-char-view {
@@ -6072,10 +6075,10 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   margin: 0;
 }
 .dt-story-locked-badge {
-  background: rgba(90,154,110,0.15);
-  border: 1px solid rgba(90,154,110,0.4);
+  background: var(--story-compl-a15);
+  border: 1px solid var(--story-compl-a40);
   border-radius: 3px;
-  color: #5a9a6e;
+  color: var(--story-compl);
   font-family: var(--fl);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -6114,7 +6117,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   height: 9px;
   width: 9px;
 }
-.dt-story-dot-complete { background: #5a9a6e; }
+.dt-story-dot-complete { background: var(--story-compl); }
 .dt-story-dot-pending  { background: var(--bdr3); }
 
 .dt-story-section-empty {
@@ -6161,7 +6164,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   cursor: default;
 }
 .dt-story-locked-label {
-  color: #5a9a6e;
+  color: var(--story-compl);
   font-family: var(--fl);
   font-size: 11px;
   font-style: italic;
@@ -6188,7 +6191,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   margin-bottom: 10px;
   padding: 10px 12px;
 }
-.dt-story-proj-card.complete { border-color: rgba(90,154,110,0.4); }
+.dt-story-proj-card.complete { border-color: var(--story-compl-a40); }
 
 .dt-story-proj-header {
   align-items: center;
@@ -6325,7 +6328,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   transition: border-color 0.15s, color 0.15s;
 }
 .dt-story-save-draft-btn:hover  { border-color: var(--gold2); color: var(--gold2); }
-.dt-story-mark-complete-btn:hover { border-color: #5a9a6e; color: #5a9a6e; }
+.dt-story-mark-complete-btn:hover { border-color: var(--story-compl); color: var(--story-compl); }
 .dt-story-save-draft-btn:disabled,
 .dt-story-mark-complete-btn:disabled { color: var(--txt3); cursor: default; }
 

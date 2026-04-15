@@ -4666,7 +4666,7 @@ function _renderAttachPanel(entry) {
 
   let h = `<div class="proc-attach-panel" data-proc-key="${esc(entry.key)}">`;
   h += '<div class="proc-detail-label">Reminder Text</div>';
-  h += `<input class="proc-attach-text proc-section" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae" style="width:100%">`;
+  h += `<input class="proc-attach-text proc-section" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae">`;
   h += '<div class="proc-detail-label">Attach to Actions:</div>';
   h += '<div class="proc-attach-actions">';
 
@@ -5893,7 +5893,7 @@ function _renderActionTypeRow(entry, rev, char) {
   if (actionType === 'attack') {
     const _atkChar  = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
     const _atkMerit = rev.attack_target_merit || '';
-    h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+    h += `<div class="proc-recat-row proc-recat-row-tight">`;
     h += `<span class="proc-feed-lbl">Merit</span>`;
     h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(key)}">`;
     h += `<option value="">\u2014 Select merit \u2014</option>`;
@@ -6066,11 +6066,11 @@ function renderActionPanel(entry, review) {
       const _ciType    = rev.contacts_info_type || '';
       const _ciSubject = rev.contacts_subject   || '';
       const _ciTypes   = ['Public', 'Internal', 'Confidential', 'Restricted'];
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
       h += `<span class="proc-feed-lbl">Info Type</span>`;
       h += `<select class="proc-recat-select proc-contacts-info-type-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_ciTypes.map(t => `<option value="${t}"${_ciType === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
       h += `</div>`;
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
       h += `<span class="proc-feed-lbl">Subject</span>`;
       h += `<input type="text" class="proc-detail-input proc-contacts-subject-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciSubject)}" placeholder="Sphere, person, or topic\u2026">`;
       h += `</div>`;
@@ -6080,11 +6080,11 @@ function renderActionPanel(entry, review) {
       const _patObs   = rev.patrol_observed     || '';
       const _patLevel = rev.patrol_detail_level || '';
       const _patLevels = ['1 \u2014 Vague', '2', '3', '4', '5+ \u2014 Detailed'];
-      h += `<div class="proc-recat-row" style="margin-top:8px;padding-top:8px">`;
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
       h += `<span class="proc-feed-lbl">Detail Level</span>`;
       h += `<select class="proc-recat-select proc-patrol-detail-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_patLevels.map(l => `<option value="${l}"${_patLevel === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
       h += `</div>`;
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
       h += `<span class="proc-feed-lbl">Observed</span>`;
       h += `<textarea class="proc-detail-ta proc-patrol-observed-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was observed\u2026">${esc(_patObs)}</textarea>`;
       h += `</div>`;
@@ -6093,7 +6093,7 @@ function renderActionPanel(entry, review) {
     if (entry.actionType === 'support') {
       const _supportKey = rev.support_target_key || '';
       const _queueEntries = _procQueueMap ? [..._procQueueMap.values()] : [];
-      h += `<div class="proc-recat-row" style="margin-top:8px;padding-top:8px">`;
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
       h += `<span class="proc-feed-lbl">Supporting</span>`;
       h += `<select class="proc-recat-select proc-support-target-sel" data-proc-key="${esc(entry.key)}">`;
       h += `<option value="">\u2014 Select action \u2014</option>`;
@@ -6110,11 +6110,11 @@ function renderActionPanel(entry, review) {
       const _rumCont  = rev.rumour_content      || '';
       const _rumLevel = rev.rumour_detail_level || '';
       const _rumLevels = ['1 \u2014 Vague', '2', '3', '4', '5+ \u2014 Detailed'];
-      h += `<div class="proc-recat-row" style="margin-top:8px;padding-top:8px">`;
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
       h += `<span class="proc-feed-lbl">Detail Level</span>`;
       h += `<select class="proc-recat-select proc-rumour-detail-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_rumLevels.map(l => `<option value="${l}"${_rumLevel === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
       h += `</div>`;
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
       h += `<span class="proc-feed-lbl">Rumour Surfaced</span>`;
       h += `<textarea class="proc-detail-ta proc-rumour-content-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was heard\u2026">${esc(_rumCont)}</textarea>`;
       h += `</div>`;
@@ -7246,7 +7246,7 @@ function renderInvestigations() {
     // New investigation form
     h += `<details class="dt-inv-new-wrap"><summary class="dt-btn dt-summary-btn">+ New Investigation</summary>`;
     h += '<div class="dt-inv-form">';
-    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)" style="width:100%">`;
+    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)">`;
     h += '<div class="dt-inv-row">';
     h += `<select class="dt-pool-sel" id="dt-inv-type">`;
     for (const t of THRESHOLD_TYPES) h += `<option value="${esc(t.id)}">${esc(t.label)} (${t.default})</option>`;
@@ -7481,7 +7481,7 @@ function renderNpcForm(npc) {
   const id = npc?._id || 'new';
   const v = (f) => esc(npc?.[f] || '');
   let h = `<div class="dt-npc-form">`;
-  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}" style="width:100%">`;
+  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}">`;
   h += `<textarea class="dt-narr-textarea dt-narr-textarea-sm" id="dt-npc-desc-${id}" placeholder="Description">${v('description')}</textarea>`;
   h += '<div class="dt-npc-form-row">';
   h += `<select class="dt-pool-sel" id="dt-npc-status-${id}">`;
