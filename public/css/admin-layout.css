@@ -1641,6 +1641,35 @@ body {
   gap: 10px;
   border-bottom: 1px solid var(--bdr);
 }
+/* City Overview header: toggle + export button side by side */
+.dt-city-panel-head {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--bdr);
+}
+.dt-city-title {
+  flex: 1;
+  border-bottom: none; /* parent supplies border */
+}
+.dt-city-export-btn {
+  align-self: center;
+  margin-right: 12px;
+  padding: 4px 12px;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dt-city-export-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* City Overview: actions section header (no toggle, always shown) */
+.dt-city-actions-head { cursor: default; }
+.dt-city-actions-head:hover { background: var(--surf2); }
 .dt-matrix-toggle:hover { background: var(--surf3); }
 .dt-matrix-wrap { overflow-x: auto; }
 .dt-matrix-table { width: 100%; border-collapse: collapse; font-size: 12px; }

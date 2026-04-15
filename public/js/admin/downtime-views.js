@@ -39,6 +39,7 @@ let _procQueueMap = null;      // Map<key, entry> built once per renderProcessin
 let _xrefIndex = new Map();   // cross-reference index built once per renderProcessingMode call
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
 let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
+let ovSpheresCollapsed = true; // City Overview: spheres section collapse state
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
 const preReadExpanded = new Set();   // subIds with pre-read body expanded in processing mode
 const narrativeExpanded = new Set(); // subIds with narrative body expanded in processing mode
@@ -854,7 +855,7 @@ async function loadCycleById(cycleId) {
   renderMatchSummary();
   renderSubmissionChecklist();
   await ensureTerritories();
-  renderTerritoriesAtAGlance();
+  renderCityOverview();
   await loadInvestigations(cycleId);
   renderInvestigations();
   await loadNpcs(cycleId);
@@ -1364,7 +1365,7 @@ async function processFilePreview(file) {
   renderSnapshotPanel(devCycle);
   renderMatchSummary();
   renderSubmissionChecklist();
-  renderTerritoriesAtAGlance();
+  renderCityOverview();
   renderInvestigations();
   renderNpcs();
   renderSubmissions();
@@ -3246,7 +3247,7 @@ function _wireTickerHandler(container, { decCls, incCls, panelCls, inputCls, dis
 }
 
 function renderProcessingMode(container) {
-  renderTerritoriesAtAGlance();
+  renderCityOverview();
 
   if (!submissions.length) {
     container.innerHTML = '<p class="placeholder">No submissions in this cycle.</p>';
@@ -3582,7 +3583,7 @@ function renderProcessingMode(container) {
       }
 
       // Refresh the territories matrix
-      renderTerritoriesAtAGlance();
+      renderCityOverview();
     });
   });
 
@@ -8692,15 +8693,236 @@ function _resolveProjectTerritory(sub, projIdx) {
   return extractTerritoryFromText(text);
 }
 
-function renderTerritoriesAtAGlance() {
+// ── City Overview helpers ─────────────────────────────────────────
+
+function _buildFeedingMatrixHtml() {
+  const _mCols = MATRIX_TERRS;
+  const _mResidents = {};
+  for (const mt of _mCols) {
+    const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
+    const td = (cachedTerritories || TERRITORY_DATA).find(t => t.id === tid);
+    const residents = new Set(td?.feeding_rights || []);
+    if (td?.regent_id) residents.add(String(td.regent_id));
+    if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
+    _mResidents[mt.csvKey] = residents;
+  }
+  const _mSubByCharId = new Map();
+  for (const s of submissions) {
+    const c = findCharacter(s.character_name, s.player_name);
+    if (c) _mSubByCharId.set(String(c._id), s);
+  }
+  const _mChars = characters.filter(c => !c.retired)
+    .sort((a, b) => sortName(a).localeCompare(sortName(b)));
+  const _mFeederCounts = {};
+  for (const mt of _mCols) _mFeederCounts[mt.csvKey] = 0;
+
+  let h = `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
+  h += '<thead><tr><th>Character</th>';
+  for (const t of _mCols) {
+    const amb = getTerritoryAmbience(t.ambienceKey);
+    h += `<th title="${esc(amb || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(amb || 'N/A')}</span></th>`;
+  }
+  h += '</tr></thead><tbody>';
+  for (const char of _mChars) {
+    const charId = String(char._id);
+    const sub = _mSubByCharId.get(charId) || null;
+    const hasSub = !!sub;
+    const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
+    h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}">`;
+    h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+    for (const t of _mCols) {
+      const isBarrens = t.ambienceKey === null;
+      const fed = fedTerrs.has(t.csvKey);
+      if (!fed) {
+        h += '<td class="dt-matrix-empty">\u2014</td>';
+      } else {
+        _mFeederCounts[t.csvKey]++;
+        if (!isBarrens && _mResidents[t.csvKey].has(charId)) {
+          h += '<td class="dt-matrix-resident">O</td>';
+        } else {
+          h += '<td class="dt-matrix-poach">X</td>';
+        }
+      }
+    }
+    h += '</tr>';
+  }
+  h += '</tbody>';
+  h += '<tfoot><tr><td><strong>Feeders</strong></td>';
+  for (const t of _mCols) {
+    if (t.ambienceKey === null) {
+      h += '<td class="dt-matrix-empty">\u2014</td>';
+    } else {
+      const amb = getTerritoryAmbience(t.ambienceKey);
+      const cap = amb ? (AMBIENCE_CAP[amb] ?? null) : null;
+      const count = _mFeederCounts[t.csvKey];
+      const overCap = cap !== null && count > cap;
+      h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
+    }
+  }
+  h += '</tr></tfoot></table>';
+  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Feeders / cap from City ambience. Residents set via City tab.</p>';
+  h += '</div>';
+  return h;
+}
+
+function _buildSpheresHtml() {
+  function _normSphere(raw) {
+    return raw.trim().toLowerCase().replace(/\s+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+  const active = characters.filter(c => !c.retired);
+  const spheres = {};
+  for (const c of active) {
+    const cid = String(c._id || c.name);
+    for (const m of (c.merits || [])) {
+      if (m.category !== 'influence') continue;
+      const dots = m.rating || 0;
+      const raw = (m.area || m.qualifier || '').toString();
+      if (!raw) continue;
+      const ensureRow = key => {
+        if (!spheres[key]) spheres[key] = {};
+        if (!spheres[key][cid]) spheres[key][cid] = { name: displayName(c), allies: 0, status: 0, hasContacts: false };
+        return spheres[key][cid];
+      };
+      if (m.name === 'Contacts') {
+        for (const part of raw.split(',')) { const k = _normSphere(part); if (k) ensureRow(k).hasContacts = true; }
+      } else if (m.name === 'Allies' || m.name === 'Status') {
+        for (const part of raw.split(',')) {
+          const k = _normSphere(part); if (!k) continue;
+          const row = ensureRow(k);
+          if (m.name === 'Allies') row.allies += dots; else row.status += dots;
+        }
+      }
+    }
+  }
+  const data = Object.keys(spheres).map(sphere => {
+    const rows = Object.values(spheres[sphere]).map(r => ({ ...r, total: r.allies + r.status }));
+    rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    return { sphere, rows, total: rows.reduce((s, r) => s + r.total, 0) };
+  }).sort((a, b) => b.total - a.total || a.sphere.localeCompare(b.sphere));
+
+  if (!data.length) return '<p class="proc-amb-empty">No sphere data. Add Allies, Status, or Contacts influence merits with sphere qualifiers.</p>';
+
+  let h = '<div class="spheres-list">';
+  for (const { sphere, rows, total } of data) {
+    h += `<div class="sphere-block">`;
+    h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} dots</span></div>`;
+    h += '<table class="infl-table sphere-table"><thead><tr>'
+      + '<th>#</th><th>Character</th><th>Allies</th><th>Status</th><th>Total</th><th>Contact</th>'
+      + '</tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      h += `<tr>`
+        + `<td class="infl-num">${i + 1}</td>`
+        + `<td class="infl-name">${esc(r.name)}</td>`
+        + `<td class="infl-num">${r.allies || '\u2014'}</td>`
+        + `<td class="infl-num">${r.status || '\u2014'}</td>`
+        + `<td class="infl-num infl-total">${r.total || '\u2014'}</td>`
+        + `<td class="infl-num">${r.hasContacts ? '\u2713' : ''}</td>`
+        + `</tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function _exportCityOverview(matrix) {
+  const profile = currentCycle?.discipline_profile || {};
+  const notes   = currentCycle?.ambience_notes    || '';
+
+  // Feeding data
+  const _mSubByCharId = new Map();
+  for (const s of submissions) {
+    const c = findCharacter(s.character_name, s.player_name);
+    if (c) _mSubByCharId.set(String(c._id), s);
+  }
+  const feeding = {};
+  for (const char of characters.filter(c => !c.retired)) {
+    const sub = _mSubByCharId.get(String(char._id));
+    if (!sub) continue;
+    const fedTerrs = _getSubFedTerrs(sub);
+    if (!fedTerrs.size) continue;
+    const entries = [];
+    for (const csvKey of fedTerrs) {
+      const mt  = MATRIX_TERRS.find(t => t.csvKey === csvKey);
+      const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
+      const td  = (cachedTerritories || TERRITORY_DATA).find(t => t.id === tid);
+      const res = new Set(td?.feeding_rights || []);
+      if (td?.regent_id)      res.add(String(td.regent_id));
+      if (td?.lieutenant_id)  res.add(String(td.lieutenant_id));
+      const resident = (!mt || mt.ambienceKey === null) ? null : res.has(String(char._id));
+      entries.push({ territory: mt?.label || csvKey, resident });
+    }
+    feeding[displayName(char)] = entries;
+  }
+
+  // Actions matrix
+  const PHASES = [
+    { key: 'feeding', label: 'Feeding' }, { key: 'ambience', label: 'Ambience' },
+    { key: 'hide_protect', label: 'Defensive' }, { key: 'investigate', label: 'Investigative' },
+    { key: 'attack', label: 'Hostile' }, { key: 'support_patrol', label: 'Support/Patrol' },
+    { key: 'misc', label: 'Misc' },
+  ];
+  const actions = {};
+  for (const p of PHASES) {
+    const rows = {};
+    for (const t of TERRITORY_DATA) {
+      const chars = (matrix?.[p.key]?.[t.id] || []).map(e => e.charName);
+      if (chars.length) rows[t.name] = chars;
+    }
+    if (Object.keys(rows).length) actions[p.label] = rows;
+  }
+
+  // Spheres
+  function _ns(raw) { return raw.trim().toLowerCase().replace(/\s+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
+  const spheres = {};
+  for (const c of characters.filter(ch => !ch.retired)) {
+    for (const m of (c.merits || [])) {
+      if (m.category !== 'influence') continue;
+      const raw = (m.area || m.qualifier || '').toString();
+      if (!raw) continue;
+      for (const part of raw.split(',')) {
+        const key = _ns(part); if (!key) continue;
+        if (!spheres[key]) spheres[key] = {};
+        const cn = displayName(c);
+        if (!spheres[key][cn]) spheres[key][cn] = { allies: 0, status: 0, contacts: false };
+        if (m.name === 'Allies')    spheres[key][cn].allies   += m.rating || 0;
+        else if (m.name === 'Status')   spheres[key][cn].status   += m.rating || 0;
+        else if (m.name === 'Contacts') spheres[key][cn].contacts  = true;
+      }
+    }
+  }
+
+  const payload = {
+    generated_at: new Date().toISOString(),
+    cycle: currentCycle?.label || 'Unknown',
+    feeding_matrix: feeding,
+    actions_in_territories: actions,
+    discipline_profile: profile,
+    spheres_of_influence: spheres,
+    st_notes: notes,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `city-overview-${(currentCycle?.label || 'unknown').replace(/\s+/g, '-').toLowerCase()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderCityOverview() {
   const el = document.getElementById('dt-conflicts');
   if (!el) return;
   if (!submissions.length) { el.innerHTML = ''; return; }
 
-  const isOpen = el.dataset.open !== 'false';
+  const isOpen  = el.dataset.open !== 'false';
   const profile = currentCycle?.discipline_profile || {};
+  const notes   = currentCycle?.ambience_notes    || '';
 
-  // ── Build matrix data: phase → territory → [entries] ──
+  // ── Build actions matrix data ──
   const TAAG_PHASES = [
     { key: 'feeding',        label: 'Feeding' },
     { key: 'ambience',       label: 'Ambience' },
@@ -8710,20 +8932,17 @@ function renderTerritoriesAtAGlance() {
     { key: 'support_patrol', label: 'Support/Patrol' },
     { key: 'misc',           label: 'Misc' },
   ];
-
-  // matrix[phaseKey][terrId] = [{ key, charName, subId }]
   const matrix = {};
   for (const p of TAAG_PHASES) matrix[p.key] = {};
-
   const queue = buildProcessingQueue(submissions);
   for (const entry of queue) {
     if (entry.source === 'project') {
       const phaseKey = entry.phase;
-      if (!matrix[phaseKey]) continue; // not a territorial phase
+      if (!matrix[phaseKey]) continue;
       const sub = submissions.find(s => s._id === entry.subId);
       if (!sub) continue;
       const terrId = _resolveProjectTerritory(sub, entry.actionIdx);
-      if (!terrId) continue; // no territory — not shown in matrix (pills let STs assign)
+      if (!terrId) continue;
       if (!matrix[phaseKey][terrId]) matrix[phaseKey][terrId] = [];
       matrix[phaseKey][terrId].push({ key: entry.key, charName: entry.charName, subId: entry.subId });
     } else if (entry.source === 'feeding') {
@@ -8736,45 +8955,49 @@ function renderTerritoriesAtAGlance() {
       }
     }
   }
-
-  // Only show rows that have at least one assignment
   const activePhases = TAAG_PHASES.filter(p =>
     TERRITORY_DATA.some(t => (matrix[p.key][t.id] || []).length > 0)
   );
 
+  // ── HTML ──
   let h = `<div class="dt-conflict-panel">`;
-  h += `<div class="dt-matrix-toggle" id="dt-taag-toggle">${isOpen ? '\u25BC' : '\u25BA'} Territories at a Glance`;
-  if (!activePhases.length) h += ` <span class="dt-matrix-note">No territory assignments yet</span>`;
+
+  // Header row: title toggle + export button
+  h += `<div class="dt-city-panel-head">`;
+  h += `<div class="dt-matrix-toggle dt-city-title" id="dt-city-toggle">${isOpen ? '\u25BC' : '\u25BA'} City Overview</div>`;
+  h += `<button class="dt-city-export-btn" id="dt-city-export-btn">\u2193 Export JSON</button>`;
   h += `</div>`;
 
   if (isOpen) {
-    h += `<div class="dt-scroll-wrap">`;
-    h += `<table class="dt-taag-table">`;
-    h += `<thead><tr>`;
-    h += `<th>Action</th>`;
-    for (const t of TERRITORY_DATA) {
-      h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
-    }
-    h += `</tr></thead>`;
-    h += `<tbody>`;
 
+    // ── 1. Feeding Matrix ─────────────────────────────────────────
+    h += `<div class="proc-disc-header" data-toggle="city-feed-matrix">`;
+    h += `<span class="proc-amb-title">Feeding Matrix</span>`;
+    h += `<span class="proc-amb-toggle">${matrixCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+    if (!matrixCollapsed) h += _buildFeedingMatrixHtml();
+
+    // ── 2. Actions in Territories ─────────────────────────────────
+    h += `<div class="proc-disc-header dt-city-actions-head">`;
+    h += `<span class="proc-amb-title">Actions in Territories</span>`;
+    if (!activePhases.length) h += ` <span class="dt-matrix-note">No territory assignments yet</span>`;
+    h += `</div>`;
+    h += `<div class="dt-scroll-wrap"><table class="dt-taag-table"><thead><tr><th>Action</th>`;
+    for (const t of TERRITORY_DATA) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
+    h += `</tr></thead><tbody>`;
     if (!activePhases.length) {
       h += `<tr class="dt-taag-empty-row"><td colspan="${1 + TERRITORY_DATA.length}">Assign territories to project actions using the pills in the processing queue.</td></tr>`;
     } else {
       for (const p of TAAG_PHASES) {
         const rowEntries = matrix[p.key];
-        const hasAny = TERRITORY_DATA.some(t => (rowEntries[t.id] || []).length > 0);
-        if (!hasAny) continue;
-        h += `<tr>`;
-        h += `<td class="dt-taag-phase-lbl">${esc(p.label)}</td>`;
+        if (!TERRITORY_DATA.some(t => (rowEntries[t.id] || []).length > 0)) continue;
+        h += `<tr><td class="dt-taag-phase-lbl">${esc(p.label)}</td>`;
         for (const t of TERRITORY_DATA) {
           const chips = rowEntries[t.id] || [];
           h += `<td class="dt-taag-cell">`;
           if (chips.length) {
             h += `<div class="dt-taag-chips">`;
-            for (const c of chips) {
-              h += `<span class="dt-taag-chip" data-proc-key="${esc(c.key)}" title="${esc(c.charName)}">${esc(c.charName)}</span>`;
-            }
+            for (const c of chips) h += `<span class="dt-taag-chip" data-proc-key="${esc(c.key)}" title="${esc(c.charName)}">${esc(c.charName)}</span>`;
             h += `</div>`;
           } else {
             h += `<span class="dt-taag-empty">\u2014</span>`;
@@ -8786,16 +9009,14 @@ function renderTerritoriesAtAGlance() {
     }
     h += `</tbody></table></div>`;
 
-    // ── Discipline Profile Matrix ──
-    h += `<div class="proc-disc-header" data-toggle="disc-dash">`;
-    h += `<span class="proc-amb-title">Discipline Profile Matrix</span>`;
+    // ── 3. Discipline Profile Matrix ──────────────────────────────
+    h += `<div class="proc-disc-header" data-toggle="city-disc-dash">`;
+    h += `<span class="proc-amb-title">Discipline Profile</span>`;
     h += `<button class="dt-btn proc-disc-retally" id="disc-retally-btn">Retally</button>`;
     h += `<span class="proc-amb-toggle">${discDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
-
     if (!discDashCollapsed) {
-      const discSet = new Set();
-      const terrSet = new Set();
+      const discSet = new Set(), terrSet = new Set();
       for (const [terrId, discs] of Object.entries(profile)) {
         for (const [disc, count] of Object.entries(discs)) {
           if (count > 0) { discSet.add(disc); terrSet.add(terrId); }
@@ -8803,13 +9024,10 @@ function renderTerritoriesAtAGlance() {
       }
       const discList = [...discSet].sort();
       const terrList = TERRITORY_DATA.filter(t => terrSet.has(t.id));
-
       if (!discList.length) {
-        h += `<p class="proc-amb-empty">No discipline uses recorded yet. Disciplines are recorded when feeding or ambience project pools are validated.</p>`;
+        h += `<p class="proc-amb-empty">No discipline uses recorded yet.</p>`;
       } else {
-        h += `<div class="dt-scroll-wrap">`;
-        h += `<table class="proc-disc-table">`;
-        h += `<thead><tr><th>Discipline</th>`;
+        h += `<div class="dt-scroll-wrap"><table class="proc-disc-table"><thead><tr><th>Discipline</th>`;
         for (const t of terrList) h += `<th>${esc(t.name.replace(/^The\s+/i, ''))}</th>`;
         h += `</tr></thead><tbody>`;
         for (const disc of discList) {
@@ -8823,18 +9041,41 @@ function renderTerritoriesAtAGlance() {
         h += `</tbody></table></div>`;
       }
     }
+
+    // ── 4. Spheres of Influence ───────────────────────────────────
+    h += `<div class="proc-disc-header" data-toggle="city-spheres">`;
+    h += `<span class="proc-amb-title">Spheres of Influence</span>`;
+    h += `<span class="proc-amb-toggle">${ovSpheresCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
+    h += `</div>`;
+    if (!ovSpheresCollapsed) h += _buildSpheresHtml();
+
+    // ── 5. ST Notes ───────────────────────────────────────────────
+    h += `<div class="proc-amb-notes-block">`;
+    h += `<label class="proc-amb-notes-lbl">ST Notes</label>`;
+    h += `<textarea class="city-ov-notes" placeholder="Working notes about the city this cycle...">${esc(notes)}</textarea>`;
+    h += `</div>`;
   }
 
   h += `</div>`; // dt-conflict-panel
   el.innerHTML = h;
 
-  // Toggle
-  document.getElementById('dt-taag-toggle')?.addEventListener('click', () => {
+  // ── Event wiring ──
+
+  document.getElementById('dt-city-toggle')?.addEventListener('click', () => {
     el.dataset.open = isOpen ? 'false' : 'true';
-    renderTerritoriesAtAGlance();
+    renderCityOverview();
   });
 
-  // Chips — jump to action in processing queue
+  document.getElementById('dt-city-export-btn')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _exportCityOverview(matrix);
+  });
+
+  el.querySelector('[data-toggle="city-feed-matrix"]')?.addEventListener('click', () => {
+    matrixCollapsed = !matrixCollapsed;
+    renderCityOverview();
+  });
+
   el.querySelectorAll('.dt-taag-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const key = chip.dataset.procKey;
@@ -8847,20 +9088,33 @@ function renderTerritoriesAtAGlance() {
     });
   });
 
-  // Disc-dash toggle
-  el.querySelector('[data-toggle="disc-dash"]')?.addEventListener('click', () => {
+  el.querySelector('[data-toggle="city-disc-dash"]')?.addEventListener('click', () => {
     discDashCollapsed = !discDashCollapsed;
-    renderTerritoriesAtAGlance();
+    renderCityOverview();
   });
 
-  // Retally button
   el.querySelector('#disc-retally-btn')?.addEventListener('click', async e => {
     e.stopPropagation();
     const btn = e.currentTarget;
     btn.textContent = 'Tallying\u2026';
     btn.disabled = true;
     await recomputeDisciplineProfile();
-    renderTerritoriesAtAGlance();
+    renderCityOverview();
+  });
+
+  el.querySelector('[data-toggle="city-spheres"]')?.addEventListener('click', () => {
+    ovSpheresCollapsed = !ovSpheresCollapsed;
+    renderCityOverview();
+  });
+
+  el.querySelector('.city-ov-notes')?.addEventListener('blur', async e => {
+    const val = e.target.value;
+    try {
+      await updateCycle(selectedCycleId, { ambience_notes: val });
+      const idx = allCycles.findIndex(c => c._id === selectedCycleId);
+      if (idx >= 0) allCycles[idx].ambience_notes = val;
+      if (currentCycle) currentCycle.ambience_notes = val;
+    } catch (err) { console.error('Failed to save city notes:', err.message); }
   });
 }
 
