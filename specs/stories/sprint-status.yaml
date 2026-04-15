@@ -73,7 +73,7 @@ development_status:
   1-4-letter-from-home-section: review
   1-5-touchstone-vignette-section: review
   1-6-territory-report-section: review
-  1-7-cacophony-savvy-section: ready-for-dev
+  1-7-cacophony-savvy-section: review
 
   # A1–A2 — action data + validation; can run in parallel with B stories
   # A1: pure derivation functions in downtime-story.js; no schema changes; no downtime-views.js changes

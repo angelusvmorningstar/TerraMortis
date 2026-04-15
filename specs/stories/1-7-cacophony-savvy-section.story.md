@@ -1,6 +1,6 @@
 # Story 1.7: Cacophony Savvy Section
 
-## Status: ready-for-dev
+## Status: review
 
 ## Story
 
@@ -250,51 +250,51 @@ The renderer needs `allSubmissions` for the cycle-wide scan. `_allSubmissions` i
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: getCSDots(char) helper
-  - [ ] Finds Cacophony Savvy merit in char.merits by name
-  - [ ] Returns rating (0 if not found)
+- [x] Task 1: getCSDots(char) helper
+  - [x] Finds Cacophony Savvy merit in char.merits by name
+  - [x] Returns rating (0 if not found)
 
-- [ ] Task 2: scanNoisyActions(allSubmissions, currentCharId, csDots) pure function
-  - [ ] Excludes current character's own submissions
-  - [ ] Excludes skipped actions
-  - [ ] Excludes hide_protect with roll.successes > 0
-  - [ ] Excludes action types not in CS_ACTION_PRIORITY
-  - [ ] Sorts by CS_ACTION_PRIORITY index (ascending)
-  - [ ] Returns first csDots entries
-  - [ ] Each entry: { priorityIdx, characterName, actionType, territory, outcome, successes }
+- [x] Task 2: scanNoisyActions(allSubmissions, currentCharId, csDots) pure function
+  - [x] Excludes current character's own submissions
+  - [x] Excludes skipped actions
+  - [x] Excludes hide_protect with roll.successes > 0
+  - [x] Excludes action types not in CS_ACTION_PRIORITY
+  - [x] Sorts by CS_ACTION_PRIORITY index (ascending)
+  - [x] Returns first csDots entries
+  - [x] Each entry: { priorityIdx, characterName, actionType, territory, outcome, successes }
 
-- [ ] Task 3: buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) pure function
-  - [ ] Assembles prompt with character info, slot number, noisy action details, style rules
-  - [ ] Omits territory/outcome lines if absent
-  - [ ] Returns string
+- [x] Task 3: buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) pure function
+  - [x] Assembles prompt with character info, slot number, noisy action details, style rules
+  - [x] Omits territory/outcome lines if absent
+  - [x] Returns string
 
-- [ ] Task 4: cacophonySavvyComplete(char, sub) helper
-  - [ ] Returns true if csDots === 0
-  - [ ] Counts available noisy slots (re-runs scanNoisyActions with _allSubmissions)
-  - [ ] Returns true if noisyCount === 0
-  - [ ] Returns true if all slots 0..noisyCount-1 have status === 'complete'
+- [x] Task 4: cacophonySavvyComplete(char, sub) helper
+  - [x] Returns true if csDots === 0
+  - [x] Counts available noisy slots (re-runs scanNoisyActions with _allSubmissions)
+  - [x] Returns true if noisyCount === 0
+  - [x] Returns true if all slots 0..noisyCount-1 have status === 'complete'
 
-- [ ] Task 5: renderCacophonySavvy(char, sub, stNarrative, allSubmissions) renderer
-  - [ ] Returns empty string if getCSDots(char) === 0
-  - [ ] Calls scanNoisyActions to get noisy action list
-  - [ ] Renders section header with CS dot count
-  - [ ] Renders N slots (one per CS dot):
-    - [ ] If noisyAction exists for slot: context block, Copy Context, textarea, Save Draft, Mark Complete
-    - [ ] If no noisyAction for slot: "No noisy actions found" notice, no controls
-  - [ ] Context block collapsed if existing response present
+- [x] Task 5: renderCacophonySavvy(char, sub, stNarrative, allSubmissions) renderer
+  - [x] Returns empty string if getCSDots(char) === 0
+  - [x] Calls scanNoisyActions to get noisy action list
+  - [x] Renders section header with CS dot count
+  - [x] Renders N slots (one per CS dot):
+    - [x] If noisyAction exists for slot: context block, Copy Context, textarea, Save Draft, Mark Complete
+    - [x] If no noisyAction for slot: "No noisy actions found" notice, no controls
+  - [x] Context block collapsed if existing response present
 
-- [ ] Task 6: Event delegation for cacophony_savvy section
-  - [ ] Copy Context → buildCacophonySavvyContext → copyToClipboard (uses data-slot-idx on button)
-  - [ ] Context toggle per slot
-  - [ ] Save Draft → saveNarrativeField with buildUpdatedArray → re-render section
-  - [ ] Mark Complete → save + re-render + update pill rail using cacophonySavvyComplete
+- [x] Task 6: Event delegation for cacophony_savvy section
+  - [x] Copy Context → buildCacophonySavvyContext → copyToClipboard (uses data-slot-idx on button)
+  - [x] Context toggle per slot
+  - [x] Save Draft → saveNarrativeField with buildUpdatedArray → re-render section
+  - [x] Mark Complete → save + re-render + update pill rail using cacophonySavvyComplete
 
-- [ ] Task 7: CSS for Cacophony Savvy section
-  - [ ] `.dt-story-cs-section` — outer container
-  - [ ] `.dt-story-cs-header` — "CACOPHONY SAVVY (N dots)" header row
-  - [ ] `.dt-story-cs-slot` — individual slot container
-  - [ ] `.dt-story-cs-slot-header` — slot label + dot + copy button row
-  - [ ] `.dt-story-cs-empty` — "no noisy actions" notice (muted, italic)
+- [x] Task 7: CSS for Cacophony Savvy section
+  - [x] `.dt-story-cs-header` — "CACOPHONY SAVVY (N dots)" header row
+  - [x] `.dt-story-cs-slot` — individual slot container
+  - [x] `.dt-story-cs-slot-header` — slot label + dot + copy button row
+  - [x] `.dt-story-cs-empty` — "no noisy actions" notice (muted, italic)
+  - [x] `.dt-story-cs-meta` — context detail lines within slot
 
 ---
 
@@ -370,18 +370,28 @@ The old `st_review.narrative.intelligence_dossier` was a single freetext field c
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Angelus + Bob (SM) |
+| 2026-04-15 | 1.1 | Implementation complete | claude-sonnet-4-6 |
 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
-_to be filled by dev agent_
+- Syntax validated with `node --input-type=module --check` — clean
 
 ### Completion Notes List
-_to be filled by dev agent_
+- CS_ACTION_PRIORITY constant added after ACTION_TYPE_LABELS (top of file)
+- getCSDots: finds Cacophony Savvy merit by name in char.merits, returns rating or 0
+- scanNoisyActions: excludes own sub by character_id, excludes skipped + hide_protect with successes > 0, filters to CS_ACTION_PRIORITY types, sorts ascending by priorityIdx
+- buildCacophonySavvyContext: omits territory/outcome lines if absent; style rules include em-dash escape chars
+- cacophonySavvyComplete: re-scans _allSubmissions; only checks slots 0..noisyCount-1 for completion
+- renderCacophonySavvy: returns '' if csDots===0; N slots with empty notice for slots beyond noisyActions.length
+- isSectionDone cacophony_savvy stub replaced with cacophonySavvyComplete(getCharForSub(sub), sub)
+- handleCopyCacophonyContext: reads slotIdx from btn.dataset.slotIdx, re-scans noisy on each call
+- handleCacophonySave: stores action_ref snapshot alongside response; re-renders section + sign-off + rail
+- Event delegation wired for copy/save/complete in cacophony_savvy section
 
 ### File List
-- `public/js/admin/downtime-story.js`
-- `public/css/admin-layout.css`
+- `public/js/admin/downtime-story.js` — modified: CS_ACTION_PRIORITY, getCSDots, scanNoisyActions, buildCacophonySavvyContext, cacophonySavvyComplete, renderCacophonySavvy, handleCopyCacophonyContext, handleCacophonySave; isSectionDone fixed; renderSection + event delegation wired
+- `public/css/admin-layout.css` — modified: B7 CS section CSS classes added

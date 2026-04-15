@@ -6512,3 +6512,58 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   padding: 8px 0;
 }
 
+/* ── B7: Cacophony Savvy section ──────────────────────────────────────────── */
+
+.dt-story-cs-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--surf2);
+}
+
+.dt-story-cs-slot {
+  border-bottom: 1px solid var(--surf2);
+  padding: 10px 12px 12px;
+}
+
+.dt-story-cs-slot:last-child {
+  border-bottom: none;
+}
+
+.dt-story-cs-slot.complete {
+  opacity: 0.75;
+}
+
+.dt-story-cs-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dt-story-cs-slot-label {
+  flex: 1;
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dt-story-cs-meta {
+  display: block;
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.dt-story-cs-empty {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-style: italic;
+  padding: 4px 0 2px;
+}
+

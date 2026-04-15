@@ -34,6 +34,24 @@ const ACTION_TYPE_LABELS = {
   acquisition:       'Acquisition',
 };
 
+// ── Cacophony Savvy priority order (B7) ──────────────────────────────────────
+
+const CS_ACTION_PRIORITY = [
+  'attack',
+  'patrol_scout',
+  'investigate',
+  'ambience_increase',
+  'ambience_decrease',
+  'support',
+  'misc',
+  'rumour',
+  'grow',
+  'acquisition',
+  'maintenance',
+  'xp_spend',
+  'block',
+];
+
 // ── Territory constants (duplicated from downtime-views.js per NFR-DS-01) ────
 
 const TERRITORY_SLUG_MAP = {
@@ -220,8 +238,9 @@ export async function initDtStory(cycleId) {
       if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);    return; }
       if (sectionKey === 'letter_from_home')    { handleCopyLetterContext(copyBtn);     return; }
       if (sectionKey === 'touchstone')          { handleCopyTouchstoneContext(copyBtn); return; }
-      if (sectionKey === 'territory_reports')   { handleCopyTerritoryContext(copyBtn);  return; }
-      if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);     return; }
+      if (sectionKey === 'territory_reports')   { handleCopyTerritoryContext(copyBtn);    return; }
+      if (sectionKey === 'cacophony_savvy')     { handleCopyCacophonyContext(copyBtn);   return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);      return; }
       return;
     }
 
@@ -235,8 +254,9 @@ export async function initDtStory(cycleId) {
       if (sectionKey === 'project_responses')   { handleProjectSave(saveDraftBtn, 'draft');    return; }
       if (sectionKey === 'letter_from_home')    { handleLetterSave(saveDraftBtn, 'draft');     return; }
       if (sectionKey === 'touchstone')          { handleTouchstoneSave(saveDraftBtn, 'draft'); return; }
-      if (sectionKey === 'territory_reports')   { handleTerritorySave(saveDraftBtn, 'draft');  return; }
-      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(saveDraftBtn, 'draft');     return; }
+      if (sectionKey === 'territory_reports')   { handleTerritorySave(saveDraftBtn, 'draft');    return; }
+      if (sectionKey === 'cacophony_savvy')     { handleCacophonySave(saveDraftBtn, 'draft');   return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(saveDraftBtn, 'draft');       return; }
       if (sectionKey === 'resource_approvals')  { handleFlagNoteSave(saveDraftBtn);            return; }
       return;
     }
@@ -247,8 +267,9 @@ export async function initDtStory(cycleId) {
       if (sectionKey === 'project_responses')   { handleProjectSave(completeBtn, 'complete');    return; }
       if (sectionKey === 'letter_from_home')    { handleLetterSave(completeBtn, 'complete');     return; }
       if (sectionKey === 'touchstone')          { handleTouchstoneSave(completeBtn, 'complete'); return; }
-      if (sectionKey === 'territory_reports')   { handleTerritorySave(completeBtn, 'complete');  return; }
-      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(completeBtn, 'complete');     return; }
+      if (sectionKey === 'territory_reports')   { handleTerritorySave(completeBtn, 'complete');    return; }
+      if (sectionKey === 'cacophony_savvy')     { handleCacophonySave(completeBtn, 'complete');   return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(completeBtn, 'complete');       return; }
       return;
     }
   });
@@ -309,10 +330,8 @@ function isSectionDone(stNarrative, sectionKey, sub) {
       const approvals = stNarrative.resource_approvals || [];
       return applicable.every((_, i) => approvals[i]?.approved !== undefined);
     }
-    case 'cacophony_savvy': {
-      const cs = stNarrative.cacophony_savvy || [];
-      return cs.length > 0 && cs.every(r => r.status === 'complete');
-    }
+    case 'cacophony_savvy':
+      return cacophonySavvyComplete(getCharForSub(sub), sub);
     case 'allies_actions':   return actionResponsesComplete(sub, ['allies']);
     case 'status_actions':   return actionResponsesComplete(sub, ['status']);
     case 'retainer_actions': return actionResponsesComplete(sub, ['retainer', 'staff']);
@@ -617,6 +636,7 @@ function renderSection(section, char, sub, stNarrative) {
     case 'touchstone':         return renderTouchstone(char, sub, stNarrative);
     case 'project_responses':  return renderProjectSection(char, sub);
     case 'territory_reports':  return renderTerritoryReports(char, sub, stNarrative, _allSubmissions, _allCharacters);
+    case 'cacophony_savvy':    return renderCacophonySavvy(char, sub, stNarrative, _allSubmissions);
     case 'allies_actions':     return renderAlliesSection(char, sub);
     case 'status_actions':     return renderStatusSection(char, sub);
     case 'retainer_actions':   return renderRetainerSection(char, sub);
@@ -1804,6 +1824,150 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
   return h;
 }
 
+// ── B7: Cacophony Savvy section ───────────────────────────────────────────────
+
+function getCSDots(char) {
+  const m = (char.merits || []).find(m => m.name === 'Cacophony Savvy');
+  return m ? (m.rating || 0) : 0;
+}
+
+/**
+ * Scans all submissions (excluding the current character's) for noisy project actions.
+ * Returns up to csDots candidates sorted by CS_ACTION_PRIORITY index (ascending = highest priority).
+ * Tie-breaking within the same action type preserves source order.
+ */
+function scanNoisyActions(allSubmissions, currentCharId, csDots) {
+  const candidates = [];
+  for (const s of allSubmissions) {
+    if (s.character_id === currentCharId) continue;
+    const resolved = s.projects_resolved || [];
+    resolved.forEach((rev, idx) => {
+      if (!rev) return;
+      if (rev.pool_status === 'skipped') return;
+      if (rev.action_type === 'hide_protect' && (rev.roll?.successes || 0) > 0) return;
+      const priorityIdx = CS_ACTION_PRIORITY.indexOf(rev.action_type);
+      if (priorityIdx === -1) return;
+      const slot = idx + 1;
+      candidates.push({
+        priorityIdx,
+        characterName: s.character_name || 'Unknown',
+        actionType: rev.action_type,
+        territory: s.responses?.[`project_${slot}_territory`] || '',
+        outcome: s.responses?.[`project_${slot}_outcome`] || '',
+        successes: rev.roll?.successes ?? null,
+      });
+    });
+  }
+  candidates.sort((a, b) => a.priorityIdx - b.priorityIdx);
+  return candidates.slice(0, csDots);
+}
+
+function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
+  const lines = [];
+  lines.push('You are helping a Storyteller write a Cacophony Savvy intelligence vignette for a Vampire: The Requiem 2nd Edition LARP character.');
+  lines.push('');
+  lines.push(`Character: ${displayName(char)}`);
+  lines.push(`Cacophony Savvy: ${csDots} dots (slot ${slotIdx + 1} of ${csDots})`);
+  lines.push('');
+  lines.push('This slot covers a noisy event that filtered through the Cacophony this cycle:');
+  lines.push('');
+  lines.push(`Source: ${noisyAction.characterName}`);
+  lines.push(`Action: ${ACTION_TYPE_LABELS[noisyAction.actionType] || noisyAction.actionType}`);
+  if (noisyAction.territory) lines.push(`Territory: ${noisyAction.territory}`);
+  if (noisyAction.outcome)   lines.push(`Declared intent: ${noisyAction.outcome}`);
+  lines.push('');
+  lines.push(`Write a short vignette (~75 words) of what ${displayName(char)} heard via the Cacophony about this event.`);
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Third person \u2014 the character hears about someone else, not about themselves');
+  lines.push('- British English');
+  lines.push('- No mechanical terms \u2014 no discipline names, success counts, dot ratings');
+  lines.push('- No em dashes');
+  lines.push('- Cacophony impressions are distorted \u2014 facts may be garbled, emphasis skewed, source obscured');
+  lines.push('- Do not state what actually happened precisely; write what filtered through the rumour network');
+  lines.push('- Do not editorialise about significance');
+  return lines.join('\n');
+}
+
+/**
+ * Returns true if the cacophony_savvy section is considered complete.
+ * Re-scans _allSubmissions each call to reflect current cycle state.
+ */
+function cacophonySavvyComplete(char, sub) {
+  const csDots = getCSDots(char);
+  if (csDots === 0) return true;
+  const noisyCount = scanNoisyActions(_allSubmissions, sub.character_id, csDots).length;
+  if (noisyCount === 0) return true;
+  const slots = sub.st_narrative?.cacophony_savvy || [];
+  return slots.slice(0, noisyCount).every(s => s?.status === 'complete');
+}
+
+function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
+  const csDots = getCSDots(char);
+  if (csDots === 0) return '';
+
+  const noisyActions = scanNoisyActions(allSubmissions, sub.character_id, csDots);
+  const saved = stNarrative?.cacophony_savvy || [];
+
+  let h = `<div class="dt-story-section" data-section="cacophony_savvy">`;
+  h += `<div class="dt-story-cs-header">`;
+  h += `<span class="dt-story-section-header">CACOPHONY SAVVY (${csDots} dot${csDots !== 1 ? 's' : ''})</span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  for (let slotIdx = 0; slotIdx < csDots; slotIdx++) {
+    const noisyAction = noisyActions[slotIdx] || null;
+    const savedSlot   = saved[slotIdx] || null;
+    const savedTxt    = savedSlot?.response || '';
+    const isComplete  = savedSlot?.status === 'complete';
+    const dotClass    = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+    h += `<div class="dt-story-cs-slot${isComplete ? ' complete' : ''}" data-slot-idx="${slotIdx}">`;
+    h += `<div class="dt-story-cs-slot-header">`;
+    h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+    h += `<span class="dt-story-cs-slot-label">Slot ${slotIdx + 1}</span>`;
+
+    if (noisyAction) {
+      h += `<button class="dt-story-copy-ctx-btn" data-slot-idx="${slotIdx}">Copy Context</button>`;
+    }
+    h += `</div>`; // cs-slot-header
+
+    if (!noisyAction) {
+      h += `<div class="dt-story-cs-empty">No noisy actions found for this slot this cycle.</div>`;
+    } else {
+      const ctxCollapsed   = savedTxt ? ' collapsed' : '';
+      const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
+
+      // Context block
+      h += `<div class="dt-story-context-block${ctxCollapsed}">`;
+      h += `<div class="dt-story-context-text">`;
+      h += `<span class="dt-story-cs-meta"><strong>Source:</strong> ${noisyAction.characterName}</span>`;
+      h += `<span class="dt-story-cs-meta"><strong>Action:</strong> ${ACTION_TYPE_LABELS[noisyAction.actionType] || noisyAction.actionType}</span>`;
+      if (noisyAction.territory) h += `<span class="dt-story-cs-meta"><strong>Territory:</strong> ${noisyAction.territory}</span>`;
+      if (noisyAction.outcome)   h += `<span class="dt-story-cs-meta"><strong>Intent:</strong> \u201C${noisyAction.outcome}\u201D</span>`;
+      h += `</div>`;
+      h += `<a class="dt-story-context-toggle" role="button">${ctxToggleLabel}</a>`;
+      h += `</div>`; // context-block
+
+      // Textarea
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" rows="5" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
+
+      // Action buttons
+      h += `<div class="dt-story-card-actions">`;
+      h += `<button class="dt-story-save-draft-btn" data-slot-idx="${slotIdx}">Save Draft</button>`;
+      h += `<button class="dt-story-mark-complete-btn" data-slot-idx="${slotIdx}">`;
+      h += `<span class="dt-story-completion-dot ${dotClass}"></span> Mark Complete`;
+      h += `</button>`;
+      h += `</div>`;
+    }
+
+    h += `</div>`; // cs-slot
+  }
+
+  h += `</div></div>`; // section-body + section
+  return h;
+}
+
 // ── Sign-off panel ────────────────────────────────────────────────────────────
 
 function renderSignOffPanel(stNarrative, applicableSections, sub) {
@@ -2239,5 +2403,83 @@ async function handleFlagNoteSave(btn) {
     btn.disabled = false;
     btn.textContent = 'Save Note';
     console.error('Flag note save failed:', err);
+  }
+}
+
+// ── Cacophony Savvy event handlers (B7) ───────────────────────────────────────
+
+function handleCopyCacophonyContext(btn) {
+  if (!_currentSub) return;
+  const char     = getCharForSub(_currentSub);
+  const slotIdx  = parseInt(btn.dataset.slotIdx, 10);
+  const csDots   = getCSDots(char);
+  const noisy    = scanNoisyActions(_allSubmissions, _currentSub.character_id, csDots);
+  const action   = noisy[slotIdx];
+  if (!action) return;
+  copyToClipboard(buildCacophonySavvyContext(char, action, slotIdx, csDots), btn);
+}
+
+async function handleCacophonySave(btn, status) {
+  const slot = btn.closest('.dt-story-cs-slot');
+  if (!slot || !_currentSub) return;
+  const slotIdx = parseInt(slot.dataset.slotIdx, 10);
+
+  const ta   = slot.querySelector('.dt-story-response-ta');
+  const text = ta?.value || '';
+
+  const char    = getCharForSub(_currentSub);
+  const csDots  = getCSDots(char);
+  const noisy   = scanNoisyActions(_allSubmissions, _currentSub.character_id, csDots);
+  const action  = noisy[slotIdx];
+
+  const user   = getUser();
+  const author = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  btn.textContent = 'Saving\u2026';
+
+  try {
+    const existing = _currentSub.st_narrative?.cacophony_savvy || [];
+    const updated  = buildUpdatedArray(existing, slotIdx, {
+      slot: slotIdx,
+      action_ref: action ? {
+        character_name: action.characterName,
+        action_type:    action.actionType,
+        territory:      action.territory,
+      } : null,
+      response: text,
+      author,
+      status,
+    });
+
+    await saveNarrativeField(_currentSub._id, { 'st_narrative.cacophony_savvy': updated });
+
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.cacophony_savvy = updated;
+
+    const sectionEl = document.querySelector('.dt-story-section[data-section="cacophony_savvy"]');
+    if (sectionEl) {
+      const newHtml = renderCacophonySavvy(char, _currentSub, _currentSub.st_narrative, _allSubmissions);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = newHtml;
+      sectionEl.replaceWith(tmp.firstElementChild);
+    }
+
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp2 = document.createElement('div');
+      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      signOff.replaceWith(tmp2.firstElementChild);
+    }
+
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    console.error('Cacophony save failed:', err);
   }
 }
