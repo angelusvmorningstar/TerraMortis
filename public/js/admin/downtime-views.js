@@ -4168,6 +4168,30 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire patrol/scout detail level selector
+  container.querySelectorAll('.proc-patrol-detail-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { patrol_detail_level: sel.value || null });
+    });
+  });
+
+  // Wire patrol/scout observed textarea
+  container.querySelectorAll('.proc-patrol-observed-ta').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = ta.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { patrol_observed: ta.value.trim() || null });
+    });
+  });
+
   // Wire investigate target character dropdown — save without re-render
   container.querySelectorAll('.proc-inv-char-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -5958,6 +5982,20 @@ function renderActionPanel(entry, review) {
         }
       }
       h += `</select>`;
+      h += `</div>`;
+    }
+    // Patrol/Scout outcome fields
+    if (entry.actionType === 'patrol_scout') {
+      const _patObs   = rev.patrol_observed     || '';
+      const _patLevel = rev.patrol_detail_level || '';
+      const _patLevels = ['1 \u2014 Vague', '2', '3', '4', '5+ \u2014 Detailed'];
+      h += `<div class="proc-recat-row" style="margin-top:8px;padding-top:8px">`;
+      h += `<span class="proc-feed-lbl">Detail Level</span>`;
+      h += `<select class="proc-recat-select proc-patrol-detail-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_patLevels.map(l => `<option value="${l}"${_patLevel === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<span class="proc-feed-lbl">Observed</span>`;
+      h += `<textarea class="proc-detail-ta proc-patrol-observed-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was observed\u2026">${esc(_patObs)}</textarea>`;
       h += `</div>`;
     }
   }

@@ -1299,6 +1299,9 @@ function buildActionContext(char, sub, idx) {
   if (rev.contacts_info_type) lines.push(`Info Type: ${rev.contacts_info_type}`);
   if (rev.contacts_subject)   lines.push(`Subject: ${rev.contacts_subject}`);
 
+  if (rev.patrol_detail_level) lines.push(`Detail Level: ${rev.patrol_detail_level}`);
+  if (rev.patrol_observed)     lines.push(`Observed: ${rev.patrol_observed}`);
+
   // Cross-action context chips
   const chips = [];
   if (covered.length) {
