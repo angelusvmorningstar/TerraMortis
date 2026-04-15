@@ -250,3 +250,33 @@ development_status:
   dtx-3-notes-feedback-visual-hierarchy: review
 
   epic-dtx-retrospective: optional
+
+  # ============================================================
+  # EPIC DTR: DT ROLL RESOLUTION — BACKLOG
+  # ============================================================
+  # Net success display + contested roll mechanism
+  # Triggered by Cycle 2: Keeper's Rote Feed Mesmerise vs. Rene
+  # Epic file: specs/epic-dtr-roll-resolution.md
+  # DTR-2 depends on DTR-1
+
+  epic-dtr: backlog
+
+  dtr-1-net-success-display: ready-for-dev
+  dtr-2-contested-roll: ready-for-dev
+
+  epic-dtr-retrospective: optional
+
+  # ============================================================
+  # EPIC DTS: ST ACTION IMPROVEMENTS — BACKLOG
+  # ============================================================
+  # ST-created sorcery full panel + duplicate action button
+  # Triggered by Cycle 2: Keeper's 4-rite submission + broken ST action panel
+  # Epic file: specs/epic-dts-st-action-improvements.md
+  # DTS-2 depends on DTS-1
+
+  epic-dts: backlog
+
+  dts-1-st-sorcery-full-panel: ready-for-dev
+  dts-2-duplicate-action: ready-for-dev
+
+  epic-dts-retrospective: optional
