@@ -4558,6 +4558,7 @@ body {
 .proc-val-status button.active.resolved    { border-color: var(--result-succ); color: var(--result-succ); background: var(--result-succ-bg); }
 .proc-val-status button.active.no_effect   { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
 .proc-val-status button.active.skipped     { border-color: var(--txt2); color: var(--txt2); background: rgba(100,100,100,.15); }
+.proc-val-status button.active.committed   { border-color: var(--story-compl); color: var(--story-compl); background: var(--story-compl-a15); }
 
 .proc-notes-thread {
   display: flex;
@@ -5316,6 +5317,18 @@ body {
 .proc-recat-row-tight  { margin-top: 4px; padding-top: 4px; border-top: none; }
 .proc-recat-row-spaced { margin-top: 8px; padding-top: 8px; }
 
+/* Pool committed state — locks pool builder and modifier panels */
+.proc-pool-committed { opacity: 0.65; pointer-events: none; user-select: none; }
+.proc-pool-committed-badge {
+  color: var(--story-compl);
+  font-size: 10px;
+  font-family: var(--fl);
+  letter-spacing: 0.07em;
+  margin-left: 6px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 /* Territory pills rendered inline alongside the Action Type selector (ambience actions) */
 .proc-terr-inline-pills {
   display: inline-flex;
@@ -5632,6 +5645,7 @@ html:not([data-theme="dark"]) .proc-val-status button.active.resolved     { bord
 html:not([data-theme="dark"]) .proc-val-status button.active.no_effect    { border-color: var(--txt2); color: var(--txt2); background: var(--gold-a10); }
 html:not([data-theme="dark"]) .proc-val-status button.active.skipped      { border-color: var(--txt2); color: var(--txt2); background: var(--gold-a10); }
 html:not([data-theme="dark"]) .proc-val-status button.active.maintenance  { border-color: var(--accent); color: var(--accent); background: var(--accent-a12); }
+html:not([data-theme="dark"]) .proc-val-status button.active.committed    { border-color: var(--story-compl); color: var(--story-compl); background: var(--story-compl-a15); }
 html:not([data-theme="dark"]) .proc-val-status button:hover               { border-color: var(--crim-a40); color: var(--txt); }
 html:not([data-theme="dark"]) .proc-row-status.maintenance                { background: var(--accent-a12); color: var(--accent); }
 html:not([data-theme="dark"]) .proc-row-status.resolved                   { background: var(--green-a15); color: var(--green3); }

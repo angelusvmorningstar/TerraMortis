@@ -248,6 +248,7 @@ function _computeMeritPoolSize(category, dots) {
 // Human-readable labels for pool_status values across all action types
 const POOL_STATUS_LABELS = {
   pending:     'Pending',
+  committed:   'Committed',
   validated:   'Validated',
   no_roll:     'No Roll',
   no_feed:     'No Valid Feeding',
@@ -5201,8 +5202,9 @@ function _renderMeritRightPanel(entry, rev) {
     h += `</div>`;
   } else if (isRolled) {
     // Equipment modifier ticker
-    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
-    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+    const _meritCommitted = poolStatus === 'committed';
+    h += `<div class="proc-feed-mod-panel${_meritCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_meritCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
     const poolDisplay = basePool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base pool</span><span class="proc-mod-static">${poolDisplay}</span></div>`;
     h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
@@ -5267,7 +5269,7 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+  const meritBtns = [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
@@ -5295,11 +5297,14 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
   const total        = base + 3 + mgDots + eqMod;
 
+  const _sorcCommitted = poolStatus === 'committed';
+  const _sorcDis = _sorcCommitted ? ' disabled' : '';
+
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
   // ── Dice Pool Modifiers ──
-  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
-  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+  h += `<div class="proc-feed-mod-panel${_sorcCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_sorcCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
 
   // +3 Downtime bonus (always on)
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
@@ -5308,7 +5313,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   if (isCruac && mgPool > 0) {
     h += `<div class="proc-mod-row">`;
     h += `<label class="proc-pool-rote-label proc-feed-rote-right">`;
-    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}> Mandragora Garden (+${mgPool})`;
+    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}${_sorcDis}> Mandragora Garden (+${mgPool})`;
     h += `</label></div>`;
   }
 
@@ -5330,7 +5335,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
     const poolExprSorc = `${base} + 3${mgDots ? ` + ${mgDots} (Mandragora)` : ''}${eqMod ? ` ${eqMod > 0 ? '+' : ''}${eqMod}` : ''} = ${total} dice`;
@@ -5405,7 +5410,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
   const _activeProjSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -6340,17 +6345,19 @@ function renderActionPanel(entry, review) {
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
       const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
 
-      h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
-      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+      const _feedCommitted = poolStatus === 'committed';
+      const _feedDis = _feedCommitted ? ' disabled' : '';
+      h += `<div class="proc-pool-builder${_feedCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
       if (showParseRef) {
         h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
       }
       h += '<div class="proc-pool-builder-selects">';
-      h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}">${attrOptHtml}</select>`;
+      h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_feedDis}>${attrOptHtml}</select>`;
       h += `<span class="proc-pool-plus">+</span>`;
-      h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}">${skillOptHtml}</select>`;
+      h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_feedDis}>${skillOptHtml}</select>`;
       h += `<span class="proc-pool-plus">+</span>`;
-      h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
+      h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_feedDis}>${discOptHtml}</select>`;
       h += '</div>'; // proc-pool-builder-selects
       // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
@@ -6362,13 +6369,13 @@ function renderActionPanel(entry, review) {
       for (const sp of _fbSp) {
         const checked = _fbAct.includes(sp);
         const aoe = hasAoE(char, sp);
-        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}${_feedDis}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
       }
       for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
         if (fromSkill === preSkill) continue; // already present as a native spec on this skill
         const checked = _fbAct.includes(isSp);
         const aoe = hasAoE(char, isSp);
-        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}${_feedDis}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
       }
       h += '</div>';
       h += '</div>'; // proc-pool-builder
@@ -6435,17 +6442,19 @@ function renderActionPanel(entry, review) {
     const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
     const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill, _pnA);
 
-    h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
-    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+    const _projCommitted = poolStatus === 'committed';
+    const _projDis = _projCommitted ? ' disabled' : '';
+    h += `<div class="proc-pool-builder${_projCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_projCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
     if (showParseRef) {
       h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
     }
     h += '<div class="proc-pool-builder-selects">';
-    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}">${attrOptHtml}</select>`;
+    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_projDis}>${attrOptHtml}</select>`;
     h += `<span class="proc-pool-plus">+</span>`;
-    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}">${skillOptHtml}</select>`;
+    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_projDis}>${skillOptHtml}</select>`;
     h += `<span class="proc-pool-plus">+</span>`;
-    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
+    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_projDis}>${discOptHtml}</select>`;
     h += '</div>';
     h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
     h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
@@ -6456,13 +6465,13 @@ function renderActionPanel(entry, review) {
     for (const sp of _pSp) {
       const checked = _pAct.includes(sp);
       const aoe = hasAoE(char, sp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}${_projDis}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
       if (fromSkill === preSkill) continue; // already present as a native spec on this skill
       const checked = _pAct.includes(isSp);
       const aoe = hasAoE(char, isSp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}${_projDis}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
     }
     h += '</div>';
     h += '</div>'; // proc-pool-builder
