@@ -909,3 +909,452 @@ test.describe('DTQ-3: Lead ticker on project investigate, not merit investigate'
   });
 
 });
+
+// ── DTX-3: Notes / Feedback visual hierarchy ──────────────────────────────────
+
+// Allies ambience_decrease — mode: auto → compact panel
+const SUBMISSION_ALLIES_AMBIENCE_DEC = {
+  _id: 'sub-allies-amb-dec',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test',
+  character_id: 'char-pt4',
+  player_name: 'Test Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [],
+    feeding: null,
+    sphere_actions: [
+      {
+        merit_type: 'Allies 3 (Criminal)',
+        action_type: 'ambience_decrease',
+        description: 'Undermine the peace.',
+        desired_outcome: 'Reduce ambience',
+        primary_pool: { expression: '' },
+      },
+    ],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {},
+  projects_resolved: [],
+  feeding_review: null,
+  merit_actions_resolved: [{ pool_status: 'pending' }],
+  st_review: { territory_overrides: {} },
+};
+
+// Contacts entry — meritCategory ends up as 'contacts' via formula path
+const SUBMISSION_CONTACTS_REQ = {
+  _id: 'sub-contacts-req',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test',
+  character_id: 'char-pt4',
+  player_name: 'Test Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [],
+    feeding: null,
+    sphere_actions: [],
+    contact_actions: { requests: ['Find out who owns the docks.'] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {},
+  projects_resolved: [],
+  feeding_review: null,
+  merit_actions_resolved: [{ pool_status: 'pending' }],
+  st_review: { territory_overrides: {} },
+};
+
+// Retainer entry — actionType: 'resources_retainers', formula: 'none' via misc fallback
+const SUBMISSION_RETAINER_TASK = {
+  _id: 'sub-retainer-task',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test',
+  character_id: 'char-pt4',
+  player_name: 'Test Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [],
+    feeding: null,
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: ['Guard the warehouse overnight.'] },
+  },
+  responses: {},
+  projects_resolved: [],
+  feeding_review: null,
+  merit_actions_resolved: [{ pool_status: 'pending' }],
+  st_review: { territory_overrides: {} },
+};
+
+test.describe('DTX-3: Notes / feedback visual hierarchy', () => {
+
+  test('ST Notes section renders above Player Feedback in the left panel', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
+    await openFirstAction(page, 'Ambience');
+
+    const panel = page.locator('.proc-action-detail').first();
+    const notesPanel   = panel.locator('.proc-notes-panel').first();
+    const feedbackPanel = panel.locator('.proc-feedback-section').first();
+
+    // Both must exist
+    await expect(notesPanel).toBeVisible({ timeout: 5000 });
+    await expect(feedbackPanel).toBeVisible({ timeout: 5000 });
+
+    // Notes must appear before feedback in the DOM
+    const notesBB    = await notesPanel.boundingBox();
+    const feedbackBB = await feedbackPanel.boundingBox();
+    expect(notesBB.y).toBeLessThan(feedbackBB.y);
+  });
+
+  test('ST Notes section label reads "ST Notes" (not "ST Notes (ST only)")', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
+    await openFirstAction(page, 'Ambience');
+
+    const notesPanel = page.locator('.proc-notes-panel').first();
+    await expect(notesPanel).toContainText('ST Notes');
+    await expect(notesPanel).not.toContainText('ST only');
+  });
+
+  test('Player Feedback section has proc-feedback-section class', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-feedback-section').first()).toBeVisible({ timeout: 5000 });
+  });
+
+});
+
+// ── DTX-2: Compact panel for binary merit actions ─────────────────────────────
+
+test.describe('DTX-2: Compact panel for binary merit actions', () => {
+
+  test('auto-mode merit (ambience_decrease) renders compact panel', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_AMBIENCE_DEC]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-compact-merit-panel').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-val-status')).toHaveCount(0);
+  });
+
+  test('contacts entry renders compact panel', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_CONTACTS_REQ]);
+    await openFirstAction(page, 'Contacts');
+
+    await expect(page.locator('.proc-compact-merit-panel').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-val-status')).toHaveCount(0);
+  });
+
+  test('retainer entry renders compact panel', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_RETAINER_TASK]);
+    await openFirstAction(page, 'Resources');
+
+    await expect(page.locator('.proc-compact-merit-panel').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-val-status')).toHaveCount(0);
+  });
+
+  test('full-mode merit (allies investigate) renders normal panel — not compact', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
+    await openFirstAction(page, 'Investigative');
+
+    await expect(page.locator('.proc-val-status').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-compact-merit-panel')).toHaveCount(0);
+  });
+
+  test('compact panel outcome toggle — clicking Approved marks it active', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_AMBIENCE_DEC]);
+    await openFirstAction(page, 'Ambience');
+
+    const approvedBtn = page.locator('.proc-merit-outcome-btn[data-outcome="approved"]').first();
+    await expect(approvedBtn).toBeVisible({ timeout: 5000 });
+    await approvedBtn.click();
+    await page.waitForTimeout(400);
+
+    await expect(approvedBtn).toHaveClass(/active/);
+  });
+
+  test('compact panel outcome toggle — clicking Failed marks it active and deactivates others', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_AMBIENCE_DEC]);
+    await openFirstAction(page, 'Ambience');
+
+    const failedBtn   = page.locator('.proc-merit-outcome-btn[data-outcome="failed"]').first();
+    const approvedBtn = page.locator('.proc-merit-outcome-btn[data-outcome="approved"]').first();
+    await failedBtn.click();
+    await page.waitForTimeout(400);
+
+    await expect(failedBtn).toHaveClass(/active/);
+    await expect(approvedBtn).not.toHaveClass(/active/);
+  });
+
+});
+
+// ── DTX-1: Cross-reference callouts ──────────────────────────────────────────
+
+// Two characters: CHAR_PT4 (Charlie Test) and CHAR_NON_SUBMITTER (Non Submitter)
+// Both have a project action in the same territory
+const SUBMISSION_PROJ_TERR_CHARLIE = {
+  _id: 'sub-proj-terr-charlie',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test',
+  character_id: 'char-pt4',
+  player_name: 'Test Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [
+      { action_type: 'patrol_scout', desired_outcome: 'Scout North Shore', detail: 'Walk the area.' },
+    ],
+    feeding: null,
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {
+    project_1_action: 'patrol_scout',
+    project_1_outcome: 'Scout North Shore',
+    project_1_description: 'Walk the area.',
+    project_1_territory: 'North Shore',
+  },
+  projects_resolved: [{ pool_status: 'pending', pool_validated: '' }],
+  feeding_review: null,
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+const CHAR_NON_SUBMITTER_FULL = {
+  _id: 'char-ns', name: 'Non Submitter', moniker: null, honorific: null,
+  clan: 'Mekhet', covenant: 'Carthian Movement', player: 'Other Player',
+  blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null,
+  retired: false,
+  status: { city: 1, clan: 1, covenant: 1 },
+  attributes: {
+    Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
+    Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
+    Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 },
+  },
+  skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
+};
+
+const SUBMISSION_PROJ_TERR_NS = {
+  _id: 'sub-proj-terr-ns',
+  cycle_id: 'cycle-001',
+  character_name: 'Non Submitter',
+  character_id: 'char-ns',
+  player_name: 'Other Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [
+      { action_type: 'ambience_increase', desired_outcome: 'Increase ambience', detail: 'Work the crowd.' },
+    ],
+    feeding: null,
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {
+    project_1_action: 'ambience_increase',
+    project_1_outcome: 'Increase ambience',
+    project_1_description: 'Work the crowd.',
+    project_1_territory: 'North Shore',
+  },
+  projects_resolved: [{ pool_status: 'pending', pool_validated: '' }],
+  feeding_review: null,
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+// Feeding overlap: two characters feeding North Shore
+const SUBMISSION_FEED_CHARLIE = {
+  _id: 'sub-feed-charlie',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test',
+  character_id: 'char-pt4',
+  player_name: 'Test Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [],
+    feeding: { method: 'seduction', pool: { expression: 'Presence 2 + Persuasion 2 = 4' } },
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {
+    feeding_method: 'seduction',
+    feeding_territories: '{"North Shore":"resident"}',
+  },
+  projects_resolved: [],
+  feeding_review: { pool_status: 'pending', pool_player: '', notes_thread: [], player_feedback: '' },
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+const SUBMISSION_FEED_NS = {
+  _id: 'sub-feed-ns',
+  cycle_id: 'cycle-001',
+  character_name: 'Non Submitter',
+  character_id: 'char-ns',
+  player_name: 'Other Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [],
+    feeding: { method: 'predator', pool: { expression: 'Strength 2 + Brawl 2 = 4' } },
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {
+    feeding_method: 'predator',
+    feeding_territories: '{"North Shore":"resident"}',
+  },
+  projects_resolved: [],
+  feeding_review: { pool_status: 'pending', pool_player: '', notes_thread: [], player_feedback: '' },
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+// Investigate overlap: both investigating 'charlie test' (sortName of CHAR_PT4)
+const SUBMISSION_INV_NS_TARGET_CHARLIE = {
+  _id: 'sub-inv-ns-tgt',
+  cycle_id: 'cycle-001',
+  character_name: 'Non Submitter',
+  character_id: 'char-ns',
+  player_name: 'Other Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [
+      { action_type: 'investigate', desired_outcome: 'Learn about Charlie', detail: 'Follow the trail.' },
+    ],
+    feeding: null,
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {
+    project_1_action: 'investigate',
+    project_1_outcome: 'Learn about Charlie',
+    project_1_description: 'Follow the trail.',
+  },
+  projects_resolved: [{ pool_status: 'pending', investigate_target_char: 'charlie test' }],
+  feeding_review: null,
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+const SUBMISSION_INV_CHARLIE_TARGET_CHARLIE = {
+  ...SUBMISSION_PROJECT_INVESTIGATE,
+  _id: 'sub-inv-charlie-tgt',
+  projects_resolved: [{ pool_status: 'committed', pool_validated: 'Intelligence 2 + Investigation 3 = 5', investigate_target_char: 'charlie test' }],
+};
+
+// Hide/protect overlap: Non Submitter has a hide_protect action
+const SUBMISSION_HIDE_PROTECT_NS = {
+  _id: 'sub-hide-ns',
+  cycle_id: 'cycle-001',
+  character_name: 'Non Submitter',
+  character_id: 'char-ns',
+  player_name: 'Other Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [
+      { action_type: 'hide_protect', desired_outcome: 'Stay hidden', detail: 'Lay low.' },
+    ],
+    feeding: null,
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'hide_protect', project_1_outcome: 'Stay hidden' },
+  projects_resolved: [{ pool_status: 'pending', pool_validated: '' }],
+  feeding_review: null,
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+// Investigate targeting Non Submitter (who has hide_protect above)
+const SUBMISSION_INV_CHARLIE_TARGET_NS = {
+  _id: 'sub-inv-charlie-tgt-ns',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test',
+  character_id: 'char-pt4',
+  player_name: 'Test Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [
+      { action_type: 'investigate', desired_outcome: 'Find Non Submitter', detail: 'Track them down.' },
+    ],
+    feeding: null,
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: { project_1_action: 'investigate', project_1_outcome: 'Find Non Submitter' },
+  projects_resolved: [{ pool_status: 'pending', investigate_target_char: 'non submitter' }],
+  feeding_review: null,
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+test.describe('DTX-1: Cross-reference callouts', () => {
+
+  test('project action with shared territory shows xref callout naming the other character', async ({ page }) => {
+    await setupDowntimeProcessing(
+      page,
+      [SUBMISSION_PROJ_TERR_CHARLIE, SUBMISSION_PROJ_TERR_NS],
+      [CHAR_PT4, CHAR_NON_SUBMITTER_FULL, CHAR_RETIRED],
+    );
+    // Open Charlie's project row (patrol_scout → phase 6 = Support & Patrol)
+    await openFirstAction(page, 'Support');
+
+    const callout = page.locator('.proc-xref-callout').first();
+    await expect(callout).toBeVisible({ timeout: 5000 });
+    await expect(callout).toContainText('North Shore');
+    await expect(callout).toContainText('Non Submitter');
+  });
+
+  test('feeding action with shared territory shows xref callout', async ({ page }) => {
+    await setupDowntimeProcessing(
+      page,
+      [SUBMISSION_FEED_CHARLIE, SUBMISSION_FEED_NS],
+      [CHAR_PT4, CHAR_NON_SUBMITTER_FULL, CHAR_RETIRED],
+    );
+    await openFirstAction(page, 'Feeding');
+
+    const callout = page.locator('.proc-xref-callout').first();
+    await expect(callout).toBeVisible({ timeout: 5000 });
+    await expect(callout).toContainText('North Shore');
+    await expect(callout).toContainText('Non Submitter');
+  });
+
+  test('investigate action with shared target shows xref callout naming the other investigator', async ({ page }) => {
+    await setupDowntimeProcessing(
+      page,
+      [SUBMISSION_INV_CHARLIE_TARGET_CHARLIE, SUBMISSION_INV_NS_TARGET_CHARLIE],
+      [CHAR_PT4, CHAR_NON_SUBMITTER_FULL, CHAR_RETIRED],
+    );
+    await openFirstAction(page, 'Investigative');
+
+    const callout = page.locator('.proc-xref-callout').first();
+    await expect(callout).toBeVisible({ timeout: 5000 });
+    await expect(callout).toContainText('Also investigating');
+    await expect(callout).toContainText('Non Submitter');
+  });
+
+  test('investigate action notes when target has active hide/protect', async ({ page }) => {
+    await setupDowntimeProcessing(
+      page,
+      [SUBMISSION_INV_CHARLIE_TARGET_NS, SUBMISSION_HIDE_PROTECT_NS],
+      [CHAR_PT4, CHAR_NON_SUBMITTER_FULL, CHAR_RETIRED],
+    );
+    await openFirstAction(page, 'Investigative');
+
+    const callout = page.locator('.proc-xref-callout').first();
+    await expect(callout).toBeVisible({ timeout: 5000 });
+    await expect(callout).toContainText('hide/protect');
+  });
+
+  test('action with no cross-references does not render xref callout', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_COMMITTED]);
+    await openFirstAction(page, 'Ambience');
+
+    await expect(page.locator('.proc-xref-callout')).toHaveCount(0);
+  });
+
+});

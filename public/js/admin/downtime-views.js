@@ -36,6 +36,7 @@ let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder 
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
 let ambDashCollapsed = true;   // collapse state for the Ambience Dashboard panel
 let _procQueueMap = null;      // Map<key, entry> built once per renderProcessingMode call; null outside render
+let _xrefIndex = new Map();   // cross-reference index built once per renderProcessingMode call
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
 let matrixCollapsed = true;    // collapse state for the Feeding Matrix section in the dashboard
 const expandedPhases = new Set(); // phaseKeys currently expanded in Processing Mode (empty = all collapsed)
@@ -3228,18 +3229,18 @@ function renderProcessingMode(container) {
   // ── Cross-reference index (single O(n) pass) ──
   // Keys: 'terr:<territory>' | 'inv-target:<charName>'
   // Values: [{ charName, label, phase }, ...] — excludes self at render time
-  const xrefIndex = new Map();
+  _xrefIndex = new Map();
   for (const e of queue) {
     if (e.projTerritory) {
       const k = `terr:${e.projTerritory}`;
-      if (!xrefIndex.has(k)) xrefIndex.set(k, []);
-      xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
+      if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
+      _xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
     }
     if (e.feedTerrs) {
       for (const terr of Object.keys(e.feedTerrs)) {
         const k = `terr:${terr}`;
-        if (!xrefIndex.has(k)) xrefIndex.set(k, []);
-        xrefIndex.get(k).push({ charName: e.charName, label: 'Feeding', phase: e.phase });
+        if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
+        _xrefIndex.get(k).push({ charName: e.charName, label: 'Feeding', phase: e.phase });
       }
     }
     if (e.actionType === 'investigate') {
@@ -3250,8 +3251,8 @@ function renderProcessingMode(container) {
       const target = eRev.investigate_target_char;
       if (target) {
         const k = `inv-target:${target}`;
-        if (!xrefIndex.has(k)) xrefIndex.set(k, []);
-        xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
+        if (!_xrefIndex.has(k)) _xrefIndex.set(k, []);
+        _xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
       }
     }
   }
@@ -6853,7 +6854,7 @@ function renderActionPanel(entry, review) {
 
     // Project territory overlap
     if (entry.projTerritory) {
-      const others = (xrefIndex.get(`terr:${entry.projTerritory}`) || [])
+      const others = (_xrefIndex.get(`terr:${entry.projTerritory}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
@@ -6863,7 +6864,7 @@ function renderActionPanel(entry, review) {
 
     // Feeding territory overlap
     if (entry.source === 'feeding' && entry.primaryTerr) {
-      const others = (xrefIndex.get(`terr:${entry.primaryTerr}`) || [])
+      const others = (_xrefIndex.get(`terr:${entry.primaryTerr}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
@@ -6874,13 +6875,14 @@ function renderActionPanel(entry, review) {
     // Investigate target overlap + hide/protect check
     if (entry.actionType === 'investigate' && rev.investigate_target_char) {
       const target = rev.investigate_target_char;
-      const others = (xrefIndex.get(`inv-target:${target}`) || [])
+      const others = (_xrefIndex.get(`inv-target:${target}`) || [])
         .filter(r => r.charName !== entry.charName);
       if (others.length) {
         xrefLines.push(`Also investigating ${target}: ${others.map(r => r.charName).join(', ')}`);
       }
       // hide/protect: the target's own submission having a hide_protect action
-      if (queue.some(e => e.actionType === 'hide_protect' && e.charName === target)) {
+      // charName uses display capitalisation; target (investigate_target_char) is stored as sortName (lowercase)
+      if ([..._procQueueMap.values()].some(e => e.actionType === 'hide_protect' && e.charName.toLowerCase() === target)) {
         xrefLines.push(`${target} has an active hide/protect action this cycle`);
       }
     }

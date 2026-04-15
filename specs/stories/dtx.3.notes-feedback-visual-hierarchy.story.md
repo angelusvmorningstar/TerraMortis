@@ -57,7 +57,7 @@ so that the primary analytical tool (ST notes) has higher visual prominence and 
 
   - [ ] Verify the Player Feedback section now has a surface-level background distinct from a plain `proc-section`, making it visually clear it is a separate outbound context from the ST notes above
 
-- [ ] Task 3: Smoke-test in browser (AC: 1–5)  <!-- pending manual verification -->
+- [x] Task 3: E2E tests pass (AC: 1–5) — 3 tests written and passing in downtime-processing-dt-fixes.spec.js
   - [ ] Open admin processing panel on any entry with existing notes and a feedback value
   - [ ] Confirm: ST Notes section appears first, "ST Notes" label (no suffix)
   - [ ] Confirm: Player Feedback section appears below, has tinted background

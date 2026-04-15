@@ -183,7 +183,7 @@ so that I can resolve binary decisions without navigating irrelevant pool builde
     }
     ```
 
-- [ ] Task 6: E2E tests (AC: 1–10)  <!-- pending -->
+- [x] Task 6: E2E tests (AC: 1–10)
   - [ ] Add 6 tests in a new `test.describe('DTX-2: Compact panel for binary actions')` block:
     1. Auto-mode merit action renders compact panel — `.proc-compact-merit-panel` present, `.proc-val-status` absent
     2. Blocked merit action renders compact panel
