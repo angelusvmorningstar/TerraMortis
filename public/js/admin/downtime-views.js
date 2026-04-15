@@ -2570,7 +2570,7 @@ function buildAmbienceData(terrs) {
     const cap = AMBIENCE_CAP[ambience] ?? 6;
     const feeders = feederCounts[id] || 0;
     const overfeedVal = feeders > cap ? -(feeders - cap) : 0;
-    const entropy = -1;
+    const entropy = -3;
     const inf_pos = infPos[id] || 0;
     const inf_neg = infNeg[id] || 0;
     const influence = inf_pos - inf_neg;
@@ -2619,7 +2619,7 @@ function renderAmbienceDashboard() {
     h += `<thead><tr>
       <th>Territory</th>
       <th title="Current ambience step">Starting</th>
-      <th title="Fixed -1 entropy per cycle">Entropy</th>
+      <th title="Fixed -3 entropy per cycle">Entropy</th>
       <th title="Feeders vs cap">Overfeeding</th>
       <th title="Influence spend from CSV: +positive / -negative / net">Influence</th>
       <th title="Ambience project roll successes">Projects</th>
@@ -8083,7 +8083,7 @@ function _chkHasContent(sub, key) {
   if (alliesM)   return !!(raw.sphere_actions?.[parseInt(alliesM[1]) - 1]);
   if (contactsM) return !!(raw.contact_actions?.requests?.[parseInt(contactsM[1]) - 1]);
   switch (key) {
-    case 'travel':         return !!(raw.submission?.narrative?.travel_description || sub.responses?.travel);
+    case 'travel':         return DONE_STATUSES.has(sub.st_review?.travel_discretion);
     case 'feeding':        return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
     case 'project_1':      return !!(sub.responses?.project_1_action || raw.projects?.[0]);
     case 'project_2':      return !!(sub.responses?.project_2_action || raw.projects?.[1]);
@@ -8696,7 +8696,7 @@ function _buildAmbienceHtml() {
   h += `<thead><tr>
     <th>Territory</th>
     <th title="Current ambience step">Starting</th>
-    <th title="Fixed -1 entropy per cycle">Entropy</th>
+    <th title="Fixed -3 entropy per cycle">Entropy</th>
     <th title="Feeders vs cap">Overfeeding</th>
     <th title="Influence spend: +positive / -negative / net">Influence</th>
     <th title="Ambience project roll successes">Projects</th>
