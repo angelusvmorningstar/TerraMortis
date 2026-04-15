@@ -2068,9 +2068,13 @@ function buildProcessingQueue(subs) {
     });
   }
 
-  // Sort: phase first, then character name
+  // Sort: phase first, then source type, then character name
+  const SOURCE_ORDER = { project: 0, sorcery: 1, merit: 2, feeding: 3 };
   queue.sort((a, b) => {
     if (a.phaseNum !== b.phaseNum) return a.phaseNum - b.phaseNum;
+    const sa = SOURCE_ORDER[a.source] ?? 9;
+    const sb = SOURCE_ORDER[b.source] ?? 9;
+    if (sa !== sb) return sa - sb;
     return a.charName.localeCompare(b.charName);
   });
 
