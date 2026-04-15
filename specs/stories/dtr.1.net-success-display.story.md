@@ -1,6 +1,6 @@
 # Story DTR-1: Net Success Display
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

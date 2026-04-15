@@ -1,6 +1,6 @@
 # Story DTS-1: ST-Created Sorcery — Full Panel Rendering
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

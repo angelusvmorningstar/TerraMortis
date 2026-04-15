@@ -1,6 +1,6 @@
 # Story DTR-2: Contested Roll
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

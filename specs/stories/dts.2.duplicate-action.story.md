@@ -1,6 +1,6 @@
 # Story DTS-2: Duplicate Action
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
