@@ -5251,11 +5251,28 @@ function _renderMeritRightPanel(entry, rev) {
     h += `</div>`;
   }
 
+  // ── Success Modifier ──
+  if (isRolled) {
+    const succMod = rev.succ_mod_manual !== undefined ? rev.succ_mod_manual : 0;
+    const succStr = succMod === 0 ? '\u00B10' : succMod > 0 ? `+${succMod}` : String(succMod);
+    h += `<div class="proc-proj-succ-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Success Modifier</div>`;
+    h += _renderTickerRow(key, 'Manual adj.', 'proc-succmod', succStr, succMod);
+    h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Net modifier</span>`;
+    h += `<span class="proc-proj-succ-total-val" data-proc-key="${esc(key)}">${succStr}</span>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
   const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
+  // Committed pool display
+  const poolValidatedMerit = rev.pool_validated || '';
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${poolValidatedMerit ? esc(poolValidatedMerit) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
+  if (poolValidatedMerit) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5314,6 +5331,13 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
+  // Committed pool display — shows computed total when rite is selected
+  if (canRoll) {
+    const poolExprSorc = `${base} + 3${mgDots ? ` + ${mgDots} (Mandragora)` : ''}${eqMod ? ` ${eqMod > 0 ? '+' : ''}${eqMod}` : ''} = ${total} dice`;
+    h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${esc(poolExprSorc)}</div>`;
+  } else {
+    h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}"><span class="dt-dim-italic">Select a rite to compute pool</span></div>`;
+  }
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5660,6 +5684,20 @@ function _renderFeedRightPanel(entry, char, rev) {
   }
 
   h += `</div>`;
+
+  // ── Response review section ──
+  const feedResponseStatus = rev.response_status || '';
+  const feedReviewedBy     = rev.response_reviewed_by || '';
+  const feedStResponse     = rev.st_response || '';
+  if (feedStResponse) {
+    h += `<div class="proc-response-review-section">`;
+    if (feedResponseStatus === 'reviewed') {
+      h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(feedReviewedBy)}</div>`;
+    } else {
+      h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
+    }
+    h += `</div>`;
+  }
 
   h += `</div>`; // proc-feed-right
   return h;
