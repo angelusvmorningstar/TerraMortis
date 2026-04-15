@@ -1305,6 +1305,15 @@ function buildActionContext(char, sub, idx) {
   if (rev.rumour_detail_level) lines.push(`Detail Level: ${rev.rumour_detail_level}`);
   if (rev.rumour_content)      lines.push(`Rumour Surfaced: ${rev.rumour_content}`);
 
+  if (rev.support_target_key) {
+    const _tParts = rev.support_target_key.split(':');
+    const _tSub   = _allSubmissions.find(s => s._id === _tParts[0]);
+    const _tChar  = _tSub ? (_allCharacters.find(c => c._id === _tSub.character_id) || null) : null;
+    const _tName  = _tChar ? (_tChar.moniker || _tChar.name) : (_tSub?.character_name || _tParts[0]);
+    const _tType  = _tParts[1] || '';
+    lines.push(`Supporting Action: ${_tName} (${_tType})`);
+  }
+
   // Cross-action context chips
   const chips = [];
   if (covered.length) {

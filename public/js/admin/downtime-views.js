@@ -4192,6 +4192,18 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire support target selector
+  container.querySelectorAll('.proc-support-target-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { support_target_key: sel.value || null });
+    });
+  });
+
   // Wire rumour detail level selector
   container.querySelectorAll('.proc-rumour-detail-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -6020,6 +6032,22 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
       h += `<span class="proc-feed-lbl">Observed</span>`;
       h += `<textarea class="proc-detail-ta proc-patrol-observed-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was observed\u2026">${esc(_patObs)}</textarea>`;
+      h += `</div>`;
+    }
+    // Support target selector
+    if (entry.actionType === 'support') {
+      const _supportKey = rev.support_target_key || '';
+      const _queueEntries = _procQueueMap ? [..._procQueueMap.values()] : [];
+      h += `<div class="proc-recat-row" style="margin-top:8px;padding-top:8px">`;
+      h += `<span class="proc-feed-lbl">Supporting</span>`;
+      h += `<select class="proc-recat-select proc-support-target-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select action \u2014</option>`;
+      for (const qe of _queueEntries) {
+        if (qe.key === entry.key) continue;
+        const qLabel = `${qe.charName} \u2014 ${qe.label}`;
+        h += `<option value="${esc(qe.key)}"${_supportKey === qe.key ? ' selected' : ''}>${esc(qLabel)}</option>`;
+      }
+      h += `</select>`;
       h += `</div>`;
     }
     // Rumour outcome fields
