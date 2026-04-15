@@ -210,7 +210,7 @@ development_status:
   dt-fix-12-feeding-panel-layout: done
   dt-fix-13-st-created-actions: done
   dt-fix-14-second-opinion-flag: done
-  dt-fix-15-rite-vitae-cost-auto-populate: ready-for-dev
+  dt-fix-15-rite-vitae-cost-auto-populate: done
   dt-fix-16-rite-selector-fixes: ready-for-dev
 
   epic-dt-fixes-retrospective: optional

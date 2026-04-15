@@ -5591,7 +5591,10 @@ function _renderFeedRightPanel(entry, char, rev) {
   ).length;
 
   const vitaeMod  = rev.vitae_mod_manual !== undefined ? rev.vitae_mod_manual : 0;
-  const vitaeRite = rev.vitae_rite_cost  !== undefined ? rev.vitae_rite_cost  : 0;
+  const feedSubForRite = submissions.find(s => s._id === entry.subId);
+  const computedRiteCost = feedSubForRite ? _computeRiteVitaeCost(feedSubForRite) : 0;
+  const vitaeRite = rev.vitae_rite_cost  !== undefined ? rev.vitae_rite_cost  : computedRiteCost;
+  const wpCost = feedSubForRite ? _computeRiteWpCost(feedSubForRite) : 0;
   const manStr    = vitaeMod === 0 ? '\u00B10' : vitaeMod > 0 ? `+${vitaeMod}` : String(vitaeMod);
 
   const autoSum = (herdVitae ?? 0) + oofVitae + (ambienceVitae ?? 0) - ghoulCount;
@@ -5637,6 +5640,14 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<span class="proc-mod-label">Rite costs</span>`;
   h += `<input type="number" class="proc-rite-cost-input dt-num-input-sm" min="0" data-proc-key="${esc(key)}" value="${vitaeRite}">`;
   h += `</div>`;
+
+  // Theban WP cost — informational only, does not affect vitae total
+  if (wpCost > 0) {
+    h += `<div class="proc-mod-row">`;
+    h += `<span class="proc-mod-label">Theban Sorcery <span class="proc-mod-muted">(vitae unaffected)</span></span>`;
+    h += `<span class="proc-mod-val proc-mod-neg">\u2212${wpCost}\u202FWP</span>`;
+    h += `</div>`;
+  }
 
   // Manual adjustment ticker
   h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Manual adj.</span>`;
@@ -6748,6 +6759,37 @@ function _getRiteInfo(riteName) {
 /**
  * Return the known level of a rite by name: checks DB first, then all character powers.
  */
+/** Compute total Cruac vitae cost from a submission's sorcery slots. Theban rites cost WP, not vitae. */
+function _computeRiteVitaeCost(sub) {
+  const subChar = findCharacter(sub.character_name, sub.player_name);
+  const discs = subChar?.disciplines || {};
+  if (!discs.Cruac) return 0;
+  const resp = sub.responses || {};
+  const count = parseInt(resp['sorcery_slot_count'] || '1', 10);
+  let total = 0;
+  for (let n = 1; n <= count; n++) {
+    const rite = resp[`sorcery_${n}_rite`];
+    if (!rite) continue;
+    const level = _getRiteLevel(rite) || 0;
+    total += level >= 4 ? 2 : level >= 1 ? 1 : 0;
+  }
+  return total;
+}
+
+/** Compute total Theban WP cost from a submission's sorcery slots (1 WP per rite). */
+function _computeRiteWpCost(sub) {
+  const subChar = findCharacter(sub.character_name, sub.player_name);
+  const discs = subChar?.disciplines || {};
+  if (!(discs['Theban Sorcery'] || discs.Theban)) return 0;
+  const resp = sub.responses || {};
+  const count = parseInt(resp['sorcery_slot_count'] || '1', 10);
+  let total = 0;
+  for (let n = 1; n <= count; n++) {
+    if (resp[`sorcery_${n}_rite`]) total++;
+  }
+  return total;
+}
+
 function _getRiteLevel(riteName) {
   const db = _getRulesDB();
   if (db) {
