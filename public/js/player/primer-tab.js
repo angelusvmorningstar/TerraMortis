@@ -58,43 +58,45 @@ export async function renderPrimerTab(el) {
   h += '</div>';
   el.innerHTML = h;
 
-  // In-document TOC links (from the markdown's own Contents section) use
-  // standard #slug hrefs. Intercept them so we scroll the tab panel, not the
-  // window, and avoid polluting the browser URL bar.
-  el.querySelectorAll('.primer-content a[href^="#"]').forEach(a => {
-    a.addEventListener('click', e => {
-      const href = a.getAttribute('href');
-      if (!href || href.length < 2) return;
-      const target = el.querySelector(href);
-      if (!target) return;
-      e.preventDefault();
-      el.scrollTo({ top: target.offsetTop - el.offsetTop - 16, behavior: 'smooth' });
-    });
+  // Intercept every #slug anchor inside the tab — both the sticky sidebar
+  // TOC and the markdown's own in-document Contents section. Scroll the
+  // tab panel (the actual scroll container), not the window. We compute
+  // the scroll delta from getBoundingClientRect instead of offsetTop
+  // because offsetTop is relative to the nearest positioned ancestor, which
+  // isn't guaranteed to be `el` — whereas getBoundingClientRect is
+  // viewport-relative and works regardless of the containing-block chain.
+  const scrollToAnchor = (href) => {
+    if (!href || href.length < 2) return false;
+    const slug = href.slice(1);
+    const sel  = '#' + (window.CSS && CSS.escape ? CSS.escape(slug) : slug);
+    const target = el.querySelector(sel);
+    if (!target) return false;
+    const elRect     = el.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const top = el.scrollTop + (targetRect.top - elRect.top) - 16;
+    el.scrollTo({ top, behavior: 'smooth' });
+    return true;
+  };
+
+  el.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || !el.contains(a)) return;
+    if (scrollToAnchor(a.getAttribute('href'))) e.preventDefault();
   });
 
-  // Sticky-sidebar TOC links — same behaviour.
-  el.querySelectorAll('.primer-toc-link').forEach(a => {
-    a.addEventListener('click', e => {
-      const href = a.getAttribute('href');
-      if (!href || href.length < 2) return;
-      const target = el.querySelector(href);
-      if (!target) return;
-      e.preventDefault();
-      el.scrollTo({ top: target.offsetTop - el.offsetTop - 16, behavior: 'smooth' });
-    });
-  });
-
-  // Highlight active TOC link on scroll
+  // Highlight active TOC link on scroll. Uses getBoundingClientRect for the
+  // same reason — offsetTop was lying to us.
   const content  = el.querySelector('.primer-content');
   const headings = [...el.querySelectorAll('.primer-content [id]')];
   const links    = [...el.querySelectorAll('.primer-toc-link')];
 
   if (headings.length && content) {
     const onScroll = () => {
-      const scrollTop = el.scrollTop;
+      const elTop = el.getBoundingClientRect().top;
       let active = 0;
       for (let i = 0; i < headings.length; i++) {
-        if (headings[i].offsetTop - el.offsetTop <= scrollTop + 80) active = i;
+        const hTop = headings[i].getBoundingClientRect().top - elTop;
+        if (hTop <= 80) active = i;
       }
       links.forEach((l, i) => l.classList.toggle('primer-toc-active', i === active));
     };
