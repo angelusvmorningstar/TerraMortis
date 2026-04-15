@@ -124,7 +124,7 @@ development_status:
   # Stories 1.1-1.8 shipped to main 2026-04-15
   # Story 1.9 is the sole remaining item (3 one-line changes, standalone)
 
-  epic-dt-story: in-progress
+  epic-dt-story: done
 
   1-1-dt-story-tab-shell: done
   1-2-prompt-generator-projects: done
