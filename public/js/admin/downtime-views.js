@@ -4144,6 +4144,30 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire contacts info-type selector
+  container.querySelectorAll('.proc-contacts-info-type-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_info_type: sel.value || null });
+    });
+  });
+
+  // Wire contacts subject text input
+  container.querySelectorAll('.proc-contacts-subject-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_subject: inp.value.trim() || null });
+    });
+  });
+
   // Wire investigate target character dropdown — save without re-render
   container.querySelectorAll('.proc-inv-char-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -5905,6 +5929,20 @@ function renderActionPanel(entry, review) {
       h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
     }
     h += `</div>`;
+    // Contacts info-type and subject fields
+    if (entry.meritCategory === 'contacts') {
+      const _ciType    = rev.contacts_info_type || '';
+      const _ciSubject = rev.contacts_subject   || '';
+      const _ciTypes   = ['Public', 'Internal', 'Confidential', 'Restricted'];
+      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<span class="proc-feed-lbl">Info Type</span>`;
+      h += `<select class="proc-recat-select proc-contacts-info-type-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_ciTypes.map(t => `<option value="${t}"${_ciType === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+      h += `<span class="proc-feed-lbl">Subject</span>`;
+      h += `<input type="text" class="proc-detail-input proc-contacts-subject-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciSubject)}" placeholder="Sphere, person, or topic\u2026">`;
+      h += `</div>`;
+    }
     if (entry.actionType === 'attack') {
       const _atkChar = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
       const _atkMerit = rev.attack_target_merit || '';

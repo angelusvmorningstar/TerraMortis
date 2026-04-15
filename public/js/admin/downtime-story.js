@@ -1296,6 +1296,9 @@ function buildActionContext(char, sub, idx) {
   if (matrixNote) lines.push(`Matrix Outcome: ${matrixNote}`);
   if (effect)     lines.push(`Effect: ${effect}`);
 
+  if (rev.contacts_info_type) lines.push(`Info Type: ${rev.contacts_info_type}`);
+  if (rev.contacts_subject)   lines.push(`Subject: ${rev.contacts_subject}`);
+
   // Cross-action context chips
   const chips = [];
   if (covered.length) {
