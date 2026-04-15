@@ -107,7 +107,7 @@ const DISCIPLINE_ORDER = [
 
 // Ritual tracks shown below disciplines on page 1.
 const RITUAL_ORDER = [
-  'Crúac','Theban','Creation','Destruction','Divination','Protection','Transmutation',
+  'Crúac','Theban',
 ];
 
 export {

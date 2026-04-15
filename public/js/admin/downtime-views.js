@@ -1917,20 +1917,11 @@ function buildProcessingQueue(subs) {
     }
     projects.forEach((proj, idx) => {
       const actionType = proj.action_type || 'misc';
-      if (actionType === 'feed') return; // AC10: feeding rote projects shown in feeding phase
-
-      // ST recategorisation override — changes phase and label without altering player data
-      const projReview = (sub.projects_resolved || [])[idx] || {};
-      const effectiveActionType = projReview.action_type_override || actionType;
-
-      const phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
-      const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
       const slot = idx + 1; // 1-indexed response key
 
-      // Task 1: extract app-form narrative description (distinct from desired outcome)
+      // ── Shared field extraction (used by both rote-feed and regular projects) ──
       const projDescription = resp[`project_${slot}_description`] || '';
 
-      // Task 2: resolve cast character IDs to display names
       let projCastResolved = '';
       try {
         const castArr = JSON.parse(resp[`project_${slot}_cast`] || '[]');
@@ -1946,7 +1937,6 @@ function buildProcessingQueue(subs) {
         projCastResolved = resp[`project_${slot}_cast`] || '';
       }
 
-      // Task 3: parse merit keys "Name|qualifier" into "Name (qualifier)"
       let projMeritsResolved = '';
       try {
         const meritsArr = JSON.parse(resp[`project_${slot}_merits`] || '[]');
@@ -1963,6 +1953,42 @@ function buildProcessingQueue(subs) {
       } catch {
         projMeritsResolved = resp[`project_${slot}_merits`] || '';
       }
+
+      // ── Rote feed project — render in Feed phase (phaseNum 1), after standard feeding ──
+      if (actionType === 'feed') {
+        const feedMethod2 = resp[`project_${slot}_feed_method2`] || '';
+        const method2Label = feedMethod2 ? `Secondary method: ${feedMethod2}` : '';
+        const descWithMethod = [projDescription, method2Label].filter(Boolean).join(' \u2014 ');
+        queue.push({
+          key: `${sub._id}:proj:${idx}`,
+          subId: sub._id,
+          charName,
+          phase: PHASE_NUM_TO_LABEL[1],
+          phaseNum: 1,
+          actionType: 'feed',
+          originalActionType: 'feed',
+          label: 'Rote Feed',
+          description: descWithMethod || proj.desired_outcome || '',
+          source: 'project',
+          actionIdx: idx,
+          projSlot: slot,
+          poolPlayer: proj.primary_pool?.expression || resp[`project_${slot}_pool_expr`] || '',
+          projTitle:       resp[`project_${slot}_title`]     || '',
+          projOutcome:     proj.desired_outcome || resp[`project_${slot}_outcome`] || '',
+          projDescription: descWithMethod,
+          projCast:        projCastResolved,
+          projMerits:      projMeritsResolved,
+          projTerritory:   resp[`project_${slot}_territory`] || '',
+        });
+        return;
+      }
+
+      // ST recategorisation override — changes phase and label without altering player data
+      const projReview = (sub.projects_resolved || [])[idx] || {};
+      const effectiveActionType = projReview.action_type_override || actionType;
+
+      const phaseNum = PHASE_ORDER[effectiveActionType] ?? 7;
+      const phaseKey = PHASE_NUM_TO_LABEL[phaseNum];
 
       queue.push({
         key: `${sub._id}:proj:${idx}`,
@@ -3374,8 +3400,7 @@ function renderProcessingMode(container) {
           sel.classList.contains('proc-inv-secrecy-sel') ||
           sel.classList.contains('proc-feed-blood-sel') ||
           sel.classList.contains('proc-sorc-tradition-sel') ||
-          sel.classList.contains('proc-sorc-rite-sel') ||
-          sel.classList.contains('proc-contacts-info-type-sel')) return;
+          sel.classList.contains('proc-sorc-rite-sel')) return;
       const key = sel.dataset.procKey;
       const newType = sel.value;
       const entry = _getQueueEntry(key);
@@ -4084,27 +4109,15 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire contacts info-type selector
-  container.querySelectorAll('.proc-contacts-info-type-sel').forEach(sel => {
-    sel.addEventListener('click', e => e.stopPropagation());
-    sel.addEventListener('change', async e => {
-      e.stopPropagation();
-      const key   = sel.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      await saveEntryReview(entry, { contacts_info_type: sel.value || null });
-    });
-  });
-
-  // Wire contacts subject text input
-  container.querySelectorAll('.proc-contacts-subject-input').forEach(inp => {
+  // Wire contacts target text input
+  container.querySelectorAll('.proc-contacts-target-input').forEach(inp => {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', async e => {
       e.stopPropagation();
       const key   = inp.dataset.procKey;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      await saveEntryReview(entry, { contacts_subject: inp.value.trim() || null });
+      await saveEntryReview(entry, { contacts_target: inp.value.trim() || null });
     });
   });
 
@@ -5184,12 +5197,7 @@ function _renderMeritRightPanel(entry, rev) {
   const effectAuto = matrixRow?.effectAuto || '';
 
   const basePool   = formula === 'dots2plus2' && dots != null ? (dots * 2) + 2 : null;
-  const invSecrecy = actionType === 'investigate' ? (rev.inv_secrecy || '') : '';
-  const invHasLead = actionType === 'investigate' ? rev.inv_has_lead : undefined; // true | false | undefined
-  const invRow     = invSecrecy ? (INVESTIGATION_MATRIX.find(r => r.type === invSecrecy) || null) : null;
-  const innateMod  = invRow ? invRow.innate : 0;
-  const noLeadMod  = invRow && invHasLead === false ? invRow.noLead : 0;
-  const totalPool  = basePool != null ? basePool + eqMod + innateMod + noLeadMod : null;
+  const totalPool  = basePool != null ? basePool + eqMod : null;
   const roll       = rev.roll || null;
   const isRolled   = formula === 'dots2plus2';
   const isAuto     = mode === 'auto';
@@ -5255,35 +5263,6 @@ function _renderMeritRightPanel(entry, rev) {
     h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
     h += `<div class="proc-mod-panel-title">Automatic Successes</div>`;
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base successes</span><span class="proc-mod-static">${autoSucc}</span></div>`;
-    if (actionType === 'investigate') {
-      h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
-      // Target Secrecy
-      const innateStr = innateMod > 0 ? `+${innateMod}` : innateMod < 0 ? String(innateMod) : '';
-      const innateCls = innateMod > 0 ? ' proc-mod-pos' : innateMod < 0 ? ' proc-mod-neg' : ' proc-mod-muted';
-      h += `<div class="proc-mod-row">`;
-      h += `<span class="proc-mod-label">Target Secrecy</span>`;
-      h += `<select class="proc-recat-select proc-inv-secrecy-sel" data-proc-key="${esc(key)}">`;
-      h += `<option value="">\u2014 Not set \u2014</option>`;
-      for (const r of INVESTIGATION_MATRIX) {
-        h += `<option value="${esc(r.type)}"${r.type === invSecrecy ? ' selected' : ''}>${esc(r.type)}</option>`;
-      }
-      h += `</select>`;
-      if (innateStr) h += `<span class="proc-mod-val${innateCls}">${innateStr}</span>`;
-      h += `</div>`;
-      // Lead toggle
-      const noLeadStr = noLeadMod < 0 ? String(noLeadMod) : '';
-      h += `<div class="proc-mod-row">`;
-      h += `<span class="proc-mod-label">Lead</span>`;
-      h += `<div class="proc-inv-lead-btns">`;
-      h += `<button class="proc-inv-lead-btn${invHasLead === true ? ' active' : ''}" data-proc-key="${esc(key)}" data-lead="true">Lead</button>`;
-      h += `<button class="proc-inv-lead-btn${invHasLead === false ? ' active' : ''}" data-proc-key="${esc(key)}" data-lead="false">No Lead</button>`;
-      h += `</div>`;
-      if (noLeadStr) h += `<span class="proc-mod-val proc-mod-neg">${noLeadStr}</span>`;
-      h += `</div>`;
-      // Net successes = dots + eqMod + innateMod + noLeadMod
-      const netSucc = autoSucc + eqMod + innateMod + noLeadMod;
-      h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Net successes</span><span class="proc-mod-total-val">${netSucc}</span></div>`;
-    }
     h += `</div>`; // mod panel
   } else if (formula === 'none') {
     // Staff — fixed effect, no roll
@@ -5422,6 +5401,42 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<span class="proc-mod-total-val" data-proc-key="${esc(key)}">${poolModTotalStr}</span>`;
   h += `</div>`;
   h += `</div>`; // proc-feed-mod-panel
+
+  // ── Investigation: Target Secrecy + Lead toggle (project investigate only) ──
+  if (entry.actionType === 'investigate') {
+    const invSecrecy = rev.inv_secrecy || '';
+    const invHasLead = rev.inv_has_lead; // true | false | undefined
+    const invRow     = invSecrecy ? (INVESTIGATION_MATRIX.find(r => r.type === invSecrecy) || null) : null;
+    const innateMod  = invRow ? invRow.innate : 0;
+    const noLeadMod  = invRow && invHasLead === false ? invRow.noLead : 0;
+    const innateStr  = innateMod > 0 ? `+${innateMod}` : innateMod < 0 ? String(innateMod) : '';
+    const innateCls  = innateMod > 0 ? ' proc-mod-pos' : innateMod < 0 ? ' proc-mod-neg' : ' proc-mod-muted';
+    const noLeadStr  = noLeadMod < 0 ? String(noLeadMod) : '';
+
+    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Investigation</div>`;
+    // Target Secrecy
+    h += `<div class="proc-mod-row">`;
+    h += `<span class="proc-mod-label">Target Secrecy</span>`;
+    h += `<select class="proc-recat-select proc-inv-secrecy-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Not set \u2014</option>`;
+    for (const r of INVESTIGATION_MATRIX) {
+      h += `<option value="${esc(r.type)}"${r.type === invSecrecy ? ' selected' : ''}>${esc(r.type)}</option>`;
+    }
+    h += `</select>`;
+    if (innateStr) h += `<span class="proc-mod-val${innateCls}">${innateStr}</span>`;
+    h += `</div>`;
+    // Lead toggle
+    h += `<div class="proc-mod-row">`;
+    h += `<span class="proc-mod-label">Lead</span>`;
+    h += `<div class="proc-inv-lead-btns">`;
+    h += `<button class="proc-inv-lead-btn${invHasLead === true ? ' active' : ''}" data-proc-key="${esc(key)}" data-lead="true">Lead</button>`;
+    h += `<button class="proc-inv-lead-btn${invHasLead === false ? ' active' : ''}" data-proc-key="${esc(key)}" data-lead="false">No Lead</button>`;
+    h += `</div>`;
+    if (noLeadStr) h += `<span class="proc-mod-val proc-mod-neg">${noLeadStr}</span>`;
+    h += `</div>`;
+    h += `</div>`; // proc-feed-mod-panel
+  }
 
   // ── Success Modifier ──
   h += `<div class="proc-proj-succ-panel" data-proc-key="${esc(key)}">`;
@@ -6116,20 +6131,16 @@ function renderActionPanel(entry, review) {
   }
 
   // ── Action type recategorisation for merit/sphere entries ──
-  if (entry.source === 'merit') {
+  if (entry.source === 'merit' && entry.meritCategory !== 'contacts') {
     h += _renderActionTypeRow(entry, rev, meritEntChar);
-    // Contacts info-type and subject fields
+  }
+  if (entry.source === 'merit') {
+    // Contacts target field
     if (entry.meritCategory === 'contacts') {
-      const _ciType    = rev.contacts_info_type || '';
-      const _ciSubject = rev.contacts_subject   || '';
-      const _ciTypes   = ['Public', 'Internal', 'Confidential', 'Restricted'];
+      const _ciTarget = rev.contacts_target || '';
       h += `<div class="proc-recat-row proc-recat-row-tight">`;
-      h += `<span class="proc-feed-lbl">Info Type</span>`;
-      h += `<select class="proc-recat-select proc-contacts-info-type-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_ciTypes.map(t => `<option value="${t}"${_ciType === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
-      h += `</div>`;
-      h += `<div class="proc-recat-row proc-recat-row-tight">`;
-      h += `<span class="proc-feed-lbl">Subject</span>`;
-      h += `<input type="text" class="proc-detail-input proc-contacts-subject-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciSubject)}" placeholder="Sphere, person, or topic\u2026">`;
+      h += `<span class="proc-feed-lbl">Target</span>`;
+      h += `<input type="text" class="proc-detail-input proc-contacts-target-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciTarget)}" placeholder="Person or group\u2026">`;
       h += `</div>`;
     }
     // Patrol/Scout outcome fields
@@ -6246,16 +6257,16 @@ function renderActionPanel(entry, review) {
     const connectedChars = rev.connected_chars || [];
     const otherChars = characters
       .filter(c => !c.retired)
-      .map(c => sortName(c))
-      .filter(n => n !== entry.charName)
-      .sort();
+      .map(c => ({ key: sortName(c), label: displayName(c) }))
+      .filter(({ key }) => key !== entry.charName)
+      .sort((a, b) => a.key.localeCompare(b.key));
     if (otherChars.length > 0) {
       h += `<div class="proc-connected-section">`;
       h += `<div class="proc-detail-label">Connected Characters</div>`;
       h += `<div class="proc-connected-list">`;
-      for (const charN of otherChars) {
-        const chk = connectedChars.includes(charN) ? ' checked' : '';
-        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(charN)}"${chk}> ${esc(charN)}</label>`;
+      for (const { key, label } of otherChars) {
+        const chk = connectedChars.includes(key) ? ' checked' : '';
+        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-conn-char-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(key)}"${chk}> ${esc(label)}</label>`;
       }
       h += `</div>`;
       h += `</div>`;

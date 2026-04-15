@@ -626,20 +626,18 @@ test.describe('DT-Fix-23: Merit automatic successes, no dice pool', () => {
     await expect(autoPanel).toContainText('3');
   });
 
-  test('merit investigate automatic successes panel has Target Secrecy selector', async ({ page }) => {
+  test('merit investigate automatic successes panel does NOT have Target Secrecy selector (moved to project panel)', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
-    const secrecySel = page.locator('.proc-inv-secrecy-sel').first();
-    await expect(secrecySel).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-inv-secrecy-sel')).toHaveCount(0);
   });
 
-  test('merit investigate automatic successes panel has Lead toggle buttons', async ({ page }) => {
+  test('merit investigate automatic successes panel does NOT have Lead toggle buttons (moved to project panel)', async ({ page }) => {
     await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
     await openFirstAction(page, 'Investigative');
 
-    const leadBtn = page.locator('.proc-inv-lead-btn').first();
-    await expect(leadBtn).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.proc-inv-lead-btn')).toHaveCount(0);
   });
 
 });
@@ -730,6 +728,184 @@ test.describe('DT-Fix-25: Second Opinion button location', () => {
 
     const rightPanel = page.locator('.proc-feed-right').first();
     await expect(rightPanel.locator('.proc-second-opinion-btn')).toBeVisible({ timeout: 5000 });
+  });
+
+});
+
+// ── DTQ-1: Rote feed project renders in Feed phase ────────────────────────────
+
+const SUBMISSION_ROTE_FEED = {
+  _id: 'sub-rote-feed',
+  cycle_id: 'cycle-001',
+  character_name: 'Charlie Test',
+  character_id: 'char-pt4',
+  player_name: 'Test Player',
+  submitted_at: '2026-04-15T00:00:00Z',
+  _raw: {
+    projects: [
+      {
+        action_type: 'feed',
+        desired_outcome: 'Find a second vessel',
+        detail: 'Extended hunt in the Warehouse District.',
+        primary_pool: null,
+      },
+    ],
+    feeding: {
+      method: 'stalking',
+      pool: { expression: 'Strength 3 + Stealth 2 = 5' },
+    },
+    sphere_actions: [],
+    contact_actions: { requests: [] },
+    retainer_actions: { actions: [] },
+  },
+  responses: {
+    feeding_method: 'stalking',
+    feeding_pool_expr: 'Strength 3 + Stealth 2 = 5',
+    project_1_action: 'feed',
+    project_1_title: 'Extended Hunt',
+    project_1_outcome: 'Find a second vessel',
+    project_1_description: 'Extended hunt in the Warehouse District.',
+    project_1_feed_method2: 'seduction',
+  },
+  projects_resolved: [],
+  feeding_review: {
+    pool_player: 'Strength 3 + Stealth 2 = 5',
+    pool_validated: '',
+    pool_status: 'pending',
+    nine_again: false,
+    eight_again: false,
+    active_feed_specs: [],
+    pool_mod_spec: 0,
+    pool_mod_equipment: 0,
+    notes_thread: [],
+    player_feedback: '',
+  },
+  merit_actions_resolved: [],
+  st_review: { territory_overrides: {} },
+};
+
+test.describe('DTQ-1: Rote feed project renders in Feed phase', () => {
+
+  test('rote feed project row appears under the Feed phase section', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ROTE_FEED]);
+    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
+
+    // Expand the Feed phase
+    const feedHeader = page.locator('.proc-phase-header').filter({ hasText: 'Feeding' }).first();
+    const toggle = feedHeader.locator('.proc-phase-toggle');
+    const toggleText = await toggle.textContent().catch(() => '');
+    if (toggleText.includes('Show')) await feedHeader.click();
+    await page.waitForTimeout(200);
+
+    const feedPhase = page.locator('.proc-phase-section').filter({ hasText: 'Feeding' }).first();
+    await expect(feedPhase.locator('.proc-action-row')).toHaveCount(2); // standard + rote feed
+  });
+
+  test('rote feed project row is labelled "Rote Feed"', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ROTE_FEED]);
+    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
+
+    const feedHeader = page.locator('.proc-phase-header').filter({ hasText: 'Feeding' }).first();
+    const toggle = feedHeader.locator('.proc-phase-toggle');
+    const toggleText = await toggle.textContent().catch(() => '');
+    if (toggleText.includes('Show')) await feedHeader.click();
+    await page.waitForTimeout(200);
+
+    const feedPhase = page.locator('.proc-phase-section').filter({ hasText: 'Feeding' }).first();
+    await expect(feedPhase).toContainText('Rote Feed');
+  });
+
+  test('rote feed project does NOT appear in any other phase', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ROTE_FEED]);
+    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
+
+    // Expand all phases and check none (other than Feeding) contain "Rote Feed"
+    const allHeaders = page.locator('.proc-phase-header');
+    const headerCount = await allHeaders.count();
+    for (let i = 0; i < headerCount; i++) {
+      const hdr = allHeaders.nth(i);
+      const text = await hdr.textContent().catch(() => '');
+      if (text.includes('Feeding')) continue;
+      const toggle = hdr.locator('.proc-phase-toggle');
+      const toggleText = await toggle.textContent().catch(() => '');
+      if (toggleText.includes('Show')) await hdr.click();
+    }
+    await page.waitForTimeout(200);
+
+    // Only the Feeding phase section should contain 'Rote Feed'
+    const nonFeedPhases = page.locator('.proc-phase-section').filter({ hasNotText: 'Feeding' });
+    const count = await nonFeedPhases.count();
+    for (let i = 0; i < count; i++) {
+      await expect(nonFeedPhases.nth(i)).not.toContainText('Rote Feed');
+    }
+  });
+
+  test('rote feed project card shows secondary feed method when present', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ROTE_FEED]);
+    await page.waitForSelector('.proc-phase-section', { timeout: 8000 });
+
+    // Expand the Feed phase
+    const feedHeader = page.locator('.proc-phase-header').filter({ hasText: 'Feeding' }).first();
+    const toggle = feedHeader.locator('.proc-phase-toggle');
+    const toggleText = await toggle.textContent().catch(() => '');
+    if (toggleText.includes('Show')) await feedHeader.click();
+    await page.waitForTimeout(300);
+
+    // Find the Rote Feed row specifically by its label text and click it
+    const roteRow = page.locator('.proc-action-row').filter({ hasText: 'Rote Feed' }).first();
+    await roteRow.click();
+    await page.waitForTimeout(500);
+
+    // The expanded detail panel for the rote feed row should contain 'seduction' (the secondary method)
+    const detailPanel = page.locator('.proc-action-detail[data-proc-key="sub-rote-feed:proj:0"]');
+    await expect(detailPanel).toBeVisible({ timeout: 5000 });
+    await expect(detailPanel).toContainText('seduction');
+  });
+
+});
+
+// ── DTQ-3: Lead/No Lead ticker on project investigate only ────────────────────
+
+test.describe('DTQ-3: Lead ticker on project investigate, not merit investigate', () => {
+
+  test('project investigate right panel shows Lead / No Lead buttons', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_INVESTIGATE]);
+    await openFirstAction(page, 'Investigative');
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel.locator('.proc-inv-lead-btns')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('project investigate right panel shows Target Secrecy selector', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_INVESTIGATE]);
+    await openFirstAction(page, 'Investigative');
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel.locator('.proc-inv-secrecy-sel')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('project investigate panel has "Investigation" section title', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_PROJECT_INVESTIGATE]);
+    await openFirstAction(page, 'Investigative');
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel).toContainText('Investigation');
+  });
+
+  test('merit investigate right panel does NOT show Lead / No Lead buttons', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
+    await openFirstAction(page, 'Investigative');
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel.locator('.proc-inv-lead-btns')).toHaveCount(0);
+  });
+
+  test('merit investigate right panel does NOT show Target Secrecy selector', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ALLIES_INVESTIGATE]);
+    await openFirstAction(page, 'Investigative');
+
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel.locator('.proc-inv-secrecy-sel')).toHaveCount(0);
   });
 
 });

@@ -23,8 +23,6 @@ const DISC_ROWS = {
   Majesty: 168, Nightmare: 169, Obfuscate: 170, Protean: 171,
   Resilience: 172, Vigour: 173,
   Cruac: 183, Theban: 184,
-  Creation: 186, Destruction: 187, Divination: 188,
-  Protection: 189, Transmutation: 190,
 };
 const DOMAIN_ROWS = { 'Safe Place': 131, Haven: 132, 'Feeding Grounds': 133, Herd: 134 };
 const MERIT_ROW_START = 78;

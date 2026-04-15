@@ -187,7 +187,10 @@ export async function initDtStory(cycleId) {
       apiGet('/api/downtime_submissions?cycle_id=' + resolvedCycleId),
       apiGet('/api/characters'),
     ]);
-    _allSubmissions = Array.isArray(subs) ? subs : [];
+    _allSubmissions = (Array.isArray(subs) ? subs : []).map(sub => ({
+      ...sub,
+      merit_actions: sub.merit_actions?.length ? sub.merit_actions : buildMeritActions(sub),
+    }));
     _allCharacters  = Array.isArray(chars) ? chars : [];
   } catch (err) {
     panel.innerHTML = `<div class="dt-story-empty">Failed to load data: ${err.message}</div>`;
@@ -1096,6 +1099,74 @@ function renderTouchstone(char, sub, stNarrative) {
 }
 
 // ── Merit action helpers (B3) ─────────────────────────────────────────────────
+
+/**
+ * Builds a flat merit_actions array from a submission's raw/response fields.
+ * Called at load time for submissions that don't already have merit_actions populated.
+ * Ordering: spheres → contacts → retainers (matches downtime-views.js flat index).
+ */
+function buildMeritActions(sub) {
+  const resp = sub.responses || {};
+  const raw  = sub._raw || {};
+  const actions = [];
+
+  // ── Spheres ──
+  const sphereRaw = raw.sphere_actions || [];
+  if (sphereRaw.length) {
+    sphereRaw.forEach((entry, idx) => {
+      const slot = idx + 1;
+      actions.push({
+        merit_type:      resp[`sphere_${slot}_merit`]                            || '',
+        action_type:     entry.action_type                                       || 'misc',
+        desired_outcome: entry.desired_outcome || resp[`sphere_${slot}_outcome`] || '',
+        description:     entry.detail         || resp[`sphere_${slot}_description`] || '',
+      });
+    });
+  } else {
+    for (let n = 1; n <= 5; n++) {
+      const mt = resp[`sphere_${n}_merit`];
+      if (!mt) continue;
+      actions.push({
+        merit_type:      mt,
+        action_type:     resp[`sphere_${n}_action`]      || 'misc',
+        desired_outcome: resp[`sphere_${n}_outcome`]     || '',
+        description:     resp[`sphere_${n}_description`] || '',
+      });
+    }
+  }
+
+  // ── Contacts ──
+  const contactRaw = raw.contact_actions?.requests || [];
+  if (contactRaw.length) {
+    contactRaw.forEach(c => actions.push({
+      merit_type: 'Contacts', action_type: 'misc', desired_outcome: '',
+      description: c.detail || c.description || '',
+    }));
+  } else {
+    for (let n = 1; n <= 5; n++) {
+      const req = resp[`contact_${n}_request`];
+      if (!req) continue;
+      actions.push({ merit_type: 'Contacts', action_type: 'misc', desired_outcome: '', description: req });
+    }
+  }
+
+  // ── Retainers ──
+  const retainerRaw = raw.retainer_actions?.actions || [];
+  if (retainerRaw.length) {
+    retainerRaw.forEach(r => actions.push({
+      merit_type: 'Retainer', action_type: 'misc', desired_outcome: '',
+      description: r.task || r.description || '',
+    }));
+  } else {
+    for (let n = 1; n <= 4; n++) {
+      const task = resp[`retainer_${n}_task`];
+      if (!task) continue;
+      actions.push({ merit_type: 'Retainer', action_type: 'misc', desired_outcome: '', description: task });
+    }
+  }
+
+  return actions;
+}
 
 /**
  * Derives the merit category from a merit type string.
