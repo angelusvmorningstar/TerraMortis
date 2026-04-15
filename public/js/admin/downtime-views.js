@@ -3030,8 +3030,10 @@ function renderCharacterStrip(queue) {
 
   const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
   const sorted = [...submissions].sort((a, b) => {
-    const na = a.character_name || '';
-    const nb = b.character_name || '';
+    const ca = findCharacter(a.character_name, a.player_name);
+    const cb = findCharacter(b.character_name, b.player_name);
+    const na = ca ? sortName(ca) : (a.character_name || '');
+    const nb = cb ? sortName(cb) : (b.character_name || '');
     return na.localeCompare(nb);
   });
 
