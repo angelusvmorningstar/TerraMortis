@@ -1,6 +1,6 @@
 # Story 1.7: Cacophony Savvy Section
 
-## Status: review
+## Status: done
 
 ## Story
 

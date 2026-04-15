@@ -1,6 +1,6 @@
 # Story feature.78: Right-Panel Gap Fill (D3)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

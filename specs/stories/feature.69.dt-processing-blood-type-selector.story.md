@@ -1,6 +1,6 @@
 # Story feature.69: Blood Type Selector (B1)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

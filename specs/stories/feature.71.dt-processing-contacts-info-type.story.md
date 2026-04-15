@@ -1,6 +1,6 @@
 # Story feature.71: Contacts Info-Type Selector (B3)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

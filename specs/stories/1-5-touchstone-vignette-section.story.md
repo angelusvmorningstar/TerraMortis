@@ -1,6 +1,6 @@
 # Story 1.5: Touchstone Vignette Section
 
-## Status: review
+## Status: done
 
 ## Story
 

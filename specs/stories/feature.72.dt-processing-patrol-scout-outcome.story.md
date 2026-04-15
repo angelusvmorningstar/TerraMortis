@@ -1,6 +1,6 @@
 # Story feature.72: Patrol / Scout Outcome Recording (C1)
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

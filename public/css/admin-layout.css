@@ -4291,6 +4291,103 @@ body {
   text-overflow: ellipsis;
 }
 
+.proc-row-st-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold2);
+  font-family: var(--fl);
+  margin-left: 5px;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
+
+.proc-add-st-action-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--surf3);
+}
+
+.proc-add-st-char {
+  font-size: 12px;
+  color: var(--txt2);
+  font-family: var(--fh);
+  min-width: 140px;
+}
+
+.proc-add-st-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.proc-add-st-form select,
+.proc-add-st-form input[type="text"] {
+  font-size: 12px;
+  background: var(--surf2);
+  border: 1px solid var(--surf3);
+  color: var(--txt);
+  border-radius: 3px;
+  padding: 3px 7px;
+}
+
+.proc-add-st-form .proc-add-st-label {
+  flex: 1;
+  min-width: 180px;
+}
+
+.proc-add-st-form .proc-add-st-desc {
+  flex: 2;
+  min-width: 220px;
+}
+
+.proc-delete-st-action {
+  color: var(--crim);
+  border-color: var(--crim);
+  opacity: 0.8;
+}
+.proc-delete-st-action:hover {
+  opacity: 1;
+  background: var(--crim-a15);
+}
+
+.proc-row-second-opinion-dot {
+  color: var(--gold2);
+  font-size: 0.65rem;
+  margin-left: 0.3rem;
+  flex-shrink: 0;
+}
+
+.proc-second-opinion-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid var(--surf4);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--txt3);
+  cursor: pointer;
+  font-family: var(--fl);
+}
+.proc-second-opinion-btn:hover {
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+.proc-second-opinion-btn.active {
+  background: var(--gold2);
+  border-color: var(--gold2);
+  color: #1a1208;
+  font-weight: 600;
+}
+
+.proc-add-st-section .proc-phase-header {
+  cursor: pointer;
+}
+
 .proc-row-desc {
   font-size: 12px;
   color: var(--txt2);
@@ -4326,13 +4423,28 @@ body {
   text-align: center;
   font-family: var(--fl);
 }
+.proc-row-status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.proc-row-validator {
+  font-size: 11px;
+  font-family: var(--fl);
+  font-style: italic;
+  color: var(--txt3);
+  white-space: nowrap;
+}
 .proc-row-status.pending     { background: var(--crim-a25); color: var(--result-pend); }
 .proc-row-status.validated   { background: rgba(60,140,60,.25); color: var(--result-succ); }
+.proc-row-status.committed   { background: rgba(100,100,100,.25); color: var(--txt2); }
 .proc-row-status.no_roll     { background: rgba(100,100,100,.25); color: var(--txt2); }
 .proc-row-status.no_feed     { background: var(--crim-a25); color: var(--result-pend); }
 .proc-row-status.maintenance { background: var(--accent-a15); color: var(--accent); }
 .proc-row-status.resolved    { background: rgba(60,140,60,.25); color: var(--result-succ); }
 .proc-row-status.no_effect   { background: rgba(100,100,100,.25); color: var(--txt2); }
+.proc-row-status.skipped     { background: rgba(100,100,100,.18); color: var(--txt3); }
 
 .proc-row-author {
   font-family: var(--fl);
@@ -4405,6 +4517,7 @@ body {
   background: var(--surf2);
   border: 1px solid var(--bdr);
   border-radius: 6px;
+  margin-top: 8px;
   padding: 10px 12px;
   margin-bottom: 12px;
 }
@@ -4836,6 +4949,16 @@ body {
 }
 .proc-rite-select:focus { outline: none; border-color: var(--accent); }
 
+.proc-rite-custom-lbl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--txt2);
+  font-family: var(--fl);
+  white-space: nowrap;
+}
+
 /* Mechanical result textarea */
 .proc-ritual-note-input {
   width: 100%;
@@ -5063,6 +5186,19 @@ body {
   letter-spacing: 0.02em;
 }
 
+.proc-validated-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--surf3);
+  color: var(--txt2);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
 .proc-mod-panel-title {
   font-family: var(--fl);
   font-size: 11px;
@@ -5192,6 +5328,11 @@ body {
   color: var(--accent);
   font-family: monospace;
   word-break: break-word;
+}
+.proc-pool-clear-btn {
+  display: block;
+  margin-left: auto;
+  margin-top: 4px;
 }
 
 /* ── feature.46: Project detail and allies hint ── */
@@ -5609,8 +5750,10 @@ body {
 /* Status row badges — dark-mode colours (#ff9090 / #90d090) are unreadable on cream */
 html:not([data-theme="dark"]) .proc-row-status.pending  { background: var(--crim-a15); color: var(--crim); }
 html:not([data-theme="dark"]) .proc-row-status.validated{ background: var(--green-a15); color: var(--green3); }
+html:not([data-theme="dark"]) .proc-row-status.committed { background: rgba(100,100,100,.15); color: var(--label-secondary); }
 html:not([data-theme="dark"]) .proc-row-status.no_roll  { background: var(--gold-a10); color: var(--txt2); }
 html:not([data-theme="dark"]) .proc-row-status.no_feed  { background: var(--crim-a15); color: var(--crim); }
+html:not([data-theme="dark"]) .proc-row-status.skipped  { background: rgba(100,100,100,.12); color: var(--label-tertiary); }
 
 /* Character name in processing row — 700 for prominence (Cinzel entity name) */
 html:not([data-theme="dark"]) .proc-row-char { font-weight: 700; }
@@ -5722,12 +5865,12 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
 .proc-attack-char-sel:focus,
 .proc-attack-merit-sel:focus { outline: none; border-color: var(--accent); }
 
-/* Vitae tally positive values — bright green illegible on cream parchment */
-html:not([data-theme="dark"]) .proc-mod-pos { color: var(--green3); }
+/* Vitae tally positive values — use --green2 (medium forest green, matches dice success on parchment) */
+html:not([data-theme="dark"]) .proc-mod-pos { color: var(--green2); }
 
 /* Ambience pos/neg colour values — neon green/red replaced with legible theme tokens */
 html:not([data-theme="dark"]) .proc-amb-pos,
-html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green3); }
+html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-pos { color: var(--green2); }
 html:not([data-theme="dark"]) .proc-amb-neg,
 html:not([data-theme="dark"]) .proc-amb-table td.proc-amb-neg { color: var(--crim); }
 

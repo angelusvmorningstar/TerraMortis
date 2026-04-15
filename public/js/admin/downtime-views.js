@@ -43,6 +43,7 @@ const preReadExpanded = new Set();   // subIds with pre-read body expanded in pr
 const narrativeExpanded = new Set(); // subIds with narrative body expanded in processing mode
 const xpReviewExpanded  = new Set(); // subIds with XP review body expanded in processing mode
 const signOffExpanded   = new Set(); // subIds with sign-off body expanded in processing mode
+const stActionAddExpandedSubs = new Set(); // subIds with "Add ST Action" form expanded
 
 // ── Processing Mode constants ────────────────────────────────────────────────
 
@@ -90,6 +91,13 @@ const PHASE_NUM_TO_LABEL = {
   11: 'contacts',
   12: 'resources_retainers',
   13: 'other_merit',
+};
+
+// Maps simplified ST-created action category to phase number
+const ST_ACTION_PHASE_MAP = {
+  sorcery: 0,  // resolve_first
+  project: 7,  // misc
+  merit:   8,  // allies
 };
 
 const ACTION_TYPE_LABELS = {
@@ -1853,7 +1861,18 @@ function buildProcessingQueue(subs) {
       const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
                        || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
                        || '';
-      const methodLabel = feedMethod ? (FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod) : '';
+      const truncDesc = feedDesc.length > 40 ? feedDesc.slice(0, 40) + '\u2026' : feedDesc;
+      let methodLabel = '';
+      if (feedMethod) {
+        const baseLabel = FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod;
+        if (feedMethod === 'other' && truncDesc) {
+          methodLabel = truncDesc;
+        } else if (truncDesc && truncDesc !== baseLabel) {
+          methodLabel = `${baseLabel} \u2014 ${truncDesc}`;
+        } else {
+          methodLabel = baseLabel;
+        }
+      }
       // For "other" method, use the player's custom attr/skill/disc as the pool label
       const poolLabel = feedMethod === 'other' && (feedCustomAttr || feedCustomSkill)
         ? [feedCustomAttr, feedCustomSkill, feedCustomDisc || feedDisc].filter(Boolean).join(' + ')
@@ -2066,11 +2085,36 @@ function buildProcessingQueue(subs) {
       });
       meritFlatIdx++;
     });
+
+    // ── ST-created actions ──
+    for (let idx = 0; idx < (sub.st_actions || []).length; idx++) {
+      const stAction = sub.st_actions[idx];
+      const phaseNum = ST_ACTION_PHASE_MAP[stAction.action_type] ?? 7;
+      const phase = PHASE_NUM_TO_LABEL[phaseNum];
+      queue.push({
+        key: `${sub._id}:st:${idx}`,
+        subId: sub._id,
+        source: 'st_created',
+        actionIdx: idx,
+        charName,
+        phase,
+        phaseNum,
+        actionType: stAction.action_type,
+        label: stAction.label,
+        description: stAction.description || '',
+        poolPlayer: stAction.pool_player || '',
+        riteName: stAction.label,
+      });
+    }
   }
 
-  // Sort: phase first, then character name
+  // Sort: phase first, then source type, then character name
+  const SOURCE_ORDER = { project: 0, sorcery: 1, merit: 2, feeding: 3, st_created: 4 };
   queue.sort((a, b) => {
     if (a.phaseNum !== b.phaseNum) return a.phaseNum - b.phaseNum;
+    const sa = SOURCE_ORDER[a.source] ?? 9;
+    const sb = SOURCE_ORDER[b.source] ?? 9;
+    if (sa !== sb) return sa - sb;
     return a.charName.localeCompare(b.charName);
   });
 
@@ -2133,6 +2177,7 @@ function getEntryReview(entry) {
   if (entry.source === 'project') return (sub.projects_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'sorcery') return (sub.sorcery_review || {})[entry.actionIdx] || null;
+  if (entry.source === 'st_created') return (sub.st_actions_resolved || [])[entry.actionIdx] || null;
   return null;
 }
 
@@ -2175,6 +2220,13 @@ async function saveEntryReview(entry, patch) {
     sorcReview[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { sorcery_review: sorcReview });
     sub.sorcery_review = sorcReview;
+  } else if (entry.source === 'st_created') {
+    const resolved = [...(sub.st_actions_resolved || [])];
+    while (resolved.length <= entry.actionIdx) resolved.push(null);
+    const current = resolved[entry.actionIdx] || { pool_player: entry.poolPlayer, pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    resolved[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { st_actions_resolved: resolved });
+    sub.st_actions_resolved = resolved;
   }
 }
 
@@ -3193,14 +3245,16 @@ function renderProcessingMode(container) {
         const review = getEntryReview(entry);
         const status = review?.pool_status || 'pending';
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
-        const lastAuthor = review?.response_author || '';
-
         h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
-        h += `<span class="proc-row-label">${esc(entry.label)}</span>`;
+        h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
+        const _validatorName = (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by : '';
+        h += `<span class="proc-row-status-cell">`;
+        if (_validatorName) h += `<span class="proc-row-validator">${esc(_validatorName)}</span>`;
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
-        h += lastAuthor ? `<span class="proc-row-author">${esc(lastAuthor)}</span>` : '<span></span>';
+        h += `</span>`;
+        if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">\u25CF</span>`;
         h += '</div>';
 
         if (isExpanded) {
@@ -3230,6 +3284,40 @@ function renderProcessingMode(container) {
     }
     h += '</div>';
   }
+
+  // Add ST Actions — one expandable form per submission
+  h += `<div class="proc-phase-section proc-add-st-section">`;
+  h += `<div class="proc-phase-header" data-toggle-phase="add_st_actions">`;
+  h += `<span class="proc-phase-label">Add ST Actions</span>`;
+  h += `<span class="proc-phase-count">${submissions.length} character${submissions.length !== 1 ? 's' : ''}</span>`;
+  h += `<span class="proc-phase-toggle">${expandedPhases.has('add_st_actions') ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+  if (expandedPhases.has('add_st_actions')) {
+    for (const sub of submissions) {
+      const subCharName = (() => {
+        const c = findCharacter(sub.character_name, sub.player_name);
+        return c ? (c.moniker || c.name) : (sub.character_name || '?');
+      })();
+      const isExpanded = stActionAddExpandedSubs.has(sub._id);
+      h += `<div class="proc-add-st-action-row" data-sub-id="${esc(sub._id)}">`;
+      h += `<span class="proc-add-st-char">${esc(subCharName)}</span>`;
+      h += `<button class="dt-btn proc-add-st-toggle-btn" data-sub-id="${esc(sub._id)}">${isExpanded ? '− Cancel' : '+ Add action'}</button>`;
+      if (isExpanded) {
+        h += `<div class="proc-add-st-form">`;
+        h += `<select class="proc-add-st-type" data-sub-id="${esc(sub._id)}">`;
+        h += `<option value="sorcery">Sorcery</option>`;
+        h += `<option value="project">Project</option>`;
+        h += `<option value="merit">Merit action</option>`;
+        h += `</select>`;
+        h += `<input class="proc-add-st-label" type="text" placeholder="Label (e.g. Theban: Rite of X)" data-sub-id="${esc(sub._id)}">`;
+        h += `<input class="proc-add-st-desc" type="text" placeholder="Description / notes (optional)" data-sub-id="${esc(sub._id)}">`;
+        h += `<button class="dt-btn proc-add-st-submit-btn" data-sub-id="${esc(sub._id)}">Add</button>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+    }
+  }
+  h += `</div>`;
 
   // XP Review — Step 10, after action phases, before narrative
   h += renderXpReviewStep();
@@ -3399,7 +3487,12 @@ function renderProcessingMode(container) {
           }
         }
       }
-      await saveEntryReview(entry, { pool_status: status });
+      const statusPatch = { pool_status: status };
+      if (status === 'validated') {
+        const user = getUser();
+        statusPatch.pool_validated_by = user?.global_name || user?.username || 'ST';
+      }
+      await saveEntryReview(entry, statusPatch);
       renderProcessingMode(container);
     });
   });
@@ -3685,171 +3778,6 @@ function renderProcessingMode(container) {
       const thread = [...(review.notes_thread || [])];
       thread.splice(idx, 1);
       await saveEntryReview(entry, { notes_thread: thread });
-      renderProcessingMode(container);
-    });
-  });
-
-  // Prevent click on ST Response textarea from collapsing the row
-  container.querySelectorAll('.proc-st-response-textarea').forEach(ta => {
-    ta.addEventListener('click', e => e.stopPropagation());
-  });
-
-  // Wire ST Response save buttons (feature.66)
-  container.querySelectorAll('.proc-st-response-save').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      const textarea = container.querySelector(`.proc-st-response-textarea[data-proc-key="${CSS.escape(key)}"]`);
-      if (!textarea) return;
-      const text   = textarea.value.trim();
-      const user   = getUser();
-      const author = user?.display_name || user?.username || 'Unknown ST';
-      const review = getEntryReview(entry) || {};
-      // Re-saving resets reviewed status (AC 11)
-      const patch = {
-        st_response: text,
-        response_author: review.response_author || author,
-        response_status: 'draft',
-        response_reviewed_by: null,
-      };
-      await saveEntryReview(entry, patch);
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire ST Response copy-context buttons (feature.66)
-  container.querySelectorAll('.proc-st-response-copy').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      const review    = getEntryReview(entry) || {};
-      const roll      = review.roll || null;
-      const pool      = review.pool_validated || entry.poolPlayer || '';
-      const actionLbl = ACTION_TYPE_LABELS[entry.actionType] || entry.actionType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-      // ── Roll result + mechanical outcome interpretation ──
-      let rollSection = 'Roll: No roll recorded.';
-      if (roll) {
-        const s       = roll.successes;
-        const exc     = roll.exceptional;
-        const excTag  = exc ? ' — EXCEPTIONAL SUCCESS' : '';
-        const diceStr = _formatDiceString(roll.dice_string);
-        const type    = entry.actionType || 'misc';
-
-        let outcome;
-        if (s === 0) {
-          outcome = 'Failure — no effect. The action produces no result this downtime.';
-        } else {
-          switch (type) {
-            case 'ambience_increase':
-              outcome = `Ambience increases by ${s}${exc ? ' (exceptional — consider a notable secondary effect)' : ''}.`;
-              break;
-            case 'ambience_decrease':
-              outcome = `Ambience decreases by ${s}${exc ? ' (exceptional — consider a notable secondary effect)' : ''}.`;
-              break;
-            case 'attack':
-              outcome = `${s} gross success${s !== 1 ? 'es' : ''}${excTag}. Subtract opposing Hide/Protect successes for net; halve net (round up) = levels removed from target merit. Contested — do not narrate a definitive outcome if net is unknown.`;
-              break;
-            case 'hide_protect':
-              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag}. These are subtracted from any Attack, Patrol/Scout, or Investigate targeting this action this downtime.`;
-              break;
-            case 'support':
-              outcome = `+${s} uncapped Teamwork bonus${excTag} added to the pool of the supported action.`;
-              break;
-            case 'patrol_scout': {
-              const detail = s >= 5 ? 'highly detailed' : s >= 3 ? 'reasonably clear' : 'vague';
-              outcome = `${s} action${s !== 1 ? 's' : ''} observed${excTag}. Information quality: ${detail}. Priority order: Attack > Patrol/Scout > Investigate > Ambience > Support — reveal the highest-priority visible actions first.`;
-              break;
-            }
-            case 'investigate': {
-              const detail = s >= 5 ? 'detailed' : s >= 4 ? 'basic' : s >= 3 ? 'vague' : s >= 2 ? 'existence confirmed' : 'lead only';
-              outcome = `${s} gross success${s !== 1 ? 'es' : ''}${excTag}. Contested — subtract Hide/Protect for net. At net ${s}: ${detail} information at the requested classification. Apply Investigation Matrix for exact result. At 2+ gross: also gain a lead on the next tier.`;
-              break;
-            }
-            case 'rumour': {
-              const detail = s >= 5 ? 'detailed' : s >= 3 ? 'reasonably clear' : 'vague';
-              outcome = `${s} similar-merit action${s !== 1 ? 's' : ''} revealed by rumour${excTag}. Information quality: ${detail}. Priority order: Attack > Patrol/Scout > Investigate > Ambience > Support.`;
-              break;
-            }
-            case 'feed':
-              outcome = `Success${excTag} — Rote Action granted for the character's game-start feeding pool. If disciplines were used and the roll had failed, failures would have become Dramatic Failures.`;
-              break;
-            case 'block':
-              outcome = 'Automatic — no roll required. Merit auto-blocks any merit of equal or lower level targeting this action.';
-              break;
-            case 'xp_spend':
-              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag} — XP spend approved.`;
-              break;
-            default:
-              outcome = `${s} success${s !== 1 ? 'es' : ''}${excTag}.`;
-          }
-        }
-
-        rollSection = `Roll: ${s} success${s !== 1 ? 'es' : ''}${excTag}\nDice: ${diceStr}\nMechanical outcome: ${outcome}`;
-      }
-
-      const lines = [
-        'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
-        '',
-        '── CHARACTER ──────────────────────────',
-        `Character: ${entry.charName}`,
-        `Action type: ${actionLbl}`,
-        entry.projTitle     ? `Title: ${entry.projTitle}`                             : null,
-        entry.projTerritory ? `Territory: ${entry.projTerritory}`                     : null,
-        entry.projCast      ? `Characters involved: ${entry.projCast}`                : null,
-        entry.projMerits    ? `Merits & bonuses applied: ${entry.projMerits}`         : null,
-        `Desired outcome: ${entry.projOutcome || entry.meritDesiredOutcome || '—'}`,
-        `Player description: ${entry.projDescription || entry.description || '—'}`,
-        `Validated pool: ${pool || '—'}`,
-        '',
-        '── ROLL RESULT ─────────────────────────',
-        rollSection,
-        '',
-        '── YOUR TASK ───────────────────────────',
-        'Write a narrative response (2–3 short paragraphs, max 150 words) describing what happened during this downtime action.',
-        'The mechanical outcome above dictates the scale and direction of the narrative — calibrate accordingly.',
-        'A failure narrates an attempt that produced no result. An exceptional success narrates something notably beyond the baseline.',
-        '',
-        '── STYLE RULES ─────────────────────────',
-        '- Second person, present tense',
-        '- British English',
-        '- No mechanical terms: no discipline names, dot ratings, success counts, or merit names in narrative',
-        '- No em dashes',
-        '- Do not editorialise about what the result means mechanically',
-        '- Never dictate what the character felt or chose',
-        '- Compression over expansion: direct statement over periphrasis',
-        '- No stacked declaratives (two or three short sentences in a row that should be folded into one)',
-        '- No negative framing openers (do not begin sections with what the character did not find or what went wrong)',
-        '- Show what happened, not what it means',
-        '- Tone: dry, grounded, specific. Prefer concrete detail over atmosphere. Name streets, objects, and people where possible',
-      ].filter(l => l !== null).join('\n');
-
-      try {
-        await navigator.clipboard.writeText(lines);
-        const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      } catch {
-        btn.textContent = 'Failed';
-        setTimeout(() => { btn.textContent = 'Copy context'; }, 1500);
-      }
-    });
-  });
-
-  // Wire ST Response review buttons (feature.66)
-  container.querySelectorAll('.proc-response-review-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const key   = btn.dataset.procKey;
-      const entry = _getQueueEntry(key);
-      if (!entry) return;
-      const user     = getUser();
-      const reviewer = user?.display_name || user?.username || 'Unknown ST';
-      await saveEntryReview(entry, { response_status: 'reviewed', response_reviewed_by: reviewer });
       renderProcessingMode(container);
     });
   });
@@ -4270,6 +4198,23 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire custom rite level input — save rite_custom_level on change and re-render
+  container.querySelectorAll('.proc-rite-custom-level-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('mousedown', e => e.stopPropagation());
+    inp.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const val = parseInt(inp.value, 10);
+      if (val >= 1 && val <= 5) {
+        await saveEntryReview(entry, { rite_custom_level: val });
+        renderProcessingMode(container);
+      }
+    });
+  });
+
   // Wire Mandragora Garden toggle (sorcery) — save and re-render
   container.querySelectorAll('.proc-ritual-mg-toggle').forEach(cb => {
     cb.addEventListener('change', async e => {
@@ -4648,6 +4593,99 @@ function renderProcessingMode(container) {
     } catch (err) { console.error('Failed to save ambience notes:', err.message); }
   });
 
+  // Wire second-opinion flag toggle
+  container.querySelectorAll('.proc-second-opinion-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      const review = getEntryReview(entry);
+      await saveEntryReview(entry, { second_opinion: !review?.second_opinion });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire Add ST Action toggle buttons
+  container.querySelectorAll('.proc-add-st-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      if (stActionAddExpandedSubs.has(subId)) {
+        stActionAddExpandedSubs.delete(subId);
+      } else {
+        stActionAddExpandedSubs.add(subId);
+      }
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire Add ST Action submit buttons
+  container.querySelectorAll('.proc-add-st-submit-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const row = container.querySelector(`.proc-add-st-action-row[data-sub-id="${subId}"]`);
+      if (!row) return;
+      const actionType = row.querySelector('.proc-add-st-type').value;
+      const label = row.querySelector('.proc-add-st-label').value.trim();
+      const description = row.querySelector('.proc-add-st-desc').value.trim();
+      if (!label) { row.querySelector('.proc-add-st-label').focus(); return; }
+      await addStAction(subId, { action_type: actionType, label, description });
+      stActionAddExpandedSubs.delete(subId);
+      renderProcessingMode(container);
+    });
+  });
+
+  // Prevent form inputs in Add ST Action forms from bubbling up
+  container.querySelectorAll('.proc-add-st-form input, .proc-add-st-form select').forEach(el => {
+    el.addEventListener('click', e => e.stopPropagation());
+    el.addEventListener('mousedown', e => e.stopPropagation());
+  });
+
+  // Wire Delete ST action buttons
+  container.querySelectorAll('.proc-delete-st-action').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId = btn.dataset.subId;
+      const actionIdx = parseInt(btn.dataset.actionIdx, 10);
+      await deleteStAction(subId, actionIdx);
+      renderProcessingMode(container);
+    });
+  });
+
+}
+
+/** Add an ST-created action to a submission's st_actions array. */
+async function addStAction(subId, actionDef) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const stActions = [...(sub.st_actions || [])];
+  stActions.push({
+    action_type: actionDef.action_type,
+    label:       actionDef.label,
+    description: actionDef.description || '',
+    pool_player: actionDef.pool_player || '',
+  });
+  await updateSubmission(subId, { st_actions: stActions });
+  sub.st_actions = stActions;
+}
+
+/** Delete an ST-created action (and its resolved review) from a submission. */
+async function deleteStAction(subId, actionIdx) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const stActions   = [...(sub.st_actions || [])];
+  const stResolved  = [...(sub.st_actions_resolved || [])];
+  stActions.splice(actionIdx, 1);
+  stResolved.splice(actionIdx, 1);
+  await updateSubmission(subId, { st_actions: stActions, st_actions_resolved: stResolved });
+  sub.st_actions = stActions;
+  sub.st_actions_resolved = stResolved;
+  // Remove any expanded key that referenced this entry or later entries (indices shifted)
+  for (const key of [...procExpandedKeys]) {
+    if (key.startsWith(`${subId}:st:`)) procExpandedKeys.delete(key);
+  }
 }
 
 /** Render the inline Attach Reminder panel for a resolved sorcery entry. */
@@ -5279,7 +5317,7 @@ function _renderMeritRightPanel(entry, rev) {
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${poolValidatedMerit ? esc(poolValidatedMerit) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
-  if (poolValidatedMerit) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  if (poolValidatedMerit) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5430,7 +5468,7 @@ function _renderProjRightPanel(entry, char, rev) {
     }
   }
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
-  // Validation notation: show active flags when validated
+  // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
     const notes = [];
     if (isRote) notes.push('Rote');
@@ -5439,8 +5477,11 @@ function _renderProjRightPanel(entry, char, rev) {
     if (notes.length > 0) {
       h += `<div class="proc-proj-val-notation">${esc(notes.join(' \u00B7 '))}</div>`;
     }
+    if (rev.pool_validated_by) {
+      h += `<div class="proc-validated-chip">[Validated \u00B7 ${esc(rev.pool_validated_by)}]</div>`;
+    }
   }
-  if (poolValidated) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  if (poolValidated) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   // ── Roll card ──
@@ -5452,20 +5493,6 @@ function _renderProjRightPanel(entry, char, rev) {
     canRoll:       showRollBtn,
     noRollMsg:    'Validate pool first',
   });
-
-  // ── Review section (all personal project actions — feature.66 extended) ──
-  const stResponse = rev.st_response || '';
-  const responseStatus = rev.response_status || '';
-  const reviewedBy = rev.response_reviewed_by || '';
-  if (stResponse) {
-    h += `<div class="proc-response-review-section">`;
-    if (responseStatus === 'reviewed') {
-      h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(reviewedBy)}</div>`;
-    } else {
-      h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
-    }
-    h += `</div>`;
-  }
 
   h += `</div>`; // proc-feed-right
   return h;
@@ -5509,7 +5536,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
   // ── Dice Pool Modifiers ──
-  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
+  h += `<div class="proc-feed-right-section proc-feed-mod-panel" data-proc-key="${esc(key)}" data-fg="${esc(fgDataAttr)}">`;
   h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
   // Feeding Grounds row
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Feeding Grounds</span><span class="proc-mod-val${fgDice !== null && fgDice > 0 ? ' proc-mod-pos' : ''}">${fgDisplay}</span></div>`;
@@ -5581,7 +5608,10 @@ function _renderFeedRightPanel(entry, char, rev) {
   ).length;
 
   const vitaeMod  = rev.vitae_mod_manual !== undefined ? rev.vitae_mod_manual : 0;
-  const vitaeRite = rev.vitae_rite_cost  !== undefined ? rev.vitae_rite_cost  : 0;
+  const feedSubForRite = submissions.find(s => s._id === entry.subId);
+  const computedRiteCost = feedSubForRite ? _computeRiteVitaeCost(feedSubForRite) : 0;
+  const vitaeRite = rev.vitae_rite_cost  !== undefined ? rev.vitae_rite_cost  : computedRiteCost;
+  const wpCost = feedSubForRite ? _computeRiteWpCost(feedSubForRite) : 0;
   const manStr    = vitaeMod === 0 ? '\u00B10' : vitaeMod > 0 ? `+${vitaeMod}` : String(vitaeMod);
 
   const autoSum = (herdVitae ?? 0) + oofVitae + (ambienceVitae ?? 0) - ghoulCount;
@@ -5591,7 +5621,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const herdData      = herdVitae     !== null ? String(herdVitae)    : '';
   const ambienceData  = ambienceVitae !== null ? String(ambienceVitae): '';
 
-  h += `<div class="proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
+  h += `<div class="proc-feed-right-section proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
   h += `<div class="proc-mod-panel-title">Vitae Tally</div>`;
 
   // Herd
@@ -5627,6 +5657,14 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<span class="proc-mod-label">Rite costs</span>`;
   h += `<input type="number" class="proc-rite-cost-input dt-num-input-sm" min="0" data-proc-key="${esc(key)}" value="${vitaeRite}">`;
   h += `</div>`;
+
+  // Theban WP cost — informational only, does not affect vitae total
+  if (wpCost > 0) {
+    h += `<div class="proc-mod-row">`;
+    h += `<span class="proc-mod-label">Theban Sorcery <span class="proc-mod-muted">(vitae unaffected)</span></span>`;
+    h += `<span class="proc-mod-val proc-mod-neg">\u2212${wpCost}\u202FWP</span>`;
+    h += `</div>`;
+  }
 
   // Manual adjustment ticker
   h += `<div class="proc-mod-row proc-mod-ticker-row"><span class="proc-mod-label">Manual adj.</span>`;
@@ -5669,7 +5707,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
   const _activeFeedSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -5690,24 +5728,14 @@ function _renderFeedRightPanel(entry, char, rev) {
     if (nineAgainStateFeed) feedNotes.push('9-Again');
     if (eightAgainStateFeed) feedNotes.push('8-Again');
     if (feedNotes.length > 0) h += `<div class="proc-proj-val-notation">${esc(feedNotes.join(' \u00B7 '))}</div>`;
-    h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+    if (poolStatus === 'validated' && rev.pool_validated_by) {
+      h += `<div class="proc-validated-chip">[Validated \u00B7 ${esc(rev.pool_validated_by)}]</div>`;
+    }
+    h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   }
 
   h += `</div>`;
 
-  // ── Response review section ──
-  const feedResponseStatus = rev.response_status || '';
-  const feedReviewedBy     = rev.response_reviewed_by || '';
-  const feedStResponse     = rev.st_response || '';
-  if (feedStResponse) {
-    h += `<div class="proc-response-review-section">`;
-    if (feedResponseStatus === 'reviewed') {
-      h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(feedReviewedBy)}</div>`;
-    } else {
-      h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
-    }
-    h += `</div>`;
-  }
 
   h += `</div>`; // proc-feed-right
   return h;
@@ -6252,8 +6280,8 @@ function renderActionPanel(entry, review) {
       h += `</div>`;
       // Edit mode (hidden)
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-detail-input proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="Short action name"></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3">${esc(descVal)}</textarea></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-detail-input proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="e.g. The Thirsty Blade, quiet back alley\u2026"></div>`;
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="How does the character typically feed? What\u2019s the cover story?">${esc(descVal)}</textarea></div>`;
       const _btOpts = ['Human', 'Animal', 'Kindred', 'Ghoul'];
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><select class="proc-recat-select proc-feed-blood-sel" data-proc-key="${esc(entry.key)}">${_btOpts.map(o => `<option value="${o}"${bloodTypeVal === o ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
@@ -6492,6 +6520,7 @@ function renderActionPanel(entry, review) {
     h += '<span class="proc-detail-label">Rite</span>';
     h += `<select class="proc-rite-select" data-proc-key="${esc(entry.key)}">`;
     h += '<option value="">\u2014 Select Rite \u2014</option>';
+    h += `<option value="__custom__"${selectedRite === '__custom__' ? ' selected' : ''}>Custom\u2026</option>`;
     const tradOrder = ['Cruac', 'Theban'];
     const byTrad = {};
     for (const r of allRites) {
@@ -6511,12 +6540,32 @@ function renderActionPanel(entry, review) {
       h += '</optgroup>';
     }
     h += '</select>';
-    if (overridden) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName || '\u2014')}</span>`;
+    // Custom level input — only when Custom is selected
+    if (selectedRite === '__custom__') {
+      const lvl = rev.rite_custom_level || '';
+      h += `<label class="proc-rite-custom-lbl">Level <input type="number" class="proc-rite-custom-level-input dt-num-input-sm" min="1" max="5" data-proc-key="${esc(entry.key)}" value="${esc(String(lvl))}"></label>`;
+    }
+    // Override indicator — only for short rite names (suppress blobs from CSV submissions)
+    const shortRiteName = entry.riteName && entry.riteName.length <= 60;
+    if (overridden && shortRiteName) h += `<span class="proc-recat-original">Player: ${esc(entry.riteName)}</span>`;
     h += '</div>';
 
     // Pool + target display (auto-computed from selected rite + char)
-    if (ritInfo) {
-      const base         = _computeRitePool(sorcChar, ritInfo.attr, ritInfo.skill, ritInfo.disc);
+    // For Custom, build a fake ritInfo from tradition pool + entered level
+    let resolvedRitInfo = ritInfo;
+    if (!resolvedRitInfo && selectedRite === '__custom__' && rev.rite_custom_level) {
+      const pool = TRADITION_POOL[entry.tradition] || null;
+      if (pool) {
+        resolvedRitInfo = {
+          attr: pool.attr, skill: pool.skill, disc: pool.disc,
+          poolExpr: [pool.attr, pool.skill, pool.disc].filter(Boolean).join(' + '),
+          target: rev.rite_custom_level,
+        };
+      }
+    }
+
+    if (resolvedRitInfo) {
+      const base         = _computeRitePool(sorcChar, resolvedRitInfo.attr, resolvedRitInfo.skill, resolvedRitInfo.disc);
       const isCruac      = entry.tradition === 'Cruac';
       const mandUsed     = rev.ritual_mg_used || false;
       const mgMeritL     = isCruac ? (sorcChar?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
@@ -6525,23 +6574,23 @@ function renderActionPanel(entry, review) {
       const eqMod        = rev.pool_mod_equipment || 0;
       const total        = base + 3 + mgDots + eqMod;
 
-      const _slEntry = ritInfo.disc ? _charDiscsArray(sorcChar).find(d => d.name === ritInfo.disc) : null;
+      const _slEntry = resolvedRitInfo.disc ? _charDiscsArray(sorcChar).find(d => d.name === resolvedRitInfo.disc) : null;
       let exprParts = sorcChar
         ? [
-            `${ritInfo.attr} ${getAttrVal(sorcChar, ritInfo.attr) || 0}`,
-            `${ritInfo.skill} ${skTotal(sorcChar, ritInfo.skill) || 0}`,
-            ritInfo.disc ? `${ritInfo.disc} ${_slEntry?.dots || 0}` : null,
+            `${resolvedRitInfo.attr} ${getAttrVal(sorcChar, resolvedRitInfo.attr) || 0}`,
+            `${resolvedRitInfo.skill} ${skTotal(sorcChar, resolvedRitInfo.skill) || 0}`,
+            resolvedRitInfo.disc ? `${resolvedRitInfo.disc} ${_slEntry?.dots || 0}` : null,
             '+3',
           ].filter(Boolean)
-        : [ritInfo.poolExpr, '+3'];
+        : [resolvedRitInfo.poolExpr, '+3'];
       if (mgDots) exprParts.push(`+${mgDots}`);
       if (eqMod)  exprParts.push(eqMod > 0 ? `+${eqMod}` : String(eqMod));
 
       h += `<div class="proc-ritual-info">`;
       h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Pool</span> ${esc(exprParts.join(' + '))} = ${total}</span>`;
-      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Target</span> ${ritInfo.target} success${ritInfo.target !== 1 ? 'es' : ''} (Level ${ritInfo.target})</span>`;
+      h += `<span class="proc-ritual-info-item"><span class="proc-feed-lbl">Target</span> ${resolvedRitInfo.target} success${resolvedRitInfo.target !== 1 ? 'es' : ''} (Level ${resolvedRitInfo.target})</span>`;
       h += '</div>';
-    } else if (selectedRite) {
+    } else if (selectedRite && selectedRite !== '__custom__') {
       h += `<div class="proc-ritual-no-rule">Rite not found in rules database.</div>`;
     }
 
@@ -6601,28 +6650,12 @@ function renderActionPanel(entry, review) {
   }
 
 
-  // ST Response (all personal project actions — feature.66 extended)
-  if (entry.source === 'project') {
-    const stResponse     = rev.st_response       || '';
-    const responseAuthor = rev.response_author   || '';
-    const responseStatus = rev.response_status   || '';
-    const reviewedBy     = rev.response_reviewed_by || '';
-    h += '<div class="proc-st-response-section">';
-    h += '<div class="proc-st-response-header">';
-    h += '<span class="proc-detail-label">ST Response</span>';
-    h += `<button class="dt-btn dt-btn-sm proc-st-response-copy" data-proc-key="${esc(entry.key)}">Copy context</button>`;
-    h += '</div>';
-    h += `<textarea class="proc-st-response-textarea" data-proc-key="${esc(entry.key)}" rows="5" placeholder="Narrative response for the player...">${esc(stResponse)}</textarea>`;
-    h += `<div class="proc-st-response-footer">`;
-    h += `<button class="dt-btn dt-btn-sm proc-st-response-save" data-proc-key="${esc(entry.key)}">Save</button>`;
-    if (responseAuthor) {
-      const statusBadge = responseStatus === 'reviewed'
-        ? ` <span class="proc-response-status-badge proc-response-status-reviewed">Reviewed</span>`
-        : ` <span class="proc-response-status-badge proc-response-status-draft">Draft</span>`;
-      h += `<span class="proc-st-response-author">Drafted by ${esc(responseAuthor)}${statusBadge}</span>`;
-    }
-    h += '</div>';
-    h += '</div>';
+  // Second-opinion flag toggle
+  {
+    const isActive = !!rev.second_opinion;
+    h += `<div class="proc-section proc-second-opinion-row">`;
+    h += `<button class="proc-second-opinion-btn${isActive ? ' active' : ''}" data-proc-key="${esc(entry.key)}">${isActive ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
+    h += `</div>`;
   }
 
   // Player feedback
@@ -6671,6 +6704,13 @@ function renderActionPanel(entry, review) {
     h += '</div>'; // proc-feed-left
     h += _renderMeritRightPanel(entry, rev);
     h += '</div>'; // proc-feed-layout
+  }
+
+  // Delete button for ST-created actions
+  if (entry.source === 'st_created') {
+    h += `<div class="proc-section">`;
+    h += `<button class="dt-btn proc-delete-st-action" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}" data-action-idx="${entry.actionIdx}">Delete action</button>`;
+    h += `</div>`;
   }
 
   h += '</div>'; // proc-action-detail
@@ -6757,6 +6797,37 @@ function _getRiteInfo(riteName) {
 /**
  * Return the known level of a rite by name: checks DB first, then all character powers.
  */
+/** Compute total Cruac vitae cost from a submission's sorcery slots. Theban rites cost WP, not vitae. */
+function _computeRiteVitaeCost(sub) {
+  const subChar = findCharacter(sub.character_name, sub.player_name);
+  const discs = subChar?.disciplines || {};
+  if (!discs.Cruac) return 0;
+  const resp = sub.responses || {};
+  const count = parseInt(resp['sorcery_slot_count'] || '1', 10);
+  let total = 0;
+  for (let n = 1; n <= count; n++) {
+    const rite = resp[`sorcery_${n}_rite`];
+    if (!rite) continue;
+    const level = _getRiteLevel(rite) || 0;
+    total += level >= 4 ? 2 : level >= 1 ? 1 : 0;
+  }
+  return total;
+}
+
+/** Compute total Theban WP cost from a submission's sorcery slots (1 WP per rite). */
+function _computeRiteWpCost(sub) {
+  const subChar = findCharacter(sub.character_name, sub.player_name);
+  const discs = subChar?.disciplines || {};
+  if (!(discs['Theban Sorcery'] || discs.Theban)) return 0;
+  const resp = sub.responses || {};
+  const count = parseInt(resp['sorcery_slot_count'] || '1', 10);
+  let total = 0;
+  for (let n = 1; n <= count; n++) {
+    if (resp[`sorcery_${n}_rite`]) total++;
+  }
+  return total;
+}
+
 function _getRiteLevel(riteName) {
   const db = _getRulesDB();
   if (db) {
@@ -7530,7 +7601,8 @@ const CHK_SECTIONS = [
   { key: 'contacts_3',     label: 'C3' },
   { key: 'contacts_4',     label: 'C4' },
   { key: 'contacts_5',     label: 'C5' },
-  { key: 'resources',      label: 'Res.' },
+  { key: 'resources',      label: 'Res. Acq.' },
+  { key: 'skill_acq',      label: 'Skill Acq.' },
   { key: 'correspondence', label: 'Corresp.' },
   { key: 'xp',             label: 'XP' },
 ];
@@ -7549,7 +7621,8 @@ function _chkHasContent(sub, key) {
     case 'project_2':      return !!(sub.responses?.project_2_action || raw.projects?.[1]);
     case 'project_3':      return !!(sub.responses?.project_3_action || raw.projects?.[2]);
     case 'project_4':      return !!(sub.responses?.project_4_action || raw.projects?.[3]);
-    case 'resources':      return !!(raw.retainer_actions?.actions?.length);
+    case 'resources':      return !!(raw.acquisitions?.resource_acquisitions);
+    case 'skill_acq':      return !!(raw.acquisitions?.skill_acquisitions);
     case 'correspondence': return !!(raw.submission?.narrative?.correspondence);
     case 'xp':             return !!(raw.meta?.xp_spend);
     default:               return false;
@@ -7599,7 +7672,12 @@ function _chkState(sub, key) {
     const slot = parseInt(projM[1]) - 1;
     const pr   = (sub.projects_resolved || [])[slot] || {};
     const ps   = pr.pool_status;
+    const rawProjType = pr.action_type_override
+      || (sub._raw?.projects || [])[slot]?.action_type
+      || sub.responses?.[`project_${slot + 1}_action`]
+      || '';
     if (ps === 'no_roll' || ps === 'maintenance') return 'no_action';
+    if (rawProjType === 'no_action_taken') return 'no_action';
     if (ps === 'validated') {
       if (pr.response_status === 'reviewed')        return 'confirmed';
       if (pr.st_response)                           return 'drafted';
@@ -7645,13 +7723,7 @@ function _chkNavKey(sub, section) {
     const numSphere = raw.sphere_actions?.length || 0;
     return `${sub._id}:merit:${numSphere + parseInt(contactsM[1]) - 1}`;
   }
-  if (section === 'resources') {
-    const raw = sub._raw || {};
-    const numSphere = raw.sphere_actions?.length || 0;
-    const numContacts = raw.contact_actions?.requests?.length || 0;
-    return `${sub._id}:merit:${numSphere + numContacts}`;
-  }
-  return null; // travel, correspondence, xp — no queue entry
+  return null; // travel, resources, skill_acq, correspondence, xp — no queue entry
 }
 
 function renderSubmissionChecklist() {
@@ -7672,6 +7744,7 @@ function renderSubmissionChecklist() {
 
   // Count how many chars have all present sections sighted/validated
   let fullySighted = 0;
+  const submittedCount = sorted.filter(c => subByCharId.has(String(c._id))).length;
   for (const char of sorted) {
     const sub = subByCharId.get(String(char._id)) || null;
     if (!sub) continue;
@@ -7684,7 +7757,7 @@ function renderSubmissionChecklist() {
 
   let h = '<div class="dt-chk-panel">';
   h += `<div class="dt-chk-toggle" id="dt-chk-toggle">${isOpen ? '\u25BC' : '\u25BA'} Submission Checklist`;
-  h += ` <span class="domain-count">${fullySighted} / ${sorted.length} processed</span>`;
+  h += ` <span class="domain-count">${fullySighted} / ${submittedCount} processed</span>`;
   h += ` <span class="dt-chk-legend">\u2605\u202Fdone &nbsp; \u270E\u202Fdraft &nbsp; \u25C6\u202Fdice &nbsp; \u25A0\u202Fskip &nbsp; ?\u202Fsighted &nbsp; \u2717\u202Fpending &nbsp; \u2014\u202Fn/a</span>`;
   h += `</div>`;
 

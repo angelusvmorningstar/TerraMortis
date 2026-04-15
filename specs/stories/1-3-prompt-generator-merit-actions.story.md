@@ -1,6 +1,6 @@
 # Story 1.3: Prompt Generator — Merit Actions
 
-## Status: review
+## Status: done
 
 ## Story
 

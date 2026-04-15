@@ -1,6 +1,6 @@
 # Story 1.2: Prompt Generator — Projects
 
-## Status: review
+## Status: done
 
 ## Story
 

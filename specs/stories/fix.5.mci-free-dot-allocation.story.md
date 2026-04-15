@@ -1,6 +1,6 @@
 # Story Fix.5: MCI Free Merit Dots — Pool Allocation (Lorekeeper/VM Pattern)
 
-## Status: review
+## Status: done
 
 ## Story
 

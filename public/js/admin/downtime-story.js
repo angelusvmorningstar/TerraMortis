@@ -582,10 +582,16 @@ function renderNavRail() {
     return '<div class="dt-story-empty">No submissions for this cycle.</div>';
   }
 
+  const sorted = [..._allSubmissions].sort((a, b) => {
+    const ca = getCharForSub(a);
+    const cb = getCharForSub(b);
+    return (ca ? ca.name.toLowerCase() : '').localeCompare(cb ? cb.name.toLowerCase() : '');
+  });
+
   let h = '';
-  for (const sub of _allSubmissions) {
+  for (const sub of sorted) {
     const char = getCharForSub(sub);
-    const name = char ? displayName(char) : 'Unknown';
+    const name = char ? (char.moniker || char.name) : 'Unknown';
     const state = getNavPillState(sub);
     const stateClass = state ? ` ${state}` : '';
     const charId = sub.character_id || sub._id;
