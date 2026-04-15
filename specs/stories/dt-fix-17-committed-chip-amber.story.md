@@ -1,6 +1,6 @@
 # Story DT-Fix-17: Committed Chip Amber + ST Attribution on Status Changes
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -61,23 +61,23 @@ When `isAuto` is true, `committed` should be omitted.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Fix committed colour in `admin-layout.css`
-  - [ ] 1.1: Line 4441 — `.proc-row-status.committed` dark theme → amber
-  - [ ] 1.2: Line 4674 — `.proc-val-status button.active.committed` → gold2 border + text + amber-tint background
-  - [ ] 1.3: Line 5464 — `.proc-pool-committed-badge` → change `color: var(--story-compl)` to `color: var(--gold2)`
-  - [ ] 1.4: Line 5753 — `.proc-row-status.committed` light-theme override → amber equivalents
+- [x] Task 1: Fix committed colour in `admin-layout.css`
+  - [x] 1.1: Line 4441 — `.proc-row-status.committed` dark theme → amber
+  - [x] 1.2: Line 4674 — `.proc-val-status button.active.committed` → gold2 border + text + amber-tint background
+  - [x] 1.3: Line 5464 — `.proc-pool-committed-badge` → change `color: var(--story-compl)` to `color: var(--gold2)`
+  - [x] 1.4: Line 5753 — `.proc-row-status.committed` light-theme override → amber equivalents
 
-- [ ] Task 2: Store ST attribution in status button handler (`downtime-views.js`)
-  - [ ] 2.1: Lines 3490-3494 — extend the existing `statusPatch` attribution block to cover `committed` and `resolved` in addition to `validated`
+- [x] Task 2: Store ST attribution in status button handler (`downtime-views.js`)
+  - [x] 2.1: Lines 3490-3494 — extend the existing `statusPatch` attribution block to cover `committed` and `resolved` in addition to `validated`
 
-- [ ] Task 3: Display attribution in queue row (`downtime-views.js`)
-  - [ ] 3.1: Line 3252 — replace `_validatorName` single-status check with a multi-status `_attributedName` check covering `validated`, `committed`, and `resolved`
-  - [ ] 3.2: Line 3254 — update the span render to use `_attributedName`
+- [x] Task 3: Display attribution in queue row (`downtime-views.js`)
+  - [x] 3.1: Line 3252 — replace `_validatorName` single-status check with a multi-status `_attributedName` check covering `validated`, `committed`, and `resolved`
+  - [x] 3.2: Line 3254 — update the span render to use `_attributedName`
 
-- [ ] Task 4: Remove `Committed` button from merit AUTOMATIC panels (`downtime-views.js`)
-  - [ ] 4.1: Line 5315 — split `meritBtns` into two sets based on `isAuto` (already in scope at line 5189)
-  - [ ] 4.2: When `isAuto` is true, use button set without `committed`
-  - [ ] 4.3: When `isAuto` is false, keep existing set unchanged
+- [x] Task 4: Remove `Committed` button from merit AUTOMATIC panels (`downtime-views.js`)
+  - [x] 4.1: Line 5315 — split `meritBtns` into two sets based on `isAuto` (already in scope at line 5189)
+  - [x] 4.2: When `isAuto` is true, use button set without `committed`
+  - [x] 4.3: When `isAuto` is false, keep existing set unchanged
 
 ---
 
@@ -225,10 +225,14 @@ Manual verification:
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- All 4 CSS rules updated as specified (dark theme badge, active button, committed badge, light-theme override)
+- Status button handler extended to store `pool_committed_by` and `pool_resolved_by` alongside existing `pool_validated_by`
+- Queue row attribution generalised from `_validatorName` (validated-only) to `_attributedName` (validated/committed/resolved)
+- Merit AUTOMATIC panel `meritBtns` split on `isAuto` — Committed button omitted when `isAuto === true`
+- No schema changes required (`additionalProperties: true` on review shapes; `saveEntryReview` spread-patches freely)
 
 ### File List
 - `public/css/admin-layout.css`

@@ -3249,9 +3249,12 @@ function renderProcessingMode(container) {
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
         h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
-        const _validatorName = (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by : '';
+        const _attributedName =
+          (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
+          (status === 'committed' && review?.pool_committed_by) ? review.pool_committed_by :
+          (status === 'resolved'  && review?.pool_resolved_by)  ? review.pool_resolved_by  : '';
         h += `<span class="proc-row-status-cell">`;
-        if (_validatorName) h += `<span class="proc-row-validator">${esc(_validatorName)}</span>`;
+        if (_attributedName) h += `<span class="proc-row-validator">${esc(_attributedName)}</span>`;
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
         h += `</span>`;
         if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">\u25CF</span>`;
@@ -3488,9 +3491,12 @@ function renderProcessingMode(container) {
         }
       }
       const statusPatch = { pool_status: status };
-      if (status === 'validated') {
+      if (['validated', 'committed', 'resolved'].includes(status)) {
         const user = getUser();
-        statusPatch.pool_validated_by = user?.global_name || user?.username || 'ST';
+        const stName = user?.global_name || user?.username || 'ST';
+        if (status === 'validated')  statusPatch.pool_validated_by  = stName;
+        if (status === 'committed')  statusPatch.pool_committed_by  = stName;
+        if (status === 'resolved')   statusPatch.pool_resolved_by   = stName;
       }
       await saveEntryReview(entry, statusPatch);
       renderProcessingMode(container);
@@ -5312,7 +5318,9 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  const meritBtns = [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+  const meritBtns = isAuto
+    ? [['pending', 'Pending'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]
+    : [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
