@@ -4748,6 +4748,43 @@ body {
   margin-bottom: 4px;
 }
 
+/* ── DTX-2: compact merit panel ────────────────────────────────── */
+.proc-compact-merit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proc-merit-outcome-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.proc-merit-outcome-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--ft);
+  transition: background 0.15s;
+}
+
+.proc-merit-outcome-btn:hover {
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+
+.proc-merit-outcome-btn.active {
+  background: var(--gold2);
+  color: var(--bg);
+  border-color: var(--gold2);
+  font-weight: 600;
+}
+
 /* ── ST Response section (feature.66) ─────────────────────────── */
 .proc-st-response-section {
   margin-bottom: 12px;

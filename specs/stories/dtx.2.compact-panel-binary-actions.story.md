@@ -1,6 +1,6 @@
 # Story DTX.2: Compact Panel for Binary Actions
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -27,7 +27,7 @@ so that I can resolve binary decisions without navigating irrelevant pool builde
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `_isCompactMerit` helper (AC: 1–5)
+- [x] Task 1: Add `_isCompactMerit` helper (AC: 1–5)
   - [ ] In `public/js/admin/downtime-views.js`, add a helper function near the top of the merit rendering section (before `_renderMeritRightPanel` at line ~5184):
 
     ```js
@@ -41,7 +41,7 @@ so that I can resolve binary decisions without navigating irrelevant pool builde
     }
     ```
 
-- [ ] Task 2: Add `_renderCompactMeritPanel` function (AC: 6–8)
+- [x] Task 2: Add `_renderCompactMeritPanel` function (AC: 6–8)
   - [ ] Add a new function `_renderCompactMeritPanel(entry, rev)` immediately before `_renderMeritRightPanel`:
 
     ```js
@@ -112,7 +112,7 @@ so that I can resolve binary decisions without navigating irrelevant pool builde
     }
     ```
 
-- [ ] Task 3: Branch in `_renderMeritRightPanel` (AC: 1–5, 9)
+- [x] Task 3: Branch in `_renderMeritRightPanel` (AC: 1–5, 9)
   - [ ] At the top of `_renderMeritRightPanel` (line ~5184), after the variable declarations (after `isBlocked` is computed), add an early-return branch:
 
     ```js
@@ -124,7 +124,7 @@ so that I can resolve binary decisions without navigating irrelevant pool builde
 
   - [ ] Insert this after the `const isBlocked = mode === 'blocked';` line (~line 5203), so that `mode` and `formula` are already computed before the branch
 
-- [ ] Task 4: Wire outcome toggle event handler (AC: 7)
+- [x] Task 4: Wire outcome toggle event handler (AC: 7)
   - [ ] In the event wiring section, after the `.proc-second-opinion-btn` handler (~line 4626), add:
 
     ```js
@@ -141,7 +141,7 @@ so that I can resolve binary decisions without navigating irrelevant pool builde
     });
     ```
 
-- [ ] Task 5: Add CSS for compact panel and outcome buttons (AC: 6)
+- [x] Task 5: Add CSS for compact panel and outcome buttons (AC: 6)
   - [ ] In `public/css/admin-layout.css`, add after the proc-xref-callout block (or after `proc-note-textarea`):
 
     ```css
@@ -183,7 +183,7 @@ so that I can resolve binary decisions without navigating irrelevant pool builde
     }
     ```
 
-- [ ] Task 6: E2E tests (AC: 1–10)
+- [ ] Task 6: E2E tests (AC: 1–10)  <!-- pending -->
   - [ ] Add 6 tests in a new `test.describe('DTX-2: Compact panel for binary actions')` block:
     1. Auto-mode merit action renders compact panel — `.proc-compact-merit-panel` present, `.proc-val-status` absent
     2. Blocked merit action renders compact panel
@@ -297,6 +297,12 @@ container.querySelectorAll('.proc-merit-outcome-btn').forEach(btn => { ... });
 ### Debug Log References
 
 ### Completion Notes List
+
+- Added `_isCompactMerit(entry, mode, formula)` helper: triggers on `mode === 'auto'|'blocked'`, `formula === 'none'`, `meritCategory === 'contacts'|'retainer'`. Inserted before `_renderMeritRightPanel`.
+- Added `_renderCompactMeritPanel(entry, rev)`: renders effect panel, auto successes (when `isAuto && dots != null`, using `dots` as count), Approved/Partial/Failed outcome toggle (omitted when `isBlocked`), ST notes quick-add textarea using existing `proc-note-textarea` / `proc-add-note-btn` classes (no new handler needed — existing note-add wiring covers it).
+- Early-return branch added to `_renderMeritRightPanel` after `isBlocked` is computed (line ~5302): `if (_isCompactMerit(entry, mode, formula)) return _renderCompactMeritPanel(entry, rev);`
+- `.proc-merit-outcome-btn` click handler wired after second-opinion handler (~line 4628): saves `{ merit_outcome: btn.dataset.outcome }` via `saveEntryReview`, triggers `renderProcessingMode`.
+- CSS added to `admin-layout.css`: `.proc-compact-merit-panel` flex column, `.proc-merit-outcome-btns` flex row, `.proc-merit-outcome-btn` with gold active state.
 
 ### File List
 

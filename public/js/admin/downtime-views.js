@@ -4625,6 +4625,18 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire compact merit outcome toggle
+  container.querySelectorAll('.proc-merit-outcome-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { merit_outcome: btn.dataset.outcome });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire Add ST Action toggle buttons
   container.querySelectorAll('.proc-add-st-toggle-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -5178,6 +5190,90 @@ function _renderTickerRow(key, label, cssPrefix, displayStr, storedVal) {
 }
 
 /**
+ * Returns true when a merit entry should render the compact panel instead of the full
+ * pool-builder pipeline. Compact mode applies to auto/blocked/fixed-effect actions and
+ * to contacts/retainer category entries which have no meaningful dice pool.
+ */
+function _isCompactMerit(entry, mode, formula) {
+  if (entry.source !== 'merit') return false;
+  if (mode === 'auto' || mode === 'blocked') return true;
+  if (formula === 'none') return true;
+  if (entry.meritCategory === 'contacts') return true;
+  if (entry.meritCategory === 'retainer') return true;
+  return false;
+}
+
+/**
+ * Compact right-panel for binary/fixed-effect merit actions.
+ * Renders: effect chip, auto successes (if auto), outcome toggle, ST notes textarea.
+ * Omits: pool builder, roll card, success modifier, validation status buttons.
+ */
+function _renderCompactMeritPanel(entry, rev) {
+  const key        = entry.key;
+  const category   = entry.meritCategory || 'misc';
+  const actionType = entry.actionType || 'misc';
+  const dots       = entry.meritDots;
+  const matrixRow  = MERIT_MATRIX[category]?.[actionType] || null;
+  const mode       = matrixRow?.mode || 'auto';
+  const effect     = matrixRow?.effect || '';
+  const effectAuto = matrixRow?.effectAuto || '';
+  const isAuto     = mode === 'auto';
+  const isBlocked  = mode === 'blocked';
+  const autoSucc   = isAuto && dots != null ? dots : null;
+  const outcome    = rev.merit_outcome || '';
+
+  const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automatic', blocked: 'Cannot' };
+
+  let h = `<div class="proc-feed-right proc-compact-merit-panel" data-proc-key="${esc(key)}">`;
+
+  // ── Effect panel ──
+  h += `<div class="proc-feed-mod-panel proc-merit-effect-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-merit-mode-row">`;
+  h += `<span class="proc-mod-label">Action Mode</span>`;
+  h += `<span class="proc-merit-mode-chip proc-merit-mode-${mode}">${MODE_LABELS[mode] || mode}</span>`;
+  h += `</div>`;
+  if (effect) {
+    h += `<div class="proc-merit-effect-row"><span class="proc-mod-label">Effect</span><span class="proc-merit-effect-text">${esc(effect)}</span></div>`;
+  }
+  if (effectAuto) {
+    h += `<div class="proc-merit-effect-row proc-merit-effect-auto"><span class="proc-mod-label">Auto</span><span class="proc-merit-effect-text">${esc(effectAuto)}</span></div>`;
+  }
+  h += `</div>`; // proc-merit-effect-panel
+
+  // ── Auto successes (auto mode only) ──
+  if (isAuto && autoSucc !== null) {
+    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Automatic Successes</div>`;
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Base successes</span><span class="proc-mod-static">${autoSucc}</span></div>`;
+    h += `</div>`;
+  }
+
+  // ── Outcome toggle ──
+  if (!isBlocked) {
+    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Outcome</div>`;
+    h += `<div class="proc-merit-outcome-btns">`;
+    for (const [val, label] of [['approved', 'Approved'], ['partial', 'Partial'], ['failed', 'Failed']]) {
+      h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
+    }
+    h += `</div>`;
+    h += `</div>`;
+  }
+
+  // ── ST Notes quick-add ──
+  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">ST Notes</div>`;
+  h += `<div class="proc-note-add">`;
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(key)}" placeholder="Add ST note..." rows="3"></textarea>`;
+  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(key)}">Add</button>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  h += `</div>`; // proc-compact-merit-panel
+  return h;
+}
+
+/**
  * Render the right-side sidebar for a sphere merit action entry.
  * Shows: action mode + effect from matrix, equipment modifier, roll card (if rolled), status buttons.
  */
@@ -5202,6 +5298,9 @@ function _renderMeritRightPanel(entry, rev) {
   const isRolled   = formula === 'dots2plus2';
   const isAuto     = mode === 'auto';
   const isBlocked  = mode === 'blocked';
+
+  // Compact path for binary/fixed-effect actions — no pool builder needed
+  if (_isCompactMerit(entry, mode, formula)) return _renderCompactMeritPanel(entry, rev);
 
   const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automatic', blocked: 'Cannot' };
 
