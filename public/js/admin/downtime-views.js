@@ -6175,7 +6175,8 @@ function renderActionPanel(entry, review) {
     const sorcRawNotes    = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_notes`]   || '';
     const sorcRawTargets  = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
     const targetsVal      = rev.sorc_targets    ?? sorcRawTargets;
-    const notesVal        = rev.sorc_notes      ?? sorcRawNotes;
+    const blobAsNotes     = (entry.riteName && entry.riteName.length > 60) ? entry.riteName : '';
+    const notesVal        = rev.sorc_notes      ?? sorcRawNotes || blobAsNotes;
     // ST overrides for tradition and rite name — fall back to submission values
     const traditionVal    = rev.sorc_tradition  ?? entry.tradition ?? '';
     // Rite: prefer ST-set name, then right-panel rite_override, skip blob if >60 chars
@@ -6637,6 +6638,12 @@ function renderActionPanel(entry, review) {
     h += '<div class="proc-detail-label">Validation Status</div>';
     h += _renderValStatusButtons(entry.key, poolStatus, statusOptions);
     h += '</div>';
+    {
+      const _isSO_inline = !!rev.second_opinion;
+      h += `<div class="proc-section">`;
+      h += `<button class="proc-second-opinion-btn${_isSO_inline ? ' active' : ''}" data-proc-key="${esc(entry.key)}">${_isSO_inline ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
+      h += `</div>`;
+    }
   }
 
   // ── Attach Reminder (sorcery resolved) ──
@@ -6660,15 +6667,6 @@ function renderActionPanel(entry, review) {
     } else if (reminderCount) {
       h += `<div class="proc-attach-count">Reminders attached to ${reminderCount} action${reminderCount !== 1 ? 's' : ''}.</div>`;
     }
-  }
-
-
-  // Second-opinion flag toggle
-  {
-    const isActive = !!rev.second_opinion;
-    h += `<div class="proc-section proc-second-opinion-row">`;
-    h += `<button class="proc-second-opinion-btn${isActive ? ' active' : ''}" data-proc-key="${esc(entry.key)}">${isActive ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
-    h += `</div>`;
   }
 
   // Player feedback

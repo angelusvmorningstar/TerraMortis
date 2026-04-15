@@ -1,6 +1,6 @@
 # Story DT-Fix-24: Rite Blob Pre-Populate Notes
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -28,8 +28,8 @@ However the fix introduced a gap: the ST now has no way to read the player's ful
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `notesVal` derivation to include the blob fallback
-  - [ ] 1.1: In `renderActionPanel`, at line ~6178, update the `notesVal` declaration to add a third fallback: when `rev.sorc_notes` is nullish AND `sorcRawNotes` is empty AND `entry.riteName` is a blob, use `entry.riteName`.
+- [x] Task 1: Extend `notesVal` derivation to include the blob fallback
+  - [x] 1.1: In `renderActionPanel`, at line ~6178, update the `notesVal` declaration to add a third fallback: when `rev.sorc_notes` is nullish AND `sorcRawNotes` is empty AND `entry.riteName` is a blob, use `entry.riteName`.
 
 ---
 
@@ -118,10 +118,13 @@ Manual verification only. Completion Notes should describe what to check.
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Added `blobAsNotes` const at line 6178: truthy only when `entry.riteName` is longer than 60 characters (CSV blob). Short rite names produce an empty string, leaving existing behaviour unchanged.
+- Changed `notesVal` to `rev.sorc_notes ?? sorcRawNotes || blobAsNotes`. Precedence: ST-saved note > player structured notes field > CSV blob.
+- Pre-population is render-time only; ST must press Save in the Details card to persist the blob as `sorc_notes`.
+- Manual verification: open a DT2 CSV sorcery entry whose `riteName` is a long blob — Notes textarea should show the blob text. Open one with a short rite name — Notes textarea should be blank (or show `sorcRawNotes` if present). Open one where ST has already saved a note — existing note should not be overwritten.
 
 ### File List
 - `public/js/admin/downtime-views.js`
