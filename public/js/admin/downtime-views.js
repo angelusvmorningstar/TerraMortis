@@ -4746,7 +4746,7 @@ function renderProcessingMode(container) {
       const key   = btn.dataset.procKey;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      await saveEntryReview(entry, { merit_outcome: btn.dataset.outcome });
+      await saveEntryReview(entry, { merit_outcome: btn.dataset.outcome, pool_status: 'resolved' });
       renderProcessingMode(container);
     });
   });
