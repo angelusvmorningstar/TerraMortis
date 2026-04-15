@@ -1,6 +1,6 @@
 # Story DT-Fix-19: Character Selectors — Targets Checkboxes + Full Roster for Connected Characters
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -47,8 +47,8 @@ All three changes apply to all action types that render these sections.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Replace Targets `<select multiple>` with checkbox list (`downtime-views.js`)
-  - [ ] 1.1: In `downtime-views.js` line 6204-6213 (inside the Targets render block), replace the entire inner block:
+- [x] Task 1: Replace Targets `<select multiple>` with checkbox list (`downtime-views.js`)
+  - [x] 1.1: In `downtime-views.js` line 6204-6213 (inside the Targets render block), replace the entire inner block:
     ```js
     // BEFORE (lines 6205-6212):
     {
@@ -77,10 +77,10 @@ All three changes apply to all action types that render these sections.
       h += `</div></div>`;
     }
     ```
-  - [ ] 1.2: Data source is already correct (`characters.filter(c => !c.retired)`) — no data change needed.
+  - [x] 1.2: Data source is already correct (`characters.filter(c => !c.retired)`) — no data change needed.
 
-- [ ] Task 2: Update Targets save handler (`downtime-views.js`)
-  - [ ] 2.1: In `downtime-views.js` lines 3578-3579, inside the `.proc-sorc-desc-save-btn` click handler, replace the two lines that read the targets selector:
+- [x] Task 2: Update Targets save handler (`downtime-views.js`)
+  - [x] 2.1: In `downtime-views.js` lines 3578-3579, inside the `.proc-sorc-desc-save-btn` click handler, replace the two lines that read the targets selector:
     ```js
     // BEFORE (lines 3578-3579):
     const targSel    = card.querySelector('.proc-sorc-targets-sel');
@@ -92,10 +92,10 @@ All three changes apply to all action types that render these sections.
     const targChks   = card.querySelectorAll('.proc-sorc-target-chk');
     const targets    = [...targChks].filter(c => c.checked).map(c => c.dataset.charName).join(', ');
     ```
-  - [ ] 2.2: No change needed to the `saveEntryReview` call below (line 3585: `sorc_targets: targets || null`) — the save key and format are unchanged.
+  - [x] 2.2: No change needed to the `saveEntryReview` call below (line 3585: `sorc_targets: targets || null`) — the save key and format are unchanged.
 
-- [ ] Task 3: Fix Connected Characters data source (`downtime-views.js`)
-  - [ ] 3.1: In `downtime-views.js` lines 6224-6229, replace the `otherChars` derivation block:
+- [x] Task 3: Fix Connected Characters data source (`downtime-views.js`)
+  - [x] 3.1: In `downtime-views.js` lines 6224-6229, replace the `otherChars` derivation block:
     ```js
     // BEFORE (lines 6224-6229):
     const otherChars = [...new Set(
@@ -114,10 +114,10 @@ All three changes apply to all action types that render these sections.
       .filter(n => n !== entry.charName)
       .sort();
     ```
-  - [ ] 3.2: The `if (otherChars.length > 0)` guard on line 6230 and all HTML below it (lines 6230-6240) remain unchanged.
+  - [x] 3.2: The `if (otherChars.length > 0)` guard on line 6230 and all HTML below it (lines 6230-6240) remain unchanged.
 
-- [ ] Task 4: Replace Investigation Target dropdown with radio list (`downtime-views.js`)
-  - [ ] 4.1: In `downtime-views.js` function `_renderActionTypeRow` (starts line 5818). The Investigate Target block is at lines 5840-5849:
+- [x] Task 4: Replace Investigation Target dropdown with radio list (`downtime-views.js`)
+  - [x] 4.1: In `downtime-views.js` function `_renderActionTypeRow` (starts line 5818). The Investigate Target block is at lines 5840-5849:
     ```js
     // BEFORE (lines 5840-5849):
     if (actionType === 'investigate') {
@@ -147,7 +147,7 @@ All three changes apply to all action types that render these sections.
       h += `</div>`;
     }
     ```
-  - [ ] 4.2: In `downtime-views.js` lines 4177-4187, update the save handler. Replace the existing `.proc-inv-char-sel` handler:
+  - [x] 4.2: In `downtime-views.js` lines 4177-4187, update the save handler. Replace the existing `.proc-inv-char-sel` handler:
     ```js
     // BEFORE (lines 4177-4187):
     // Wire investigate target character dropdown — save without re-render
@@ -177,10 +177,10 @@ All three changes apply to all action types that render these sections.
       });
     });
     ```
-  - [ ] 4.3: The save field key `investigate_target_char` is unchanged — no schema change needed.
+  - [x] 4.3: The save field key `investigate_target_char` is unchanged — no schema change needed.
 
-- [ ] Task 5: CSS for selectors (`admin-layout.css`)
-  - [ ] 5.1: Add the following rules immediately after `.proc-conn-char-lbl input[type="checkbox"]` at line 5838 in `public/css/admin-layout.css`:
+- [x] Task 5: CSS for selectors (`admin-layout.css`)
+  - [x] 5.1: Add the following rules immediately after `.proc-conn-char-lbl input[type="checkbox"]` at line 5838 in `public/css/admin-layout.css`:
     ```css
     .proc-targets-checkbox-list {
       max-height: 150px;
@@ -198,7 +198,7 @@ All three changes apply to all action types that render these sections.
     }
     .proc-conn-char-lbl input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
     ```
-  - [ ] 5.2: Both new containers reuse `.proc-conn-char-lbl` for label styling (same font, size, colour) — no new label class needed.
+  - [x] 5.2: Both new containers reuse `.proc-conn-char-lbl` for label styling (same font, size, colour) — no new label class needed.
 
 ---
 
@@ -267,10 +267,15 @@ Manual verification: open a sorcery action, confirm all active characters appear
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- All five tasks implemented exactly per story snippets.
+- Targets `<select multiple>` replaced with `.proc-targets-checkbox-list` div of `.proc-sorc-target-chk` checkboxes; save handler updated to read checked state via `querySelectorAll`.
+- Connected Characters source switched from `submissions.map(...)` to `characters.filter(c => !c.retired).map(sortName)`.
+- Investigate Target `<select>` replaced with `.proc-investigate-target-list` div of `.proc-inv-target-radio` radio inputs (name scoped by key); save handler updated from `.proc-inv-char-sel` to `.proc-inv-target-radio`.
+- CSS rules added after line 5838 in admin-layout.css: `.proc-targets-checkbox-list`, `.proc-investigate-target-list`, `.proc-conn-char-lbl input[type="radio"]`.
+- Actual line numbers in source were shifted slightly from story estimates (e.g. targets save was lines 3584-3585 not 3578-3579) but all changes located and applied correctly by content match.
 
 ### File List
 - `public/js/admin/downtime-views.js`

@@ -5836,6 +5836,21 @@ html:not([data-theme="dark"]) .proc-amb-pending-chip { background: var(--crim-a1
   white-space: nowrap;
 }
 .proc-conn-char-lbl input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+.proc-targets-checkbox-list {
+  max-height: 150px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.proc-investigate-target-list {
+  max-height: 150px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.proc-conn-char-lbl input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
 
 /* ── Attack Target ───────────────────────────────────────────────────────── */
 .proc-attack-target-section {

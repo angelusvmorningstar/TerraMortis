@@ -3581,8 +3581,8 @@ function renderProcessingMode(container) {
       const card       = btn.closest('.proc-feed-desc-card');
       const tradition  = card.querySelector('.proc-sorc-tradition-sel').value;
       const riteName   = card.querySelector('.proc-sorc-rite-sel').value;
-      const targSel    = card.querySelector('.proc-sorc-targets-sel');
-      const targets    = targSel ? [...targSel.selectedOptions].map(o => o.value).join(', ') : '';
+      const targChks   = card.querySelectorAll('.proc-sorc-target-chk');
+      const targets    = [...targChks].filter(c => c.checked).map(c => c.dataset.charName).join(', ');
       const notes      = card.querySelector('.proc-sorc-notes-input').value.trim();
       await saveEntryReview(entry, {
         sorc_tradition: tradition || null,
@@ -4180,15 +4180,15 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire investigate target character dropdown — save without re-render
-  container.querySelectorAll('.proc-inv-char-sel').forEach(sel => {
-    sel.addEventListener('click', e => e.stopPropagation());
-    sel.addEventListener('change', async e => {
+  // Wire investigate target radio list — save without re-render
+  container.querySelectorAll('.proc-inv-target-radio').forEach(radio => {
+    radio.addEventListener('click', e => e.stopPropagation());
+    radio.addEventListener('change', async e => {
       e.stopPropagation();
-      const key   = sel.dataset.procKey;
+      const key   = radio.dataset.procKey;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      await saveEntryReview(entry, { investigate_target_char: sel.value });
+      await saveEntryReview(entry, { investigate_target_char: radio.value });
     });
   });
 
@@ -5853,13 +5853,13 @@ function _renderActionTypeRow(entry, rev, char) {
   if (actionType === 'investigate') {
     const _invT = rev.investigate_target_char || '';
     h += `<span class="proc-feed-lbl">Target</span>`;
-    h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(key)}">`;
-    h += `<option value="">\u2014 Select \u2014</option>`;
-    for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+    h += `<div class="proc-investigate-target-list">`;
+    for (const c of [...characters].filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
       const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-      h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
+      const sel = c.name === _invT ? ' checked' : '';
+      h += `<label class="proc-conn-char-lbl"><input type="radio" class="proc-inv-target-radio" name="proc-inv-target-${esc(key)}" data-proc-key="${esc(key)}" value="${esc(c.name || '')}"${sel}> ${esc(lbl)}</label>`;
     }
-    h += `</select>`;
+    h += `</div>`;
   } else if (actionType === 'attack') {
     const _atkT = rev.attack_target_char || '';
     h += `<span class="proc-feed-lbl">Target</span>`;
@@ -6214,15 +6214,18 @@ function renderActionPanel(entry, review) {
       }
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><select class="proc-recat-select proc-sorc-rite-sel" data-proc-key="${esc(entry.key)}">${_riteOpts}</select></div>`;
     }
-    // Targets multi-select — active characters sorted by sortName, excluding current
+    // Targets checkbox list — active characters sorted by sortName
     {
       const _activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
       const _selectedTargets = new Set((targetsVal || '').split(',').map(s => s.trim()).filter(Boolean));
-      const _charOpts = _activeChars.map(c => {
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span>`;
+      h += `<div class="proc-targets-checkbox-list">`;
+      for (const c of _activeChars) {
         const n = sortName(c);
-        return `<option value="${esc(n)}"${_selectedTargets.has(n) ? ' selected' : ''}>${esc(n)}</option>`;
-      }).join('');
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><select class="proc-sorc-targets-sel" data-proc-key="${esc(entry.key)}" multiple size="4">${_charOpts}</select></div>`;
+        const chk = _selectedTargets.has(n) ? ' checked' : '';
+        h += `<label class="proc-conn-char-lbl"><input type="checkbox" class="proc-sorc-target-chk" data-proc-key="${esc(entry.key)}" data-char-name="${esc(n)}"${chk}> ${esc(n)}</label>`;
+      }
+      h += `</div></div>`;
     }
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
@@ -6234,12 +6237,11 @@ function renderActionPanel(entry, review) {
   // Ambience merit actions are level-based automatic effects; no connected characters needed
   if (!isAmbienceMerit && (entry.source === 'project' || entry.source === 'merit' || isSorcery)) {
     const connectedChars = rev.connected_chars || [];
-    const otherChars = [...new Set(
-      submissions.map(s => {
-        const ch = findCharacter(s.character_name, s.player_name);
-        return ch ? (ch.moniker || ch.name) : (s.character_name || null);
-      }).filter(Boolean).filter(n => n !== entry.charName)
-    )].sort();
+    const otherChars = characters
+      .filter(c => !c.retired)
+      .map(c => sortName(c))
+      .filter(n => n !== entry.charName)
+      .sort();
     if (otherChars.length > 0) {
       h += `<div class="proc-connected-section">`;
       h += `<div class="proc-detail-label">Connected Characters</div>`;
