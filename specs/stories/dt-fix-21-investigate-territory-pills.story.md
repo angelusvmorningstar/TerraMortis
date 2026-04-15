@@ -1,6 +1,6 @@
 # Story DT-Fix-21: Investigate Action — Territory Pills for Project-Based Actions
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
@@ -34,8 +34,8 @@ Territory pills default to empty/neutral (the `—` pill is selected, meaning no
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add territory pills to project-based Investigate block (`downtime-views.js`)
-  - [ ] 1.1: In `_renderActionTypeRow` (line ~5818), inside the `if (actionType === 'investigate')` block (lines 5840–5849), after the closing tag of the Target selector (after `h += '</select>';`), add:
+- [x] Task 1: Add territory pills to project-based Investigate block (`downtime-views.js`)
+  - [x] 1.1: In `_renderActionTypeRow` (line ~5818), inside the `if (actionType === 'investigate')` block (lines 5840–5849), after the closing tag of the Target selector (after `h += '</select>';`), add:
     ```js
     // Add territory pills for project-based investigate (not merit)
     if (!isMerit) {
@@ -45,7 +45,7 @@ Territory pills default to empty/neutral (the `—` pill is selected, meaning no
       h += _renderInlineTerrPills(entry.subId, _invCtx, _invTid);
     }
     ```
-  - [ ] 1.2: No change needed to the existing `else if (!isMerit)` fallback block at line ~5886 — the `if (actionType === 'investigate')` block exits before reaching it.
+  - [x] 1.2: No change needed to the existing `else if (!isMerit)` fallback block at line ~5886 — the `if (actionType === 'investigate')` block exits before reaching it.
 
 ---
 
@@ -100,10 +100,13 @@ Manual verification: open a project-based Investigate action — TERR. pills sho
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- Inserted 6-line `if (!isMerit)` block after the closing `</div>` of the radio list container at line 5862 in `_renderActionTypeRow`, inside the `if (actionType === 'investigate')` branch.
+- Uses `_renderInlineTerrPills(entry.subId, _invCtx, _invTid)` with `currentTerrId` defaulting to `''` so the `—` pill is active on first render.
+- Territory storage follows the same `st_review.territory_overrides[String(entry.actionIdx)]` pattern as all other project actions — no new click handler needed.
+- DT-Fix-19 radio list (already in place) is unaffected; this change appends pills after that list.
 
 ### File List
 - `public/js/admin/downtime-views.js`

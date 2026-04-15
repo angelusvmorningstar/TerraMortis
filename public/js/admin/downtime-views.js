@@ -5250,14 +5250,13 @@ function _renderMeritRightPanel(entry, rev) {
     h += `<span class="dt-dim-italic">No roll required — effect applies automatically.</span>`;
     h += `</div>`;
   } else if (isRolled) {
-    // Equipment modifier ticker
-    const _meritCommitted = poolStatus === 'committed';
-    h += `<div class="proc-feed-mod-panel${_meritCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
-    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_meritCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
-    const poolDisplay = basePool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
-    h += `<div class="proc-mod-row"><span class="proc-mod-label">Base pool</span><span class="proc-mod-static">${poolDisplay}</span></div>`;
-    h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
+    // Merit actions do not use dice pools — show automatic successes instead
+    const autoSucc = dots != null ? dots : 0;
+    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Automatic Successes</div>`;
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Base successes</span><span class="proc-mod-static">${autoSucc}</span></div>`;
     if (actionType === 'investigate') {
+      h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
       // Target Secrecy
       const innateStr = innateMod > 0 ? `+${innateMod}` : innateMod < 0 ? String(innateMod) : '';
       const innateCls = innateMod > 0 ? ' proc-mod-pos' : innateMod < 0 ? ' proc-mod-neg' : ' proc-mod-muted';
@@ -5271,7 +5270,7 @@ function _renderMeritRightPanel(entry, rev) {
       h += `</select>`;
       if (innateStr) h += `<span class="proc-mod-val${innateCls}">${innateStr}</span>`;
       h += `</div>`;
-      // Has Lead toggle
+      // Lead toggle
       const noLeadStr = noLeadMod < 0 ? String(noLeadMod) : '';
       h += `<div class="proc-mod-row">`;
       h += `<span class="proc-mod-label">Lead</span>`;
@@ -5281,19 +5280,11 @@ function _renderMeritRightPanel(entry, rev) {
       h += `</div>`;
       if (noLeadStr) h += `<span class="proc-mod-val proc-mod-neg">${noLeadStr}</span>`;
       h += `</div>`;
-      // Total
-      const totalStr = totalPool != null ? `${totalPool} dice` : '\u2014';
-      h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Total</span><span class="proc-mod-total-val">${totalStr}</span></div>`;
+      // Net successes = dots + eqMod + innateMod + noLeadMod
+      const netSucc = autoSucc + eqMod + innateMod + noLeadMod;
+      h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Net successes</span><span class="proc-mod-total-val">${netSucc}</span></div>`;
     }
     h += `</div>`; // mod panel
-
-    // Roll card
-    h += _renderRollCard(key, roll, totalPool, {
-      btnClass:     'proc-merit-roll-btn',
-      btnDataAttrs: totalPool != null ? ` data-pool="${totalPool}"` : '',
-      canRoll:       totalPool != null && totalPool > 0,
-      noRollMsg:    'Merit dots unknown \u2014 set pool manually',
-    });
   } else if (formula === 'none') {
     // Staff — fixed effect, no roll
     h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
@@ -5860,6 +5851,13 @@ function _renderActionTypeRow(entry, rev, char) {
       h += `<label class="proc-conn-char-lbl"><input type="radio" class="proc-inv-target-radio" name="proc-inv-target-${esc(key)}" data-proc-key="${esc(key)}" value="${esc(c.name || '')}"${sel}> ${esc(lbl)}</label>`;
     }
     h += `</div>`;
+    // Add territory pills for project-based investigate (not merit)
+    if (!isMerit) {
+      const _invSub = submissions.find(s => s._id === entry.subId);
+      const _invCtx = String(entry.actionIdx);
+      const _invTid = _invSub?.st_review?.territory_overrides?.[_invCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _invCtx, _invTid);
+    }
   } else if (actionType === 'attack') {
     const _atkT = rev.attack_target_char || '';
     h += `<span class="proc-feed-lbl">Target</span>`;
