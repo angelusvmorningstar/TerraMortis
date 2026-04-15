@@ -2723,6 +2723,108 @@ body {
 .story-section-mech { background: var(--surf3); padding: 10px; border-radius: 4px; }
 .story-pre { font-family: monospace; font-size: 12px; white-space: pre-wrap; margin: 0; color: var(--txt3); }
 
+/* ── Project result cards ── */
+
+.proj-card {
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  margin: 12px 16px 0;
+  padding: 14px 16px;
+  background: var(--surf2);
+}
+.proj-card-withheld {
+  border-style: dashed;
+  padding: 12px 16px;
+  opacity: 0.7;
+}
+.proj-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.proj-card-type-chip {
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: var(--txt3);
+  flex-shrink: 0;
+}
+.proj-card-name {
+  font-family: var(--fl);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--txt1);
+  letter-spacing: 0.03em;
+}
+.proj-card-objective {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  margin-bottom: 10px;
+}
+.proj-card-response { font-size: 14px; color: var(--txt2); line-height: 1.7; }
+.proj-card-response p { margin: 0 0 8px; }
+.proj-card-response p:last-child { margin-bottom: 0; }
+.proj-card-pool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.proj-card-pool-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--txt3);
+}
+.proj-card-pool-val { color: var(--txt2); }
+.proj-card-roll {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--bdr);
+  background: var(--surf3);
+  color: var(--txt2);
+}
+.proj-card-roll-exc { border-color: var(--gold2); color: var(--gold2); background: transparent; }
+.proj-card-roll-fail { border-color: var(--crim); color: var(--crim); background: transparent; }
+.proj-card-feedback {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bdr);
+  font-size: 12px;
+  color: var(--txt3);
+  line-height: 1.5;
+}
+.proj-card-feedback-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+  color: var(--txt3);
+}
+.proj-card-withheld-msg {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+  margin: 6px 0 0;
+}
+
 /* ── Document cards ── */
 
 .doc-card {

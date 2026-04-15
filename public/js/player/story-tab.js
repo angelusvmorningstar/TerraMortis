@@ -6,6 +6,15 @@
 import { apiGet } from '../data/api.js';
 import { esc, parseOutcomeSections, displayName, clanIcon, covIcon } from '../data/helpers.js';
 
+const ACTION_TYPE_LABELS = {
+  ambience_increase: 'Ambience Increase', ambience_decrease: 'Ambience Decrease',
+  attack: 'Attack', feed: 'Feed', hide_protect: 'Hide / Protect',
+  investigate: 'Investigate', patrol_scout: 'Patrol / Scout',
+  support: 'Support', misc: 'Miscellaneous', maintenance: 'Maintenance',
+  xp_spend: 'XP Spend', block: 'Block', rumour: 'Rumour',
+  grow: 'Grow', acquisition: 'Acquisition',
+};
+
 export async function renderStoryTab(el, char) {
   el.innerHTML = '<p class="placeholder-msg">Loading...</p>';
 
@@ -82,6 +91,7 @@ function renderChronicle(subs, cycles, char) {
     h += `<div class="story-entry">`;
     h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
     h += renderOutcome(sub.published_outcome);
+    h += renderProjectCards(sub);
     h += `</div>`;
   }
   h += '</div>';
@@ -111,6 +121,73 @@ function renderOutcome(text) {
     }
   }
   h += '</div>';
+  return h;
+}
+
+// ── Project result cards ──────────────────────────────────────────
+
+function renderProjectCards(sub) {
+  const responses = sub.st_narrative?.project_responses || [];
+  const resolved  = sub.projects_resolved || [];
+  let h = '';
+
+  for (let i = 0; i < 4; i++) {
+    const n     = i + 1;
+    const title = sub[`project_${n}_title`];
+    if (!title) continue;
+
+    const resp     = responses[i]?.response || '';
+    const rev      = resolved[i] || {};
+    const actType  = rev.action_type || sub[`project_${n}_action`] || '';
+    const typeLabel = ACTION_TYPE_LABELS[actType] || actType;
+
+    if (!resp) {
+      h += '<div class="proj-card proj-card-withheld">';
+      h += `<div class="proj-card-name">${esc(title)}</div>`;
+      h += '<p class="proj-card-withheld-msg">Project withheld — see your Storytellers.</p>';
+      h += '</div>';
+      continue;
+    }
+
+    h += '<div class="proj-card">';
+
+    h += '<div class="proj-card-header">';
+    if (typeLabel) h += `<span class="proj-card-type-chip">${esc(typeLabel)}</span>`;
+    h += `<span class="proj-card-name">${esc(title)}</span>`;
+    h += '</div>';
+
+    const objective = sub[`project_${n}_description`];
+    if (objective) {
+      h += `<div class="proj-card-objective">${esc(objective)}</div>`;
+    }
+
+    const paras = resp.split(/\n{2,}/).filter(Boolean);
+    h += '<div class="proj-card-response">';
+    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+    h += '</div>';
+
+    if (!rev.no_roll && rev.pool) {
+      const expr = rev.pool.expression || String(rev.pool.total);
+      h += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(expr)}</span></div>`;
+    }
+
+    if (rev.roll) {
+      const suc = rev.roll.successes ?? 0;
+      const exc = rev.roll.exceptional;
+      const label = exc ? 'Exceptional Success'
+        : suc === 0 ? 'Failure'
+        : `${suc} Success${suc !== 1 ? 'es' : ''}`;
+      const cls = exc ? ' proj-card-roll-exc' : suc === 0 ? ' proj-card-roll-fail' : '';
+      h += `<div class="proj-card-roll${cls}">${esc(label)}</div>`;
+    }
+
+    if (rev.player_feedback) {
+      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">Feedback</span>${esc(rev.player_feedback)}</div>`;
+    }
+
+    h += '</div>';
+  }
+
   return h;
 }
 
