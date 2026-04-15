@@ -5485,7 +5485,7 @@ function _renderProjRightPanel(entry, char, rev) {
 
   // ── Roll card ──
   const projRoll    = rev.roll || null;
-  const showRollBtn = poolStatus === 'validated' || !!projRoll;
+  const showRollBtn = poolStatus === 'committed' || poolStatus === 'validated' || !!projRoll;
   h += _renderRollCard(key, projRoll, null, {
     btnClass:     'proc-proj-roll-btn',
     btnDataAttrs: ` data-pool-validated="${esc(poolValidated)}"`,
