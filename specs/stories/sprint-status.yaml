@@ -193,7 +193,7 @@ development_status:
   # ============================================================
   # 25 items (DT-Fix-1 through 25); fix-18 superseded by fix-22
   # E2E test suite: tests/downtime-processing-dt-fixes.spec.js (33 tests)
-  # All shipped to dev; ready to merge to main
+  # Merged to main 2026-04-15
 
   epic-dt-fixes: done
 
