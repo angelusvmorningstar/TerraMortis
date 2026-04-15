@@ -4192,6 +4192,18 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire block confirm button
+  container.querySelectorAll('.proc-block-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_status: 'no_roll' });
+      renderProcessingMode(container);
+    });
+  });
+
   // Wire support target selector
   container.querySelectorAll('.proc-support-target-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -5166,6 +5178,21 @@ function _renderMeritRightPanel(entry, rev) {
   if (isBlocked) {
     // Cannot perform this action at all
     h += `<div class="proc-feed-right-section"><span class="dt-dim-italic">This merit cannot perform this action type.</span></div>`;
+  } else if (actionType === 'block') {
+    // Block — auto-resolution display with confirm button
+    const blockLevel = dots != null ? `${dots} or lower` : 'same level or lower';
+    const blockConfirmed = poolStatus === 'no_roll';
+    h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
+    h += `<div class="proc-mod-panel-title">Block Resolution</div>`;
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Auto-blocks</span><span class="proc-mod-static">Merits of level ${esc(blockLevel)}</span></div>`;
+    h += `<div class="proc-mod-row" style="margin-top:8px">`;
+    if (blockConfirmed) {
+      h += `<span class="dt-dim-italic" style="color:var(--gold2)">&#10003; Block confirmed</span>`;
+    } else {
+      h += `<button class="dt-btn proc-block-confirm-btn" data-proc-key="${esc(key)}">Confirm Block</button>`;
+    }
+    h += `</div>`;
+    h += `</div>`;
   } else if (isAuto) {
     // Auto effect — no roll needed
     h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
