@@ -4748,6 +4748,26 @@ body {
   margin-bottom: 4px;
 }
 
+/* ── DTX-1: cross-reference callout ────────────────────────────── */
+.proc-xref-callout {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--gold2);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--txt2);
+}
+.proc-xref-line {
+  line-height: 1.5;
+}
+.proc-xref-line + .proc-xref-line {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--bdr);
+}
+
 /* ── DTX-2: compact merit panel ────────────────────────────────── */
 .proc-compact-merit-panel {
   display: flex;

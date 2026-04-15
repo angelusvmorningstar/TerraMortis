@@ -3225,6 +3225,37 @@ function renderProcessingMode(container) {
     byPhase.get(entry.phase).push(entry);
   }
 
+  // ── Cross-reference index (single O(n) pass) ──
+  // Keys: 'terr:<territory>' | 'inv-target:<charName>'
+  // Values: [{ charName, label, phase }, ...] — excludes self at render time
+  const xrefIndex = new Map();
+  for (const e of queue) {
+    if (e.projTerritory) {
+      const k = `terr:${e.projTerritory}`;
+      if (!xrefIndex.has(k)) xrefIndex.set(k, []);
+      xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
+    }
+    if (e.feedTerrs) {
+      for (const terr of Object.keys(e.feedTerrs)) {
+        const k = `terr:${terr}`;
+        if (!xrefIndex.has(k)) xrefIndex.set(k, []);
+        xrefIndex.get(k).push({ charName: e.charName, label: 'Feeding', phase: e.phase });
+      }
+    }
+    if (e.actionType === 'investigate') {
+      const eSub = submissions.find(s => String(s._id) === String(e.subId));
+      const eRev = e.source === 'project'
+        ? (eSub?.projects_resolved?.[e.actionIdx] || {})
+        : (eSub?.merit_actions_resolved?.[e.actionIdx] || {});
+      const target = eRev.investigate_target_char;
+      if (target) {
+        const k = `inv-target:${target}`;
+        if (!xrefIndex.has(k)) xrefIndex.set(k, []);
+        xrefIndex.get(k).push({ charName: e.charName, label: e.label, phase: e.phase });
+      }
+    }
+  }
+
   let h = '<div class="proc-queue">';
 
   // Controls bar — queue-level toggles
@@ -6815,6 +6846,51 @@ function renderActionPanel(entry, review) {
   h += '<div class="proc-detail-label">Player Feedback</div>';
   h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Visible to player (pool correction reason, etc.)...">`;
   h += '</div>';
+
+  // ── Cross-reference callout (read-only, derived from xrefIndex) ──
+  {
+    const xrefLines = [];
+
+    // Project territory overlap
+    if (entry.projTerritory) {
+      const others = (xrefIndex.get(`terr:${entry.projTerritory}`) || [])
+        .filter(r => r.charName !== entry.charName);
+      if (others.length) {
+        const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
+        xrefLines.push(`Also in ${entry.projTerritory}: ${names}`);
+      }
+    }
+
+    // Feeding territory overlap
+    if (entry.source === 'feeding' && entry.primaryTerr) {
+      const others = (xrefIndex.get(`terr:${entry.primaryTerr}`) || [])
+        .filter(r => r.charName !== entry.charName);
+      if (others.length) {
+        const names = others.map(r => `${r.charName} (${r.label})`).join(', ');
+        xrefLines.push(`Also feeding ${entry.primaryTerr}: ${names}`);
+      }
+    }
+
+    // Investigate target overlap + hide/protect check
+    if (entry.actionType === 'investigate' && rev.investigate_target_char) {
+      const target = rev.investigate_target_char;
+      const others = (xrefIndex.get(`inv-target:${target}`) || [])
+        .filter(r => r.charName !== entry.charName);
+      if (others.length) {
+        xrefLines.push(`Also investigating ${target}: ${others.map(r => r.charName).join(', ')}`);
+      }
+      // hide/protect: the target's own submission having a hide_protect action
+      if (queue.some(e => e.actionType === 'hide_protect' && e.charName === target)) {
+        xrefLines.push(`${target} has an active hide/protect action this cycle`);
+      }
+    }
+
+    if (xrefLines.length) {
+      h += `<div class="proc-xref-callout">`;
+      for (const line of xrefLines) h += `<div class="proc-xref-line">${esc(line)}</div>`;
+      h += `</div>`;
+    }
+  }
 
   // ── Close left column; render right panel for feeding + project + sorcery + merit entries ──
   if (entry.source === 'feeding') {

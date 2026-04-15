@@ -1,6 +1,6 @@
 # Story DTX.1: Cross-Reference Callouts
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -21,7 +21,7 @@ so that I can identify conflicts and synergies without holding everything in my 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Build cross-reference index after `buildProcessingQueue()` (AC: 7)
+- [x] Task 1: Build cross-reference index after `buildProcessingQueue()` (AC: 7)
   - [ ] In `renderProcessingMode` (the function that calls `buildProcessingQueue`), after line ~3226 where `byPhase` is fully built, add a single O(n) pass to build the xref index:
 
     ```js
@@ -60,7 +60,7 @@ so that I can identify conflicts and synergies without holding everything in my 
 
   - [ ] Make `xrefIndex` available to `renderActionPanel` via closure (it is defined in the same scope as the rendering loop at line ~3244)
 
-- [ ] Task 2: Render callout block in the left panel (AC: 1–6)
+- [x] Task 2: Render callout block in the left panel (AC: 1–6)
   - [ ] In `renderActionPanel` (line ~5987), find the point just before the source-type branching that closes `proc-feed-left` (lines ~6720–6734). This is after line ~6718 which closes the `proc-notes-container` div.
   - [ ] Insert a callout block at that position:
 
@@ -121,7 +121,7 @@ so that I can identify conflicts and synergies without holding everything in my 
 
   - [ ] Note: `rev` is already computed earlier in `renderActionPanel` — use the same variable. `queue` and `submissions` are available via closure.
 
-- [ ] Task 3: Add CSS for callout styling (AC: 6)
+- [x] Task 3: Add CSS for callout styling (AC: 6)
   - [ ] In `public/css/admin-layout.css`, add after the `proc-notes-thread` / `proc-note-*` block (~line 4733):
 
     ```css
@@ -146,7 +146,7 @@ so that I can identify conflicts and synergies without holding everything in my 
     }
     ```
 
-- [ ] Task 4: E2E tests (AC: 1–8)
+- [ ] Task 4: E2E tests (AC: 1–8)  <!-- pending -->
   - [ ] Add 5 tests in a new `test.describe('DTX-1: Cross-reference callouts')` block in `tests/downtime-processing-dt-fixes.spec.js`:
     1. Project action with `projTerritory` set shows `.proc-xref-callout` containing other character name
     2. Feeding action with shared territory shows `.proc-xref-callout` containing other character name
@@ -239,6 +239,10 @@ Callouts are read-only. No `saveEntryReview` calls, no new fields. Pure derived 
 ### Debug Log References
 
 ### Completion Notes List
+
+- Built `xrefIndex` Map after `byPhase` grouping (~line 3228): single O(n) pass over queue. Territory keys (`terr:`) populated from `e.projTerritory` and `e.feedTerrs`. Investigate-target keys (`inv-target:`) populated by looking up review data (`projects_resolved` or `merit_actions_resolved`) for each investigate entry. `xrefIndex` available by closure in `renderActionPanel`.
+- Callout block inserted in `renderActionPanel` before `proc-feed-left` close (after player feedback, before source-type branching). Wrapped in block scope `{}` to isolate `xrefLines`. Three cross-ref types: project territory, feeding `primaryTerr`, investigate target. Hide/protect check: `queue.some(e => e.actionType === 'hide_protect' && e.charName === target)` — no stored target field on hide/protect; the caster IS the protected character.
+- CSS added to `admin-layout.css`: `.proc-xref-callout` with gold left border (`var(--gold2)`), `.proc-xref-line` with separator between multiple lines.
 
 ### File List
 
