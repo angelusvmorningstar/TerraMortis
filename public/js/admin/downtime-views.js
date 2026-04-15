@@ -5692,6 +5692,151 @@ function _renderFeedRightPanel(entry, char, rev) {
   return h;
 }
 
+/**
+ * Renders the action-type recategorisation row (dropdown + conditional target selectors).
+ * Handles the full recat row content for both project and merit entries.
+ *
+ * For merit entries, also renders the merit-link dropdown and territory pills that appear
+ * within the same row. For project entries, renders territory pills and the original-type badge.
+ *
+ * @param {object} entry  - queue entry
+ * @param {object} rev    - review object for the entry
+ * @param {object|null} char - resolved character (used for hide_protect merit list and merit-link)
+ */
+function _renderActionTypeRow(entry, rev, char) {
+  const key        = entry.key;
+  const actionType = entry.actionType;
+  const isMerit    = entry.source === 'merit';
+  let h = '';
+
+  h += `<div class="proc-recat-row">`;
+  h += `<span class="proc-feed-lbl">Action Type</span>`;
+  h += `<select class="proc-recat-select" data-proc-key="${esc(key)}">`;
+  for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
+    h += `<option value="${esc(val)}"${actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
+  }
+  h += `</select>`;
+
+  // Project only: show original action type badge when overridden
+  if (!isMerit) {
+    const isOverridden = entry.originalActionType && entry.originalActionType !== actionType;
+    if (isOverridden) {
+      h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
+    }
+  }
+
+  if (actionType === 'investigate') {
+    const _invT = rev.investigate_target_char || '';
+    h += `<span class="proc-feed-lbl">Target</span>`;
+    h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select \u2014</option>`;
+    for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+      const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+      h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
+    }
+    h += `</select>`;
+  } else if (actionType === 'attack') {
+    const _atkT = rev.attack_target_char || '';
+    h += `<span class="proc-feed-lbl">Target</span>`;
+    h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select \u2014</option>`;
+    for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+      const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+      h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
+    }
+    h += `</select>`;
+  } else if (actionType === 'hide_protect' && isMerit) {
+    const _protName  = rev?.protected_merit_name      ?? '';
+    const _protQual  = rev?.protected_merit_qualifier ?? '';
+    const _allMerits = (char?.merits || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    h += `<span class="proc-feed-lbl">Protects</span>`;
+    h += `<select class="proc-recat-select proc-prot-merit-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select merit \u2014</option>`;
+    for (const m of _allMerits) {
+      const mQual   = m.qualifier || m.area || '';
+      const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+      const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+      const mDots   = '\u25CF'.repeat(mRating);
+      const isSelected = (m.name || '') === _protName && mQual === _protQual;
+      h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
+    }
+    h += `</select>`;
+  } else if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+    if (!isMerit) {
+      const _ambiSub = submissions.find(s => s._id === entry.subId);
+      const _ambiCtx = String(entry.actionIdx);
+      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+    }
+    // merit ambience: territory handled via isAlliesAction pills below
+  } else if (!isMerit) {
+    // All other project action types get territory pills inline
+    const _projCtx = String(entry.actionIdx);
+    const _projSub = submissions.find(s => s._id === entry.subId);
+    const _projTid = _projSub?.st_review?.territory_overrides?.[_projCtx] || '';
+    h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
+  }
+
+  // Merit: merit-link dropdown (allies/status/retainer/contacts/staff) + territory pills
+  if (isMerit) {
+    if (['allies', 'status', 'retainer', 'contacts', 'staff'].includes(entry.meritCategory)) {
+      const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
+      const _meritNameKey = (entry.meritLabel || '').toLowerCase();
+      const _charMerits   = (char?.merits || [])
+        .filter(m => {
+          const mName = (m.name || '').toLowerCase();
+          return mName === _meritNameKey || _meritNameKey.includes(mName) || mName.includes(_meritNameKey);
+        })
+        .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
+      const _isAmb = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+      const _hasHWV = _isAmb && (char?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
+      h += `<span class="proc-feed-lbl">Merit</span>`;
+      h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const m of _charMerits) {
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mQual   = m.qualifier || m.area || '';
+        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+        const mDots   = '\u25CF'.repeat(mRating);
+        const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
+        h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
+      }
+      h += `</select>`;
+      if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
+    }
+    // Territory pills — allies/status/retainer actions
+    if (entry.isAlliesAction) {
+      const _mCtx = `allies_${entry.actionIdx}`;
+      const _mSub = submissions.find(s => s._id === entry.subId);
+      const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
+    }
+  }
+
+  h += `</div>`;
+
+  // Attack merit dropdown (second row, shown for both project and merit)
+  if (actionType === 'attack') {
+    const _atkChar  = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
+    const _atkMerit = rev.attack_target_merit || '';
+    h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
+    h += `<span class="proc-feed-lbl">Merit</span>`;
+    h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select merit \u2014</option>`;
+    if (_atkChar) {
+      for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
+        h += `<option value="${esc(m.name || '')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name || '')}${esc(mQual)} \u25CF${mRating}</option>`;
+      }
+    }
+    h += `</select>`;
+    h += `</div>`;
+  }
+
+  return h;
+}
+
 /** Render the expanded detail panel for a single action row. */
 function renderActionPanel(entry, review) {
   const rev = review || {};
@@ -5874,148 +6019,12 @@ function renderActionPanel(entry, review) {
     }
 
     // ── Action type recategorisation ──
-    const isOverridden = entry.originalActionType && entry.originalActionType !== entry.actionType;
-    h += `<div class="proc-recat-row">`;
-    h += `<span class="proc-feed-lbl">Action Type</span>`;
-    h += `<select class="proc-recat-select" data-proc-key="${esc(entry.key)}">`;
-    for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
-      h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
-    }
-    h += `</select>`;
-    if (isOverridden) {
-      h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
-    }
-    if (entry.actionType === 'investigate') {
-      const _invT = rev.investigate_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'attack') {
-      const _atkT = rev.attack_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
-      const _ambiSub = submissions.find(s => s._id === entry.subId);
-      const _ambiCtx = String(entry.actionIdx);
-      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
-    } else {
-      // All other project action types get territory pills inline
-      const _projCtx = String(entry.actionIdx);
-      const _projTid = projSub?.st_review?.territory_overrides?.[_projCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
-    }
-    h += `</div>`;
-    if (entry.actionType === 'attack') {
-      const _atkChar = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
-      const _atkMerit = rev.attack_target_merit || '';
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
-      h += `<span class="proc-feed-lbl">Merit</span>`;
-      h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select merit \u2014</option>`;
-      if (_atkChar) {
-        for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''))) {
-          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-          const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
-          h += `<option value="${esc(m.name||'')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name||'')}${esc(mQual)} \u25CF${mRating}</option>`;
-        }
-      }
-      h += `</select>`;
-      h += `</div>`;
-    }
+    h += _renderActionTypeRow(entry, rev, projChar);
   }
 
   // ── Action type recategorisation for merit/sphere entries ──
   if (entry.source === 'merit') {
-    h += `<div class="proc-recat-row">`;
-    h += `<span class="proc-feed-lbl">Action Type</span>`;
-    h += `<select class="proc-recat-select" data-proc-key="${esc(entry.key)}">`;
-    for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
-      h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
-    }
-    h += `</select>`;
-    // Action-type-specific extras (Target character or Protects merit selector)
-    if (entry.actionType === 'investigate') {
-      const _invT = rev.investigate_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'attack') {
-      const _atkT = rev.attack_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'hide_protect') {
-      const _protName = rev?.protected_merit_name      ?? '';
-      const _protQual = rev?.protected_merit_qualifier ?? '';
-      const _allMerits = (meritEntChar?.merits || [])
-        .slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      h += `<span class="proc-feed-lbl">Protects</span>`;
-      h += `<select class="proc-recat-select proc-prot-merit-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select merit \u2014</option>`;
-      for (const m of _allMerits) {
-        const mQual   = m.qualifier || m.area || '';
-        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
-        const mDots   = '\u25CF'.repeat(mRating);
-        const isSelected = (m.name || '') === _protName && mQual === _protQual;
-        h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
-      }
-      h += `</select>`;
-    }
-    // Merit link dropdown — universal for all named-merit categories
-    if (['allies', 'status', 'retainer', 'contacts', 'staff'].includes(entry.meritCategory)) {
-      const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
-      const _meritNameKey = (entry.meritLabel || '').toLowerCase();
-      const _charMerits   = (meritEntChar?.merits || [])
-        .filter(m => {
-          const mName = (m.name || '').toLowerCase();
-          return mName === _meritNameKey || _meritNameKey.includes(mName) || mName.includes(_meritNameKey);
-        })
-        .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
-      const _hasHWV = isAmbienceMerit && (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
-      h += `<span class="proc-feed-lbl">Merit</span>`;
-      h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const m of _charMerits) {
-        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-        const mQual   = m.qualifier || m.area || '';
-        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
-        const mDots   = '\u25CF'.repeat(mRating);
-        const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
-        h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
-      }
-      h += `</select>`;
-      if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
-    }
-    // Territory pills — allies/status/retainer actions (all action types)
-    if (entry.isAlliesAction) {
-      const _mCtx = `allies_${entry.actionIdx}`;
-      const _mTid = meritEntSub?.st_review?.territory_overrides?.[_mCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
-    }
-    h += `</div>`;
+    h += _renderActionTypeRow(entry, rev, meritEntChar);
     // Contacts info-type and subject fields
     if (entry.meritCategory === 'contacts') {
       const _ciType    = rev.contacts_info_type || '';
@@ -6028,23 +6037,6 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
       h += `<span class="proc-feed-lbl">Subject</span>`;
       h += `<input type="text" class="proc-detail-input proc-contacts-subject-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciSubject)}" placeholder="Sphere, person, or topic\u2026">`;
-      h += `</div>`;
-    }
-    if (entry.actionType === 'attack') {
-      const _atkChar = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
-      const _atkMerit = rev.attack_target_merit || '';
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
-      h += `<span class="proc-feed-lbl">Merit</span>`;
-      h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select merit \u2014</option>`;
-      if (_atkChar) {
-        for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''))) {
-          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-          const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
-          h += `<option value="${esc(m.name||'')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name||'')}${esc(mQual)} \u25CF${mRating}</option>`;
-        }
-      }
-      h += `</select>`;
       h += `</div>`;
     }
     // Patrol/Scout outcome fields
