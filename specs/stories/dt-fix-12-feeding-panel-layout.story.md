@@ -1,6 +1,6 @@
 # Story DT-Fix-12: Feeding Panel Layout Refinements
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

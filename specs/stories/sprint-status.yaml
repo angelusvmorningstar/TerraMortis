@@ -1,5 +1,5 @@
 # generated: 2026-04-15
-# last_updated: 2026-04-15 (hygiene pass)
+# last_updated: 2026-04-15 (DT-Fix-3/4/5/6/8/12 done this session)
 # project: TM Suite
 # project_key: NOKEY
 # tracking_system: file-system
@@ -198,16 +198,16 @@ development_status:
 
   dt-fix-1-checklist-count-mismatch: ready-for-dev
   dt-fix-2-herd-vitae-bug: ready-for-dev
-  dt-fix-3-vitae-tally-parchment-colour: ready-for-dev
-  dt-fix-4-sort-projects-before-merits: ready-for-dev
-  dt-fix-5-placeholder-calibration: ready-for-dev
-  dt-fix-6-feeding-action-row-labels: ready-for-dev
+  dt-fix-3-vitae-tally-parchment-colour: done
+  dt-fix-4-sort-projects-before-merits: done
+  dt-fix-5-placeholder-calibration: done
+  dt-fix-6-feeding-action-row-labels: done
   dt-fix-7-remove-st-response-dt-processing: done
-  dt-fix-8-validator-chip-redesign: ready-for-dev
+  dt-fix-8-validator-chip-redesign: done
   dt-fix-9-feeding-committed-validated-buttons: done
   dt-fix-10-clear-pool-button-size: done
-  dt-fix-11-territory-ticker-pool-builder-padding: ready-for-dev
-  dt-fix-12-feeding-panel-layout: ready-for-dev
+  dt-fix-11-territory-ticker-pool-builder-padding: done
+  dt-fix-12-feeding-panel-layout: done
   dt-fix-13-st-created-actions: ready-for-dev
   dt-fix-14-second-opinion-flag: ready-for-dev
 

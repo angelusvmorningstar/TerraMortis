@@ -1,6 +1,6 @@
 # Story DT-Fix-4: Sort Within Phase — Projects Before Merits
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

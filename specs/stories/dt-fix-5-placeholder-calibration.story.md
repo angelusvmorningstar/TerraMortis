@@ -1,6 +1,6 @@
 # Story DT-Fix-5: Prompt/Placeholder Calibration Audit
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

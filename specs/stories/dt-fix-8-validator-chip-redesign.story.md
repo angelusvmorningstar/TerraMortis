@@ -1,6 +1,6 @@
 # Story DT-Fix-8: Validator Chip Redesign
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

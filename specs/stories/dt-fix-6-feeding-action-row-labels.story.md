@@ -1,6 +1,6 @@
 # Story DT-Fix-6: Feeding Action Row Labels — Expand Shorthand
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 

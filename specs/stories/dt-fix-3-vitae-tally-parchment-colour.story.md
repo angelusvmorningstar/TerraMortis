@@ -1,6 +1,6 @@
 # Story DT-Fix-3: Vitae Tally — Positive Numbers Wrong Colour on Parchment
 
-## Status: ready-for-dev
+## Status: done
 
 ## Story
 
