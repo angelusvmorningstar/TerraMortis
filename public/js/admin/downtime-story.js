@@ -462,6 +462,15 @@ function buildProjectContext(char, sub, idx) {
     }
   }
 
+  if (rev.player_feedback) {
+    lines.push('');
+    lines.push(`Player Feedback: ${rev.player_feedback}`);
+  }
+  if (sub.st_notes) {
+    lines.push('');
+    lines.push(`ST Notes (not for player): ${sub.st_notes}`);
+  }
+
   lines.push('');
   lines.push('Write a narrative response (2\u20134 paragraphs) describing what happened during this action from the Storyteller\u2019s perspective.');
   lines.push('');
@@ -1286,6 +1295,25 @@ function buildActionContext(char, sub, idx) {
 
   if (matrixNote) lines.push(`Matrix Outcome: ${matrixNote}`);
   if (effect)     lines.push(`Effect: ${effect}`);
+  if (actionType === 'block' && dots) lines.push(`Auto-blocks: merits of level ${dots} or lower`);
+
+  if (rev.contacts_info_type) lines.push(`Info Type: ${rev.contacts_info_type}`);
+  if (rev.contacts_subject)   lines.push(`Subject: ${rev.contacts_subject}`);
+
+  if (rev.patrol_detail_level) lines.push(`Detail Level: ${rev.patrol_detail_level}`);
+  if (rev.patrol_observed)     lines.push(`Observed: ${rev.patrol_observed}`);
+
+  if (rev.rumour_detail_level) lines.push(`Detail Level: ${rev.rumour_detail_level}`);
+  if (rev.rumour_content)      lines.push(`Rumour Surfaced: ${rev.rumour_content}`);
+
+  if (rev.support_target_key) {
+    const _tParts = rev.support_target_key.split(':');
+    const _tSub   = _allSubmissions.find(s => s._id === _tParts[0]);
+    const _tChar  = _tSub ? (_allCharacters.find(c => c._id === _tSub.character_id) || null) : null;
+    const _tName  = _tChar ? (_tChar.moniker || _tChar.name) : (_tSub?.character_name || _tParts[0]);
+    const _tType  = _tParts[1] || '';
+    lines.push(`Supporting Action: ${_tName} (${_tType})`);
+  }
 
   // Cross-action context chips
   const chips = [];
@@ -1311,6 +1339,15 @@ function buildActionContext(char, sub, idx) {
     lines.push('');
     lines.push('ST Notes:');
     notes.forEach(n => lines.push(`- ${n.author_name || 'ST'}: ${n.text || ''}`));
+  }
+
+  if (rev.player_feedback) {
+    lines.push('');
+    lines.push(`Player Feedback: ${rev.player_feedback}`);
+  }
+  if (sub.st_notes) {
+    lines.push('');
+    lines.push(`ST Notes (not for player): ${sub.st_notes}`);
   }
 
   lines.push('');

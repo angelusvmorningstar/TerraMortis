@@ -83,11 +83,12 @@ These principles govern every story in this epic. Dev agents must not deviate fr
 | D2 | feature.77 | Extract shared roll card renderer; de-duplicate character lookup |
 | D3 | feature.78 | Right-panel gap fill using shared zone renderers |
 
-### Track E — Visual
+### Track E — Visual / UX
 
 | Story | File | Description |
 |-------|------|-------------|
 | E1 | feature.79 | CSS token pass — eliminate ad-hoc styles throughout processing tab |
+| E2 | feature.80 | Committed pool status — separate "pool locked" from "outcome validated" |
 
 ---
 
@@ -96,13 +97,14 @@ These principles govern every story in this epic. Dev agents must not deviate fr
 ```
 A1 ──────────────────────────────────────────┐
 B1, B2, B3 ──────────────────────────────────┤
-C1, C2, C3, C4 ──────────────────────────────┤──▶ E1
+C1, C2, C3, C4 ──────────────────────────────┤──▶ E1 ──▶ E2
 D1 ──▶ D2 ──▶ D3 ────────────────────────────┘
 ```
 
 - Tracks A, B, C are fully independent of each other and of Track D
 - D1 must land before D2; D2 must land before D3
-- E1 runs last — after all other tracks are stable
+- E1 runs last (CSS pass) — after all other tracks are stable
+- E2 depends on E1 (new status must survive the CSS token pass)
 
 ---
 
@@ -111,3 +113,4 @@ D1 ──▶ D2 ──▶ D3 ─────────────────
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial epic — from Winston + Sally design session | Bob (bmad-agent-sm) |
+| 2026-04-15 | 1.1 | Added E2: committed pool status | Bob (bmad-agent-sm) |

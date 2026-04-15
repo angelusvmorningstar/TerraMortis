@@ -248,6 +248,7 @@ function _computeMeritPoolSize(category, dots) {
 // Human-readable labels for pool_status values across all action types
 const POOL_STATUS_LABELS = {
   pending:     'Pending',
+  committed:   'Committed',
   validated:   'Validated',
   no_roll:     'No Roll',
   no_feed:     'No Valid Feeding',
@@ -2042,6 +2043,7 @@ function buildProcessingQueue(subs) {
         label: 'Contacts: Gather Info',
         description: req,
         source: 'merit',
+        meritCategory: 'contacts',
         actionIdx: meritFlatIdx,
         poolPlayer: '',
       });
@@ -3278,7 +3280,11 @@ function renderProcessingMode(container) {
           sel.classList.contains('proc-inv-char-sel') ||
           sel.classList.contains('proc-attack-char-sel') ||
           sel.classList.contains('proc-attack-merit-sel') ||
-          sel.classList.contains('proc-inv-secrecy-sel')) return;
+          sel.classList.contains('proc-inv-secrecy-sel') ||
+          sel.classList.contains('proc-feed-blood-sel') ||
+          sel.classList.contains('proc-sorc-tradition-sel') ||
+          sel.classList.contains('proc-sorc-rite-sel') ||
+          sel.classList.contains('proc-contacts-info-type-sel')) return;
       const key = sel.dataset.procKey;
       const newType = sel.value;
       const entry = _getQueueEntry(key);
@@ -3411,7 +3417,7 @@ function renderProcessingMode(container) {
   });
 
   // ── Feeding description card — Edit / Save / Cancel ──
-  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-blood-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-targets-input, .proc-sorc-notes-input, .proc-sorc-tradition-input, .proc-sorc-rite-input').forEach(el => {
+  container.querySelectorAll('.proc-feed-desc-ta, .proc-feed-name-input, .proc-feed-pool-input, .proc-feed-bonuses-input, .proc-proj-name-input, .proc-proj-title-input, .proc-proj-outcome-input, .proc-proj-merits-input, .proc-sorc-notes-input').forEach(el => {
     el.addEventListener('click',  e => e.stopPropagation());
     el.addEventListener('mousedown', e => e.stopPropagation());
   });
@@ -3442,7 +3448,7 @@ function renderProcessingMode(container) {
       const card       = btn.closest('.proc-feed-desc-card');
       const name       = card.querySelector('.proc-feed-name-input').value.trim();
       const desc       = card.querySelector('.proc-feed-desc-ta').value.trim();
-      const bloodType  = card.querySelector('.proc-feed-blood-input').value.trim();
+      const bloodType  = card.querySelector('.proc-feed-blood-sel').value;
       const playerPool = card.querySelector('.proc-feed-pool-input').value.trim();
       const bonuses    = card.querySelector('.proc-feed-bonuses-input').value.trim();
       await saveEntryReview(entry, { name, description: desc, blood_type: bloodType, pool_player: playerPool, bonuses });
@@ -3474,13 +3480,15 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       const card       = btn.closest('.proc-feed-desc-card');
-      const tradition  = card.querySelector('.proc-sorc-tradition-input').value.trim();
-      const riteName   = card.querySelector('.proc-sorc-rite-input').value.trim();
-      const targets    = card.querySelector('.proc-sorc-targets-input').value.trim();
+      const tradition  = card.querySelector('.proc-sorc-tradition-sel').value;
+      const riteName   = card.querySelector('.proc-sorc-rite-sel').value;
+      const targSel    = card.querySelector('.proc-sorc-targets-sel');
+      const targets    = targSel ? [...targSel.selectedOptions].map(o => o.value).join(', ') : '';
       const notes      = card.querySelector('.proc-sorc-notes-input').value.trim();
       await saveEntryReview(entry, {
         sorc_tradition: tradition || null,
         sorc_rite_name: riteName  || null,
+        rite_override:  riteName  || null,
         sorc_targets:   targets   || null,
         sorc_notes:     notes     || null,
       });
@@ -4142,6 +4150,102 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire contacts info-type selector
+  container.querySelectorAll('.proc-contacts-info-type-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_info_type: sel.value || null });
+    });
+  });
+
+  // Wire contacts subject text input
+  container.querySelectorAll('.proc-contacts-subject-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_subject: inp.value.trim() || null });
+    });
+  });
+
+  // Wire patrol/scout detail level selector
+  container.querySelectorAll('.proc-patrol-detail-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { patrol_detail_level: sel.value || null });
+    });
+  });
+
+  // Wire patrol/scout observed textarea
+  container.querySelectorAll('.proc-patrol-observed-ta').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = ta.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { patrol_observed: ta.value.trim() || null });
+    });
+  });
+
+  // Wire block confirm button
+  container.querySelectorAll('.proc-block-confirm-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { pool_status: 'no_roll' });
+      renderProcessingMode(container);
+    });
+  });
+
+  // Wire support target selector
+  container.querySelectorAll('.proc-support-target-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { support_target_key: sel.value || null });
+    });
+  });
+
+  // Wire rumour detail level selector
+  container.querySelectorAll('.proc-rumour-detail-sel').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { rumour_detail_level: sel.value || null });
+    });
+  });
+
+  // Wire rumour content textarea
+  container.querySelectorAll('.proc-rumour-content-ta').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = ta.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { rumour_content: ta.value.trim() || null });
+    });
+  });
+
   // Wire investigate target character dropdown — save without re-render
   container.querySelectorAll('.proc-inv-char-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -4568,7 +4672,7 @@ function _renderAttachPanel(entry) {
 
   let h = `<div class="proc-attach-panel" data-proc-key="${esc(entry.key)}">`;
   h += '<div class="proc-detail-label">Reminder Text</div>';
-  h += `<input class="proc-attach-text proc-section" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae" style="width:100%">`;
+  h += `<input class="proc-attach-text proc-section" type="text" data-proc-key="${esc(entry.key)}" placeholder="e.g. +4 to pool, Rote quality, -1 Vitae">`;
   h += '<div class="proc-detail-label">Attach to Actions:</div>';
   h += '<div class="proc-attach-actions">';
 
@@ -5080,6 +5184,21 @@ function _renderMeritRightPanel(entry, rev) {
   if (isBlocked) {
     // Cannot perform this action at all
     h += `<div class="proc-feed-right-section"><span class="dt-dim-italic">This merit cannot perform this action type.</span></div>`;
+  } else if (actionType === 'block') {
+    // Block — auto-resolution display with confirm button
+    const blockLevel = dots != null ? `${dots} or lower` : 'same level or lower';
+    const blockConfirmed = poolStatus === 'no_roll';
+    h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
+    h += `<div class="proc-mod-panel-title">Block Resolution</div>`;
+    h += `<div class="proc-mod-row"><span class="proc-mod-label">Auto-blocks</span><span class="proc-mod-static">Merits of level ${esc(blockLevel)}</span></div>`;
+    h += `<div class="proc-mod-row" style="margin-top:8px">`;
+    if (blockConfirmed) {
+      h += `<span class="dt-dim-italic" style="color:var(--gold2)">&#10003; Block confirmed</span>`;
+    } else {
+      h += `<button class="dt-btn proc-block-confirm-btn" data-proc-key="${esc(key)}">Confirm Block</button>`;
+    }
+    h += `</div>`;
+    h += `</div>`;
   } else if (isAuto) {
     // Auto effect — no roll needed
     h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
@@ -5088,8 +5207,9 @@ function _renderMeritRightPanel(entry, rev) {
     h += `</div>`;
   } else if (isRolled) {
     // Equipment modifier ticker
-    h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
-    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+    const _meritCommitted = poolStatus === 'committed';
+    h += `<div class="proc-feed-mod-panel${_meritCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_meritCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
     const poolDisplay = basePool != null ? `(${dots} \u00d7 2) + 2 = ${basePool} dice` : '\u2014';
     h += `<div class="proc-mod-row"><span class="proc-mod-label">Base pool</span><span class="proc-mod-static">${poolDisplay}</span></div>`;
     h += _renderTickerRow(key, 'Equipment / other', 'proc-equip-mod', eqStr, eqMod);
@@ -5124,21 +5244,12 @@ function _renderMeritRightPanel(entry, rev) {
     h += `</div>`; // mod panel
 
     // Roll card
-    const rollLabel = totalPool != null ? ` \u2014 ${totalPool} dice` : '';
-    h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
-    h += `<div class="proc-mod-panel-title">Roll${rollLabel}</div>`;
-    if (totalPool != null && totalPool > 0) {
-      h += `<button class="dt-btn proc-merit-roll-btn" data-proc-key="${esc(key)}" data-pool="${totalPool}">${roll ? 'Re-roll' : 'Roll'}</button>`;
-      if (roll) {
-        const dStr   = _formatDiceString(roll.dice_string);
-        const suc    = roll.successes;
-        const excTag = roll.exceptional ? ' \u00b7 Exceptional' : '';
-        h += `<div class="proc-proj-roll-result">${esc(dStr)} \u2014 ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
-      }
-    } else {
-      h += `<span class="dt-dim-italic">Merit dots unknown \u2014 set pool manually</span>`;
-    }
-    h += `</div>`;
+    h += _renderRollCard(key, roll, totalPool, {
+      btnClass:     'proc-merit-roll-btn',
+      btnDataAttrs: totalPool != null ? ` data-pool="${totalPool}"` : '',
+      canRoll:       totalPool != null && totalPool > 0,
+      noRollMsg:    'Merit dots unknown \u2014 set pool manually',
+    });
   } else if (formula === 'none') {
     // Staff — fixed effect, no roll
     h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
@@ -5147,11 +5258,28 @@ function _renderMeritRightPanel(entry, rev) {
     h += `</div>`;
   }
 
+  // ── Success Modifier ──
+  if (isRolled) {
+    const succMod = rev.succ_mod_manual !== undefined ? rev.succ_mod_manual : 0;
+    const succStr = succMod === 0 ? '\u00B10' : succMod > 0 ? `+${succMod}` : String(succMod);
+    h += `<div class="proc-proj-succ-panel" data-proc-key="${esc(key)}">`;
+    h += `<div class="proc-mod-panel-title">Success Modifier</div>`;
+    h += _renderTickerRow(key, 'Manual adj.', 'proc-succmod', succStr, succMod);
+    h += `<div class="proc-mod-total-row"><span class="proc-mod-label">Net modifier</span>`;
+    h += `<span class="proc-proj-succ-total-val" data-proc-key="${esc(key)}">${succStr}</span>`;
+    h += `</div>`;
+    h += `</div>`;
+  }
+
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  const meritBtns = [['pending', 'Pending'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+  const meritBtns = [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
+  // Committed pool display
+  const poolValidatedMerit = rev.pool_validated || '';
+  h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${poolValidatedMerit ? esc(poolValidatedMerit) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
+  if (poolValidatedMerit) h += `<button class="dt-btn proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5174,11 +5302,14 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
   const total        = base + 3 + mgDots + eqMod;
 
+  const _sorcCommitted = poolStatus === 'committed';
+  const _sorcDis = _sorcCommitted ? ' disabled' : '';
+
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
   // ── Dice Pool Modifiers ──
-  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
-  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers</div>`;
+  h += `<div class="proc-feed-mod-panel${_sorcCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">Dice Pool Modifiers${_sorcCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
 
   // +3 Downtime bonus (always on)
   h += `<div class="proc-mod-row"><span class="proc-mod-label">Downtime bonus</span><span class="proc-mod-static">+3</span></div>`;
@@ -5187,7 +5318,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   if (isCruac && mgPool > 0) {
     h += `<div class="proc-mod-row">`;
     h += `<label class="proc-pool-rote-label proc-feed-rote-right">`;
-    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}> Mandragora Garden (+${mgPool})`;
+    h += `<input type="checkbox" class="proc-ritual-mg-toggle" data-proc-key="${esc(key)}"${mandUsed ? ' checked' : ''}${_sorcDis}> Mandragora Garden (+${mgPool})`;
     h += `</label></div>`;
   }
 
@@ -5197,28 +5328,26 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   h += `</div>`; // proc-feed-mod-panel
 
   // ── Roll card ──
-  const ritRoll    = rev.ritual_roll || null;
-  const canRoll    = !!ritInfo;
-  h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
-  h += `<div class="proc-mod-panel-title">Roll${canRoll ? ` \u2014 ${total} dice \u00b7 target ${ritInfo.target}` : ''}</div>`;
-  if (canRoll) {
-    h += `<button class="dt-btn proc-ritual-roll-btn" data-proc-key="${esc(key)}">${ritRoll ? 'Re-roll' : 'Roll'}</button>`;
-    if (ritRoll) {
-      const hit    = ritRoll.successes >= (ritInfo.target || 1);
-      const dStr   = _formatDiceString(ritRoll.dice_string);
-      const suc    = ritRoll.successes;
-      const excTag = ritRoll.exceptional ? ' \u00b7 Exceptional' : '';
-      h += `<div class="proc-proj-roll-result${hit ? '' : ' proc-ritual-fail'}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${hit ? ` \u2014 Potency ${suc}` : ' \u2014 no effect'}${excTag}</div>`;
-    }
-  } else {
-    h += `<span class="dt-dim-italic dt-hint">Select a rite first</span>`;
-  }
-  h += `</div>`;
+  const ritRoll = rev.ritual_roll || null;
+  const canRoll = !!ritInfo;
+  h += _renderRollCard(key, ritRoll, canRoll ? total : null, {
+    btnClass:        'proc-ritual-roll-btn',
+    canRoll,
+    noRollMsg:       'Select a rite first',
+    targetSuccesses:  ritInfo?.target ?? null,
+  });
 
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
+  // Committed pool display — shows computed total when rite is selected
+  if (canRoll) {
+    const poolExprSorc = `${base} + 3${mgDots ? ` + ${mgDots} (Mandragora)` : ''}${eqMod ? ` ${eqMod > 0 ? '+' : ''}${eqMod}` : ''} = ${total} dice`;
+    h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${esc(poolExprSorc)}</div>`;
+  } else {
+    h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}"><span class="dt-dim-italic">Select a rite to compute pool</span></div>`;
+  }
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5286,7 +5415,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
   const _activeProjSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -5315,23 +5444,14 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `</div>`;
 
   // ── Roll card ──
-  const projRoll = rev.roll || null;
+  const projRoll    = rev.roll || null;
   const showRollBtn = poolStatus === 'validated' || !!projRoll;
-  h += `<div class="proc-feed-right-section proc-proj-roll-card">`;
-  h += `<div class="proc-mod-panel-title">Roll</div>`;
-  if (showRollBtn) {
-    const rollLabel = projRoll ? 'Re-roll' : 'Roll';
-    h += `<button class="dt-btn proc-proj-roll-btn" data-proc-key="${esc(key)}" data-pool-validated="${esc(poolValidated)}">${rollLabel}</button>`;
-  } else {
-    h += `<span class="dt-dim-italic dt-hint">Validate pool first</span>`;
-  }
-  if (projRoll) {
-    const diceStr = _formatDiceString(projRoll.dice_string);
-    const suc = projRoll.successes;
-    const excTag = projRoll.exceptional ? ' \u2014 Exceptional' : '';
-    h += `<div class="proc-proj-roll-result">${esc(diceStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
-  }
-  h += `</div>`;
+  h += _renderRollCard(key, projRoll, null, {
+    btnClass:     'proc-proj-roll-btn',
+    btnDataAttrs: ` data-pool-validated="${esc(poolValidated)}"`,
+    canRoll:       showRollBtn,
+    noRollMsg:    'Validate pool first',
+  });
 
   // ── Review section (all personal project actions — feature.66 extended) ──
   const stResponse = rev.st_response || '';
@@ -5575,7 +5695,229 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`;
 
+  // ── Response review section ──
+  const feedResponseStatus = rev.response_status || '';
+  const feedReviewedBy     = rev.response_reviewed_by || '';
+  const feedStResponse     = rev.st_response || '';
+  if (feedStResponse) {
+    h += `<div class="proc-response-review-section">`;
+    if (feedResponseStatus === 'reviewed') {
+      h += `<div class="proc-response-reviewed-label">Reviewed by ${esc(feedReviewedBy)}</div>`;
+    } else {
+      h += `<button class="dt-btn proc-response-review-btn" data-proc-key="${esc(key)}">Mark reviewed</button>`;
+    }
+    h += `</div>`;
+  }
+
   h += `</div>`; // proc-feed-right
+  return h;
+}
+
+/**
+ * Resolve a character object from a submission.
+ * Tries character_id first, then character_name via charMap.
+ */
+function _findCharForSub(sub) {
+  if (!sub) return null;
+  const charIdStr   = sub.character_id ? String(sub.character_id) : null;
+  const charNameKey = (sub.character_name || '').toLowerCase().trim();
+  return (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
+         charMap.get(charNameKey) || null;
+}
+
+/**
+ * Renders the standard roll card section for a right-panel.
+ * @param {string} key          - proc entry key
+ * @param {object|null} roll    - the roll object (rev.roll / rev.ritual_roll etc.)
+ * @param {number|null} poolTotal - total dice to display in card title (null = omit)
+ * @param {object} opts
+ *   @param {string}  opts.btnClass        - CSS class on the Roll button
+ *   @param {string}  opts.btnDataAttrs    - extra data-* attrs string for the button
+ *   @param {boolean} opts.canRoll         - whether the Roll button should appear (default true)
+ *   @param {string}  opts.noRollMsg       - hint shown when canRoll is false
+ *   @param {number}  opts.targetSuccesses - sorcery: target for potency/fail display
+ */
+function _renderRollCard(key, roll, poolTotal, opts = {}) {
+  const {
+    btnClass        = 'proc-proj-roll-btn',
+    btnDataAttrs    = '',
+    canRoll         = true,
+    noRollMsg       = 'No roll available',
+    targetSuccesses = null,
+  } = opts;
+
+  const poolLabel   = (poolTotal != null && canRoll) ? ` \u2014 ${poolTotal} dice` : '';
+  const targetLabel = (targetSuccesses != null && canRoll) ? ` \u00b7 target ${targetSuccesses}` : '';
+
+  let h = `<div class="proc-feed-right-section proc-proj-roll-card">`;
+  h += `<div class="proc-mod-panel-title">Roll${poolLabel}${targetLabel}</div>`;
+
+  if (canRoll) {
+    const btnLabel = roll ? 'Re-roll' : 'Roll';
+    h += `<button class="dt-btn ${esc(btnClass)}" data-proc-key="${esc(key)}"${btnDataAttrs}>${btnLabel}</button>`;
+    if (roll) {
+      const dStr   = _formatDiceString(roll.dice_string);
+      const suc    = roll.successes ?? 0;
+      const excTag = roll.exceptional ? ' \u00b7 Exceptional' : '';
+      if (targetSuccesses != null) {
+        const hit     = suc >= targetSuccesses;
+        const failCls = hit ? '' : ' proc-ritual-fail';
+        const resText = hit ? ` \u2014 Potency ${suc}` : ' \u2014 no effect';
+        h += `<div class="proc-proj-roll-result${failCls}">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${resText}${excTag}</div>`;
+      } else {
+        h += `<div class="proc-proj-roll-result">${esc(dStr)} ${suc} success${suc !== 1 ? 'es' : ''}${excTag}</div>`;
+      }
+    }
+  } else {
+    h += `<span class="dt-dim-italic dt-hint">${esc(noRollMsg)}</span>`;
+  }
+
+  h += `</div>`;
+  return h;
+}
+
+/**
+ * Renders the action-type recategorisation row (dropdown + conditional target selectors).
+ * Handles the full recat row content for both project and merit entries.
+ *
+ * For merit entries, also renders the merit-link dropdown and territory pills that appear
+ * within the same row. For project entries, renders territory pills and the original-type badge.
+ *
+ * @param {object} entry  - queue entry
+ * @param {object} rev    - review object for the entry
+ * @param {object|null} char - resolved character (used for hide_protect merit list and merit-link)
+ */
+function _renderActionTypeRow(entry, rev, char) {
+  const key        = entry.key;
+  const actionType = entry.actionType;
+  const isMerit    = entry.source === 'merit';
+  let h = '';
+
+  h += `<div class="proc-recat-row">`;
+  h += `<span class="proc-feed-lbl">Action Type</span>`;
+  h += `<select class="proc-recat-select" data-proc-key="${esc(key)}">`;
+  for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
+    h += `<option value="${esc(val)}"${actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
+  }
+  h += `</select>`;
+
+  // Project only: show original action type badge when overridden
+  if (!isMerit) {
+    const isOverridden = entry.originalActionType && entry.originalActionType !== actionType;
+    if (isOverridden) {
+      h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
+    }
+  }
+
+  if (actionType === 'investigate') {
+    const _invT = rev.investigate_target_char || '';
+    h += `<span class="proc-feed-lbl">Target</span>`;
+    h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select \u2014</option>`;
+    for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+      const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+      h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
+    }
+    h += `</select>`;
+  } else if (actionType === 'attack') {
+    const _atkT = rev.attack_target_char || '';
+    h += `<span class="proc-feed-lbl">Target</span>`;
+    h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select \u2014</option>`;
+    for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
+      const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
+      h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
+    }
+    h += `</select>`;
+  } else if (actionType === 'hide_protect' && isMerit) {
+    const _protName  = rev?.protected_merit_name      ?? '';
+    const _protQual  = rev?.protected_merit_qualifier ?? '';
+    const _allMerits = (char?.merits || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    h += `<span class="proc-feed-lbl">Protects</span>`;
+    h += `<select class="proc-recat-select proc-prot-merit-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select merit \u2014</option>`;
+    for (const m of _allMerits) {
+      const mQual   = m.qualifier || m.area || '';
+      const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+      const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+      const mDots   = '\u25CF'.repeat(mRating);
+      const isSelected = (m.name || '') === _protName && mQual === _protQual;
+      h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
+    }
+    h += `</select>`;
+  } else if (actionType === 'ambience_increase' || actionType === 'ambience_decrease') {
+    if (!isMerit) {
+      const _ambiSub = submissions.find(s => s._id === entry.subId);
+      const _ambiCtx = String(entry.actionIdx);
+      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
+    }
+    // merit ambience: territory handled via isAlliesAction pills below
+  } else if (!isMerit) {
+    // All other project action types get territory pills inline
+    const _projCtx = String(entry.actionIdx);
+    const _projSub = submissions.find(s => s._id === entry.subId);
+    const _projTid = _projSub?.st_review?.territory_overrides?.[_projCtx] || '';
+    h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
+  }
+
+  // Merit: merit-link dropdown (allies/status/retainer/contacts/staff) + territory pills
+  if (isMerit) {
+    if (['allies', 'status', 'retainer', 'contacts', 'staff'].includes(entry.meritCategory)) {
+      const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
+      const _meritNameKey = (entry.meritLabel || '').toLowerCase();
+      const _charMerits   = (char?.merits || [])
+        .filter(m => {
+          const mName = (m.name || '').toLowerCase();
+          return mName === _meritNameKey || _meritNameKey.includes(mName) || mName.includes(_meritNameKey);
+        })
+        .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
+      const _isAmb = actionType === 'ambience_increase' || actionType === 'ambience_decrease';
+      const _hasHWV = _isAmb && (char?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
+      h += `<span class="proc-feed-lbl">Merit</span>`;
+      h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(key)}">`;
+      h += `<option value="">\u2014 Select \u2014</option>`;
+      for (const m of _charMerits) {
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mQual   = m.qualifier || m.area || '';
+        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
+        const mDots   = '\u25CF'.repeat(mRating);
+        const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
+        h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
+      }
+      h += `</select>`;
+      if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
+    }
+    // Territory pills — allies/status/retainer actions
+    if (entry.isAlliesAction) {
+      const _mCtx = `allies_${entry.actionIdx}`;
+      const _mSub = submissions.find(s => s._id === entry.subId);
+      const _mTid = _mSub?.st_review?.territory_overrides?.[_mCtx] || '';
+      h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
+    }
+  }
+
+  h += `</div>`;
+
+  // Attack merit dropdown (second row, shown for both project and merit)
+  if (actionType === 'attack') {
+    const _atkChar  = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
+    const _atkMerit = rev.attack_target_merit || '';
+    h += `<div class="proc-recat-row proc-recat-row-tight">`;
+    h += `<span class="proc-feed-lbl">Merit</span>`;
+    h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(key)}">`;
+    h += `<option value="">\u2014 Select merit \u2014</option>`;
+    if (_atkChar) {
+      for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
+        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
+        const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
+        h += `<option value="${esc(m.name || '')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name || '')}${esc(mQual)} \u25CF${mRating}</option>`;
+      }
+    }
+    h += `</select>`;
+    h += `</div>`;
+  }
+
   return h;
 }
 
@@ -5590,57 +5932,19 @@ function renderActionPanel(entry, review) {
   const isSorcery        = entry.source === 'sorcery';
   const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
 
-  // Hoist char lookup for feeding entries (needed by right panel and pool builder)
-  let feedSub = null;
-  let feedChar = null;
-  if (entry.source === 'feeding') {
-    feedSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = feedSub?.character_id ? String(feedSub.character_id) : null;
-    const charNameKey = (feedSub?.character_name || '').toLowerCase().trim();
-    feedChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
+  // Single character lookup — resolved once for all source types
+  const entrySub  = submissions.find(s => s._id === entry.subId) || null;
+  const entryChar = _findCharForSub(entrySub);
 
-  // Hoist char lookup for project entries
-  let projSub = null;
-  let projChar = null;
-  if (entry.source === 'project') {
-    projSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = projSub?.character_id ? String(projSub.character_id) : null;
-    const charNameKey = (projSub?.character_name || '').toLowerCase().trim();
-    projChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
-
-  // Hoist char lookup for sorcery entries
-  let sorcSub = null;
-  let sorcChar = null;
-  if (isSorcery) {
-    sorcSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = sorcSub?.character_id ? String(sorcSub.character_id) : null;
-    const charNameKey = (sorcSub?.character_name || '').toLowerCase().trim();
-    sorcChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
-
-  // Hoist char lookup for merit entries
-  let meritEntSub = null;
-  let meritEntChar = null;
-  if (entry.source === 'merit') {
-    meritEntSub = submissions.find(s => s._id === entry.subId) || null;
-    const charIdStr   = meritEntSub?.character_id ? String(meritEntSub.character_id) : null;
-    const charNameKey = (meritEntSub?.character_name || '').toLowerCase().trim();
-    meritEntChar =
-      (charIdStr && characters.find(ch => String(ch._id) === charIdStr)) ||
-      charMap.get(charNameKey) ||
-      null;
-  }
+  // Source-specific aliases (used by downstream renderers and pool builders)
+  const feedSub      = entry.source === 'feeding' ? entrySub  : null;
+  const feedChar     = entry.source === 'feeding' ? entryChar : null;
+  const projSub      = entry.source === 'project' ? entrySub  : null;
+  const projChar     = entry.source === 'project' ? entryChar : null;
+  const sorcSub      = isSorcery               ? entrySub  : null;
+  const sorcChar     = isSorcery               ? entryChar : null;
+  const meritEntSub  = entry.source === 'merit' ? entrySub  : null;
+  const meritEntChar = entry.source === 'merit' ? entryChar : null;
 
   let h = `<div class="proc-action-detail" data-proc-key="${esc(entry.key)}">`;
 
@@ -5761,163 +6065,68 @@ function renderActionPanel(entry, review) {
     }
 
     // ── Action type recategorisation ──
-    const isOverridden = entry.originalActionType && entry.originalActionType !== entry.actionType;
-    h += `<div class="proc-recat-row">`;
-    h += `<span class="proc-feed-lbl">Action Type</span>`;
-    h += `<select class="proc-recat-select" data-proc-key="${esc(entry.key)}">`;
-    for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
-      h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
-    }
-    h += `</select>`;
-    if (isOverridden) {
-      h += `<span class="proc-recat-original">Player: ${esc(ACTION_TYPE_LABELS[entry.originalActionType] || entry.originalActionType)}</span>`;
-    }
-    if (entry.actionType === 'investigate') {
-      const _invT = rev.investigate_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'attack') {
-      const _atkT = rev.attack_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease') {
-      const _ambiSub = submissions.find(s => s._id === entry.subId);
-      const _ambiCtx = String(entry.actionIdx);
-      const _ambiTid = _ambiSub?.st_review?.territory_overrides?.[_ambiCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _ambiCtx, _ambiTid);
-    } else {
-      // All other project action types get territory pills inline
-      const _projCtx = String(entry.actionIdx);
-      const _projTid = projSub?.st_review?.territory_overrides?.[_projCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _projCtx, _projTid);
-    }
-    h += `</div>`;
-    if (entry.actionType === 'attack') {
-      const _atkChar = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
-      const _atkMerit = rev.attack_target_merit || '';
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
-      h += `<span class="proc-feed-lbl">Merit</span>`;
-      h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select merit \u2014</option>`;
-      if (_atkChar) {
-        for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''))) {
-          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-          const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
-          h += `<option value="${esc(m.name||'')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name||'')}${esc(mQual)} \u25CF${mRating}</option>`;
-        }
-      }
-      h += `</select>`;
-      h += `</div>`;
-    }
+    h += _renderActionTypeRow(entry, rev, projChar);
   }
 
   // ── Action type recategorisation for merit/sphere entries ──
   if (entry.source === 'merit') {
-    h += `<div class="proc-recat-row">`;
-    h += `<span class="proc-feed-lbl">Action Type</span>`;
-    h += `<select class="proc-recat-select" data-proc-key="${esc(entry.key)}">`;
-    for (const [val, lbl] of Object.entries(ACTION_TYPE_LABELS)) {
-      h += `<option value="${esc(val)}"${entry.actionType === val ? ' selected' : ''}>${esc(lbl)}</option>`;
+    h += _renderActionTypeRow(entry, rev, meritEntChar);
+    // Contacts info-type and subject fields
+    if (entry.meritCategory === 'contacts') {
+      const _ciType    = rev.contacts_info_type || '';
+      const _ciSubject = rev.contacts_subject   || '';
+      const _ciTypes   = ['Public', 'Internal', 'Confidential', 'Restricted'];
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
+      h += `<span class="proc-feed-lbl">Info Type</span>`;
+      h += `<select class="proc-recat-select proc-contacts-info-type-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_ciTypes.map(t => `<option value="${t}"${_ciType === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
+      h += `<span class="proc-feed-lbl">Subject</span>`;
+      h += `<input type="text" class="proc-detail-input proc-contacts-subject-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciSubject)}" placeholder="Sphere, person, or topic\u2026">`;
+      h += `</div>`;
     }
-    h += `</select>`;
-    // Action-type-specific extras (Target character or Protects merit selector)
-    if (entry.actionType === 'investigate') {
-      const _invT = rev.investigate_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-inv-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _invT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'attack') {
-      const _atkT = rev.attack_target_char || '';
-      h += `<span class="proc-feed-lbl">Target</span>`;
-      h += `<select class="proc-recat-select proc-attack-char-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const c of [...characters].sort((a, b) => sortName(a).localeCompare(sortName(b)))) {
-        const lbl = sortName(c).replace(/\b\w/g, l => l.toUpperCase());
-        h += `<option value="${esc(c.name || '')}"${c.name === _atkT ? ' selected' : ''}>${esc(lbl)}</option>`;
-      }
-      h += `</select>`;
-    } else if (entry.actionType === 'hide_protect') {
-      const _protName = rev?.protected_merit_name      ?? '';
-      const _protQual = rev?.protected_merit_qualifier ?? '';
-      const _allMerits = (meritEntChar?.merits || [])
-        .slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      h += `<span class="proc-feed-lbl">Protects</span>`;
-      h += `<select class="proc-recat-select proc-prot-merit-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select merit \u2014</option>`;
-      for (const m of _allMerits) {
-        const mQual   = m.qualifier || m.area || '';
-        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
-        const mDots   = '\u25CF'.repeat(mRating);
-        const isSelected = (m.name || '') === _protName && mQual === _protQual;
-        h += `<option value="${esc((m.name || '') + '|' + mQual)}"${isSelected ? ' selected' : ''}>${mLabel} ${mDots}</option>`;
-      }
-      h += `</select>`;
+    // Patrol/Scout outcome fields
+    if (entry.actionType === 'patrol_scout') {
+      const _patObs   = rev.patrol_observed     || '';
+      const _patLevel = rev.patrol_detail_level || '';
+      const _patLevels = ['1 \u2014 Vague', '2', '3', '4', '5+ \u2014 Detailed'];
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
+      h += `<span class="proc-feed-lbl">Detail Level</span>`;
+      h += `<select class="proc-recat-select proc-patrol-detail-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_patLevels.map(l => `<option value="${l}"${_patLevel === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
+      h += `<span class="proc-feed-lbl">Observed</span>`;
+      h += `<textarea class="proc-detail-ta proc-patrol-observed-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was observed\u2026">${esc(_patObs)}</textarea>`;
+      h += `</div>`;
     }
-    // Merit link dropdown — universal for all named-merit categories
-    if (['allies', 'status', 'retainer', 'contacts', 'staff'].includes(entry.meritCategory)) {
-      const _linkedQual   = rev?.linked_merit_qualifier ?? entry.meritQualifier ?? '';
-      const _meritNameKey = (entry.meritLabel || '').toLowerCase();
-      const _charMerits   = (meritEntChar?.merits || [])
-        .filter(m => {
-          const mName = (m.name || '').toLowerCase();
-          return mName === _meritNameKey || _meritNameKey.includes(mName) || mName.includes(_meritNameKey);
-        })
-        .sort((a, b) => (a.qualifier || a.area || '').localeCompare(b.qualifier || b.area || ''));
-      const _hasHWV = isAmbienceMerit && (meritEntChar?.merits || []).some(m => /honey with vinegar/i.test(m.name || ''));
-      h += `<span class="proc-feed-lbl">Merit</span>`;
-      h += `<select class="proc-recat-select proc-merit-link-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select \u2014</option>`;
-      for (const m of _charMerits) {
-        const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-        const mQual   = m.qualifier || m.area || '';
-        const mLabel  = mQual ? `${esc(m.name || '')} (${esc(mQual)})` : esc(m.name || '');
-        const mDots   = '\u25CF'.repeat(mRating);
-        const sel     = mQual && mQual.toLowerCase() === _linkedQual.toLowerCase() ? ' selected' : '';
-        h += `<option value="${esc(mQual)}"${sel}>${mLabel} ${mDots}</option>`;
+    // Support target selector
+    if (entry.actionType === 'support') {
+      const _supportKey = rev.support_target_key || '';
+      const _queueEntries = _procQueueMap ? [..._procQueueMap.values()] : [];
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
+      h += `<span class="proc-feed-lbl">Supporting</span>`;
+      h += `<select class="proc-recat-select proc-support-target-sel" data-proc-key="${esc(entry.key)}">`;
+      h += `<option value="">\u2014 Select action \u2014</option>`;
+      for (const qe of _queueEntries) {
+        if (qe.key === entry.key) continue;
+        const qLabel = `${qe.charName} \u2014 ${qe.label}`;
+        h += `<option value="${esc(qe.key)}"${_supportKey === qe.key ? ' selected' : ''}>${esc(qLabel)}</option>`;
       }
       h += `</select>`;
-      if (_hasHWV) h += `<span class="proc-hwv-badge">Honey with Vinegar</span>`;
+      h += `</div>`;
     }
-    // Territory pills — allies/status/retainer actions (all action types)
-    if (entry.isAlliesAction) {
-      const _mCtx = `allies_${entry.actionIdx}`;
-      const _mTid = meritEntSub?.st_review?.territory_overrides?.[_mCtx] || '';
-      h += _renderInlineTerrPills(entry.subId, _mCtx, _mTid);
-    }
-    h += `</div>`;
-    if (entry.actionType === 'attack') {
-      const _atkChar = characters.find(c => c.name === (rev.attack_target_char || '')) || null;
-      const _atkMerit = rev.attack_target_merit || '';
-      h += `<div class="proc-recat-row" style="margin-top:4px;padding-top:4px;border-top:none">`;
-      h += `<span class="proc-feed-lbl">Merit</span>`;
-      h += `<select class="proc-recat-select proc-attack-merit-sel" data-proc-key="${esc(entry.key)}">`;
-      h += `<option value="">\u2014 Select merit \u2014</option>`;
-      if (_atkChar) {
-        for (const m of [...(_atkChar.merits || [])].sort((a, b) => (a.name||'').localeCompare(b.name||''))) {
-          const mRating = (m.rating || m.dots || 0) + (m.bonus || 0);
-          const mQual   = m.qualifier ? ` (${m.qualifier})` : '';
-          h += `<option value="${esc(m.name||'')}"${m.name === _atkMerit ? ' selected' : ''}>${esc(m.name||'')}${esc(mQual)} \u25CF${mRating}</option>`;
-        }
-      }
-      h += `</select>`;
+    // Rumour outcome fields
+    if (entry.actionType === 'rumour') {
+      const _rumCont  = rev.rumour_content      || '';
+      const _rumLevel = rev.rumour_detail_level || '';
+      const _rumLevels = ['1 \u2014 Vague', '2', '3', '4', '5+ \u2014 Detailed'];
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
+      h += `<span class="proc-feed-lbl">Detail Level</span>`;
+      h += `<select class="proc-recat-select proc-rumour-detail-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${_rumLevels.map(l => `<option value="${l}"${_rumLevel === l ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
+      h += `<span class="proc-feed-lbl">Rumour Surfaced</span>`;
+      h += `<textarea class="proc-detail-ta proc-rumour-content-ta" data-proc-key="${esc(entry.key)}" rows="3" placeholder="What was heard\u2026">${esc(_rumCont)}</textarea>`;
       h += `</div>`;
     }
   }
@@ -5947,9 +6156,33 @@ function renderActionPanel(entry, review) {
     h += `</div>`;
     // Edit mode (hidden by default)
     h += `<div class="proc-feed-desc-edit" style="display:none">`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><input type="text" class="proc-detail-input proc-sorc-tradition-input" data-proc-key="${esc(entry.key)}" value="${esc(traditionVal)}" placeholder="Cruac or Theban Sorcery\u2026"></div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><input type="text" class="proc-detail-input proc-sorc-rite-input" data-proc-key="${esc(entry.key)}" value="${esc(riteVal)}" placeholder="Rite name\u2026"></div>`;
-    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><input type="text" class="proc-detail-input proc-sorc-targets-input" data-proc-key="${esc(entry.key)}" value="${esc(targetsVal)}" placeholder="Target characters or area\u2026"></div>`;
+    // Tradition selector
+    const _tradOpts = ['Cruac', 'Theban Sorcery'];
+    h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Tradition</span><select class="proc-recat-select proc-sorc-tradition-sel" data-proc-key="${esc(entry.key)}">${_tradOpts.map(o => `<option value="${o}"${traditionVal === o ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    // Rite dropdown — same structure as right-panel rite selector
+    {
+      const _allRites = (_getRulesDB() || []).filter(r => r.category === 'rite');
+      const _tradOrder = ['Cruac', 'Theban'];
+      const _byTrad = {};
+      for (const r of _allRites) { const t = r.parent || 'Unknown'; if (!_byTrad[t]) _byTrad[t] = []; _byTrad[t].push(r); }
+      const _tradKeys = [..._tradOrder.filter(t => _byTrad[t]), ...Object.keys(_byTrad).filter(t => !_tradOrder.includes(t))];
+      let _riteOpts = `<option value="">\u2014 Select Rite \u2014</option>`;
+      for (const trad of _tradKeys) {
+        const grp = (_byTrad[trad] || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+        _riteOpts += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}"${riteVal === r.name ? ' selected' : ''}>${esc(r.name)} (Level ${r.rank || _getRiteLevel(r.name) || '?'})</option>`).join('')}</optgroup>`;
+      }
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Rite</span><select class="proc-recat-select proc-sorc-rite-sel" data-proc-key="${esc(entry.key)}">${_riteOpts}</select></div>`;
+    }
+    // Targets multi-select — active characters sorted by sortName, excluding current
+    {
+      const _activeChars = characters.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const _selectedTargets = new Set((targetsVal || '').split(',').map(s => s.trim()).filter(Boolean));
+      const _charOpts = _activeChars.map(c => {
+        const n = sortName(c);
+        return `<option value="${esc(n)}"${_selectedTargets.has(n) ? ' selected' : ''}>${esc(n)}</option>`;
+      }).join('');
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Targets</span><select class="proc-sorc-targets-sel" data-proc-key="${esc(entry.key)}" multiple size="4">${_charOpts}</select></div>`;
+    }
     h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Notes</span><textarea class="proc-detail-ta proc-sorc-notes-input" data-proc-key="${esc(entry.key)}" rows="3">${esc(notesVal)}</textarea></div>`;
     h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-sorc-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
     h += `</div>`;
@@ -6021,7 +6254,8 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-edit" style="display:none">`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Name</span><input type="text" class="proc-detail-input proc-feed-name-input" data-proc-key="${esc(entry.key)}" value="${esc(nameVal)}" placeholder="Short action name"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Description</span><textarea class="proc-detail-ta proc-feed-desc-ta" data-proc-key="${esc(entry.key)}" rows="3">${esc(descVal)}</textarea></div>`;
-      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><input type="text" class="proc-detail-input proc-feed-blood-input" data-proc-key="${esc(entry.key)}" value="${esc(bloodTypeVal)}" placeholder="e.g. Human, Animal, Kindred"></div>`;
+      const _btOpts = ['Human', 'Animal', 'Kindred', 'Ghoul'];
+      h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Blood Type</span><select class="proc-recat-select proc-feed-blood-sel" data-proc-key="${esc(entry.key)}">${_btOpts.map(o => `<option value="${o}"${bloodTypeVal === o ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Player's Pool</span><input type="text" class="proc-detail-input proc-feed-pool-input" data-proc-key="${esc(entry.key)}" value="${esc(poolPlayer || playerPoolStr)}"></div>`;
       h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Bonuses</span><input type="text" class="proc-detail-input proc-feed-bonuses-input" data-proc-key="${esc(entry.key)}" value="${esc(bonusesVal)}" placeholder="e.g. Herd +2, Rote"></div>`;
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-feed-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
@@ -6116,17 +6350,19 @@ function renderActionPanel(entry, review) {
       const initDiscDots  = (preDisc && preDisc !== 'none') ? (charDiscs.find(d => d.name === preDisc)?.dots || 0) : 0;
       const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill);
 
-      h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
-      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+      const _feedCommitted = poolStatus === 'committed';
+      const _feedDis = _feedCommitted ? ' disabled' : '';
+      h += `<div class="proc-pool-builder${_feedCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+      h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_feedCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
       if (showParseRef) {
         h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
       }
       h += '<div class="proc-pool-builder-selects">';
-      h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}">${attrOptHtml}</select>`;
+      h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_feedDis}>${attrOptHtml}</select>`;
       h += `<span class="proc-pool-plus">+</span>`;
-      h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}">${skillOptHtml}</select>`;
+      h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_feedDis}>${skillOptHtml}</select>`;
       h += `<span class="proc-pool-plus">+</span>`;
-      h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
+      h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_feedDis}>${discOptHtml}</select>`;
       h += '</div>'; // proc-pool-builder-selects
       // Hidden modifier input — receives right-panel pool mod total so _readBuilderExpr includes it
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
@@ -6138,13 +6374,13 @@ function renderActionPanel(entry, review) {
       for (const sp of _fbSp) {
         const checked = _fbAct.includes(sp);
         const aoe = hasAoE(char, sp);
-        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}${_feedDis}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
       }
       for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
         if (fromSkill === preSkill) continue; // already present as a native spec on this skill
         const checked = _fbAct.includes(isSp);
         const aoe = hasAoE(char, isSp);
-        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}${_feedDis}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
       }
       h += '</div>';
       h += '</div>'; // proc-pool-builder
@@ -6211,17 +6447,19 @@ function renderActionPanel(entry, review) {
     const _pnA  = char && preSkill ? skNineAgain(char, preSkill) : false;
     const initTotalStr  = _poolTotalDisplay(preAttr, initAttrDots, preSkill, initSkillDots, preDisc, initDiscDots, initModForDisplay, preSkill, _pnA);
 
-    h += `<div class="proc-pool-builder" data-proc-key="${esc(entry.key)}">`;
-    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}</div>`;
+    const _projCommitted = poolStatus === 'committed';
+    const _projDis = _projCommitted ? ' disabled' : '';
+    h += `<div class="proc-pool-builder${_projCommitted ? ' proc-pool-committed' : ''}" data-proc-key="${esc(entry.key)}">`;
+    h += `<div class="proc-detail-label">ST Pool Builder${!char ? ' <span class="dt-hint">(dot values unavailable \u2014 character not loaded)</span>' : ''}${_projCommitted ? ' <span class="proc-pool-committed-badge">[Committed]</span>' : ''}</div>`;
     if (showParseRef) {
       h += `<div class="proc-pool-parse-ref">Could not restore selection \u2014 previous: "${esc(poolValidated)}"</div>`;
     }
     h += '<div class="proc-pool-builder-selects">';
-    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}">${attrOptHtml}</select>`;
+    h += `<select class="proc-pool-attr" data-proc-key="${esc(entry.key)}"${_projDis}>${attrOptHtml}</select>`;
     h += `<span class="proc-pool-plus">+</span>`;
-    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}">${skillOptHtml}</select>`;
+    h += `<select class="proc-pool-skill" data-proc-key="${esc(entry.key)}"${_projDis}>${skillOptHtml}</select>`;
     h += `<span class="proc-pool-plus">+</span>`;
-    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}">${discOptHtml}</select>`;
+    h += `<select class="proc-pool-disc" data-proc-key="${esc(entry.key)}"${_projDis}>${discOptHtml}</select>`;
     h += '</div>';
     h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
     h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
@@ -6232,13 +6470,13 @@ function renderActionPanel(entry, review) {
     for (const sp of _pSp) {
       const checked = _pAct.includes(sp);
       const aoe = hasAoE(char, sp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}${_projDis}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
       if (fromSkill === preSkill) continue; // already present as a native spec on this skill
       const checked = _pAct.includes(isSp);
       const aoe = hasAoE(char, isSp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}${_projDis}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
     }
     h += '</div>';
     h += '</div>'; // proc-pool-builder
@@ -7022,7 +7260,7 @@ function renderInvestigations() {
     // New investigation form
     h += `<details class="dt-inv-new-wrap"><summary class="dt-btn dt-summary-btn">+ New Investigation</summary>`;
     h += '<div class="dt-inv-form">';
-    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)" style="width:100%">`;
+    h += `<input class="dt-inv-input" id="dt-inv-target" placeholder="Target (name or description)">`;
     h += '<div class="dt-inv-row">';
     h += `<select class="dt-pool-sel" id="dt-inv-type">`;
     for (const t of THRESHOLD_TYPES) h += `<option value="${esc(t.id)}">${esc(t.label)} (${t.default})</option>`;
@@ -7257,7 +7495,7 @@ function renderNpcForm(npc) {
   const id = npc?._id || 'new';
   const v = (f) => esc(npc?.[f] || '');
   let h = `<div class="dt-npc-form">`;
-  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}" style="width:100%">`;
+  h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}">`;
   h += `<textarea class="dt-narr-textarea dt-narr-textarea-sm" id="dt-npc-desc-${id}" placeholder="Description">${v('description')}</textarea>`;
   h += '<div class="dt-npc-form-row">';
   h += `<select class="dt-pool-sel" id="dt-npc-status-${id}">`;

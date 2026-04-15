@@ -58,6 +58,8 @@
   --green4-a50:rgba(50,110,50,.50);--green4-a55:rgba(50,110,50,.55);
   --green5-a35:rgba(50,110,50,.35);
   --green6-a40:rgba(38,84,49,.40);--green6-a70:rgba(38,84,49,.70);
+  /* DT Story complete state */
+  --story-compl:#5a9a6e;--story-compl-a15:rgba(90,154,110,.15);--story-compl-a40:rgba(90,154,110,.4);
 
   /* Status: error / red */
   --err:#8B1010;--err2:#7A0808;
@@ -138,6 +140,8 @@
   --green4-a50:rgba(100,160,80,.5);--green4-a55:rgba(100,160,80,.55);
   --green5-a35:rgba(100,160,100,.35);
   --green6-a40:rgba(78,124,89,.4);--green6-a70:rgba(78,124,89,.7);
+  /* DT Story complete state */
+  --story-compl:#5a9a6e;--story-compl-a15:rgba(90,154,110,.15);--story-compl-a40:rgba(90,154,110,.4);
 
   /* Status: error / red */
   --err:#E8A0A0;--err2:#c06060;

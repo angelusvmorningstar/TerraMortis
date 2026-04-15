@@ -414,7 +414,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .dev-rm-btn{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;flex-shrink:0;}
 .dev-rm-btn:hover{color:var(--err);}
 .dev-prereq{font-family:var(--ft);font-size:9px;color:var(--txt3);margin-top:1px;}
-.dev-xp-tag{font-family:var(--fl);font-size:8px;color:var(--txt3);margin-left:6px;}
+.dev-xp-tag{font-family:var(--fl);font-size:11px;font-weight:700;color:var(--txt2);margin-left:6px;}
 
 /* ── Discipline breakdown ── */
 .disc-bd-panel{background:var(--surf);border:1px solid var(--bdr);border-top:none;border-radius:0 0 4px 4px;padding:3px 6px;margin-bottom:2px;}
