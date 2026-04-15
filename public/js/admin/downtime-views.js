@@ -5216,7 +5216,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5284,7 +5284,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
   const _activeProjSpecs = rev.active_feed_specs || [];
   let displayPool = poolValidated;
@@ -6328,8 +6328,8 @@ function renderActionPanel(entry, review) {
   // Validation status — feeding, project, sorcery, merit move to right panel; others rendered here
   if (entry.source !== 'feeding' && entry.source !== 'project' && !isSorcery && entry.source !== 'merit') {
     const statusOptions = isSorcery
-      ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect']]
-      : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed']];
+      ? [['pending', 'Pending'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]
+      : [['pending', 'Pending'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
 
     h += '<div class="proc-section">';
     h += '<div class="proc-detail-label">Validation Status</div>';
