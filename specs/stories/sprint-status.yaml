@@ -291,10 +291,10 @@ development_status:
   # DTP-1 must ship before DTP-2 (privacy gates the feature)
   # Epic file: specs/epic-dtp-downtime-player-delivery.md
 
-  epic-dtp: in-progress
+  epic-dtp: done
 
-  dtp-1-privacy-scrub: ready-for-dev
-  dtp-2-project-result-cards: ready-for-dev
-  dtp-3-feeding-tab-delivery: ready-for-dev
+  dtp-1-privacy-scrub: done
+  dtp-2-project-result-cards: done
+  dtp-3-feeding-tab-delivery: done
 
   epic-dtp-retrospective: optional
