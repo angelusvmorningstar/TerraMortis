@@ -5978,3 +5978,592 @@ html:not([data-theme="dark"]) .roll-die.succ      { background: rgba(60,100,70,0
 html:not([data-theme="dark"]) .roll-die.fail      { background: var(--surf3); color: var(--txt3); border-color: var(--bdr); }
 html:not([data-theme="dark"]) .roll-btn-save      { border-color: #3a7a50 !important; color: #3a7a50 !important; }
 html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !important; color: #3a8a50 !important; }
+
+/* ── DT Story Tab ─────────────────────────────────────────────────── */
+
+/* Sub-tab bar */
+#dt-sub-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  padding-left: 16px;
+}
+.dt-sub-tab-btn {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
+}
+.dt-sub-tab-btn:hover { color: var(--txt); border-color: var(--bdr3); }
+.dt-sub-tab-btn.active {
+  background: var(--gold2);
+  border-color: var(--gold2);
+  color: #0d0b09;
+  font-weight: 700;
+}
+
+/* Panel display management */
+.dt-panel { width: 100%; }
+
+/* Character nav rail */
+.dt-story-nav-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--bdr);
+  background: var(--surf);
+}
+.dt-story-pill {
+  align-items: center;
+  background: var(--surf2);
+  border: 1px solid var(--bdr2);
+  border-radius: 14px;
+  color: var(--txt2);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--fl);
+  font-size: 11px;
+  gap: 5px;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dt-story-pill:hover,
+.dt-story-pill.active {
+  background: var(--surf3);
+  border-color: var(--bdr3);
+  color: var(--txt);
+}
+.dt-story-pill-dot {
+  border-radius: 50%;
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+}
+.dt-story-pill.amber .dt-story-pill-dot { background: #c89040; }
+.dt-story-pill.green  .dt-story-pill-dot { background: #5a9a6e; }
+.dt-story-pill.amber { border-color: rgba(200,144,64,0.4); }
+.dt-story-pill.green  { border-color: rgba(90,154,110,0.4); }
+
+/* Character view */
+.dt-story-char-view {
+  padding: 16px;
+  overflow-y: auto;
+}
+.dt-story-char-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.dt-story-char-name {
+  font-family: var(--fh);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+.dt-story-locked-badge {
+  background: rgba(90,154,110,0.15);
+  border: 1px solid rgba(90,154,110,0.4);
+  border-radius: 3px;
+  color: #5a9a6e;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+/* Section cards */
+.dt-story-section {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.dt-story-section-header {
+  align-items: center;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--bdr);
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 14px;
+}
+.dt-story-section-label {
+  color: var(--txt);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.dt-story-completion-dot {
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  height: 9px;
+  width: 9px;
+}
+.dt-story-dot-complete { background: #5a9a6e; }
+.dt-story-dot-pending  { background: var(--bdr3); }
+
+.dt-story-section-empty {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
+  font-style: italic;
+  padding: 10px 14px;
+}
+
+/* Sign-off panel */
+.dt-story-sign-off {
+  align-items: center;
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  background: var(--surf2);
+  display: flex;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 10px 14px;
+}
+.dt-story-sign-off-count {
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 11px;
+}
+.dt-story-sign-off-btn {
+  background: transparent;
+  border: 1px solid var(--gold2);
+  border-radius: 4px;
+  color: var(--gold2);
+  cursor: pointer;
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  text-transform: uppercase;
+  transition: background 0.15s;
+}
+.dt-story-sign-off-btn:hover:not(:disabled) { background: rgba(224,196,122,0.1); }
+.dt-story-sign-off-btn:disabled {
+  border-color: var(--bdr2);
+  color: var(--txt3);
+  cursor: default;
+}
+.dt-story-locked-label {
+  color: #5a9a6e;
+  font-family: var(--fl);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Loading / empty states */
+.dt-story-loading,
+.dt-story-empty {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-style: italic;
+  padding: 24px 16px;
+}
+
+/* ── DT Story — Project Cards (B2) ──────────────────────────────────── */
+
+.dt-story-section-body { padding: 10px 12px; }
+
+.dt-story-proj-card {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 5px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+.dt-story-proj-card.complete { border-color: rgba(90,154,110,0.4); }
+
+.dt-story-proj-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dt-story-action-chip {
+  background: var(--surf3);
+  border: 1px solid var(--bdr2);
+  border-radius: 3px;
+  color: var(--txt2);
+  flex-shrink: 0;
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+.dt-story-proj-title {
+  color: var(--txt);
+  flex: 1;
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-story-copy-ctx-btn {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt3);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
+}
+.dt-story-copy-ctx-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+
+.dt-story-proj-meta {
+  color: var(--txt3);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--fl);
+  font-size: 11px;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dt-story-context-block {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+}
+.dt-story-context-text {
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 0 0 6px 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dt-story-context-block.collapsed .dt-story-context-text { display: none; }
+.dt-story-context-toggle {
+  color: var(--gold2);
+  cursor: pointer;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.dt-story-context-toggle:hover { text-decoration: underline; }
+
+.dt-story-notes-thread {
+  background: var(--surf);
+  border-left: 2px solid var(--bdr2);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+.dt-story-note {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 3px;
+}
+.dt-story-note-author { color: var(--txt2); font-weight: 700; }
+
+.dt-story-response-ta {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--txt);
+  font-family: var(--fb);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
+}
+.dt-story-response-ta:focus { border-color: var(--gold2); outline: none; }
+
+.dt-story-card-actions { align-items: center; display: flex; gap: 8px; }
+.dt-story-save-draft-btn,
+.dt-story-mark-complete-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--fl);
+  font-size: 10px;
+  gap: 5px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dt-story-save-draft-btn:hover  { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-mark-complete-btn:hover { border-color: #5a9a6e; color: #5a9a6e; }
+.dt-story-save-draft-btn:disabled,
+.dt-story-mark-complete-btn:disabled { color: var(--txt3); cursor: default; }
+
+/* ── DT Story — Letter from Home (B4) ───────────────────────────────── */
+
+.dt-story-section-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.dt-story-touchstone-list {
+  margin-bottom: 8px;
+}
+.dt-story-touchstone-entry {
+  font-family: var(--fl);
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 1px 0;
+}
+.dt-story-ts-attached { color: var(--txt2); }
+.dt-story-ts-detached { color: var(--txt3); text-decoration: line-through; text-decoration-color: var(--bdr3); }
+
+.dt-story-player-letter {
+  background: var(--surf);
+  border-left: 2px solid var(--bdr2);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+.dt-story-player-letter .dt-story-context-text {
+  margin-top: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+/* B5 — Touchstone Vignette */
+.dt-story-context-identity {
+  color: var(--txt3);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+.dt-story-aspirations {
+  background: var(--surf);
+  border-left: 2px solid var(--bdr2);
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+.dt-story-aspirations .dt-story-note-author {
+  font-size: 11px;
+}
+
+/* B3 — Merit Action Cards */
+.dt-story-merit-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+}
+.dt-story-merit-card.complete { border-color: var(--gold2); opacity: 0.8; }
+
+.dt-story-merit-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.dt-story-merit-label {
+  color: var(--txt1);
+  flex: 1;
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dt-story-mode-chip {
+  border-radius: 3px;
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  text-transform: uppercase;
+}
+.dt-story-mode-chip.rolled { background: rgba(224,196,122,0.15); color: var(--gold2); }
+.dt-story-mode-chip.auto   { background: rgba(139,0,0,0.15); color: var(--crim); }
+
+.dt-story-merit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--fl);
+  font-size: 11px;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+/* B3 — Resources Approval Cards */
+.dt-story-resources-card {
+  background: var(--surf);
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+}
+
+.dt-story-resource-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.dt-story-approve-btn,
+.dt-story-flag-btn {
+  background: transparent;
+  border: 1px solid var(--bdr3);
+  border-radius: 3px;
+  color: var(--txt3);
+  cursor: pointer;
+  font-family: var(--fl);
+  font-size: 11px;
+  padding: 2px 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.dt-story-approve-btn:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-flag-btn:hover    { border-color: var(--crim);  color: var(--crim); }
+.dt-story-approve-btn.active { background: rgba(224,196,122,0.2); border-color: var(--gold2); color: var(--gold2); }
+.dt-story-flag-btn.active    { background: rgba(139,0,0,0.2); border-color: var(--crim); color: var(--crim); }
+
+/* B6 — Territory Report */
+.dt-story-terr-section {
+  border-top: 1px solid var(--bdr2);
+  margin-bottom: 12px;
+  padding-top: 10px;
+}
+.dt-story-terr-section:first-child { border-top: none; padding-top: 0; }
+
+.dt-story-terr-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dt-story-terr-name {
+  color: var(--gold2);
+  flex: 1;
+  font-family: var(--fh);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.dt-story-terr-coresidents,
+.dt-story-terr-own-actions,
+.dt-story-terr-events {
+  font-size: 11px;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.dt-story-terr-list {
+  list-style: disc;
+  margin: 2px 0 0 16px;
+  padding: 0;
+}
+.dt-story-terr-list li {
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 1px 0;
+}
+
+.dt-story-terr-no-territory {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+/* ── B7: Cacophony Savvy section ──────────────────────────────────────────── */
+
+.dt-story-cs-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--surf2);
+}
+
+.dt-story-cs-slot {
+  border-bottom: 1px solid var(--surf2);
+  padding: 10px 12px 12px;
+}
+
+.dt-story-cs-slot:last-child {
+  border-bottom: none;
+}
+
+.dt-story-cs-slot.complete {
+  opacity: 0.75;
+}
+
+.dt-story-cs-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dt-story-cs-slot-label {
+  flex: 1;
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dt-story-cs-meta {
+  display: block;
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.dt-story-cs-empty {
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 12px;
+  font-style: italic;
+  padding: 4px 0 2px;
+}
+

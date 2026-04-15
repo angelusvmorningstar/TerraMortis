@@ -27,6 +27,7 @@ import { initOrdealsAdminView } from './admin/ordeals-admin.js';
 import { initPrimerAdmin } from './admin/primer-admin.js';
 import { initTicketsView } from './admin/tickets-views.js';
 import { initRulesView } from './admin/rules-view.js';
+import { initDtStory } from './admin/downtime-story.js';
 import { initNextSession } from './admin/next-session.js';
 import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import {
@@ -203,6 +204,32 @@ document.getElementById('sidebar').addEventListener('click', e => {
     document.getElementById('admin-app').classList.add('sb-collapsed');
   }
 });
+
+// ── DT sub-tab switching ──
+
+{
+  let _dtStoryInited = false;
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.dt-sub-tab-btn');
+    if (!btn) return;
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const processingPanel = document.getElementById('dt-processing-panel');
+    const storyPanel = document.getElementById('dt-story-panel');
+    if (tab === 'processing') {
+      if (processingPanel) processingPanel.style.display = '';
+      if (storyPanel) storyPanel.style.display = 'none';
+    } else {
+      if (processingPanel) processingPanel.style.display = 'none';
+      if (storyPanel) storyPanel.style.display = '';
+      if (!_dtStoryInited) {
+        _dtStoryInited = true;
+        initDtStory(null);
+      }
+    }
+  });
+}
 
 // ── Sidebar collapse ──
 
