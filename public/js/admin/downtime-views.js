@@ -2043,6 +2043,7 @@ function buildProcessingQueue(subs) {
         label: 'Contacts: Gather Info',
         description: req,
         source: 'merit',
+        meritCategory: 'contacts',
         actionIdx: meritFlatIdx,
         poolPlayer: '',
       });
@@ -3279,7 +3280,11 @@ function renderProcessingMode(container) {
           sel.classList.contains('proc-inv-char-sel') ||
           sel.classList.contains('proc-attack-char-sel') ||
           sel.classList.contains('proc-attack-merit-sel') ||
-          sel.classList.contains('proc-inv-secrecy-sel')) return;
+          sel.classList.contains('proc-inv-secrecy-sel') ||
+          sel.classList.contains('proc-feed-blood-sel') ||
+          sel.classList.contains('proc-sorc-tradition-sel') ||
+          sel.classList.contains('proc-sorc-rite-sel') ||
+          sel.classList.contains('proc-contacts-info-type-sel')) return;
       const key = sel.dataset.procKey;
       const newType = sel.value;
       const entry = _getQueueEntry(key);
