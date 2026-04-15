@@ -1494,3 +1494,71 @@ test.describe('DTR-1: Net success display', () => {
   });
 
 });
+
+// ── DTS-1: ST-created sorcery full panel ─────────────────────────────────────
+
+test.describe('DTS-1: ST-created sorcery full panel', () => {
+
+  const CHAR_CRUAC = {
+    ...CHAR_PT4,
+    _id: 'char-cruac',
+    name: 'Keeper Test',
+    moniker: 'Keeper',
+    disciplines: { Cruac: { dots: 3 } },
+    merits: [
+      { name: 'Mandragora Garden', category: 'domain', rating: 3, qualifier: '' },
+    ],
+  };
+
+  const SUBMISSION_ST_SORCERY = {
+    _id: 'sub-st-sorc',
+    cycle_id: 'cycle-001',
+    character_name: 'Keeper Test',
+    character_id: 'char-cruac',
+    player_name: 'Test Player',
+    submitted_at: '2026-04-15T00:00:00Z',
+    _raw: { projects: [], feeding: null, sphere_actions: [], contact_actions: { requests: [] }, retainer_actions: { actions: [] } },
+    responses: {},
+    projects_resolved: [],
+    feeding_review: null,
+    merit_actions_resolved: [],
+    st_review: { territory_overrides: {} },
+    st_actions: [
+      { action_type: 'sorcery', label: 'Fires of Inspiration', tradition: 'Cruac', rite_name: 'Fires of Inspiration', description: '' },
+    ],
+    st_actions_resolved: [
+      { pool_status: 'pending' },
+    ],
+  };
+
+  test('ST sorcery action renders full sorcery panel with tradition and rite fields', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ST_SORCERY], [CHAR_CRUAC, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
+    await openFirstAction(page, 'Sorcery');
+
+    // Full sorcery detail card should be present
+    await expect(page.locator('.proc-feed-desc-card').first()).toBeVisible({ timeout: 5000 });
+    // Tradition field visible
+    await expect(page.locator('.proc-proj-field').first()).toContainText('Tradition');
+  });
+
+  test('ST sorcery right panel renders (two-column layout with pool modifiers)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ST_SORCERY], [CHAR_CRUAC, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
+    await openFirstAction(page, 'Sorcery');
+
+    // Right panel should render with Dice Pool Modifiers section
+    const rightPanel = page.locator('.proc-feed-right').first();
+    await expect(rightPanel).toBeVisible({ timeout: 5000 });
+    // Roll hint visible (rules DB not loaded in tests so canRoll=false — "Select a rite first")
+    await expect(rightPanel).toContainText('Select a rite first');
+  });
+
+  test('ST sorcery status buttons include Resolved and No Effect (sorcery set)', async ({ page }) => {
+    await setupDowntimeProcessing(page, [SUBMISSION_ST_SORCERY], [CHAR_CRUAC, CHAR_NON_SUBMITTER, CHAR_RETIRED]);
+    await openFirstAction(page, 'Sorcery');
+
+    const panel = page.locator('.proc-action-detail').first();
+    await expect(panel).toContainText('Resolved');
+    await expect(panel).toContainText('No Effect');
+  });
+
+});

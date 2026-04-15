@@ -2156,7 +2156,8 @@ function buildProcessingQueue(subs) {
         label: stAction.label,
         description: stAction.description || '',
         poolPlayer: stAction.pool_player || '',
-        riteName: stAction.label,
+        riteName:  stAction.rite_name || stAction.label,
+        tradition: stAction.tradition || '',
       });
     }
   }
@@ -3410,8 +3411,32 @@ function renderProcessingMode(container) {
         h += `<option value="project">Project</option>`;
         h += `<option value="merit">Merit action</option>`;
         h += `</select>`;
+        // Sorcery-specific fields (show/hide via JS on type change)
+        h += `<div class="proc-add-st-sorc-fields">`;
+        h += `<select class="proc-add-st-tradition" data-sub-id="${esc(sub._id)}">`;
+        h += `<option value="">\u2014 Tradition \u2014</option>`;
+        h += `<option value="Cruac">Cruac</option>`;
+        h += `<option value="Theban Sorcery">Theban Sorcery</option>`;
+        h += `</select>`;
+        {
+          const _allRites = (_getRulesDB() || []).filter(r => r.category === 'rite');
+          const _tradOrder = ['Cruac', 'Theban'];
+          const _byTrad = {};
+          for (const r of _allRites) { const t = r.parent || 'Unknown'; if (!_byTrad[t]) _byTrad[t] = []; _byTrad[t].push(r); }
+          const _tradKeys = [..._tradOrder.filter(t => _byTrad[t]), ...Object.keys(_byTrad).filter(t => !_tradOrder.includes(t))];
+          let _riteOpts = `<option value="">\u2014 Select Rite \u2014</option>`;
+          for (const trad of _tradKeys) {
+            const grp = (_byTrad[trad] || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+            _riteOpts += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}">${esc(r.name)} (Level ${r.rank || _getRiteLevel(r.name) || '?'})</option>`).join('')}</optgroup>`;
+          }
+          h += `<select class="proc-add-st-rite" data-sub-id="${esc(sub._id)}">${_riteOpts}</select>`;
+        }
+        h += `</div>`;
+        // Non-sorcery fields (label + description)
+        h += `<div class="proc-add-st-other-fields">`;
         h += `<input class="proc-add-st-label" type="text" placeholder="Label (e.g. Theban: Rite of X)" data-sub-id="${esc(sub._id)}">`;
         h += `<input class="proc-add-st-desc" type="text" placeholder="Description / notes (optional)" data-sub-id="${esc(sub._id)}">`;
+        h += `</div>`;
         h += `<button class="dt-btn proc-add-st-submit-btn" data-sub-id="${esc(sub._id)}">Add</button>`;
         h += `</div>`;
       }
@@ -4779,6 +4804,21 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire Add ST Action — type selector show/hide sorcery vs other fields
+  container.querySelectorAll('.proc-add-st-type').forEach(sel => {
+    const row = sel.closest('.proc-add-st-action-row');
+    if (!row) return;
+    const updateVisibility = () => {
+      const isSorc = sel.value === 'sorcery';
+      const sorcFields  = row.querySelector('.proc-add-st-sorc-fields');
+      const otherFields = row.querySelector('.proc-add-st-other-fields');
+      if (sorcFields)  sorcFields.style.display  = isSorc ? '' : 'none';
+      if (otherFields) otherFields.style.display = isSorc ? 'none' : '';
+    };
+    sel.addEventListener('change', updateVisibility);
+    updateVisibility();
+  });
+
   // Wire Add ST Action toggle buttons
   container.querySelectorAll('.proc-add-st-toggle-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -4801,10 +4841,18 @@ function renderProcessingMode(container) {
       const row = container.querySelector(`.proc-add-st-action-row[data-sub-id="${subId}"]`);
       if (!row) return;
       const actionType = row.querySelector('.proc-add-st-type').value;
-      const label = row.querySelector('.proc-add-st-label').value.trim();
-      const description = row.querySelector('.proc-add-st-desc').value.trim();
-      if (!label) { row.querySelector('.proc-add-st-label').focus(); return; }
-      await addStAction(subId, { action_type: actionType, label, description });
+      let label, description = '', tradition = '', riteName = '';
+      if (actionType === 'sorcery') {
+        riteName  = row.querySelector('.proc-add-st-rite').value.trim();
+        tradition = row.querySelector('.proc-add-st-tradition').value.trim();
+        if (!riteName) { row.querySelector('.proc-add-st-rite').focus(); return; }
+        label = riteName;
+      } else {
+        label       = row.querySelector('.proc-add-st-label').value.trim();
+        description = row.querySelector('.proc-add-st-desc').value.trim();
+        if (!label) { row.querySelector('.proc-add-st-label').focus(); return; }
+      }
+      await addStAction(subId, { action_type: actionType, label, description, tradition, rite_name: riteName });
       stActionAddExpandedSubs.delete(subId);
       renderProcessingMode(container);
     });
@@ -4839,6 +4887,8 @@ async function addStAction(subId, actionDef) {
     label:       actionDef.label,
     description: actionDef.description || '',
     pool_player: actionDef.pool_player || '',
+    tradition:   actionDef.tradition   || '',
+    rite_name:   actionDef.rite_name   || '',
   });
   await updateSubmission(subId, { st_actions: stActions });
   sub.st_actions = stActions;
@@ -5551,7 +5601,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const selectedRite = rev.rite_override || entry.riteName || '';
   const ritInfo      = selectedRite ? _getRiteInfo(selectedRite) : null;
 
-  const isCruac      = entry.tradition === 'Cruac';
+  const isCruac      = (rev.sorc_tradition || entry.tradition) === 'Cruac';
   const mandUsed     = rev.ritual_mg_used || false;
   const mgMerit      = isCruac ? (char?.merits || []).find(m => m.name === 'Mandragora Garden') : null;
   const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
@@ -6299,7 +6349,8 @@ function renderActionPanel(entry, review) {
   const poolValidated = rev.pool_validated || '';
   const thread        = rev.notes_thread   || [];
   const feedback      = rev.player_feedback || '';
-  const isSorcery        = entry.source === 'sorcery';
+  const isSorcery        = entry.source === 'sorcery'
+                        || (entry.source === 'st_created' && entry.actionType === 'sorcery');
   const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
 
   // Single character lookup — resolved once for all source types
