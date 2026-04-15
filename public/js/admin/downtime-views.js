@@ -5317,6 +5317,8 @@ function _renderMeritRightPanel(entry, rev) {
   const poolValidatedMerit = rev.pool_validated || '';
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${poolValidatedMerit ? esc(poolValidatedMerit) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   if (poolValidatedMerit) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  const _isSO_merit = !!rev.second_opinion;
+  h += `<button class="proc-second-opinion-btn${_isSO_merit ? ' active' : ''}" data-proc-key="${esc(key)}">${_isSO_merit ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5385,6 +5387,8 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   } else {
     h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}"><span class="dt-dim-italic">Select a rite to compute pool</span></div>`;
   }
+  const _isSO_sorc = !!rev.second_opinion;
+  h += `<button class="proc-second-opinion-btn${_isSO_sorc ? ' active' : ''}" data-proc-key="${esc(key)}">${_isSO_sorc ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
   h += `</div>`;
 
   h += `</div>`; // proc-feed-right
@@ -5481,6 +5485,8 @@ function _renderProjRightPanel(entry, char, rev) {
     }
   }
   if (poolValidated) h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
+  const _isSO_proj = !!rev.second_opinion;
+  h += `<button class="proc-second-opinion-btn${_isSO_proj ? ' active' : ''}" data-proc-key="${esc(key)}">${_isSO_proj ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
   h += `</div>`;
 
   // ── Roll card ──
@@ -5737,6 +5743,8 @@ function _renderFeedRightPanel(entry, char, rev) {
     }
     h += `<button class="dt-btn dt-btn-sm proc-pool-clear-btn" data-proc-key="${esc(key)}">Clear Pool</button>`;
   }
+  const _isSO_feed = !!rev.second_opinion;
+  h += `<button class="proc-second-opinion-btn${_isSO_feed ? ' active' : ''}" data-proc-key="${esc(key)}">${_isSO_feed ? 'Second Opinion' : 'Flag for 2nd opinion'}</button>`;
 
   h += `</div>`;
 
