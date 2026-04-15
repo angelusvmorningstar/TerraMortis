@@ -1041,3 +1041,152 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   opacity: .8 !important;
 }
 
+/* ══════════════════════════════════════════
+   Long-form markdown rendering (the primer)
+   Styles the full set of elements produced by marked: h1–h6, p, strong,
+   em, a, ul, ol, li, blockquote, hr, img, table. Scoped to .reading-pane
+   so questionnaires and downtimes keep their more restrained styling.
+   ══════════════════════════════════════════ */
+
+.reading-pane h1,
+.reading-pane h2 {
+  font-family: 'Cinzel Decorative', 'Cinzel', serif;
+  color: #5A1A1A;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 1.4em 0 0.5em;
+  letter-spacing: 0.01em;
+}
+.reading-pane h1 {
+  font-size: 1.9rem;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid rgba(139, 0, 0, 0.2);
+}
+.reading-pane h1:first-child { margin-top: 0; }
+.reading-pane h2 {
+  font-size: 1.45rem;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid rgba(139, 0, 0, 0.15);
+}
+
+/* h3/h4 already coloured above — tighten typography + scale */
+.reading-pane h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.15rem;
+  margin: 1.3em 0 0.4em;
+  letter-spacing: 0.02em;
+}
+.reading-pane h4 {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  margin: 1.1em 0 0.35em;
+  letter-spacing: 0.02em;
+}
+.reading-pane h5,
+.reading-pane h6 {
+  font-family: 'Cinzel', serif;
+  color: #5A1A1A;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin: 0.9em 0 0.3em;
+}
+
+.reading-pane p {
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-size: 15px;
+  line-height: 1.75;
+  margin: 0 0 0.9em;
+}
+
+.reading-pane strong {
+  color: #3A1A0F;
+  font-weight: 700;
+}
+.reading-pane em { font-style: italic; color: #3A2A1A; }
+
+.reading-pane a {
+  color: #7A1010;
+  text-decoration: underline;
+  text-decoration-color: rgba(139, 0, 0, 0.35);
+  text-underline-offset: 2px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.reading-pane a:hover {
+  color: #8B0000;
+  text-decoration-color: #8B0000;
+}
+
+.reading-pane ul,
+.reading-pane ol {
+  margin: 0 0 1em;
+  padding-left: 1.6em;
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #3A2A1A;
+}
+.reading-pane li { margin: 0.25em 0; }
+.reading-pane li > ul,
+.reading-pane li > ol { margin: 0.3em 0 0.3em; }
+.reading-pane ul li::marker { color: rgba(139, 0, 0, 0.55); }
+.reading-pane ol li::marker { color: rgba(139, 0, 0, 0.6); font-weight: 600; }
+
+.reading-pane blockquote {
+  margin: 1em 0;
+  padding: 0.6em 1.1em;
+  background: rgba(139, 0, 0, 0.04);
+  border-left: 3px solid rgba(139, 0, 0, 0.4);
+  color: #3A2A1A;
+  font-style: italic;
+}
+.reading-pane blockquote p:last-child { margin-bottom: 0; }
+
+.reading-pane hr {
+  border: none;
+  border-top: 1px solid rgba(139, 0, 0, 0.25);
+  margin: 1.8em auto;
+  width: 60%;
+}
+
+.reading-pane img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5em auto;
+  border: 1px solid rgba(139, 0, 0, 0.2);
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(60, 30, 10, 0.15);
+}
+
+.reading-pane table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-size: 14px;
+  background: rgba(255, 248, 238, 0.5);
+  border: 1px solid rgba(139, 0, 0, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.reading-pane table th {
+  background: rgba(139, 0, 0, 0.1);
+  color: #5A1A1A;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid rgba(139, 0, 0, 0.3);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+}
+.reading-pane table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(139, 0, 0, 0.1);
+  color: #2A1F14;
+  vertical-align: top;
+  line-height: 1.55;
+}
+.reading-pane table tr:last-child td { border-bottom: none; }
+.reading-pane table tr:nth-child(even) td { background: rgba(139, 0, 0, 0.03); }
+
