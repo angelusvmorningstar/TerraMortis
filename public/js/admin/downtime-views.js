@@ -5489,15 +5489,6 @@ function _renderCompactMeritPanel(entry, rev) {
     h += `</div>`;
   }
 
-  // ── ST Notes quick-add ──
-  h += `<div class="proc-feed-mod-panel" data-proc-key="${esc(key)}">`;
-  h += `<div class="proc-mod-panel-title">ST Notes</div>`;
-  h += `<div class="proc-note-add">`;
-  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(key)}" placeholder="Add ST note..." rows="3"></textarea>`;
-  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(key)}">Add</button>`;
-  h += `</div>`;
-  h += `</div>`;
-
   h += `</div>`; // proc-compact-merit-panel
   return h;
 }
