@@ -6184,7 +6184,7 @@ function renderActionPanel(entry, review) {
     const sorcRawTargets  = sorcSub?.responses?.[`sorcery_${entry.actionIdx}_targets`] || entry.targetsText || '';
     const targetsVal      = rev.sorc_targets    ?? sorcRawTargets;
     const blobAsNotes     = (entry.riteName && entry.riteName.length > 60) ? entry.riteName : '';
-    const notesVal        = rev.sorc_notes      ?? sorcRawNotes || blobAsNotes;
+    const notesVal        = rev.sorc_notes      ?? (sorcRawNotes || blobAsNotes);
     // ST overrides for tradition and rite name — fall back to submission values
     const traditionVal    = rev.sorc_tradition  ?? entry.tradition ?? '';
     // Rite: prefer ST-set name, then right-panel rite_override, skip blob if >60 chars
