@@ -33,7 +33,7 @@ Territory name fixes from fix.42 are already in place. `MATRIX_TERRS` csvKeys al
 3. "Fed here" means: territory slug status is not `'none'`, `'Not feeding here'`, or absent
 4. Residency is read from `cachedTerritories` loaded from MongoDB — the ST's feeding rights list is authoritative
 5. Characters are found via `findCharacter(sub.character_name, sub.player_name)` to get their `_id`
-6. Footer row shows resident count vs territory cap for the 5 real territories; Barrens footer shows `—`
+6. ~~Footer row shows resident count vs territory cap~~ — **Removed.** Feeder counts are displayed in the Ambience table Overfeeding column (cap / TAAG feeders | delta).
 7. All columns always rendered (no hiding columns with no data); rows sorted alphabetically by character name
 8. Characters without submissions shown as a faded row with all `—` cells (retain existing behaviour)
 
