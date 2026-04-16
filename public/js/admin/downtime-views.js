@@ -2056,7 +2056,16 @@ function buildProcessingQueue(subs) {
         }];
       }
     }
-    const contacts = raw.contact_actions?.requests || [];
+    let contacts = raw.contact_actions?.requests || [];
+    if (!contacts.length) {
+      const contactList = [];
+      for (let n = 1; n <= 5; n++) {
+        const req = resp[`contact_${n}_request`] || resp[`contact_${n}`];
+        if (!req) continue;
+        contactList.push(req);
+      }
+      contacts = contactList;
+    }
     const retainers = raw.retainer_actions?.actions || [];
 
     // merit_actions_resolved uses a flat index: spheres, then contacts, then retainers
@@ -2555,8 +2564,14 @@ function _gatherMeritAmbience(subs) {
   let pendingCount = 0;
   for (const sub of subs) {
     const raw       = sub._raw || {};
+    const resp      = sub.responses || {};
     const spheres   = raw.sphere_actions || [];
-    const contacts  = raw.contact_actions?.requests || [];
+    let contacts = raw.contact_actions?.requests || [];
+    if (!contacts.length) {
+      const cl = [];
+      for (let n = 1; n <= 5; n++) { const r = resp[`contact_${n}_request`] || resp[`contact_${n}`]; if (!r) continue; cl.push(r); }
+      contacts = cl;
+    }
     const retainers = raw.retainer_actions?.actions || [];
     const subChar   = findCharacter(sub.character_name, sub.player_name);
     let meritFlatIdx = 0;
@@ -7037,12 +7052,19 @@ function resolveRole(v) {
 
 async function buildExportMd(sub, char, questResp) {
   const raw = sub._raw || {};
+  const resp = sub.responses || {};
   const r = questResp?.responses || {};
   const projects = raw.projects || [];
   const projResolved = sub.projects_resolved || [];
+  let _exportContactReqs = raw.contact_actions?.requests || [];
+  if (!_exportContactReqs.length) {
+    const cl = [];
+    for (let n = 1; n <= 5; n++) { const rr = resp[`contact_${n}_request`] || resp[`contact_${n}`]; if (!rr) continue; cl.push(rr); }
+    _exportContactReqs = cl;
+  }
   const meritActions = [
     ...(raw.sphere_actions || []),
-    ...((raw.contact_actions?.requests || []).map(req => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: req }))),
+    ..._exportContactReqs.map(req => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: req })),
     ...((raw.retainer_actions?.actions || []).map(req => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: req }))),
   ];
   const meritResolved = sub.merit_actions_resolved || [];
@@ -7225,11 +7247,18 @@ async function handleExportJson() {
 
 function buildMechanicalDraft(sub) {
   const raw = sub._raw || {};
+  const resp = sub.responses || {};
   const projects = raw.projects || [];
   const resolved = sub.projects_resolved || [];
+  let _mechContactReqs = raw.contact_actions?.requests || [];
+  if (!_mechContactReqs.length) {
+    const cl = [];
+    for (let n = 1; n <= 5; n++) { const r = resp[`contact_${n}_request`] || resp[`contact_${n}`]; if (!r) continue; cl.push(r); }
+    _mechContactReqs = cl;
+  }
   const meritActions = [
     ...(raw.sphere_actions || []),
-    ...((raw.contact_actions?.requests || []).map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r }))),
+    ..._mechContactReqs.map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r })),
     ...((raw.retainer_actions?.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r }))),
   ];
   const meritResolved = sub.merit_actions_resolved || [];
@@ -9151,13 +9180,21 @@ const MERIT_NO_ROLL = ['allies within favour', 'allies_favour'];
 const INVESTIGATE_WARNING_TYPES = ['investigate', 'investigation', 'gather info', 'gather information'];
 
 function renderMeritActionsPanel(s, raw, char) {
+  const resp = s.responses || {};
   const spheres = raw.sphere_actions || [];
   const contacts = raw.contact_actions || {};
   const retainers = raw.retainer_actions || {};
 
+  let contactRequests = contacts.requests || [];
+  if (!contactRequests.length) {
+    const cl = [];
+    for (let n = 1; n <= 5; n++) { const r = resp[`contact_${n}_request`] || resp[`contact_${n}`]; if (!r) continue; cl.push(r); }
+    contactRequests = cl;
+  }
+
   const allMeritActions = [
     ...spheres,
-    ...(contacts.requests || []).map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r })),
+    ...contactRequests.map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r })),
     ...(retainers.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r })),
   ];
 
@@ -9227,10 +9264,18 @@ async function handleMeritRollSave(subId, meritIdx, pool, rollResult) {
   if (!sub) return;
 
   const pending = (sub._merit_pending || [])[meritIdx] || {};
+  const _raw = sub._raw || {};
+  const _resp = sub.responses || {};
+  let _contactReqs = _raw.contact_actions?.requests || [];
+  if (!_contactReqs.length) {
+    const cl = [];
+    for (let n = 1; n <= 5; n++) { const r = _resp[`contact_${n}_request`] || _resp[`contact_${n}`]; if (!r) continue; cl.push(r); }
+    _contactReqs = cl;
+  }
   const allActions = [
-    ...((sub._raw || {}).sphere_actions || []),
-    ...((sub._raw?.contact_actions?.requests || []).map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r }))),
-    ...((sub._raw?.retainer_actions?.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r }))),
+    ...(_raw.sphere_actions || []),
+    ..._contactReqs.map(r => ({ merit_type: 'Contacts', action_type: 'Gather Info', description: r })),
+    ...((_raw.retainer_actions?.actions || []).map(r => ({ merit_type: 'Retainer', action_type: 'Directed Action', description: r }))),
   ];
   const resolved = [...(sub.merit_actions_resolved || [])];
   while (resolved.length <= meritIdx) resolved.push(null);
