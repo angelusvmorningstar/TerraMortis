@@ -6561,6 +6561,35 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   text-transform: uppercase;
 }
 
+/* Progress tracker */
+.dt-story-progress-tracker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.dt-story-tracker-chip {
+  border-radius: 3px;
+  border: 1px solid var(--bdr2);
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+}
+.dt-story-tracker-chip.draft {
+  border-color: rgba(200,144,64,0.5);
+  color: #c89040;
+}
+.dt-story-tracker-chip.revision {
+  border-color: rgba(139,0,0,0.4);
+  color: var(--crim);
+}
+.dt-story-tracker-chip.complete {
+  border-color: var(--story-compl-a40);
+  color: var(--story-compl);
+}
+
 /* Section cards */
 .dt-story-section {
   background: var(--surf);
@@ -6817,6 +6846,65 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-story-mark-complete-btn:hover { border-color: var(--story-compl); color: var(--story-compl); }
 .dt-story-save-draft-btn:disabled,
 .dt-story-mark-complete-btn:disabled { color: var(--txt3); cursor: default; }
+.dt-story-revision-note-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--fl);
+  font-size: 10px;
+  gap: 5px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dt-story-revision-note-btn:hover { border-color: var(--crim); color: var(--crim); }
+.dt-story-revision-note-btn.active { border-color: var(--crim); color: var(--crim); }
+.dt-story-revision-save-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid rgba(139,0,0,0.4);
+  border-radius: 4px;
+  color: var(--crim);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dt-story-revision-save-btn:hover { border-color: var(--crim); background: rgba(139,0,0,0.08); }
+.dt-story-revision-save-btn:disabled { color: var(--txt3); cursor: default; }
+.dt-story-revision-area {
+  border-top: 1px solid rgba(139,0,0,0.2);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.dt-story-revision-area.hidden { display: none; }
+.dt-story-revision-ta {
+  background: rgba(139,0,0,0.04);
+  border: 1px solid rgba(139,0,0,0.25);
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--txt1);
+  font-family: var(--fl);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  resize: vertical;
+  width: 100%;
+}
+.dt-story-revision-ta:focus { border-color: var(--crim); outline: none; }
+.dt-story-proj-card.revision { border-color: rgba(139,0,0,0.3); }
+.dt-story-merit-card.revision { border-color: rgba(139,0,0,0.3); }
+.dt-story-cs-slot.revision { border-color: rgba(139,0,0,0.3); }
 
 /* ── DT Story — Letter from Home (B4) ───────────────────────────────── */
 
