@@ -1808,6 +1808,10 @@ function esc(s) {
  */
 function buildProcessingQueue(subs) {
   const queue = [];
+  // Per-submission set of deleted action key-parts (e.g. 'proj:0', 'feeding')
+  const _deletedKeysBySub = new Map(
+    subs.map(s => [s._id, new Set((s.st_review?.deleted_action_keys || []).map(k => `${s._id}:${k}`))])
+  );
 
   for (const sub of subs) {
     const raw = sub._raw || {};
@@ -2168,7 +2172,11 @@ function buildProcessingQueue(subs) {
     return a.charName.localeCompare(b.charName);
   });
 
-  return queue;
+  // Filter out any entries the ST has permanently deleted
+  return queue.filter(e => {
+    const del = _deletedKeysBySub.get(e.subId);
+    return !del || !del.has(e.key);
+  });
 }
 
 
@@ -3157,8 +3165,7 @@ function renderProcessingMode(container) {
         if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">\u25CF</span>`;
         h += `<span class="proc-row-actions">`;
         h += `<button class="proc-duplicate-btn dt-btn dt-btn-sm" data-proc-key="${esc(entry.key)}" title="Duplicate">Dup</button>`;
-        const _isStCreated = entry.source === 'st_created';
-        h += `<button class="proc-delete-row-btn dt-btn dt-btn-sm" data-proc-key="${esc(entry.key)}" title="${_isStCreated ? 'Delete' : 'Skip'}">${_isStCreated ? 'Del' : 'Skip'}</button>`;
+        h += `<button class="proc-delete-row-btn dt-btn dt-btn-sm" data-proc-key="${esc(entry.key)}" title="Delete">Del</button>`;
         h += `</span>`;
         h += '</div>';
 
@@ -4432,7 +4439,7 @@ function renderProcessingMode(container) {
     });
   });
 
-  // ── Delete / skip action ──
+  // ── Delete action ──
   container.querySelectorAll('.proc-delete-row-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
@@ -4442,7 +4449,9 @@ function renderProcessingMode(container) {
       if (entry.source === 'st_created') {
         await deleteStAction(entry.subId, entry.actionIdx);
       } else {
-        await saveEntryReview(entry, { pool_status: 'skipped' });
+        // Extract the key-part after subId: (e.g. 'proj:0', 'feeding', 'sorcery:1')
+        const keyPart = key.slice(entry.subId.length + 1);
+        await deletePlayerAction(entry.subId, keyPart);
       }
       renderProcessingMode(container);
     });
@@ -4493,6 +4502,19 @@ async function deleteStAction(subId, actionIdx) {
   for (const key of [...procExpandedKeys]) {
     if (key.startsWith(`${subId}:st:`)) procExpandedKeys.delete(key);
   }
+}
+
+/** Permanently delete a player-submitted action by recording its key-part in st_review. */
+async function deletePlayerAction(subId, actionKeyPart) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const deleted = [...(sub.st_review?.deleted_action_keys || [])];
+  if (!deleted.includes(actionKeyPart)) deleted.push(actionKeyPart);
+  await updateSubmission(subId, { 'st_review.deleted_action_keys': deleted });
+  if (!sub.st_review) sub.st_review = {};
+  sub.st_review.deleted_action_keys = deleted;
+  // Remove from expanded keys too
+  procExpandedKeys.delete(`${subId}:${actionKeyPart}`);
 }
 
 /** Render the inline Attach Reminder panel for a resolved sorcery entry. */
