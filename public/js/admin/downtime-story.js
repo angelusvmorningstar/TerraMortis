@@ -11,7 +11,7 @@
  */
 
 import { apiGet, apiPut } from '../data/api.js';
-import { displayName } from '../data/helpers.js';
+import { displayName, esc } from '../data/helpers.js';
 import { getUser } from '../auth/discord.js';
 
 // ── Action type labels (duplicated from downtime-views.js per NFR-DS-01) ──────
@@ -543,9 +543,7 @@ function getApplicableSections(char, sub) {
     { key: 'feeding_validation', label: 'Feeding Validation' },
   ];
 
-  if (hasHaven(char)) {
-    sections.push({ key: 'territory_reports', label: 'Territory Report' });
-  }
+  sections.push({ key: 'territory_reports', label: 'Territory Report' });
 
   if (sub?.projects_resolved?.length) {
     sections.push({ key: 'project_responses', label: 'Project Reports' });
@@ -564,7 +562,7 @@ function getApplicableSections(char, sub) {
   if (hasCategory(['contacts']))          sections.push({ key: 'contact_requests',   label: 'Contact Requests' });
   if (hasCategory(['resources']))         sections.push({ key: 'resource_approvals', label: 'Resources/Skill Acquisitions' });
 
-  if (hasCacophonySavvy(char)) {
+  if (getCSDots(char) > 0) {
     sections.push({ key: 'cacophony_savvy', label: 'Cacophony Savvy' });
   }
 
@@ -1404,11 +1402,12 @@ function getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) {
     if (s._id === sub._id) continue;
     (s.merit_actions_resolved || []).forEach((rev, idx) => {
       if (!rev || rev.pool_status === 'skipped') return;
-      const cat = deriveMeritCategory(rev.merit_type || '');
+      const meritType = (s.merit_actions || [])[idx]?.merit_type || '';
+      const cat = deriveMeritCategory(meritType);
       if (!['allies', 'status', 'retainer'].includes(cat)) return;
       const otherTerr = resolveTerrId(s.st_review?.territory_overrides?.[`allies_${idx}`] || '');
       if (otherTerr !== terrId) return;
-      overlaps.push({ characterName: s.character_name || 'Unknown', meritType: rev.merit_type || '' });
+      overlaps.push({ characterName: s.character_name || 'Unknown', meritType });
     });
   }
   return overlaps;
@@ -2060,7 +2059,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
 // ── B7: Cacophony Savvy section ───────────────────────────────────────────────
 
 function getCSDots(char) {
-  const m = (char.merits || []).find(m => m.name === 'Cacophony Savvy');
+  const m = (char?.merits || []).find(m => m.name === 'Cacophony Savvy');
   return m ? (m.rating || 0) : 0;
 }
 
@@ -2099,7 +2098,7 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   const lines = [];
   lines.push('You are helping a Storyteller write a Cacophony Savvy intelligence vignette for a Vampire: The Requiem 2nd Edition LARP character.');
   lines.push('');
-  lines.push(`Character: ${displayName(char)}`);
+  lines.push(`Character: ${char ? displayName(char) : 'Unknown'}`);
   lines.push(`Cacophony Savvy: ${csDots} dots (slot ${slotIdx + 1} of ${csDots})`);
   lines.push('');
   lines.push('This slot covers a noisy event that filtered through the Cacophony this cycle:');
@@ -2109,7 +2108,7 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   if (noisyAction.territory) lines.push(`Territory: ${noisyAction.territory}`);
   if (noisyAction.outcome)   lines.push(`Declared intent: ${noisyAction.outcome}`);
   lines.push('');
-  lines.push(`Write a short vignette (~75 words) of what ${displayName(char)} heard via the Cacophony about this event.`);
+  lines.push(`Write a short vignette (~75 words) of what ${char ? displayName(char) : 'the character'} heard via the Cacophony about this event.`);
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Third person \u2014 the character hears about someone else, not about themselves');
@@ -2576,7 +2575,7 @@ async function handleFeedingApproval(btn) {
     });
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.feeding_validation = { approved };
-    rerenderStoryPanel();
+    selectCharacter(_currentCharId);
   } catch (err) {
     console.error('Failed to save feeding validation:', err.message);
     btn.disabled = false;
