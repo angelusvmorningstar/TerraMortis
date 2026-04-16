@@ -1093,11 +1093,11 @@ function buildTouchstoneContext(char, sub) {
   lines.push('- Character moments only \u2014 no plot hooks, no supernatural revelations, no foreshadowing');
   lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
   lines.push('- No em dashes');
+  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
   lines.push('- British English');
   lines.push('- Do not editorialise \u2014 write the scene, not its significance');
   lines.push('- Draw scene details from the character\'s actual life, skills, and relationships \u2014 not from generic domestic templates');
   lines.push('- Detached does not mean narratively irrelevant \u2014 write the scene regardless of attachment status');
-  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
 
   return lines.join('\n');
 }
