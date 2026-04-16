@@ -491,6 +491,25 @@ function resolveSubChar(s, fallback = 'Unknown') {
 }
 
 /**
+ * Resolve the nine_again checkbox state for a reviewed action.
+ * Uses the explicitly saved value if present; otherwise auto-detects from
+ * the validated pool expression via the character's skill nine-again flag.
+ * @param {object} rev          - st_review object
+ * @param {string|null} poolValidated
+ * @param {object|null} char
+ * @returns {boolean}
+ */
+function _resolveNineAgainState(rev, poolValidated, char) {
+  if (rev.nine_again != null) return rev.nine_again;
+  if (char && poolValidated) {
+    const discs   = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+    const parsed  = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, discs);
+    if (parsed?.skill) return skNineAgain(char, parsed.skill);
+  }
+  return false;
+}
+
+/**
  * Augment a pool_validated expression string with active spec bonuses.
  * E.g. "Wits 3 + Stealth 2 = 5" + ['Shadowing'] → "Wits 3 + Stealth 2 + Shadowing +1 = 6"
  * Returns the original string unchanged if no active specs or no '=' found.
@@ -5565,17 +5584,7 @@ function _renderProjRightPanel(entry, char, rev) {
   const isRote        = rev.rote        || false;
   const eightAgainState = rev.eight_again || false;
   // Auto-detect nine_again from the character's validated skill — only when not explicitly saved
-  let nineAgainState;
-  if (rev.nine_again != null) {
-    nineAgainState = rev.nine_again;
-  } else {
-    nineAgainState = false;
-    if (char && poolValidated) {
-      const _rppDiscs = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
-      const _rppParsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, _rppDiscs);
-      if (_rppParsed?.skill) nineAgainState = skNineAgain(char, _rppParsed.skill);
-    }
-  }
+  const nineAgainState = _resolveNineAgainState(rev, poolValidated, char);
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainState ? ' checked' : ''}> 9-Again</label>`;
@@ -5816,17 +5825,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const feedSubR = submissions.find(s => s._id === entry.subId);
   const isRote = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
   const eightAgainStateFeed = rev.eight_again || false;
-  let nineAgainStateFeed;
-  if (rev.nine_again != null) {
-    nineAgainStateFeed = rev.nine_again;
-  } else {
-    nineAgainStateFeed = false;
-    if (poolValidated && char) {
-      const _frdDiscs = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
-      const _frdParsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, _frdDiscs);
-      if (_frdParsed?.skill) nineAgainStateFeed = skNineAgain(char, _frdParsed.skill);
-    }
-  }
+  const nineAgainStateFeed = _resolveNineAgainState(rev, poolValidated, char);
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainStateFeed ? ' checked' : ''}> 9-Again</label>`;
