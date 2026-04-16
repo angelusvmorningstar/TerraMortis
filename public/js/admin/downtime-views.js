@@ -366,8 +366,7 @@ function buildShell() {
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
     <div id="dt-feeding-scene"></div>
-    <div id="dt-submissions" class="dt-submissions"></div>
-    <div id="dt-npcs"></div>`;
+    <div id="dt-submissions" class="dt-submissions"></div>`;
 }
 
 // ── Character + player data bridge ──────────────────────────────────────────
@@ -859,8 +858,6 @@ async function loadCycleById(cycleId) {
   renderCityOverview();
   await loadInvestigations(cycleId);
   renderInvestigations();
-  await loadNpcs(cycleId);
-  renderNpcs();
   renderSubmissions();
 }
 
@@ -1367,7 +1364,6 @@ async function processFilePreview(file) {
   renderSubmissionChecklist();
   renderCityOverview();
   renderInvestigations();
-  renderNpcs();
   renderSubmissions();
 }
 
@@ -3190,65 +3186,8 @@ function renderProcessingMode(container) {
     h += '</div>';
   }
 
-  // Add ST Actions — one expandable form per submission
-  h += `<div class="proc-phase-section proc-add-st-section">`;
-  h += _renderPhaseHeader('add_st_actions', 'Add ST Actions', submissions.length, 'character', expandedPhases.has('add_st_actions'));
-  if (expandedPhases.has('add_st_actions')) {
-    for (const sub of submissions) {
-      const { charName: subCharName } = resolveSubChar(sub, '?');
-      const isExpanded = stActionAddExpandedSubs.has(sub._id);
-      h += `<div class="proc-add-st-action-row" data-sub-id="${esc(sub._id)}">`;
-      h += `<span class="proc-add-st-char">${esc(subCharName)}</span>`;
-      h += `<button class="dt-btn proc-add-st-toggle-btn" data-sub-id="${esc(sub._id)}">${isExpanded ? '− Cancel' : '+ Add action'}</button>`;
-      if (isExpanded) {
-        h += `<div class="proc-add-st-form">`;
-        h += `<select class="proc-add-st-type" data-sub-id="${esc(sub._id)}">`;
-        h += `<option value="sorcery">Sorcery</option>`;
-        h += `<option value="project">Project</option>`;
-        h += `<option value="merit">Merit action</option>`;
-        h += `</select>`;
-        // Sorcery-specific fields (show/hide via JS on type change)
-        h += `<div class="proc-add-st-sorc-fields">`;
-        h += `<select class="proc-add-st-tradition" data-sub-id="${esc(sub._id)}">`;
-        h += `<option value="">\u2014 Tradition \u2014</option>`;
-        h += `<option value="Cruac">Cruac</option>`;
-        h += `<option value="Theban Sorcery">Theban Sorcery</option>`;
-        h += `</select>`;
-        {
-          const _allRites = (_getRulesDB() || []).filter(r => r.category === 'rite');
-          const _tradOrder = ['Cruac', 'Theban'];
-          const _byTrad = {};
-          for (const r of _allRites) { const t = r.parent || 'Unknown'; if (!_byTrad[t]) _byTrad[t] = []; _byTrad[t].push(r); }
-          const _tradKeys = [..._tradOrder.filter(t => _byTrad[t]), ...Object.keys(_byTrad).filter(t => !_tradOrder.includes(t))];
-          let _riteOpts = `<option value="">\u2014 Select Rite \u2014</option>`;
-          for (const trad of _tradKeys) {
-            const grp = (_byTrad[trad] || []).slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
-            _riteOpts += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}">${esc(r.name)} (Level ${r.rank || _getRiteLevel(r.name) || '?'})</option>`).join('')}</optgroup>`;
-          }
-          h += `<select class="proc-add-st-rite" data-sub-id="${esc(sub._id)}">${_riteOpts}</select>`;
-        }
-        h += `</div>`;
-        // Non-sorcery fields (label + description)
-        h += `<div class="proc-add-st-other-fields">`;
-        h += `<input class="proc-add-st-label" type="text" placeholder="Label (e.g. Theban: Rite of X)" data-sub-id="${esc(sub._id)}">`;
-        h += `<input class="proc-add-st-desc" type="text" placeholder="Description / notes (optional)" data-sub-id="${esc(sub._id)}">`;
-        h += `</div>`;
-        h += `<button class="dt-btn proc-add-st-submit-btn" data-sub-id="${esc(sub._id)}">Add</button>`;
-        h += `</div>`;
-      }
-      h += `</div>`;
-    }
-  }
-  h += `</div>`;
-
-  // XP Review — Step 10, after action phases, before narrative
+  // XP Review — Step 10
   h += renderXpReviewStep();
-
-  // Narrative Output — Step 9
-  h += renderNarrativeStep();
-
-  // Sign-off — Step 11, final step before push
-  h += renderSignOffStep();
 
   h += '</div>'; // proc-queue
   container.innerHTML = h;
@@ -4370,114 +4309,6 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire sign-off character block toggles (Step 11)
-  container.querySelectorAll('[data-signoff-id]').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.signoffId;
-      if (signOffExpanded.has(id)) signOffExpanded.delete(id);
-      else signOffExpanded.add(id);
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire approval buttons in sign-off step (Step 11)
-  container.querySelectorAll('.proc-preread-body .dt-approval-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      await handleApproval(btn.dataset.subId, btn.dataset.status);
-    });
-  });
-
-  // Wire resolution note autosave on blur (Step 11)
-  container.querySelectorAll('.proc-signoff-note').forEach(ta => {
-    ta.addEventListener('click', e => e.stopPropagation());
-    ta.addEventListener('blur', async () => {
-      const subId = ta.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      const resolution = ta.value.trim();
-      await updateSubmission(subId, { resolution_note: resolution });
-      sub.resolution_note = resolution;
-    });
-  });
-
-  // Wire mark ready button (Step 11)
-  container.querySelectorAll('.proc-signoff-ready-btn:not([disabled])').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      await updateSubmission(subId, { 'st_review.outcome_visibility': 'ready' });
-      if (!sub.st_review) sub.st_review = {};
-      sub.st_review.outcome_visibility = 'ready';
-      renderMatchSummary();
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire revert to draft button (Step 11)
-  container.querySelectorAll('.proc-signoff-revert').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      await updateSubmission(subId, { 'st_review.outcome_visibility': null });
-      if (!sub.st_review) sub.st_review = {};
-      sub.st_review.outcome_visibility = null;
-      renderMatchSummary();
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire narrative character block toggles (Step 9)
-  container.querySelectorAll('[data-narrative-id]').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.narrativeId;
-      if (narrativeExpanded.has(id)) narrativeExpanded.delete(id);
-      else narrativeExpanded.add(id);
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire narrative textarea autosave on blur (Step 9)
-  container.querySelectorAll('.dt-narr-textarea').forEach(ta => {
-    ta.addEventListener('blur', async e => {
-      e.stopPropagation();
-      const subId = ta.dataset.subId;
-      const blockKey = ta.dataset.blockKey;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      try {
-        await updateSubmission(subId, { [`st_review.narrative.${blockKey}.text`]: ta.value });
-        if (!sub.st_review) sub.st_review = {};
-        if (!sub.st_review.narrative) sub.st_review.narrative = {};
-        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
-        sub.st_review.narrative[blockKey].text = ta.value;
-      } catch (err) { console.error('Narrative save error:', err.message); }
-    });
-  });
-
-  // Wire narrative status toggle (draft/ready) — re-renders to update badge (Step 9)
-  container.querySelectorAll('.dt-narr-status-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const blockKey = btn.dataset.blockKey;
-      const newStatus = btn.dataset.status;
-      const sub = submissions.find(s => s._id === subId);
-      if (!sub) return;
-      try {
-        await updateSubmission(subId, { [`st_review.narrative.${blockKey}.status`]: newStatus });
-        if (!sub.st_review) sub.st_review = {};
-        if (!sub.st_review.narrative) sub.st_review.narrative = {};
-        if (!sub.st_review.narrative[blockKey]) sub.st_review.narrative[blockKey] = {};
-        sub.st_review.narrative[blockKey].status = newStatus;
-        renderProcessingMode(container);
-      } catch (err) { console.error('Narrative status error:', err.message); }
-    });
-  });
 
   // Wire second-opinion flag toggle
   container.querySelectorAll('.proc-second-opinion-btn').forEach(btn => {
@@ -4594,65 +4425,6 @@ function renderProcessingMode(container) {
     });
   });
 
-  // Wire Add ST Action — type selector show/hide sorcery vs other fields
-  container.querySelectorAll('.proc-add-st-type').forEach(sel => {
-    const row = sel.closest('.proc-add-st-action-row');
-    if (!row) return;
-    const updateVisibility = () => {
-      const isSorc = sel.value === 'sorcery';
-      const sorcFields  = row.querySelector('.proc-add-st-sorc-fields');
-      const otherFields = row.querySelector('.proc-add-st-other-fields');
-      if (sorcFields)  sorcFields.style.display  = isSorc ? '' : 'none';
-      if (otherFields) otherFields.style.display = isSorc ? 'none' : '';
-    };
-    sel.addEventListener('change', updateVisibility);
-    updateVisibility();
-  });
-
-  // Wire Add ST Action toggle buttons
-  container.querySelectorAll('.proc-add-st-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      if (stActionAddExpandedSubs.has(subId)) {
-        stActionAddExpandedSubs.delete(subId);
-      } else {
-        stActionAddExpandedSubs.add(subId);
-      }
-      renderProcessingMode(container);
-    });
-  });
-
-  // Wire Add ST Action submit buttons
-  container.querySelectorAll('.proc-add-st-submit-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const subId = btn.dataset.subId;
-      const row = container.querySelector(`.proc-add-st-action-row[data-sub-id="${subId}"]`);
-      if (!row) return;
-      const actionType = row.querySelector('.proc-add-st-type').value;
-      let label, description = '', tradition = '', riteName = '';
-      if (actionType === 'sorcery') {
-        riteName  = row.querySelector('.proc-add-st-rite').value.trim();
-        tradition = row.querySelector('.proc-add-st-tradition').value.trim();
-        if (!riteName) { row.querySelector('.proc-add-st-rite').focus(); return; }
-        label = riteName;
-      } else {
-        label       = row.querySelector('.proc-add-st-label').value.trim();
-        description = row.querySelector('.proc-add-st-desc').value.trim();
-        if (!label) { row.querySelector('.proc-add-st-label').focus(); return; }
-      }
-      await addStAction(subId, { action_type: actionType, label, description, tradition, rite_name: riteName });
-      stActionAddExpandedSubs.delete(subId);
-      renderProcessingMode(container);
-    });
-  });
-
-  // Prevent form inputs in Add ST Action forms from bubbling up
-  container.querySelectorAll('.proc-add-st-form input, .proc-add-st-form select').forEach(el => {
-    el.addEventListener('click', e => e.stopPropagation());
-    el.addEventListener('mousedown', e => e.stopPropagation());
-  });
 
   // Wire Delete ST action buttons
   container.querySelectorAll('.proc-delete-st-action').forEach(btn => {
