@@ -3144,12 +3144,7 @@ function renderProcessingMode(container) {
         const shortDesc = entry.description.length > 80 ? entry.description.slice(0, 77) + '...' : entry.description;
         h += `<div class="proc-action-row${isExpanded ? ' expanded' : ''}" data-proc-key="${esc(entry.key)}">`;
         h += `<span class="proc-row-char">${esc(entry.charName)}</span>`;
-        {
-          const _isRowSorcery = entry.source === 'sorcery' || (entry.source === 'st_created' && entry.actionType === 'sorcery');
-          h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}`;
-          if (_isRowSorcery) h += ` <button class="proc-duplicate-btn" data-proc-key="${esc(entry.key)}" title="Duplicate this action">\u2398 Dup</button>`;
-          h += `</span>`;
-        }
+        h += `<span class="proc-row-label">${esc(entry.label)}${entry.source === 'st_created' ? ' <span class="proc-row-st-badge">[ST]</span>' : ''}</span>`;
         h += `<span class="proc-row-desc" title="${esc(entry.description)}">${esc(shortDesc || '—')}</span>`;
         const _attributedName =
           (status === 'validated' && review?.pool_validated_by) ? review.pool_validated_by :
@@ -3160,6 +3155,11 @@ function renderProcessingMode(container) {
         h += `<span class="proc-row-status ${status}">${POOL_STATUS_LABELS[status] || status}</span>`;
         h += `</span>`;
         if (review?.second_opinion) h += `<span class="proc-row-second-opinion-dot" title="Flagged for second opinion">\u25CF</span>`;
+        h += `<span class="proc-row-actions">`;
+        h += `<button class="proc-duplicate-btn dt-btn dt-btn-sm" data-proc-key="${esc(entry.key)}" title="Duplicate">Dup</button>`;
+        const _isStCreated = entry.source === 'st_created';
+        h += `<button class="proc-delete-row-btn dt-btn dt-btn-sm" data-proc-key="${esc(entry.key)}" title="${_isStCreated ? 'Delete' : 'Skip'}">${_isStCreated ? 'Del' : 'Skip'}</button>`;
+        h += `</span>`;
         h += '</div>';
 
         if (isExpanded) {
@@ -4405,19 +4405,26 @@ function renderProcessingMode(container) {
     });
   });
 
-  // ── Duplicate sorcery action ──
+  // ── Duplicate action (any type) ──
   container.querySelectorAll('.proc-duplicate-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const key   = btn.dataset.procKey;
       const entry = _getQueueEntry(key);
       if (!entry) return;
-      const rev      = getEntryReview(entry) || {};
+      const rev       = getEntryReview(entry) || {};
       const tradition = rev.sorc_tradition || entry.tradition || '';
       const riteName  = rev.sorc_rite_name || rev.rite_override || entry.riteName || '';
-      const notes     = rev.sorc_notes     || entry.description || '';
-      const label     = riteName || entry.label;
-      await addStAction(entry.subId, { action_type: 'sorcery', label, description: notes, tradition, rite_name: riteName });
+      const notes     = rev.sorc_notes || entry.projDescription || entry.description || '';
+      const label     = (entry.actionType === 'sorcery' && riteName) ? riteName : entry.label;
+      await addStAction(entry.subId, {
+        action_type: entry.actionType,
+        label,
+        description: notes,
+        pool_player: entry.poolPlayer || '',
+        tradition,
+        rite_name:   riteName,
+      });
       const sub    = submissions.find(s => s._id === entry.subId);
       const newIdx = (sub?.st_actions || []).length - 1;
       if (newIdx >= 0) procExpandedKeys.add(`${entry.subId}:st:${newIdx}`);
@@ -4425,8 +4432,23 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Delete / skip action ──
+  container.querySelectorAll('.proc-delete-row-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const key   = btn.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      if (entry.source === 'st_created') {
+        await deleteStAction(entry.subId, entry.actionIdx);
+      } else {
+        await saveEntryReview(entry, { pool_status: 'skipped' });
+      }
+      renderProcessingMode(container);
+    });
+  });
 
-  // Wire Delete ST action buttons
+  // Wire Delete ST action buttons (expanded panel delete, kept for backwards compat)
   container.querySelectorAll('.proc-delete-st-action').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
