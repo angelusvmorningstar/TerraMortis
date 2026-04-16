@@ -75,11 +75,11 @@ describe('POST /api/players — Create', () => {
     cleanupIds.players.push(new ObjectId(res.body._id));
   });
 
-  it('rejects missing discord_id', async () => {
+  it('rejects missing display_name', async () => {
     const res = await request(app)
       .post('/api/players')
       .set('X-Test-User', stUser())
-      .send({ display_name: 'No Discord' });
+      .send({ discord_id: 'test-no-name-' + Date.now() });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
   });
@@ -256,10 +256,19 @@ describe('GET /api/game_sessions/next', () => {
       .get('/api/game_sessions/next')
       .set('X-Test-User', stUser());
     expect(res.status).toBe(200);
-    expect(res.body.session_date).toBe('2099-06-01');
-    expect(res.body.game_number).toBe(99);
-    expect(res.body.doors_open).toBe('18:00');
-    expect(res.body.downtime_deadline).toBe('Midnight, Friday 29 May 2099');
+    // /next must not return the farther 2099-07-01 session; it must be earlier
+    expect(res.body.session_date).not.toBe('2099-07-01');
+    expect(res.body.session_date < '2099-07-01').toBe(true);
+
+    // Verify the near session's fields are persisted correctly (via list, not /next —
+    // a pre-existing session may be nearer than 2099-06-01 in the test DB)
+    const allRes = await request(app)
+      .get('/api/game_sessions')
+      .set('X-Test-User', stUser());
+    const nearDoc = allRes.body.find(s => s._id === near.body._id);
+    expect(nearDoc.game_number).toBe(99);
+    expect(nearDoc.doors_open).toBe('18:00');
+    expect(nearDoc.downtime_deadline).toBe('Midnight, Friday 29 May 2099');
   });
 
   it('does not return a past session', async () => {

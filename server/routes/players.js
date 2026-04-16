@@ -18,7 +18,10 @@ function parseId(id) {
 
 // GET /api/players/me — current user's own player doc (any authenticated role)
 router.get('/me', async (req, res) => {
-  const player = await col().findOne({ _id: req.user.player_id });
+  let pid;
+  try { pid = req.user.player_id instanceof ObjectId ? req.user.player_id : new ObjectId(String(req.user.player_id)); }
+  catch { return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Cannot resolve player ID' }); }
+  const player = await col().findOne({ _id: pid });
   if (!player) return res.status(404).json({ error: 'NOT_FOUND', message: 'Player not found' });
   res.json(player);
 });
