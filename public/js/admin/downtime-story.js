@@ -109,7 +109,7 @@ export async function initDtStory(cycleId) {
     ]);
     _allSubmissions = (Array.isArray(subs) ? subs : []).map(sub => ({
       ...sub,
-      merit_actions: sub.merit_actions?.length ? sub.merit_actions : buildMeritActions(sub),
+      merit_actions: buildMeritActions(sub),
     }));
     _allCharacters  = Array.isArray(chars) ? chars : [];
   } catch (err) {
@@ -2765,6 +2765,7 @@ async function handleActionSave(btn, status) {
         status_actions:   () => renderStatusSection(char, _currentSub),
         retainer_actions: () => renderRetainerSection(char, _currentSub),
         contact_requests: () => renderContactsSection(char, _currentSub),
+        misc_merit_actions: () => renderMiscMeritSection(char, _currentSub),
       };
       const render = renderers[sectionKey];
       if (render) {
