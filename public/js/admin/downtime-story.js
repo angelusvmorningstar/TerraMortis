@@ -323,6 +323,25 @@ function formatPool(pool) {
   return pool.total != null ? String(pool.total) : '';
 }
 
+// ── Copy context header helpers ───────────────────────────────────────────────
+
+/** "Lord Marcus — Ventrue / Invictus — The Politician" */
+function _compactCharHeader(char) {
+  const name  = [char?.honorific, char ? displayName(char) : 'Unknown'].filter(Boolean).join(' ');
+  const ident = [char?.clan, char?.covenant].filter(Boolean).join(' / ');
+  return [name, ident, char?.concept || null].filter(Boolean).join(' \u2014 ');
+}
+
+/** "Mask: Bon Vivant | Dirge: Martyr | Humanity: 6" */
+function _charIdentLine(char) {
+  const parts = [];
+  if (char?.mask && char?.dirge) parts.push(`Mask: ${char.mask} | Dirge: ${char.dirge}`);
+  else if (char?.mask)           parts.push(`Mask: ${char.mask}`);
+  else if (char?.dirge)          parts.push(`Dirge: ${char.dirge}`);
+  if (char?.humanity != null)    parts.push(`Humanity: ${char.humanity}`);
+  return parts.join(' | ');
+}
+
 /**
  * Assembles the Copy Context prompt for a single project action.
  * Pure function — no side effects, no DOM access.
@@ -350,23 +369,9 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   // Existing ST draft for this slot
   const existingDraft = sub.st_narrative?.project_responses?.[idx]?.response || '';
 
-  // Character header
-  const courtTitle = char?.honorific || '';
-  const charName   = char ? displayName(char) : 'Unknown';
-  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
-
-  const lines = [
-    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
-    '',
-    `Character: ${fullTitle}`,
-  ];
-  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
-  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
-  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
-  lines.push(`Humanity: ${char?.humanity ?? 'Unknown'}`);
-  if (char?.mask || char?.dirge) {
-    lines.push(`Mask: ${char?.mask || '\u2014'} | Dirge: ${char?.dirge || '\u2014'}`);
-  }
+  const lines = ['Draft a project response for:', '', _compactCharHeader(char)];
+  const identLine = _charIdentLine(char);
+  if (identLine) lines.push(identLine);
 
   lines.push('');
   lines.push(`Action: ${actionLabel}`);
@@ -426,25 +431,24 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     }
 
     lines.push('');
-    lines.push('Territory context:');
-    lines.push(`- Territory: ${terrName}`);
-    if (ambienceLine) lines.push(`- Ambience: ${ambienceLine}`);
-    lines.push(`- Residents: ${residents} | Poachers: ${poachers}`);
-    lines.push(`- Other actions in this territory: ${otherActions.length ? otherActions.join(', ') : 'None'}`);
+    const terrSummary = [`Territory: ${terrName}`];
+    if (ambienceLine) terrSummary.push(`Ambience: ${ambienceLine}`);
+    lines.push(terrSummary.join(' | '));
+    lines.push(`Residents: ${residents} | Poachers: ${poachers}`);
+    lines.push(`Other actions in territory: ${otherActions.length ? otherActions.join(', ') : 'None'}`);
   }
 
   // Player feedback
   if (rev.player_feedback) {
     lines.push('');
-    lines.push('ST Clarifications (context for how the action was adjusted \u2014 do not act on these, but do not contradict them):');
-    lines.push(rev.player_feedback);
+    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
   }
 
   // ST directives
   const hasDirectives = rev.st_note || notes.length;
   if (hasDirectives) {
     lines.push('');
-    lines.push('ST Directives (the narrative must reflect these):');
+    lines.push('ST directives (must reflect):');
     if (rev.st_note) lines.push(`- ${rev.st_note}`);
     for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
   }
@@ -457,25 +461,14 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   }
 
   lines.push('');
-  lines.push('Write a narrative response (2-3 paragraphs, ~100-150 words) describing what happened during this action.');
-  lines.push('');
-  lines.push('Calibration:');
-  lines.push('- 1 success = the desired outcome is achieved. Do not write it as partial or marginal.');
-  lines.push('- 5+ successes (Exceptional) = notably excellent results with an additional benefit. Do not use the word "exceptional."');
-  lines.push('- Plausibility check: could this credibly happen within one month?');
-  lines.push('');
-  lines.push('Style rules:');
-  lines.push('- Second person, present tense');
-  lines.push('- British English');
-  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings, or success counts in narrative');
-  lines.push('- No em dashes');
-  lines.push('- Do not editorialise about what the result means mechanically');
-  lines.push('- Never dictate what the character felt or chose');
-  lines.push('- Do not name other PCs in the narrative unless they are listed in Connected Characters');
-  lines.push('- If Connected Characters are named, describe their observable actions only \u2014 never their internal states');
-  lines.push('- Draw narrative details from the character\u2019s concept, skills, and established voice');
-  lines.push('- Do not reuse narrative set pieces from other characters\u2019 responses in this cycle');
-  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
+  const isInvestigation = actionType === 'investigate';
+  const isFeed = actionType === 'feed';
+  const rubric = [
+    isInvestigation ? 'Apply INVESTIGATION_THRESHOLDS.' : null,
+    isFeed ? 'Apply FEEDING_CONSTRAINTS.' : null,
+    'One paragraph, 80-120 words. Use house style.',
+  ].filter(Boolean).join(' ');
+  lines.push(rubric);
 
   return lines.join('\n');
 }
@@ -504,49 +497,22 @@ function buildMaintenanceContext(char, sub, idx) {
     meritType = first.replace(/\s*\([^)]*\)/, '').replace(/\s*\|.*$/, '').trim();
   }
 
-  const courtTitle = char?.honorific || '';
-  const charName   = char ? displayName(char) : 'Unknown';
-  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
-
-  const lines = [
-    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
-    '',
-    `Character: ${fullTitle}`,
-  ];
-  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
-  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
-  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
-  lines.push(`Humanity: ${char?.humanity ?? 'Unknown'}`);
-  if (char?.mask || char?.dirge) {
-    lines.push(`Mask: ${char?.mask || '\u2014'} | Dirge: ${char?.dirge || '\u2014'}`);
-  }
+  const lines = ['Draft a maintenance response for:', '', _compactCharHeader(char)];
+  if (char?.humanity != null) lines.push(`Humanity: ${char.humanity}`);
 
   lines.push('');
-  lines.push('Action: Maintenance');
+  if (meritType) lines.push(`Merit maintained: ${meritName} (${meritType})`);
   lines.push(`Title: ${meritName}`);
-  if (meritType) lines.push(`Merit maintained: ${meritName}${meritType ? ` (${meritType})` : ''}`);
   if (description) lines.push(`Description: ${description}`);
-  lines.push('');
-  lines.push('No roll required.');
 
   if (notes.length) {
     lines.push('');
-    lines.push('ST Notes:');
+    lines.push('ST notes:');
     for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
   }
 
   lines.push('');
-  lines.push('Write a short paragraph (~50-80 words) describing what the character does to maintain this merit this month. Draw from the character\u2019s concept and the nature of the merit being maintained. If ST notes provide specific colour, incorporate it.');
-  lines.push('');
-  lines.push('Style rules:');
-  lines.push('- Second person, present tense');
-  lines.push('- British English');
-  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings, merit names');
-  lines.push('- No em dashes');
-  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
-  lines.push('- Do not editorialise');
-  lines.push('- Never dictate what the character felt or chose');
-  lines.push('- Draw narrative details from the character\u2019s concept, skills, and established voice');
+  lines.push('No roll required. 50-80 words. Use house style.');
 
   return lines.join('\n');
 }
@@ -577,21 +543,9 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   const merits     = resolveMerits(meritsRaw);
   const existingDraft = sub.st_narrative?.project_responses?.[idx]?.response || '';
 
-  // Character header
-  const courtTitle = char?.honorific || '';
-  const charName   = char ? displayName(char) : 'Unknown';
-  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
-
-  const lines = [
-    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
-    '',
-    `Character: ${fullTitle}`,
-  ];
-  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
-  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
-  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
-  lines.push(`Humanity: ${char?.humanity ?? 'Unknown'}`);
-  if (char?.mask || char?.dirge) lines.push(`Mask: ${char?.mask || '\u2014'} | Dirge: ${char?.dirge || '\u2014'}`);
+  const lines = ['Draft a Patrol response for:', '', _compactCharHeader(char)];
+  const identLine = _charIdentLine(char);
+  if (identLine) lines.push(identLine);
 
   lines.push('');
   lines.push('Action: Patrol / Scout');
@@ -669,49 +623,39 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
     : 'None detected';
 
   lines.push('');
-  lines.push('Territory context:');
-  lines.push(`- Territory: ${terrName}`);
-  if (regent) lines.push(`- Regent: ${regent}`);
   const ambLine = confirmedAmb || currentAmb;
+  const terrLineParts = [`Territory: ${terrName}`];
+  if (regent) terrLineParts.push(`Regent: ${regent}`);
+  lines.push(terrLineParts.join(' | '));
   if (ambLine) {
-    const netStr = netChange != null ? `, net change ${netChange > 0 ? '+' : ''}${netChange}` : '';
     const wasStr = confirmedAmb && currentAmb && confirmedAmb !== currentAmb ? ` (was ${currentAmb})` : '';
-    lines.push(`- Ambience: ${ambLine}${wasStr}${netStr}`);
+    const netStr = netChange != null ? `, net ${netChange > 0 ? '+' : ''}${netChange}` : '';
+    lines.push(`Ambience: ${ambLine}${wasStr}${netStr}`);
   }
-  lines.push(`- Residents: ${residentCount} | Poachers: ${poacherCount}`);
+  lines.push(`Residents: ${residentCount} | Poachers: ${poacherCount}`);
 
   if (feeders.length) {
     lines.push('');
-    lines.push('Feeding in this territory this cycle:');
+    lines.push('Feeders in territory this cycle:');
     for (const f of feeders) {
-      lines.push(`- ${f.name} (${f.clan}, ${f.covenant}) \u2014 ${f.isResident ? 'Resident' : 'Poacher'} \u2014 Feeding method: ${f.feedMethod}`);
+      lines.push(`- ${f.name} (${f.clan}, ${f.covenant}, ${f.isResident ? 'Resident' : 'Poacher'}, ${f.feedMethod})`);
     }
-  } else {
-    lines.push('');
-    lines.push('Feeding in this territory this cycle: None recorded');
   }
 
   lines.push('');
-  lines.push('Other actions in this territory this cycle:');
-  lines.push(`- Ambience work: ${ambienceChars.length ? ambienceChars.join(', ') : 'None'}`);
-  lines.push(`- Support/Patrol: ${patrolChars.length ? patrolChars.join(', ') : 'None'}`);
-  lines.push(`- Investigative: ${investigateChars.length ? investigateChars.join(', ') : 'None'}`);
-  lines.push(`- Misc: ${miscChars.length ? miscChars.join(', ') : 'None'}`);
-
-  lines.push('');
-  lines.push(`Discipline activity detected in territory: ${discProfileStr}`);
+  lines.push(`Other actions in territory: ambience ${ambienceChars.join(', ') || 'None'} | patrol ${patrolChars.join(', ') || 'None'} | investigative ${investigateChars.join(', ') || 'None'} | misc ${miscChars.join(', ') || 'None'}`);
+  lines.push(`Discipline activity: ${discProfileStr}`);
 
   // Player feedback
   if (rev.player_feedback) {
     lines.push('');
-    lines.push('ST Clarifications (context for how the action was adjusted \u2014 do not act on these, but do not contradict them):');
-    lines.push(rev.player_feedback);
+    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
   }
 
   // ST directives
   if (rev.st_note || notes.length) {
     lines.push('');
-    lines.push('ST Directives (the narrative must reflect these):');
+    lines.push('ST directives (must reflect):');
     if (rev.st_note) lines.push(`- ${rev.st_note}`);
     for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
   }
@@ -723,31 +667,7 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   }
 
   lines.push('');
-  lines.push('Write a narrative response (2-3 paragraphs, ~100-150 words) describing what the character observed during this patrol.');
-  lines.push('');
-  lines.push('Patrol calibration:');
-  lines.push('- 1-2 successes: surface observations, obvious activity only');
-  lines.push('- 3-4 successes: patterns emerge, can distinguish different operators and methods');
-  lines.push('- 5+ successes (Exceptional): comprehensive awareness, identifies specific actors and methods, builds a baseline map');
-  lines.push('');
-  lines.push('Observation rules:');
-  lines.push('- Other patrollers in the same territory see each other. Name them.');
-  lines.push('- Feeders are observable unless their method uses concealment (Obfuscate). Social feeding (Presence, Majesty) is conspicuous. Cross-reference discipline profile.');
-  lines.push('- Poachers (non-residents feeding without permission) should be flagged as notable. Whether identifiable depends on concealment and whether the patroller has met them at Court.');
-  lines.push('- Hide/protect actions are not observable unless patrol successes exceed the protection.');
-  lines.push('');
-  lines.push('Style rules:');
-  lines.push('- Second person, present tense');
-  lines.push('- British English');
-  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings, or success counts in narrative');
-  lines.push('- No em dashes');
-  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
-  lines.push('- Do not editorialise about what the result means mechanically');
-  lines.push('- Never dictate what the character felt or chose');
-  lines.push('- Describe named characters\u2019 observable actions only \u2014 never their internal states');
-  lines.push('- Draw narrative details from the character\u2019s concept, skills, and established voice');
-  lines.push('- Do not reuse narrative set pieces from other characters\u2019 responses in this cycle');
-  lines.push('- Plausibility check: could this credibly happen within one month?');
+  lines.push('Apply PATROL_SCALE. One paragraph, 80-120 words. Use house style.');
 
   return lines.join('\n');
 }
@@ -1146,41 +1066,24 @@ function buildLetterContext(char, sub, opts = {}) {
 
   const playerAspirations = sub.responses?.aspirations || null;
 
-  const courtTitle = char?.honorific || '';
-  const charName   = char ? displayName(char) : 'Unknown';
-  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
-
-  const lines = [
-    'You are helping a Storyteller draft a Letter from Home for a Vampire: The Requiem 2nd Edition LARP character.',
-    '',
-    `Character: ${fullTitle}`,
-  ];
-
-  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
-  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
-  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
-  if (char?.mask || char?.dirge) {
-    const mask  = char.mask  || '\u2014';
-    const dirge = char.dirge || '\u2014';
-    lines.push(`Mask: ${mask} | Dirge: ${dirge}`);
-  }
-  lines.push(`Humanity: ${humanity}`);
+  const lines = ['Draft a Letter from Home for:', '', _compactCharHeader(char)];
+  const identLine = _charIdentLine(char);
+  if (identLine) lines.push(identLine);
 
   if (touchstones.length) {
     lines.push('');
     lines.push('Touchstones:');
     for (const t of touchstones) {
       const status = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
-      lines.push(`- ${t.name} \u2014 Humanity ${t.humanity} \u2014 ${status}`);
+      lines.push(`- ${t.name} (Humanity ${t.humanity}, ${status})`);
     }
   }
 
   lines.push('');
-  lines.push('Player\'s aspirations:');
-  lines.push(playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]');
+  lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
 
   lines.push('');
-  lines.push('Player\'s submitted letter:');
+  lines.push('Player-submitted letter:');
   lines.push(playerLetter ? playerLetter.trim() : '[No player letter submitted]');
 
   if (prevCorrespondence) {
@@ -1195,24 +1098,7 @@ function buildLetterContext(char, sub, opts = {}) {
   }
 
   lines.push('');
-  lines.push('Write a reply letter (~100-300 words) from one of the above touchstones (or an invented correspondent if none fit) to the character.');
-  lines.push('');
-  lines.push('Purpose: The letter makes the world feel larger than the character\'s immediate situation. Someone beyond Court still thinks about them, still has opinions about what they are doing.');
-  lines.push('');
-  lines.push('Correspondent selection: If previous correspondence exists, maintain the same correspondent and their established voice. Otherwise, prefer the player\'s implied recipient first, then an attached touchstone, then a background NPC. If inventing a correspondent, flag it with [ST: Invented NPC \u2014 confirm before sending].');
-  lines.push('');
-  lines.push('Continuity: If a previous letter exists, the correspondent remembers what they said and what the character told them. Reference or continue threads from the previous exchange where natural. Carry forward established details (names, places, ongoing situations) consistently.');
-  lines.push('');
-  lines.push('Style rules:');
-  lines.push('- Written by the NPC to the character, never from the character');
-  lines.push('- Character moments only \u2014 no plot hooks, no hints of future events');
-  lines.push('- Match the correspondent\'s voice based on their relationship to the character');
-  lines.push('- Second person (the NPC writes "you" addressing the character)');
-  lines.push('- British English');
-  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
-  lines.push('- No em dashes');
-  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
-  lines.push('- Do not editorialise \u2014 write the scene, not its significance');
+  lines.push('Apply LETTER_CORRESPONDENT_RULES. 100-300 words. Use house style.');
 
   return lines.join('\n');
 }
@@ -1228,61 +1114,24 @@ function buildTouchstoneContext(char, sub) {
   const touchstones = char?.touchstones || [];
   const playerAspirations = sub.responses?.aspirations || null;
 
-  const courtTitle = char?.honorific || '';
-  const charName   = char ? displayName(char) : 'Unknown';
-  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
-
-  const lines = [
-    'You are helping a Storyteller write a Touchstone Vignette for a Vampire: The Requiem 2nd Edition LARP character.',
-    '',
-    `Character: ${fullTitle}`,
-  ];
-
-  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
-  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
-  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
-  lines.push(`Humanity: ${humanity}`);
-  if (char?.mask)     lines.push(`Mask: ${char.mask}`);
-  if (char?.dirge)    lines.push(`Dirge: ${char.dirge}`);
+  const lines = ['Draft a Touchstone Vignette for:', '', _compactCharHeader(char)];
+  const identLine = _charIdentLine(char);
+  if (identLine) lines.push(identLine);
 
   if (touchstones.length) {
     lines.push('');
     lines.push('Touchstones:');
     for (const t of touchstones) {
       const status = humanity >= (t.humanity || 0) ? 'Attached' : 'Detached';
-      lines.push(`- ${t.name} \u2014 Humanity ${t.humanity} \u2014 ${status}`);
+      lines.push(`- ${t.name} (Humanity ${t.humanity}, ${status})`);
     }
   }
 
   lines.push('');
-  lines.push('Player\'s aspirations:');
-  lines.push(playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]');
+  lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
 
   lines.push('');
-  lines.push('Write a short vignette (~100-300 words) of an in-person moment between the character and one of the above touchstones (or an invented mortal if none fit).');
-  lines.push('');
-  lines.push('Purpose: The touchstone reminds the character what it is like to be human. There is always a bittersweet edge: they are close to something warm and real, and they can no longer fully inhabit it.');
-  lines.push('');
-  lines.push('Emotional calibration:');
-  lines.push('- High Humanity + attached: the bittersweet note is faint, a whisper underneath warmth');
-  lines.push('- Mid Humanity + attached: the gap is apparent; warmth is real but requires effort');
-  lines.push('- Low Humanity + attached: hollower; the feeling arrives muffled, as though through glass');
-  lines.push('- Detached (any Humanity): the pang is sharper; the mortal has not changed, the character has');
-  lines.push('- Low Humanity + detached: observation more than participation; a photograph of a place one used to live');
-  lines.push('');
-  lines.push('Style rules:');
-  lines.push('- Second person, present tense \u2014 the ST narrates to the character');
-  lines.push('- The living mortal is the primary subject of the scene');
-  lines.push('- The first referent cannot be a pronoun \u2014 open with the mortal\'s name or a concrete noun');
-  lines.push('- In-person contact only \u2014 not a letter or phone call');
-  lines.push('- Character moments only \u2014 no plot hooks, no supernatural revelations, no foreshadowing');
-  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
-  lines.push('- No em dashes');
-  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
-  lines.push('- British English');
-  lines.push('- Do not editorialise \u2014 write the scene, not its significance');
-  lines.push('- Draw scene details from the character\'s actual life, skills, and relationships \u2014 not from generic domestic templates');
-  lines.push('- Detached does not mean narratively irrelevant \u2014 write the scene regardless of attachment status');
+  lines.push('Apply TOUCHSTONE_CALIBRATION. 100-300 words. Use house style.');
 
   return lines.join('\n');
 }
@@ -1720,25 +1569,25 @@ function buildActionContext(char, sub, idx) {
   const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Unknown';
   const effect = (isAuto && matrixEntry.effectAuto) ? matrixEntry.effectAuto : (matrixEntry.effect || '');
 
-  const lines = [
-    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
-    '',
-    `Character: ${char ? displayName(char) : 'Unknown'}`,
-    `Action: ${meritDisplay} \u2014 ${actionLabel}`,
-    `Mode: ${mode}`,
-  ];
+  const lines = ['Draft a merit action response for:', '', _compactCharHeader(char)];
 
+  lines.push('');
+  lines.push(`Merit: ${meritDisplay}`);
+  lines.push(`Action: ${actionLabel}`);
   if (territory) lines.push(`Territory: ${territory}`);
   if (action.desired_outcome) lines.push(`Desired Outcome: ${action.desired_outcome}`);
   if (action.description)     lines.push(`Description: ${action.description}`);
 
-  if (!isAuto) lines.push(`Validated Pool: ${pool}`);
-
-  if (rev.roll && !isAuto) {
-    const diceStr = rev.roll.dice_string || (Array.isArray(rev.roll.dice) ? '[' + rev.roll.dice.join(', ') + ']' : '');
-    const s = rev.roll.successes ?? 0;
-    const exc = rev.roll.exceptional ? ', Exceptional' : '';
-    lines.push(`Roll Result: ${s} success${s !== 1 ? 'es' : ''}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+  if (isAuto) {
+    lines.push('No roll required.');
+  } else {
+    if (pool) lines.push(`Pool: ${pool}`);
+    if (rev.roll) {
+      const diceStr = rev.roll.dice_string || (Array.isArray(rev.roll.dice) ? '[' + rev.roll.dice.join(', ') + ']' : '');
+      const s = rev.roll.successes ?? 0;
+      const exc = rev.roll.exceptional ? ' (Exceptional)' : '';
+      lines.push(`Roll: ${s} successes${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+    }
   }
 
   if (matrixNote) lines.push(`Matrix Outcome: ${matrixNote}`);
@@ -1785,32 +1634,17 @@ function buildActionContext(char, sub, idx) {
 
   if (notes.length) {
     lines.push('');
-    lines.push('ST Notes:');
-    notes.forEach(n => lines.push(`- ${n.author_name || 'ST'}: ${n.text || ''}`));
+    lines.push('ST directives:');
+    notes.forEach(n => lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`));
   }
 
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`Player Feedback: ${rev.player_feedback}`);
-  }
-  if (sub.st_notes) {
-    lines.push('');
-    lines.push(`ST Notes (not for player): ${sub.st_notes}`);
+    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
   }
 
   lines.push('');
-  lines.push('Write a brief narrative note (1\u20132 sentences, ~50 words) from the Storyteller\u2019s perspective describing the outcome of this action through the merit/contact/ally.');
-  lines.push('');
-  lines.push('Note: Character dossiers (background, relationships, voice, touchstones) are held in the project files for this chronicle. If you have access to them, calibrate the narrative to the character\u2019s established details. If not, flag any assumptions made.');
-  lines.push('');
-  lines.push('Style rules:');
-  lines.push('- Third person (the action is by an NPC merit, not the player character directly)');
-  lines.push('- British English');
-  lines.push('- No mechanical terms \u2014 no dot ratings, pool numbers, or success counts');
-  lines.push('- No em dashes');
-  lines.push('- Do not name game-mechanical concepts (no "Investigate", "Patrol/Scout", etc.)');
-  lines.push('- Focus on what the ally/contact/retainer actually did');
-  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
+  lines.push('Apply FEEDING_CONSTRAINTS for merit-source rules. 50-80 words. Intermediary voice businesslike, not dramatic. Use house style.');
 
   return lines.join('\n');
 }
@@ -2165,9 +1999,6 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   }
 
   // ── Build prompt ──
-  const courtTitle = char?.honorific || '';
-  const charName   = char ? displayName(char) : 'Unknown';
-  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
 
   // Net ambience change
   const confirmedIdx = AMBIENCE_STEPS.indexOf(confirmedAmb);
@@ -2175,96 +2006,62 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   const netChange    = (confirmedIdx >= 0 && currentIdx >= 0) ? confirmedIdx - currentIdx : null;
   const netChangeStr = netChange !== null ? (netChange > 0 ? `+${netChange}` : String(netChange)) : null;
 
-  const lines = [
-    'You are helping a Storyteller write a Territory Report for a Vampire: The Requiem 2nd Edition LARP character.',
-    '',
-    `Character: ${fullTitle}`,
-  ];
-  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
-  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
-  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
+  const lines = ['Draft a Territory Report for:', '', _compactCharHeader(char)];
+  const identLine = _charIdentLine(char);
+  if (identLine) lines.push(identLine);
 
   lines.push('');
-  lines.push(`Territory: ${terrName}`);
-  if (regentName) lines.push(`Regent: ${regentName}`);
+  if (regentName) {
+    lines.push(`Territory: ${terrName} | Regent: ${regentName}`);
+  } else {
+    lines.push(`Territory: ${terrName}`);
+  }
   if (confirmedAmb && currentAmb && confirmedAmb !== currentAmb && netChangeStr !== null) {
-    lines.push(`Ambience: ${confirmedAmb} (was ${currentAmb}, net change ${netChangeStr})`);
+    lines.push(`Ambience: ${confirmedAmb} (was ${currentAmb}, net ${netChangeStr})`);
   } else if (confirmedAmb || currentAmb) {
     lines.push(`Ambience: ${confirmedAmb || currentAmb}`);
   }
-  lines.push(`Residents: ${coResidents.length + 1}`); // +1 for the character themselves
-  lines.push(`Poachers: ${poachers.length}`);
+  lines.push(`Residents: ${coResidents.length + 1} | Poachers: ${poachers.length}`);
 
   lines.push('');
-  lines.push('Co-residents this cycle:');
+  lines.push('Discipline activity detected:');
+  if (discEntries.length) {
+    for (const [disc, count] of discEntries) lines.push(`- ${disc}: ${count}`);
+  } else {
+    lines.push('- None');
+  }
+
+  lines.push('');
+  lines.push('Co-residents:');
   if (coResidents.length) {
     for (const r of coResidents) {
-      const tags = [r.clan, r.covenant].filter(Boolean).join(', ');
-      lines.push(`- ${r.name}${tags ? ` (${tags})` : ''}`);
+      lines.push(`- ${r.name} (${[r.clan, r.covenant].filter(Boolean).join(', ')})`);
     }
   } else {
-    lines.push('None');
+    lines.push('- None');
   }
 
-  lines.push('');
-  lines.push('Poachers this cycle:');
   if (poachers.length) {
+    lines.push('');
+    lines.push('Poachers:');
     for (const p of poachers) lines.push(`- ${p.name}${p.tags ? ` (${p.tags})` : ''}`);
-  } else {
-    lines.push('None');
   }
 
   lines.push('');
-  lines.push('Discipline activity in territory:');
-  if (discEntries.length) {
-    for (const [disc, count] of discEntries) lines.push(`- ${disc}: ${count} use${count !== 1 ? 's' : ''}`);
-  } else {
-    lines.push('None');
-  }
-
-  lines.push('');
-  lines.push('Actions taken in this territory this cycle:');
-  lines.push(`- Feeding: ${feedActors.length ? feedActors.join(', ') : 'None'}`);
-  lines.push(`- Ambience: ${(phaseActors['ambience'] || []).length ? phaseActors['ambience'].join(', ') : 'None'}`);
-  lines.push(`- Support/Patrol: ${(phaseActors['support_patrol'] || []).length ? phaseActors['support_patrol'].join(', ') : 'None'}`);
-  lines.push(`- Investigative: ${(phaseActors['investigate'] || []).length ? phaseActors['investigate'].join(', ') : 'None'}`);
-  lines.push(`- Misc: ${(phaseActors['misc'] || []).length ? phaseActors['misc'].join(', ') : 'None'}`);
+  lines.push('Actions in territory this cycle:');
+  lines.push(`- Feeding: ${feedActors.join(', ') || 'None'}`);
+  lines.push(`- Ambience: ${(phaseActors['ambience'] || []).join(', ') || 'None'}`);
+  lines.push(`- Patrol: ${(phaseActors['support_patrol'] || []).join(', ') || 'None'}`);
+  lines.push(`- Investigative: ${(phaseActors['investigate'] || []).join(', ') || 'None'}`);
+  lines.push(`- Misc: ${(phaseActors['misc'] || []).join(', ') || 'None'}`);
 
   if (cycleData?.ambience_notes) {
     lines.push('');
-    lines.push(`ST Notes: ${cycleData.ambience_notes}`);
+    lines.push(`ST notes: ${cycleData.ambience_notes}`);
   }
 
   lines.push('');
-  lines.push(`Write a short territory report (~80-120 words) describing what the character observed and experienced in ${terrName} this cycle.`);
-  lines.push('');
-  lines.push('Purpose: The territory report conveys residency. What does it feel like to live and feed here this month? Is the territory improving, deteriorating, crowded, comfortable? The character notices change through the mortal world: foot traffic, nightlife, business activity, atmosphere.');
-  lines.push('');
-  lines.push('Territory reports should address:');
-  lines.push('- The mortal-world state of the territory (translate ambience into observable conditions)');
-  lines.push('- The quality of the blood and the feel of feeding this month');
-  lines.push('- The impact of crowding (how many residents are drawing from the same pool)');
-  lines.push('- Discipline impact on the territory atmosphere (see thresholds below)');
-  lines.push('');
-  lines.push('Discipline impact thresholds:');
-  lines.push('- 1 use of any discipline: no perceptible impact, below threshold');
-  lines.push('- 2+ uses: leaves a mark residents can sense (describe as atmospheric or behavioural shifts in the mortal population)');
-  lines.push('- 5+ uses: extreme, unmistakable alteration to the territory');
-  lines.push('- 1 use of a physical discipline (Vigour, Celerity, Resilience): unusual mortal reports, something was seen');
-  lines.push('- 3+ uses of a physical discipline: a Masquerade breach has occurred (footage, witnesses, news coverage)');
-  lines.push('');
-  lines.push('Style rules:');
-  lines.push('- Second person, present tense');
-  lines.push('- British English');
-  lines.push('- No mechanical terms \u2014 no discipline names, success counts, dot ratings, ambience ratings');
-  lines.push('- No em dashes');
-  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
-  lines.push('- Do not reveal hidden actions or information the character could not have witnessed');
-  lines.push('- Do not name other Kindred unless the character has earned that information through a patrol or investigation action');
-  lines.push('- Translate ambience and discipline impact into mortal-world observations, never use game terminology');
-  lines.push('- Character moments only \u2014 no foreshadowing or plot hooks');
-  lines.push('- Do not editorialise');
-  lines.push('- Do not reuse the same observations, imagery, or phrasing from other characters\u2019 territory reports for the same territory this cycle. Multiple characters living in the same territory should each experience it through their own concept and perspective.');
+  lines.push('Apply AMBIENCE_SIGNATURE and DISCIPLINE_TRACE. One paragraph, 80-120 words. Use house style.');
 
   return lines.join('\n');
 }
