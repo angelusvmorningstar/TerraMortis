@@ -424,7 +424,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
 
   const rev        = sub.projects_resolved?.[idx] || {};
-  const actionType = rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
+  const actionType = rev.action_type_override || rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
   const pool       = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '';
   const roll       = rev.roll || null;
   const notes      = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
@@ -861,7 +861,7 @@ function renderProjectCard(char, sub, idx) {
   const title       = sub.responses?.[`project_${slot}_title`]       || `Project ${slot}`;
   const outcome     = sub.responses?.[`project_${slot}_outcome`]      || '';
   const territory   = sub.responses?.[`project_${slot}_territory`]    || '';
-  const actionType  = rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
+  const actionType  = rev.action_type_override || rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
   const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Action';
 
   const pool = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '\u2014';
