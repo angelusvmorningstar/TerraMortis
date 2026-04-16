@@ -491,6 +491,26 @@ function resolveSubChar(s, fallback = 'Unknown') {
 }
 
 /**
+ * Augment a pool_validated expression string with active spec bonuses.
+ * E.g. "Wits 3 + Stealth 2 = 5" + ['Shadowing'] → "Wits 3 + Stealth 2 + Shadowing +1 = 6"
+ * Returns the original string unchanged if no active specs or no '=' found.
+ * @param {string|null} poolValidated
+ * @param {string[]} activeSpecs
+ * @param {object|null} char
+ * @returns {string|null}
+ */
+function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
+  if (!poolValidated || !activeSpecs.length) return poolValidated;
+  const eqIdx = poolValidated.lastIndexOf('=');
+  if (eqIdx === -1) return poolValidated;
+  const base     = poolValidated.slice(0, eqIdx).trim();
+  const tot      = parseInt(poolValidated.slice(eqIdx + 1).trim()) || 0;
+  const specTotal = activeSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
+  const specLabel = activeSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+  return `${base} + ${specLabel} = ${tot + specTotal}`;
+}
+
+/**
  * Render a collapsible phase header row (without the outer section wrapper).
  * @param {string} phaseKey - data-toggle-phase value
  * @param {string} label    - full label HTML (may include badge spans)
@@ -5567,18 +5587,7 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
-  const _activeProjSpecs = rev.active_feed_specs || [];
-  let displayPool = poolValidated;
-  if (poolValidated && _activeProjSpecs.length > 0) {
-    const _eqIdx = poolValidated.lastIndexOf('=');
-    if (_eqIdx !== -1) {
-      const _base = poolValidated.slice(0, _eqIdx).trim();
-      const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
-      const specTotal = _activeProjSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      const specLabel = _activeProjSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
-      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
-    }
-  }
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
@@ -5830,18 +5839,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
-  const _activeFeedSpecs = rev.active_feed_specs || [];
-  let displayPool = poolValidated;
-  if (poolValidated && _activeFeedSpecs.length > 0) {
-    const _eqIdx = poolValidated.lastIndexOf('=');
-    if (_eqIdx !== -1) {
-      const _base = poolValidated.slice(0, _eqIdx).trim();
-      const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
-      const specTotal = _activeFeedSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      const specLabel = _activeFeedSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
-      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
-    }
-  }
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   if (poolValidated) {
     const feedNotes = [];
