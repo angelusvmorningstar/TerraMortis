@@ -479,6 +479,18 @@ export function findCharacter(submissionCharName, submissionPlayerName) {
 }
 
 /**
+ * Resolve a submission to its matched character and display name in one call.
+ * @param {object} s - submission object with character_name and player_name
+ * @param {string} [fallback='Unknown'] - name to use when no match found and character_name is blank
+ * @returns {{ char: object|null, charName: string }}
+ */
+function resolveSubChar(s, fallback = 'Unknown') {
+  const char = findCharacter(s.character_name, s.player_name);
+  const charName = char ? (char.moniker || char.name) : (s.character_name || fallback);
+  return { char, charName };
+}
+
+/**
  * Match a CSV submission and return match details with warnings.
  * Used by the import flow to surface unmatched/low-confidence matches.
  */
@@ -1729,8 +1741,7 @@ function buildProcessingQueue(subs) {
   for (const sub of subs) {
     const raw = sub._raw || {};
     const resp = sub.responses || {};
-    const _subChar = findCharacter(sub.character_name, sub.player_name);
-    const charName = _subChar ? (_subChar.moniker || _subChar.name) : (sub.character_name || '?');
+    const { char: _subChar, charName } = resolveSubChar(sub, '?');
 
     // ── Travel Review (Step 1 — phaseNum -1 sorts before sorcery) ──
     const travelDesc = (raw.submission?.narrative?.travel_description || resp.travel || '').trim();
@@ -2545,8 +2556,7 @@ function renderPreReadSection() {
   if (isExpanded) {
     for (const s of readable) {
       const r = s.responses || {};
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = preReadExpanded.has(s._id);
       const hasLore = !!r.lore_request?.trim?.();
       const loreResponded = !!s.st_review?.lore_responded;
@@ -2648,8 +2658,7 @@ function renderSignOffStep() {
 
   if (isExpanded) {
     for (const s of submissions) {
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = signOffExpanded.has(s._id);
       const approval = s.approval_status || 'pending';
       const visibility = s.st_review?.outcome_visibility || '';
@@ -2753,8 +2762,7 @@ function renderXpReviewStep() {
       try { rows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item); } catch { /* ignore */ }
       if (!rows.length) continue;
 
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = xpReviewExpanded.has(s._id);
       const approvals = s.st_review?.xp_approvals || {};
       const doneHere = rows.filter((_, i) => approvals[i]?.status === 'approved').length;
@@ -2835,8 +2843,7 @@ function renderNarrativeStep() {
 
   if (isExpanded) {
     for (const s of submissions) {
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = narrativeExpanded.has(s._id);
       const narr = s.st_review?.narrative || {};
       const doneCount = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
@@ -2921,8 +2928,7 @@ function renderCharacterStrip(queue) {
   h += '<span class="proc-char-strip-label">Jump to</span>';
 
   for (const s of sorted) {
-    const char = findCharacter(s.character_name, s.player_name);
-    const name = char ? (char.moniker || char.name) : (s.character_name || '?');
+    const { char, charName: name } = resolveSubChar(s, '?');
     const state = _subChipState(s, queue);
 
     const entries = queue.filter(e => e.subId === s._id);
@@ -3156,10 +3162,7 @@ function renderProcessingMode(container) {
   h += `</div>`;
   if (expandedPhases.has('add_st_actions')) {
     for (const sub of submissions) {
-      const subCharName = (() => {
-        const c = findCharacter(sub.character_name, sub.player_name);
-        return c ? (c.moniker || c.name) : (sub.character_name || '?');
-      })();
+      const { charName: subCharName } = resolveSubChar(sub, '?');
       const isExpanded = stActionAddExpandedSubs.has(sub._id);
       h += `<div class="proc-add-st-action-row" data-sub-id="${esc(sub._id)}">`;
       h += `<span class="proc-add-st-char">${esc(subCharName)}</span>`;
