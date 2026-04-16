@@ -491,6 +491,25 @@ function resolveSubChar(s, fallback = 'Unknown') {
 }
 
 /**
+ * Render a collapsible phase header row (without the outer section wrapper).
+ * @param {string} phaseKey - data-toggle-phase value
+ * @param {string} label    - full label HTML (may include badge spans)
+ * @param {number} count    - item count
+ * @param {string} unit     - singular unit word ('submission', 'action', 'character')
+ * @param {boolean} isExpanded
+ * @returns {string} HTML string
+ */
+function _renderPhaseHeader(phaseKey, label, count, unit, isExpanded) {
+  const s = count !== 1 ? 's' : '';
+  let h = `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
+  h += `<span class="proc-phase-label">${label}</span>`;
+  h += `<span class="proc-phase-count">${count} ${unit}${s}</span>`;
+  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+  return h;
+}
+
+/**
  * Match a CSV submission and return match details with warnings.
  * Used by the import flow to surface unmatched/low-confidence matches.
  */
@@ -2547,11 +2566,7 @@ function renderPreReadSection() {
   const isExpanded = expandedPhases.has('preread');
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="preread">`;
-  h += `<span class="proc-phase-label">Step 0 \u2014 Pre-read</span>`;
-  h += `<span class="proc-phase-count">${readable.length} submission${readable.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('preread', 'Step 0 \u2014 Pre-read', readable.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of readable) {
@@ -2650,11 +2665,7 @@ function renderSignOffStep() {
     : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/${submissions.length}</span>` : '';
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="sign_off">`;
-  h += `<span class="proc-phase-label">Step 11 \u2014 Sign-off${stepBadge}</span>`;
-  h += `<span class="proc-phase-count">${submissions.length} submission${submissions.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('sign_off', `Step 11 \u2014 Sign-off${stepBadge}`, submissions.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of submissions) {
@@ -2750,11 +2761,7 @@ function renderXpReviewStep() {
     : totalApproved > 0 ? ` <span class="proc-narr-progress">${totalApproved}/${totalRows}</span>` : '';
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="xp_review">`;
-  h += `<span class="proc-phase-label">Step 10 \u2014 XP Review${stepBadge}</span>`;
-  h += `<span class="proc-phase-count">${xpSubs.length} submission${xpSubs.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('xp_review', `Step 10 \u2014 XP Review${stepBadge}`, xpSubs.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of xpSubs) {
@@ -2835,11 +2842,7 @@ function renderNarrativeStep() {
   const queue = buildProcessingQueue(submissions);
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="narrative">`;
-  h += `<span class="proc-phase-label">Step 9 \u2014 Narrative Output</span>`;
-  h += `<span class="proc-phase-count">${submissions.length} submission${submissions.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('narrative', 'Step 9 \u2014 Narrative Output', submissions.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of submissions) {
@@ -3093,11 +3096,7 @@ function renderProcessingMode(container) {
     if (procHideDone && visibleEntries.length === 0) continue;
 
     h += `<div class="proc-phase-section">`;
-    h += `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
-    h += `<span class="proc-phase-label">${esc(label)}${phaseProgressBadge}</span>`;
-    h += `<span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span>`;
-    h += `<span class="proc-phase-toggle">${isCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
-    h += `</div>`;
+    h += _renderPhaseHeader(phaseKey, `${esc(label)}${phaseProgressBadge}`, entries.length, 'action', !isCollapsed);
 
     if (!isCollapsed) {
       for (const entry of visibleEntries) {
@@ -3142,11 +3141,7 @@ function renderProcessingMode(container) {
   // If no investigate actions were submitted, still show the investigations tracker
   if (!byPhase.has('investigate')) {
     h += `<div class="proc-phase-section">`;
-    h += `<div class="proc-phase-header" data-toggle-phase="investigate">`;
-    h += `<span class="proc-phase-label">${PHASE_LABELS.investigate}</span>`;
-    h += `<span class="proc-phase-count">0 actions</span>`;
-    h += `<span class="proc-phase-toggle">${expandedPhases.has('investigate') ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-    h += `</div>`;
+    h += _renderPhaseHeader('investigate', PHASE_LABELS.investigate, 0, 'action', expandedPhases.has('investigate'));
     if (expandedPhases.has('investigate')) {
       h += '<div id="dt-investigations"></div>';
     }
@@ -3155,11 +3150,7 @@ function renderProcessingMode(container) {
 
   // Add ST Actions — one expandable form per submission
   h += `<div class="proc-phase-section proc-add-st-section">`;
-  h += `<div class="proc-phase-header" data-toggle-phase="add_st_actions">`;
-  h += `<span class="proc-phase-label">Add ST Actions</span>`;
-  h += `<span class="proc-phase-count">${submissions.length} character${submissions.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${expandedPhases.has('add_st_actions') ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('add_st_actions', 'Add ST Actions', submissions.length, 'character', expandedPhases.has('add_st_actions'));
   if (expandedPhases.has('add_st_actions')) {
     for (const sub of submissions) {
       const { charName: subCharName } = resolveSubChar(sub, '?');
