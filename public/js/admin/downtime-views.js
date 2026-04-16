@@ -2041,7 +2041,21 @@ function buildProcessingQueue(subs) {
     });
 
     // ── Merit/Sphere actions ──
-    const spheres  = raw.sphere_actions || [];
+    let spheres  = raw.sphere_actions || [];
+    if (!spheres.length) {
+      // App-form submissions store sphere actions as flat response keys (sphere_N_merit etc.)
+      for (let n = 1; n <= 5; n++) {
+        const meritType = resp[`sphere_${n}_merit`];
+        if (!meritType) continue;
+        spheres = [...spheres, {
+          merit_type:      meritType,
+          action_type:     resp[`sphere_${n}_action`]      || 'misc',
+          desired_outcome: resp[`sphere_${n}_outcome`]     || '',
+          description:     resp[`sphere_${n}_description`] || '',
+          primary_pool:    resp[`sphere_${n}_pool_expr`] ? { expression: resp[`sphere_${n}_pool_expr`] } : null,
+        }];
+      }
+    }
     const contacts = raw.contact_actions?.requests || [];
     const retainers = raw.retainer_actions?.actions || [];
 
