@@ -7835,99 +7835,158 @@ function renderNpcForm(npc) {
 // ── Submission Checklist (feature.55) ───────────────────────────────────────
 
 const CHK_SECTIONS = [
-  { key: 'travel',         label: 'Travel' },
-  { key: 'feeding',        label: 'Feeding' },
-  { key: 'project_1',      label: 'P1' },
-  { key: 'project_2',      label: 'P2' },
-  { key: 'project_3',      label: 'P3' },
-  { key: 'project_4',      label: 'P4' },
-  { key: 'allies_1',       label: 'A1' },
-  { key: 'allies_2',       label: 'A2' },
-  { key: 'allies_3',       label: 'A3' },
-  { key: 'allies_4',       label: 'A4' },
-  { key: 'allies_5',       label: 'A5' },
-  { key: 'contacts_1',     label: 'C1' },
-  { key: 'contacts_2',     label: 'C2' },
-  { key: 'contacts_3',     label: 'C3' },
-  { key: 'contacts_4',     label: 'C4' },
-  { key: 'contacts_5',     label: 'C5' },
-  { key: 'resources',      label: 'Res. Acq.' },
-  { key: 'skill_acq',      label: 'Skill Acq.' },
-  { key: 'correspondence', label: 'Corresp.' },
-  { key: 'xp',             label: 'XP' },
+  { key: 'travel',       label: 'Travel'   },
+  { key: 'feeding',      label: 'Feeding'  },
+  { key: 'project_1',    label: 'P1' },
+  { key: 'project_2',    label: 'P2' },
+  { key: 'project_3',    label: 'P3' },
+  { key: 'project_4',    label: 'P4' },
+  { key: 'allies_1',     label: 'A1' },
+  { key: 'allies_2',     label: 'A2' },
+  { key: 'allies_3',     label: 'A3' },
+  { key: 'allies_4',     label: 'A4' },
+  { key: 'allies_5',     label: 'A5' },
+  { key: 'status_1',     label: 'S1' },
+  { key: 'status_2',     label: 'S2' },
+  { key: 'status_3',     label: 'S3' },
+  { key: 'retainers_1',  label: 'R1' },
+  { key: 'retainers_2',  label: 'R2' },
+  { key: 'retainers_3',  label: 'R3' },
+  { key: 'contacts_1',   label: 'C1' },
+  { key: 'contacts_2',   label: 'C2' },
+  { key: 'contacts_3',   label: 'C3' },
+  { key: 'contacts_4',   label: 'C4' },
+  { key: 'contacts_5',   label: 'C5' },
+  { key: 'resources',    label: 'Resources' },
 ];
 
-/** Count sphere actions from either raw array or flat response keys. */
-function _sphereCount(sub) {
-  const raw = sub._raw || {};
-  if (raw.sphere_actions?.length) return raw.sphere_actions.length;
+/**
+ * Returns the flat merit_actions array for a submission.
+ * Order: spheres → contacts → retainers (mirrors buildProcessingQueue).
+ * Uses sub.merit_actions if already built; otherwise reconstructs from _raw / responses.
+ * NFR-DS-01: no import from downtime-story.js.
+ */
+function _getSubMeritActions(sub) {
+  if (sub.merit_actions?.length) return sub.merit_actions;
+  const raw  = sub._raw    || {};
   const resp = sub.responses || {};
-  let n = 0;
-  for (let i = 1; i <= 5; i++) { if (resp[`sphere_${i}_merit`]) n++; else break; }
-  return n;
+  const result = [];
+  // spheres
+  const spheres = raw.sphere_actions || [];
+  if (spheres.length) {
+    spheres.forEach((a, i) => result.push({ merit_type: resp[`sphere_${i + 1}_merit`] || a.merit_type || '', action_type: a.action_type || '' }));
+  } else {
+    for (let n = 1; n <= 5; n++) {
+      const mt = resp[`sphere_${n}_merit`];
+      if (mt) result.push({ merit_type: mt, action_type: resp[`sphere_${n}_action`] || '' });
+    }
+  }
+  // contacts
+  const contactRaw = raw.contact_actions?.requests || [];
+  if (contactRaw.length) {
+    contactRaw.forEach(() => result.push({ merit_type: 'Contacts', action_type: '' }));
+  } else {
+    for (let n = 1; n <= 5; n++) { if (resp[`contact_${n}_request`]) result.push({ merit_type: 'Contacts', action_type: '' }); }
+  }
+  // retainers
+  const retainerRaw = raw.retainer_actions?.actions || [];
+  if (retainerRaw.length) {
+    retainerRaw.forEach(() => result.push({ merit_type: 'Retainer', action_type: '' }));
+  } else {
+    for (let n = 1; n <= 4; n++) { if (resp[`retainer_${n}_task`]) result.push({ merit_type: 'Retainer', action_type: '' }); }
+  }
+  return result;
+}
+
+/**
+ * Returns a map of global merit_actions_resolved indices per category:
+ *   { allies: [0, 3], status: [1], retainers: [2], contacts: [4, 5] }
+ * Cached per sub._id on the sub object itself to avoid repeated iteration.
+ */
+function _buildMeritSlotMap(sub) {
+  if (sub._chkSlotMap) return sub._chkSlotMap;
+  const actions = _getSubMeritActions(sub);
+  const map = { allies: [], status: [], retainers: [], contacts: [] };
+  actions.forEach((a, i) => {
+    const cat = _parseMeritType(a.merit_type || '').category;
+    if      (cat === 'allies')                           map.allies.push(i);
+    else if (cat === 'status')                           map.status.push(i);
+    else if (cat === 'retainer' || cat === 'staff')      map.retainers.push(i);
+    else if (cat === 'contacts')                         map.contacts.push(i);
+  });
+  sub._chkSlotMap = map;
+  return map;
 }
 
 function _chkHasContent(sub, key) {
   if (!sub) return false;
   const raw  = sub._raw || {};
   const resp = sub.responses || {};
-  const alliesM   = key.match(/^allies_(\d+)$/);
-  const contactsM = key.match(/^contacts_(\d+)$/);
-  if (alliesM) {
-    const n = parseInt(alliesM[1]);
-    return !!(raw.sphere_actions?.[n - 1] || resp[`sphere_${n}_merit`]);
-  }
-  if (contactsM) {
-    const n = parseInt(contactsM[1]);
-    return !!(raw.contact_actions?.requests?.[n - 1] || resp[`contact_${n}_request`]);
-  }
+
+  const alliesM    = key.match(/^allies_(\d+)$/);
+  const statusM    = key.match(/^status_(\d+)$/);
+  const retainersM = key.match(/^retainers_(\d+)$/);
+  const contactsM  = key.match(/^contacts_(\d+)$/);
+
+  if (alliesM)    return _buildMeritSlotMap(sub).allies[parseInt(alliesM[1]) - 1]    !== undefined;
+  if (statusM)    return _buildMeritSlotMap(sub).status[parseInt(statusM[1]) - 1]    !== undefined;
+  if (retainersM) return _buildMeritSlotMap(sub).retainers[parseInt(retainersM[1]) - 1] !== undefined;
+  if (contactsM)  return _buildMeritSlotMap(sub).contacts[parseInt(contactsM[1]) - 1]  !== undefined;
+
   switch (key) {
-    case 'travel':         return !!(raw.submission?.narrative?.travel_description || resp.travel);
-    case 'feeding':        return !!(raw.feeding?.method || resp['_feed_method']);
-    case 'project_1':      return !!(resp.project_1_action || raw.projects?.[0]);
-    case 'project_2':      return !!(resp.project_2_action || raw.projects?.[1]);
-    case 'project_3':      return !!(resp.project_3_action || raw.projects?.[2]);
-    case 'project_4':      return !!(resp.project_4_action || raw.projects?.[3]);
-    case 'resources':      return !!(raw.acquisitions?.resource_acquisitions || resp.resources_acquisitions);
-    case 'skill_acq':      return !!(raw.acquisitions?.skill_acquisitions    || resp.skill_acquisitions);
-    case 'correspondence': return !!(raw.submission?.narrative?.correspondence || resp.correspondence);
-    case 'xp':             return !!(raw.meta?.xp_spend || resp.xp_spend);
-    default:               return false;
+    case 'travel':    return !!(raw.submission?.narrative?.travel_description || resp.travel);
+    case 'feeding':   return !!(raw.feeding?.method || resp['_feed_method']);
+    case 'project_1': return !!(resp.project_1_action || raw.projects?.[0]);
+    case 'project_2': return !!(resp.project_2_action || raw.projects?.[1]);
+    case 'project_3': return !!(resp.project_3_action || raw.projects?.[2]);
+    case 'project_4': return !!(resp.project_4_action || raw.projects?.[3]);
+    case 'resources': return !!(raw.acquisitions?.resource_acquisitions || resp.resources_acquisitions);
+    default:          return false;
   }
 }
 
-/** Return tooltip text describing what a specific allies/contacts slot contains. */
+/** Return tooltip text describing what a specific merit slot contains. */
 function _chkTooltip(sub, key) {
-  const raw  = sub?._raw || {};
-  const resp = sub?.responses || {};
-  const alliesM = key.match(/^allies_(\d+)$/);
-  if (alliesM) {
-    const n      = parseInt(alliesM[1]);
-    const action = raw.sphere_actions?.[n - 1];
-    if (action) return `${action.merit_type}: ${action.action_type}`;
-    const mt = resp[`sphere_${n}_merit`];
-    const at = resp[`sphere_${n}_action`] || '';
-    return mt ? `${mt}: ${at}` : '';
+  if (!sub) return '';
+  const actions = _getSubMeritActions(sub);
+  const map = _buildMeritSlotMap(sub);
+
+  const alliesM    = key.match(/^allies_(\d+)$/);
+  const statusM    = key.match(/^status_(\d+)$/);
+  const retainersM = key.match(/^retainers_(\d+)$/);
+  const contactsM  = key.match(/^contacts_(\d+)$/);
+
+  if (alliesM || statusM || retainersM) {
+    const [, n] = (alliesM || statusM || retainersM);
+    const cat    = alliesM ? 'allies' : statusM ? 'status' : 'retainers';
+    const gIdx   = map[cat][parseInt(n) - 1];
+    if (gIdx === undefined) return '';
+    const a = actions[gIdx];
+    if (!a) return '';
+    return a.action_type ? `${a.merit_type}: ${a.action_type}` : a.merit_type || '';
   }
-  const contactsM = key.match(/^contacts_(\d+)$/);
+
   if (contactsM) {
     const n   = parseInt(contactsM[1]);
+    const raw = sub._raw || {};
+    const resp = sub.responses || {};
     const req = raw.contact_actions?.requests?.[n - 1] || resp[`contact_${n}_request`] || '';
     if (!req) return '';
     const typeMatch = req.match(/Contact Type:\s*([^\n]+)/i);
     return typeMatch ? `Contact: ${typeMatch[1].trim()}` : 'Contact';
   }
+
   return '';
 }
 
 // _chkState returns one of:
-//   'empty'         — section not present in this submission
-//   'unsighted'     — present but ST hasn't touched it          ✗
-//   'no_action'     — reviewed; skipped / no valid action        □
-//   'dice_validated'— pool confirmed and/or dice rolled          ◆
-//   'drafted'       — narrative response drafted                 ✎
-//   'confirmed'     — fully signed off                           ★
-//   'sighted'       — manually marked in-progress               ?
+//   'empty'     — section not present in this submission
+//   'unsighted' — present but ST hasn't touched it          O
+//   'no_action' — reviewed; skipped / no valid action       X
+//   'confirmed' — pool validated or fully signed off        ★
+//   'sighted'   — manually marked in-progress              ?
+const _CHK_TERMINAL_STATUSES = new Set(['no_effect', 'resolved', 'no_action', 'no_roll', 'skipped', 'maintenance']);
+
 function _chkState(sub, key) {
   if (!_chkHasContent(sub, key)) return 'empty';
 
@@ -7938,10 +7997,10 @@ function _chkState(sub, key) {
 
   // ── Feeding ──
   if (key === 'feeding') {
-    const fr  = sub.feeding_review || {};
-    const ps  = fr.pool_status;
-    if (ps === 'no_feed')                       return 'no_action';
-    if (sub.feeding_roll || ps === 'validated') return 'confirmed';
+    const fr = sub.feeding_review || {};
+    const ps = fr.pool_status;
+    if (ps === 'no_feed')                        return 'no_action';
+    if (sub.feeding_roll || ps === 'validated')  return 'confirmed';
   }
 
   // ── Projects ──
@@ -7954,33 +8013,37 @@ function _chkState(sub, key) {
       || (sub._raw?.projects || [])[slot]?.action_type
       || sub.responses?.[`project_${slot + 1}_action`]
       || '';
-    if (ps === 'no_roll' || ps === 'maintenance') return 'no_action';
-    if (rawProjType === 'no_action_taken') return 'no_action';
-    if (ps === 'validated') {
-      if (pr.response_status === 'reviewed')        return 'confirmed';
-      if (pr.st_response)                           return 'drafted';
-      return 'dice_validated';
+    if (_CHK_TERMINAL_STATUSES.has(ps)) return 'no_action';
+    if (rawProjType === 'no_action_taken')        return 'no_action';
+    if (ps === 'validated')                       return 'confirmed';
+  }
+
+  // ── Merit slots: Allies / Status / Retainers / Contacts ──
+  const alliesM    = key.match(/^allies_(\d+)$/);
+  const statusM    = key.match(/^status_(\d+)$/);
+  const retainersM = key.match(/^retainers_(\d+)$/);
+  const contactsM  = key.match(/^contacts_(\d+)$/);
+
+  if (alliesM || statusM || retainersM || contactsM) {
+    const resolved = sub.merit_actions_resolved || [];
+    const map      = _buildMeritSlotMap(sub);
+    let gIdx;
+    if (alliesM)    gIdx = map.allies[parseInt(alliesM[1]) - 1];
+    else if (statusM)    gIdx = map.status[parseInt(statusM[1]) - 1];
+    else if (retainersM) gIdx = map.retainers[parseInt(retainersM[1]) - 1];
+    else                 gIdx = map.contacts[parseInt(contactsM[1]) - 1];
+    if (gIdx !== undefined) {
+      const ps = resolved[gIdx]?.pool_status;
+      if (_CHK_TERMINAL_STATUSES.has(ps)) return 'no_action';
+      if (ps === 'validated')             return 'confirmed';
     }
   }
 
-  // ── Allies / sphere merit slots ──
-  const raw      = sub._raw || {};
-  const resolved = sub.merit_actions_resolved || [];
-  const alliesM  = key.match(/^allies_(\d+)$/);
-  if (alliesM) {
-    const idx = parseInt(alliesM[1]) - 1;
-    const ps  = resolved[idx]?.pool_status;
-    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action' || ps === 'no_roll' || ps === 'skipped') return 'no_action';
-    if (ps === 'validated') return 'dice_validated';
-  }
-
-  // ── Contacts ──
-  const contactsM = key.match(/^contacts_(\d+)$/);
-  if (contactsM) {
-    const idx = _sphereCount(sub) + parseInt(contactsM[1]) - 1;
-    const ps  = resolved[idx]?.pool_status;
-    if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action' || ps === 'no_roll' || ps === 'skipped') return 'no_action';
-    if (ps === 'validated') return 'dice_validated';
+  // ── Resources acquisition ──
+  if (key === 'resources') {
+    const ps = sub.st_review?.actions?.['acq:resources']?.pool_status;
+    if (_CHK_TERMINAL_STATUSES.has(ps)) return 'no_action';
+    if (ps === 'validated')             return 'confirmed';
   }
 
   if (sub?.st_review?.sighted?.[key]) return 'sighted';
@@ -7990,16 +8053,28 @@ function _chkState(sub, key) {
 /** Map a checklist section key to its processing queue entry.key, or null if no queue entry exists. */
 function _chkNavKey(sub, section) {
   if (!sub) return null;
-  if (section === 'feeding') return `${sub._id}:feeding`;
+  if (section === 'feeding')   return `${sub._id}:feeding`;
+  if (section === 'resources') return `${sub._id}:acq:resources`;
+
   const projM = section.match(/^project_(\d+)$/);
   if (projM) return `${sub._id}:proj:${parseInt(projM[1]) - 1}`;
-  const alliesM = section.match(/^allies_(\d+)$/);
-  if (alliesM) return `${sub._id}:merit:${parseInt(alliesM[1]) - 1}`;
-  const contactsM = section.match(/^contacts_(\d+)$/);
-  if (contactsM) {
-    return `${sub._id}:merit:${_sphereCount(sub) + parseInt(contactsM[1]) - 1}`;
+
+  const alliesM    = section.match(/^allies_(\d+)$/);
+  const statusM    = section.match(/^status_(\d+)$/);
+  const retainersM = section.match(/^retainers_(\d+)$/);
+  const contactsM  = section.match(/^contacts_(\d+)$/);
+
+  if (alliesM || statusM || retainersM || contactsM) {
+    const map = _buildMeritSlotMap(sub);
+    let gIdx;
+    if (alliesM)         gIdx = map.allies[parseInt(alliesM[1]) - 1];
+    else if (statusM)    gIdx = map.status[parseInt(statusM[1]) - 1];
+    else if (retainersM) gIdx = map.retainers[parseInt(retainersM[1]) - 1];
+    else                 gIdx = map.contacts[parseInt(contactsM[1]) - 1];
+    if (gIdx !== undefined) return `${sub._id}:merit:${gIdx}`;
   }
-  return null; // travel, resources, skill_acq, correspondence, xp — no queue entry
+
+  return null;
 }
 
 function renderSubmissionChecklist() {
@@ -8018,7 +8093,7 @@ function renderSubmissionChecklist() {
   const isOpen = el.dataset.open !== 'false';
   const sorted = [...activeChars].sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
-  // Count how many chars have all present sections sighted/validated
+  // Count how many chars have all present sections confirmed or skipped (no remaining O/?).
   let fullySighted = 0;
   const submittedCount = sorted.filter(c => subByCharId.has(String(c._id))).length;
   for (const char of sorted) {
@@ -8026,7 +8101,7 @@ function renderSubmissionChecklist() {
     if (!sub) continue;
     const allDone = CHK_SECTIONS.every(sec => {
       const st = _chkState(sub, sec.key);
-      return st === 'empty' || st === 'sighted' || st === 'no_action' || st === 'dice_validated' || st === 'drafted' || st === 'confirmed';
+      return st === 'empty' || st === 'no_action' || st === 'confirmed';
     });
     if (allDone) fullySighted++;
   }
@@ -8068,7 +8143,7 @@ function renderSubmissionChecklist() {
           h += `<td class="dt-chk-confirmed${navCls}" title="${tipPfx}Done${jump}"${navA}>\u2605</td>`;
         } else if (state === 'no_action') {
           h += `<td class="dt-chk-no-action${navCls}" title="${tipPfx}Skipped${jump}"${navA}>X</td>`;
-        } else if (state === 'sighted' || state === 'drafted' || state === 'dice_validated') {
+        } else if (state === 'sighted') {
           h += `<td class="dt-chk-sighted dt-chk-cell${navCls}" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tipPfx}In progress${jump} \u2014 Ctrl+click to unsight"${navA}>?</td>`;
         } else {
           h += `<td class="dt-chk-unsighted dt-chk-cell${navCls}" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tipPfx}Not touched${jump} \u2014 Ctrl+click to mark in progress"${navA}>O</td>`;
