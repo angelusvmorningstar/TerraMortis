@@ -83,6 +83,8 @@ export const characterSchema = {
     bp_creation:   { type: 'object', properties: { cp: { type: 'integer', minimum: 0 }, xp: { type: 'integer', minimum: 0 }, lost: { type: 'integer', minimum: 0 } }, additionalProperties: false },
     humanity:      { type: 'integer', minimum: 0, maximum: 10 },
     humanity_base: { type: 'integer', minimum: 0, maximum: 10 },
+    humanity_lost: { type: 'integer', minimum: 0 },
+    humanity_xp:   { type: 'integer', minimum: 0 },
     xp_total:      { type: 'number',  minimum: 0 },
     xp_spent:      { type: 'number',  minimum: 0 },
 
