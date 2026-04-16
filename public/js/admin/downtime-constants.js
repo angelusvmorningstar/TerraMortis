@@ -104,6 +104,14 @@ export const INVESTIGATION_MATRIX = [
     results: ['Gain lead on Restricted information', 'Learn whether the information you seek exists', 'Gain vague Restricted information', 'Gain basic Restricted information', 'Gain detailed Restricted information'] },
 ];
 
+// ── Ambience step ladder ──────────────────────────────────────────────────────
+// Index 0 = worst, index 8 = best. Used for net-change calculations.
+
+export const AMBIENCE_STEPS = [
+  'Hostile', 'Barrens', 'Neglected', 'Untended',
+  'Settled', 'Tended', 'Curated', 'Verdant', 'The Rack',
+];
+
 // ── Territory slug map ────────────────────────────────────────────────────────
 // Normalises any territory string variant to a TERRITORY_DATA id (or null for Barrens).
 // Covers: normaliseTerritoryGrid slugs, legacy slugs, display-name variants, pass-through ids.
