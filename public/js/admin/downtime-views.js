@@ -2383,25 +2383,36 @@ function resolveTerrId(raw) {
 // reads as a coordinator rather than a 180-line monolith.
 
 /**
- * Count feeders per territory for overfeeding calculation.
- * Reads responses.feeding_territories (slug keys); falls back to _raw.feeding.territories
- * (display-name keys) for submissions uploaded before normaliseTerritoryGrid was added.
- * Returns { [terrId]: count }
+ * Single source of truth for feeder counts — used by both the feeding matrix footer
+ * and the ambience Overfeeding column so the two can never diverge.
+ *
+ * Iterates non-retired characters (matching the matrix body), calls _getSubFedTerrs
+ * for each matched submission, and returns counts in two key formats:
+ *   byCsvKey  — { [MATRIX_TERRS csvKey]: count }  — for the matrix footer
+ *   byTerrId  — { [TERRITORY_DATA id]: count }     — for the ambience calculation
+ *   subByCharId — Map<charId, sub>                 — reusable by _buildFeedingMatrixHtml
  */
-function _gatherFeeders(subs) {
-  // Uses _getSubFedTerrs so feeder counts match the feeding matrix footer exactly.
-  // Skips retired characters — matrix also filters them out via characters.filter(c => !c.retired).
-  const feederCounts = {};
-  for (const sub of subs) {
-    const char = findCharacter(sub.character_name, sub.player_name);
-    if (!char || char.retired) continue;
+function _computeMatrixFeederCounts() {
+  const byCsvKey = {};
+  for (const mt of MATRIX_TERRS) byCsvKey[mt.csvKey] = 0;
+  const byTerrId = {};
+
+  const subByCharId = new Map();
+  for (const s of submissions) {
+    const c = findCharacter(s.character_name, s.player_name);
+    if (c && !c.retired) subByCharId.set(String(c._id), s);
+  }
+  for (const char of characters) {
+    if (char.retired) continue;
+    const sub = subByCharId.get(String(char._id));
+    if (!sub) continue;
     for (const csvKey of _getSubFedTerrs(sub)) {
+      if (Object.prototype.hasOwnProperty.call(byCsvKey, csvKey)) byCsvKey[csvKey]++;
       const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
-      if (!tid) continue;
-      feederCounts[tid] = (feederCounts[tid] || 0) + 1;
+      if (tid) byTerrId[tid] = (byTerrId[tid] || 0) + 1;
     }
   }
-  return feederCounts;
+  return { byCsvKey, byTerrId, subByCharId };
 }
 
 /**
@@ -2561,7 +2572,7 @@ function buildAmbienceData(terrs) {
   }
 
   // Aggregate each change source (all accumulators keyed by canonical territory id)
-  const feederCounts                                          = _gatherFeeders(submissions);
+  const { byTerrId: feederCounts }                           = _computeMatrixFeederCounts();
   const { infPos, infNeg }                                    = _gatherInfluence(submissions);
   const { projPos, projNeg, pendingCount: projPending }       = _gatherProjectAmbience(submissions);
   const { alliesPos, alliesNeg, pendingCount: alliesPending } = _gatherMeritAmbience(submissions);
@@ -8303,7 +8314,13 @@ const LEGACY_TERR_KEY_MAP = {
 function getTerritoryAmbience(ambienceKey) {
   if (!ambienceKey) return null;
   const td = TERRITORY_DATA.find(t => t.name === ambienceKey);
-  return td?.ambience || null;
+  if (!td) return null;
+  // Prefer live DB record so matrix cap matches the ambience table (both use cachedTerritories)
+  if (cachedTerritories?.length) {
+    const dbRec = cachedTerritories.find(t => t.id === td.id || t.name === td.name);
+    if (dbRec?.ambience) return dbRec.ambience;
+  }
+  return td.ambience;
 }
 
 /** Translate legacy territory keys in a raw territories object to canonical names. */
@@ -8603,15 +8620,10 @@ function _buildFeedingMatrixHtml() {
     if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
     _mResidents[mt.csvKey] = residents;
   }
-  const _mSubByCharId = new Map();
-  for (const s of submissions) {
-    const c = findCharacter(s.character_name, s.player_name);
-    if (c) _mSubByCharId.set(String(c._id), s);
-  }
+  // Share feeder counts with the ambience Overfeeding column — single source of truth
+  const { byCsvKey: _mFeederCounts, subByCharId: _mSubByCharId } = _computeMatrixFeederCounts();
   const _mChars = characters.filter(c => !c.retired)
     .sort((a, b) => sortName(a).localeCompare(sortName(b)));
-  const _mFeederCounts = {};
-  for (const mt of _mCols) _mFeederCounts[mt.csvKey] = 0;
 
   let h = `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
   h += '<thead><tr><th>Character</th>';
@@ -8633,7 +8645,6 @@ function _buildFeedingMatrixHtml() {
       if (!fed) {
         h += '<td class="dt-matrix-empty">\u2014</td>';
       } else {
-        _mFeederCounts[t.csvKey]++;
         if (!isBarrens && _mResidents[t.csvKey].has(charId)) {
           h += '<td class="dt-matrix-resident">O</td>';
         } else {
