@@ -945,7 +945,8 @@ function renderProjectCard(char, sub, idx) {
  * Pure function — no side effects, no DOM access.
  * Player letter field confirmed as `correspondence` (schema: "In-character letter to NPC").
  */
-function buildLetterContext(char, sub) {
+function buildLetterContext(char, sub, opts = {}) {
+  const { prevCorrespondence = null, prevCycleNumber = null, stVoiceNote = null } = opts;
   const humanity = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
 
@@ -974,8 +975,8 @@ function buildLetterContext(char, sub) {
   if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
   if (char?.concept)  lines.push(`Concept: ${char.concept}`);
   if (char?.mask || char?.dirge) {
-    const mask  = char.mask  || '—';
-    const dirge = char.dirge || '—';
+    const mask  = char.mask  || '\u2014';
+    const dirge = char.dirge || '\u2014';
     lines.push(`Mask: ${mask} | Dirge: ${dirge}`);
   }
   lines.push(`Humanity: ${humanity}`);
@@ -997,24 +998,36 @@ function buildLetterContext(char, sub) {
   lines.push('Player\'s submitted letter:');
   lines.push(playerLetter ? playerLetter.trim() : '[No player letter submitted]');
 
+  if (prevCorrespondence) {
+    lines.push('');
+    lines.push(`Previous letter from this correspondent (Downtime ${prevCycleNumber ?? '?'}):`);
+    lines.push(prevCorrespondence.trim());
+  }
+
+  if (stVoiceNote) {
+    lines.push('');
+    lines.push(`Correspondent voice note: ${stVoiceNote.trim()}`);
+  }
+
   lines.push('');
   lines.push('Write a reply letter (~100-300 words) from one of the above touchstones (or an invented correspondent if none fit) to the character.');
   lines.push('');
   lines.push('Purpose: The letter makes the world feel larger than the character\'s immediate situation. Someone beyond Court still thinks about them, still has opinions about what they are doing.');
   lines.push('');
-  lines.push('Correspondent selection: prefer the player\'s implied recipient first, then an attached touchstone, then a background NPC. If inventing a correspondent, flag it with [ST: Invented NPC \u2014 confirm before sending].');
+  lines.push('Correspondent selection: If previous correspondence exists, maintain the same correspondent and their established voice. Otherwise, prefer the player\'s implied recipient first, then an attached touchstone, then a background NPC. If inventing a correspondent, flag it with [ST: Invented NPC \u2014 confirm before sending].');
+  lines.push('');
+  lines.push('Continuity: If a previous letter exists, the correspondent remembers what they said and what the character told them. Reference or continue threads from the previous exchange where natural. Carry forward established details (names, places, ongoing situations) consistently.');
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Written by the NPC to the character, never from the character');
   lines.push('- Character moments only \u2014 no plot hooks, no hints of future events');
   lines.push('- Match the correspondent\'s voice based on their relationship to the character');
-  lines.push('- Calibrate voice to the character\'s Mask and Dirge');
   lines.push('- Second person (the NPC writes "you" addressing the character)');
   lines.push('- British English');
   lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
   lines.push('- No em dashes');
+  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
   lines.push('- Do not editorialise \u2014 write the scene, not its significance');
-  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
 
   return lines.join('\n');
 }
@@ -2386,10 +2399,33 @@ async function handleSignOff(btn) {
   }
 }
 
-function handleCopyLetterContext(btn) {
+async function handleCopyLetterContext(btn) {
   if (!_currentSub) return;
   const char = getCharForSub(_currentSub);
-  const text = buildLetterContext(char, _currentSub);
+
+  let prevCorrespondence = null;
+  let prevCycleNumber    = null;
+  try {
+    const cycleId  = _currentSub.cycle_id;
+    const allCycles = await apiGet('/api/downtime_cycles').catch(() => []);
+    const cycles    = Array.isArray(allCycles) ? allCycles : [];
+    const currentCycle = cycles.find(c => String(c._id) === String(cycleId));
+    const currentGameNum = currentCycle?.game_number ?? null;
+
+    if (currentGameNum != null) {
+      const prevCycle = cycles.find(c => c.game_number === currentGameNum - 1);
+      if (prevCycle) {
+        const prevSubs = await apiGet(`/api/downtime_submissions?cycle_id=${prevCycle._id}`).catch(() => []);
+        const prevSub  = (Array.isArray(prevSubs) ? prevSubs : [])
+          .find(s => String(s.character_id) === String(_currentSub.character_id));
+        prevCorrespondence = prevSub?.st_narrative?.letter_from_home?.response || null;
+        prevCycleNumber    = prevCycle.game_number;
+      }
+    }
+  } catch { /* leave nulls */ }
+
+  const stVoiceNote = _currentSub.st_narrative?.letter_from_home?.voice_note || null;
+  const text = buildLetterContext(char, _currentSub, { prevCorrespondence, prevCycleNumber, stVoiceNote });
   copyToClipboard(text, btn);
 }
 
