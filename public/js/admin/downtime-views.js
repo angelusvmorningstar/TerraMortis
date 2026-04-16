@@ -34,7 +34,6 @@ let procHideDone = false;           // when true, hide fully-resolved action row
 let cycleReminders = [];       // processing_reminders from the current cycle document
 let attachReminderKey = null;  // key of the sorcery entry with Attach Reminder panel open
 let cachedTerritories = null;  // territories from DB (for ambience dashboard); null = not yet loaded
-let ambDashCollapsed = true;   // collapse state for the Ambience Dashboard panel
 let _procQueueMap = null;      // Map<key, entry> built once per renderProcessingMode call; null outside render
 let _xrefIndex = new Map();   // cross-reference index built once per renderProcessingMode call
 let discDashCollapsed = true;  // collapse state for the Discipline Profile Matrix panel
@@ -2601,169 +2600,6 @@ function buildAmbienceData(terrs) {
   return { rows, pendingAmbienceCount };
 }
 
-/** Render the Ambience Dashboard panel (collapsible). Returns HTML string. */
-function renderAmbienceDashboard() {
-  const terrs = cachedTerritories || TERRITORY_DATA;
-  const { rows, pendingAmbienceCount } = buildAmbienceData(terrs);
-  const profile = currentCycle?.discipline_profile || {};
-  const notes = currentCycle?.ambience_notes || '';
-
-  let h = `<div class="proc-amb-dashboard">`;
-  h += `<div class="proc-amb-header" data-toggle="amb-dash">`;
-  h += `<span class="proc-amb-title">Ambience Dashboard</span>`;
-  if (pendingAmbienceCount > 0) h += `<span class="proc-amb-pending-chip">${pendingAmbienceCount} ambience action${pendingAmbienceCount > 1 ? 's' : ''} pending</span>`;
-  h += `<button class="proc-amb-recalc-btn dt-btn-sm" title="Write projected ambience to all territory records now">Recalculate Territories</button>`;
-  h += `<span class="proc-amb-toggle">${ambDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
-  h += `</div>`;
-
-  if (!ambDashCollapsed) {
-    h += `<div class="proc-amb-body">`;
-
-    // ── Territory Ambience Table ──
-    h += `<table class="proc-amb-table">`;
-    h += `<thead><tr>
-      <th>Territory</th>
-      <th title="Current ambience step">Starting</th>
-      <th title="Fixed -3 entropy per cycle">Entropy</th>
-      <th title="Feeders vs cap">Overfeeding</th>
-      <th title="Influence spend from CSV: +positive / -negative / net">Influence</th>
-      <th title="Ambience project contributions: 1–4 successes = 1 pt, 5+ = 2 pts">Projects</th>
-      <th title="Allies / Status / Retainer automatic ambience actions">Allies</th>
-      <th title="Sum of all columns">Net Change</th>
-      <th title="Projected new ambience step (preview only)">Projected</th>
-      <th title="Confirm this ambience change for cycle push">Confirm</th>
-    </tr></thead>`;
-    h += `<tbody>`;
-    for (const r of rows) {
-      const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
-      const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
-      const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
-      const gap = r.cap - r.feeders;
-      const gapStr = gap >= 0 ? `+${gap}` : String(gap);
-      const gapClass = gap < 0 ? 'proc-amb-neg' : '';
-      const infNet = r.inf_pos - r.inf_neg;
-      const infNetStr = infNet > 0 ? `+${infNet}` : String(infNet);
-      const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
-      const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span> | <span class="proc-amb-neg">-${r.inf_neg}</span> | <span class="${infNetClass}">${infNetStr}</span>`;
-      h += `<tr>`;
-      h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
-      h += `<td>${esc(r.ambience)}</td>`;
-      h += `<td class="proc-amb-neg">${r.entropy}</td>`;
-      h += `<td>${r.feeders}/${r.cap} | <span class="${gapClass}">${gapStr}</span></td>`;
-      h += `<td>${infDisplay}</td>`;
-      const projNet = r.proj_pos - r.proj_neg;
-      const projNetStr = projNet > 0 ? `+${projNet}` : String(projNet);
-      const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
-      const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
-      h += `<td>${projDisplay}</td>`;
-      const alliesNet = r.allies_pos - r.allies_neg;
-      const alliesNetStr = alliesNet > 0 ? `+${alliesNet}` : String(alliesNet);
-      const alliesNetClass = alliesNet > 0 ? 'proc-amb-pos' : alliesNet < 0 ? 'proc-amb-neg' : '';
-      const alliesDisplay = `<span class="proc-amb-pos">+${r.allies_pos}</span> | <span class="proc-amb-neg">-${r.allies_neg}</span> | <span class="${alliesNetClass}">${alliesNetStr}</span>`;
-      h += `<td>${alliesDisplay}</td>`;
-      h += `<td class="proc-amb-net ${netClass}">${netStr}</td>`;
-      h += `<td class="${projClass}">${esc(r.projStep)}${r.projStep !== r.ambience ? (r.net > 0 ? ' &#8593;' : ' &#8595;') : ''}</td>`;
-      // Confirm cell
-      const confirmed = currentCycle?.confirmed_ambience?.[r.id];
-      const projMod = AMBIENCE_MODS[r.projStep] ?? r.ambienceMod ?? 0;
-      if (confirmed) {
-        h += `<td class="proc-amb-confirmed">\u2713 ${esc(confirmed.ambience)} <button class="proc-amb-confirm-btn proc-amb-reconfirm" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Re-confirm</button></td>`;
-      } else {
-        h += `<td><button class="proc-amb-confirm-btn" data-terr-id="${esc(r.id)}" data-proj-step="${esc(r.projStep)}" data-proj-mod="${projMod}">Confirm ${esc(r.projStep)}</button></td>`;
-      }
-      h += `</tr>`;
-    }
-    h += `</tbody></table>`;
-    h += `<p class="proc-amb-note">Net +3 or above = +1 step. Net negative = \u22121 step. Net \u22125 or worse = \u22122 steps. Projects: 1\u20134 successes = 1 pt, 5+ = 2 pts.</p>`;
-
-    // ── Feeding Matrix ──
-    h += `<div class="proc-disc-header" data-toggle="feed-matrix">`;
-    h += `<span class="proc-amb-title">Feeding Matrix</span>`;
-    h += `<span class="proc-amb-toggle">${matrixCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
-    h += `</div>`;
-
-    if (!matrixCollapsed) {
-      const _mCols = MATRIX_TERRS;
-      const _mResidents = {};
-      for (const mt of _mCols) {
-        const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
-        const td = (cachedTerritories || TERRITORY_DATA).find(t => t.id === tid);
-        const residents = new Set(td?.feeding_rights || []);
-        if (td?.regent_id) residents.add(String(td.regent_id));
-        if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
-        _mResidents[mt.csvKey] = residents;
-      }
-      const _mSubByCharId = new Map();
-      for (const s of submissions) {
-        const c = findCharacter(s.character_name, s.player_name);
-        if (c) _mSubByCharId.set(String(c._id), s);
-      }
-      const _mChars = characters.filter(c => !c.retired)
-        .sort((a, b) => sortName(a).localeCompare(sortName(b)));
-      const _mFeederCounts = {};
-      for (const mt of _mCols) _mFeederCounts[mt.csvKey] = 0;
-
-      h += `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
-      h += '<thead><tr><th>Character</th>';
-      for (const t of _mCols) {
-        const amb = getTerritoryAmbience(t.ambienceKey);
-        h += `<th title="${esc(amb || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(amb || 'N/A')}</span></th>`;
-      }
-      h += '</tr></thead><tbody>';
-      for (const char of _mChars) {
-        const charId = String(char._id);
-        const sub = _mSubByCharId.get(charId) || null;
-        const hasSub = !!sub;
-        const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
-        h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}">`;
-        h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
-        for (const t of _mCols) {
-          const isBarrens = t.ambienceKey === null;
-          const fed = fedTerrs.has(t.csvKey);
-          if (!fed) {
-            h += '<td class="dt-matrix-empty">\u2014</td>';
-          } else {
-            _mFeederCounts[t.csvKey]++;
-            if (!isBarrens && _mResidents[t.csvKey].has(charId)) {
-              h += '<td class="dt-matrix-resident">O</td>';
-            } else {
-              h += '<td class="dt-matrix-poach">X</td>';
-            }
-          }
-        }
-        h += '</tr>';
-      }
-      h += '</tbody>';
-      h += '<tfoot><tr><td><strong>Feeders</strong></td>';
-      for (const t of _mCols) {
-        if (t.ambienceKey === null) {
-          h += '<td class="dt-matrix-empty">\u2014</td>';
-        } else {
-          const amb = getTerritoryAmbience(t.ambienceKey);
-          const cap = amb ? (AMBIENCE_CAP[amb] ?? null) : null;
-          const count = _mFeederCounts[t.csvKey];
-          const overCap = cap !== null && count > cap;
-          h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
-        }
-      }
-      h += '</tr></tfoot></table>';
-      h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Feeders / cap from City ambience. Residents set via City tab.</p>';
-      h += '</div>';
-    }
-
-    // ── ST Notes ──
-    h += `<div class="proc-amb-notes-block">`;
-    h += `<label class="proc-amb-notes-lbl">ST Ambience Notes</label>`;
-    h += `<textarea class="proc-amb-notes" placeholder="Working notes about the territory picture this cycle...">${esc(notes)}</textarea>`;
-    h += `</div>`;
-
-    h += `</div>`; // proc-amb-body
-  }
-
-  h += `</div>`; // proc-amb-dashboard
-  return h;
-}
-
 // ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
 
 function renderPreReadSection() {
@@ -3314,9 +3150,6 @@ function renderProcessingMode(container) {
 
   // Character status strip — at-a-glance state + jump-to navigation
   h += renderCharacterStrip(queue);
-
-  // Ambience Dashboard — always shown at top of Processing Mode
-  h += renderAmbienceDashboard();
 
   // Pre-read — Step 0, player questionnaire responses
   h += renderPreReadSection();
@@ -4693,49 +4526,6 @@ function renderProcessingMode(container) {
         renderProcessingMode(container);
       } catch (err) { console.error('Narrative status error:', err.message); }
     });
-  });
-
-  // Wire Ambience Dashboard collapse toggles
-  container.querySelector('[data-toggle="amb-dash"]')?.addEventListener('click', () => {
-    ambDashCollapsed = !ambDashCollapsed;
-    renderProcessingMode(container);
-  });
-  container.querySelector('[data-toggle="feed-matrix"]')?.addEventListener('click', () => {
-    matrixCollapsed = !matrixCollapsed;
-    renderProcessingMode(container);
-  });
-
-  // Wire ambience confirm buttons
-  container.querySelectorAll('.proc-amb-confirm-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!currentCycle) return;
-      const terrId      = btn.dataset.terrId;
-      const ambience    = btn.dataset.projStep;
-      const ambienceMod = parseInt(btn.dataset.projMod, 10);
-      const updated = { ...(currentCycle.confirmed_ambience || {}), [terrId]: { ambience, ambienceMod } };
-      try {
-        await updateCycle(currentCycle._id, { confirmed_ambience: updated });
-        currentCycle.confirmed_ambience = updated;
-        renderProcessingMode(container);
-      } catch (err) { console.error('Failed to confirm ambience:', err.message); }
-    });
-  });
-
-  // Wire Recalculate Territories button
-  container.querySelector('.proc-amb-recalc-btn')?.addEventListener('click', async () => {
-    await _applyProjectedAmbience(false);
-    renderProcessingMode(container);
-  });
-
-  // Wire ST ambience notes textarea (save on blur)
-  container.querySelector('.proc-amb-notes')?.addEventListener('blur', async e => {
-    const val = e.target.value;
-    try {
-      await updateCycle(selectedCycleId, { ambience_notes: val });
-      const idx = allCycles.findIndex(c => c._id === selectedCycleId);
-      if (idx >= 0) allCycles[idx].ambience_notes = val;
-      if (currentCycle) currentCycle.ambience_notes = val;
-    } catch (err) { console.error('Failed to save ambience notes:', err.message); }
   });
 
   // Wire second-opinion flag toggle
