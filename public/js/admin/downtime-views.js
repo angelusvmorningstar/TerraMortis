@@ -2397,19 +2397,34 @@ function _computeMatrixFeederCounts() {
   for (const mt of MATRIX_TERRS) byCsvKey[mt.csvKey] = 0;
   const byTerrId = {};
 
+  // subByCharId still needed for _buildFeedingMatrixHtml body rendering
   const subByCharId = new Map();
   for (const s of submissions) {
     const c = findCharacter(s.character_name, s.player_name);
     if (c && !c.retired) subByCharId.set(String(c._id), s);
   }
-  for (const char of characters) {
-    if (char.retired) continue;
-    const sub = subByCharId.get(String(char._id));
-    if (!sub) continue;
-    for (const csvKey of _getSubFedTerrs(sub)) {
-      if (Object.prototype.hasOwnProperty.call(byCsvKey, csvKey)) byCsvKey[csvKey]++;
-      const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
-      if (tid) byTerrId[tid] = (byTerrId[tid] || 0) + 1;
+
+  // Build terrId → csvKey lookup from MATRIX_TERRS (handles legacy key variants via resolveTerrId)
+  const terrIdToCsvKey = {};
+  for (const mt of MATRIX_TERRS) {
+    if (mt.ambienceKey === null) continue; // skip Barrens
+    const tid = resolveTerrId(mt.csvKey);
+    if (tid) terrIdToCsvKey[tid] = mt.csvKey;
+  }
+
+  // Count from queue feeding entries — same source as Actions in Territories FEEDING row
+  // so matrix footer, ambience overfeeding, and TAAG chip counts all stay consistent.
+  const queue = buildProcessingQueue(submissions);
+  for (const entry of queue) {
+    if (entry.source !== 'feeding') continue;
+    for (const [terrKey, val] of Object.entries(entry.feedTerrs || {})) {
+      if (!val || val === 'none') continue;
+      const tid = resolveTerrId(terrKey);
+      if (!tid) continue; // null = Barrens or unmapped
+      const csvKey = terrIdToCsvKey[tid];
+      if (!csvKey) continue;
+      byCsvKey[csvKey]++;
+      byTerrId[tid] = (byTerrId[tid] || 0) + 1;
     }
   }
   return { byCsvKey, byTerrId, subByCharId };
