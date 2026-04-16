@@ -4415,6 +4415,17 @@ body {
   color: var(--crim);
 }
 
+.proc-acq-notes {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--txt2);
+  white-space: pre-wrap;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
 .proc-add-st-action-row {
   display: flex;
   align-items: center;
