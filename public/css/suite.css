@@ -60,7 +60,10 @@ body{min-height:auto;}
 .effpool-seg b{color:var(--gold);font-weight:normal;}
 .effpool-sep{color:var(--txt3);font-size:13px;}
 .effpool-specs{margin-top:5px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;}
-.effpool-spec{font-family:var(--fh);font-size:12px;color:var(--txt2);letter-spacing:.04em;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:10px;padding:2px 8px;}
+.effpool-spec{font-family:var(--fh);font-size:12px;color:var(--txt2);letter-spacing:.04em;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:10px;padding:2px 8px;cursor:pointer;transition:background .15s,border-color .15s,color .15s;user-select:none;}
+.effpool-spec:hover{border-color:var(--gold);color:var(--txt);}
+.effpool-spec.on{background:var(--gold);color:var(--bg);border-color:var(--gold);}
+.effpool-spec.on .effpool-spec-bonus{color:var(--bg);}
 .effpool-spec-bonus{color:var(--gold);margin-left:2px;}
 
 /* Resistance */

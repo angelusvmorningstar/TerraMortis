@@ -66,7 +66,7 @@ import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } 
 import { apiGet } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
-import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, doRoll, clrHist, effPool } from './suite/roll.js';
+import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
 import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
@@ -649,6 +649,7 @@ Object.assign(window, {
   updPool,
   setAgain,
   togMod,
+  togSpec,
   doRoll,
   clrHist,
   loadPool,
