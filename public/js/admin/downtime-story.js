@@ -481,10 +481,14 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     lines.push(`Other actions in territory: ${otherActions.length ? otherActions.join(', ') : 'None'}`);
   }
 
-  // Player feedback
+  // Story context (ST-written context for AI prompt)
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+  }
+  if (rev.player_facing_note) {
+    lines.push('');
+    lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
   // ST directives
@@ -689,10 +693,14 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   lines.push(`Other actions in territory: ambience ${ambienceChars.join(', ') || 'None'} | patrol ${patrolChars.join(', ') || 'None'} | investigative ${investigateChars.join(', ') || 'None'} | misc ${miscChars.join(', ') || 'None'}`);
   lines.push(`Discipline activity: ${discProfileStr}`);
 
-  // Player feedback
+  // Story context (ST-written context for AI prompt)
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+  }
+  if (rev.player_facing_note) {
+    lines.push('');
+    lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
   // ST directives
@@ -1861,7 +1869,11 @@ function buildActionContext(char, sub, idx) {
 
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+  }
+  if (rev.player_facing_note) {
+    lines.push('');
+    lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
   lines.push('');
@@ -2665,7 +2677,8 @@ function compilePushOutcome(sub) {
         const response = sn.project_responses?.[i]?.response;
         if (response?.trim()) {
           const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
-          parts.push(`## ${label}\n\n${response.trim()}`);
+          const pfn = rev?.player_facing_note?.trim();
+          parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
         }
       });
 
@@ -2677,7 +2690,8 @@ function compilePushOutcome(sub) {
         const response = sn.action_responses?.[i]?.response;
         if (response?.trim()) {
           const label = action.merit_type || `Action ${i + 1}`;
-          parts.push(`## ${label}\n\n${response.trim()}`);
+          const pfn = sub.merit_actions_resolved?.[i]?.player_facing_note?.trim();
+          parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
         }
       });
 

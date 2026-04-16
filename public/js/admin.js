@@ -186,7 +186,21 @@ function switchDomain(domain) {
   if (domain === 'engine') { initNextSession(); initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
-  if (domain === 'downtime') initDowntimeView(chars);
+  if (domain === 'downtime') {
+    initDowntimeView(chars);
+    // City is default tab — show it and init if not yet done
+    document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'city'));
+    const processingPanel = document.getElementById('dt-processing-panel');
+    const cityPanel       = document.getElementById('dt-city-panel');
+    const storyPanel      = document.getElementById('dt-story-panel');
+    if (processingPanel) processingPanel.style.display = 'none';
+    if (cityPanel)       cityPanel.style.display = '';
+    if (storyPanel)      storyPanel.style.display = 'none';
+    if (!_dtCityInited) {
+      _dtCityInited = true;
+      renderCityOverview();
+    }
+  }
   if (domain === 'attendance') initAttendance(chars);
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);
@@ -207,41 +221,40 @@ document.getElementById('sidebar').addEventListener('click', e => {
 
 // ── DT sub-tab switching ──
 
-{
-  let _dtCityInited = false;
-  let _dtStoryInited = false;
-  document.addEventListener('click', e => {
-    const btn = e.target.closest('.dt-sub-tab-btn');
-    if (!btn) return;
-    const tab = btn.dataset.tab;
-    document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const processingPanel = document.getElementById('dt-processing-panel');
-    const cityPanel       = document.getElementById('dt-city-panel');
-    const storyPanel      = document.getElementById('dt-story-panel');
-    if (tab === 'processing') {
-      if (processingPanel) processingPanel.style.display = '';
-      if (cityPanel)       cityPanel.style.display = 'none';
-      if (storyPanel)      storyPanel.style.display = 'none';
-    } else if (tab === 'city') {
-      if (processingPanel) processingPanel.style.display = 'none';
-      if (cityPanel)       cityPanel.style.display = '';
-      if (storyPanel)      storyPanel.style.display = 'none';
-      if (!_dtCityInited) {
-        _dtCityInited = true;
-        renderCityOverview();
-      }
-    } else {
-      if (processingPanel) processingPanel.style.display = 'none';
-      if (cityPanel)       cityPanel.style.display = 'none';
-      if (storyPanel)      storyPanel.style.display = '';
-      if (!_dtStoryInited) {
-        _dtStoryInited = true;
-        initDtStory(null);
-      }
+let _dtCityInited  = false;
+let _dtStoryInited = false;
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.dt-sub-tab-btn');
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+  document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const processingPanel = document.getElementById('dt-processing-panel');
+  const cityPanel       = document.getElementById('dt-city-panel');
+  const storyPanel      = document.getElementById('dt-story-panel');
+  if (tab === 'processing') {
+    if (processingPanel) processingPanel.style.display = '';
+    if (cityPanel)       cityPanel.style.display = 'none';
+    if (storyPanel)      storyPanel.style.display = 'none';
+  } else if (tab === 'city') {
+    if (processingPanel) processingPanel.style.display = 'none';
+    if (cityPanel)       cityPanel.style.display = '';
+    if (storyPanel)      storyPanel.style.display = 'none';
+    if (!_dtCityInited) {
+      _dtCityInited = true;
+      renderCityOverview();
     }
-  });
-}
+  } else {
+    if (processingPanel) processingPanel.style.display = 'none';
+    if (cityPanel)       cityPanel.style.display = 'none';
+    if (storyPanel)      storyPanel.style.display = '';
+    if (!_dtStoryInited) {
+      _dtStoryInited = true;
+      initDtStory(null);
+    }
+  }
+});
 
 // ── Sidebar collapse ──
 

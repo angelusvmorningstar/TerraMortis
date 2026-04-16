@@ -259,7 +259,7 @@ function renderPhaseRibbon(cycle, subs) {
   }
 
   // Main ribbon
-  const mainSteps = ['Game \u0026 Feeding', 'Downtimes', 'Processing', 'Push Ready'];
+  const mainSteps = ['City \u0026 Feeding', 'Downtimes', 'ST Processing', 'Push Ready'];
   mainEl.style.display = '';
   mainEl.innerHTML = mainSteps.map((label, i) => {
     const done   = i < phase;
@@ -285,50 +285,54 @@ function renderPhaseRibbon(cycle, subs) {
   }).join('');
 }
 
+let _shellInited = false;
+
 export async function initDowntimeView(passedChars) {
   const container = document.getElementById('downtime-content');
   if (!container) return;
 
-  container.innerHTML = buildShell();
+  if (!_shellInited) {
+    _shellInited = true;
+    container.innerHTML = buildShell();
 
-  document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
-  document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
-  document.getElementById('dt-open-game').addEventListener('click', handleOpenGamePhase);
-  document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
-  document.getElementById('dt-export-json').addEventListener('click', handleExportJson);
-  document.getElementById('dt-import-csv').addEventListener('click', () => {
-    document.getElementById('dt-import-csv-input').click();
-  });
-  document.getElementById('dt-import-csv-input').addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = '';
-    await processDowntimeCsvFile(file);
-    await renderCycle();
-  });
-  document.getElementById('dt-cycle-sel').addEventListener('change', e => {
-    selectedCycleId = e.target.value;
-    loadCycleById(selectedCycleId);
-  });
-  // Dev-only: preview CSV button (no MongoDB writes) — must be wired before API calls
-  if (location.hostname === 'localhost') {
-    const toolbar = document.querySelector('.dt-toolbar');
-    if (toolbar) {
-      const inp = document.createElement('input');
-      inp.type = 'file';
-      inp.accept = '.csv';
-      inp.style.display = 'none';
-      inp.id = 'dt-preview-input';
-      inp.addEventListener('change', e => { if (e.target.files[0]) processFilePreview(e.target.files[0]); });
+    document.getElementById('dt-new-cycle').addEventListener('click', openResetWizard);
+    document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
+    document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
+    document.getElementById('dt-export-json').addEventListener('click', handleExportJson);
+    document.getElementById('dt-import-csv').addEventListener('click', () => {
+      document.getElementById('dt-import-csv-input').click();
+    });
+    document.getElementById('dt-import-csv-input').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+      await processDowntimeCsvFile(file);
+      await renderCycle();
+    });
+    document.getElementById('dt-cycle-sel').addEventListener('change', e => {
+      selectedCycleId = e.target.value;
+      loadCycleById(selectedCycleId);
+    });
+    // Dev-only: preview CSV button (no MongoDB writes)
+    if (location.hostname === 'localhost') {
+      const toolbar = document.querySelector('.dt-toolbar');
+      if (toolbar) {
+        const inp = document.createElement('input');
+        inp.type = 'file';
+        inp.accept = '.csv';
+        inp.style.display = 'none';
+        inp.id = 'dt-preview-input';
+        inp.addEventListener('change', e => { if (e.target.files[0]) processFilePreview(e.target.files[0]); });
 
-      const btn = document.createElement('button');
-      btn.className = 'dt-btn proc-mode-btn';
-      btn.textContent = 'Preview CSV';
-      btn.title = 'Load CSV for local preview — not saved to MongoDB';
-      btn.addEventListener('click', () => inp.click());
+        const btn = document.createElement('button');
+        btn.className = 'dt-btn proc-mode-btn';
+        btn.textContent = 'Preview CSV';
+        btn.title = 'Load CSV for local preview — not saved to MongoDB';
+        btn.addEventListener('click', () => inp.click());
 
-      toolbar.appendChild(inp);
-      toolbar.appendChild(btn);
+        toolbar.appendChild(inp);
+        toolbar.appendChild(btn);
+      }
     }
   }
 
@@ -347,21 +351,6 @@ export async function initDowntimeView(passedChars) {
 
 function buildShell() {
   return `
-    <div class="dt-toolbar">
-      <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
-      <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
-      <button class="dt-btn dt-btn-game" id="dt-open-game" style="display:none">Open Game Phase</button>
-      <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export MD</button>
-      <button class="dt-btn dt-btn-export" id="dt-export-json" style="display:none">Export JSON</button>
-      <button class="dt-btn dt-btn-export" id="dt-import-csv">Import CSV</button>
-      <input type="file" id="dt-import-csv-input" accept=".csv" style="display:none">
-    </div>
-    <div id="dt-cycle-bar" class="dt-cycle-bar">
-      <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
-      <span id="dt-cycle-status" class="dt-cycle-status"></span>
-    </div>
-    <div id="dt-phase-ribbon" style="display:none"></div>
-    <div id="dt-sub-ribbon" style="display:none"></div>
     <div id="dt-snapshot"></div>
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
@@ -780,7 +769,6 @@ async function loadAllCycles() {
     document.getElementById('dt-submissions').innerHTML = '<p class="placeholder">No cycles. Upload a CSV or create a new cycle.</p>';
     document.getElementById('dt-match-summary').innerHTML = '';
     document.getElementById('dt-close-cycle').style.display = 'none';
-    document.getElementById('dt-open-game').style.display = 'none';
     document.getElementById('dt-export-all').style.display = 'none';
     document.getElementById('dt-export-json').style.display = 'none';
   }
@@ -827,7 +815,6 @@ async function loadCycleById(cycleId) {
 
   statusEl.innerHTML = statusHtml;
   closeBtn.style.display = isActive ? '' : 'none';
-  document.getElementById('dt-open-game').style.display = isClosed ? '' : 'none';
 
   // ── Snapshot panel (GC-4) ──
   renderSnapshotPanel(cycle);
@@ -1356,7 +1343,6 @@ async function processFilePreview(file) {
   document.getElementById('dt-export-all').style.display = devSubs.length ? '' : 'none';
   document.getElementById('dt-export-json').style.display = devSubs.length ? '' : 'none';
   document.getElementById('dt-close-cycle').style.display = 'none';
-  document.getElementById('dt-open-game').style.display = 'none';
   document.getElementById('dt-cycle-status').innerHTML =
     `<span class="dt-status-badge dt-status-approved">preview</span><span class="domain-count">${devSubs.length} submissions</span>`;
   renderSnapshotPanel(devCycle);
@@ -3813,6 +3799,17 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire player_facing_note textarea (save on blur)
+  container.querySelectorAll('.proc-player-note-input').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('blur', async e => {
+      const key = ta.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { player_facing_note: ta.value.trim() });
+    });
+  });
+
   // Wire add-note buttons
   container.querySelectorAll('.proc-add-note-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
@@ -6173,8 +6170,9 @@ function renderActionPanel(entry, review) {
 
   const poolPlayer    = rev.pool_player    || entry.poolPlayer || '';
   const poolValidated = rev.pool_validated || '';
-  const thread        = rev.notes_thread   || [];
-  const feedback      = rev.player_feedback || '';
+  const thread            = rev.notes_thread        || [];
+  const feedback          = rev.player_feedback     || '';
+  const playerFacingNote  = rev.player_facing_note  || '';
   const isSorcery        = entry.source === 'sorcery'
                         || (entry.source === 'st_created' && entry.actionType === 'sorcery');
   const isAmbienceMerit  = entry.source === 'merit' && (entry.actionType === 'ambience_increase' || entry.actionType === 'ambience_decrease');
@@ -6892,10 +6890,16 @@ function renderActionPanel(entry, review) {
   h += '</div>';
   h += '</div>';
 
-  // Player feedback
+  // Story Context (ST-written; fed into AI prompts — not shown directly to player)
   h += '<div class="proc-section proc-feedback-section">';
+  h += '<div class="proc-detail-label">Story Context</div>';
+  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Context for AI prompt (not sent directly to player)...">`;
+  h += '</div>';
+
+  // Player Feedback (player_facing_note — included verbatim in published outcome)
+  h += '<div class="proc-section proc-player-note-section">';
   h += '<div class="proc-detail-label">Player Feedback</div>';
-  h += `<input class="proc-feedback-input" type="text" data-proc-key="${esc(entry.key)}" value="${esc(feedback)}" placeholder="Visible to player (pool correction reason, etc.)...">`;
+  h += `<textarea class="proc-player-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Plain-language note included verbatim in player outcome...">${esc(playerFacingNote)}</textarea>`;
   h += '</div>';
 
   // ── Cross-reference callout (read-only, derived from xrefIndex) ──
