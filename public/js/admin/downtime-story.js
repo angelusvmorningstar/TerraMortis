@@ -236,6 +236,22 @@ export async function initDtStory(cycleId) {
       return;
     }
   });
+
+  // Blur-save for ST Notes free-text field (focusout bubbles, blur doesn't)
+  panel.addEventListener('focusout', async e => {
+    const notesTa = e.target.closest('#dt-story-notes-ta');
+    if (!notesTa || !_currentSub) return;
+    const value = notesTa.value;
+    const statusEl = document.getElementById('dt-story-notes-status');
+    try {
+      await saveNarrativeField(_currentSub._id, { 'st_narrative.general_notes': value });
+      if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+      _currentSub.st_narrative.general_notes = value;
+      if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
+    } catch {
+      if (statusEl) statusEl.textContent = 'Save failed';
+    }
+  });
 }
 
 /**
@@ -1023,8 +1039,19 @@ function renderCharacterView(char, sub) {
     h += renderSection(section, char, sub, stNarrative);
   }
 
+  h += renderGeneralNotes(sub);
   h += renderSignOffPanel(stNarrative, sections, sub);
   h += `</div>`; // dt-story-char-content
+  return h;
+}
+
+function renderGeneralNotes(sub) {
+  const saved = sub?.st_narrative?.general_notes || '';
+  let h = '<div class="dt-story-general-notes">';
+  h += '<label class="dt-story-notes-label">ST Notes</label>';
+  h += `<textarea id="dt-story-notes-ta" class="dt-story-notes-ta" placeholder="Add any notes, plot hooks, or context not tied to a specific section\u2026">${esc(saved)}</textarea>`;
+  h += '<span id="dt-story-notes-status" class="dt-story-save-status"></span>';
+  h += '</div>';
   return h;
 }
 
