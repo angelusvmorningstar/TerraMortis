@@ -2185,6 +2185,12 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   const charName   = char ? displayName(char) : 'Unknown';
   const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
 
+  // Net ambience change
+  const confirmedIdx = AMBIENCE_STEPS.indexOf(confirmedAmb);
+  const currentIdx   = AMBIENCE_STEPS.indexOf(currentAmb);
+  const netChange    = (confirmedIdx >= 0 && currentIdx >= 0) ? confirmedIdx - currentIdx : null;
+  const netChangeStr = netChange !== null ? (netChange > 0 ? `+${netChange}` : String(netChange)) : null;
+
   const lines = [
     'You are helping a Storyteller write a Territory Report for a Vampire: The Requiem 2nd Edition LARP character.',
     '',
@@ -2196,10 +2202,14 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
 
   lines.push('');
   lines.push(`Territory: ${terrName}`);
-  if (regentName)   lines.push(`Regent: ${regentName}`);
-  if (ambienceLine) lines.push(`Ambience: ${ambienceLine}`);
-  lines.push(`Residents this cycle: ${coResidents.length + 1}`); // +1 for the character themselves
-  lines.push(`Poachers this cycle: ${poachers.length}`);
+  if (regentName) lines.push(`Regent: ${regentName}`);
+  if (confirmedAmb && currentAmb && confirmedAmb !== currentAmb && netChangeStr !== null) {
+    lines.push(`Ambience: ${confirmedAmb} (was ${currentAmb}, net change ${netChangeStr})`);
+  } else if (confirmedAmb || currentAmb) {
+    lines.push(`Ambience: ${confirmedAmb || currentAmb}`);
+  }
+  lines.push(`Residents: ${coResidents.length + 1}`); // +1 for the character themselves
+  lines.push(`Poachers: ${poachers.length}`);
 
   lines.push('');
   lines.push('Co-residents this cycle:');
@@ -2212,29 +2222,33 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     lines.push('None');
   }
 
+  lines.push('');
+  lines.push('Poachers this cycle:');
   if (poachers.length) {
-    lines.push('');
-    lines.push('Poachers this cycle:');
     for (const p of poachers) lines.push(`- ${p.name}${p.tags ? ` (${p.tags})` : ''}`);
+  } else {
+    lines.push('None');
   }
 
+  lines.push('');
+  lines.push('Discipline activity in territory:');
   if (discEntries.length) {
-    lines.push('');
-    lines.push('Discipline activity detected in territory:');
     for (const [disc, count] of discEntries) lines.push(`- ${disc}: ${count} use${count !== 1 ? 's' : ''}`);
+  } else {
+    lines.push('None');
   }
 
   lines.push('');
   lines.push('Actions taken in this territory this cycle:');
   lines.push(`- Feeding: ${feedActors.length ? feedActors.join(', ') : 'None'}`);
-  for (const p of ACTION_PHASES.filter(p => p.key !== 'feeding')) {
-    const actors = phaseActors[p.key] || [];
-    if (actors.length) lines.push(`- ${p.label}: ${actors.join(', ')}`);
-  }
+  lines.push(`- Ambience: ${(phaseActors['ambience'] || []).length ? phaseActors['ambience'].join(', ') : 'None'}`);
+  lines.push(`- Support/Patrol: ${(phaseActors['support_patrol'] || []).length ? phaseActors['support_patrol'].join(', ') : 'None'}`);
+  lines.push(`- Investigative: ${(phaseActors['investigate'] || []).length ? phaseActors['investigate'].join(', ') : 'None'}`);
+  lines.push(`- Misc: ${(phaseActors['misc'] || []).length ? phaseActors['misc'].join(', ') : 'None'}`);
 
   if (cycleData?.ambience_notes) {
     lines.push('');
-    lines.push(`ST notes: ${cycleData.ambience_notes}`);
+    lines.push(`ST Notes: ${cycleData.ambience_notes}`);
   }
 
   lines.push('');
@@ -2242,17 +2256,31 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   lines.push('');
   lines.push('Purpose: The territory report conveys residency. What does it feel like to live and feed here this month? Is the territory improving, deteriorating, crowded, comfortable? The character notices change through the mortal world: foot traffic, nightlife, business activity, atmosphere.');
   lines.push('');
+  lines.push('Territory reports should address:');
+  lines.push('- The mortal-world state of the territory (translate ambience into observable conditions)');
+  lines.push('- The quality of the blood and the feel of feeding this month');
+  lines.push('- The impact of crowding (how many residents are drawing from the same pool)');
+  lines.push('- Discipline impact on the territory atmosphere (see thresholds below)');
+  lines.push('');
+  lines.push('Discipline impact thresholds:');
+  lines.push('- 1 use of any discipline: no perceptible impact, below threshold');
+  lines.push('- 2+ uses: leaves a mark residents can sense (describe as atmospheric or behavioural shifts in the mortal population)');
+  lines.push('- 5+ uses: extreme, unmistakable alteration to the territory');
+  lines.push('- 1 use of a physical discipline (Vigour, Celerity, Resilience): unusual mortal reports, something was seen');
+  lines.push('- 3+ uses of a physical discipline: a Masquerade breach has occurred (footage, witnesses, news coverage)');
+  lines.push('');
   lines.push('Style rules:');
   lines.push('- Second person, present tense');
   lines.push('- British English');
   lines.push('- No mechanical terms \u2014 no discipline names, success counts, dot ratings, ambience ratings');
   lines.push('- No em dashes');
+  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
   lines.push('- Do not reveal hidden actions or information the character could not have witnessed');
   lines.push('- Do not name other Kindred unless the character has earned that information through a patrol or investigation action');
-  lines.push('- Translate ambience changes into mortal-world observations (e.g. "Curated" means the territory is thriving, well-tended, excellent feeding conditions)');
+  lines.push('- Translate ambience and discipline impact into mortal-world observations, never use game terminology');
   lines.push('- Character moments only \u2014 no foreshadowing or plot hooks');
   lines.push('- Do not editorialise');
-  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
+  lines.push('- Do not reuse the same observations, imagery, or phrasing from other characters\u2019 territory reports for the same territory this cycle. Multiple characters living in the same territory should each experience it through their own concept and perspective.');
 
   return lines.join('\n');
 }

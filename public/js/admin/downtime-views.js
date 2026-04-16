@@ -6510,6 +6510,11 @@ function renderActionPanel(entry, review) {
 
       // Territory (read-only — set via territory pills elsewhere)
       if (entry.projTerritory) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territory</span> ${esc(entry.projTerritory)}</div>`;
+      // For rote feed projects, show player's nominated feeding territories
+      if (entry.actionType === 'feed') {
+        const _nomText = _playerFeedTerrsText(projSub2);
+        if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
+      }
       // Characters Involved (read-only — structural, not editable here)
       if (entry.projCast) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Characters Involved</span> ${esc(entry.projCast)}</div>`;
     }
@@ -6714,6 +6719,11 @@ function renderActionPanel(entry, review) {
       h += `<div class="proc-feed-desc-actions"><button class="dt-btn proc-feed-desc-save-btn" data-proc-key="${esc(entry.key)}">Save</button><button class="dt-btn proc-feed-desc-cancel-btn" data-proc-key="${esc(entry.key)}">Cancel</button></div>`;
       h += `</div>`;
       h += `</div>`;
+    }
+    // Player's nominated feeding territories (informational — ST override is the pills below)
+    {
+      const _nomText = _playerFeedTerrsText(feedSub);
+      if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
     }
     // Territory pills row — feeding multi-select
     {
@@ -8503,6 +8513,34 @@ function _normTerrKeys(rawTerrs) {
     out[canonical] = v;
   }
   return out;
+}
+
+/** Return a display string of the player's nominated feeding territories (e.g. "Academy, Harbour").
+ *  Returns null if no territories could be determined. */
+function _playerFeedTerrsText(sub) {
+  let terrs = null;
+  if (sub?.responses?.feeding_territories) {
+    try { terrs = JSON.parse(sub.responses.feeding_territories); } catch { terrs = null; }
+  }
+  const labels = [];
+  if (terrs) {
+    for (const [slug, status] of Object.entries(terrs)) {
+      if (!status || status === 'none' || status === 'Not feeding here') continue;
+      const tid = Object.prototype.hasOwnProperty.call(TERRITORY_SLUG_MAP, slug) ? TERRITORY_SLUG_MAP[slug] : null;
+      if (!tid) continue;
+      const mt = MATRIX_TERRS.find(m => TERRITORY_SLUG_MAP[m.csvKey] === tid);
+      if (mt) labels.push(mt.label);
+    }
+  } else {
+    // Legacy: _raw.feeding.territories (display-name keys)
+    const rawTerrs = _normTerrKeys(sub?._raw?.feeding?.territories || {});
+    for (const [csvKey, status] of Object.entries(rawTerrs)) {
+      if (!status || status === 'Not feeding here' || status === 'none') continue;
+      const mt = MATRIX_TERRS.find(m => m.csvKey === csvKey);
+      if (mt) labels.push(mt.label);
+    }
+  }
+  return labels.length > 0 ? labels.join(', ') : null;
 }
 
 /** Return a Set of MATRIX_TERRS csvKeys where this submission's character actually fed. */
