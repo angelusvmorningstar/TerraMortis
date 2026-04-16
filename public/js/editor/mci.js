@@ -168,7 +168,7 @@ export function applyDerivedMerits(c, allChars = []) {
   _STYLE_RETAINER_GRANTS.forEach(styleName => {
     const hasStyle = (c.fighting_styles || []).some(fs =>
       fs.type !== 'merit' && fs.name === styleName &&
-      ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.xp||0) + (fs.up||0)) >= 1
+      ((fs.cp||0) + (fs.free||0) + (fs.free_mci||0) + (fs.free_ots||0) + (fs.xp||0) + (fs.up||0)) >= 1
     );
     if (!hasStyle) return;
     let m = (c.merits || []).find(m => m.name === 'Retainer' && m.granted_by === styleName);
@@ -385,12 +385,13 @@ export function applyDerivedMerits(c, allChars = []) {
   const otsOath = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the scapegoat');
   c._ots_covenant_bonus = 0;
   c._ots_free_dots = 0;
-  if (otsOath) {
-    const otsDots = (otsOath.cp || 0) + (otsOath.xp || 0);
-    if (otsDots > 0) {
-      c._ots_covenant_bonus = otsDots;
-      c._ots_free_dots = otsDots * 2;
-    }
+  const _otsDots = otsOath ? ((otsOath.cp || 0) + (otsOath.xp || 0)) : 0;
+  if (_otsDots > 0) {
+    c._ots_covenant_bonus = _otsDots;
+    c._ots_free_dots = _otsDots * 2;
+  } else {
+    // Oath absent or unpurchased — clear user-allocated OTS dots from all styles
+    (c.fighting_styles || []).forEach(fs => { fs.free_ots = 0; });
   }
 
   // ── Bloodline grants (specs and merits) ──
