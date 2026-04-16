@@ -2236,7 +2236,9 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   } else if (confirmedAmb || currentAmb) {
     lines.push(`Ambience: ${confirmedAmb || currentAmb}`);
   }
-  lines.push(`Residents: ${coResidents.length + 1} | Poachers: ${poachers.length}`);
+  if (terrId !== 'barrens') {
+    lines.push(`Residents: ${coResidents.length + 1} | Poachers: ${poachers.length}`);
+  }
 
   lines.push('');
   lines.push('Discipline activity detected:');
@@ -2246,14 +2248,16 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     lines.push('- None');
   }
 
-  lines.push('');
-  lines.push('Co-residents:');
-  if (coResidents.length) {
-    for (const r of coResidents) {
-      lines.push(`- ${r.name} (${[r.clan, r.covenant].filter(Boolean).join(', ')})`);
+  if (terrId !== 'barrens') {
+    lines.push('');
+    lines.push('Co-residents:');
+    if (coResidents.length) {
+      for (const r of coResidents) {
+        lines.push(`- ${r.name} (${[r.clan, r.covenant].filter(Boolean).join(', ')})`);
+      }
+    } else {
+      lines.push('- None');
     }
-  } else {
-    lines.push('- None');
   }
 
   if (poachers.length) {
@@ -2349,21 +2353,23 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     // Collapsible context block
     h += `<div class="dt-story-context-block${ctxCollapsed}">`;
 
-    // Co-residents block
-    const coResidents = getCoResidents(terr.slug, sub, allSubmissions, allChars);
-    h += `<div class="dt-story-terr-coresidents">`;
-    h += `<span class="dt-story-note-author">Co-residents:</span>`;
-    if (coResidents.length) {
-      h += `<ul class="dt-story-terr-list">`;
-      for (const r of coResidents) {
-        const tags = [r.clan, r.covenant].filter(Boolean).join(', ');
-        h += `<li>${r.name}${tags ? ` (${tags})` : ''}</li>`;
+    // Co-residents block — suppressed for The Barrens (feeding there is isolated)
+    if (terr.id !== 'barrens') {
+      const coResidents = getCoResidents(terr.slug, sub, allSubmissions, allChars);
+      h += `<div class="dt-story-terr-coresidents">`;
+      h += `<span class="dt-story-note-author">Co-residents:</span>`;
+      if (coResidents.length) {
+        h += `<ul class="dt-story-terr-list">`;
+        for (const r of coResidents) {
+          const tags = [r.clan, r.covenant].filter(Boolean).join(', ');
+          h += `<li>${r.name}${tags ? ` (${tags})` : ''}</li>`;
+        }
+        h += `</ul>`;
+      } else {
+        h += ` <em class="dt-story-section-empty">No other residents this cycle</em>`;
       }
-      h += `</ul>`;
-    } else {
-      h += ` <em class="dt-story-section-empty">No other residents this cycle</em>`;
+      h += `</div>`;
     }
-    h += `</div>`;
 
     // Own actions block
     const ownActions = [];
