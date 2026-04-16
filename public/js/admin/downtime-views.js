@@ -449,7 +449,6 @@ function buildShell() {
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
     <div id="dt-feeding-scene"></div>
-    <div id="dt-conflicts"></div>
     <div id="dt-submissions" class="dt-submissions"></div>
     <div id="dt-npcs"></div>`;
 }
@@ -8827,8 +8826,8 @@ function _exportCityOverview(matrix) {
   URL.revokeObjectURL(url);
 }
 
-function renderCityOverview() {
-  const el = document.getElementById('dt-conflicts');
+export function renderCityOverview() {
+  const el = document.getElementById('dt-city-panel');
   if (!el) return;
   if (!submissions.length) { el.innerHTML = ''; return; }
 
