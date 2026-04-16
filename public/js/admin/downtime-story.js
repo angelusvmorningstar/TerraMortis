@@ -2093,7 +2093,7 @@ function getNotableEvents(terrId, thisSub, allSubmissions) {
  * Pure function — no side effects, no DOM access.
  */
 function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycleData, territories) {
-  const terrName = TERRITORY_DISPLAY[terrId] || terrId;
+  const terrName = terrId === 'barrens' ? 'The Barrens' : (TERRITORY_DISPLAY[terrId] || terrId || 'The Barrens');
 
   // Territory object (from live API data if available)
   const terrObj    = (territories || []).find(t => String(t.id || t._id) === String(terrId)) || null;
@@ -2285,32 +2285,36 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   return lines.join('\n');
 }
 
+/** Resolve the array of territory entries for this submission (all fed territories, defaulting to Barrens). */
+function _feedTerrEntries(sub) {
+  const raw = parseFeedingTerritories(sub)
+    .filter(([, v]) => v && v !== 'none' && v !== 'Not feeding here')
+    .map(([slug]) => {
+      const rawId = TERRITORY_SLUG_MAP[slug];
+      return { slug, id: rawId || 'barrens', name: (rawId && TERRITORY_DISPLAY[rawId]) || 'The Barrens' };
+    });
+  // Deduplicate by id
+  const seen = new Set();
+  const deduped = raw.filter(t => { if (seen.has(t.id)) return false; seen.add(t.id); return true; });
+  // Every player gets at least a Barrens entry
+  return deduped.length ? deduped : [{ slug: 'the_barrens', id: 'barrens', name: 'The Barrens' }];
+}
+
 /**
- * Returns true when all resident-territory reports are complete,
- * or when no resident territory was declared (trivially complete).
+ * Returns true when all territory reports for this submission are complete.
+ * All players require at least one report (Barrens is the default when no territory is declared).
  */
 function territoryReportsComplete(sub) {
-  const residentTerrs = parseFeedingTerritories(sub)
-    .filter(([, v]) => v === 'resident')
-    .map(([slug]) => TERRITORY_SLUG_MAP[slug] || null)
-    .filter(id => id !== null);
-  if (residentTerrs.length === 0) return true;
+  const feedTerrs = _feedTerrEntries(sub);
   const reports = sub.st_narrative?.territory_reports || [];
-  return reports.filter(r => r?.territory_id).length >= residentTerrs.length
+  return reports.filter(r => r?.territory_id).length >= feedTerrs.length
     && reports.every(r => !r || r.status === 'complete');
 }
 
 // ── Territory Report section ──────────────────────────────────────────────────
 
 function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars) {
-  const residentTerrs = parseFeedingTerritories(sub)
-    .filter(([, v]) => v === 'resident')
-    .map(([slug]) => ({
-      slug,
-      id: TERRITORY_SLUG_MAP[slug] || null,
-      name: TERRITORY_DISPLAY[TERRITORY_SLUG_MAP[slug]] || slug,
-    }))
-    .filter(t => t.id !== null);
+  const feedTerrs = _feedTerrEntries(sub);
 
   const complete = territoryReportsComplete(sub);
   const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -2322,14 +2326,8 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
   h += `</div>`;
   h += `<div class="dt-story-section-body">`;
 
-  if (!residentTerrs.length) {
-    h += `<div class="dt-story-terr-no-territory">No resident territory declared this cycle. No territory report required.</div>`;
-    h += `</div></div>`;
-    return h;
-  }
-
-  for (let idx = 0; idx < residentTerrs.length; idx++) {
-    const terr = residentTerrs[idx];
+  for (let idx = 0; idx < feedTerrs.length; idx++) {
+    const terr = feedTerrs[idx];
     const terrId = terr.id;
     const terrName = terr.name;
 
