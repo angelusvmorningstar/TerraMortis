@@ -2156,6 +2156,13 @@ function buildProcessingQueue(subs) {
     // ── Acquisitions (resource and skill, from raw.acquisitions form section) ──
     const resAcq   = (raw.acquisitions?.resource_acquisitions || '').trim();
     const skillAcq = (raw.acquisitions?.skill_acquisitions   || '').trim();
+    /** Extract the first "Description: ..." value from an acquisitions blob for the row summary. */
+    function _acqRowSummary(text) {
+      const m = text.match(/description[:\s]+([^\n]+)/i);
+      if (m) return m[1].trim();
+      // Fall back to first non-empty line
+      return text.split('\n').map(l => l.trim()).find(l => l) || text;
+    }
     if (resAcq) {
       queue.push({
         key: `${sub._id}:acq:resources`,
@@ -2165,7 +2172,8 @@ function buildProcessingQueue(subs) {
         phaseNum: 7,
         actionType: 'resources_acquisitions',
         label: 'Resources Acquisitions',
-        description: resAcq,
+        description: _acqRowSummary(resAcq),
+        acqNotes: resAcq,
         source: 'acquisition',
         actionIdx: 0,
         poolPlayer: '',
@@ -2180,7 +2188,8 @@ function buildProcessingQueue(subs) {
         phaseNum: 7,
         actionType: 'skill_acquisitions',
         label: 'Skill Acquisitions',
-        description: skillAcq,
+        description: _acqRowSummary(skillAcq),
+        acqNotes: skillAcq,
         source: 'acquisition',
         actionIdx: 1,
         poolPlayer: '',
@@ -6619,6 +6628,12 @@ function renderActionPanel(entry, review) {
     h += '<div class="proc-section">';
     h += '<div class="proc-detail-label">Mechanical Result</div>';
     h += `<textarea class="proc-ritual-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Potency, duration, effect on target\u2026">${esc(resultNote)}</textarea>`;
+    h += '</div>';
+  } else if (entry.source === 'acquisition') {
+    // Acquisitions: show full player-submitted text, no pool needed
+    h += '<div class="proc-section">';
+    h += '<div class="proc-detail-label">Player Notes</div>';
+    h += `<div class="proc-acq-notes">${esc(entry.acqNotes || entry.description).replace(/\n/g, '<br>')}</div>`;
     h += '</div>';
   } else if (entry.source !== 'merit') {
     // Non-feeding, non-project, non-sorcery, non-merit: standard 2-column layout
