@@ -8753,7 +8753,7 @@ function _buildAmbienceHtml() {
     <th title="Fixed -3 entropy per cycle">Entropy</th>
     <th title="Feeders vs cap">Overfeeding</th>
     <th title="Influence spend: +positive / -negative / net">Influence</th>
-    <th title="Ambience project roll successes">Projects</th>
+    <th title="Ambience project contributions: 1–4 successes = 1 pt, 5+ = 2 pts">Projects</th>
     <th title="Allies / Status / Retainer automatic actions">Allies</th>
     <th title="Sum of all columns">Net Change</th>
     <th title="Projected new ambience step">Projected</th>
@@ -8797,7 +8797,7 @@ function _buildAmbienceHtml() {
     h += `</tr>`;
   }
   h += `</tbody></table></div>`;
-  h += `<p class="proc-amb-note">Positive net = +1 step. Negative net = -1 step. Net below -5 = -2 steps.</p>`;
+  h += `<p class="proc-amb-note">Net +3 or above = +1 step. Net negative = \u22121 step. Net \u22125 or worse = \u22122 steps. Projects: 1\u20134 successes = 1 pt, 5+ = 2 pts.</p>`;
   return h;
 }
 
@@ -9139,6 +9139,7 @@ function renderCityOverview() {
     // ── 2. Ambience ───────────────────────────────────────────────
     h += `<div class="proc-disc-header" data-toggle="city-ambience">`;
     h += `<span class="proc-amb-title">Ambience</span>`;
+    h += `<button class="city-amb-recalc-btn dt-btn-sm" title="Write projected ambience to all territory records now">Recalculate Territories</button>`;
     h += `<span class="proc-amb-toggle">${ovAmbienceCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
     if (!ovAmbienceCollapsed) h += _buildAmbienceHtml();
@@ -9256,6 +9257,12 @@ function renderCityOverview() {
 
   el.querySelector('[data-toggle="city-ambience"]')?.addEventListener('click', () => {
     ovAmbienceCollapsed = !ovAmbienceCollapsed;
+    renderCityOverview();
+  });
+
+  el.querySelector('.city-amb-recalc-btn')?.addEventListener('click', async e => {
+    e.stopPropagation();
+    await _applyProjectedAmbience(false);
     renderCityOverview();
   });
 
