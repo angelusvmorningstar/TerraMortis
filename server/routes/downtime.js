@@ -33,6 +33,77 @@ cyclesRouter.post('/', requireRole('st'), validate(downtimeCycleSchema), async (
   res.status(201).json(created);
 });
 
+// POST /api/downtime_cycles/:id/confirm-feeding — both roles (Regents are players)
+cyclesRouter.post('/:id/confirm-feeding', async (req, res) => {
+  const oid = parseId(req.params.id);
+  if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid cycle ID format' });
+
+  const { territory_id, rights } = req.body;
+  if (!territory_id || !Array.isArray(rights)) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'territory_id and rights[] are required' });
+  }
+
+  // 1. Load cycle; must exist and be active
+  const cycle = await cycles().findOne({ _id: oid });
+  if (!cycle) return res.status(404).json({ error: 'NOT_FOUND', message: 'Cycle not found' });
+  if (cycle.status !== 'active') {
+    return res.status(409).json({ error: 'CONFLICT', message: 'Cycle is not active' });
+  }
+
+  // 2. Load territory; verify regent identity (ST may bypass)
+  const terrCollection = () => getCollection('territories');
+  const terrDoc = await terrCollection().findOne({ id: territory_id });
+  if (!terrDoc) return res.status(404).json({ error: 'NOT_FOUND', message: 'Territory not found' });
+
+  if (req.user.role !== 'st') {
+    const userCharIds = (req.user.character_ids || []).map(id => String(id));
+    if (!userCharIds.includes(String(terrDoc.regent_id))) {
+      return res.status(403).json({ error: 'FORBIDDEN', message: 'You are not the Regent of this territory' });
+    }
+  }
+
+  const regentCharId = String(terrDoc.regent_id);
+
+  // 3. Append-only check — new rights must be a superset of previous
+  const existing = (cycle.regent_confirmations || []).find(c => c.territory_id === territory_id);
+  if (existing) {
+    const removed = existing.rights.filter(r => !rights.includes(r));
+    if (removed.length > 0) {
+      return res.status(409).json({ error: 'CONFLICT', message: 'Cannot remove previously confirmed rights', removed });
+    }
+  }
+
+  // 4. Upsert confirmation entry
+  const newEntry = {
+    territory_id,
+    regent_char_id: regentCharId,
+    confirmed_at: new Date().toISOString(),
+    rights,
+  };
+  const updatedConfirmations = [
+    ...(cycle.regent_confirmations || []).filter(c => c.territory_id !== territory_id),
+    newEntry,
+  ];
+
+  // 5. Recompute gate: all territories with regent_id must have a confirmation
+  const allTerrs = await terrCollection().find({ regent_id: { $exists: true, $ne: null } }).toArray();
+  const confirmedTerritoryIds = new Set(updatedConfirmations.map(c => c.territory_id));
+  const allConfirmed = allTerrs.length === 0 || allTerrs.every(t => confirmedTerritoryIds.has(t.id));
+
+  const updateFields = {
+    regent_confirmations: updatedConfirmations,
+    feeding_rights_confirmed: allConfirmed,
+  };
+
+  // 6. Return updated cycle doc
+  const updated = await cycles().findOneAndUpdate(
+    { _id: oid },
+    { $set: updateFields },
+    { returnDocument: 'after' }
+  );
+  res.json(updated);
+});
+
 // PUT /api/downtime_cycles/:id — ST only
 cyclesRouter.put('/:id', requireRole('st'), async (req, res) => {
   const oid = parseId(req.params.id);

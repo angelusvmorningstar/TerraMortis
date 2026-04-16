@@ -406,5 +406,18 @@ export const downtimeCycleSchema = {
     game_number:      { type: 'integer', minimum: 1 },
     status:           { type: 'string', enum: ['open', 'closed'] },
     submission_count: { type: 'integer', minimum: 0 },
+    feeding_rights_confirmed: { type: 'boolean' },
+    regent_confirmations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          territory_id:    { type: 'string' },
+          regent_char_id:  { type: 'string' },
+          confirmed_at:    { type: 'string' },
+          rights:          { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
   },
 };

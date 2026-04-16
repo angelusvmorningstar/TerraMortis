@@ -31,6 +31,7 @@ let terrDocs = [];           // territory documents from /api/territories
 let _terrExpanded = new Set(); // territory ids currently expanded
 let _feedingEdits = {};      // terrId -> charId[] (working copy while editing)
 let prestigeView = 0; // 0-3 for the four views
+let _activeCycle = null;     // active downtime cycle (for regent confirmation chips)
 
 export async function initCityView() {
   const container = document.getElementById('city-content');
@@ -48,6 +49,12 @@ export async function initCityView() {
   try {
     terrDocs = await apiGet('/api/territories');
   } catch { terrDocs = []; }
+
+  try {
+    const cycles = await apiGet('/api/downtime_cycles');
+    const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    _activeCycle = sorted.find(c => c.status === 'active') || null;
+  } catch { _activeCycle = null; }
 
   renderCity(container);
 }
@@ -297,6 +304,16 @@ function renderTerritories() {
     h += `<div class="terr-ambience">${esc(dispAmbience)} (${modSign}${dispMod})</div>`;
     h += `<div class="terr-regent">Regent: ${regent ? `<span class="terr-regent-name">${esc(displayName(regent))}</span>` : '<span class="terr-vacant">Vacant</span>'}</div>`;
     if (ltDisplay) h += `<div class="terr-lt">Lieutenant: ${ltDisplay}</div>`;
+    // Regent confirmation chip for active cycle
+    if (_activeCycle && td?.regent_id) {
+      const conf = (_activeCycle.regent_confirmations || []).find(c => c.territory_id === t.id);
+      if (conf) {
+        const dateStr = new Date(conf.confirmed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        h += `<div class="terr-confirm-chip terr-confirm-chip--confirmed">Confirmed ${dateStr}</div>`;
+      } else {
+        h += `<div class="terr-confirm-chip terr-confirm-chip--pending">Pending</div>`;
+      }
+    }
     h += `</div>`;
     h += `<span class="terr-chev">${open ? '\u25B2' : '\u25BC'}</span>`;
     h += `</button>`;
