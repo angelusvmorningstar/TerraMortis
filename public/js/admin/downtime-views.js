@@ -7886,7 +7886,7 @@ function renderSubmissionChecklist() {
   let h = '<div class="dt-chk-panel">';
   h += `<div class="dt-chk-toggle" id="dt-chk-toggle">${isOpen ? '\u25BC' : '\u25BA'} Submission Checklist`;
   h += ` <span class="domain-count">${fullySighted} / ${submittedCount} processed</span>`;
-  h += ` <span class="dt-chk-legend">\u2605\u202Fdone &nbsp; \u270E\u202Fdraft &nbsp; \u25C6\u202Fdice &nbsp; \u25A0\u202Fskip &nbsp; ?\u202Fsighted &nbsp; \u2717\u202Fpending &nbsp; \u2014\u202Fn/a</span>`;
+  h += ` <span class="dt-chk-legend">\u2605\u202Fdone &nbsp; ?\u202Fin\u00A0progress &nbsp; X\u202Fskipped &nbsp; O\u202Fnot\u00A0touched &nbsp; \u2014\u202Fn/a</span>`;
   h += `</div>`;
 
   if (isOpen) {
@@ -7917,17 +7917,13 @@ function renderSubmissionChecklist() {
         if (state === 'empty') {
           h += `<td class="dt-chk-empty"${tip ? ` title="${esc(tip)}"` : ''}>\u2014</td>`;
         } else if (state === 'confirmed') {
-          h += `<td class="dt-chk-confirmed${navCls}" title="${tipPfx}Confirmed${jump}"${navA}>\u2605</td>`;
-        } else if (state === 'drafted') {
-          h += `<td class="dt-chk-drafted${navCls}" title="${tipPfx}Draft written${jump}"${navA}>\u270E</td>`;
-        } else if (state === 'dice_validated') {
-          h += `<td class="dt-chk-dice${navCls}" title="${tipPfx}Dice validated${jump}"${navA}>\u25C6</td>`;
+          h += `<td class="dt-chk-confirmed${navCls}" title="${tipPfx}Done${jump}"${navA}>\u2605</td>`;
         } else if (state === 'no_action') {
-          h += `<td class="dt-chk-no-action${navCls}" title="${tipPfx}No action needed${jump}"${navA}>\u25A0</td>`;
-        } else if (state === 'sighted') {
+          h += `<td class="dt-chk-no-action${navCls}" title="${tipPfx}Skipped${jump}"${navA}>X</td>`;
+        } else if (state === 'sighted' || state === 'drafted' || state === 'dice_validated') {
           h += `<td class="dt-chk-sighted dt-chk-cell${navCls}" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tipPfx}In progress${jump} \u2014 Ctrl+click to unsight"${navA}>?</td>`;
         } else {
-          h += `<td class="dt-chk-unsighted dt-chk-cell${navCls}" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tipPfx}Not reviewed${jump} \u2014 Ctrl+click to mark sighted"${navA}>\u2717</td>`;
+          h += `<td class="dt-chk-unsighted dt-chk-cell${navCls}" data-sub-id="${esc(sub._id)}" data-section="${esc(sec.key)}" title="${tipPfx}Not touched${jump} \u2014 Ctrl+click to mark in progress"${navA}>O</td>`;
         }
       }
 
