@@ -13,7 +13,7 @@
 import { apiGet, apiPut } from '../data/api.js';
 import { displayName, esc } from '../data/helpers.js';
 import { getUser } from '../auth/discord.js';
-import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE } from './downtime-constants.js';
+import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
 
 // ── Section routing ───────────────────────────────────────────────────────────
 
