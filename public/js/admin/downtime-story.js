@@ -315,13 +315,15 @@ function projectResponsesComplete(sub) {
 
 /**
  * Section-aware completion check used by the sign-off counter.
- * Handles feeding_validation (approved boolean) and array sections.
  */
 function isSectionDone(stNarrative, sectionKey, sub) {
   if (!stNarrative) return false;
   switch (sectionKey) {
-    case 'feeding_validation':
-      return stNarrative.feeding_validation?.approved === true;
+    case 'feeding_validation': {
+      const fr = sub?.feeding_review || {};
+      const ps = fr.pool_status || 'pending';
+      return ps === 'validated' || ps === 'no_feed' || !!sub?.feeding_roll;
+    }
     case 'territory_reports':
       return territoryReportsComplete(sub);
     case 'project_responses':
@@ -540,7 +542,7 @@ function getApplicableSections(char, sub) {
   const sections = [
     { key: 'letter_from_home',   label: 'Letter from Home' },
     { key: 'touchstone',         label: 'Touchstone' },
-    { key: 'feeding_validation', label: 'Feeding Validation' },
+    { key: 'feeding_validation', label: 'Feeding' },
   ];
 
   sections.push({ key: 'territory_reports', label: 'Territory Report' });
@@ -694,12 +696,12 @@ function renderFeedingValidation(char, sub, stNarrative) {
   const fr         = sub.feeding_review || {};
   const roll       = sub.feeding_roll   || null;
   const poolStatus = fr.pool_status     || 'pending';
-  const approved   = stNarrative?.feeding_validation?.approved === true;
+  const complete   = poolStatus === 'validated' || poolStatus === 'no_feed' || !!roll;
 
   let h = `<div class="dt-story-section" data-section="feeding_validation">`;
   h += `<div class="dt-story-section-header">`;
-  h += `<span class="dt-story-section-label">Feeding Validation</span>`;
-  h += `<span class="dt-story-completion-dot ${approved ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
+  h += `<span class="dt-story-section-label">Feeding</span>`;
+  h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
   h += `</div>`;
   h += `<div class="dt-story-section-body">`;
 
@@ -741,16 +743,6 @@ function renderFeedingValidation(char, sub, stNarrative) {
     h += `</div>`;
 
     h += `</dl>`;
-
-    // Approve / Undo
-    h += `<div class="dt-feed-val-actions">`;
-    if (approved) {
-      h += `<span class="dt-feed-val-approved-lbl">\u2713 Approved</span>`;
-      h += `<button class="dt-story-btn dt-feed-val-approve-btn" data-approve="false" data-sub-id="${esc(String(sub._id))}">Undo</button>`;
-    } else {
-      h += `<button class="dt-story-btn dt-feed-val-approve-btn" data-approve="true" data-sub-id="${esc(String(sub._id))}">Approve</button>`;
-    }
-    h += `</div>`;
   }
 
   h += `</div></div>`;
@@ -1813,46 +1805,114 @@ function getNotableEvents(terrId, thisSub, allSubmissions) {
  * Assembles the Copy Context prompt for a single territory.
  * Pure function — no side effects, no DOM access.
  */
-function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars) {
+function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycleData, territories) {
   const terrName = TERRITORY_DISPLAY[terrId] || terrId;
 
-  // Find slug for co-resident lookup
-  const feedEntries = parseFeedingTerritories(sub);
-  const terrSlug = feedEntries.find(([slug]) => TERRITORY_SLUG_MAP[slug] === terrId)?.[0] || null;
+  // Territory object (from live API data if available)
+  const terrObj    = (territories || []).find(t => String(t.id || t._id) === String(terrId)) || null;
+  const regentChar = terrObj?.regent_id
+    ? allChars.find(c => String(c._id) === String(terrObj.regent_id)) || null
+    : null;
+  const regentName = regentChar ? displayName(regentChar) : null;
 
-  const coResidents = terrSlug ? getCoResidents(terrSlug, sub, allSubmissions, allChars) : [];
-  const notableEvents = getNotableEvents(terrId, sub, allSubmissions);
-
-  // Character's own actions in this territory
-  const ownActions = [];
-  const feedingResolved = sub.st_review?.feeding_status === 'approved';
-  if (feedingResolved && sub.feeding_roll) {
-    const poolSize = sub.feeding_roll.params?.size;
-    ownActions.push(`Feeding${poolSize ? ` (pool: ${poolSize} dice)` : ''}`);
+  // Ambience state
+  const confirmedAmb = cycleData?.confirmed_ambience?.[terrId]?.ambience || null;
+  const currentAmb   = terrObj?.ambience || null;
+  let ambienceLine = null;
+  if (confirmedAmb || currentAmb) {
+    const base = confirmedAmb || currentAmb;
+    if (confirmedAmb && currentAmb && confirmedAmb !== currentAmb) {
+      ambienceLine = `${confirmedAmb} (was ${currentAmb} last cycle)`;
+    } else {
+      ambienceLine = base;
+    }
   }
-  const resolved = sub.projects_resolved || [];
-  resolved.forEach((rev, idx) => {
-    if (!rev || rev.pool_status === 'skipped') return;
-    const slot = idx + 1;
-    const rawTerr = sub.responses?.[`project_${slot}_territory`] || '';
-    if (resolveTerrId(rawTerr) !== terrId) return;
-    const actionLabel = ACTION_TYPE_LABELS[rev.action_type] || rev.action_type || 'Action';
-    const outcome = sub.responses?.[`project_${slot}_outcome`] || '';
-    const successes = rev.roll?.successes ?? null;
-    let line = actionLabel;
-    if (outcome) line += `: ${outcome}`;
-    if (successes !== null) line += ` (${successes} success${successes !== 1 ? 'es' : ''})`;
-    ownActions.push(line);
-  });
+
+  // Resident/poacher counts and lists this cycle
+  const feedEntries = parseFeedingTerritories(sub);
+  const terrSlug    = feedEntries.find(([slug]) => TERRITORY_SLUG_MAP[slug] === terrId)?.[0] || null;
+  const coResidents = terrSlug ? getCoResidents(terrSlug, sub, allSubmissions, allChars) : [];
+
+  // Poachers: other chars feeding in this territory as non-resident
+  const poachers = [];
+  for (const s of allSubmissions) {
+    if (s._id === sub._id) continue;
+    let terrs = {};
+    try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
+    for (const [slug, val] of Object.entries(terrs)) {
+      if (TERRITORY_SLUG_MAP[slug] !== terrId) continue;
+      if (val && val !== 'none' && val !== 'resident') {
+        const c = allChars.find(ch => String(ch._id) === String(s.character_id)) || null;
+        const name = c ? displayName(c) : (s.character_name || 'Unknown');
+        const tags = [c?.clan, c?.covenant].filter(Boolean).join(', ');
+        poachers.push({ name, tags });
+      }
+    }
+  }
+
+  // Discipline activity in territory
+  const discProfile = cycleData?.discipline_profile?.[terrId] || {};
+  const discEntries = Object.entries(discProfile).filter(([, n]) => n > 0);
+
+  // Actions in territory this cycle by phase (all submissions)
+  const ACTION_PHASES = [
+    { key: 'feeding',        label: 'Feeding' },
+    { key: 'ambience',       label: 'Ambience' },
+    { key: 'support_patrol', label: 'Support/Patrol' },
+    { key: 'investigate',    label: 'Investigative' },
+    { key: 'attack',         label: 'Hostile' },
+    { key: 'misc',           label: 'Misc' },
+  ];
+  // Feeding actors
+  const feedActors = [];
+  for (const s of allSubmissions) {
+    let terrs = {};
+    try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
+    for (const [slug, val] of Object.entries(terrs)) {
+      if (TERRITORY_SLUG_MAP[slug] === terrId && val && val !== 'none') {
+        feedActors.push(s.character_name || 'Unknown');
+      }
+    }
+  }
+  // Project-based phase actors
+  const phaseActors = {};
+  for (const p of ACTION_PHASES.filter(p => p.key !== 'feeding')) phaseActors[p.key] = [];
+  for (const s of allSubmissions) {
+    (s.projects_resolved || []).forEach((rev, idx) => {
+      if (!rev || rev.pool_status === 'skipped') return;
+      const slot = idx + 1;
+      const rawTerr = s.responses?.[`project_${slot}_territory`] || '';
+      if (resolveTerrId(rawTerr) !== terrId) return;
+      const phase = rev.action_type || '';
+      const bucket = phase === 'support' || phase === 'patrol_scout' ? 'support_patrol'
+        : phase === 'hide_protect' ? 'support_patrol'
+        : phaseActors[phase] !== undefined ? phase : 'misc';
+      if (phaseActors[bucket] !== undefined) {
+        phaseActors[bucket].push(s.character_name || 'Unknown');
+      }
+    });
+  }
+
+  // ── Build prompt ──
+  const courtTitle = char?.honorific || '';
+  const charName   = char ? displayName(char) : 'Unknown';
+  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
 
   const lines = [
     'You are helping a Storyteller write a Territory Report for a Vampire: The Requiem 2nd Edition LARP character.',
     '',
-    `Character: ${char ? displayName(char) : 'Unknown'}`,
+    `Character: ${fullTitle}`,
   ];
   if (char?.clan)     lines.push(`Clan: ${char.clan}`);
   if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
+
+  lines.push('');
   lines.push(`Territory: ${terrName}`);
+  if (regentName)   lines.push(`Regent: ${regentName}`);
+  if (ambienceLine) lines.push(`Ambience: ${ambienceLine}`);
+  lines.push(`Residents this cycle: ${coResidents.length + 1}`); // +1 for the character themselves
+  lines.push(`Poachers this cycle: ${poachers.length}`);
 
   lines.push('');
   lines.push('Co-residents this cycle:');
@@ -1862,36 +1922,47 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars) {
       lines.push(`- ${r.name}${tags ? ` (${tags})` : ''}`);
     }
   } else {
-    lines.push('No other residents this cycle');
+    lines.push('None');
   }
 
-  if (ownActions.length) {
+  if (poachers.length) {
     lines.push('');
-    lines.push(`This character\u2019s actions in ${terrName}:`);
-    for (const a of ownActions) lines.push(`- ${a}`);
+    lines.push('Poachers this cycle:');
+    for (const p of poachers) lines.push(`- ${p.name}${p.tags ? ` (${p.tags})` : ''}`);
+  }
+
+  if (discEntries.length) {
+    lines.push('');
+    lines.push('Discipline activity detected in territory:');
+    for (const [disc, count] of discEntries) lines.push(`- ${disc}: ${count} use${count !== 1 ? 's' : ''}`);
   }
 
   lines.push('');
-  lines.push(`Notable events in ${terrName} (public-facing):`);
-  if (notableEvents.length) {
-    for (const ev of notableEvents) {
-      const succStr = ev.successes !== null ? ` (${ev.successes} success${ev.successes !== 1 ? 'es' : ''})` : '';
-      const outcomeStr = ev.outcome ? `: ${ev.outcome}` : '';
-      lines.push(`- ${ev.characterName} ran ${ev.actionType}${outcomeStr}${succStr}`);
-    }
-  } else {
-    lines.push('No notable events recorded');
+  lines.push('Actions taken in this territory this cycle:');
+  lines.push(`- Feeding: ${feedActors.length ? feedActors.join(', ') : 'None'}`);
+  for (const p of ACTION_PHASES.filter(p => p.key !== 'feeding')) {
+    const actors = phaseActors[p.key] || [];
+    if (actors.length) lines.push(`- ${p.label}: ${actors.join(', ')}`);
+  }
+
+  if (cycleData?.ambience_notes) {
+    lines.push('');
+    lines.push(`ST notes: ${cycleData.ambience_notes}`);
   }
 
   lines.push('');
-  lines.push(`Write a short territory report (~100 words) describing what the character observed and experienced in ${terrName} this cycle.`);
+  lines.push(`Write a short territory report (~80-120 words) describing what the character observed and experienced in ${terrName} this cycle.`);
+  lines.push('');
+  lines.push('Purpose: The territory report conveys residency. What does it feel like to live and feed here this month? Is the territory improving, deteriorating, crowded, comfortable? The character notices change through the mortal world: foot traffic, nightlife, business activity, atmosphere.');
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Second person, present tense');
   lines.push('- British English');
-  lines.push('- No mechanical terms \u2014 no discipline names, success counts, dot ratings');
+  lines.push('- No mechanical terms \u2014 no discipline names, success counts, dot ratings, ambience ratings');
   lines.push('- No em dashes');
   lines.push('- Do not reveal hidden actions or information the character could not have witnessed');
+  lines.push('- Do not name other Kindred unless the character has earned that information through a patrol or investigation action');
+  lines.push('- Translate ambience changes into mortal-world observations (e.g. "Curated" means the territory is thriving, well-tended, excellent feeding conditions)');
   lines.push('- Character moments only \u2014 no foreshadowing or plot hooks');
   lines.push('- Do not editorialise');
 
@@ -2431,12 +2502,24 @@ async function handleProjectSave(btn, status) {
   }
 }
 
-function handleCopyTerritoryContext(btn) {
+async function handleCopyTerritoryContext(btn) {
   if (!_currentSub) return;
-  const char = getCharForSub(_currentSub);
+  const char   = getCharForSub(_currentSub);
   const terrId = btn.dataset.terrId;
   if (!terrId) return;
-  const text = buildTerritoryContext(char, _currentSub, terrId, _allSubmissions, _allCharacters);
+
+  let cycleData = null, territories = [];
+  try {
+    const cycleId = _currentSub.cycle_id;
+    const [allCycles, terrs] = await Promise.all([
+      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/territories').catch(() => []),
+    ]);
+    cycleData  = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;
+    territories = Array.isArray(terrs) ? terrs : [];
+  } catch { /* use nulls */ }
+
+  const text = buildTerritoryContext(char, _currentSub, terrId, _allSubmissions, _allCharacters, cycleData, territories);
   copyToClipboard(text, btn);
 }
 
