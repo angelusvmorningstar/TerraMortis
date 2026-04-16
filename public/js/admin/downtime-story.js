@@ -25,6 +25,9 @@ const MERIT_SECTIONS = new Set(['allies_actions', 'status_actions', 'retainer_ac
 // Populated after handler functions are defined — see bottom of module.
 const SECTION_SAVE_HANDLERS = {};
 
+// Per-character collapse-complete state (survives re-renders within session)
+const _collapseComplete = new Set(); // char IDs with collapse-complete active
+
 // ── Cacophony Savvy priority order (B7) ──────────────────────────────────────
 
 const CS_ACTION_PRIORITY = [
@@ -142,6 +145,21 @@ export async function initDtStory(cycleId) {
 
   // Event delegation — all panel button clicks, routed by section key
   panel.addEventListener('click', e => {
+    // Collapse-complete toggle
+    const collapseToggle = e.target.closest('.dt-story-collapse-toggle');
+    if (collapseToggle) {
+      e.stopPropagation();
+      const charId = collapseToggle.dataset.charId;
+      if (_collapseComplete.has(charId)) _collapseComplete.delete(charId);
+      else _collapseComplete.add(charId);
+      const isNowActive = _collapseComplete.has(charId);
+      const content = collapseToggle.closest('.dt-story-char-content');
+      if (content) content.dataset.collapseComplete = isNowActive ? 'true' : 'false';
+      collapseToggle.textContent = isNowActive ? 'Show all' : 'Collapse complete';
+      collapseToggle.classList.toggle('active', isNowActive);
+      return;
+    }
+
     // Sign-off (not inside a section)
     const signOffBtn = e.target.closest('.dt-story-sign-off-btn');
     if (signOffBtn && !signOffBtn.disabled) { handleSignOff(signOffBtn); return; }
@@ -190,6 +208,28 @@ export async function initDtStory(cycleId) {
       const handler = SECTION_SAVE_HANDLERS[sectionKey];
       if (handler)                        { handler(completeBtn, 'complete');        return; }
       if (MERIT_SECTIONS.has(sectionKey)) { handleActionSave(completeBtn, 'complete'); return; }
+      return;
+    }
+
+    // Needs Revision — toggle revision area visibility
+    const revisionBtn = e.target.closest('.dt-story-revision-note-btn');
+    if (revisionBtn) {
+      const container = revisionBtn.closest('.dt-story-proj-card, .dt-story-merit-card, .dt-story-terr-section, .dt-story-cs-slot')
+                     || revisionBtn.closest('.dt-story-section');
+      const area = container?.querySelector('.dt-story-revision-area');
+      if (area) {
+        area.classList.toggle('hidden');
+        if (!area.classList.contains('hidden')) area.querySelector('.dt-story-revision-ta')?.focus();
+      }
+      return;
+    }
+
+    // Save Revision Note
+    const revisionSaveBtn = e.target.closest('.dt-story-revision-save-btn');
+    if (revisionSaveBtn && !revisionSaveBtn.disabled) {
+      const handler = SECTION_SAVE_HANDLERS[sectionKey];
+      if (handler)                              { handler(revisionSaveBtn, 'needs_revision'); return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(revisionSaveBtn, 'needs_revision'); return; }
       return;
     }
   });
@@ -768,7 +808,9 @@ function renderNavRail() {
   const sorted = [..._allSubmissions].sort((a, b) => {
     const ca = getCharForSub(a);
     const cb = getCharForSub(b);
-    return (ca ? ca.name.toLowerCase() : '').localeCompare(cb ? cb.name.toLowerCase() : '');
+    const na = ca ? (ca.moniker || ca.name).toLowerCase() : '';
+    const nb = cb ? (cb.moniker || cb.name).toLowerCase() : '';
+    return na.localeCompare(nb);
   });
 
   let h = '';
@@ -808,23 +850,157 @@ function selectCharacter(charId) {
   view.innerHTML = renderCharacterView(char, _currentSub);
 }
 
+// ── Progress tracker ──────────────────────────────────────────────────────────
+
+/**
+ * Returns { state: 'empty'|'draft'|'complete', done: N, total: N } for a section.
+ * Used by the progress tracker chips.
+ */
+function getSectionProgress(stNarrative, sectionKey, sub) {
+  const sn = stNarrative || {};
+
+  if (sectionKey === 'feeding_validation') {
+    const done = isSectionDone(stNarrative, sectionKey, sub);
+    return { state: done ? 'complete' : 'empty', done: done ? 1 : 0, total: 1 };
+  }
+
+  if (sectionKey === 'letter_from_home' || sectionKey === 'touchstone') {
+    const entry = sn[sectionKey] || {};
+    if (entry.status === 'complete')        return { state: 'complete',  done: 1, total: 1 };
+    if (entry.status === 'needs_revision')  return { state: 'revision',  done: 0, total: 1 };
+    if (entry.response)                     return { state: 'draft',     done: 0, total: 1 };
+    return { state: 'empty', done: 0, total: 1 };
+  }
+
+  if (sectionKey === 'project_responses') {
+    const resolved   = sub?.projects_resolved || [];
+    const applicable = resolved.filter(r => r?.pool_status !== 'skipped');
+    if (!applicable.length) return { state: 'complete', done: 0, total: 0 };
+    const responses   = sn.project_responses || [];
+    const done        = applicable.filter((_, i) => responses[i]?.status === 'complete').length;
+    const hasRevision = applicable.some((_, i) => responses[i]?.status === 'needs_revision');
+    const hasDraft    = applicable.some((_, i) => responses[i]?.response);
+    const state = done === applicable.length ? 'complete' : hasRevision ? 'revision' : hasDraft ? 'draft' : 'empty';
+    return { state, done, total: applicable.length };
+  }
+
+  if (sectionKey === 'territory_reports') {
+    const feedTerrs   = _feedTerrEntries(sub);
+    if (!feedTerrs.length) return { state: 'complete', done: 0, total: 0 };
+    const reports     = sn.territory_reports || [];
+    const done        = feedTerrs.filter((_, i) => reports[i]?.status === 'complete').length;
+    const hasRevision = feedTerrs.some((_, i) => reports[i]?.status === 'needs_revision');
+    const hasDraft    = feedTerrs.some((_, i) => reports[i]?.response);
+    const state = done === feedTerrs.length ? 'complete' : hasRevision ? 'revision' : hasDraft ? 'draft' : 'empty';
+    return { state, done, total: feedTerrs.length };
+  }
+
+  if (sectionKey === 'resource_approvals') {
+    const applicable = (sub?.merit_actions || []).filter((a, i) => {
+      const cat = deriveMeritCategory(a.merit_type);
+      const rev = sub?.merit_actions_resolved?.[i] || {};
+      return cat === 'resources' && rev.pool_status !== 'skipped';
+    });
+    if (!applicable.length) return { state: 'complete', done: 0, total: 0 };
+    const approvals = sn.resource_approvals || [];
+    const done      = applicable.filter((_, i) => approvals[i]?.approved !== undefined).length;
+    return { state: done === applicable.length ? 'complete' : done > 0 ? 'draft' : 'empty', done, total: applicable.length };
+  }
+
+  if (sectionKey === 'cacophony_savvy') {
+    const char   = getCharForSub(sub);
+    const csDots = getCSDots(char);
+    if (!csDots) return { state: 'complete', done: 0, total: 0 };
+    const saved       = sn.cacophony_savvy || [];
+    const done        = saved.filter(s => s?.status === 'complete').length;
+    const hasRevision = saved.some(s => s?.status === 'needs_revision');
+    const hasDraft    = saved.some(s => s?.response);
+    const state = done === csDots ? 'complete' : hasRevision ? 'revision' : hasDraft ? 'draft' : 'empty';
+    return { state, done, total: csDots };
+  }
+
+  // Merit action sections
+  const CATEGORY_MAP = {
+    allies_actions:     ['allies'],
+    status_actions:     ['status'],
+    retainer_actions:   ['retainer', 'staff'],
+    contact_requests:   ['contacts'],
+    misc_merit_actions: ['misc'],
+  };
+  const cats = CATEGORY_MAP[sectionKey];
+  if (cats) {
+    const actions  = sub?.merit_actions || [];
+    const resolved = sub?.merit_actions_resolved || [];
+    const applicable = actions
+      .map((a, i) => ({ a, i, rev: resolved[i] || {} }))
+      .filter(({ a, rev }) => cats.includes(deriveMeritCategory(a.merit_type)) && rev.pool_status !== 'skipped');
+    if (!applicable.length) return { state: 'complete', done: 0, total: 0 };
+    const responses   = sn.action_responses || [];
+    const done        = applicable.filter(({ i }) => responses[i]?.status === 'complete').length;
+    const hasRevision = applicable.some(({ i }) => responses[i]?.status === 'needs_revision');
+    const hasDraft    = applicable.some(({ i }) => responses[i]?.response);
+    const state = done === applicable.length ? 'complete' : hasRevision ? 'revision' : hasDraft ? 'draft' : 'empty';
+    return { state, done, total: applicable.length };
+  }
+
+  return { state: 'empty', done: 0, total: 1 };
+}
+
+const TRACKER_LABELS = {
+  feeding_validation: 'Feeding',
+  letter_from_home:   'Letter',
+  touchstone:         'Touchstone',
+  project_responses:  'Projects',
+  territory_reports:  'Territory',
+  allies_actions:     'Allies',
+  status_actions:     'Status',
+  retainer_actions:   'Retainers',
+  contact_requests:   'Contacts',
+  resource_approvals: 'Resources',
+  misc_merit_actions: 'Influence',
+  cacophony_savvy:    'Cacophony',
+};
+
+function renderProgressTracker(char, sub) {
+  const stNarrative = sub?.st_narrative;
+  const sections    = getApplicableSections(char, sub);
+
+  let h = `<div class="dt-story-progress-tracker">`;
+  for (const section of sections) {
+    const { state, done, total } = getSectionProgress(stNarrative, section.key, sub);
+    const label    = TRACKER_LABELS[section.key] || section.label;
+    const countStr = total > 1 ? ` ${done}/${total}` : '';
+    h += `<span class="dt-story-tracker-chip ${state}">${label}${countStr}</span>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
 // ── Character view ────────────────────────────────────────────────────────────
 
 function renderCharacterView(char, sub) {
   const stNarrative = sub?.st_narrative;
   const sections = getApplicableSections(char, sub);
+  const charId = String(char?._id || '');
+  const collapseActive = _collapseComplete.has(charId);
+  const collapseAttr = collapseActive ? ' data-collapse-complete="true"' : '';
 
-  let h = '';
+  let h = `<div class="dt-story-char-content"${collapseAttr}>`;
+
   h += `<div class="dt-story-char-header">`;
   h += `<h3 class="dt-story-char-name">${char ? displayName(char) : 'Unknown'}</h3>`;
   if (stNarrative?.locked) h += `<span class="dt-story-locked-badge">Locked</span>`;
+  h += `<button class="dt-story-collapse-toggle${collapseActive ? ' active' : ''}" data-char-id="${charId}">${collapseActive ? 'Show all' : 'Collapse complete'}</button>`;
   h += `</div>`;
+
+  h += renderProgressTracker(char, sub);
 
   for (const section of sections) {
     h += renderSection(section, char, sub, stNarrative);
   }
 
   h += renderSignOffPanel(stNarrative, sections, sub);
+  h += `</div>`; // dt-story-char-content
   return h;
 }
 
@@ -857,7 +1033,7 @@ function renderSection(section, char, sub, stNarrative) {
 function renderSectionScaffold(key, label, stNarrative) {
   const complete = isSectionComplete(stNarrative, key);
   let h = '';
-  h += `<div class="dt-story-section" data-section="${key}">`;
+  h += `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="${key}">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">${label}</span>`;
   h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
@@ -875,7 +1051,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   const poolStatus = fr.pool_status     || 'pending';
   const complete   = poolStatus === 'validated' || poolStatus === 'no_feed' || !!roll;
 
-  let h = `<div class="dt-story-section" data-section="feeding_validation">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="feeding_validation">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">Feeding</span>`;
   h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
@@ -975,9 +1151,11 @@ function renderProjectCard(char, sub, idx) {
   const roll = rev.roll || null;
   const notes = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
 
-  const saved    = sub.st_narrative?.project_responses?.[idx] || {};
-  const savedTxt = saved.response || '';
+  const saved      = sub.st_narrative?.project_responses?.[idx] || {};
+  const savedTxt   = saved.response || '';
   const isComplete = saved.status === 'complete';
+  const isRevision = saved.status === 'needs_revision';
+  const revNote    = saved.revision_note || '';
 
   // Build roll summary
   let rollSummary = '';
@@ -996,7 +1174,7 @@ function renderProjectCard(char, sub, idx) {
   const ctxCollapsed = savedTxt ? ' collapsed' : '';
   const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
 
-  let h = `<div class="dt-story-proj-card${isComplete ? ' complete' : ''}" data-proj-idx="${idx}">`;
+  let h = `<div class="dt-story-proj-card${isComplete ? ' complete' : isRevision ? ' revision' : ''}" data-proj-idx="${idx}">`;
 
   // Header row
   h += `<div class="dt-story-proj-header">`;
@@ -1030,15 +1208,22 @@ function renderProjectCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" rows="4" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn" data-proj-idx="${idx}">Save Draft</button>`;
+  h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}" data-proj-idx="${idx}">Needs Revision</button>`;
   h += `<button class="dt-story-mark-complete-btn" data-proj-idx="${idx}">`;
   h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
   h += `</button>`;
+  h += `</div>`;
+  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" data-proj-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-revision-save-btn" data-proj-idx="${idx}">Save Revision</button>`;
+  h += `</div>`;
   h += `</div>`;
 
   h += `</div>`;
@@ -1139,8 +1324,10 @@ function buildTouchstoneContext(char, sub) {
 }
 
 function renderLetterFromHome(char, sub, stNarrative) {
-  const complete = isSectionComplete(stNarrative, 'letter_from_home');
-  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  const complete   = isSectionComplete(stNarrative, 'letter_from_home');
+  const isRevision = stNarrative?.letter_from_home?.status === 'needs_revision';
+  const revNote    = stNarrative?.letter_from_home?.revision_note || '';
+  const dotClass   = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
 
   // Pre-fill: st_narrative first, then DT1 legacy fallback
   const savedTxt =
@@ -1161,7 +1348,7 @@ function renderLetterFromHome(char, sub, stNarrative) {
   const ctxCollapsed = savedTxt ? ' collapsed' : '';
   const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
 
-  let h = `<div class="dt-story-section" data-section="letter_from_home">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="letter_from_home">`;
 
   // Section header
   h += `<div class="dt-story-section-header">`;
@@ -1207,15 +1394,22 @@ function renderLetterFromHome(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
+  h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}">Needs Revision</button>`;
   h += `<button class="dt-story-mark-complete-btn">`;
   h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
   h += `</button>`;
+  h += `</div>`;
+  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
+  h += `</div>`;
   h += `</div>`;
 
   h += `</div>`; // section-body
@@ -1226,8 +1420,10 @@ function renderLetterFromHome(char, sub, stNarrative) {
 // ── Touchstone Vignette section ───────────────────────────────────────────────
 
 function renderTouchstone(char, sub, stNarrative) {
-  const complete = isSectionComplete(stNarrative, 'touchstone');
-  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  const complete   = isSectionComplete(stNarrative, 'touchstone');
+  const isRevision = stNarrative?.touchstone?.status === 'needs_revision';
+  const revNote    = stNarrative?.touchstone?.revision_note || '';
+  const dotClass   = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
 
   // Pre-fill: st_narrative first, then DT1 legacy fallback (legacy key: touchstone_vignette)
   const savedTxt =
@@ -1242,7 +1438,7 @@ function renderTouchstone(char, sub, stNarrative) {
   const ctxCollapsed = savedTxt ? ' collapsed' : '';
   const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
 
-  let h = `<div class="dt-story-section" data-section="touchstone">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="touchstone">`;
 
   // Section header
   h += `<div class="dt-story-section-header">`;
@@ -1303,15 +1499,22 @@ function renderTouchstone(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
+  h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}">Needs Revision</button>`;
   h += `<button class="dt-story-mark-complete-btn">`;
   h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
   h += `</button>`;
+  h += `</div>`;
+  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-revision-save-btn">Save Revision</button>`;
+  h += `</div>`;
   h += `</div>`;
 
   h += `</div>`; // section-body
@@ -1681,6 +1884,8 @@ function renderActionCard(char, sub, idx) {
   const saved      = sub.st_narrative?.action_responses?.[idx] || {};
   const savedTxt   = saved.response || '';
   const isComplete = saved.status === 'complete';
+  const isRevision = saved.status === 'needs_revision';
+  const revNote    = saved.revision_note || '';
 
   const dotStr  = dots ? '\u25CF'.repeat(dots) : '';
   const qualStr = qualifier ? ` (${qualifier})` : '';
@@ -1700,7 +1905,7 @@ function renderActionCard(char, sub, idx) {
   const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
   const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
 
-  let h = `<div class="dt-story-merit-card${isComplete ? ' complete' : ''}" data-action-idx="${idx}">`;
+  let h = `<div class="dt-story-merit-card${isComplete ? ' complete' : isRevision ? ' revision' : ''}" data-action-idx="${idx}">`;
 
   // Header
   h += `<div class="dt-story-merit-header">`;
@@ -1732,14 +1937,21 @@ function renderActionCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" rows="3" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
 
   // Buttons
   h += `<div class="dt-story-card-actions">`;
   h += `<button class="dt-story-save-draft-btn" data-action-idx="${idx}">Save Draft</button>`;
+  h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}" data-action-idx="${idx}">Needs Revision</button>`;
   h += `<button class="dt-story-mark-complete-btn" data-action-idx="${idx}">`;
   h += `<span class="dt-story-completion-dot ${completeDotClass}"></span> Mark Complete`;
   h += `</button>`;
+  h += `</div>`;
+  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" data-action-idx="${idx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-revision-save-btn" data-action-idx="${idx}">Save Revision</button>`;
+  h += `</div>`;
   h += `</div>`;
 
   h += `</div>`;
@@ -1836,7 +2048,7 @@ function renderResourcesSection(char, sub) {
         h += `</div>`;
       }
       if (isFlagged) {
-        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" rows="2" placeholder="Flag note\u2026">${flagNote}</textarea>`;
+        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" placeholder="Flag note\u2026">${flagNote}</textarea>`;
         h += `<div class="dt-story-card-actions">`;
         h += `<button class="dt-story-save-draft-btn dt-story-flag-note-save" data-action-idx="${i}">Save Note</button>`;
         h += `</div>`;
@@ -2103,7 +2315,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
   const complete = territoryReportsComplete(sub);
   const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
 
-  let h = `<div class="dt-story-section" data-section="territory_reports">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="territory_reports">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">Territory Report</span>`;
   h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
@@ -2116,14 +2328,16 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     const terrName = terr.name;
 
     const stNarrEntry = stNarrative?.territory_reports?.[idx];
-    const legacyText = idx === 0 ? (sub.st_review?.narrative?.territory_report?.text || '') : '';
-    const savedTxt = stNarrEntry?.response || legacyText;
-    const isComplete = stNarrEntry?.status === 'complete';
+    const legacyText  = idx === 0 ? (sub.st_review?.narrative?.territory_report?.text || '') : '';
+    const savedTxt    = stNarrEntry?.response || legacyText;
+    const isComplete  = stNarrEntry?.status === 'complete';
+    const isRevision  = stNarrEntry?.status === 'needs_revision';
+    const revNote     = stNarrEntry?.revision_note || '';
 
     const ctxCollapsed = savedTxt ? ' collapsed' : '';
     const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
 
-    h += `<div class="dt-story-terr-section" data-terr-idx="${idx}" data-terr-id="${terrId}">`;
+    h += `<div class="dt-story-terr-section${isComplete ? ' complete' : ''}" data-terr-idx="${idx}" data-terr-id="${terrId}">`;
 
     // Territory sub-section header
     h += `<div class="dt-story-terr-header">`;
@@ -2208,14 +2422,21 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</div>`; // context-block
 
     // Response textarea
-    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="4" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
+    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
 
     // Action buttons
     h += `<div class="dt-story-card-actions">`;
     h += `<button class="dt-story-save-draft-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Save Draft</button>`;
+    h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}" data-terr-idx="${idx}" data-terr-id="${terrId}">Needs Revision</button>`;
     h += `<button class="dt-story-mark-complete-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">`;
     h += `<span class="dt-story-completion-dot ${isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span> Mark Complete`;
     h += `</button>`;
+    h += `</div>`;
+    h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
+    h += `<textarea class="dt-story-revision-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+    h += `<div class="dt-story-card-actions">`;
+    h += `<button class="dt-story-revision-save-btn" data-terr-idx="${idx}" data-terr-id="${terrId}">Save Revision</button>`;
+    h += `</div>`;
     h += `</div>`;
 
     h += `</div>`; // dt-story-terr-section
@@ -2322,9 +2543,11 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
     const savedSlot   = saved[slotIdx] || null;
     const savedTxt    = savedSlot?.response || '';
     const isComplete  = savedSlot?.status === 'complete';
+    const isRevision  = savedSlot?.status === 'needs_revision';
+    const revNote     = savedSlot?.revision_note || '';
     const dotClass    = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
 
-    h += `<div class="dt-story-cs-slot${isComplete ? ' complete' : ''}" data-slot-idx="${slotIdx}">`;
+    h += `<div class="dt-story-cs-slot${isComplete ? ' complete' : isRevision ? ' revision' : ''}" data-slot-idx="${slotIdx}">`;
     h += `<div class="dt-story-cs-slot-header">`;
     h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
     h += `<span class="dt-story-cs-slot-label">Slot ${slotIdx + 1}</span>`;
@@ -2352,14 +2575,21 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</div>`; // context-block
 
       // Textarea
-      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" rows="5" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
 
       // Action buttons
       h += `<div class="dt-story-card-actions">`;
       h += `<button class="dt-story-save-draft-btn" data-slot-idx="${slotIdx}">Save Draft</button>`;
+      h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}" data-slot-idx="${slotIdx}">Needs Revision</button>`;
       h += `<button class="dt-story-mark-complete-btn" data-slot-idx="${slotIdx}">`;
       h += `<span class="dt-story-completion-dot ${dotClass}"></span> Mark Complete`;
       h += `</button>`;
+      h += `</div>`;
+      h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
+      h += `<textarea class="dt-story-revision-ta" data-slot-idx="${slotIdx}" rows="2" placeholder="Revision note for player\u2026">${revNote}</textarea>`;
+      h += `<div class="dt-story-card-actions">`;
+      h += `<button class="dt-story-revision-save-btn" data-slot-idx="${slotIdx}">Save Revision</button>`;
+      h += `</div>`;
       h += `</div>`;
     }
 
@@ -2440,12 +2670,24 @@ async function handleCopyLetterContext(btn) {
   copyToClipboard(text, btn);
 }
 
+function _refreshProgressTracker() {
+  if (!_currentSub) return;
+  const tracker = document.querySelector('.dt-story-progress-tracker');
+  if (!tracker) return;
+  const char = getCharForSub(_currentSub);
+  const tmp  = document.createElement('div');
+  tmp.innerHTML = renderProgressTracker(char, _currentSub);
+  tracker.replaceWith(tmp.firstElementChild);
+}
+
 async function handleLetterSave(btn, status) {
   const section = btn.closest('.dt-story-section[data-section="letter_from_home"]');
   if (!section || !_currentSub) return;
 
-  const ta = section.querySelector('.dt-story-response-ta');
-  const text = ta?.value || '';
+  const ta       = section.querySelector('.dt-story-response-ta');
+  const text     = ta?.value || '';
+  const revTa    = section.querySelector('.dt-story-revision-ta');
+  const revNote  = revTa?.value || '';
 
   const user = getUser();
   const author = user?.global_name || user?.username || 'ST';
@@ -2456,14 +2698,19 @@ async function handleLetterSave(btn, status) {
 
   try {
     await saveNarrativeField(_currentSub._id, {
-      'st_narrative.letter_from_home': { response: text, author, status },
+      'st_narrative.letter_from_home': { response: text, author, status, revision_note: revNote },
     });
 
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.letter_from_home = {
       ...(_currentSub.st_narrative.letter_from_home || {}),
-      response: text, author, status,
+      response: text, author, status, revision_note: revNote,
     };
+
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
 
     const char = getCharForSub(_currentSub);
     const newHtml = renderLetterFromHome(char, _currentSub, _currentSub.st_narrative);
@@ -2539,8 +2786,10 @@ async function handleTouchstoneSave(btn, status) {
   const section = btn.closest('.dt-story-section[data-section="touchstone"]');
   if (!section || !_currentSub) return;
 
-  const ta = section.querySelector('.dt-story-response-ta');
-  const text = ta?.value || '';
+  const ta      = section.querySelector('.dt-story-response-ta');
+  const text    = ta?.value || '';
+  const revTa   = section.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
 
   const user = getUser();
   const author = user?.global_name || user?.username || 'ST';
@@ -2551,14 +2800,19 @@ async function handleTouchstoneSave(btn, status) {
 
   try {
     await saveNarrativeField(_currentSub._id, {
-      'st_narrative.touchstone': { response: text, author, status },
+      'st_narrative.touchstone': { response: text, author, status, revision_note: revNote },
     });
 
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.touchstone = {
       ...(_currentSub.st_narrative.touchstone || {}),
-      response: text, author, status,
+      response: text, author, status, revision_note: revNote,
     };
+
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
 
     const char = getCharForSub(_currentSub);
     const newHtml = renderTouchstone(char, _currentSub, _currentSub.st_narrative);
@@ -2589,15 +2843,16 @@ async function handleProjectSave(btn, status) {
   if (!card || !_currentSub) return;
   const idx = parseInt(card.dataset.projIdx, 10);
 
-  const ta = card.querySelector('.dt-story-response-ta');
-  const text = ta?.value || '';
+  const ta      = card.querySelector('.dt-story-response-ta');
+  const text    = ta?.value || '';
+  const revTa   = card.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
 
   const user = getUser();
   const author = user?.global_name || user?.username || 'ST';
 
   btn.disabled = true;
   const originalText = btn.textContent;
-  // Strip out the dot span from button text for restoration
   btn.textContent = 'Saving\u2026';
 
   try {
@@ -2605,6 +2860,7 @@ async function handleProjectSave(btn, status) {
       response: text,
       author,
       status,
+      revision_note: revNote,
     });
 
     await saveNarrativeField(_currentSub._id, {
@@ -2614,6 +2870,11 @@ async function handleProjectSave(btn, status) {
     // Update local cache
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.project_responses = updatedResponses;
+
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
 
     // Re-render the project section in place
     const char = getCharForSub(_currentSub);
@@ -2673,8 +2934,10 @@ async function handleTerritorySave(btn, status) {
   const idx = parseInt(terrSection.dataset.terrIdx, 10);
   const terrId = terrSection.dataset.terrId;
 
-  const ta = terrSection.querySelector('.dt-story-response-ta');
-  const text = ta?.value || '';
+  const ta      = terrSection.querySelector('.dt-story-response-ta');
+  const text    = ta?.value || '';
+  const revTa   = terrSection.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
 
   const user = getUser();
   const author = user?.global_name || user?.username || 'ST';
@@ -2686,7 +2949,7 @@ async function handleTerritorySave(btn, status) {
   try {
     const existing = [...(_currentSub.st_narrative?.territory_reports || [])];
     while (existing.length <= idx) existing.push(null);
-    existing[idx] = { ...(existing[idx] || {}), territory_id: terrId, response: text, author, status };
+    existing[idx] = { ...(existing[idx] || {}), territory_id: terrId, response: text, author, status, revision_note: revNote };
 
     await saveNarrativeField(_currentSub._id, {
       'st_narrative.territory_reports': existing,
@@ -2694,6 +2957,11 @@ async function handleTerritorySave(btn, status) {
 
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.territory_reports = existing;
+
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
 
     const char = getCharForSub(_currentSub);
     const sectionEl = document.querySelector('.dt-story-section[data-section="territory_reports"]');
@@ -2738,10 +3006,12 @@ async function handleActionSave(btn, status) {
   if (!card || !_currentSub) return;
   const idx  = parseInt(card.dataset.actionIdx, 10);
 
-  const ta   = card.querySelector('.dt-story-response-ta');
-  const text = ta?.value || '';
-  const user = getUser();
-  const author = user?.global_name || user?.username || 'ST';
+  const ta      = card.querySelector('.dt-story-response-ta');
+  const text    = ta?.value || '';
+  const revTa   = card.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
+  const user    = getUser();
+  const author  = user?.global_name || user?.username || 'ST';
 
   btn.disabled = true;
   const originalHTML = btn.innerHTML;
@@ -2749,12 +3019,17 @@ async function handleActionSave(btn, status) {
 
   try {
     const existing   = _currentSub.st_narrative?.action_responses || [];
-    const updated    = buildUpdatedArray(existing, idx, { action_index: idx, response: text, author, status });
+    const updated    = buildUpdatedArray(existing, idx, { action_index: idx, response: text, author, status, revision_note: revNote });
 
     await saveNarrativeField(_currentSub._id, { 'st_narrative.action_responses': updated });
 
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.action_responses = updated;
+
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
 
     const char       = getCharForSub(_currentSub);
     const sectionKey = card.closest('.dt-story-section')?.dataset.section;
@@ -2828,6 +3103,8 @@ async function handleResourceApproval(btn) {
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.resource_approvals = updated;
 
+    _refreshProgressTracker();
+
     const char      = getCharForSub(_currentSub);
     const sectionEl = document.querySelector('.dt-story-section[data-section="resource_approvals"]');
     if (sectionEl) {
@@ -2848,7 +3125,7 @@ async function handleResourceApproval(btn) {
     if (rail) rail.innerHTML = renderNavRail();
 
   } catch (err) {
-    btn.disabled = true;
+    btn.disabled = false;
     console.error('Resource approval failed:', err);
   }
 }
@@ -2873,8 +3150,29 @@ async function handleFlagNoteSave(btn) {
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.resource_approvals = updated;
 
+    _refreshProgressTracker();
     btn.textContent = 'Saved';
-    setTimeout(() => { btn.disabled = false; btn.textContent = 'Save Note'; }, 1500);
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
+
+    const char      = getCharForSub(_currentSub);
+    const sectionEl = document.querySelector('.dt-story-section[data-section="resource_approvals"]');
+    if (sectionEl) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderResourcesSection(char, _currentSub);
+      sectionEl.replaceWith(tmp.firstElementChild);
+    }
+
+    const signOff = document.querySelector('.dt-story-sign-off');
+    if (signOff) {
+      const sections = getApplicableSections(char, _currentSub);
+      const tmp2 = document.createElement('div');
+      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
+      signOff.replaceWith(tmp2.firstElementChild);
+    }
+
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
 
   } catch (err) {
     btn.disabled = false;
@@ -2901,8 +3199,10 @@ async function handleCacophonySave(btn, status) {
   if (!slot || !_currentSub) return;
   const slotIdx = parseInt(slot.dataset.slotIdx, 10);
 
-  const ta   = slot.querySelector('.dt-story-response-ta');
-  const text = ta?.value || '';
+  const ta      = slot.querySelector('.dt-story-response-ta');
+  const text    = ta?.value || '';
+  const revTa   = slot.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
 
   const char    = getCharForSub(_currentSub);
   const csDots  = getCSDots(char);
@@ -2928,12 +3228,18 @@ async function handleCacophonySave(btn, status) {
       response: text,
       author,
       status,
+      revision_note: revNote,
     });
 
     await saveNarrativeField(_currentSub._id, { 'st_narrative.cacophony_savvy': updated });
 
     if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
     _currentSub.st_narrative.cacophony_savvy = updated;
+
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
 
     const sectionEl = document.querySelector('.dt-story-section[data-section="cacophony_savvy"]');
     if (sectionEl) {

@@ -6561,6 +6561,35 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   text-transform: uppercase;
 }
 
+/* Progress tracker */
+.dt-story-progress-tracker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.dt-story-tracker-chip {
+  border-radius: 3px;
+  border: 1px solid var(--bdr2);
+  color: var(--txt3);
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+}
+.dt-story-tracker-chip.draft {
+  border-color: rgba(200,144,64,0.5);
+  color: #c89040;
+}
+.dt-story-tracker-chip.revision {
+  border-color: rgba(139,0,0,0.4);
+  color: var(--crim);
+}
+.dt-story-tracker-chip.complete {
+  border-color: var(--story-compl-a40);
+  color: var(--story-compl);
+}
+
 /* Section cards */
 .dt-story-section {
   background: var(--surf);
@@ -6789,6 +6818,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
+  min-height: 160px;
   padding: 8px 10px;
   resize: vertical;
   width: 100%;
@@ -6817,6 +6847,65 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-story-mark-complete-btn:hover { border-color: var(--story-compl); color: var(--story-compl); }
 .dt-story-save-draft-btn:disabled,
 .dt-story-mark-complete-btn:disabled { color: var(--txt3); cursor: default; }
+.dt-story-revision-note-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--fl);
+  font-size: 10px;
+  gap: 5px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dt-story-revision-note-btn:hover { border-color: var(--crim); color: var(--crim); }
+.dt-story-revision-note-btn.active { border-color: var(--crim); color: var(--crim); }
+.dt-story-revision-save-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid rgba(139,0,0,0.4);
+  border-radius: 4px;
+  color: var(--crim);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dt-story-revision-save-btn:hover { border-color: var(--crim); background: rgba(139,0,0,0.08); }
+.dt-story-revision-save-btn:disabled { color: var(--txt3); cursor: default; }
+.dt-story-revision-area {
+  border-top: 1px solid rgba(139,0,0,0.2);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.dt-story-revision-area.hidden { display: none; }
+.dt-story-revision-ta {
+  background: rgba(139,0,0,0.04);
+  border: 1px solid rgba(139,0,0,0.25);
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--txt1);
+  font-family: var(--fl);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  resize: vertical;
+  width: 100%;
+}
+.dt-story-revision-ta:focus { border-color: var(--crim); outline: none; }
+.dt-story-proj-card.revision { border-color: rgba(139,0,0,0.3); }
+.dt-story-merit-card.revision { border-color: rgba(139,0,0,0.3); }
+.dt-story-cs-slot.revision { border-color: rgba(139,0,0,0.3); }
 
 /* ── DT Story — Letter from Home (B4) ───────────────────────────────── */
 
@@ -7056,8 +7145,78 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   padding: 4px 0 2px;
 }
 
+/* ── DT Story — Collapse complete cards ── */
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-proj-card.complete > *:not(.dt-story-proj-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-merit-card.complete > *:not(.dt-story-merit-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-cs-slot.complete > *:not(.dt-story-cs-slot-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-section.complete > *:not(.dt-story-section-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-terr-section.complete > *:not(.dt-story-terr-header) {
+  display: none;
+}
+
+/* ── DT Story — Collapse toggle button ── */
+.dt-story-collapse-toggle {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  margin-left: auto;
+  padding: 3px 8px;
+}
+.dt-story-collapse-toggle:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-collapse-toggle.active { border-color: var(--gold2); color: var(--gold2); }
+
 /* Rule Data — table rows use hardcoded dark-mode gold tints; replace on parchment */
 html:not([data-theme="dark"]) .rules-tbl td                        { border-bottom-color: var(--surf3); }
 html:not([data-theme="dark"]) .rules-tbl tbody tr:nth-child(even)  { background: var(--surf2); }
 html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background: var(--surf3); }
+
+/* ── Deleted Actions Recovery (DT Processing) ── */
+.proc-deleted-section { border-color: var(--crim) !important; }
+.proc-deleted-section .proc-phase-header { color: var(--crim); }
+
+.proc-deleted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+}
+
+.proc-deleted-row {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.proc-deleted-label {
+  color: var(--txt2);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proc-restore-btn {
+  background: transparent;
+  border: 1px solid var(--crim);
+  color: var(--crim);
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.proc-restore-btn:hover {
+  background: var(--crim);
+  color: #fff;
+}
 
