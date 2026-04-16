@@ -567,6 +567,77 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   return lines.join('\n');
 }
 
+// ── Maintenance context builder ──────────────────────────────────────────────
+
+/**
+ * Assembles the Copy Context prompt for a Maintenance project action.
+ * Pure function — no side effects, no DOM access.
+ */
+function buildMaintenanceContext(char, sub, idx) {
+  const slot        = idx + 1;
+  const title       = sub.responses?.[`project_${slot}_title`]       || '';
+  const description = sub.responses?.[`project_${slot}_description`] || '';
+  const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
+  const rev         = sub.projects_resolved?.[idx] || {};
+  const notes       = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+
+  // Derive merit_name (title is the canonical source for maintenance)
+  // Derive merit_type: first item in the merits field, stripped of qualifier, or empty
+  const meritName = title || description.split('\n')[0] || 'Unnamed Merit';
+  let meritType = '';
+  if (meritsRaw) {
+    const first = meritsRaw.split(',')[0].trim();
+    // Strip qualifier in parens: "Allies (Police)" → "Allies"
+    meritType = first.replace(/\s*\([^)]*\)/, '').replace(/\s*\|.*$/, '').trim();
+  }
+
+  const courtTitle = char?.honorific || '';
+  const charName   = char ? displayName(char) : 'Unknown';
+  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
+
+  const lines = [
+    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
+    '',
+    `Character: ${fullTitle}`,
+  ];
+  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
+  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
+  lines.push(`Humanity: ${char?.humanity ?? 'Unknown'}`);
+  if (char?.mask || char?.dirge) {
+    lines.push(`Mask: ${char?.mask || '\u2014'} | Dirge: ${char?.dirge || '\u2014'}`);
+  }
+
+  lines.push('');
+  lines.push('Action: Maintenance');
+  lines.push(`Title: ${meritName}`);
+  if (meritType) lines.push(`Merit maintained: ${meritName}${meritType ? ` (${meritType})` : ''}`);
+  if (description) lines.push(`Description: ${description}`);
+  lines.push('');
+  lines.push('No roll required.');
+
+  if (notes.length) {
+    lines.push('');
+    lines.push('ST Notes:');
+    for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
+  }
+
+  lines.push('');
+  lines.push('Write a short paragraph (~50-80 words) describing what the character does to maintain this merit this month. Draw from the character\u2019s concept and the nature of the merit being maintained. If ST notes provide specific colour, incorporate it.');
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Second person, present tense');
+  lines.push('- British English');
+  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings, merit names');
+  lines.push('- No em dashes');
+  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
+  lines.push('- Do not editorialise');
+  lines.push('- Never dictate what the character felt or chose');
+  lines.push('- Draw narrative details from the character\u2019s concept, skills, and established voice');
+
+  return lines.join('\n');
+}
+
 // ── Patrol / Scout context builder ───────────────────────────────────────────
 
 const _PATROL_DISCS = [
@@ -2728,9 +2799,12 @@ async function handleCopyProjectContext(btn) {
     territories = Array.isArray(terrs) ? terrs : [];
   } catch { /* leave nulls */ }
 
+  const isMainten = actionType === 'maintenance' || rev.pool_status === 'maintenance';
   const text = actionType === 'patrol_scout'
     ? buildPatrolContext(char, _currentSub, idx, cycleData, territories)
-    : buildProjectContext(char, _currentSub, idx, cycleData, territories);
+    : isMainten
+      ? buildMaintenanceContext(char, _currentSub, idx)
+      : buildProjectContext(char, _currentSub, idx, cycleData, territories);
   copyToClipboard(text, btn);
 }
 

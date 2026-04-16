@@ -1,6 +1,6 @@
 # Story DTX.1: Cross-Reference Callouts
 
-Status: review
+Status: complete
 
 ## Story
 
@@ -146,7 +146,7 @@ so that I can identify conflicts and synergies without holding everything in my 
     }
     ```
 
-- [ ] Task 4: E2E tests (AC: 1–8)  <!-- 5 tests written; 4 failing — callout not rendering in test env -->
+- [x] Task 4: E2E tests (AC: 1–8)
   - [ ] Add 5 tests in a new `test.describe('DTX-1: Cross-reference callouts')` block in `tests/downtime-processing-dt-fixes.spec.js`:
     1. Project action with `projTerritory` set shows `.proc-xref-callout` containing other character name
     2. Feeding action with shared territory shows `.proc-xref-callout` containing other character name
@@ -244,7 +244,7 @@ Callouts are read-only. No `saveEntryReview` calls, no new fields. Pure derived 
 - Callout block inserted in `renderActionPanel` before `proc-feed-left` close (after player feedback, before source-type branching). Wrapped in block scope `{}` to isolate `xrefLines`. Three cross-ref types: project territory, feeding `primaryTerr`, investigate target. Hide/protect check: `queue.some(e => e.actionType === 'hide_protect' && e.charName === target)` — no stored target field on hide/protect; the caster IS the protected character.
 - CSS added to `admin-layout.css`: `.proc-xref-callout` with gold left border (`var(--gold2)`), `.proc-xref-line` with separator between multiple lines.
 - Hide/protect comparison fixed: `e.charName.toLowerCase() === target` (charName is display case; target is stored as sortName/lowercase).
-- **E2E status (2026-04-15):** 5 tests written; 4 of 5 failing — callout does not render in test environment. Only "no callout" baseline passes. Likely cause: `submissions` closure variable not yet populated when `xrefIndex` builds during the mock, or the phase labels in `openFirstAction` calls don't match. Next session: log `xrefIndex` size inside `renderProcessingMode` to confirm if submissions are in scope.
+- **E2E status (2026-04-16):** All 5 tests pass. The suspected closure issue did not reproduce — all 5 callout tests pass cleanly.
 
 ### File List
 

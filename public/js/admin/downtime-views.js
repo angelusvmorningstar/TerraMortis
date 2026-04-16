@@ -2390,19 +2390,13 @@ function resolveTerrId(raw) {
  * Returns { [terrId]: count }
  */
 function _gatherFeeders(subs) {
+  // Uses _getSubFedTerrs so feeder counts match the feeding matrix footer exactly
+  // (includes ST territory overrides; skips Barrens via null tid)
   const feederCounts = {};
   for (const sub of subs) {
-    let grid = {};
-    const respStr = sub.responses?.feeding_territories;
-    if (respStr) {
-      try { grid = JSON.parse(respStr); } catch { grid = {}; }
-    } else {
-      grid = sub._raw?.feeding?.territories || {};
-    }
-    for (const [k, v] of Object.entries(grid)) {
-      if (!v || v === 'none' || v === 'Not feeding here') continue;
-      const tid = resolveTerrId(k);
-      if (!tid) continue; // skip barrens / unrecognised
+    for (const csvKey of _getSubFedTerrs(sub)) {
+      const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
+      if (!tid) continue;
       feederCounts[tid] = (feederCounts[tid] || 0) + 1;
     }
   }
@@ -2439,35 +2433,45 @@ function _gatherInfluence(subs) {
 }
 
 /**
- * Sum ambience project roll successes per territory.
+ * Sum ambience project contributions per territory.
+ * 1–4 successes = 1 point; 5+ successes = 2 points; 0 successes = 0.
  * Returns { projPos: { [terrId]: n }, projNeg: { [terrId]: n }, pendingCount: n }
  */
 function _gatherProjectAmbience(subs) {
   const projPos = {}, projNeg = {};
   let pendingCount = 0;
   for (const sub of subs) {
-    // Count pending: ambience project actions in form responses with no resolved roll
-    for (let n = 1; n <= 4; n++) {
-      const action = sub.responses?.[`project_${n}_action`];
-      if (action !== 'ambience_increase' && action !== 'ambience_decrease') continue;
-      const resolved = (sub.projects_resolved || [])[n - 1];
-      if ((resolved?.pool_status || 'pending') === 'pending') pendingCount++;
+    const raw  = sub._raw || {};
+    const resp = sub.responses || {};
+    // Build the project list the same way buildProcessingQueue does
+    let projects = raw.projects?.length ? raw.projects : [];
+    if (!projects.length) {
+      for (let n = 1; n <= 4; n++) {
+        const a = resp[`project_${n}_action`];
+        if (a) projects.push({ action_type: a, desired_outcome: resp[`project_${n}_outcome`] || '', detail: resp[`project_${n}_description`] || '' });
+      }
     }
-    // Sum resolved roll successes
-    for (const [idx, proj] of (sub.projects_resolved || []).entries()) {
-      if (!proj) continue;
-      if (proj.action_type !== 'ambience_increase' && proj.action_type !== 'ambience_decrease') continue;
-      if (!proj.roll) continue;
+    for (const [idx, proj] of projects.entries()) {
       const n = idx + 1;
+      const resolved = (sub.projects_resolved || [])[idx] || {};
+      // Effective action type: ST override takes priority over player submission
+      const effectiveType = resolved.action_type_override || proj.action_type || resp[`project_${n}_action`] || '';
+      const isIncrease = effectiveType === 'ambience_increase';
+      const isDecrease = effectiveType === 'ambience_decrease';
+      if (!isIncrease && !isDecrease) continue;
+      // Pending: not yet rolled
+      if ((resolved.pool_status || 'pending') === 'pending') { pendingCount++; continue; }
+      if (!resolved.roll) continue;
       const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
-      const terrRaw = sub.responses?.[`project_${n}_territory`] || '';
-      const desc    = sub.responses?.[`project_${n}_description`] || '';
-      const outcome = sub.responses?.[`project_${n}_outcome`] || '';
+      const terrRaw = resp[`project_${n}_territory`] || '';
+      const desc    = resp[`project_${n}_description`] || proj.detail || '';
+      const outcome = proj.desired_outcome || resp[`project_${n}_outcome`] || '';
       const tid = terrOverride || resolveTerrId(terrRaw) || extractTerritoryFromText(desc) || extractTerritoryFromText(outcome);
       if (!tid) continue;
-      const successes = proj.roll.successes ?? 0;
-      if (proj.action_type === 'ambience_increase') projPos[tid] = (projPos[tid] || 0) + successes;
-      else projNeg[tid] = (projNeg[tid] || 0) + successes;
+      const successes = resolved.roll.successes ?? 0;
+      const contrib = successes >= 5 ? 2 : successes > 0 ? 1 : 0;
+      if (isIncrease) projPos[tid] = (projPos[tid] || 0) + contrib;
+      else            projNeg[tid] = (projNeg[tid] || 0) + contrib;
     }
   }
   return { projPos, projNeg, pendingCount };
@@ -2585,8 +2589,8 @@ function buildAmbienceData(terrs) {
     let projStep = ambience;
     if (startIdx >= 0) {
       let delta = 0;
-      if (net > 0) delta = 1;
-      else if (net < -5) delta = -2;
+      if (net >= 3) delta = 1;
+      else if (net <= -5) delta = -2;
       else if (net < 0) delta = -1;
       const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS_LIST.length - 1, startIdx + delta));
       projStep = AMBIENCE_STEPS_LIST[newIdx];
@@ -2608,6 +2612,7 @@ function renderAmbienceDashboard() {
   h += `<div class="proc-amb-header" data-toggle="amb-dash">`;
   h += `<span class="proc-amb-title">Ambience Dashboard</span>`;
   if (pendingAmbienceCount > 0) h += `<span class="proc-amb-pending-chip">${pendingAmbienceCount} ambience action${pendingAmbienceCount > 1 ? 's' : ''} pending</span>`;
+  h += `<button class="proc-amb-recalc-btn dt-btn-sm" title="Write projected ambience to all territory records now">Recalculate Territories</button>`;
   h += `<span class="proc-amb-toggle">${ambDashCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
   h += `</div>`;
 
@@ -2622,7 +2627,7 @@ function renderAmbienceDashboard() {
       <th title="Fixed -3 entropy per cycle">Entropy</th>
       <th title="Feeders vs cap">Overfeeding</th>
       <th title="Influence spend from CSV: +positive / -negative / net">Influence</th>
-      <th title="Ambience project roll successes">Projects</th>
+      <th title="Ambience project contributions: 1–4 successes = 1 pt, 5+ = 2 pts">Projects</th>
       <th title="Allies / Status / Retainer automatic ambience actions">Allies</th>
       <th title="Sum of all columns">Net Change</th>
       <th title="Projected new ambience step (preview only)">Projected</th>
@@ -2669,7 +2674,7 @@ function renderAmbienceDashboard() {
       h += `</tr>`;
     }
     h += `</tbody></table>`;
-    h += `<p class="proc-amb-note">Net change is informational. Positive net = +1 step. Negative net = -1 step. Net below -5 = -2 steps.</p>`;
+    h += `<p class="proc-amb-note">Net +3 or above = +1 step. Net negative = \u22121 step. Net \u22125 or worse = \u22122 steps. Projects: 1\u20134 successes = 1 pt, 5+ = 2 pts.</p>`;
 
     // ── Feeding Matrix ──
     h += `<div class="proc-disc-header" data-toggle="feed-matrix">`;
@@ -4714,6 +4719,12 @@ function renderProcessingMode(container) {
         renderProcessingMode(container);
       } catch (err) { console.error('Failed to confirm ambience:', err.message); }
     });
+  });
+
+  // Wire Recalculate Territories button
+  container.querySelector('.proc-amb-recalc-btn')?.addEventListener('click', async () => {
+    await _applyProjectedAmbience(false);
+    renderProcessingMode(container);
   });
 
   // Wire ST ambience notes textarea (save on blur)
@@ -9295,150 +9306,62 @@ function renderCityOverview() {
 
 // ── Ambience Update After Cycle Close (Story 1.12) ──────────────────────────
 
-async function handleApplyAmbience(cycleId, cycle) {
-  if (cycle.ambience_applied) {
-    alert('Ambience changes have already been applied for this cycle.');
-    return;
-  }
-
-  // 1. Fetch territories from DB; seed from TERRITORY_DATA if collection is empty
+/**
+ * Write projected ambience (from buildAmbienceData) to all territory records.
+ * @param {boolean} markApplied — if true, sets cycle.ambience_applied = true (end-of-cycle only)
+ */
+async function _applyProjectedAmbience(markApplied) {
+  // 1. Fetch / seed territory records
   let dbTerritories = [];
   try { dbTerritories = await apiGet('/api/territories'); } catch { /* ignore */ }
-
   if (!dbTerritories.length) {
     for (const td of TERRITORY_DATA) {
       try { await apiPost('/api/territories', { id: td.id, name: td.name, ambience: td.ambience }); } catch { /* ignore */ }
     }
     try { dbTerritories = await apiGet('/api/territories'); } catch { /* ignore */ }
   }
+  // Build id → DB record map
+  const terrRecMap = {};
+  for (const t of dbTerritories) { if (t.id || t.name) terrRecMap[t.id || t.name] = t; }
 
-  // Build name → DB record map; fall back to TERRITORY_DATA if DB still empty
-  const terrMap = {};
-  for (const t of dbTerritories) { if (t.name) terrMap[t.name] = t; }
-  if (!Object.keys(terrMap).length) {
-    for (const td of TERRITORY_DATA) terrMap[td.name] = { ...td };
-  }
+  // 2. Get projected values from the dashboard calculation
+  const { rows } = buildAmbienceData(dbTerritories.length ? dbTerritories : TERRITORY_DATA);
 
-  // 2. Scan resolved projects and merit actions for ambience changes
-  // Map: territory name → { increases: [successes], decreases: [successes] }
-  const ambienceChanges = {};
-  function getTerrChanges(name) {
-    if (!ambienceChanges[name]) ambienceChanges[name] = { increases: [], decreases: [] };
-    return ambienceChanges[name];
-  }
-
-  // Extract ambienceKey from a text description
-  function extractTerritory(text) {
-    if (!text) return null;
-    const lc = text.toLowerCase();
-    for (const mt of MATRIX_TERRS) {
-      if (mt.ambienceKey && (lc.includes(mt.label.toLowerCase()) || lc.includes(mt.csvKey.toLowerCase()))) {
-        return mt.ambienceKey;
-      }
-    }
-    return null;
-  }
-
-  for (const sub of submissions) {
-    const raw = sub._raw || {};
-
-    // Projects
-    const projects = raw.projects || [];
-    const projResolved = sub.projects_resolved || [];
-    projects.forEach((proj, i) => {
-      const res = projResolved[i];
-      if (!res?.roll) return;
-      const at = (proj.action_type || '').toLowerCase();
-      const isIncrease = at === 'ambience_increase';
-      const isDecrease = at === 'ambience_decrease';
-      if (!isIncrease && !isDecrease) return;
-      const terrName = extractTerritory(proj.description) || extractTerritory(proj.desired_outcome);
-      if (!terrName) return;
-      const ch = getTerrChanges(terrName);
-      if (isIncrease) ch.increases.push(res.roll.successes || 0);
-      else ch.decreases.push(res.roll.successes || 0);
-    });
-
-    // Sphere / merit actions
-    const sphereActions = raw.sphere_actions || [];
-    const meritResolved = sub.merit_actions_resolved || [];
-    sphereActions.forEach((action, i) => {
-      const res = meritResolved[i];
-      if (!res?.roll) return;
-      const at = (action.action_type || '').toLowerCase();
-      const isIncrease = at === 'ambience_increase';
-      const isDecrease = at === 'ambience_decrease';
-      if (!isIncrease && !isDecrease) return;
-      const terrName = extractTerritory(action.description) || extractTerritory(action.desired_outcome);
-      if (!terrName) return;
-      const ch = getTerrChanges(terrName);
-      if (isIncrease) ch.increases.push(res.roll.successes || 0);
-      else ch.decreases.push(res.roll.successes || 0);
-    });
-  }
-
-  // 3. Calculate net step changes per territory
-  // Any net-winning side moves 1 step; decreases cap at -2; increases cap at +1
-  const proposed = [];
-  for (const [terrName, changes] of Object.entries(ambienceChanges)) {
-    const rec = terrMap[terrName];
-    if (!rec) continue;
-    const currentAmbience = rec.ambience;
-    const stepIdx = AMBIENCE_STEPS.indexOf(currentAmbience);
-    if (stepIdx < 0) continue;
-
-    const totalInc = changes.increases.reduce((a, b) => a + b, 0);
-    const totalDec = changes.decreases.reduce((a, b) => a + b, 0);
-
-    let netSteps = 0;
-    if (totalInc > totalDec) {
-      netSteps = 1; // cap: +1 per cycle
-    } else if (totalDec > totalInc) {
-      const decActions = changes.decreases.filter(s => s > 0).length;
-      netSteps = -Math.min(2, decActions); // cap: -2 per cycle
-    }
-    if (netSteps === 0) continue;
-
-    const newIdx = Math.max(0, Math.min(AMBIENCE_STEPS.length - 1, stepIdx + netSteps));
-    const newAmbience = AMBIENCE_STEPS[newIdx];
-    if (newAmbience !== currentAmbience) {
-      proposed.push({ terrName, rec, currentAmbience, newAmbience, netSteps });
-    }
-  }
-
-  // 4. Confirm with ST
-  if (!proposed.length) {
-    if (!confirm('No resolved ambience actions found for this cycle.\nMark cycle as ambience-processed anyway?')) return;
-    await updateCycle(cycleId, { ambience_applied: true });
-    const i = allCycles.findIndex(c => c._id === cycleId);
-    if (i >= 0) allCycles[i].ambience_applied = true;
-    await loadCycleById(cycleId);
-    return;
-  }
-
-  const lines = proposed.map(p =>
-    `  ${p.terrName}: ${p.currentAmbience} \u2192 ${p.newAmbience} (${p.netSteps > 0 ? '+' : ''}${p.netSteps} step)`
-  );
-  if (!confirm(`Apply the following ambience changes?\n\n${lines.join('\n')}`)) return;
-
-  // 5. PUT each territory
-  for (const { terrName, rec, newAmbience } of proposed) {
+  // 3. Write ALL territories (including unchanged ones — caller requested full sync)
+  for (const r of rows) {
+    const rec = terrRecMap[r.id];
     try {
-      if (rec._id) {
-        await apiPut(`/api/territories/${rec._id}`, { ambience: newAmbience });
+      if (rec?._id) {
+        await apiPut(`/api/territories/${rec._id}`, { ambience: r.projStep });
       } else {
-        await apiPost('/api/territories', { id: rec.id, name: rec.name, ambience: newAmbience });
+        await apiPost('/api/territories', { id: r.id, name: r.name, ambience: r.projStep });
+      }
+      // Update cachedTerritories in-memory so dashboard reflects new values immediately
+      if (cachedTerritories) {
+        const ct = cachedTerritories.find(t => t.id === r.id);
+        if (ct) ct.ambience = r.projStep;
       }
     } catch (err) {
-      console.error(`Failed to update ambience for ${terrName}:`, err.message);
+      console.error(`Failed to update ambience for ${r.name}:`, err.message);
     }
   }
 
-  // 6. Mark cycle as ambience-applied
-  await updateCycle(cycleId, { ambience_applied: true });
-  const idx = allCycles.findIndex(c => c._id === cycleId);
-  if (idx >= 0) allCycles[idx].ambience_applied = true;
+  // 4. Optionally mark cycle as ambience-applied
+  if (markApplied && currentCycle) {
+    await updateCycle(currentCycle._id, { ambience_applied: true });
+    const i = allCycles.findIndex(c => c._id === currentCycle._id);
+    if (i >= 0) allCycles[i].ambience_applied = true;
+    if (currentCycle) currentCycle.ambience_applied = true;
+  }
+}
 
+async function handleApplyAmbience(cycleId, cycle) {
+  if (cycle.ambience_applied) {
+    alert('Ambience changes have already been applied for this cycle.');
+    return;
+  }
+  if (!confirm('Apply projected ambience to all territories and mark this cycle as processed?')) return;
+  await _applyProjectedAmbience(true);
   await loadCycleById(cycleId);
 }
 

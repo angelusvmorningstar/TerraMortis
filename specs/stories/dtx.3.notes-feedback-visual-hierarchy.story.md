@@ -1,6 +1,6 @@
 # Story DTX.3: Notes and Feedback Visual Hierarchy
 
-Status: review
+Status: complete
 
 ## Story
 
