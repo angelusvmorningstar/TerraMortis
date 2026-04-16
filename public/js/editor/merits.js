@@ -5,7 +5,7 @@
 
 import {
   ATTR_NAMES, SKILL_NAMES, DISC_NAMES, COV_SHORT, CLAN_NAMES,
-  RITUAL_DISCS, INFLUENCE_SPHERES
+  RITUAL_DISCS, INFLUENCE_SPHERES, INFLUENCE_MERIT_TYPES
 } from '../data/constants.js';
 import { meetsPrereq as _meetsPrereq, prereqLabel as _prereqLabel } from '../data/prereq.js';
 import { getRulesByCategory, getRuleByKey, getRulesDB } from '../data/loader.js';
@@ -280,6 +280,7 @@ export function buildMeritOptions(c, currentName) {
     // Rules cache available — use structured data
     for (const rule of rulesDB) {
       if (rule.sub_category && rule.sub_category !== 'general') continue;
+      if (INFLUENCE_MERIT_TYPES.includes(rule.name)) continue;
       if (rule.parent && ['Style', 'Invictus Oath', 'Carthian Law'].includes(rule.parent)) continue;
       if (!_meetsPrereq(c, rule.prereq)) continue;
       const excl = _isExcluded(c, rule.name);
