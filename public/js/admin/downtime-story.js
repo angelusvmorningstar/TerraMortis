@@ -238,10 +238,11 @@ export async function initDtStory(cycleId) {
     // Copy Context
     const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
     if (copyBtn) {
+      // Territory buttons carry data-terr-id — route on attribute, not section ancestry
+      if (copyBtn.dataset.terrId)               { handleCopyTerritoryContext(copyBtn);    return; }
       if (sectionKey === 'project_responses')   { handleCopyProjectContext(copyBtn);    return; }
       if (sectionKey === 'letter_from_home')    { handleCopyLetterContext(copyBtn);     return; }
       if (sectionKey === 'touchstone')          { handleCopyTouchstoneContext(copyBtn); return; }
-      if (sectionKey === 'territory_reports')   { handleCopyTerritoryContext(copyBtn);    return; }
       if (sectionKey === 'cacophony_savvy')     { handleCopyCacophonyContext(copyBtn);   return; }
       if (MERIT_SECTIONS.has(sectionKey))       { handleCopyActionContext(copyBtn);      return; }
       return;
