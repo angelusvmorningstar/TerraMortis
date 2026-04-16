@@ -2389,10 +2389,12 @@ function resolveTerrId(raw) {
  * Returns { [terrId]: count }
  */
 function _gatherFeeders(subs) {
-  // Uses _getSubFedTerrs so feeder counts match the feeding matrix footer exactly
-  // (includes ST territory overrides; skips Barrens via null tid)
+  // Uses _getSubFedTerrs so feeder counts match the feeding matrix footer exactly.
+  // Skips retired characters — matrix also filters them out via characters.filter(c => !c.retired).
   const feederCounts = {};
   for (const sub of subs) {
+    const char = findCharacter(sub.character_name, sub.player_name);
+    if (!char || char.retired) continue;
     for (const csvKey of _getSubFedTerrs(sub)) {
       const tid = TERRITORY_SLUG_MAP[csvKey] ?? null;
       if (!tid) continue;
@@ -2458,9 +2460,8 @@ function _gatherProjectAmbience(subs) {
       const isIncrease = effectiveType === 'ambience_increase';
       const isDecrease = effectiveType === 'ambience_decrease';
       if (!isIncrease && !isDecrease) continue;
-      // Pending: not yet rolled
-      if ((resolved.pool_status || 'pending') === 'pending') { pendingCount++; continue; }
-      if (!resolved.roll) continue;
+      // Pending: not yet rolled (pool_status is never updated on project roll, so use roll presence)
+      if (!resolved.roll) { pendingCount++; continue; }
       const terrOverride = resolveTerrId(sub.st_review?.territory_overrides?.[String(idx)] || '');
       const terrRaw = resp[`project_${n}_territory`] || '';
       const desc    = resp[`project_${n}_description`] || proj.detail || '';
