@@ -87,6 +87,9 @@ const state = {
   RESIST_CHAR: null,
   RESIST_MODE: null,
   RESIST_VAL: 0,
+  // Specialty toggle state for the current pool. Map of spec name → bonus
+  // applied to MOD. Populated by togSpec, cleared by loadPool.
+  specBonuses: {},
   hist: [],
   chars: [],
   rollChar: null,
