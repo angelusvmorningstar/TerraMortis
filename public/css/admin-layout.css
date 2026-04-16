@@ -7149,3 +7149,49 @@ html:not([data-theme="dark"]) .rules-tbl td                        { border-bott
 html:not([data-theme="dark"]) .rules-tbl tbody tr:nth-child(even)  { background: var(--surf2); }
 html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background: var(--surf3); }
 
+/* ── Deleted Actions Recovery (DT Processing) ── */
+.proc-deleted-section { border-color: var(--crim) !important; }
+.proc-deleted-section .proc-phase-header { color: var(--crim); }
+
+.proc-deleted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+}
+
+.proc-deleted-row {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.proc-deleted-label {
+  color: var(--txt2);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proc-restore-btn {
+  background: transparent;
+  border: 1px solid var(--crim);
+  color: var(--crim);
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.proc-restore-btn:hover {
+  background: var(--crim);
+  color: #fff;
+}
+

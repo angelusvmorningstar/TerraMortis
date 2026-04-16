@@ -2208,6 +2208,7 @@ function buildProcessingQueue(subs) {
     // ── ST-created actions ──
     for (let idx = 0; idx < (sub.st_actions || []).length; idx++) {
       const stAction = sub.st_actions[idx];
+      if (stAction._deleted) continue;
       const phaseNum = ST_ACTION_PHASE_MAP[stAction.action_type] ?? 7;
       const phase = PHASE_NUM_TO_LABEL[phaseNum];
       queue.push({
@@ -2869,6 +2870,110 @@ function renderSignOffStep() {
   return h;
 }
 
+// ── Deleted Actions Recovery ─────────────────────────────────────────────────
+
+let procDeletedOpen = false;
+
+/**
+ * Returns a flat list of all deleted actions across all subs:
+ * { subId, charName, keyPart, label, description, source: 'player'|'st' }
+ */
+function _buildDeletedList(subs) {
+  const list = [];
+  for (const sub of subs) {
+    const { charName } = resolveSubChar(sub, '?');
+    const resp = sub.responses || {};
+    const raw  = sub._raw    || {};
+
+    // ── Player-deleted actions ──
+    for (const keyPart of (sub.st_review?.deleted_action_keys || [])) {
+      let label = keyPart;
+      let description = '';
+
+      if (keyPart === 'feeding') {
+        label = 'Feeding';
+        description = raw.feeding?.method || resp.feeding_description || '';
+      } else if (keyPart === 'travel') {
+        label = 'Travel';
+        description = raw.submission?.narrative?.travel_description || resp.travel || '';
+      } else if (keyPart === 'acq:resources') {
+        label = 'Resource Acquisitions';
+      } else if (keyPart === 'acq:skills') {
+        label = 'Skill Acquisitions';
+      } else {
+        const projM    = keyPart.match(/^proj:(\d+)$/);
+        const meritM   = keyPart.match(/^merit:(\d+)$/);
+        const sorceryM = keyPart.match(/^sorcery:(\d+)$/);
+
+        if (projM) {
+          const idx  = parseInt(projM[1]);
+          const slot = idx + 1;
+          const title  = resp[`project_${slot}_title`] || `Project ${slot}`;
+          const action = resp[`project_${slot}_action`] || '';
+          label = `Project ${slot}: ${title}`;
+          description = action ? ACTION_TYPE_LABELS?.[action] || action : '';
+        } else if (meritM) {
+          const idx    = parseInt(meritM[1]);
+          const action = sub.merit_actions?.[idx] || {};
+          label = action.merit_type ? (ACTION_TYPE_LABELS?.[action.merit_type] || action.merit_type) : `Merit action ${idx + 1}`;
+          description = action.desired_outcome || action.description || '';
+        } else if (sorceryM) {
+          const n    = parseInt(sorceryM[1]);
+          const rite = resp[`sorcery_${n}_rite`] || `Sorcery ${n}`;
+          const trad = resp['sorcery_1_tradition'] || resp['sorcery_tradition'] || 'Sorcery';
+          label = `${trad}: ${rite}`;
+          description = resp[`sorcery_${n}_targets`] || '';
+        }
+      }
+
+      list.push({ subId: sub._id, charName, keyPart, label, description: description.slice(0, 80), source: 'player' });
+    }
+
+    // ── ST-deleted actions ──
+    for (let idx = 0; idx < (sub.st_actions || []).length; idx++) {
+      const a = sub.st_actions[idx];
+      if (!a._deleted) continue;
+      list.push({
+        subId: sub._id,
+        charName,
+        keyPart: `st:${idx}`,
+        label: a.label || a.action_type || 'ST Action',
+        description: (a.description || '').slice(0, 80),
+        source: 'st',
+      });
+    }
+  }
+  return list;
+}
+
+function renderDeletedActionsSection(subs) {
+  const list = _buildDeletedList(subs);
+  if (!list.length) return '';
+
+  let h = `<div class="proc-phase-section proc-deleted-section">`;
+  h += `<div class="proc-phase-header proc-deleted-toggle" data-deleted-toggle>`;
+  h += `<span class="proc-phase-chevron">${procDeletedOpen ? '\u25BC' : '\u25BA'}</span>`;
+  h += ` Deleted Actions <span class="proc-phase-badge">${list.length}</span>`;
+  h += `</div>`;
+
+  if (procDeletedOpen) {
+    h += `<div class="proc-deleted-list">`;
+    for (const item of list) {
+      const srcBadge = item.source === 'st' ? ' <span class="proc-row-st-badge">[ST]</span>' : '';
+      const desc = item.description ? ` \u2014 ${esc(item.description)}` : '';
+      h += `<div class="proc-deleted-row">`;
+      h += `<span class="proc-row-char">${esc(item.charName)}</span>`;
+      h += `<span class="proc-deleted-label">${esc(item.label)}${srcBadge}${desc}</span>`;
+      h += `<button class="proc-restore-btn dt-btn dt-btn-sm" data-sub-id="${esc(item.subId)}" data-key-part="${esc(item.keyPart)}" data-source="${item.source}">Restore</button>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
+  h += `</div>`;
+  return h;
+}
+
 // ── XP Review Step (Epic 3 — Stories 3.1 + 3.2 + 3.3) ───────────────────────
 
 function renderXpReviewStep() {
@@ -3275,6 +3380,9 @@ function renderProcessingMode(container) {
 
   // XP Review — Step 10
   h += renderXpReviewStep();
+
+  // Deleted Actions recovery
+  h += renderDeletedActionsSection(submissions);
 
   h += '</div>'; // proc-queue
   container.innerHTML = h;
@@ -4548,6 +4656,29 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Toggle deleted actions panel ──
+  container.querySelector('[data-deleted-toggle]')?.addEventListener('click', () => {
+    procDeletedOpen = !procDeletedOpen;
+    renderProcessingMode(container);
+  });
+
+  // ── Restore deleted action ──
+  container.querySelectorAll('.proc-restore-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const subId   = btn.dataset.subId;
+      const keyPart = btn.dataset.keyPart;
+      const source  = btn.dataset.source;
+      if (source === 'st') {
+        const idx = parseInt(keyPart.slice(3), 10);
+        await restoreStAction(subId, idx);
+      } else {
+        await restorePlayerAction(subId, keyPart);
+      }
+      renderProcessingMode(container);
+    });
+  });
+
 }
 
 /** Add an ST-created action to a submission's st_actions array. */
@@ -4567,21 +4698,38 @@ async function addStAction(subId, actionDef) {
   sub.st_actions = stActions;
 }
 
-/** Delete an ST-created action (and its resolved review) from a submission. */
+/** Soft-delete an ST-created action by marking _deleted: true (preserves for restore). */
 async function deleteStAction(subId, actionIdx) {
   const sub = submissions.find(s => s._id === subId);
   if (!sub) return;
-  const stActions   = [...(sub.st_actions || [])];
-  const stResolved  = [...(sub.st_actions_resolved || [])];
-  stActions.splice(actionIdx, 1);
-  stResolved.splice(actionIdx, 1);
-  await updateSubmission(subId, { st_actions: stActions, st_actions_resolved: stResolved });
+  const stActions = [...(sub.st_actions || [])];
+  if (!stActions[actionIdx]) return;
+  stActions[actionIdx] = { ...stActions[actionIdx], _deleted: true };
+  await updateSubmission(subId, { st_actions: stActions });
   sub.st_actions = stActions;
-  sub.st_actions_resolved = stResolved;
-  // Remove any expanded key that referenced this entry or later entries (indices shifted)
-  for (const key of [...procExpandedKeys]) {
-    if (key.startsWith(`${subId}:st:`)) procExpandedKeys.delete(key);
-  }
+  procExpandedKeys.delete(`${subId}:st:${actionIdx}`);
+}
+
+/** Restore a soft-deleted ST-created action. */
+async function restoreStAction(subId, actionIdx) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const stActions = [...(sub.st_actions || [])];
+  if (!stActions[actionIdx]) return;
+  const { _deleted, ...rest } = stActions[actionIdx];
+  stActions[actionIdx] = rest;
+  await updateSubmission(subId, { st_actions: stActions });
+  sub.st_actions = stActions;
+}
+
+/** Restore a soft-deleted player action by removing its key-part from deleted_action_keys. */
+async function restorePlayerAction(subId, keyPart) {
+  const sub = submissions.find(s => s._id === subId);
+  if (!sub) return;
+  const deleted = (sub.st_review?.deleted_action_keys || []).filter(k => k !== keyPart);
+  await updateSubmission(subId, { 'st_review.deleted_action_keys': deleted });
+  if (!sub.st_review) sub.st_review = {};
+  sub.st_review.deleted_action_keys = deleted;
 }
 
 /** Permanently delete a player-submitted action by recording its key-part in st_review. */
