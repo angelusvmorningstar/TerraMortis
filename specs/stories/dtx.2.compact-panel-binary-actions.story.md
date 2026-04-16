@@ -1,6 +1,6 @@
 # Story DTX.2: Compact Panel for Binary Actions
 
-Status: review
+Status: complete
 
 ## Story
 
