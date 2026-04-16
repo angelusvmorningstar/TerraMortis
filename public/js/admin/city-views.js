@@ -9,6 +9,7 @@ import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, displayNameRaw, sortName, clanIcon, covIcon } from '../data/helpers.js';
 import { AMBIENCE_MODS } from '../player/downtime-data.js';
+import { invalidateCachedTerritories } from './downtime-views.js';
 
 const TERRITORIES = [
   { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
@@ -361,10 +362,6 @@ function renderTerritories() {
       }
       h += `</select>`;
       h += `</div>`;
-      h += `<div class="terr-edit-row">`;
-      h += `<label class="terr-edit-lbl">Dice modifier</label>`;
-      h += `<input type="number" class="terr-amb-mod-inp" data-terr-id="${esc(t.id)}" value="${curMod}">`;
-      h += `</div>`;
       h += `<div class="terr-rl-actions">`;
       h += `<button class="city-save-btn" data-terr-amb-save="${esc(t.id)}">Save Ambience</button>`;
       h += `<span class="city-save-status" id="terr-amb-status-${esc(t.id)}"></span>`;
@@ -474,16 +471,6 @@ function wireEvents(container) {
     }
   });
 
-  // Ambience level dropdown → auto-fill modifier
-  container.addEventListener('change', e => {
-    const sel = e.target.closest('.terr-amb-level-sel');
-    if (!sel) return;
-    const terrId = sel.dataset.terrId;
-    const modInp = document.querySelector(`.terr-amb-mod-inp[data-terr-id="${terrId}"]`);
-    if (modInp && sel.value) {
-      modInp.value = AMBIENCE_MODS[sel.value] ?? 0;
-    }
-  });
 }
 
 function patchTerritories(container) {
@@ -562,9 +549,9 @@ async function saveCourt() {
 async function saveTerrAmbience(terrId) {
   const status   = document.getElementById('terr-amb-status-' + terrId);
   const levelSel = document.querySelector(`.terr-amb-level-sel[data-terr-id="${terrId}"]`);
-  const modInp   = document.querySelector(`.terr-amb-mod-inp[data-terr-id="${terrId}"]`);
   const ambience = levelSel?.value || null;
-  const ambienceMod = modInp ? parseInt(modInp.value, 10) : 0;
+  // Derive mod automatically from the level — no manual input
+  const ambienceMod = ambience ? (AMBIENCE_MODS[ambience] ?? 0) : 0;
 
   try {
     await apiPost('/api/territories', { id: terrId, ambience, ambienceMod });
@@ -573,6 +560,9 @@ async function saveTerrAmbience(terrId) {
     const patch = { ambience, ambienceMod };
     if (idx >= 0) Object.assign(terrDocs[idx], patch);
     else terrDocs.push({ id: terrId, ...patch });
+
+    // Invalidate processing mode's territory cache so it refetches on next render
+    invalidateCachedTerritories();
 
     if (status) { status.textContent = 'Saved'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
     patchTerritories(document.getElementById('city-content'));
