@@ -4345,7 +4345,7 @@ body {
 
 .proc-action-row {
   display: grid;
-  grid-template-columns: minmax(120px, 160px) minmax(140px, 180px) 1fr 90px auto;
+  grid-template-columns: minmax(120px, 160px) minmax(140px, 180px) 1fr 90px auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -4387,8 +4387,15 @@ body {
   letter-spacing: 0.02em;
 }
 
-.proc-duplicate-btn {
-  margin-left: 8px;
+.proc-row-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.proc-duplicate-btn,
+.proc-delete-row-btn {
   padding: 2px 7px;
   font-size: 11px;
   background: transparent;
@@ -4397,11 +4404,15 @@ body {
   color: var(--txt3);
   cursor: pointer;
   font-family: var(--ft);
-  vertical-align: middle;
+  white-space: nowrap;
 }
 .proc-duplicate-btn:hover {
   border-color: var(--gold2);
   color: var(--gold2);
+}
+.proc-delete-row-btn:hover {
+  border-color: var(--crim);
+  color: var(--crim);
 }
 
 .proc-add-st-action-row {
