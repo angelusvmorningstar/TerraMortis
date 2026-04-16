@@ -7680,39 +7680,62 @@ const CHK_SECTIONS = [
   { key: 'xp',             label: 'XP' },
 ];
 
+/** Count sphere actions from either raw array or flat response keys. */
+function _sphereCount(sub) {
+  const raw = sub._raw || {};
+  if (raw.sphere_actions?.length) return raw.sphere_actions.length;
+  const resp = sub.responses || {};
+  let n = 0;
+  for (let i = 1; i <= 5; i++) { if (resp[`sphere_${i}_merit`]) n++; else break; }
+  return n;
+}
+
 function _chkHasContent(sub, key) {
   if (!sub) return false;
-  const raw = sub._raw || {};
-  const alliesM = key.match(/^allies_(\d+)$/);
+  const raw  = sub._raw || {};
+  const resp = sub.responses || {};
+  const alliesM   = key.match(/^allies_(\d+)$/);
   const contactsM = key.match(/^contacts_(\d+)$/);
-  if (alliesM)   return !!(raw.sphere_actions?.[parseInt(alliesM[1]) - 1]);
-  if (contactsM) return !!(raw.contact_actions?.requests?.[parseInt(contactsM[1]) - 1]);
+  if (alliesM) {
+    const n = parseInt(alliesM[1]);
+    return !!(raw.sphere_actions?.[n - 1] || resp[`sphere_${n}_merit`]);
+  }
+  if (contactsM) {
+    const n = parseInt(contactsM[1]);
+    return !!(raw.contact_actions?.requests?.[n - 1] || resp[`contact_${n}_request`]);
+  }
   switch (key) {
-    case 'travel':         return !!(raw.submission?.narrative?.travel_description || sub.responses?.travel);
-    case 'feeding':        return !!(raw.feeding?.method || sub.responses?.['_feed_method']);
-    case 'project_1':      return !!(sub.responses?.project_1_action || raw.projects?.[0]);
-    case 'project_2':      return !!(sub.responses?.project_2_action || raw.projects?.[1]);
-    case 'project_3':      return !!(sub.responses?.project_3_action || raw.projects?.[2]);
-    case 'project_4':      return !!(sub.responses?.project_4_action || raw.projects?.[3]);
-    case 'resources':      return !!(raw.acquisitions?.resource_acquisitions);
-    case 'skill_acq':      return !!(raw.acquisitions?.skill_acquisitions);
-    case 'correspondence': return !!(raw.submission?.narrative?.correspondence);
-    case 'xp':             return !!(raw.meta?.xp_spend);
+    case 'travel':         return !!(raw.submission?.narrative?.travel_description || resp.travel);
+    case 'feeding':        return !!(raw.feeding?.method || resp['_feed_method']);
+    case 'project_1':      return !!(resp.project_1_action || raw.projects?.[0]);
+    case 'project_2':      return !!(resp.project_2_action || raw.projects?.[1]);
+    case 'project_3':      return !!(resp.project_3_action || raw.projects?.[2]);
+    case 'project_4':      return !!(resp.project_4_action || raw.projects?.[3]);
+    case 'resources':      return !!(raw.acquisitions?.resource_acquisitions || resp.resources_acquisitions);
+    case 'skill_acq':      return !!(raw.acquisitions?.skill_acquisitions    || resp.skill_acquisitions);
+    case 'correspondence': return !!(raw.submission?.narrative?.correspondence || resp.correspondence);
+    case 'xp':             return !!(raw.meta?.xp_spend || resp.xp_spend);
     default:               return false;
   }
 }
 
 /** Return tooltip text describing what a specific allies/contacts slot contains. */
 function _chkTooltip(sub, key) {
-  const raw = sub?._raw || {};
+  const raw  = sub?._raw || {};
+  const resp = sub?.responses || {};
   const alliesM = key.match(/^allies_(\d+)$/);
   if (alliesM) {
-    const action = raw.sphere_actions?.[parseInt(alliesM[1]) - 1];
-    return action ? `${action.merit_type}: ${action.action_type}` : '';
+    const n      = parseInt(alliesM[1]);
+    const action = raw.sphere_actions?.[n - 1];
+    if (action) return `${action.merit_type}: ${action.action_type}`;
+    const mt = resp[`sphere_${n}_merit`];
+    const at = resp[`sphere_${n}_action`] || '';
+    return mt ? `${mt}: ${at}` : '';
   }
   const contactsM = key.match(/^contacts_(\d+)$/);
   if (contactsM) {
-    const req = raw.contact_actions?.requests?.[parseInt(contactsM[1]) - 1];
+    const n   = parseInt(contactsM[1]);
+    const req = raw.contact_actions?.requests?.[n - 1] || resp[`contact_${n}_request`] || '';
     if (!req) return '';
     const typeMatch = req.match(/Contact Type:\s*([^\n]+)/i);
     return typeMatch ? `Contact: ${typeMatch[1].trim()}` : 'Contact';
@@ -7777,7 +7800,7 @@ function _chkState(sub, key) {
   // ── Contacts ──
   const contactsM = key.match(/^contacts_(\d+)$/);
   if (contactsM) {
-    const idx = (raw.sphere_actions?.length || 0) + parseInt(contactsM[1]) - 1;
+    const idx = _sphereCount(sub) + parseInt(contactsM[1]) - 1;
     const ps  = resolved[idx]?.pool_status;
     if (ps === 'no_effect' || ps === 'resolved' || ps === 'no_action' || ps === 'no_roll' || ps === 'skipped') return 'no_action';
     if (ps === 'validated') return 'dice_validated';
@@ -7797,9 +7820,7 @@ function _chkNavKey(sub, section) {
   if (alliesM) return `${sub._id}:merit:${parseInt(alliesM[1]) - 1}`;
   const contactsM = section.match(/^contacts_(\d+)$/);
   if (contactsM) {
-    const raw = sub._raw || {};
-    const numSphere = raw.sphere_actions?.length || 0;
-    return `${sub._id}:merit:${numSphere + parseInt(contactsM[1]) - 1}`;
+    return `${sub._id}:merit:${_sphereCount(sub) + parseInt(contactsM[1]) - 1}`;
   }
   return null; // travel, resources, skill_acq, correspondence, xp — no queue entry
 }
