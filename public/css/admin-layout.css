@@ -6818,6 +6818,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
+  min-height: 160px;
   padding: 8px 10px;
   resize: vertical;
   width: 100%;
@@ -7144,8 +7145,78 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   padding: 4px 0 2px;
 }
 
+/* ── DT Story — Collapse complete cards ── */
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-proj-card.complete > *:not(.dt-story-proj-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-merit-card.complete > *:not(.dt-story-merit-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-cs-slot.complete > *:not(.dt-story-cs-slot-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-section.complete > *:not(.dt-story-section-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-terr-section.complete > *:not(.dt-story-terr-header) {
+  display: none;
+}
+
+/* ── DT Story — Collapse toggle button ── */
+.dt-story-collapse-toggle {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  margin-left: auto;
+  padding: 3px 8px;
+}
+.dt-story-collapse-toggle:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-collapse-toggle.active { border-color: var(--gold2); color: var(--gold2); }
+
 /* Rule Data — table rows use hardcoded dark-mode gold tints; replace on parchment */
 html:not([data-theme="dark"]) .rules-tbl td                        { border-bottom-color: var(--surf3); }
 html:not([data-theme="dark"]) .rules-tbl tbody tr:nth-child(even)  { background: var(--surf2); }
 html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background: var(--surf3); }
+
+/* ── Deleted Actions Recovery (DT Processing) ── */
+.proc-deleted-section { border-color: var(--crim) !important; }
+.proc-deleted-section .proc-phase-header { color: var(--crim); }
+
+.proc-deleted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+}
+
+.proc-deleted-row {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.proc-deleted-label {
+  color: var(--txt2);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proc-restore-btn {
+  background: transparent;
+  border: 1px solid var(--crim);
+  color: var(--crim);
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.proc-restore-btn:hover {
+  background: var(--crim);
+  color: #fff;
+}
 

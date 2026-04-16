@@ -25,6 +25,9 @@ const MERIT_SECTIONS = new Set(['allies_actions', 'status_actions', 'retainer_ac
 // Populated after handler functions are defined — see bottom of module.
 const SECTION_SAVE_HANDLERS = {};
 
+// Per-character collapse-complete state (survives re-renders within session)
+const _collapseComplete = new Set(); // char IDs with collapse-complete active
+
 // ── Cacophony Savvy priority order (B7) ──────────────────────────────────────
 
 const CS_ACTION_PRIORITY = [
@@ -142,6 +145,21 @@ export async function initDtStory(cycleId) {
 
   // Event delegation — all panel button clicks, routed by section key
   panel.addEventListener('click', e => {
+    // Collapse-complete toggle
+    const collapseToggle = e.target.closest('.dt-story-collapse-toggle');
+    if (collapseToggle) {
+      e.stopPropagation();
+      const charId = collapseToggle.dataset.charId;
+      if (_collapseComplete.has(charId)) _collapseComplete.delete(charId);
+      else _collapseComplete.add(charId);
+      const isNowActive = _collapseComplete.has(charId);
+      const content = collapseToggle.closest('.dt-story-char-content');
+      if (content) content.dataset.collapseComplete = isNowActive ? 'true' : 'false';
+      collapseToggle.textContent = isNowActive ? 'Show all' : 'Collapse complete';
+      collapseToggle.classList.toggle('active', isNowActive);
+      return;
+    }
+
     // Sign-off (not inside a section)
     const signOffBtn = e.target.closest('.dt-story-sign-off-btn');
     if (signOffBtn && !signOffBtn.disabled) { handleSignOff(signOffBtn); return; }
@@ -963,11 +981,16 @@ function renderProgressTracker(char, sub) {
 function renderCharacterView(char, sub) {
   const stNarrative = sub?.st_narrative;
   const sections = getApplicableSections(char, sub);
+  const charId = String(char?._id || '');
+  const collapseActive = _collapseComplete.has(charId);
+  const collapseAttr = collapseActive ? ' data-collapse-complete="true"' : '';
 
-  let h = '';
+  let h = `<div class="dt-story-char-content"${collapseAttr}>`;
+
   h += `<div class="dt-story-char-header">`;
   h += `<h3 class="dt-story-char-name">${char ? displayName(char) : 'Unknown'}</h3>`;
   if (stNarrative?.locked) h += `<span class="dt-story-locked-badge">Locked</span>`;
+  h += `<button class="dt-story-collapse-toggle${collapseActive ? ' active' : ''}" data-char-id="${charId}">${collapseActive ? 'Show all' : 'Collapse complete'}</button>`;
   h += `</div>`;
 
   h += renderProgressTracker(char, sub);
@@ -977,6 +1000,7 @@ function renderCharacterView(char, sub) {
   }
 
   h += renderSignOffPanel(stNarrative, sections, sub);
+  h += `</div>`; // dt-story-char-content
   return h;
 }
 
@@ -1009,7 +1033,7 @@ function renderSection(section, char, sub, stNarrative) {
 function renderSectionScaffold(key, label, stNarrative) {
   const complete = isSectionComplete(stNarrative, key);
   let h = '';
-  h += `<div class="dt-story-section" data-section="${key}">`;
+  h += `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="${key}">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">${label}</span>`;
   h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
@@ -1027,7 +1051,7 @@ function renderFeedingValidation(char, sub, stNarrative) {
   const poolStatus = fr.pool_status     || 'pending';
   const complete   = poolStatus === 'validated' || poolStatus === 'no_feed' || !!roll;
 
-  let h = `<div class="dt-story-section" data-section="feeding_validation">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="feeding_validation">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">Feeding</span>`;
   h += `<span class="dt-story-completion-dot ${complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending'}"></span>`;
@@ -1184,7 +1208,7 @@ function renderProjectCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" rows="4" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1324,7 +1348,7 @@ function renderLetterFromHome(char, sub, stNarrative) {
   const ctxCollapsed = savedTxt ? ' collapsed' : '';
   const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
 
-  let h = `<div class="dt-story-section" data-section="letter_from_home">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="letter_from_home">`;
 
   // Section header
   h += `<div class="dt-story-section-header">`;
@@ -1370,7 +1394,7 @@ function renderLetterFromHome(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1414,7 +1438,7 @@ function renderTouchstone(char, sub, stNarrative) {
   const ctxCollapsed = savedTxt ? ' collapsed' : '';
   const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
 
-  let h = `<div class="dt-story-section" data-section="touchstone">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="touchstone">`;
 
   // Section header
   h += `<div class="dt-story-section-header">`;
@@ -1475,7 +1499,7 @@ function renderTouchstone(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1913,7 +1937,7 @@ function renderActionCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" rows="3" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
 
   // Buttons
   h += `<div class="dt-story-card-actions">`;
@@ -2024,7 +2048,7 @@ function renderResourcesSection(char, sub) {
         h += `</div>`;
       }
       if (isFlagged) {
-        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" rows="2" placeholder="Flag note\u2026">${flagNote}</textarea>`;
+        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" placeholder="Flag note\u2026">${flagNote}</textarea>`;
         h += `<div class="dt-story-card-actions">`;
         h += `<button class="dt-story-save-draft-btn dt-story-flag-note-save" data-action-idx="${i}">Save Note</button>`;
         h += `</div>`;
@@ -2291,7 +2315,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
   const complete = territoryReportsComplete(sub);
   const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
 
-  let h = `<div class="dt-story-section" data-section="territory_reports">`;
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="territory_reports">`;
   h += `<div class="dt-story-section-header">`;
   h += `<span class="dt-story-section-label">Territory Report</span>`;
   h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
@@ -2313,7 +2337,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     const ctxCollapsed = savedTxt ? ' collapsed' : '';
     const ctxToggleLabel = savedTxt ? 'Show context' : 'Hide context';
 
-    h += `<div class="dt-story-terr-section" data-terr-idx="${idx}" data-terr-id="${terrId}">`;
+    h += `<div class="dt-story-terr-section${isComplete ? ' complete' : ''}" data-terr-idx="${idx}" data-terr-id="${terrId}">`;
 
     // Territory sub-section header
     h += `<div class="dt-story-terr-header">`;
@@ -2398,7 +2422,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</div>`; // context-block
 
     // Response textarea
-    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="4" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
+    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
 
     // Action buttons
     h += `<div class="dt-story-card-actions">`;
@@ -2551,7 +2575,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</div>`; // context-block
 
       // Textarea
-      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" rows="5" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
 
       // Action buttons
       h += `<div class="dt-story-card-actions">`;
