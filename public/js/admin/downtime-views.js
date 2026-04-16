@@ -491,6 +491,23 @@ function resolveSubChar(s, fallback = 'Unknown') {
 }
 
 /**
+ * Build a phase/character progress badge string.
+ * Returns a dt-narr-badge span when all done, a proc-narr-progress span when partially done,
+ * or an empty string when nothing is done yet.
+ * @param {number} done
+ * @param {number} total
+ * @param {string} [doneLabel='Done'] - text after ✓ when complete; pass '' for checkmark only
+ * @returns {string} HTML string (includes leading space when non-empty)
+ */
+function _progressBadge(done, total, doneLabel = 'Done') {
+  if (done === total && total > 0)
+    return ` <span class="dt-narr-badge">\u2713${doneLabel ? ' ' + doneLabel : ''}</span>`;
+  if (done > 0)
+    return ` <span class="proc-narr-progress">${done}/${total}</span>`;
+  return '';
+}
+
+/**
  * Resolve the nine_again checkbox state for a reviewed action.
  * Uses the explicitly saved value if present; otherwise auto-detects from
  * the validated pool expression via the character's skill nine-again flag.
@@ -2699,9 +2716,7 @@ function renderSignOffStep() {
 
   const isExpanded = expandedPhases.has('sign_off');
   const doneCount = submissions.filter(s => ['ready', 'published'].includes(s.st_review?.outcome_visibility)).length;
-  const stepBadge = doneCount === submissions.length && doneCount > 0
-    ? ' <span class="dt-narr-badge">\u2713 All staged</span>'
-    : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/${submissions.length}</span>` : '';
+  const stepBadge = _progressBadge(doneCount, submissions.length, 'All staged');
 
   let h = '<div class="proc-phase-section">';
   h += _renderPhaseHeader('sign_off', `Step 11 \u2014 Sign-off${stepBadge}`, submissions.length, 'submission', isExpanded);
@@ -2794,10 +2809,7 @@ function renderXpReviewStep() {
       totalApproved += rows.filter((_, i) => s.st_review?.xp_approvals?.[i]?.status === 'approved').length;
     } catch { /* ignore */ }
   }
-  const allApproved = totalRows > 0 && totalApproved === totalRows;
-  const stepBadge = allApproved
-    ? ' <span class="dt-narr-badge">\u2713 All approved</span>'
-    : totalApproved > 0 ? ` <span class="proc-narr-progress">${totalApproved}/${totalRows}</span>` : '';
+  const stepBadge = _progressBadge(totalApproved, totalRows, 'All approved');
 
   let h = '<div class="proc-phase-section">';
   h += _renderPhaseHeader('xp_review', `Step 10 \u2014 XP Review${stepBadge}`, xpSubs.length, 'submission', isExpanded);
@@ -2812,10 +2824,7 @@ function renderXpReviewStep() {
       const isBlockExpanded = xpReviewExpanded.has(s._id);
       const approvals = s.st_review?.xp_approvals || {};
       const doneHere = rows.filter((_, i) => approvals[i]?.status === 'approved').length;
-      const allDoneHere = doneHere === rows.length;
-      const charBadge = allDoneHere
-        ? ' <span class="dt-narr-badge">\u2713 Done</span>'
-        : doneHere > 0 ? ` <span class="proc-narr-progress">${doneHere}/${rows.length}</span>` : '';
+      const charBadge = _progressBadge(doneHere, rows.length, 'Done');
 
       // Count how many project slots are xp_spend actions (sets the "action slots" budget)
       let xpActionSlots = 0;
@@ -2889,10 +2898,7 @@ function renderNarrativeStep() {
       const isBlockExpanded = narrativeExpanded.has(s._id);
       const narr = s.st_review?.narrative || {};
       const doneCount = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
-      const allDone = doneCount === NARR_KEYS.length;
-      const statusBadge = allDone
-        ? ' <span class="dt-narr-badge">\u2713 All ready</span>'
-        : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/4</span>` : '';
+      const statusBadge = _progressBadge(doneCount, NARR_KEYS.length, 'All ready');
 
       h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-narrative-id="${esc(s._id)}">`;
       h += `<span class="proc-row-char">${esc(charName)}${statusBadge}</span>`;
@@ -3123,10 +3129,7 @@ function renderProcessingMode(container) {
 
     // Completion count for this phase
     const doneCount = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
-    const allPhaseDone = entries.length > 0 && doneCount === entries.length;
-    const phaseProgressBadge = allPhaseDone
-      ? ' <span class="dt-narr-badge">\u2713</span>'
-      : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/${entries.length}</span>` : '';
+    const phaseProgressBadge = _progressBadge(doneCount, entries.length, '');
 
     // When hiding done, skip phases where every action is resolved
     const visibleEntries = procHideDone
