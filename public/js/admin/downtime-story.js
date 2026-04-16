@@ -562,6 +562,7 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   lines.push('- If Connected Characters are named, describe their observable actions only \u2014 never their internal states');
   lines.push('- Draw narrative details from the character\u2019s concept, skills, and established voice');
   lines.push('- Do not reuse narrative set pieces from other characters\u2019 responses in this cycle');
+  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
 
   return lines.join('\n');
 }
@@ -1013,6 +1014,7 @@ function buildLetterContext(char, sub) {
   lines.push('- No mechanical terms \u2014 no discipline names, dot ratings');
   lines.push('- No em dashes');
   lines.push('- Do not editorialise \u2014 write the scene, not its significance');
+  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
 
   return lines.join('\n');
 }
@@ -1082,6 +1084,7 @@ function buildTouchstoneContext(char, sub) {
   lines.push('- Do not editorialise \u2014 write the scene, not its significance');
   lines.push('- Draw scene details from the character\'s actual life, skills, and relationships \u2014 not from generic domestic templates');
   lines.push('- Detached does not mean narratively irrelevant \u2014 write the scene regardless of attachment status');
+  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
 
   return lines.join('\n');
 }
@@ -1609,6 +1612,7 @@ function buildActionContext(char, sub, idx) {
   lines.push('- No em dashes');
   lines.push('- Do not name game-mechanical concepts (no "Investigate", "Patrol/Scout", etc.)');
   lines.push('- Focus on what the ally/contact/retainer actually did');
+  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
 
   return lines.join('\n');
 }
@@ -2034,6 +2038,7 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   lines.push('- Translate ambience changes into mortal-world observations (e.g. "Curated" means the territory is thriving, well-tended, excellent feeding conditions)');
   lines.push('- Character moments only \u2014 no foreshadowing or plot hooks');
   lines.push('- Do not editorialise');
+  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
 
   return lines.join('\n');
 }
@@ -2258,6 +2263,7 @@ function buildCacophonySavvyContext(char, noisyAction, slotIdx, csDots) {
   lines.push('- Cacophony impressions are distorted \u2014 facts may be garbled, emphasis skewed, source obscured');
   lines.push('- Do not state what actually happened precisely; write what filtered through the rumour network');
   lines.push('- Do not editorialise about significance');
+  lines.push('- No sentence fragments \u2014 every sentence must be grammatically complete');
   return lines.join('\n');
 }
 
