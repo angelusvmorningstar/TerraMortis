@@ -5464,10 +5464,10 @@ function _renderMeritRightPanel(entry, rev) {
 
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
-  h += `<div class="proc-mod-panel-title">Status</div>`;
+  h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   const meritBtns = isAuto
-    ? [['pending', 'Pending'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]
-    : [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+    ? [['pending', 'Pending'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]
+    : [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
@@ -5534,7 +5534,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
 
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
-  h += `<div class="proc-mod-panel-title">Status</div>`;
+  h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
