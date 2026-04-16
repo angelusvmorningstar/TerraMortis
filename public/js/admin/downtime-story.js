@@ -737,7 +737,8 @@ function getApplicableSections(char, sub) {
   if (hasCategory(['status']))            sections.push({ key: 'status_actions',     label: 'Status Actions' });
   if (hasCategory(['retainer', 'staff'])) sections.push({ key: 'retainer_actions',  label: 'Retainer Actions' });
   if (hasCategory(['contacts']))          sections.push({ key: 'contact_requests',   label: 'Contact Requests' });
-  if (hasCategory(['resources']))         sections.push({ key: 'resource_approvals', label: 'Resources/Skill Acquisitions' });
+  if (hasCategory(['resources']))         sections.push({ key: 'resource_approvals',   label: 'Resources/Skill Acquisitions' });
+  if (hasCategory(['misc']))              sections.push({ key: 'misc_merit_actions',  label: 'Influence Actions' });
 
   if (getCSDots(char) > 0) {
     sections.push({ key: 'cacophony_savvy', label: 'Cacophony Savvy' });
@@ -845,7 +846,8 @@ function renderSection(section, char, sub, stNarrative) {
     case 'status_actions':     return renderStatusSection(char, sub);
     case 'retainer_actions':   return renderRetainerSection(char, sub);
     case 'contact_requests':   return renderContactsSection(char, sub);
-    case 'resource_approvals': return renderResourcesSection(char, sub);
+    case 'resource_approvals':  return renderResourcesSection(char, sub);
+    case 'misc_merit_actions':  return renderMiscMeritSection(char, sub);
     default: return renderSectionScaffold(section.key, section.label, stNarrative);
   }
 }
@@ -1780,7 +1782,8 @@ function renderMeritSection(char, sub, sectionKey, sectionLabel, categories) {
 function renderAlliesSection(char, sub)   { return renderMeritSection(char, sub, 'allies_actions',   'Allies Actions',   ['allies']); }
 function renderStatusSection(char, sub)   { return renderMeritSection(char, sub, 'status_actions',   'Status Actions',   ['status']); }
 function renderRetainerSection(char, sub) { return renderMeritSection(char, sub, 'retainer_actions', 'Retainer Actions', ['retainer', 'staff']); }
-function renderContactsSection(char, sub) { return renderMeritSection(char, sub, 'contact_requests', 'Contact Requests', ['contacts']); }
+function renderContactsSection(char, sub) { return renderMeritSection(char, sub, 'contact_requests',  'Contact Requests',  ['contacts']); }
+function renderMiscMeritSection(char, sub){ return renderMeritSection(char, sub, 'misc_merit_actions', 'Influence Actions', ['misc']); }
 
 // ── Resources/Skill Acquisitions section (B3 Task 5) ─────────────────────────
 
