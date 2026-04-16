@@ -8500,23 +8500,8 @@ function renderFeedingMatrix() {
     }
 
     h += '</tbody>';
-
-    // Footer: feeders this cycle vs ambience cap
-    h += '<tfoot><tr><td><strong>Feeders</strong></td>';
-    for (const t of cols) {
-      if (t.ambienceKey === null) {
-        h += '<td class="dt-matrix-empty">\u2014</td>';
-      } else {
-        const ambience = getTerritoryAmbience(t.ambienceKey);
-        const cap = ambience ? (AMBIENCE_CAP[ambience] ?? null) : null;
-        const count = feederCounts[t.csvKey];
-        const overCap = cap !== null && count > cap;
-        h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
-      }
-    }
-    h += '</tr></tfoot>';
     h += '</table>';
-    h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Feeders / cap from City ambience. Residents set via City tab.</p>';
+    h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
     h += '</div>';
   }
 
@@ -8610,7 +8595,7 @@ function _buildAmbienceHtml() {
     h += `<td class="proc-amb-terr">${esc(r.name)}</td>`;
     h += `<td>${esc(r.ambience)}</td>`;
     h += `<td class="proc-amb-neg">${r.entropy}</td>`;
-    h += `<td>${r.feeders}/${r.cap} | <span class="${gapClass}">${gapStr}</span></td>`;
+    h += `<td>${r.cap}/${r.feeders} | <span class="${gapClass}">${gapStr}</span></td>`;
     h += `<td>${infDisplay}</td>`;
     h += `<td>${projDisplay}</td>`;
     h += `<td>${alliesDisplay}</td>`;
@@ -8670,20 +8655,8 @@ function _buildFeedingMatrixHtml() {
     h += '</tr>';
   }
   h += '</tbody>';
-  h += '<tfoot><tr><td><strong>Feeders</strong></td>';
-  for (const t of _mCols) {
-    if (t.ambienceKey === null) {
-      h += '<td class="dt-matrix-empty">\u2014</td>';
-    } else {
-      const amb = getTerritoryAmbience(t.ambienceKey);
-      const cap = amb ? (AMBIENCE_CAP[amb] ?? null) : null;
-      const count = _mFeederCounts[t.csvKey];
-      const overCap = cap !== null && count > cap;
-      h += `<td class="${overCap ? 'dt-matrix-overcap' : ''}">${count}${cap !== null ? ` / ${cap}` : ''}</td>`;
-    }
-  }
-  h += '</tr></tfoot></table>';
-  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Feeders / cap from City ambience. Residents set via City tab.</p>';
+  h += '</table>';
+  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
   h += '</div>';
   return h;
 }
