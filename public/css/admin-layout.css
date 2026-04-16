@@ -6825,7 +6825,8 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 }
 .dt-story-response-ta:focus { border-color: var(--gold2); outline: none; }
 .dt-story-section[data-section="letter_from_home"] .dt-story-response-ta,
-.dt-story-section[data-section="touchstone"] .dt-story-response-ta { min-height: 200px; }
+.dt-story-section[data-section="touchstone"] .dt-story-response-ta,
+.dt-story-section[data-section="territory_reports"] .dt-story-response-ta { min-height: 200px; }
 
 .dt-story-card-actions { align-items: center; display: flex; gap: 8px; }
 .dt-story-save-draft-btn,
