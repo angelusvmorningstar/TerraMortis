@@ -5,6 +5,7 @@ import { requireRole } from '../middleware/auth.js';
 import { stripStReview } from '../helpers/strip-st-review.js';
 import { validate } from '../middleware/validate.js';
 import { downtimeSubmissionSchema, downtimeCycleSchema } from '../schemas/downtime_submission.schema.js';
+import { sendDowntimePublishedEmail } from '../helpers/email.js';
 
 function parseId(id) {
   try {
@@ -175,11 +176,12 @@ submissionsRouter.put('/:id', async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid submission ID format' });
 
+  // Load existing doc for ownership check and publish-transition detection
+  const existing = await submissions().findOne({ _id: oid });
+  if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
+
   // Player: verify ownership and deadline
   if (req.user.role === 'player') {
-    const existing = await submissions().findOne({ _id: oid });
-    if (!existing) return res.status(404).json({ error: 'NOT_FOUND', message: 'Submission not found' });
-
     const charIds = (req.user.character_ids || []).map(id => id.toString());
     if (!charIds.includes(existing.character_id?.toString())) {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your submission' });
@@ -203,6 +205,11 @@ submissionsRouter.put('/:id', async (req, res) => {
     }
   }
 
+  // Detect publish transition (ST only — player requests can't reach this with st_review fields)
+  const isPublishTransition =
+    req.body['st_review.outcome_visibility'] === 'published' &&
+    existing?.st_review?.outcome_visibility !== 'published';
+
   const { _id, ...updates } = req.body;
   const result = await submissions().findOneAndUpdate(
     { _id: oid },
@@ -218,4 +225,52 @@ submissionsRouter.put('/:id', async (req, res) => {
   }
 
   res.json(result);
+
+  // Fire-and-forget email on publish transition
+  if (isPublishTransition) {
+    _sendPublishedEmail(result).catch(err =>
+      console.error('[email] Publish email error:', err.message)
+    );
+  }
 });
+
+async function _sendPublishedEmail(submission) {
+  try {
+    const charId = submission.character_id instanceof ObjectId
+      ? submission.character_id
+      : parseId(String(submission.character_id));
+    if (!charId) return;
+
+    // Find player via character_ids reverse lookup
+    const playersCol = getCollection('players');
+    const player = await playersCol.findOne({ character_ids: charId });
+    if (!player?.email) return;
+
+    // Fetch cycle label
+    const cycleId = submission.cycle_id instanceof ObjectId
+      ? submission.cycle_id
+      : parseId(String(submission.cycle_id));
+    let cycleLabel = 'Downtime';
+    if (cycleId) {
+      const cycle = await cycles().findOne({ _id: cycleId });
+      if (cycle?.label) cycleLabel = cycle.label;
+    }
+
+    // Resolve character display name
+    const charsCol = getCollection('characters');
+    const char = charId ? await charsCol.findOne({ _id: charId }) : null;
+    const charName = char
+      ? [char.honorific, char.moniker || char.name].filter(Boolean).join(' ')
+      : 'Your character';
+
+    await sendDowntimePublishedEmail({
+      toEmail:      player.email,
+      charName,
+      cycleLabel,
+      outcomeText:  submission.st_review?.outcome_text || '',
+      feedMethodId: submission.responses?._feed_method || '',
+    });
+  } catch (err) {
+    console.error('[email] _sendPublishedEmail failed:', err.message);
+  }
+}
