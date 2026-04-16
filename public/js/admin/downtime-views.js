@@ -2139,6 +2139,40 @@ function buildProcessingQueue(subs) {
       meritFlatIdx++;
     });
 
+    // ── Acquisitions (resource and skill, from raw.acquisitions form section) ──
+    const resAcq   = (raw.acquisitions?.resource_acquisitions || '').trim();
+    const skillAcq = (raw.acquisitions?.skill_acquisitions   || '').trim();
+    if (resAcq) {
+      queue.push({
+        key: `${sub._id}:acq:resources`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[7],
+        phaseNum: 7,
+        actionType: 'resources_acquisitions',
+        label: 'Resources Acquisitions',
+        description: resAcq,
+        source: 'acquisition',
+        actionIdx: 0,
+        poolPlayer: '',
+      });
+    }
+    if (skillAcq) {
+      queue.push({
+        key: `${sub._id}:acq:skills`,
+        subId: sub._id,
+        charName,
+        phase: PHASE_NUM_TO_LABEL[7],
+        phaseNum: 7,
+        actionType: 'skill_acquisitions',
+        label: 'Skill Acquisitions',
+        description: skillAcq,
+        source: 'acquisition',
+        actionIdx: 1,
+        poolPlayer: '',
+      });
+    }
+
     // ── ST-created actions ──
     for (let idx = 0; idx < (sub.st_actions || []).length; idx++) {
       const stAction = sub.st_actions[idx];
@@ -2243,6 +2277,7 @@ function getEntryReview(entry) {
   if (entry.source === 'merit')   return (sub.merit_actions_resolved || [])[entry.actionIdx] || null;
   if (entry.source === 'sorcery') return (sub.sorcery_review || {})[entry.actionIdx] || null;
   if (entry.source === 'st_created') return (sub.st_actions_resolved || [])[entry.actionIdx] || null;
+  if (entry.source === 'acquisition') return (sub.acquisitions_resolved || [])[entry.actionIdx] || null;
   return null;
 }
 
@@ -2299,6 +2334,13 @@ async function saveEntryReview(entry, patch) {
     resolved[entry.actionIdx] = { ...current, ...patch };
     await updateSubmission(entry.subId, { st_actions_resolved: resolved });
     sub.st_actions_resolved = resolved;
+  } else if (entry.source === 'acquisition') {
+    const resolved = [...(sub.acquisitions_resolved || [])];
+    while (resolved.length <= entry.actionIdx) resolved.push(null);
+    const current = resolved[entry.actionIdx] || { pool_player: '', pool_validated: '', pool_status: 'pending', notes_thread: [], player_feedback: '' };
+    resolved[entry.actionIdx] = { ...current, ...patch };
+    await updateSubmission(entry.subId, { acquisitions_resolved: resolved });
+    sub.acquisitions_resolved = resolved;
   }
 }
 
