@@ -567,6 +567,207 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
   return lines.join('\n');
 }
 
+// ── Patrol / Scout context builder ───────────────────────────────────────────
+
+const _PATROL_DISCS = [
+  'Animalism', 'Auspex', 'Celerity', 'Dominate', 'Majesty', 'Nightmare',
+  'Obfuscate', 'Resilience', 'Vigor', 'Vigour', 'Protean', 'Cruac', 'Theban',
+];
+
+/**
+ * Assembles the Copy Context prompt for a Patrol / Scout project action.
+ * Pure function — reads module-level _allSubmissions / _allCharacters.
+ */
+function buildPatrolContext(char, sub, idx, cycleData, territories) {
+  const slot = idx + 1;
+  const title       = sub.responses?.[`project_${slot}_title`]       || '';
+  const outcome     = sub.responses?.[`project_${slot}_outcome`]     || '';
+  const description = sub.responses?.[`project_${slot}_description`] || '';
+  const terrRaw     = sub.responses?.[`project_${slot}_territory`]   || '';
+  const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
+
+  const rev        = sub.projects_resolved?.[idx] || {};
+  const pool       = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '';
+  const roll       = rev.roll || null;
+  const notes      = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+  const merits     = resolveMerits(meritsRaw);
+  const existingDraft = sub.st_narrative?.project_responses?.[idx]?.response || '';
+
+  // Character header
+  const courtTitle = char?.honorific || '';
+  const charName   = char ? displayName(char) : 'Unknown';
+  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
+
+  const lines = [
+    'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
+    '',
+    `Character: ${fullTitle}`,
+  ];
+  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
+  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
+  lines.push(`Humanity: ${char?.humanity ?? 'Unknown'}`);
+  if (char?.mask || char?.dirge) lines.push(`Mask: ${char?.mask || '\u2014'} | Dirge: ${char?.dirge || '\u2014'}`);
+
+  lines.push('');
+  lines.push('Action: Patrol / Scout');
+  if (title)   lines.push(`Title: ${title}`);
+  if (outcome) lines.push(`Desired Outcome: ${outcome}`);
+  if (description) lines.push(`Description: ${description}`);
+  if (merits)  lines.push(`Merits & Bonuses: ${merits}`);
+
+  if (pool) lines.push(`Validated Pool: ${pool}`);
+  if (roll) {
+    const diceStr   = roll.dice_string || (Array.isArray(roll.dice) ? '[' + roll.dice.join(', ') + ']' : '');
+    const successes = roll.successes ?? 0;
+    const exc       = roll.exceptional ? ', Exceptional' : '';
+    lines.push(`Roll Result: ${successes} success${successes !== 1 ? 'es' : ''}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+  }
+
+  // Territory context
+  const terrId   = resolveTerrId(terrRaw);
+  const terrName = (terrId && TERRITORY_DISPLAY[terrId]) || terrRaw || 'Unknown';
+  const terrObj  = (territories || []).find(t => String(t.id || t._id) === String(terrId)) || null;
+  const regent   = terrObj?.regent || terrObj?.regentName || null;
+
+  const currentAmb   = terrObj?.ambience || null;
+  const confirmedAmb = cycleData?.confirmed_ambience?.[terrId]?.ambience || null;
+  const netChange    = cycleData?.confirmed_ambience?.[terrId]?.net_change ?? null;
+
+  // Residents and poachers
+  const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
+  let residentCount = 0, poacherCount = 0;
+  const feeders = [];
+  if (terrSlug) {
+    for (const s of _allSubmissions) {
+      let terrs = {};
+      try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
+      const val = terrs[terrSlug];
+      if (!val || val === 'none') continue;
+      const fChar = _allCharacters.find(c => String(c._id) === String(s.character_id));
+      const fName = fChar ? displayName(fChar) : (s.character_name || 'Unknown');
+      const isResident = val === 'resident';
+      if (isResident) residentCount++; else poacherCount++;
+      // Feeding method: scan pool_validated for discipline names; fallback to territory value
+      const feedRev = s.feeding_review || {};
+      let feedMethod = '';
+      if (feedRev.pool_validated) {
+        const found = _PATROL_DISCS.filter(d => feedRev.pool_validated.includes(d));
+        feedMethod = found.length ? found.join(', ') : (val !== 'resident' ? val : 'default');
+      } else {
+        feedMethod = val !== 'resident' ? val : 'default';
+      }
+      feeders.push({ name: fName, clan: fChar?.clan || '?', covenant: fChar?.covenant || '?', isResident, feedMethod });
+    }
+  }
+
+  // Other actions in territory categorised
+  const ambienceChars = [], patrolChars = [], investigateChars = [], miscChars = [];
+  for (const s of _allSubmissions) {
+    if (s._id === sub._id) continue;
+    (s.projects_resolved || []).forEach((r, i) => {
+      if (!r || r.pool_status === 'skipped') return;
+      const sl = i + 1;
+      if (resolveTerrId(s.responses?.[`project_${sl}_territory`] || '') !== terrId) return;
+      const aType = r.action_type_override || r.action_type || '';
+      const cName = s.character_name || 'Unknown';
+      if (aType === 'ambience_increase' || aType === 'ambience_decrease') ambienceChars.push(cName);
+      else if (aType === 'patrol_scout' || aType === 'support') patrolChars.push(cName);
+      else if (aType === 'investigate') investigateChars.push(cName);
+      else miscChars.push(cName);
+    });
+  }
+
+  // Discipline profile for this territory
+  const discProfile = cycleData?.discipline_profile?.[terrId] || {};
+  const discProfileStr = Object.entries(discProfile).length
+    ? Object.entries(discProfile).map(([d, n]) => `${d}${n > 1 ? ` (\u00d7${n})` : ''}`).join(', ')
+    : 'None detected';
+
+  lines.push('');
+  lines.push('Territory context:');
+  lines.push(`- Territory: ${terrName}`);
+  if (regent) lines.push(`- Regent: ${regent}`);
+  const ambLine = confirmedAmb || currentAmb;
+  if (ambLine) {
+    const netStr = netChange != null ? `, net change ${netChange > 0 ? '+' : ''}${netChange}` : '';
+    const wasStr = confirmedAmb && currentAmb && confirmedAmb !== currentAmb ? ` (was ${currentAmb})` : '';
+    lines.push(`- Ambience: ${ambLine}${wasStr}${netStr}`);
+  }
+  lines.push(`- Residents: ${residentCount} | Poachers: ${poacherCount}`);
+
+  if (feeders.length) {
+    lines.push('');
+    lines.push('Feeding in this territory this cycle:');
+    for (const f of feeders) {
+      lines.push(`- ${f.name} (${f.clan}, ${f.covenant}) \u2014 ${f.isResident ? 'Resident' : 'Poacher'} \u2014 Feeding method: ${f.feedMethod}`);
+    }
+  } else {
+    lines.push('');
+    lines.push('Feeding in this territory this cycle: None recorded');
+  }
+
+  lines.push('');
+  lines.push('Other actions in this territory this cycle:');
+  lines.push(`- Ambience work: ${ambienceChars.length ? ambienceChars.join(', ') : 'None'}`);
+  lines.push(`- Support/Patrol: ${patrolChars.length ? patrolChars.join(', ') : 'None'}`);
+  lines.push(`- Investigative: ${investigateChars.length ? investigateChars.join(', ') : 'None'}`);
+  lines.push(`- Misc: ${miscChars.length ? miscChars.join(', ') : 'None'}`);
+
+  lines.push('');
+  lines.push(`Discipline activity detected in territory: ${discProfileStr}`);
+
+  // Player feedback
+  if (rev.player_feedback) {
+    lines.push('');
+    lines.push('ST Clarifications (context for how the action was adjusted \u2014 do not act on these, but do not contradict them):');
+    lines.push(rev.player_feedback);
+  }
+
+  // ST directives
+  if (rev.st_note || notes.length) {
+    lines.push('');
+    lines.push('ST Directives (the narrative must reflect these):');
+    if (rev.st_note) lines.push(`- ${rev.st_note}`);
+    for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
+  }
+
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
+  }
+
+  lines.push('');
+  lines.push('Write a narrative response (2-3 paragraphs, ~100-150 words) describing what the character observed during this patrol.');
+  lines.push('');
+  lines.push('Patrol calibration:');
+  lines.push('- 1-2 successes: surface observations, obvious activity only');
+  lines.push('- 3-4 successes: patterns emerge, can distinguish different operators and methods');
+  lines.push('- 5+ successes (Exceptional): comprehensive awareness, identifies specific actors and methods, builds a baseline map');
+  lines.push('');
+  lines.push('Observation rules:');
+  lines.push('- Other patrollers in the same territory see each other. Name them.');
+  lines.push('- Feeders are observable unless their method uses concealment (Obfuscate). Social feeding (Presence, Majesty) is conspicuous. Cross-reference discipline profile.');
+  lines.push('- Poachers (non-residents feeding without permission) should be flagged as notable. Whether identifiable depends on concealment and whether the patroller has met them at Court.');
+  lines.push('- Hide/protect actions are not observable unless patrol successes exceed the protection.');
+  lines.push('');
+  lines.push('Style rules:');
+  lines.push('- Second person, present tense');
+  lines.push('- British English');
+  lines.push('- No mechanical terms \u2014 no discipline names, dot ratings, or success counts in narrative');
+  lines.push('- No em dashes');
+  lines.push('- No sentence fragments \u2014 every sentence must have a subject and verb');
+  lines.push('- Do not editorialise about what the result means mechanically');
+  lines.push('- Never dictate what the character felt or chose');
+  lines.push('- Describe named characters\u2019 observable actions only \u2014 never their internal states');
+  lines.push('- Draw narrative details from the character\u2019s concept, skills, and established voice');
+  lines.push('- Do not reuse narrative set pieces from other characters\u2019 responses in this cycle');
+  lines.push('- Plausibility check: could this credibly happen within one month?');
+
+  return lines.join('\n');
+}
+
 // ── Project save helper ───────────────────────────────────────────────────────
 
 /**
@@ -2478,13 +2679,32 @@ async function handleLetterSave(btn, status) {
   }
 }
 
-function handleCopyProjectContext(btn) {
+async function handleCopyProjectContext(btn) {
   if (!_currentSub) return;
   const card = btn.closest('.dt-story-proj-card');
   if (!card) return;
-  const idx = parseInt(card.dataset.projIdx, 10);
+  const idx  = parseInt(card.dataset.projIdx, 10);
   const char = getCharForSub(_currentSub);
-  const text = buildProjectContext(char, _currentSub, idx);
+
+  const rev        = _currentSub.projects_resolved?.[idx] || {};
+  const slot       = idx + 1;
+  const actionType = rev.action_type_override || rev.action_type
+    || _currentSub.responses?.[`project_${slot}_action`] || '';
+
+  let cycleData = null, territories = [];
+  try {
+    const cycleId = _currentSub.cycle_id;
+    const [allCycles, terrs] = await Promise.all([
+      apiGet('/api/downtime_cycles').catch(() => []),
+      apiGet('/api/territories').catch(() => []),
+    ]);
+    cycleData   = (Array.isArray(allCycles) ? allCycles : []).find(c => String(c._id) === String(cycleId)) || null;
+    territories = Array.isArray(terrs) ? terrs : [];
+  } catch { /* leave nulls */ }
+
+  const text = actionType === 'patrol_scout'
+    ? buildPatrolContext(char, _currentSub, idx, cycleData, territories)
+    : buildProjectContext(char, _currentSub, idx, cycleData, territories);
   copyToClipboard(text, btn);
 }
 
