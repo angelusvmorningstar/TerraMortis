@@ -1421,6 +1421,7 @@ function buildWizardChecklistHtml(cycle, nextNum) {
     const vis = s.st_review?.outcome_visibility;
     return !vis || vis === 'pending' || vis === 'hidden';
   });
+  const blankReadySubs = readySubs.filter(s => !(s.st_review?.outcome_text || '').trim());
   const approvedSubs = submissions.filter(s =>
     s.approval_status === 'approved' || s.approval_status === 'modified'
   );
@@ -1430,9 +1431,10 @@ function buildWizardChecklistHtml(cycle, nextNum) {
   const noFeed = submissions.filter(s => !s.feeding_roll);
 
   let items = '';
-  if (readySubs.length) items += `<li class="gc-chk-ok">&#10003; ${readySubs.length} submission${readySubs.length !== 1 ? 's' : ''} ready to publish</li>`;
+  const goodReadyCount = readySubs.length - blankReadySubs.length;
+  if (goodReadyCount > 0) items += `<li class="gc-chk-ok">&#10003; ${goodReadyCount} submission${goodReadyCount !== 1 ? 's' : ''} ready to publish</li>`;
 
-  // AC 1–3: Unresolved submissions are blocking — each must be acknowledged
+  // Unresolved submissions — blocking, require acknowledgement
   if (pendingSubs.length) {
     items += `<li class="gc-chk-block-header">&#9651; ${pendingSubs.length} unresolved \u2014 acknowledge each before proceeding:</li>`;
     for (const sub of pendingSubs) {
@@ -1441,12 +1443,22 @@ function buildWizardChecklistHtml(cycle, nextNum) {
     }
   }
 
+  // Blank narrative on a staged submission — blocking, players would receive empty outcome
+  if (blankReadySubs.length) {
+    items += `<li class="gc-chk-block-header">&#9888; ${blankReadySubs.length} staged submission${blankReadySubs.length !== 1 ? 's' : ''} with no narrative \u2014 players will see a blank result. Acknowledge to proceed anyway:</li>`;
+    for (const sub of blankReadySubs) {
+      const name = esc(`${sub.character_name || '\u2014'} \u2014 ${sub.player_name || '\u2014'}`);
+      items += `<li class="gc-chk-block"><label><input type="checkbox" class="gc-dismiss-check" data-sub-id="${esc(String(sub._id))}"> <span class="gc-chk-name">${name} (blank narrative)</span></label></li>`;
+    }
+  }
+
   if (missingExp.length) items += `<li class="gc-chk-warn">&#9651; ${missingExp.length} approved submission${missingExp.length !== 1 ? 's' : ''} missing expenditure data</li>`;
   if (noFeed.length) items += `<li class="gc-chk-warn">&#9651; ${noFeed.length} submission${noFeed.length !== 1 ? 's' : ''} with no feeding roll</li>`;
   if (!items) items = '<li class="gc-chk-ok">&#10003; All checks passed</li>';
 
   const hasAdvisoryWarnings = missingExp.length || noFeed.length;
-  const blocking = pendingSubs.length > 0;
+  const allBlockingItems = [...pendingSubs, ...blankReadySubs];
+  const blocking = allBlockingItems.length > 0;
 
   return `<div class="gc-wizard-box">
     <div class="gc-wizard-title">Cycle Reset Wizard</div>
@@ -1459,7 +1471,7 @@ function buildWizardChecklistHtml(cycle, nextNum) {
     </div>
     <div class="gc-wizard-actions">
       <button id="gc-cancel" class="dt-btn">Cancel</button>
-      ${pendingSubs.length > 1 ? '<button id="gc-dismiss-all" class="dt-btn">Dismiss all</button>' : ''}
+      ${allBlockingItems.length > 1 ? '<button id="gc-dismiss-all" class="dt-btn">Dismiss all</button>' : ''}
       <button id="gc-begin" class="dt-btn dt-btn-gold"${blocking ? ' disabled' : ''}>Begin Reset</button>
     </div>
   </div>`;
@@ -1694,7 +1706,11 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   try {
     await closeCycle(cycleId);
     await createCycle(nextNum, deadlineAt);
-    setPhaseState(overlay, 'new-cycle', 'done');
+    // Auto-create game session in Attendance & Finance so the record exists immediately.
+    // session_date defaults to today — ST can update the actual game date via Next Session form.
+    const sessionDate = new Date().toISOString().split('T')[0];
+    await apiPost('/api/game_sessions', { session_date: sessionDate, game_number: nextNum });
+    setPhaseState(overlay, 'new-cycle', 'done', `Game ${nextNum} session created`);
   } catch (err) { fail('new-cycle', err.message); return; }
 
   showWizardFooter(footer, 'done', rollback, overlay);
