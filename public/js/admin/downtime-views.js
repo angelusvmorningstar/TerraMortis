@@ -2306,6 +2306,11 @@ const AMBIENCE_STEPS_LIST = [
   'Settled', 'Tended', 'Curated', 'Verdant', 'The Rack',
 ];
 
+/** Called by city-views.js after saving an ambience override so Processing Mode refetches. */
+export function invalidateCachedTerritories() {
+  cachedTerritories = null;
+}
+
 /** Load (or reuse) territories from the DB, falling back to TERRITORY_DATA. */
 async function ensureTerritories() {
   if (cachedTerritories) return cachedTerritories;
@@ -2568,7 +2573,7 @@ function _gatherMeritAmbience(subs) {
  * Build the per-territory aggregation data for the ambience dashboard.
  * Returns { rows, pendingAmbienceCount }.
  */
-function buildAmbienceData(terrs) {
+function buildAmbienceData(terrs, passedFeedCounts = null) {
   // Starting ambience from DB records (fallback to TERRITORY_DATA defaults)
   const startingAmbience = {}, startingAmbienceMod = {};
   if (terrs?.length) {
@@ -2587,7 +2592,8 @@ function buildAmbienceData(terrs) {
   }
 
   // Aggregate each change source (all accumulators keyed by canonical territory id)
-  const { byTerrId: feederCounts }                           = _computeMatrixFeederCounts();
+  // Use passed feed counts (from TAAG matrix) when available so the numbers always match.
+  const feederCounts = passedFeedCounts ?? _computeMatrixFeederCounts().byTerrId;
   const { infPos, infNeg }                                    = _gatherInfluence(submissions);
   const { projPos, projNeg, pendingCount: projPending }       = _gatherProjectAmbience(submissions);
   const { alliesPos, alliesNeg, pendingCount: alliesPending } = _gatherMeritAmbience(submissions);
@@ -8549,9 +8555,9 @@ function _resolveProjectTerritory(sub, projIdx) {
 
 // ── City Overview helpers ─────────────────────────────────────────
 
-function _buildAmbienceHtml() {
+function _buildAmbienceHtml(feedCountsByTerrId = null) {
   const terrs = cachedTerritories || TERRITORY_DATA;
-  const { rows } = buildAmbienceData(terrs);
+  const { rows } = buildAmbienceData(terrs, feedCountsByTerrId);
 
   let h = `<div class="dt-scroll-wrap">`;
   h += `<table class="proc-amb-table">`;
@@ -8932,7 +8938,14 @@ function renderCityOverview() {
     h += `<button class="city-amb-recalc-btn dt-btn-sm" title="Write projected ambience to all territory records now">Recalculate Territories</button>`;
     h += `<span class="proc-amb-toggle">${ovAmbienceCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
     h += `</div>`;
-    if (!ovAmbienceCollapsed) h += _buildAmbienceHtml();
+    if (!ovAmbienceCollapsed) {
+      // Extract TAAG feeding counts so Ambience overfeeding uses the exact same numbers
+      const feedCountsByTerrId = {};
+      for (const td of TERRITORY_DATA) {
+        feedCountsByTerrId[td.id] = (matrix['feeding'][td.id] || []).length;
+      }
+      h += _buildAmbienceHtml(feedCountsByTerrId);
+    }
 
     // ── 3. Actions in Territories ─────────────────────────────────
     h += `<div class="proc-disc-header dt-city-actions-head">`;

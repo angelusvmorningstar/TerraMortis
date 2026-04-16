@@ -51,8 +51,8 @@ export const FEEDING_TERRITORIES = [
 export const AMBIENCE_CAP = {
   'Hostile':   0,
   'Barrens':   0,
-  'Neglected': 4,
-  'Untended':  5,
+  'Neglected': 6,
+  'Untended':  6,
   'Settled':   6,
   'Tended':    6,
   'Curated':   7,
