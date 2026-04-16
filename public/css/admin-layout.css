@@ -6531,6 +6531,23 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-story-pill.amber { border-color: rgba(200,144,64,0.4); }
 .dt-story-pill.green  { border-color: var(--story-compl-a40); }
 
+.dt-story-pill-row {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+.dt-story-push-btn {
+  background: transparent;
+  border: 1px solid var(--gold2);
+  border-radius: 3px;
+  color: var(--gold2);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+.dt-story-push-btn:disabled { opacity: 0.5; cursor: default; }
+.dt-error-msg { color: var(--crim); font-size: 10px; }
+
 /* Character view */
 .dt-story-char-view {
   padding: 16px;

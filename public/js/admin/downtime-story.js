@@ -12,7 +12,7 @@
 
 import { apiGet, apiPut } from '../data/api.js';
 import { displayName, esc } from '../data/helpers.js';
-import { getUser } from '../auth/discord.js';
+import { getUser, isSTRole } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS } from './downtime-constants.js';
 
 // ── Section routing ───────────────────────────────────────────────────────────
@@ -76,6 +76,7 @@ let _allSubmissions = [];   // GET /api/downtime_submissions?cycle_id=
 let _allCharacters  = [];   // GET /api/characters
 let _currentCharId  = null;
 let _currentSub     = null;
+const _pushErrors   = new Map(); // charId → error message for failed pushes
 
 // ── Public exports ────────────────────────────────────────────────────────────
 
@@ -136,8 +137,10 @@ export async function initDtStory(cycleId) {
   view.innerHTML = '<div class="dt-story-empty">Select a character from the rail above.</div>';
   panel.appendChild(view);
 
-  // Event delegation — pill clicks
+  // Event delegation — pill clicks + push button
   rail.addEventListener('click', e => {
+    const pushBtn = e.target.closest('.dt-story-push-btn');
+    if (pushBtn) { handlePushCharacter(pushBtn.dataset.subId, pushBtn.dataset.charId); return; }
     const pill = e.target.closest('.dt-story-pill');
     if (!pill) return;
     selectCharacter(pill.dataset.charId);
@@ -813,6 +816,7 @@ function renderNavRail() {
     return na.localeCompare(nb);
   });
 
+  const isST = isSTRole();
   let h = '';
   for (const sub of sorted) {
     const char = getCharForSub(sub);
@@ -820,10 +824,22 @@ function renderNavRail() {
     const state = getNavPillState(sub);
     const stateClass = state ? ` ${state}` : '';
     const charId = sub.character_id || sub._id;
+    const isPublished = sub.st_review?.outcome_visibility === 'published';
+    const errMsg = _pushErrors.get(charId);
+    h += `<div class="dt-story-pill-row">`;
     h += `<button class="dt-story-pill${stateClass}" data-char-id="${charId}" data-sub-id="${sub._id}">`;
     h += name;
     if (state) h += `<span class="dt-story-pill-dot"></span>`;
     h += `</button>`;
+    if (isST) {
+      if (isPublished) {
+        h += `<span class="dt-proj-done-badge">Published</span>`;
+      } else {
+        h += `<button class="dt-story-push-btn" data-sub-id="${sub._id}" data-char-id="${charId}" title="Push narrative to player">Push</button>`;
+      }
+    }
+    if (errMsg) h += `<span class="dt-error-msg">${esc(errMsg)}</span>`;
+    h += `</div>`;
   }
   return h;
 }
@@ -2236,7 +2252,9 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
   } else if (confirmedAmb || currentAmb) {
     lines.push(`Ambience: ${confirmedAmb || currentAmb}`);
   }
-  lines.push(`Residents: ${coResidents.length + 1} | Poachers: ${poachers.length}`);
+  if (terrId !== 'barrens') {
+    lines.push(`Residents: ${coResidents.length + 1} | Poachers: ${poachers.length}`);
+  }
 
   lines.push('');
   lines.push('Discipline activity detected:');
@@ -2246,14 +2264,16 @@ function buildTerritoryContext(char, sub, terrId, allSubmissions, allChars, cycl
     lines.push('- None');
   }
 
-  lines.push('');
-  lines.push('Co-residents:');
-  if (coResidents.length) {
-    for (const r of coResidents) {
-      lines.push(`- ${r.name} (${[r.clan, r.covenant].filter(Boolean).join(', ')})`);
+  if (terrId !== 'barrens') {
+    lines.push('');
+    lines.push('Co-residents:');
+    if (coResidents.length) {
+      for (const r of coResidents) {
+        lines.push(`- ${r.name} (${[r.clan, r.covenant].filter(Boolean).join(', ')})`);
+      }
+    } else {
+      lines.push('- None');
     }
-  } else {
-    lines.push('- None');
   }
 
   if (poachers.length) {
@@ -2349,21 +2369,23 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     // Collapsible context block
     h += `<div class="dt-story-context-block${ctxCollapsed}">`;
 
-    // Co-residents block
-    const coResidents = getCoResidents(terr.slug, sub, allSubmissions, allChars);
-    h += `<div class="dt-story-terr-coresidents">`;
-    h += `<span class="dt-story-note-author">Co-residents:</span>`;
-    if (coResidents.length) {
-      h += `<ul class="dt-story-terr-list">`;
-      for (const r of coResidents) {
-        const tags = [r.clan, r.covenant].filter(Boolean).join(', ');
-        h += `<li>${r.name}${tags ? ` (${tags})` : ''}</li>`;
+    // Co-residents block — suppressed for The Barrens (feeding there is isolated)
+    if (terr.id !== 'barrens') {
+      const coResidents = getCoResidents(terr.slug, sub, allSubmissions, allChars);
+      h += `<div class="dt-story-terr-coresidents">`;
+      h += `<span class="dt-story-note-author">Co-residents:</span>`;
+      if (coResidents.length) {
+        h += `<ul class="dt-story-terr-list">`;
+        for (const r of coResidents) {
+          const tags = [r.clan, r.covenant].filter(Boolean).join(', ');
+          h += `<li>${r.name}${tags ? ` (${tags})` : ''}</li>`;
+        }
+        h += `</ul>`;
+      } else {
+        h += ` <em class="dt-story-section-empty">No other residents this cycle</em>`;
       }
-      h += `</ul>`;
-    } else {
-      h += ` <em class="dt-story-section-empty">No other residents this cycle</em>`;
+      h += `</div>`;
     }
-    h += `</div>`;
 
     // Own actions block
     const ownActions = [];
@@ -2601,6 +2623,118 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
 }
 
 // ── Sign-off panel ────────────────────────────────────────────────────────────
+
+// ── Single-character push ─────────────────────────────────────────────────────
+
+// Maps merit section keys to the category strings used by deriveMeritCategory.
+const MERIT_SECTION_CATEGORIES = {
+  allies_actions:     ['allies'],
+  status_actions:     ['status'],
+  retainer_actions:   ['retainer', 'staff'],
+  contact_requests:   ['contacts'],
+  misc_merit_actions: ['misc'],
+};
+
+/**
+ * Compiles all non-empty st_narrative responses for a submission into a
+ * single markdown string: "## Section Label\n\nResponse text\n\n..."
+ * Sections with no response are silently skipped.
+ */
+function compilePushOutcome(sub) {
+  const char = getCharForSub(sub);
+  const sn = sub.st_narrative || {};
+  const sections = getApplicableSections(char, sub);
+  const parts = [];
+
+  for (const section of sections) {
+    const key = section.key;
+
+    if (key === 'letter_from_home' || key === 'touchstone' || key === 'feeding_validation') {
+      const response = sn[key]?.response;
+      if (response?.trim()) parts.push(`## ${section.label}\n\n${response.trim()}`);
+
+    } else if (key === 'territory_reports') {
+      const feedTerrs = _feedTerrEntries(sub);
+      feedTerrs.forEach((terr, i) => {
+        const response = sn.territory_reports?.[i]?.response;
+        if (response?.trim()) parts.push(`## ${terr.name}\n\n${response.trim()}`);
+      });
+
+    } else if (key === 'project_responses') {
+      (sub.projects_resolved || []).forEach((rev, i) => {
+        const response = sn.project_responses?.[i]?.response;
+        if (response?.trim()) {
+          const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
+          parts.push(`## ${label}\n\n${response.trim()}`);
+        }
+      });
+
+    } else if (MERIT_SECTIONS.has(key)) {
+      const categories = MERIT_SECTION_CATEGORIES[key] || [];
+      (sub.merit_actions || []).forEach((action, i) => {
+        const cat = deriveMeritCategory(action.merit_type);
+        if (!categories.includes(cat)) return;
+        const response = sn.action_responses?.[i]?.response;
+        if (response?.trim()) {
+          const label = action.merit_type || `Action ${i + 1}`;
+          parts.push(`## ${label}\n\n${response.trim()}`);
+        }
+      });
+
+    } else if (key === 'resource_approvals') {
+      (sn.resource_approvals || []).forEach((approval, i) => {
+        const response = approval?.response;
+        if (response?.trim()) {
+          const label = approval?.merit_type || `Resource ${i + 1}`;
+          parts.push(`## ${label}\n\n${response.trim()}`);
+        }
+      });
+
+    } else if (key === 'cacophony_savvy') {
+      (sn.cacophony_savvy || []).forEach((slot, i) => {
+        const response = slot?.response;
+        if (response?.trim()) parts.push(`## Cacophony Savvy ${i + 1}\n\n${response.trim()}`);
+      });
+    }
+  }
+
+  return parts.join('\n\n');
+}
+
+/**
+ * Compiles and pushes a character's narrative immediately.
+ * Writes outcome_text + sets outcome_visibility = 'published'.
+ * Idempotent — re-pushing overwrites cleanly.
+ */
+async function handlePushCharacter(subId, charId) {
+  const sub = _allSubmissions.find(s => String(s._id) === String(subId));
+  if (!sub) return;
+
+  _pushErrors.delete(charId);
+
+  const rail = document.getElementById('dt-story-nav-rail');
+  const pushBtn = rail?.querySelector(`.dt-story-push-btn[data-sub-id="${subId}"]`);
+  if (pushBtn) { pushBtn.disabled = true; pushBtn.textContent = 'Pushing\u2026'; }
+
+  try {
+    const md = compilePushOutcome(sub);
+    const patch = {
+      'st_review.outcome_text':        md,
+      'st_review.outcome_visibility':  'published',
+      'st_review.published_at':        new Date().toISOString(),
+    };
+    await apiPut('/api/downtime_submissions/' + subId, patch);
+
+    if (!sub.st_review) sub.st_review = {};
+    sub.st_review.outcome_text       = md;
+    sub.st_review.outcome_visibility = 'published';
+
+    if (rail) rail.innerHTML = renderNavRail();
+  } catch (err) {
+    _pushErrors.set(charId, err.message || 'Push failed');
+    if (rail) rail.innerHTML = renderNavRail();
+  }
+}
 
 function renderSignOffPanel(stNarrative, applicableSections, sub) {
   const total = applicableSections.length;
