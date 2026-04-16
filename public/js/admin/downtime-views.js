@@ -14,6 +14,7 @@ import { calcTotalInfluence, domMeritContrib, ssjHerdBonus, flockHerdBonus } fro
 import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
+import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE } from './downtime-constants.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
 function isoToLocalInput(iso) {
@@ -104,23 +105,8 @@ const ST_ACTION_PHASE_MAP = {
   merit:   8,  // allies
 };
 
-const ACTION_TYPE_LABELS = {
-  ambience_increase: 'Ambience Increase',
-  ambience_decrease: 'Ambience Decrease',
-  feed: 'Rote Feed',
-  attack: 'Attack',
-  hide_protect: 'Hide / Protect',
-  investigate: 'Investigate',
-  patrol_scout: 'Patrol / Scout',
-  support: 'Support',
-  misc: 'Miscellaneous',
-  maintenance: 'Maintenance',
-  xp_spend: 'XP Spend',
-  block: 'Block',
-  rumour: 'Rumour',
-  grow: 'Grow',
-  acquisition: 'Acquisition',
-};
+// 'feed' relabelled 'Rote Feed' in processing view to distinguish from the feeding phase
+const ACTION_TYPE_LABELS = { ..._ACTION_TYPE_LABELS_BASE, feed: 'Rote Feed' };
 
 const ALL_ACTION_TYPES = [
   'ambience_increase', 'ambience_decrease', 'feed', 'attack', 'hide_protect',
@@ -139,76 +125,7 @@ const KNOWN_DISCIPLINES = [
   'Obfuscate', 'Resilience', 'Vigor', 'Vigour', 'Protean', 'Cruac', 'Theban',
 ];
 
-// ── Merit action matrix (from DT Merits.xlsx) ──────────────────────────────
-// Defines pool formula, action mode, and effect text per merit category × action type.
-// poolFormula: 'dots2plus2' | 'none' | 'contacts'
-// mode: 'instant' | 'contested' | 'auto'
-// effect: primary effect text (rolled option)
-// effectAuto: fixed/unrolled effect (used when poolFormula is 'none' or ST chooses auto)
-
-const MERIT_MATRIX = {
-  allies: {
-    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
-    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
-    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
-    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
-    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
-    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
-    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
-    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
-    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of same level or lower' },
-  },
-  status: {
-    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
-    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
-    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
-    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
-    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
-    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
-    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
-    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
-    block:             { poolFormula: 'none',       mode: 'auto',      effect: 'Auto blocks merit of lower level' },
-  },
-  retainer: {
-    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: +1 ambience; Lvl 5: +2 ambience' },
-    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: 'Lvl 3–4: −1 ambience; Lvl 5: −2 ambience' },
-    attack:            { poolFormula: 'dots2plus2', mode: 'contested', effect: '(Atk − Hide/Protect) halved (round up) removed from target merit level',                                           effectAuto: '(Level − Hide/Protect) halved (round up) removed from target merit level' },
-    hide_protect:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes subtracted from any Attack, Scout, or Investigate targeting this merit',                                 effectAuto: 'Level subtracted from any Attack, Scout, or Investigate targeting this merit' },
-    support:           { poolFormula: 'dots2plus2', mode: 'instant',   effect: 'Successes added as uncapped Teamwork bonus to supported action pool',                                              effectAuto: 'Dots added as uncapped Teamwork bonus' },
-    patrol_scout:      { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 action revealed per success (Attack > Scout > Investigate > Ambience > Support priority; detail scales 1–5+)',  effectAuto: '(Level − Hide/Protect) successes; same info return' },
-    investigate:       { poolFormula: 'dots2plus2', mode: 'contested', effect: 'See Investigation Matrix (Investigate − Hide/Protect = net successes)',                                            effectAuto: 'See Investigation Matrix (Level − Hide/Protect = net successes)' },
-    rumour:            { poolFormula: 'dots2plus2', mode: 'instant',   effect: '1 similar-merit action revealed per success (Attack > Scout > Investigate > Ambience > Support; detail 1–5+)',    effectAuto: 'Merit Level = successes' },
-    block:             { poolFormula: 'none',       mode: 'blocked',   effect: 'Cannot perform Block' },
-  },
-  staff: {
-    ambience_increase: { poolFormula: 'none', mode: 'auto', effect: '+1 ambience' },
-    ambience_decrease: { poolFormula: 'none', mode: 'auto', effect: '−1 ambience' },
-    attack:            { poolFormula: 'none', mode: 'contested', effect: '(1 − Hide/Protect) halved (round up) removed from target merit level' },
-    hide_protect:      { poolFormula: 'none', mode: 'instant',   effect: '−1 success from any Attack, Scout, or Investigate targeting this merit' },
-    support:           { poolFormula: 'none', mode: 'instant',   effect: '+1 success to supported action' },
-    patrol_scout:      { poolFormula: 'none', mode: 'contested', effect: '1 action revealed (1 − Hide/Protect = net successes; detail scales 1–5+)' },
-    investigate:       { poolFormula: 'none', mode: 'contested', effect: 'See Investigation Matrix (1 − Hide/Protect = net successes)' },
-    rumour:            { poolFormula: 'none', mode: 'instant',   effect: '1 similar-merit action revealed (1 success)' },
-    block:             { poolFormula: 'none', mode: 'blocked',   effect: 'Cannot perform Block' },
-  },
-  contacts: {
-    investigate:          { poolFormula: 'contacts', mode: 'contested', effect: 'If ≥1 success: information appropriate to sphere/theme asked' },
-    patrol_scout:         { poolFormula: 'contacts', mode: 'contested', effect: 'If ≥1 success: information appropriate to sphere/theme asked' },
-    rumour:               { poolFormula: 'contacts', mode: 'contested', effect: 'If ≥1 success: information appropriate to sphere/theme asked' },
-  },
-};
-
-// Investigation Matrix: innate modifier and no-lead penalty per information type
-const INVESTIGATION_MATRIX = [
-  { type: 'Public',       innate: +3, noLead: -1,
-    results: ['Gain all publicly available information', 'Also gain lead on Internal information', 'Also gain lead on Confidential information', 'Also gain lead on Restricted information', 'Also one Rumour'] },
-  { type: 'Internal',     innate: -1, noLead: -2,
-    results: ['Gain lead on Internal information', 'Learn whether the information you seek exists', 'Gain vague Internal information', 'Gain basic Internal information', 'Gain detailed Internal information'] },
-  { type: 'Confidential', innate: -2, noLead: -4,
-    results: ['Gain lead on Confidential information', 'Learn whether the information you seek exists', 'Gain vague Confidential information', 'Gain basic Confidential information', 'Gain detailed Confidential information'] },
-  { type: 'Restricted',   innate: -3, noLead: -5,
-    results: ['Gain lead on Restricted information', 'Learn whether the information you seek exists', 'Gain vague Restricted information', 'Gain basic Restricted information', 'Gain detailed Restricted information'] },
-];
+// MERIT_MATRIX and INVESTIGATION_MATRIX imported from downtime-constants.js
 
 /**
  * Parse merit_type strings in any of these formats:
@@ -559,6 +476,93 @@ export function findCharacter(submissionCharName, submissionPlayerName) {
   // Require a minimum confidence threshold
   if (bestScore < 0.4) return null;
   return bestChar;
+}
+
+/**
+ * Resolve a submission to its matched character and display name in one call.
+ * @param {object} s - submission object with character_name and player_name
+ * @param {string} [fallback='Unknown'] - name to use when no match found and character_name is blank
+ * @returns {{ char: object|null, charName: string }}
+ */
+function resolveSubChar(s, fallback = 'Unknown') {
+  const char = findCharacter(s.character_name, s.player_name);
+  const charName = char ? (char.moniker || char.name) : (s.character_name || fallback);
+  return { char, charName };
+}
+
+/**
+ * Build a phase/character progress badge string.
+ * Returns a dt-narr-badge span when all done, a proc-narr-progress span when partially done,
+ * or an empty string when nothing is done yet.
+ * @param {number} done
+ * @param {number} total
+ * @param {string} [doneLabel='Done'] - text after ✓ when complete; pass '' for checkmark only
+ * @returns {string} HTML string (includes leading space when non-empty)
+ */
+function _progressBadge(done, total, doneLabel = 'Done') {
+  if (done === total && total > 0)
+    return ` <span class="dt-narr-badge">\u2713${doneLabel ? ' ' + doneLabel : ''}</span>`;
+  if (done > 0)
+    return ` <span class="proc-narr-progress">${done}/${total}</span>`;
+  return '';
+}
+
+/**
+ * Resolve the nine_again checkbox state for a reviewed action.
+ * Uses the explicitly saved value if present; otherwise auto-detects from
+ * the validated pool expression via the character's skill nine-again flag.
+ * @param {object} rev          - st_review object
+ * @param {string|null} poolValidated
+ * @param {object|null} char
+ * @returns {boolean}
+ */
+function _resolveNineAgainState(rev, poolValidated, char) {
+  if (rev.nine_again != null) return rev.nine_again;
+  if (char && poolValidated) {
+    const discs   = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
+    const parsed  = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, discs);
+    if (parsed?.skill) return skNineAgain(char, parsed.skill);
+  }
+  return false;
+}
+
+/**
+ * Augment a pool_validated expression string with active spec bonuses.
+ * E.g. "Wits 3 + Stealth 2 = 5" + ['Shadowing'] → "Wits 3 + Stealth 2 + Shadowing +1 = 6"
+ * Returns the original string unchanged if no active specs or no '=' found.
+ * @param {string|null} poolValidated
+ * @param {string[]} activeSpecs
+ * @param {object|null} char
+ * @returns {string|null}
+ */
+function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
+  if (!poolValidated || !activeSpecs.length) return poolValidated;
+  const eqIdx = poolValidated.lastIndexOf('=');
+  if (eqIdx === -1) return poolValidated;
+  const base     = poolValidated.slice(0, eqIdx).trim();
+  const tot      = parseInt(poolValidated.slice(eqIdx + 1).trim()) || 0;
+  const specTotal = activeSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
+  const specLabel = activeSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+  return `${base} + ${specLabel} = ${tot + specTotal}`;
+}
+
+/**
+ * Render a collapsible phase header row (without the outer section wrapper).
+ * @param {string} phaseKey - data-toggle-phase value
+ * @param {string} label    - full label HTML (may include badge spans)
+ * @param {number} count    - item count
+ * @param {string} unit     - singular unit word ('submission', 'action', 'character')
+ * @param {boolean} isExpanded
+ * @returns {string} HTML string
+ */
+function _renderPhaseHeader(phaseKey, label, count, unit, isExpanded) {
+  const s = count !== 1 ? 's' : '';
+  let h = `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
+  h += `<span class="proc-phase-label">${label}</span>`;
+  h += `<span class="proc-phase-count">${count} ${unit}${s}</span>`;
+  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
+  h += `</div>`;
+  return h;
 }
 
 /**
@@ -1812,8 +1816,7 @@ function buildProcessingQueue(subs) {
   for (const sub of subs) {
     const raw = sub._raw || {};
     const resp = sub.responses || {};
-    const _subChar = findCharacter(sub.character_name, sub.player_name);
-    const charName = _subChar ? (_subChar.moniker || _subChar.name) : (sub.character_name || '?');
+    const { char: _subChar, charName } = resolveSubChar(sub, '?');
 
     // ── Travel Review (Step 1 — phaseNum -1 sorts before sorcery) ──
     const travelDesc = (raw.submission?.narrative?.travel_description || resp.travel || '').trim();
@@ -2320,39 +2323,8 @@ async function ensureTerritories() {
   return cachedTerritories;
 }
 
-/**
- * Explicit slug-to-id map for territory keys produced by normaliseTerritoryGrid in db.js.
- * Also covers display-name variants from _raw.feeding.territories.
- */
-const TERRITORY_SLUG_MAP = {
-  // normaliseTerritoryGrid slugs
-  the_academy:              'academy',
-  the_harbour:              'harbour',
-  the_city_harbour:         'harbour',     // legacy
-  the_dockyards:            'dockyards',
-  the_docklands:            'dockyards',   // legacy
-  the_second_city:          'secondcity',
-  the_north_shore:          'northshore',
-  the_northern_shore:       'northshore',  // legacy
-  the_barrens__no_territory_: null,        // no territory
-  // MATRIX_TERRS display-name keys (from _raw.feeding.territories)
-  'The Academy':            'academy',
-  'The City Harbour':       'harbour',
-  'The Harbour':            'harbour',   // short form used in _raw.influence
-  'The Dockyards':          'dockyards',
-  'The Second City':        'secondcity',
-  'The Northern Shore':     'northshore',  // legacy
-  'The North Shore':        'northshore',
-  'The Shore':              'northshore',  // short form used in _raw.influence
-  'The Barrens':            null,
-  'The Barrens (No Territory)': null,
-  // TERRITORY_DATA ids (pass-through)
-  academy:    'academy',
-  harbour:    'harbour',
-  dockyards:  'dockyards',
-  secondcity: 'secondcity',
-  northshore: 'northshore',
-};
+// TERRITORY_SLUG_MAP imported from downtime-constants.js
+const TERRITORY_SLUG_MAP = _TERRITORY_SLUG_MAP_BASE;
 
 /** Scan free text for a territory mention; returns TERRITORY_DATA id or null. */
 function extractTerritoryFromText(text) {
@@ -2650,17 +2622,12 @@ function renderPreReadSection() {
   const isExpanded = expandedPhases.has('preread');
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="preread">`;
-  h += `<span class="proc-phase-label">Step 0 \u2014 Pre-read</span>`;
-  h += `<span class="proc-phase-count">${readable.length} submission${readable.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('preread', 'Step 0 \u2014 Pre-read', readable.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of readable) {
       const r = s.responses || {};
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = preReadExpanded.has(s._id);
       const hasLore = !!r.lore_request?.trim?.();
       const loreResponded = !!s.st_review?.lore_responded;
@@ -2749,21 +2716,14 @@ function renderSignOffStep() {
 
   const isExpanded = expandedPhases.has('sign_off');
   const doneCount = submissions.filter(s => ['ready', 'published'].includes(s.st_review?.outcome_visibility)).length;
-  const stepBadge = doneCount === submissions.length && doneCount > 0
-    ? ' <span class="dt-narr-badge">\u2713 All staged</span>'
-    : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/${submissions.length}</span>` : '';
+  const stepBadge = _progressBadge(doneCount, submissions.length, 'All staged');
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="sign_off">`;
-  h += `<span class="proc-phase-label">Step 11 \u2014 Sign-off${stepBadge}</span>`;
-  h += `<span class="proc-phase-count">${submissions.length} submission${submissions.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('sign_off', `Step 11 \u2014 Sign-off${stepBadge}`, submissions.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of submissions) {
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = signOffExpanded.has(s._id);
       const approval = s.approval_status || 'pending';
       const visibility = s.st_review?.outcome_visibility || '';
@@ -2849,17 +2809,10 @@ function renderXpReviewStep() {
       totalApproved += rows.filter((_, i) => s.st_review?.xp_approvals?.[i]?.status === 'approved').length;
     } catch { /* ignore */ }
   }
-  const allApproved = totalRows > 0 && totalApproved === totalRows;
-  const stepBadge = allApproved
-    ? ' <span class="dt-narr-badge">\u2713 All approved</span>'
-    : totalApproved > 0 ? ` <span class="proc-narr-progress">${totalApproved}/${totalRows}</span>` : '';
+  const stepBadge = _progressBadge(totalApproved, totalRows, 'All approved');
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="xp_review">`;
-  h += `<span class="proc-phase-label">Step 10 \u2014 XP Review${stepBadge}</span>`;
-  h += `<span class="proc-phase-count">${xpSubs.length} submission${xpSubs.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('xp_review', `Step 10 \u2014 XP Review${stepBadge}`, xpSubs.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of xpSubs) {
@@ -2867,15 +2820,11 @@ function renderXpReviewStep() {
       try { rows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item); } catch { /* ignore */ }
       if (!rows.length) continue;
 
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = xpReviewExpanded.has(s._id);
       const approvals = s.st_review?.xp_approvals || {};
       const doneHere = rows.filter((_, i) => approvals[i]?.status === 'approved').length;
-      const allDoneHere = doneHere === rows.length;
-      const charBadge = allDoneHere
-        ? ' <span class="dt-narr-badge">\u2713 Done</span>'
-        : doneHere > 0 ? ` <span class="proc-narr-progress">${doneHere}/${rows.length}</span>` : '';
+      const charBadge = _progressBadge(doneHere, rows.length, 'Done');
 
       // Count how many project slots are xp_spend actions (sets the "action slots" budget)
       let xpActionSlots = 0;
@@ -2941,23 +2890,15 @@ function renderNarrativeStep() {
   const queue = buildProcessingQueue(submissions);
 
   let h = '<div class="proc-phase-section">';
-  h += `<div class="proc-phase-header" data-toggle-phase="narrative">`;
-  h += `<span class="proc-phase-label">Step 9 \u2014 Narrative Output</span>`;
-  h += `<span class="proc-phase-count">${submissions.length} submission${submissions.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${isExpanded ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('narrative', 'Step 9 \u2014 Narrative Output', submissions.length, 'submission', isExpanded);
 
   if (isExpanded) {
     for (const s of submissions) {
-      const char = findCharacter(s.character_name, s.player_name);
-      const charName = char ? (char.moniker || char.name) : (s.character_name || 'Unknown');
+      const { char, charName } = resolveSubChar(s);
       const isBlockExpanded = narrativeExpanded.has(s._id);
       const narr = s.st_review?.narrative || {};
       const doneCount = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
-      const allDone = doneCount === NARR_KEYS.length;
-      const statusBadge = allDone
-        ? ' <span class="dt-narr-badge">\u2713 All ready</span>'
-        : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/4</span>` : '';
+      const statusBadge = _progressBadge(doneCount, NARR_KEYS.length, 'All ready');
 
       h += `<div class="proc-preread-char${isBlockExpanded ? ' expanded' : ''}" data-narrative-id="${esc(s._id)}">`;
       h += `<span class="proc-row-char">${esc(charName)}${statusBadge}</span>`;
@@ -3035,8 +2976,7 @@ function renderCharacterStrip(queue) {
   h += '<span class="proc-char-strip-label">Jump to</span>';
 
   for (const s of sorted) {
-    const char = findCharacter(s.character_name, s.player_name);
-    const name = char ? (char.moniker || char.name) : (s.character_name || '?');
+    const { char, charName: name } = resolveSubChar(s, '?');
     const state = _subChipState(s, queue);
 
     const entries = queue.filter(e => e.subId === s._id);
@@ -3189,10 +3129,7 @@ function renderProcessingMode(container) {
 
     // Completion count for this phase
     const doneCount = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
-    const allPhaseDone = entries.length > 0 && doneCount === entries.length;
-    const phaseProgressBadge = allPhaseDone
-      ? ' <span class="dt-narr-badge">\u2713</span>'
-      : doneCount > 0 ? ` <span class="proc-narr-progress">${doneCount}/${entries.length}</span>` : '';
+    const phaseProgressBadge = _progressBadge(doneCount, entries.length, '');
 
     // When hiding done, skip phases where every action is resolved
     const visibleEntries = procHideDone
@@ -3201,11 +3138,7 @@ function renderProcessingMode(container) {
     if (procHideDone && visibleEntries.length === 0) continue;
 
     h += `<div class="proc-phase-section">`;
-    h += `<div class="proc-phase-header" data-toggle-phase="${esc(phaseKey)}">`;
-    h += `<span class="proc-phase-label">${esc(label)}${phaseProgressBadge}</span>`;
-    h += `<span class="proc-phase-count">${entries.length} action${entries.length !== 1 ? 's' : ''}</span>`;
-    h += `<span class="proc-phase-toggle">${isCollapsed ? '&#9660; Show' : '&#9650; Hide'}</span>`;
-    h += `</div>`;
+    h += _renderPhaseHeader(phaseKey, `${esc(label)}${phaseProgressBadge}`, entries.length, 'action', !isCollapsed);
 
     if (!isCollapsed) {
       for (const entry of visibleEntries) {
@@ -3250,11 +3183,7 @@ function renderProcessingMode(container) {
   // If no investigate actions were submitted, still show the investigations tracker
   if (!byPhase.has('investigate')) {
     h += `<div class="proc-phase-section">`;
-    h += `<div class="proc-phase-header" data-toggle-phase="investigate">`;
-    h += `<span class="proc-phase-label">${PHASE_LABELS.investigate}</span>`;
-    h += `<span class="proc-phase-count">0 actions</span>`;
-    h += `<span class="proc-phase-toggle">${expandedPhases.has('investigate') ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-    h += `</div>`;
+    h += _renderPhaseHeader('investigate', PHASE_LABELS.investigate, 0, 'action', expandedPhases.has('investigate'));
     if (expandedPhases.has('investigate')) {
       h += '<div id="dt-investigations"></div>';
     }
@@ -3263,17 +3192,10 @@ function renderProcessingMode(container) {
 
   // Add ST Actions — one expandable form per submission
   h += `<div class="proc-phase-section proc-add-st-section">`;
-  h += `<div class="proc-phase-header" data-toggle-phase="add_st_actions">`;
-  h += `<span class="proc-phase-label">Add ST Actions</span>`;
-  h += `<span class="proc-phase-count">${submissions.length} character${submissions.length !== 1 ? 's' : ''}</span>`;
-  h += `<span class="proc-phase-toggle">${expandedPhases.has('add_st_actions') ? '&#9650; Hide' : '&#9660; Show'}</span>`;
-  h += `</div>`;
+  h += _renderPhaseHeader('add_st_actions', 'Add ST Actions', submissions.length, 'character', expandedPhases.has('add_st_actions'));
   if (expandedPhases.has('add_st_actions')) {
     for (const sub of submissions) {
-      const subCharName = (() => {
-        const c = findCharacter(sub.character_name, sub.player_name);
-        return c ? (c.moniker || c.name) : (sub.character_name || '?');
-      })();
+      const { charName: subCharName } = resolveSubChar(sub, '?');
       const isExpanded = stActionAddExpandedSubs.has(sub._id);
       h += `<div class="proc-add-st-action-row" data-sub-id="${esc(sub._id)}">`;
       h += `<span class="proc-add-st-char">${esc(subCharName)}</span>`;
@@ -5665,17 +5587,7 @@ function _renderProjRightPanel(entry, char, rev) {
   const isRote        = rev.rote        || false;
   const eightAgainState = rev.eight_again || false;
   // Auto-detect nine_again from the character's validated skill — only when not explicitly saved
-  let nineAgainState;
-  if (rev.nine_again != null) {
-    nineAgainState = rev.nine_again;
-  } else {
-    nineAgainState = false;
-    if (char && poolValidated) {
-      const _rppDiscs = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
-      const _rppParsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, _rppDiscs);
-      if (_rppParsed?.skill) nineAgainState = skNineAgain(char, _rppParsed.skill);
-    }
-  }
+  const nineAgainState = _resolveNineAgainState(rev, poolValidated, char);
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainState ? ' checked' : ''}> 9-Again</label>`;
@@ -5687,18 +5599,7 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
-  const _activeProjSpecs = rev.active_feed_specs || [];
-  let displayPool = poolValidated;
-  if (poolValidated && _activeProjSpecs.length > 0) {
-    const _eqIdx = poolValidated.lastIndexOf('=');
-    if (_eqIdx !== -1) {
-      const _base = poolValidated.slice(0, _eqIdx).trim();
-      const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
-      const specTotal = _activeProjSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      const specLabel = _activeProjSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
-      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
-    }
-  }
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
@@ -5927,17 +5828,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const feedSubR = submissions.find(s => s._id === entry.subId);
   const isRote = entry.feedRote || feedSubR?.st_review?.feeding_rote || false;
   const eightAgainStateFeed = rev.eight_again || false;
-  let nineAgainStateFeed;
-  if (rev.nine_again != null) {
-    nineAgainStateFeed = rev.nine_again;
-  } else {
-    nineAgainStateFeed = false;
-    if (poolValidated && char) {
-      const _frdDiscs = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
-      const _frdParsed = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, _frdDiscs);
-      if (_frdParsed?.skill) nineAgainStateFeed = skNineAgain(char, _frdParsed.skill);
-    }
-  }
+  const nineAgainStateFeed = _resolveNineAgainState(rev, poolValidated, char);
   h += `<div class="proc-feed-right-section proc-feed-toggles-row">`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-pool-rote" data-proc-key="${esc(key)}"${isRote ? ' checked' : ''}> Rote Action</label>`;
   h += `<label class="proc-pool-rote-label proc-feed-rote-right"><input type="checkbox" class="proc-proj-9a" data-proc-key="${esc(key)}"${nineAgainStateFeed ? ' checked' : ''}> 9-Again</label>`;
@@ -5950,18 +5841,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
-  const _activeFeedSpecs = rev.active_feed_specs || [];
-  let displayPool = poolValidated;
-  if (poolValidated && _activeFeedSpecs.length > 0) {
-    const _eqIdx = poolValidated.lastIndexOf('=');
-    if (_eqIdx !== -1) {
-      const _base = poolValidated.slice(0, _eqIdx).trim();
-      const _tot  = parseInt(poolValidated.slice(_eqIdx + 1).trim()) || 0;
-      const specTotal = _activeFeedSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-      const specLabel = _activeFeedSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
-      displayPool = `${_base} + ${specLabel} = ${_tot + specTotal}`;
-    }
-  }
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   if (poolValidated) {
     const feedNotes = [];
