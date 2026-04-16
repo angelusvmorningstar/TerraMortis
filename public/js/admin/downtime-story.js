@@ -1184,7 +1184,7 @@ function renderProjectCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" rows="4" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-proj-idx="${idx}" placeholder="Write narrative response\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = isComplete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1370,7 +1370,7 @@ function renderLetterFromHome(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the letter from home\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1475,7 +1475,7 @@ function renderTouchstone(char, sub, stNarrative) {
   h += `</div>`; // context-block
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" rows="5" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the touchstone vignette\u2026">${savedTxt}</textarea>`;
 
   // Action buttons
   const completeDotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
@@ -1913,7 +1913,7 @@ function renderActionCard(char, sub, idx) {
   }
 
   // Response textarea
-  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" rows="3" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
+  h += `<textarea class="dt-story-response-ta" data-action-idx="${idx}" placeholder="Write narrative note\u2026">${savedTxt}</textarea>`;
 
   // Buttons
   h += `<div class="dt-story-card-actions">`;
@@ -2024,7 +2024,7 @@ function renderResourcesSection(char, sub) {
         h += `</div>`;
       }
       if (isFlagged) {
-        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" rows="2" placeholder="Flag note\u2026">${flagNote}</textarea>`;
+        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" placeholder="Flag note\u2026">${flagNote}</textarea>`;
         h += `<div class="dt-story-card-actions">`;
         h += `<button class="dt-story-save-draft-btn dt-story-flag-note-save" data-action-idx="${i}">Save Note</button>`;
         h += `</div>`;
@@ -2398,7 +2398,7 @@ function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars
     h += `</div>`; // context-block
 
     // Response textarea
-    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" rows="4" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
+    h += `<textarea class="dt-story-response-ta" data-terr-idx="${idx}" data-terr-id="${terrId}" placeholder="Write territory report\u2026">${savedTxt}</textarea>`;
 
     // Action buttons
     h += `<div class="dt-story-card-actions">`;
@@ -2551,7 +2551,7 @@ function renderCacophonySavvy(char, sub, stNarrative, allSubmissions) {
       h += `</div>`; // context-block
 
       // Textarea
-      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" rows="5" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
+      h += `<textarea class="dt-story-response-ta" data-slot-idx="${slotIdx}" placeholder="Write Cacophony Savvy vignette\u2026">${savedTxt}</textarea>`;
 
       // Action buttons
       h += `<div class="dt-story-card-actions">`;

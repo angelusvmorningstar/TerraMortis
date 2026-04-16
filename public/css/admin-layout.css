@@ -6818,6 +6818,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
+  min-height: 160px;
   padding: 8px 10px;
   resize: vertical;
   width: 100%;
