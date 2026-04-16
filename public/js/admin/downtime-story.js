@@ -15,6 +15,16 @@ import { displayName, esc } from '../data/helpers.js';
 import { getUser } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE } from './downtime-constants.js';
 
+// ── Section routing ───────────────────────────────────────────────────────────
+
+// Sections whose save buttons route to handleActionSave
+const MERIT_SECTIONS = new Set(['allies_actions', 'status_actions', 'retainer_actions', 'contact_requests']);
+
+// Maps section key → save handler for sections that accept a status argument.
+// Adding a new saveable section requires one entry here, not two if-blocks.
+// Populated after handler functions are defined — see bottom of module.
+const SECTION_SAVE_HANDLERS = {};
+
 // ── Cacophony Savvy priority order (B7) ──────────────────────────────────────
 
 const CS_ACTION_PRIORITY = [
@@ -143,8 +153,6 @@ export async function initDtStory(cycleId) {
     // Determine which section the clicked element belongs to
     const sectionKey = e.target.closest('.dt-story-section')?.dataset.section;
 
-    const MERIT_SECTIONS = new Set(['allies_actions', 'status_actions', 'retainer_actions', 'contact_requests']);
-
     // Copy Context
     const copyBtn = e.target.closest('.dt-story-copy-ctx-btn');
     if (copyBtn) {
@@ -169,25 +177,19 @@ export async function initDtStory(cycleId) {
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
-      if (sectionKey === 'project_responses')   { handleProjectSave(saveDraftBtn, 'draft');    return; }
-      if (sectionKey === 'letter_from_home')    { handleLetterSave(saveDraftBtn, 'draft');     return; }
-      if (sectionKey === 'touchstone')          { handleTouchstoneSave(saveDraftBtn, 'draft'); return; }
-      if (sectionKey === 'territory_reports')   { handleTerritorySave(saveDraftBtn, 'draft');    return; }
-      if (sectionKey === 'cacophony_savvy')     { handleCacophonySave(saveDraftBtn, 'draft');   return; }
-      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(saveDraftBtn, 'draft');       return; }
-      if (sectionKey === 'resource_approvals')  { handleFlagNoteSave(saveDraftBtn);            return; }
+      const handler = SECTION_SAVE_HANDLERS[sectionKey];
+      if (handler)                              { handler(saveDraftBtn, 'draft');        return; }
+      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(saveDraftBtn, 'draft'); return; }
+      if (sectionKey === 'resource_approvals')  { handleFlagNoteSave(saveDraftBtn);      return; }
       return;
     }
 
     // Mark Complete
     const completeBtn = e.target.closest('.dt-story-mark-complete-btn');
     if (completeBtn && !completeBtn.disabled) {
-      if (sectionKey === 'project_responses')   { handleProjectSave(completeBtn, 'complete');    return; }
-      if (sectionKey === 'letter_from_home')    { handleLetterSave(completeBtn, 'complete');     return; }
-      if (sectionKey === 'touchstone')          { handleTouchstoneSave(completeBtn, 'complete'); return; }
-      if (sectionKey === 'territory_reports')   { handleTerritorySave(completeBtn, 'complete');    return; }
-      if (sectionKey === 'cacophony_savvy')     { handleCacophonySave(completeBtn, 'complete');   return; }
-      if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(completeBtn, 'complete');       return; }
+      const handler = SECTION_SAVE_HANDLERS[sectionKey];
+      if (handler)                        { handler(completeBtn, 'complete');        return; }
+      if (MERIT_SECTIONS.has(sectionKey)) { handleActionSave(completeBtn, 'complete'); return; }
       return;
     }
   });
@@ -3157,3 +3159,12 @@ async function handleCacophonySave(btn, status) {
     console.error('Cacophony save failed:', err);
   }
 }
+
+// Populate after all handlers are defined
+Object.assign(SECTION_SAVE_HANDLERS, {
+  project_responses: handleProjectSave,
+  letter_from_home:  handleLetterSave,
+  touchstone:        handleTouchstoneSave,
+  territory_reports: handleTerritorySave,
+  cacophony_savvy:   handleCacophonySave,
+});
