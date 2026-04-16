@@ -414,76 +414,142 @@ function formatPool(pool) {
  * Assembles the Copy Context prompt for a single project action.
  * Pure function — no side effects, no DOM access.
  */
-function buildProjectContext(char, sub, idx) {
+function buildProjectContext(char, sub, idx, cycleData, territories) {
   const slot = idx + 1;
   const title       = sub.responses?.[`project_${slot}_title`]       || '';
   const outcome     = sub.responses?.[`project_${slot}_outcome`]     || '';
   const description = sub.responses?.[`project_${slot}_description`] || '';
-  const territory   = sub.responses?.[`project_${slot}_territory`]   || '';
+  const terrRaw     = sub.responses?.[`project_${slot}_territory`]   || '';
   const castRaw     = sub.responses?.[`project_${slot}_cast`]        || '';
   const meritsRaw   = sub.responses?.[`project_${slot}_merits`]      || '';
 
   const rev        = sub.projects_resolved?.[idx] || {};
   const actionType = rev.action_type || sub.responses?.[`project_${slot}_action`] || '';
-  const pool       = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '\u2014';
+  const pool       = formatPool(rev.pool_validated) || formatPool(rev.pool_player) || '';
   const roll       = rev.roll || null;
   const notes      = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+  const poolStatus = rev.pool_status || 'pending';
 
-  const cast   = resolveCast(castRaw);
-  const merits = resolveMerits(meritsRaw);
-
+  const cast        = resolveCast(castRaw);
+  const merits      = resolveMerits(meritsRaw);
   const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Unknown';
+
+  // Existing ST draft for this slot
+  const existingDraft = sub.st_narrative?.project_responses?.[idx]?.response || '';
+
+  // Character header
+  const courtTitle = char?.honorific || '';
+  const charName   = char ? displayName(char) : 'Unknown';
+  const fullTitle  = [courtTitle, charName].filter(Boolean).join(' ');
 
   const lines = [
     'You are helping a Storyteller draft a narrative response for a Vampire: The Requiem 2nd Edition LARP downtime action.',
     '',
-    `Character: ${char ? displayName(char) : 'Unknown'}`,
-    `Action: ${actionLabel}`,
+    `Character: ${fullTitle}`,
   ];
+  if (char?.clan)     lines.push(`Clan: ${char.clan}`);
+  if (char?.covenant) lines.push(`Covenant: ${char.covenant}`);
+  if (char?.concept)  lines.push(`Concept: ${char.concept}`);
+  lines.push(`Humanity: ${char?.humanity ?? 'Unknown'}`);
+  if (char?.mask || char?.dirge) {
+    lines.push(`Mask: ${char?.mask || '\u2014'} | Dirge: ${char?.dirge || '\u2014'}`);
+  }
 
-  if (territory) lines.push(`Territory: ${territory}`);
-  if (title)     lines.push(`Title: ${title}`);
-  if (outcome)   lines.push(`Desired Outcome: ${outcome}`);
+  lines.push('');
+  lines.push(`Action: ${actionLabel}`);
+  if (title)   lines.push(`Title: ${title}`);
+  if (outcome) lines.push(`Desired Outcome: ${outcome}`);
   if (description) lines.push(`Description: ${description}`);
-  if (cast)      lines.push(`Characters Involved: ${cast}`);
-  if (merits)    lines.push(`Merits & Bonuses: ${merits}`);
+  if (merits)  lines.push(`Merits & Bonuses: ${merits}`);
+  if (cast)    lines.push(`Connected Characters: ${cast}`);
 
-  const poolStatus = rev.pool_status || 'pending';
   if (poolStatus === 'no_roll' || poolStatus === 'maintenance') {
     lines.push('No roll required');
   } else {
-    if (pool && pool !== '\u2014') lines.push(`Validated Pool: ${pool}`);
+    if (pool) lines.push(`Validated Pool: ${pool}`);
     if (roll) {
-      const diceStr = roll.dice_string
-        || (Array.isArray(roll.dice) ? '[' + roll.dice.join(', ') + ']' : '');
+      const diceStr  = roll.dice_string || (Array.isArray(roll.dice) ? '[' + roll.dice.join(', ') + ']' : '');
       const successes = roll.successes ?? 0;
-      const plural = successes !== 1 ? 'es' : '';
-      const exc = roll.exceptional ? ', Exceptional' : '';
-      lines.push(`Roll Result: ${successes} success${plural}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
+      const exc       = roll.exceptional ? ', Exceptional' : '';
+      lines.push(`Roll Result: ${successes} success${successes !== 1 ? 'es' : ''}${exc}${diceStr ? ' \u2014 Dice: ' + diceStr : ''}`);
     }
   }
 
-  if (notes.length) {
+  // Territory context (when territory assigned and data available)
+  const terrId = resolveTerrId(terrRaw);
+  if (terrRaw || terrId) {
+    const terrName = (terrId && TERRITORY_DISPLAY[terrId]) || terrRaw || 'Unknown';
+    const terrObj  = (territories || []).find(t => String(t.id || t._id) === String(terrId)) || null;
+    const currentAmb   = terrObj?.ambience || null;
+    const confirmedAmb = cycleData?.confirmed_ambience?.[terrId]?.ambience || null;
+    const ambienceLine = confirmedAmb
+      ? (currentAmb && confirmedAmb !== currentAmb ? `${confirmedAmb} (was ${currentAmb})` : confirmedAmb)
+      : currentAmb;
+
+    // Count residents/poachers from all submissions
+    let residents = 0, poachers = 0;
+    const terrSlug = terrId ? Object.entries(TERRITORY_SLUG_MAP).find(([, id]) => id === terrId)?.[0] : null;
+    if (terrSlug) {
+      for (const s of _allSubmissions) {
+        let terrs = {};
+        try { terrs = JSON.parse(s.responses?.feeding_territories || '{}'); } catch { continue; }
+        const val = terrs[terrSlug];
+        if (val === 'resident') residents++;
+        else if (val && val !== 'none') poachers++;
+      }
+    }
+
+    // Other actions in this territory this cycle
+    const otherActions = [];
+    for (const s of _allSubmissions) {
+      if (s._id === sub._id) continue;
+      (s.projects_resolved || []).forEach((r, i) => {
+        if (!r || r.pool_status === 'skipped') return;
+        const sl = i + 1;
+        if (resolveTerrId(s.responses?.[`project_${sl}_territory`] || '') !== terrId) return;
+        const aType = ACTION_TYPE_LABELS[r.action_type] || r.action_type || 'Action';
+        otherActions.push(`${s.character_name || 'Unknown'} (${aType})`);
+      });
+    }
+
     lines.push('');
-    lines.push('ST Notes:');
-    for (const note of notes) {
-      lines.push(`- ${note.author_name || 'ST'}: ${note.text || ''}`);
-    }
+    lines.push('Territory context:');
+    lines.push(`- Territory: ${terrName}`);
+    if (ambienceLine) lines.push(`- Ambience: ${ambienceLine}`);
+    lines.push(`- Residents: ${residents} | Poachers: ${poachers}`);
+    lines.push(`- Other actions in this territory: ${otherActions.length ? otherActions.join(', ') : 'None'}`);
   }
 
+  // Player feedback
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`Player Feedback: ${rev.player_feedback}`);
+    lines.push('ST Clarifications (context for how the action was adjusted \u2014 do not act on these, but do not contradict them):');
+    lines.push(rev.player_feedback);
   }
-  if (sub.st_notes) {
+
+  // ST directives
+  const hasDirectives = rev.st_note || notes.length;
+  if (hasDirectives) {
     lines.push('');
-    lines.push(`ST Notes (not for player): ${sub.st_notes}`);
+    lines.push('ST Directives (the narrative must reflect these):');
+    if (rev.st_note) lines.push(`- ${rev.st_note}`);
+    for (const n of notes) lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`);
+  }
+
+  // Existing draft
+  if (existingDraft) {
+    lines.push('');
+    lines.push('Existing draft (revise unless told to rewrite):');
+    lines.push(existingDraft);
   }
 
   lines.push('');
-  lines.push('Write a narrative response (2\u20134 paragraphs) describing what happened during this action from the Storyteller\u2019s perspective.');
+  lines.push('Write a narrative response (2-3 paragraphs, ~100-150 words) describing what happened during this action.');
   lines.push('');
-  lines.push('Note: Character dossiers (background, relationships, voice, touchstones) are held in the project files for this chronicle. If you have access to them, calibrate the narrative to the character\u2019s established details. If not, flag any assumptions made.');
+  lines.push('Calibration:');
+  lines.push('- 1 success = the desired outcome is achieved. Do not write it as partial or marginal.');
+  lines.push('- 5+ successes (Exceptional) = notably excellent results with an additional benefit. Do not use the word "exceptional."');
+  lines.push('- Plausibility check: could this credibly happen within one month?');
   lines.push('');
   lines.push('Style rules:');
   lines.push('- Second person, present tense');
@@ -492,7 +558,10 @@ function buildProjectContext(char, sub, idx) {
   lines.push('- No em dashes');
   lines.push('- Do not editorialise about what the result means mechanically');
   lines.push('- Never dictate what the character felt or chose');
-  lines.push('- Target length: ~100 words');
+  lines.push('- Do not name other PCs in the narrative unless they are listed in Connected Characters');
+  lines.push('- If Connected Characters are named, describe their observable actions only \u2014 never their internal states');
+  lines.push('- Draw narrative details from the character\u2019s concept, skills, and established voice');
+  lines.push('- Do not reuse narrative set pieces from other characters\u2019 responses in this cycle');
 
   return lines.join('\n');
 }
