@@ -17,7 +17,7 @@ import { initSessionLog } from './admin/session-log.js';
 import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
 import { initSpheresView } from './admin/spheres-view.js';
-import { initDowntimeView } from './admin/downtime-views.js';
+import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js';
 import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
@@ -208,6 +208,7 @@ document.getElementById('sidebar').addEventListener('click', e => {
 // ── DT sub-tab switching ──
 
 {
+  let _dtCityInited = false;
   let _dtStoryInited = false;
   document.addEventListener('click', e => {
     const btn = e.target.closest('.dt-sub-tab-btn');
@@ -216,13 +217,24 @@ document.getElementById('sidebar').addEventListener('click', e => {
     document.querySelectorAll('.dt-sub-tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const processingPanel = document.getElementById('dt-processing-panel');
-    const storyPanel = document.getElementById('dt-story-panel');
+    const cityPanel       = document.getElementById('dt-city-panel');
+    const storyPanel      = document.getElementById('dt-story-panel');
     if (tab === 'processing') {
       if (processingPanel) processingPanel.style.display = '';
-      if (storyPanel) storyPanel.style.display = 'none';
+      if (cityPanel)       cityPanel.style.display = 'none';
+      if (storyPanel)      storyPanel.style.display = 'none';
+    } else if (tab === 'city') {
+      if (processingPanel) processingPanel.style.display = 'none';
+      if (cityPanel)       cityPanel.style.display = '';
+      if (storyPanel)      storyPanel.style.display = 'none';
+      if (!_dtCityInited) {
+        _dtCityInited = true;
+        renderCityOverview();
+      }
     } else {
       if (processingPanel) processingPanel.style.display = 'none';
-      if (storyPanel) storyPanel.style.display = '';
+      if (cityPanel)       cityPanel.style.display = 'none';
+      if (storyPanel)      storyPanel.style.display = '';
       if (!_dtStoryInited) {
         _dtStoryInited = true;
         initDtStory(null);

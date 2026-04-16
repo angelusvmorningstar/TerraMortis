@@ -127,10 +127,10 @@ Both stories were written with this constraint. Adding `skipped` to project and 
 
 ## Tasks / Subtasks
 
-- [x] Task 1: Project actions — Skip button already present (`_renderProjRightPanel` line ~5456)
-- [x] Task 2: Sorcery — Skip button already present (`_renderSorceryRightPanel` line ~5381)
-- [x] Task 3: Fallthrough — Skip button already present in both branches of the `isSorcery` ternary
-- [ ] Task 4: Manual verification (unchanged)
+- ★ Task 1: Project actions — Skip button already present (`_renderProjRightPanel` line ~5456)
+- ★ Task 2: Sorcery — Skip button already present (`_renderSorceryRightPanel` line ~5381)
+- ★ Task 3: Fallthrough — Skip button already present in both branches of the `isSorcery` ternary
+- ★ Task 4: Manual verification — heading + label consistency reviewed and fixed
 
 ---
 

@@ -6,7 +6,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { parseDowntimeCSV } from '../downtime/parser.js';
 import { getCycles, getActiveCycle, createCycle, updateCycle, closeCycle, openGamePhase, getSubmissionsForCycle, upsertCycle, updateSubmission, mapRawToResponses } from '../downtime/db.js';
-import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA, DOWNTIME_SECTIONS } from '../player/downtime-data.js';
+import { TERRITORY_DATA, AMBIENCE_CAP, AMBIENCE_MODS, FEEDING_TERRITORIES, FEED_METHODS as FEED_METHODS_DATA } from '../player/downtime-data.js';
 import { rollPool, showRollModal, parseDiceString } from '../downtime/roller.js';
 import { getAttrEffective as getAttrVal, getSkillObj, skDots, skTotal, skNineAgain, skSpecs } from '../data/accessors.js';
 import { displayName, displayNameRaw, sortName, hasAoE, isSpecs } from '../data/helpers.js';
@@ -276,6 +276,12 @@ const POOL_STATUS_LABELS = {
 // Statuses considered fully resolved (used for phase counts and hide-done filter)
 const DONE_STATUSES = new Set(['validated', 'no_roll', 'no_feed', 'maintenance', 'resolved', 'no_effect', 'skipped', 'obvious', 'neutral', 'subtle']);
 
+/** Format a signed integer as '+N', '−N', or '±0'. */
+function _fmtMod(val) {
+  if (val === 0) return '\u00B10';
+  return val > 0 ? `+${val}` : String(val);
+}
+
 /** Returns a stable action_key string for reminder targeting. Returns null for sorcery entries. */
 function entryActionKey(entry) {
   if (entry.source === 'feeding') return 'feeding';
@@ -443,7 +449,6 @@ function buildShell() {
     <div id="dt-warnings" class="dt-warnings"></div>
     <div id="dt-match-summary"></div>
     <div id="dt-feeding-scene"></div>
-    <div id="dt-conflicts"></div>
     <div id="dt-submissions" class="dt-submissions"></div>
     <div id="dt-npcs"></div>`;
 }
@@ -578,17 +583,9 @@ export function matchSubmission(sub) {
   return { character: char, warnings };
 }
 
-const FEED_METHODS = [
-  { id: 'seduction', name: 'Seduction', attrs: ['Presence', 'Manipulation'], skills: ['Empathy', 'Socialise', 'Persuasion'] },
-  { id: 'stalking', name: 'Stalking', attrs: ['Dexterity', 'Wits'], skills: ['Stealth', 'Athletics'] },
-  { id: 'force', name: 'By Force', attrs: ['Strength'], skills: ['Brawl', 'Weaponry'] },
-  { id: 'familiar', name: 'Familiar Face', attrs: ['Manipulation', 'Presence'], skills: ['Persuasion', 'Subterfuge'] },
-  { id: 'intimidation', name: 'Intimidation', attrs: ['Strength', 'Manipulation'], skills: ['Intimidation', 'Subterfuge'] },
-];
-
 function buildFeedingPool(char, methodId, ambienceMod) {
   if (!char) return null;
-  const method = FEED_METHODS.find(m => m.id === methodId);
+  const method = FEED_METHODS_DATA.find(m => m.id === methodId);
   if (!method) return null;
 
   let bestAttr = 0, bestAttrName = '';
@@ -927,7 +924,7 @@ function renderFeedingDetail(s, raw, char) {
     h += '<div class="dt-feed-row"><span class="dt-feed-lbl">Hunt method</span>';
     h += '<div class="dt-method-btns">';
     const selectedMethod = s._feed_method || '';
-    FEED_METHODS.forEach(m => {
+    FEED_METHODS_DATA.forEach(m => {
       h += `<button class="dt-method-btn${selectedMethod === m.id ? ' selected' : ''}" data-method="${m.id}" data-sub-id="${s._id}">${esc(m.name)}</button>`;
     });
     h += '</div></div>';
@@ -989,7 +986,6 @@ function renderPlayerResponses(s) {
   if (!r || !Object.keys(r).length) return '';
 
   const SKIP_PREFIXES = ['_gate_', '_feed_blood', 'sorcery_slot_count', 'equipment_slot_count'];
-  const FEED_METHOD_LABELS = { seduction: 'Seduction', stalking: 'Stalking', force: 'By Force', familiar: 'Familiar Face', intimidation: 'Intimidation', other: 'Other' };
 
   function row(label, val) {
     if (!val || (typeof val === 'string' && !val.trim())) return '';
@@ -1007,7 +1003,7 @@ function renderPlayerResponses(s) {
   const feedRote = r['_feed_rote'] === 'yes';
   if (feedMethod) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Feeding</div>';
-    h += row('Method', FEED_METHOD_LABELS[feedMethod] || feedMethod);
+    h += row('Method', FEED_METHOD_LABELS_MAP[feedMethod] || feedMethod);
     if (feedDisc) h += row('Discipline', feedDisc);
     if (feedSpec) h += row('Specialisation', feedSpec);
     if (feedRote) h += row('Rote action', 'Yes — Project 1 dedicated to feeding');
@@ -2635,13 +2631,13 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
 
 // ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
 
-function renderPreReadSection() {
-  const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
-  const COURT_LABELS = {
-    travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
-    correspondence: 'Dear X', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations',
-  };
+const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
+const COURT_LABELS = {
+  travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
+  correspondence: 'Dear X', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations',
+};
 
+function renderPreReadSection() {
   const readable = submissions
     .filter(s => {
       const r = s.responses || {};
@@ -2738,7 +2734,7 @@ function _signOffStatus(s) {
   if (approval !== 'approved' && approval !== 'modified') {
     reasons.push('Submission not yet approved or modified');
   }
-  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+
   const NARR_LABELS = { letter_from_home: 'Letter from Home', touchstone_vignette: 'Touchstone Vignette', territory_report: 'Territory Report', intelligence_dossier: 'Intelligence Dossier' };
   const narr = s.st_review?.narrative || {};
   const unready = NARR_KEYS.filter(k => narr[k]?.status !== 'ready');
@@ -2940,7 +2936,7 @@ function renderXpReviewStep() {
 function renderNarrativeStep() {
   if (!submissions.length) return '';
 
-  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+
   const isExpanded = expandedPhases.has('narrative');
   const queue = buildProcessingQueue(submissions);
 
@@ -3010,7 +3006,7 @@ function _subChipState(sub, queue) {
   const entries = queue.filter(e => e.subId === sub._id);
   const doneCt  = entries.filter(e => DONE_STATUSES.has(getEntryReview(e)?.pool_status)).length;
 
-  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+
   const narr = sub.st_review?.narrative || {};
   const narrDone = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
 
@@ -3026,7 +3022,7 @@ function _subChipState(sub, queue) {
 function renderCharacterStrip(queue) {
   if (!submissions.length) return '';
 
-  const NARR_KEYS = ['letter_from_home', 'touchstone_vignette', 'territory_report', 'intelligence_dossier'];
+
   const sorted = [...submissions].sort((a, b) => {
     const ca = findCharacter(a.character_name, a.player_name);
     const cb = findCharacter(b.character_name, b.player_name);
@@ -3108,7 +3104,7 @@ function _wireTickerHandler(container, { decCls, incCls, panelCls, inputCls, dis
       if (btn.classList.contains(decCls)) { if (!clamp || val > clamp.min) val--; }
       else                                { if (!clamp || val < clamp.max) val++; }
       if (valInp) valInp.value = val;
-      const str = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      const str = _fmtMod(val);
       if (disp) disp.textContent = str;
       if (totalCls) {
         const total = panel.querySelector(`.${totalCls}[data-proc-key="${key}"]`);
@@ -3649,7 +3645,7 @@ function renderProcessingMode(container) {
       let val = parseInt(modInput.value || '0', 10);
       if (val > -5) val--;
       modInput.value = val;
-      if (modDisp) modDisp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      if (modDisp) modDisp.textContent = _fmtMod(val);
       _updatePoolTotal(container, key);
     });
   });
@@ -3666,7 +3662,7 @@ function renderProcessingMode(container) {
       let val = parseInt(modInput.value || '0', 10);
       if (val < 5) val++;
       modInput.value = val;
-      if (modDisp) modDisp.textContent = val === 0 ? '\u00B10' : val > 0 ? `+${val}` : String(val);
+      if (modDisp) modDisp.textContent = _fmtMod(val);
       _updatePoolTotal(container, key);
     });
   });
@@ -4908,6 +4904,33 @@ function _charDiscsArray(char) {
 }
 
 /**
+ * Render spec-toggle checkboxes for a pool builder row.
+ * Covers native specs on the selected skill + IS specs from all skills.
+ * @param {object|null} char
+ * @param {string} preSkill  — currently selected skill name
+ * @param {string} procKey   — entry key for data-proc-key attributes
+ * @param {string[]} activeSpecs — already-checked specs from review
+ * @param {string} disabled  — ' disabled' or ''
+ * @returns {string} HTML string
+ */
+function _buildSpecTogglesHtml(char, preSkill, procKey, activeSpecs, disabled) {
+  if (!char || !preSkill) return '';
+  let h = '';
+  for (const sp of skSpecs(char, preSkill)) {
+    const checked = activeSpecs.includes(sp) ? ' checked' : '';
+    const aoe = hasAoE(char, sp);
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(procKey)}" data-spec="${esc(sp)}"${checked}${disabled}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+  }
+  for (const { spec: isSp, fromSkill } of isSpecs(char)) {
+    if (fromSkill === preSkill) continue; // already present as a native spec on this skill
+    const checked = activeSpecs.includes(isSp) ? ' checked' : '';
+    const aoe = hasAoE(char, isSp);
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(procKey)}" data-spec="${esc(isSp)}"${checked}${disabled}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+  }
+  return h;
+}
+
+/**
  * Return the unskilled penalty for a skill with 0 dots (-3 mental, -1 otherwise).
  */
 function _unskilledPenalty(skillName, skillDots) {
@@ -5049,7 +5072,7 @@ function _updatePoolModTotal(container, key) {
 
   const total = fgDice + unskilledVal + eqVal;
   const totalEl = modPanel.querySelector('.proc-mod-total-val');
-  if (totalEl) totalEl.textContent = total === 0 ? '\u00B10' : total > 0 ? `+${total}` : String(total);
+  if (totalEl) totalEl.textContent = _fmtMod(total);
 
   // Sync total to pool builder hidden modifier input so the pool total display updates
   const builderModInp = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-mod-val`);
@@ -5267,6 +5290,8 @@ function _isCompactMerit(entry, mode, formula) {
   return false;
 }
 
+const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automatic', blocked: 'Cannot' };
+
 /**
  * Compact right-panel for binary/fixed-effect merit actions.
  * Renders: effect chip, auto successes (if auto), outcome toggle, ST notes textarea.
@@ -5286,7 +5311,6 @@ function _renderCompactMeritPanel(entry, rev) {
   const autoSucc   = isAuto && dots != null ? dots : null;
   const outcome    = rev.merit_outcome || '';
 
-  const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automatic', blocked: 'Cannot' };
 
   let h = `<div class="proc-feed-right proc-compact-merit-panel" data-proc-key="${esc(key)}">`;
 
@@ -5339,7 +5363,7 @@ function _renderMeritRightPanel(entry, rev) {
   const actionType = entry.actionType || 'misc';
   const dots       = entry.meritDots;
   const eqMod      = rev.pool_mod_equipment || 0;
-  const eqStr      = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const eqStr      = _fmtMod(eqMod);
 
   const matrixRow  = MERIT_MATRIX[category]?.[actionType] || null;
   const formula    = matrixRow?.poolFormula || 'none';
@@ -5357,7 +5381,6 @@ function _renderMeritRightPanel(entry, rev) {
   // Compact path for binary/fixed-effect actions — no pool builder needed
   if (_isCompactMerit(entry, mode, formula)) return _renderCompactMeritPanel(entry, rev);
 
-  const MODE_LABELS = { instant: 'Instant', contested: 'Contested', auto: 'Automatic', blocked: 'Cannot' };
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
@@ -5429,7 +5452,7 @@ function _renderMeritRightPanel(entry, rev) {
   // ── Success Modifier ──
   if (isRolled) {
     const succMod = rev.succ_mod_manual !== undefined ? rev.succ_mod_manual : 0;
-    const succStr = succMod === 0 ? '\u00B10' : succMod > 0 ? `+${succMod}` : String(succMod);
+    const succStr = _fmtMod(succMod);
     h += `<div class="proc-proj-succ-panel" data-proc-key="${esc(key)}">`;
     h += `<div class="proc-mod-panel-title">Success Modifier</div>`;
     h += _renderTickerRow(key, 'Manual adj.', 'proc-succmod', succStr, succMod);
@@ -5441,10 +5464,10 @@ function _renderMeritRightPanel(entry, rev) {
 
   // ── Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
-  h += `<div class="proc-mod-panel-title">Status</div>`;
+  h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   const meritBtns = isAuto
-    ? [['pending', 'Pending'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]
-    : [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Approved'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+    ? [['pending', 'Pending'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]
+    : [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
@@ -5470,7 +5493,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   const mgPool       = mgMerit ? (mgMerit.rating || mgMerit.dots || 0) + (mgMerit.bonus || 0) : 0;
   const mgDots       = (isCruac && mandUsed) ? mgPool : 0;
   const eqMod        = rev.pool_mod_equipment || 0;
-  const eqStr        = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const eqStr        = _fmtMod(eqMod);
   const base         = ritInfo ? _computeRitePool(char, ritInfo.attr, ritInfo.skill, ritInfo.disc) : 0;
   const total        = base + 3 + mgDots + eqMod;
 
@@ -5511,7 +5534,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
 
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
-  h += `<div class="proc-mod-panel-title">Status</div>`;
+  h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
@@ -5539,11 +5562,11 @@ function _renderProjRightPanel(entry, char, rev) {
   const poolStatus    = rev.pool_status    || 'pending';
 
   const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
-  const eqStr = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const eqStr = _fmtMod(eqMod);
   const poolModTotalStr = eqStr;
 
   const succMod = rev.succ_mod_manual !== undefined ? rev.succ_mod_manual : 0;
-  const succStr = succMod === 0 ? '\u00B10' : succMod > 0 ? `+${succMod}` : String(succMod);
+  const succStr = _fmtMod(succMod);
 
   let h = `<div class="proc-feed-right" data-proc-key="${esc(key)}">`;
 
@@ -5738,9 +5761,9 @@ function _renderFeedRightPanel(entry, char, rev) {
   const initUnskilled = _unskilledPenalty(initSkillName, initSkillDots);
 
   const eqMod = rev.pool_mod_equipment !== undefined ? rev.pool_mod_equipment : 0;
-  const eqStr = eqMod === 0 ? '\u00B10' : eqMod > 0 ? `+${eqMod}` : String(eqMod);
+  const eqStr = _fmtMod(eqMod);
   const poolModTotal = (fgDice ?? 0) + initUnskilled + eqMod;
-  const poolModTotalStr = poolModTotal === 0 ? '\u00B10' : poolModTotal > 0 ? `+${poolModTotal}` : String(poolModTotal);
+  const poolModTotalStr = _fmtMod(poolModTotal);
 
   // fgDice data attr: '' when char null (so live update can detect "unknown")
   const fgDataAttr = fgDice !== null ? String(fgDice) : '';
@@ -5827,10 +5850,10 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   const vitaeMod  = rev.vitae_mod_manual !== undefined ? rev.vitae_mod_manual : 0;
   const feedSubForRite = submissions.find(s => s._id === entry.subId);
-  const computedRiteCost = feedSubForRite ? _computeRiteVitaeCost(feedSubForRite) : 0;
+  const computedRiteCost = feedSubForRite ? _computeRiteVitaeCost(feedSubForRite, char) : 0;
   const vitaeRite = rev.vitae_rite_cost  !== undefined ? rev.vitae_rite_cost  : computedRiteCost;
-  const wpCost = feedSubForRite ? _computeRiteWpCost(feedSubForRite) : 0;
-  const manStr    = vitaeMod === 0 ? '\u00B10' : vitaeMod > 0 ? `+${vitaeMod}` : String(vitaeMod);
+  const wpCost = feedSubForRite ? _computeRiteWpCost(feedSubForRite, char) : 0;
+  const manStr    = _fmtMod(vitaeMod);
 
   const autoSum = (herdVitae ?? 0) + oofVitae + (ambienceVitae ?? 0) - ghoulCount;
   const finalVitae = Math.max(0, autoSum + vitaeMod - vitaeRite);
@@ -6665,20 +6688,8 @@ function renderActionPanel(entry, review) {
       h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
       h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}">${esc(initTotalStr)}</div>`;
       // Skill metadata: spec checkboxes only (9-again lives in the right panel)
-      const _fbSp  = char && preSkill ? skSpecs(char, preSkill) : [];
-      const _fbAct = rev.active_feed_specs || [];
       h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-      for (const sp of _fbSp) {
-        const checked = _fbAct.includes(sp);
-        const aoe = hasAoE(char, sp);
-        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}${_feedDis}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
-      }
-      for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
-        if (fromSkill === preSkill) continue; // already present as a native spec on this skill
-        const checked = _fbAct.includes(isSp);
-        const aoe = hasAoE(char, isSp);
-        h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}${_feedDis}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
-      }
+      h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _feedDis);
       h += '</div>';
       h += '</div>'; // proc-pool-builder
     }
@@ -6761,20 +6772,8 @@ function renderActionPanel(entry, review) {
     h += `<input type="hidden" class="proc-pool-mod-val" data-proc-key="${esc(entry.key)}" value="${initModForDisplay}">`;
     h += `<div class="proc-pool-total" data-proc-key="${esc(entry.key)}" data-nine-again="${_pnA ? '1' : '0'}">${esc(initTotalStr)}</div>`;
     // Spec toggles only — 9-again moved to right sidebar for project entries
-    const _pSp  = char && preSkill ? skSpecs(char, preSkill) : [];
-    const _pAct = rev.active_feed_specs || [];
     h += `<div class="dt-feed-builder-meta dt-skill-meta" data-proc-key="${esc(entry.key)}" data-sub-id="${esc(entry.subId)}">`;
-    for (const sp of _pSp) {
-      const checked = _pAct.includes(sp);
-      const aoe = hasAoE(char, sp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}${_projDis}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
-    }
-    for (const { spec: isSp, fromSkill } of isSpecs(char || {})) {
-      if (fromSkill === preSkill) continue; // already present as a native spec on this skill
-      const checked = _pAct.includes(isSp);
-      const aoe = hasAoE(char, isSp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${esc(entry.key)}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}${_projDis}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
-    }
+    h += _buildSpecTogglesHtml(char, preSkill, entry.key, rev.active_feed_specs || [], _projDis);
     h += '</div>';
     h += '</div>'; // proc-pool-builder
   } else if (isSorcery) {
@@ -7032,13 +7031,6 @@ function renderActionPanel(entry, review) {
 // ── Ritual helpers ────────────────────────────────────────────────────────────
 
 /**
- * Look up a rite's casting pool and target successes from the rules DB.
- * Pool components are the same for every rite within a tradition.
- * Target successes = rite rank (level 1–5).
- *
- * Returns { poolExpr, target, attr, skill, disc } or null.
- */
-/**
  * Compute the shared Mandragora Garden pool across all characters.
  * Deduplicates paired "Shared (X)" merits — a garden shared between two characters
  * counts only once (at the rating of the first partner encountered).
@@ -7110,8 +7102,8 @@ function _getRiteInfo(riteName) {
  * Return the known level of a rite by name: checks DB first, then all character powers.
  */
 /** Compute total Cruac vitae cost from a submission's sorcery slots. Theban rites cost WP, not vitae. */
-function _computeRiteVitaeCost(sub) {
-  const subChar = findCharacter(sub.character_name, sub.player_name);
+function _computeRiteVitaeCost(sub, char) {
+  const subChar = char || findCharacter(sub.character_name, sub.player_name);
   const discs = subChar?.disciplines || {};
   if (!discs.Cruac) return 0;
   const resp = sub.responses || {};
@@ -7127,8 +7119,8 @@ function _computeRiteVitaeCost(sub) {
 }
 
 /** Compute total Theban WP cost from a submission's sorcery slots (1 WP per rite). */
-function _computeRiteWpCost(sub) {
-  const subChar = findCharacter(sub.character_name, sub.player_name);
+function _computeRiteWpCost(sub, char) {
+  const subChar = char || findCharacter(sub.character_name, sub.player_name);
   const discs = subChar?.disciplines || {};
   if (!(discs['Theban Sorcery'] || discs.Theban)) return 0;
   const resp = sub.responses || {};
@@ -7200,6 +7192,8 @@ const NARR_BLOCKS = [
   },
 ];
 
+const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
+
 const STYLE_RULES = [
   'No success counts, discipline names, or mechanical terms in player-facing prose.',
   'No editorialising about what results mean.',
@@ -7210,7 +7204,7 @@ const STYLE_RULES = [
 
 function renderNarrativePanel(s) {
   const narr = s.st_review?.narrative || {};
-  const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
+
   const allReady = NARR_KEYS.every(k => narr[k]?.status === 'ready');
 
   let h = '<div class="dt-narr-detail">';
@@ -7557,7 +7551,7 @@ function renderPublishPanel(s) {
     </div>`;
   } else {
     const narr = s.st_review?.narrative || {};
-    const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
+  
     const blocksReady = NARR_KEYS.filter(k => narr[k]?.status === 'ready').length;
     h += `<div class="dt-publish-row">`;
     h += `<button class="dt-btn dt-publish-btn${canReady ? ' dt-publish-ready' : ''}" data-sub-id="${esc(s._id)}"
@@ -7574,7 +7568,7 @@ function renderPublishPanel(s) {
 
 async function handlePublish(sub) {
   const narr = sub.st_review?.narrative || {};
-  const NARR_KEYS = NARR_BLOCKS.map(b => b.key);
+
   const emptyBlocks = NARR_BLOCKS.filter(b => !(narr[b.key]?.text || '').trim());
 
   let confirmMsg = `Mark downtime results for ${sub.character_name} as ready to publish?\n\nResults will go live for the player when the next cycle starts.`;
@@ -8208,7 +8202,7 @@ function getTerritoryAmbienceByName(terrName) {
 /** Build best generic pool (highest total across all methods) for a character with no submission. */
 function bestGenericPool(char) {
   let best = null;
-  for (const m of FEED_METHODS) {
+  for (const m of FEED_METHODS_DATA) {
     const p = buildFeedingPool(char, m.id, 0);
     if (p && (!best || p.total > best.total)) {
       best = { ...p, methodName: m.name };
@@ -8258,7 +8252,7 @@ function renderFeedingScene() {
       const terrRec = getTerritoryByName(territory);
       const ambience = terrRec?.ambience || null;
       const ambienceMod = terrRec?.ambienceMod ?? 0;
-      const ambModStr = ambienceMod > 0 ? `+${ambienceMod}` : String(ambienceMod);
+      const ambModStr = _fmtMod(ambienceMod);
 
       // Pool
       let poolTotal = '—';
@@ -8430,6 +8424,47 @@ function _getSubFedTerrs(sub) {
   return fed;
 }
 
+/**
+ * Build the feeding matrix <table> HTML only.
+ * Callers handle the outer wrapper, toggle, and feeder-count footer.
+ * @param {object[]} chars — sorted active characters
+ * @param {Map<string,object>} subByCharId — charId → submission
+ * @param {Object<string,Set<string>>} residentsByTerrKey — csvKey → Set<charId>
+ * @returns {string} HTML string (<table>…</table> + note)
+ */
+function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
+  const cols = MATRIX_TERRS;
+  let h = '<table class="dt-matrix-table"><thead><tr><th>Character</th>';
+  for (const t of cols) {
+    const amb = getTerritoryAmbience(t.ambienceKey);
+    h += `<th title="${esc(amb || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(amb || 'N/A')}</span></th>`;
+  }
+  h += '</tr></thead><tbody>';
+  for (const char of chars) {
+    const charId = String(char._id);
+    const sub = subByCharId.get(charId) || null;
+    const hasSub = !!sub;
+    const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
+    h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}"${hasSub ? ` data-sub-id="${esc(sub._id)}"` : ''}>`;
+    h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
+    for (const t of cols) {
+      const isBarrens = t.ambienceKey === null;
+      const fed = fedTerrs.has(t.csvKey);
+      if (!fed) {
+        h += '<td class="dt-matrix-empty">\u2014</td>';
+      } else if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
+        h += '<td class="dt-matrix-resident">O</td>';
+      } else {
+        h += '<td class="dt-matrix-poach">X</td>';
+      }
+    }
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
+  return h;
+}
+
 function renderFeedingMatrix() {
   const el = document.getElementById('dt-matrix');
   if (!el) return;
@@ -8439,12 +8474,9 @@ function renderFeedingMatrix() {
 
   if (!submissions.length && !activeChars.length) { el.innerHTML = ''; return; }
 
-  // All 6 columns always shown
-  const cols = MATRIX_TERRS;
-
   // Build residency lookup: feeding_rights + regent + lieutenant always count as residents
   const residentsByTerrKey = {};
-  for (const mt of cols) {
+  for (const mt of MATRIX_TERRS) {
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
     const td = (cachedTerritories || []).find(t => t.id === tid);
     const residents = new Set(td?.feeding_rights || []);
@@ -8461,54 +8493,14 @@ function renderFeedingMatrix() {
   }
 
   const isOpen = el.dataset.open !== 'false';
-  const totalChars = activeChars.length + (submissions.filter(s => !findCharacter(s.character_name, s.player_name)).length);
 
   let h = `<div class="dt-matrix-panel">`;
   h += `<div class="dt-matrix-toggle" id="dt-matrix-toggle">${isOpen ? '\u25BC' : '\u25BA'} Feeding Matrix <span class="domain-count">${activeChars.length} characters</span></div>`;
 
   if (isOpen) {
-    h += `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
-    h += '<thead><tr><th>Character</th>';
-    for (const t of cols) {
-      const ambience = getTerritoryAmbience(t.ambienceKey);
-      h += `<th title="${esc(ambience || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(ambience || 'N/A')}</span></th>`;
-    }
-    h += '</tr></thead><tbody>';
-
-    // Track how many characters fed in each territory this cycle
-    const feederCounts = {};
-    for (const t of cols) feederCounts[t.csvKey] = 0;
-
-    for (const char of activeChars) {
-      const charId = String(char._id);
-      const sub = subByCharId.get(charId) || null;
-      const hasSub = !!sub;
-      const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
-
-      h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}" ${hasSub ? `data-sub-id="${esc(sub._id)}"` : ''}>`;
-      h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
-
-      for (const t of cols) {
-        const isBarrens = t.ambienceKey === null;
-        const fed = fedTerrs.has(t.csvKey);
-        if (!fed) {
-          h += '<td class="dt-matrix-empty">\u2014</td>';
-        } else {
-          feederCounts[t.csvKey]++;
-          if (!isBarrens && residentsByTerrKey[t.csvKey].has(charId)) {
-            h += '<td class="dt-matrix-resident">O</td>';
-          } else {
-            h += '<td class="dt-matrix-poach">X</td>';
-          }
-        }
-      }
-      h += '</tr>';
-    }
-
-    h += '</tbody>';
-    h += '</table>';
-    h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
-    h += '</div>';
+    h += `<div class="dt-matrix-wrap">`;
+    h += _buildMatrixTableHtml(activeChars, subByCharId, residentsByTerrKey);
+    h += `</div>`;
   }
 
   h += '</div>';
@@ -8576,20 +8568,20 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
   for (const r of rows) {
     const netClass = r.net > 0 ? 'proc-amb-pos' : r.net < 0 ? 'proc-amb-neg' : '';
     const projClass = r.projStep !== r.ambience ? (r.net > 0 ? 'proc-amb-pos' : 'proc-amb-neg') : '';
-    const netStr = r.net > 0 ? `+${r.net}` : String(r.net);
+    const netStr = _fmtMod(r.net);
     const gap = r.cap - r.feeders;
     const gapStr = gap >= 0 ? `+${gap}` : String(gap);
     const gapClass = gap < 0 ? 'proc-amb-neg' : '';
     const infNet = r.inf_pos - r.inf_neg;
-    const infNetStr = infNet > 0 ? `+${infNet}` : String(infNet);
+    const infNetStr = _fmtMod(infNet);
     const infNetClass = infNet > 0 ? 'proc-amb-pos' : infNet < 0 ? 'proc-amb-neg' : '';
     const infDisplay = `<span class="proc-amb-pos">+${r.inf_pos}</span> | <span class="proc-amb-neg">-${r.inf_neg}</span> | <span class="${infNetClass}">${infNetStr}</span>`;
     const projNet = r.proj_pos - r.proj_neg;
-    const projNetStr = projNet > 0 ? `+${projNet}` : String(projNet);
+    const projNetStr = _fmtMod(projNet);
     const projNetClass = projNet > 0 ? 'proc-amb-pos' : projNet < 0 ? 'proc-amb-neg' : '';
     const projDisplay = `<span class="proc-amb-pos">+${r.proj_pos}</span> | <span class="proc-amb-neg">-${r.proj_neg}</span> | <span class="${projNetClass}">${projNetStr}</span>`;
     const alliesNet = r.allies_pos - r.allies_neg;
-    const alliesNetStr = alliesNet > 0 ? `+${alliesNet}` : String(alliesNet);
+    const alliesNetStr = _fmtMod(alliesNet);
     const alliesNetClass = alliesNet > 0 ? 'proc-amb-pos' : alliesNet < 0 ? 'proc-amb-neg' : '';
     const alliesDisplay = `<span class="proc-amb-pos">+${r.allies_pos}</span> | <span class="proc-amb-neg">-${r.allies_neg}</span> | <span class="${alliesNetClass}">${alliesNetStr}</span>`;
     const confirmed = currentCycle?.confirmed_ambience?.[r.id];
@@ -8616,55 +8608,21 @@ function _buildAmbienceHtml(feedCountsByTerrId = null) {
 }
 
 function _buildFeedingMatrixHtml() {
-  const _mCols = MATRIX_TERRS;
-  const _mResidents = {};
-  for (const mt of _mCols) {
+  const mResidents = {};
+  for (const mt of MATRIX_TERRS) {
     const tid = TERRITORY_SLUG_MAP[mt.csvKey] ?? null;
     const td = (cachedTerritories || TERRITORY_DATA).find(t => t.id === tid);
     const residents = new Set(td?.feeding_rights || []);
     if (td?.regent_id) residents.add(String(td.regent_id));
     if (td?.lieutenant_id) residents.add(String(td.lieutenant_id));
-    _mResidents[mt.csvKey] = residents;
+    mResidents[mt.csvKey] = residents;
   }
   // Share feeder counts with the ambience Overfeeding column — single source of truth
-  const { byCsvKey: _mFeederCounts, subByCharId: _mSubByCharId } = _computeMatrixFeederCounts();
-  const _mChars = characters.filter(c => !c.retired)
+  const { subByCharId: mSubByCharId } = _computeMatrixFeederCounts();
+  const mChars = characters.filter(c => !c.retired)
     .sort((a, b) => sortName(a).localeCompare(sortName(b)));
 
-  let h = `<div class="dt-matrix-wrap"><table class="dt-matrix-table">`;
-  h += '<thead><tr><th>Character</th>';
-  for (const t of _mCols) {
-    const amb = getTerritoryAmbience(t.ambienceKey);
-    h += `<th title="${esc(amb || 'No cap')}">${esc(t.label)}<br><span class="dt-matrix-amb">${esc(amb || 'N/A')}</span></th>`;
-  }
-  h += '</tr></thead><tbody>';
-  for (const char of _mChars) {
-    const charId = String(char._id);
-    const sub = _mSubByCharId.get(charId) || null;
-    const hasSub = !!sub;
-    const fedTerrs = hasSub ? _getSubFedTerrs(sub) : new Set();
-    h += `<tr class="dt-matrix-row${hasSub ? '' : ' dt-matrix-nosub'}">`;
-    h += `<td class="dt-matrix-char">${esc(displayName(char))}${!hasSub ? ' <span class="dt-matrix-nosub-badge">No submission</span>' : ''}</td>`;
-    for (const t of _mCols) {
-      const isBarrens = t.ambienceKey === null;
-      const fed = fedTerrs.has(t.csvKey);
-      if (!fed) {
-        h += '<td class="dt-matrix-empty">\u2014</td>';
-      } else {
-        if (!isBarrens && _mResidents[t.csvKey].has(charId)) {
-          h += '<td class="dt-matrix-resident">O</td>';
-        } else {
-          h += '<td class="dt-matrix-poach">X</td>';
-        }
-      }
-    }
-    h += '</tr>';
-  }
-  h += '</tbody>';
-  h += '</table>';
-  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
-  h += '</div>';
-  return h;
+  return `<div class="dt-matrix-wrap">${_buildMatrixTableHtml(mChars, mSubByCharId, mResidents)}</div>`;
 }
 
 function _buildSpheresHtml() {
@@ -8868,8 +8826,8 @@ function _exportCityOverview(matrix) {
   URL.revokeObjectURL(url);
 }
 
-function renderCityOverview() {
-  const el = document.getElementById('dt-conflicts');
+export function renderCityOverview() {
+  const el = document.getElementById('dt-city-panel');
   if (!el) return;
   if (!submissions.length) { el.innerHTML = ''; return; }
 
@@ -9185,7 +9143,7 @@ async function handleApplyAmbience(cycleId, cycle) {
 function buildGenericPool(char, attrName, skillName, discName, modifier) {
   const attrVal = attrName ? getAttrVal(char, attrName) : 0;
   const skillVal = skillName ? skTotal(char, skillName) : 0;
-  const discVal = (discName && char?.disciplines?.[discName]?.dots) || 0;
+  const discVal = discName ? (_charDiscsArray(char).find(d => d.name === discName)?.dots || 0) : 0;
   const mod = modifier || 0;
   const unskilled = skillName && skillVal === 0
     ? (SKILLS_MENTAL.includes(skillName) ? -3 : -1)

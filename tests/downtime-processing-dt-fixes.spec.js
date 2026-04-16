@@ -451,10 +451,9 @@ test.describe('DT-Fix-19: Character selectors', () => {
     await page.locator('.proc-feed-desc-edit-btn').first().click();
     await page.waitForTimeout(300);
 
-    // sortName() returns .toLowerCase(), so labels use lowercase names
     const panel = page.locator('.proc-action-detail').first();
-    await expect(panel).toContainText('charlie test');
-    await expect(panel).toContainText('non submitter');
+    await expect(panel).toContainText('Charlie Test');
+    await expect(panel).toContainText('Non Submitter');
   });
 
   test('sorcery targets checkbox list does NOT contain retired characters', async ({ page }) => {

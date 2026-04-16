@@ -62,7 +62,7 @@ body {
   background: none;
   border: none;
   color: var(--txt2);
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: .04em;
@@ -173,7 +173,7 @@ body {
 }
 
 .domain-header h2 {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 22px;
   color: var(--accent);
   font-weight: 600;
@@ -659,7 +659,7 @@ body {
 }
 
 .log-entry-char {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-weight: 600;
   color: var(--accent);
   white-space: nowrap;
@@ -2244,7 +2244,7 @@ body {
 }
 
 .att-char-name {
-  font-family: var(--fh);
+  font-family: var(--fl);
   color: var(--accent);
   padding: 8px 6px;
   text-align: left;
@@ -2735,7 +2735,7 @@ body {
   vertical-align: middle;
 }
 .om-name {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 14px;
   color: var(--txt);
   letter-spacing: 0.02em;
@@ -3934,10 +3934,10 @@ body {
 
 /* Modal overlay + dialog */
 .rules-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; z-index: 9000; }
-.rules-modal-dialog { background: var(--surf1, #161310); border: 1px solid var(--bdr, rgba(201,169,98,.25)); border-radius: 8px; width: 700px; max-width: 96vw; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; }
-.rules-modal-header { padding: 16px 20px 12px; font-family: var(--fl); font-size: 16px; color: var(--accent); border-bottom: 1px solid rgba(201,169,98,.12); }
+.rules-modal-dialog { background: var(--surf); border: 1px solid var(--bdr, rgba(201,169,98,.25)); border-radius: 8px; width: 700px; max-width: 96vw; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; }
+.rules-modal-header { padding: 16px 20px 12px; font-family: var(--fl); font-size: 16px; color: var(--accent); border-bottom: 1px solid var(--bdr); }
 .rules-modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-.rules-modal-footer { padding: 12px 20px; border-top: 1px solid rgba(201,169,98,.12); display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.rules-modal-footer { padding: 12px 20px; border-top: 1px solid var(--bdr); display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 .rules-modal-status { font-size: 12px; color: var(--txt2); margin-right: auto; }
 .rules-modal-err { color: var(--crim); }
 
@@ -4070,7 +4070,7 @@ body {
 .proc-char-chip:hover { background: var(--surf3); border-color: var(--txt3); }
 
 .proc-char-chip-name {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 11px;
   font-weight: 600;
   color: var(--txt1);
@@ -4359,7 +4359,7 @@ body {
 .proc-action-row.expanded { background: var(--accent-a8); border-bottom: none; }
 
 .proc-row-char {
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 13px;
   color: var(--txt1);
   font-weight: 500;
@@ -4416,7 +4416,7 @@ body {
 .proc-add-st-char {
   font-size: 12px;
   color: var(--txt2);
-  font-family: var(--fh);
+  font-family: var(--fl);
   min-width: 140px;
 }
 
@@ -6763,7 +6763,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   border-radius: 4px;
   box-sizing: border-box;
   color: var(--txt);
-  font-family: var(--fb);
+  font-family: var(--ft);
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 8px;
@@ -6943,9 +6943,9 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 }
 
 .dt-story-terr-name {
-  color: var(--gold2);
+  color: var(--accent);
   flex: 1;
-  font-family: var(--fh);
+  font-family: var(--fl);
   font-size: 11px;
   letter-spacing: 0.08em;
 }
@@ -7033,4 +7033,9 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   font-style: italic;
   padding: 4px 0 2px;
 }
+
+/* Rule Data — table rows use hardcoded dark-mode gold tints; replace on parchment */
+html:not([data-theme="dark"]) .rules-tbl td                        { border-bottom-color: var(--surf3); }
+html:not([data-theme="dark"]) .rules-tbl tbody tr:nth-child(even)  { background: var(--surf2); }
+html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background: var(--surf3); }
 

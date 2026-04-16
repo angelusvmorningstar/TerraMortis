@@ -425,7 +425,7 @@ export function shAddStyle(styleName, type = 'style') {
   const c = state.chars[state.editIdx];
   if (!c.fighting_styles) c.fighting_styles = [];
   if (c.fighting_styles.some(fs => fs.name === styleName)) return;
-  c.fighting_styles.push({ name: styleName, type, cp: 0, free_mci: 0, xp: 0 });
+  c.fighting_styles.push({ name: styleName, type, cp: 0, free_mci: 0, free_ots: 0, xp: 0 });
   _markDirty();
   _renderSheet(c);
 }
