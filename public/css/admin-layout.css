@@ -7145,6 +7145,30 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   padding: 4px 0 2px;
 }
 
+/* ── DT Story — Collapse complete cards ── */
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-proj-card.complete > *:not(.dt-story-proj-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-merit-card.complete > *:not(.dt-story-merit-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-cs-slot.complete > *:not(.dt-story-cs-slot-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-section.complete > *:not(.dt-story-section-header),
+.dt-story-char-content[data-collapse-complete="true"] .dt-story-terr-section.complete > *:not(.dt-story-terr-header) {
+  display: none;
+}
+
+/* ── DT Story — Collapse toggle button ── */
+.dt-story-collapse-toggle {
+  background: transparent;
+  border: 1px solid var(--bdr2);
+  border-radius: 4px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: var(--ft);
+  font-size: 11px;
+  margin-left: auto;
+  padding: 3px 8px;
+}
+.dt-story-collapse-toggle:hover { border-color: var(--gold2); color: var(--gold2); }
+.dt-story-collapse-toggle.active { border-color: var(--gold2); color: var(--gold2); }
+
 /* Rule Data — table rows use hardcoded dark-mode gold tints; replace on parchment */
 html:not([data-theme="dark"]) .rules-tbl td                        { border-bottom-color: var(--surf3); }
 html:not([data-theme="dark"]) .rules-tbl tbody tr:nth-child(even)  { background: var(--surf2); }
