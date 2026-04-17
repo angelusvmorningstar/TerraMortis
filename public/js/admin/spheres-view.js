@@ -9,6 +9,7 @@
 import { apiGet } from '../data/api.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName } from '../data/helpers.js';
+import { INFLUENCE_SPHERES } from '../data/constants.js';
 
 let chars = [];
 
@@ -86,6 +87,11 @@ function getSpheresData() {
     }
   }
 
+  // Ensure all 16 canonical spheres appear, even if vacant
+  for (const canonical of INFLUENCE_SPHERES) {
+    if (!spheres[canonical]) spheres[canonical] = {};
+  }
+
   // Convert to sorted array per sphere — sort rows by total dots (desc), then name
   const out = [];
   for (const sphere of Object.keys(spheres)) {
@@ -97,8 +103,14 @@ function getSpheresData() {
     const sphereTotal = rows.reduce((s, r) => s + r.total, 0);
     out.push({ sphere, rows, total: sphereTotal });
   }
-  // Sort spheres by overall total dots, then alphabetically
-  out.sort((a, b) => b.total - a.total || a.sphere.localeCompare(b.sphere));
+  // Occupied spheres first (by total desc), then vacant spheres alphabetically
+  out.sort((a, b) => {
+    const aOcc = a.total > 0 ? 1 : 0;
+    const bOcc = b.total > 0 ? 1 : 0;
+    if (aOcc !== bOcc) return bOcc - aOcc;
+    if (a.total !== b.total) return b.total - a.total;
+    return a.sphere.localeCompare(b.sphere);
+  });
   return out;
 }
 
@@ -107,37 +119,37 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function renderSphereCard({ sphere, rows, total }) {
+  const vacant = rows.length === 0;
+  let h = `<div class="sphere-card${vacant ? ' sphere-card-vacant' : ''}">`;
+  h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span>`;
+  if (!vacant) h += `<span class="sphere-total">${total} dots</span>`;
+  h += `</div>`;
+  if (vacant) {
+    h += `<p class="sphere-vacant-msg">No current holders</p>`;
+  } else {
+    h += `<ul class="sphere-card-list">`;
+    rows.forEach((r, i) => {
+      const isDominant = i === 0;
+      h += `<li class="sphere-card-item${isDominant ? ' sphere-dominant' : ''}">`;
+      h += `<span class="sphere-char-name">${i + 1}. ${esc(r.name)}</span>`;
+      h += `<span class="sphere-char-meta">`;
+      if (r.allies)      h += `A${r.allies} `;
+      if (r.status)      h += `S${r.status} `;
+      if (r.hasContacts) h += `\u2713`;
+      h += `</span>`;
+      h += `</li>`;
+    });
+    h += `</ul>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
 function renderSpheres() {
   const data = getSpheresData();
-  if (!data.length) {
-    return '<p class="placeholder">No sphere data yet. Add Allies, Status, Mortal Status, or Contacts influence merits with a sphere assignment.</p>';
-  }
-  let h = '<div class="spheres-list">';
-  for (const { sphere, rows, total } of data) {
-    h += '<div class="sphere-block">';
-    h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span><span class="sphere-total">${total} dots</span></div>`;
-    h += '<table class="infl-table sphere-table">'
-      + '<thead><tr>'
-      + '<th>#</th>'
-      + '<th>Character</th>'
-      + '<th>Allies</th>'
-      + '<th>Status</th>'
-      + '<th>Total</th>'
-      + '<th>Contact</th>'
-      + '</tr></thead><tbody>';
-    rows.forEach((r, i) => {
-      h += `<tr>
-        <td class="infl-num">${i + 1}</td>
-        <td class="infl-name">${esc(r.name)}</td>
-        <td class="infl-num">${r.allies || '\u2014'}</td>
-        <td class="infl-num">${r.status || '\u2014'}</td>
-        <td class="infl-num infl-total">${r.total || '\u2014'}</td>
-        <td class="infl-num">${r.hasContacts ? '\u2713' : ''}</td>
-      </tr>`;
-    });
-    h += '</tbody></table>';
-    h += '</div>';
-  }
-  h += '</div>';
+  let h = `<div class="spheres-grid">`;
+  for (const entry of data) h += renderSphereCard(entry);
+  h += `</div>`;
   return h;
 }
