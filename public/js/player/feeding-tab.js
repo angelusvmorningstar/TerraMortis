@@ -15,6 +15,7 @@ import { getAttrEffective as getAttrVal, skDots, skSpecStr, skNineAgain } from '
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
+import { domMeritContrib } from '../editor/domain.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
@@ -418,9 +419,8 @@ function buildPool(method, discName, specName) {
 function computeVitateTally(char, sub) {
   if (!char) return null;
 
-  // Herd: rating + bonus (includes SSJ/Flock extra dots if entered)
-  const herdMerit = (char.merits || []).find(m => m.name === 'Herd');
-  const herd = herdMerit ? (herdMerit.rating || 0) + (herdMerit.bonus || 0) : 0;
+  // Herd: effective dots (cp + free + free_mci + xp + SSJ/Flock bonuses)
+  const herd = domMeritContrib(char, 'Herd');
 
   // Oath of Fealty: covenant status dots (only if character has the pact)
   const hasOoF = (char.powers || []).some(p => p.category === 'pact' && p.name === 'Oath of Fealty');
