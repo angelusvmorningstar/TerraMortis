@@ -108,11 +108,24 @@ XP functions in `public/js/editor/xp.js`: `xpEarned()`, `xpSpent()`, `xpLeft()`,
 - **Font stack**: Cinzel / Cinzel Decorative for headings, Lora for body (Google Fonts CDN)
 - **CSS custom properties** defined on `:root` — dark theme with `--bg: #0D0B09`, `--surf*` surface tiers, `--gold*` accent tiers, `--crim: #8B0000` for damage states
 
-## Key data files
+## Live data vs reference files
 
-- `data/chars_v2.json` — 31 characters in v2 format (source of truth, seeded to MongoDB)
-- `archive/tm_characters.json` — 31 characters in old format (migrated, kept for reference)
+**MongoDB Atlas is the live data source.** Never treat local files as a substitute for querying the database.
+
+| File | Status | Purpose |
+|------|--------|---------|
+| MongoDB `tm_suite` | **LIVE** | All character, territory, downtime, session data |
+| `data/chars_v2.json` | Seed only | Used by `server/migrate.js` to drop+reseed MongoDB; not kept in sync |
+| `data/chars_v3.json` | Reference | Working copy; not live |
+| `data/exports/` | Snapshots | Dated exports — read-only, not current |
+| `st-working/` | ST ops | Downtime docs, prompt refs, retrospectives — not code |
+
+When you need current character or game data, query the API or check MongoDB directly. Do not read `data/*.json` files expecting them to reflect live state.
+
+## Key schema files
+
 - `schemas/schema_v2_proposal.md` — Full v2 schema specification
+- `archive/tm_characters.json` — 31 characters in old format (migrated, kept for reference)
 
 ## Known data issues
 

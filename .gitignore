@@ -41,3 +41,6 @@ Terra Mortis Downtime*.pdf
 *.csv
 !data/*.csv
 Downtime Mammon.xlsx
+
+# ST operational files — not code
+st-working/
