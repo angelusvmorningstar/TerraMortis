@@ -1,6 +1,6 @@
 # Story DTX.8: Completion-Gated Publish + Publish All
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 

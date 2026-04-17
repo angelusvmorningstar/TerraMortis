@@ -1,6 +1,6 @@
 # Story DTX.8: DT Story Free Text Field
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 

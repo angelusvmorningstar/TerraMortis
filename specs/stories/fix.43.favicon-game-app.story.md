@@ -1,6 +1,6 @@
 # Story fix.43: Favicon Missing in Game App
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 
