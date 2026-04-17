@@ -156,6 +156,6 @@ Status: queued — no code yet
 
 ### DTX-10: Vitae Tally Persistence & Player Portal Display
 Story file: `specs/stories/dtx.10.vitae-tally-persistence.story.md`
-**Status: Done — merged to main 2026-04-17**
+**Status: Done — merged to main 2026-04-17 (280c338)**
 
 Persist `feeding_vitae_tally` at pool commit time (and roll time). Player portal shows vitae breakdown card in both ready and rolled states. Client-side fallback uses `domMeritContrib` for correct effective Herd dots.
