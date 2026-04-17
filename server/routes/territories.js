@@ -3,6 +3,12 @@ import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
 import { validate } from '../middleware/validate.js';
 import { territorySchema } from '../schemas/territory.schema.js';
+import { isStRole } from '../middleware/auth.js';
+
+function requireST(req, res, next) {
+  if (!isStRole(req.user)) return res.status(403).json({ error: 'FORBIDDEN', message: 'Insufficient role' });
+  next();
+}
 
 const router = Router();
 const col = () => getCollection('territories');
@@ -21,8 +27,8 @@ router.get('/', async (req, res) => {
   res.json(docs);
 });
 
-// POST /api/territories — create or upsert by territory id field
-router.post('/', validate(territorySchema), async (req, res) => {
+// POST /api/territories — create or upsert by territory id field (ST only)
+router.post('/', requireST, validate(territorySchema), async (req, res) => {
   const { id, ...fields } = req.body;
   if (!id) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'id required' });
 
@@ -34,8 +40,8 @@ router.post('/', validate(territorySchema), async (req, res) => {
   res.status(201).json(result);
 });
 
-// PUT /api/territories/:id — update one
-router.put('/:id', async (req, res) => {
+// PUT /api/territories/:id — update one (ST only)
+router.put('/:id', requireST, async (req, res) => {
   const oid = parseId(req.params.id);
   if (!oid) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid territory ID format' });
 

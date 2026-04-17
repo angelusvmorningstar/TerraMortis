@@ -84,8 +84,9 @@ app.all('/api/pdf/*path', (req, res) => {
 // Public game session endpoint — used by website banner (no auth)
 app.get('/api/game_sessions/next', getNextSession);
 
+// Territories — GET open to all authenticated users; writes are ST-only (enforced in router)
+app.use('/api/territories', requireAuth, territoriesRouter);
 // ST-only routes — require both auth and ST role
-app.use('/api/territories', requireAuth, requireRole('st'), territoriesRouter);
 app.use('/api/tracker_state', requireAuth, requireRole('st'), trackerRouter);
 app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
 app.use('/api/game_sessions', requireAuth, requireRole('st'), gameSessionsRouter);

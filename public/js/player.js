@@ -206,13 +206,9 @@ async function loadCharacters() {
     });
   }
 
-  // Territories and City tab — ST only
-  if (isSTRole()) {
-    try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
-    renderCityTab(document.getElementById('tab-city'), _territories);
-  } else {
-    document.querySelector('.sidebar-btn[data-tab="city"]')?.remove();
-  }
+  // Load territories for regent derivation and City tab
+  try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
+  renderCityTab(document.getElementById('tab-city'), _territories);
 
   // Primer and Tickets tabs — render once, independent of active character
   renderPrimerTab(document.getElementById('tab-primer'));
