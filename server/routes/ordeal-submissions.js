@@ -74,13 +74,14 @@ router.get('/', requireRole('st'), async (req, res) => {
 // GET /api/ordeal_submissions/mine — player gets their own (status only, no rubric)
 router.get('/mine', async (req, res) => {
   const playerId = req.user.player_id;
-  const charIds  = (req.user.character_ids || []).map(id =>
+  const charIdOids = (req.user.character_ids || []).map(id =>
     id instanceof ObjectId ? id : new ObjectId(id)
   );
+  const charIdStrs = charIdOids.map(id => id.toString());
   const docs = await col().find({
     $or: [
       { player_id: playerId },
-      { character_id: { $in: charIds } },
+      { character_id: { $in: [...charIdOids, ...charIdStrs] } },
     ],
   }).toArray();
 
