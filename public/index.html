@@ -18,11 +18,11 @@
 
 <!-- Login screen (shown before auth) -->
 <div id="login-screen" style="display:none">
-  <div class="login-box" style="text-align:center;max-width:360px;margin:auto;padding-top:30vh;">
-    <div style="font-family:var(--fhd);font-size:28px;color:var(--gold2);letter-spacing:2px;">Terra Mortis</div>
-    <div style="font-family:var(--fh);font-size:12px;color:var(--txt3);text-transform:uppercase;letter-spacing:3px;margin:6px 0 32px;">Game App</div>
-    <button id="login-btn" style="padding:12px 32px;background:var(--crim);border:1px solid var(--crim-a70);border-radius:6px;color:#fff;font-family:var(--fh);font-size:13px;letter-spacing:.1em;cursor:pointer;">Login with Discord</button>
-    <p id="login-error" style="color:var(--err);font-size:13px;margin-top:16px;"></p>
+  <div class="login-box">
+    <div class="login-title">Terra Mortis</div>
+    <div class="login-subtitle">Game App</div>
+    <button id="login-btn" class="login-crim-btn">Login with Discord</button>
+    <p id="login-error" class="login-error"></p>
   </div>
 </div>
 
@@ -159,7 +159,7 @@
       </div>
       <div>
         <div class="hist-hdr">
-          <div class="slabel" style="margin:0;">History</div>
+          <div class="slabel slabel-inline">History</div>
           <button class="hist-clr" onclick="clrHist()">Clear</button>
         </div>
         <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
@@ -172,7 +172,7 @@
         </button>
         <div id="feed-panel" class="feed-panel" style="display:none">
           <div class="feed-row">
-            <div class="sel-wrap" style="flex:1">
+            <div class="sel-wrap sel-wrap-flex">
               <select class="sh-char-sel" id="feed-terr" onchange="feedBuildPool()">
                 <option value="">&#8212; Territory (optional) &#8212;</option>
               </select>
@@ -190,7 +190,7 @@
             </div>
             <div class="feed-disc-row">
               <span class="feed-disc-lbl">+ Discipline</span>
-              <div class="sel-wrap" style="flex:1">
+              <div class="sel-wrap sel-wrap-flex">
                 <select class="sh-char-sel" id="feed-disc" onchange="feedBuildPool()">
                   <option value="">None</option>
                 </select>

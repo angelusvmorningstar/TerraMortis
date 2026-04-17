@@ -94,6 +94,34 @@
   --result-pend:#c04040;--result-pend-bg:rgba(192,64,64,.10);--result-pend-bdr:rgba(192,64,64,.35);
   --green-dk:#1b5e20;--green-dk-bg:rgba(27,94,32,.12);--green-dk-bdr:rgba(27,94,32,.35);
   --warn-dk:#7a5c00;--warn-dk-bg:rgba(122,92,0,.12);
+
+  /* Reading pane — warm parchment surfaces (questionnaires, player portal, dossiers) */
+  /* Always light — no dark override needed; index.html never uses .reading-pane */
+  --rp-bg:#F0E6D4;--rp-surf:#FFF8EE;--rp-surf2:#E8DCC8;
+  --rp-txt:#2A1F14;--rp-txt2:#3A2A1A;--rp-txt3:#7A6A50;
+  --rp-head:#5A1A1A;--rp-accent:#8B0000;--rp-placeholder:#9A8A70;
+  --rp-bdr:rgba(139,0,0,.12);--rp-bdr2:rgba(139,0,0,.20);
+
+  /* Alert badges — character grid warning dots (admin parchment only) */
+  --badge-err-bg:rgba(180,30,30,.9);--badge-err-bdr:rgba(255,80,80,.4);
+  --badge-warn-bg:rgba(180,140,20,.85);--badge-warn-bdr:rgba(255,210,60,.4);
+
+  /* Ticket / task badge palette (admin only) */
+  --tk-inprog-bg:rgba(80,140,200,.2);--tk-inprog-fg:#7ab4e0;
+  --tk-resolved-bg:rgba(80,180,100,.2);--tk-resolved-fg:#72c47a;
+  --tk-bug-bg:rgba(180,60,60,.2);--tk-bug-fg:#c47272;
+  --tk-feature-bg:rgba(130,80,180,.2);--tk-feature-fg:#b080d8;
+  --tk-question-bg:rgba(60,170,160,.2);--tk-question-fg:#60c8be;
+  --tk-sheet-bg:rgba(200,150,50,.2);--tk-sheet-fg:#d4a84b;
+
+  /* Lethal damage colour (amber — suite tracker, parchment variant) */
+  --dmg-lethal:#A05820;
+
+  /* Blood Sorcery rote pool badge (parchment variant) */
+  --rote:#6040A8;--rote-a40:rgba(100,64,168,.4);
+
+  /* Discord external brand (fixed — no theme variant) */
+  --discord-bg:#5865F2;--discord-bg-hover:#4752C4;
 }
 
 /* ── Dark mode override ── */
@@ -176,6 +204,19 @@
   --result-pend:#ff9090;--result-pend-bg:rgba(255,144,144,.12);--result-pend-bdr:rgba(255,144,144,.35);
   --green-dk:#6abf6a;--green-dk-bg:rgba(106,191,106,.15);--green-dk-bdr:rgba(106,191,106,.40);
   --warn-dk:#d4a832;--warn-dk-bg:rgba(212,168,50,.15);
+
+  /* Lethal damage (dark amber) */
+  --dmg-lethal:#D4830A;
+
+  /* Blood Sorcery rote pool badge (dark purple) */
+  --rote:#9E7AE0;--rote-a40:rgba(158,122,224,.4);
+
+  /* DT processing merit action modes (dark; parchment overrides already use tokens) */
+  --proc-instant-bg:rgba(60,120,60,.35);--proc-instant-fg:#8ecf8e;--proc-instant-bdr:rgba(60,120,60,.5);
+  --proc-auto-bg:rgba(50,90,160,.35);--proc-auto-fg:#8ab4e8;--proc-auto-bdr:rgba(50,90,160,.5);
+  --proc-blocked-bg:rgba(100,0,0,.45);--proc-blocked-fg:#e08080;--proc-blocked-bdr:rgba(139,0,0,.6);
+  --proc-contested-bg:rgba(180,120,30,.35);--proc-contested-bdr:rgba(180,120,30,.5);
+  --proc-pos:#5dbb6a;
 }
 
 /* ── Cross-app navigation buttons ── */
