@@ -199,7 +199,7 @@ function renderMeritActionCards(sub) {
   const resolved = sub.merit_actions_resolved || [];
   const cards = actions
     .map((a, i) => ({ a, rev: resolved[i] || {} }))
-    .filter(({ rev }) => rev.pool || rev.roll);
+    .filter(({ rev }) => rev.pool || rev.pool_validated || rev.roll);
 
   if (!cards.length) return '';
 
@@ -215,10 +215,8 @@ function renderMeritActionCards(sub) {
     h += `<span class="proj-card-name">${esc(meritLabel)}</span>`;
     h += '</div>';
 
-    if (rev.pool) {
-      const expr = rev.pool.expression || String(rev.pool.total || '');
-      if (expr) h += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(expr)}</span></div>`;
-    }
+    const poolExpr = rev.pool?.expression || rev.pool_validated || (rev.pool?.total ? String(rev.pool.total) : '');
+    if (poolExpr) h += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(poolExpr)}</span></div>`;
 
     if (rev.roll) {
       const suc = rev.roll.successes ?? 0;
@@ -228,10 +226,12 @@ function renderMeritActionCards(sub) {
         : `${suc} Success${suc !== 1 ? 'es' : ''}`;
       const cls = exc ? ' proj-card-roll-exc' : suc === 0 ? ' proj-card-roll-fail' : '';
       h += `<div class="proj-card-roll${cls}">${esc(label)}</div>`;
+      if (rev.roll.dice_string) h += `<div class="proj-card-dice">${esc(rev.roll.dice_string)}</div>`;
     }
 
-    if (rev.player_feedback) {
-      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">Feedback</span>${esc(rev.player_feedback)}</div>`;
+    const note = rev.player_facing_note || rev.player_feedback || '';
+    if (note) {
+      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
     }
 
     h += '</div>';
@@ -248,12 +248,12 @@ function renderProjectCards(sub) {
 
   for (let i = 0; i < 4; i++) {
     const n     = i + 1;
-    const title = sub[`project_${n}_title`];
+    const title = sub.responses?.[`project_${n}_title`] || sub[`project_${n}_title`];
     if (!title) continue;
 
     const resp     = responses[i]?.response || '';
     const rev      = resolved[i] || {};
-    const actType  = rev.action_type || sub[`project_${n}_action`] || '';
+    const actType  = rev.action_type || sub.responses?.[`project_${n}_action`] || sub[`project_${n}_action`] || '';
     const typeLabel = ACTION_TYPE_LABELS[actType] || actType;
 
     if (!resp) {
@@ -271,7 +271,7 @@ function renderProjectCards(sub) {
     h += `<span class="proj-card-name">${esc(title)}</span>`;
     h += '</div>';
 
-    const objective = sub[`project_${n}_description`];
+    const objective = sub.responses?.[`project_${n}_description`] || sub[`project_${n}_description`];
     if (objective) {
       h += `<div class="proj-card-objective">${esc(objective)}</div>`;
     }
@@ -281,9 +281,10 @@ function renderProjectCards(sub) {
     h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
     h += '</div>';
 
-    if (!rev.no_roll && rev.pool) {
-      const expr = rev.pool.expression || String(rev.pool.total);
-      h += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(expr)}</span></div>`;
+    // Pool expression: prefer pool object, fall back to pool_validated string
+    const poolExpr = rev.pool?.expression || rev.pool_validated || (rev.pool?.total ? String(rev.pool.total) : '');
+    if (!rev.no_roll && poolExpr) {
+      h += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(poolExpr)}</span></div>`;
     }
 
     if (rev.roll) {
@@ -294,10 +295,13 @@ function renderProjectCards(sub) {
         : `${suc} Success${suc !== 1 ? 'es' : ''}`;
       const cls = exc ? ' proj-card-roll-exc' : suc === 0 ? ' proj-card-roll-fail' : '';
       h += `<div class="proj-card-roll${cls}">${esc(label)}</div>`;
+      if (rev.roll.dice_string) h += `<div class="proj-card-dice">${esc(rev.roll.dice_string)}</div>`;
     }
 
-    if (rev.player_feedback) {
-      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">Feedback</span>${esc(rev.player_feedback)}</div>`;
+    // ST note for the player: prefer player_facing_note, fall back to player_feedback
+    const note = rev.player_facing_note || rev.player_feedback || '';
+    if (note) {
+      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
     }
 
     h += '</div>';

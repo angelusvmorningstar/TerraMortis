@@ -4055,7 +4055,12 @@ function renderProcessingMode(container) {
         existingRoll: review?.roll || null,
         again, initialRote: roteChecked,
       }, async result => {
-        await saveEntryReview(entry, { roll: result });
+        // Save both roll result AND pool object so the player story tab
+        // can display both the expression and the outcome.
+        await saveEntryReview(entry, {
+          roll: result,
+          pool: { expression: poolValidated, total: diceCount },
+        });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
         if (cur === 'pending' || cur === 'committed') {
           await saveEntryReview(entry, { pool_status: 'rolled' });
@@ -4075,12 +4080,16 @@ function renderProcessingMode(container) {
       const review    = getEntryReview(entry);
       const diceCount = parseInt(btn.dataset.pool, 10) || 0;
       if (!diceCount) return;
+      const meritExpr = `(${entry.meritDots || '?'} \u00d7 2) + 2`;
       showRollModal({
-        size: diceCount, expression: `(${entry.meritDots || '?'} \u00d7 2) + 2`,
+        size: diceCount, expression: meritExpr,
         existingRoll: review?.roll || null,
         again: 10, initialRote: false,
       }, async result => {
-        await saveEntryReview(entry, { roll: result });
+        await saveEntryReview(entry, {
+          roll: result,
+          pool: { expression: meritExpr, total: diceCount },
+        });
         const cur = getEntryReview(entry)?.pool_status || 'pending';
         if (cur === 'pending' || cur === 'committed') {
           await saveEntryReview(entry, { pool_status: 'rolled' });
