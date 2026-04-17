@@ -1646,6 +1646,16 @@ function buildMeritActions(sub) {
     });
   }
 
+  const skillAcqBlob = raw.acquisitions?.skill_acquisitions || resp['skill_acquisitions'] || '';
+  if (skillAcqBlob.trim()) {
+    actions.push({
+      merit_type:      'Skill Acquisition',
+      action_type:     'acquisition',
+      desired_outcome: '',
+      description:     skillAcqBlob,
+    });
+  }
+
   return actions;
 }
 
@@ -1661,6 +1671,7 @@ function deriveMeritCategory(meritTypeStr) {
   if (/staff/.test(s))     return 'staff';
   if (/contacts?/.test(s)) return 'contacts';
   if (/resources?/.test(s)) return 'resources';
+  if (/skill/.test(s))      return 'resources';
   return 'misc';
 }
 
