@@ -190,8 +190,6 @@ function renderOutcomeWithCards(sub) {
       cardHtml += `<span class="proj-card-name">${esc(title)}</span>`;
       cardHtml += '</div>';
 
-      const objective = sub.responses?.[`project_${n}_description`] || sub[`project_${n}_description`];
-      if (objective) cardHtml += `<div class="proj-card-objective">${esc(objective)}</div>`;
 
       const poolExpr = rev.pool?.expression || rev.pool_validated || (rev.pool?.total ? String(rev.pool.total) : '');
       if (!rev.no_roll && poolExpr) {
