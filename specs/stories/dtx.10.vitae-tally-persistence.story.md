@@ -1,6 +1,6 @@
 # DTX.10 — Vitae Tally Persistence & Player Portal Display
 
-## Status: Ready for Dev
+## Status: Done — merged to main 2026-04-17
 
 ## Context
 
@@ -139,12 +139,23 @@ This data is already on the submission document (after this story is implemented
 
 ## Acceptance Criteria
 
-- [ ] When the ST rolls a feeding action, `feeding_vitae_tally` is saved to the submission document with all component values
-- [ ] The player portal displays the vitae breakdown when a feeding roll result is shown
-- [ ] Bonus vitae (herd, ambience, OoF) is clearly distinguished from vessel-derived vitae
-- [ ] The allocation UI shows total vitae = vessel allocation + bonus vitae
-- [ ] Negative modifiers (ghouls, rite costs) are shown and subtracted from the total
-- [ ] Zero-value rows are hidden (e.g. no Oath of Fealty row if the character doesn't have it)
-- [ ] The persisted data is readable by game sign-in flows without additional API work
-- [ ] `feeding_vitae_tally` is NOT stripped by `stripStReview` — players must see it
-- [ ] If the ST re-rolls, the tally is recomputed and re-saved
+- [x] When the ST rolls a feeding action, `feeding_vitae_tally` is saved to the submission document with all component values
+- [x] `feeding_vitae_tally` is also saved when the ST commits the pool (so player portal ready state shows correct values without needing a re-roll)
+- [x] The player portal displays the vitae breakdown in both ready and rolled states
+- [x] Bonus vitae (herd, ambience, OoF) is clearly distinguished from vessel-derived vitae
+- [x] The allocation UI shows total vitae = vessel allocation + bonus vitae
+- [x] Negative modifiers (ghouls, rite costs) are shown and subtracted from the total
+- [x] Zero-value rows are hidden (e.g. no Oath of Fealty row if the character doesn't have it)
+- [x] The persisted data is readable by game sign-in flows without additional API work
+- [x] `feeding_vitae_tally` is NOT stripped by `stripStReview` — players must see it
+- [x] If the ST re-rolls, the tally is recomputed and re-saved
+- [x] Client-side fallback (`computeVitateTally`) uses `domMeritContrib` for Herd (effective dots, not `rating+bonus`)
+
+## Implementation Notes (actual)
+
+- **Schema**: `feeding_vitae_tally` added to `server/schemas/downtime_submission.schema.js`
+- **Admin save at roll time**: `downtime-views.js` ~3940 — reads vitae panel data attributes, saves alongside `feeding_roll`
+- **Admin save at commit time**: `downtime-views.js` ~3565 — added new block in `proc-val-btn` handler; fires when `status === 'committed' && entry.source === 'feeding'`
+- **Player fallback**: `computeVitateTally()` in `feeding-tab.js` — uses `domMeritContrib(char, 'Herd')` from `../editor/domain.js` instead of `rating+bonus`
+- **Player display**: `renderVitaeTallyCard(tally, vessels)` — shared helper used in both ready and rolled states
+- **CSS**: `.fvt-card`, `.fvt-row`, `.fvt-pos`, `.fvt-neg`, `.fvt-total`, `.fvt-divider` in `player-layout.css`

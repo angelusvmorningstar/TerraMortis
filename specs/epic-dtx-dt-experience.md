@@ -145,3 +145,17 @@ The ST notes thread and player feedback input are currently rendered with simila
 - `tests/downtime-processing-dt-fixes.spec.js` — existing test suite; no regressions permitted
 - DTX-2 depends on DTX-3 being complete (compact panel renders notes in-panel, so visual hierarchy must be settled first)
 - DTX-1 is independent and can be implemented in any order
+
+---
+
+## Additional Stories (added post-initial spec)
+
+### DTX-9: Published Downtime Email
+Story file: `specs/stories/dtx.9.published-downtime-email.story.md`
+Status: queued — no code yet
+
+### DTX-10: Vitae Tally Persistence & Player Portal Display
+Story file: `specs/stories/dtx.10.vitae-tally-persistence.story.md`
+**Status: Done — merged to main 2026-04-17**
+
+Persist `feeding_vitae_tally` at pool commit time (and roll time). Player portal shows vitae breakdown card in both ready and rolled states. Client-side fallback uses `domMeritContrib` for correct effective Herd dots.

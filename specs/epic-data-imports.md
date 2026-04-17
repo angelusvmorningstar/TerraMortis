@@ -16,6 +16,7 @@ Import historical content into the player-facing Chronicles and Ordeals systems.
 ## Story DI-1: Import DT1 Narratives into Chronicles
 
 **Backlog item:** 7
+**Status: Script written — awaiting run**
 
 **As a** player viewing the Story / Chronicles tab,
 **I want** my Downtime 1 narrative (written before the app form existed) to appear in my chronicle,
@@ -23,17 +24,19 @@ Import historical content into the player-facing Chronicles and Ordeals systems.
 
 ### Acceptance Criteria
 
-1. DT1 narrative content for each character is importable via a script or admin tool
-2. Imported narratives appear in the player's Chronicle tab in the correct chronological position (before DT2 app-generated entries)
-3. Cycle label for DT1 entries is correct
-4. No existing Chronicle entries are overwritten
+1. [x] DT1 narrative content for each character is importable via a script
+2. [ ] Imported narratives appear in the player's Chronicle tab in the correct chronological position (before DT2 app-generated entries)
+3. [x] Cycle label for DT1 entries is correct ("Downtime 1", game_number: 1, status: closed)
+4. [x] No existing Chronicle entries are overwritten (skip guard + --force flag)
 
 ### Dev Notes
 
-- DT1 narratives were written as markdown outside the app — source files need to be located
-- Import as `downtime_submissions` documents with `st_review.outcome_visibility: 'published'` and the correct `cycle_id`
-- Confirm DT1 cycle document exists in `downtime_cycles` collection
-- Files: import script (new), `server/routes/downtime.js` (may not need changes)
+- **Script**: `server/migrate-dt1.js` — written 2026-04-17, merged to main
+- Source: `TM_downtime1_submissions.json` (26 records, bespoke format)
+- Creates `downtime_cycles` doc: label "Downtime 1", game_number 1, status closed, loaded_at 2026-02-28, closed_at 2026-03-13
+- Maps `st_narrative` → `published_outcome` markdown; sections: Feeding, Projects, Touchstone, Letter, Territory Reports
+- 5 characters had blank `character_id` in source — fixed via `CHAR_ID_FIXES` map in script
+- **To run:** `node server/migrate-dt1.js --apply`
 
 ---
 
