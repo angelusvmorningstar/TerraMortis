@@ -1,6 +1,6 @@
 # Story DTP-2: Per-Action Project Result Cards
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 
@@ -34,7 +34,7 @@ The current player Story tab renders only the assembled `published_outcome` blob
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add ACTION_TYPE_LABELS constant to story-tab.js (AC: 3)
+- [x] Task 1: Add ACTION_TYPE_LABELS constant to story-tab.js (AC: 3)
   - [ ] At the top of `public/js/player/story-tab.js`, add the same label map used in downtime-story.js:
     ```js
     const ACTION_TYPE_LABELS = {
@@ -47,7 +47,7 @@ The current player Story tab renders only the assembled `published_outcome` blob
     };
     ```
 
-- [ ] Task 2: Add `renderProjectCards(sub)` function (AC: 1–5)
+- [x] Task 2: Add `renderProjectCards(sub)` function (AC: 1–5)
   - [ ] In `public/js/player/story-tab.js`, add after `renderOutcome`:
     ```js
     function renderProjectCards(sub) {
@@ -110,13 +110,13 @@ The current player Story tab renders only the assembled `published_outcome` blob
     }
     ```
 
-- [ ] Task 3: Call `renderProjectCards` from `renderChronicle` (AC: 1)
+- [x] Task 3: Call `renderProjectCards` from `renderChronicle` (AC: 1)
   - [ ] In `renderChronicle`, after `h += renderOutcome(sub.published_outcome)`, add:
     ```js
     h += renderProjectCards(sub);
     ```
 
-- [ ] Task 4: CSS for project cards (AC: 6)
+- [x] Task 4: CSS for project cards (AC: 6)
   - [ ] In `public/css/player-layout.css`, after the `.story-section-mech` block (~line 2723), add:
     ```css
     .story-proj-results {

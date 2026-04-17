@@ -2700,6 +2700,90 @@ body {
 .story-section-mech { background: var(--surf3); padding: 10px; border-radius: 4px; }
 .story-pre { font-family: monospace; font-size: 12px; white-space: pre-wrap; margin: 0; color: var(--txt3); }
 
+/* ── DTP-2: Project result cards ── */
+.story-proj-results {
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--bdr);
+}
+.story-proj-results-head {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.story-proj-card {
+  background: var(--surf3);
+  border: 1px solid var(--bdr);
+  border-radius: 5px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.story-proj-card:last-child { margin-bottom: 0; }
+.story-proj-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.story-proj-chip {
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+.story-proj-title {
+  font-family: var(--fl);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--txt);
+}
+.story-proj-objective {
+  font-size: 12px;
+  color: var(--txt3);
+  margin-bottom: 6px;
+}
+.story-proj-response {
+  font-size: 13px;
+  color: var(--txt2);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-bottom: 6px;
+}
+.story-proj-meta {
+  font-size: 11px;
+  color: var(--txt3);
+  margin-bottom: 4px;
+}
+.story-proj-roll { color: var(--txt2); margin-left: 4px; }
+.story-proj-feedback {
+  font-size: 12px;
+  color: var(--txt2);
+  border-left: 2px solid var(--gold2);
+  padding-left: 8px;
+  margin-top: 6px;
+}
+.story-proj-withheld {
+  font-size: 12px;
+  color: var(--txt3);
+  font-style: italic;
+}
+.story-proj-lbl {
+  font-family: var(--fl);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--txt3);
+  margin-right: 3px;
+}
+
 /* ── Project result cards ── */
 
 .proj-card {
