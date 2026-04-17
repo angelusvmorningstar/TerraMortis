@@ -67,11 +67,40 @@ export async function renderFeedingTab(el, char) {
   publishedFeedingText = null;
   currentSub = null;
 
-  // Gate: only available once ST has opened the game phase
-  let gameCycle = null;
-  try { gameCycle = await getGamePhaseCycle(); } catch { /* offline */ }
-  if (!gameCycle) {
-    // Still show the split layout with last feeding result on right
+  // Find active cycle for feeding:
+  // Primary: game phase cycle (ST has opened the session).
+  // Fallback: most recent cycle where this character's narrative has been published
+  //   (ST has pushed their outcome — feeding is wired up even before game phase opens).
+  let activeCycle = null;
+  try { activeCycle = await getGamePhaseCycle(); } catch { /* offline */ }
+
+  let mySub = null;
+
+  if (!activeCycle) {
+    // Check if narrative has been published for this character (feeding wired up by ST push)
+    try {
+      const [allCycles, allSubs] = await Promise.all([
+        apiGet('/api/downtime_cycles'),
+        apiGet('/api/downtime_submissions'),
+      ]);
+      allSubs.forEach(s => {
+        if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+          s.published_outcome = s.st_review.outcome_text;
+        }
+      });
+      const charId = String(char._id);
+      const publishedSub = allSubs
+        .filter(s => String(s.character_id) === charId && s.published_outcome)
+        .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
+      if (publishedSub) {
+        activeCycle = allCycles.find(c => String(c._id) === String(publishedSub.cycle_id)) || null;
+        mySub = publishedSub; // already have it — skip the follow-up fetch
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (!activeCycle) {
+    // No game phase and no published submission — feeding is not yet available
     el.innerHTML = `<div class="tab-split">
       <div class="tab-split-left" id="feeding-left-pane"><p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p></div>
       <div class="tab-split-right" id="feeding-right-pane"></div>
@@ -81,14 +110,15 @@ export async function renderFeedingTab(el, char) {
     return;
   }
 
-  // Load submission first — it is the authoritative source for roll state
-  let mySub = null;
-  try {
-    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + gameCycle._id);
-    mySub = subs.find(s =>
-      (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
-    ) || null;
-  } catch { /* no submissions */ }
+  // Load submission — skip if already loaded from published fallback above
+  if (!mySub) {
+    try {
+      const subs = await apiGet('/api/downtime_submissions?cycle_id=' + activeCycle._id);
+      mySub = subs.find(s =>
+        (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
+      ) || null;
+    } catch { /* no submissions */ }
+  }
 
   if (mySub) {
     // Promote st_review → published_outcome for ST portal views
