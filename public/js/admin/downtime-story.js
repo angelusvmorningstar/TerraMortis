@@ -322,7 +322,8 @@ function isSectionDone(stNarrative, sectionKey, sub) {
     case 'allies_actions':   return actionResponsesComplete(sub, ['allies']);
     case 'status_actions':   return actionResponsesComplete(sub, ['status']);
     case 'retainer_actions': return actionResponsesComplete(sub, ['retainer', 'staff']);
-    case 'contact_requests': return actionResponsesComplete(sub, ['contacts']);
+    case 'contact_requests':   return actionResponsesComplete(sub, ['contacts']);
+    case 'misc_merit_actions': return actionResponsesComplete(sub, ['misc']);
     default:
       return isSectionComplete(stNarrative, sectionKey);
   }

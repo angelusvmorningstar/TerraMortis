@@ -350,5 +350,7 @@ development_status:
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
   feat-6-player-sheet-width-consistency: backlog  # Left panel width varies between characters; sheet should be full-width consistently
+  feat-7-player-read-latest-downtime: backlog     # Player can read their own submitted downtime responses (not just the ST narrative) — read-only view of previous cycle submissions accessible from the player portal
+  feat-8-contact-action-type: backlog             # Contacts have only one fixed action — no action type selector should appear in DT Processing, and DT Story tab should not label contact actions with an action type
 
   epic-feat-retrospective: optional
