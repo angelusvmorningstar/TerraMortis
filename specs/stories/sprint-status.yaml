@@ -372,6 +372,6 @@ development_status:
   lst-2-feed-roller-harmonise: done
   lst-3-tracker-migration: review
   lst-4-st-sheet-swap: review
-  lst-5-st-feeding-confirm: backlog     # blocked by lst-3
+  lst-5-st-feeding-confirm: review
 
   epic-lst-retrospective: optional
