@@ -161,7 +161,7 @@ async function loadCharacters() {
     chars = await apiGet(getRole() === 'st' ? '/api/characters' : '/api/characters?mine=1');
     // Sanitise: strip zero-dot disciplines (treated as absent)
     chars.forEach(c => { if (c.disciplines) for (const [k, v] of Object.entries(c.disciplines)) { if ((v?.dots ?? v) === 0) delete c.disciplines[k]; } });
-    await loadGameXP(chars);
+    await loadGameXP(chars, isSTRole());
   } catch (err) {
     document.getElementById('sh-content').innerHTML =
       `<p class="placeholder-msg">Failed to load characters: ${esc(err.message)}</p>`;
@@ -206,11 +206,15 @@ async function loadCharacters() {
     });
   }
 
-  // Load territories for regent derivation
-  try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
+  // Territories and City tab — ST only
+  if (isSTRole()) {
+    try { _territories = await apiGet('/api/territories'); } catch { _territories = []; }
+    renderCityTab(document.getElementById('tab-city'), _territories);
+  } else {
+    document.querySelector('.sidebar-btn[data-tab="city"]')?.remove();
+  }
 
-  // City, Primer, and Tickets tabs — render once, independent of active character
-  renderCityTab(document.getElementById('tab-city'), _territories);
+  // Primer and Tickets tabs — render once, independent of active character
   renderPrimerTab(document.getElementById('tab-primer'));
   renderTicketsTab(document.getElementById('tickets-content'));
 
