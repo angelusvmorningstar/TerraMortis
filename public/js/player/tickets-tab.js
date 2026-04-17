@@ -36,30 +36,36 @@ export async function renderTicketsTab(containerEl) {
 
   containerEl.innerHTML = `
     <div class="tk-tab">
-      <div class="tk-submit-form">
-        <h4>Submit a Ticket</h4>
-        <div class="tk-form-row">
-          <label class="tk-form-label" for="tk-type">Type</label>
-          <select class="tk-select" id="tk-type">
-            <option value="bug">Bug Report</option>
-            <option value="feature">Feature Request</option>
-            <option value="question">Question</option>
-            <option value="sheet">Sheet Issue</option>
-            <option value="other">Other</option>
-          </select>
+      <div class="tk-layout">
+        <div class="tk-panel-form">
+          <div class="tk-submit-form">
+            <h4>Submit a Ticket</h4>
+            <div class="tk-form-row">
+              <label class="tk-form-label" for="tk-type">Type</label>
+              <select class="tk-select" id="tk-type">
+                <option value="bug">Bug Report</option>
+                <option value="feature">Feature Request</option>
+                <option value="question">Question</option>
+                <option value="sheet">Sheet Issue</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="tk-form-row">
+              <label class="tk-form-label" for="tk-title">Title</label>
+              <input class="tk-input" id="tk-title" type="text" placeholder="Short summary" maxlength="200">
+            </div>
+            <div class="tk-form-row">
+              <label class="tk-form-label" for="tk-body">Details</label>
+              <textarea class="tk-textarea" id="tk-body" rows="6" placeholder="Describe the issue or request..."></textarea>
+            </div>
+            <div id="tk-error" class="tk-error" style="display:none"></div>
+            <button class="tk-btn-submit" id="tk-submit">Submit</button>
+          </div>
         </div>
-        <div class="tk-form-row">
-          <label class="tk-form-label" for="tk-title">Title</label>
-          <input class="tk-input" id="tk-title" type="text" placeholder="Short summary" maxlength="200">
+        <div class="tk-panel-list">
+          <div id="tk-list-container"></div>
         </div>
-        <div class="tk-form-row">
-          <label class="tk-form-label" for="tk-body">Details</label>
-          <textarea class="tk-textarea" id="tk-body" rows="4" placeholder="Describe the issue or request..."></textarea>
-        </div>
-        <div id="tk-error" class="tk-error" style="display:none"></div>
-        <button class="tk-btn-submit" id="tk-submit">Submit</button>
       </div>
-      <div id="tk-list-container"></div>
     </div>`;
 
   const typeEl   = containerEl.querySelector('#tk-type');
@@ -74,7 +80,7 @@ export async function renderTicketsTab(containerEl) {
 
   function render() {
     if (!allTickets.length) {
-      listEl.innerHTML = `<p class="tk-empty">No tickets yet. Use the form above to submit one.</p>`;
+      listEl.innerHTML = `<p class="tk-empty">No tickets yet. Use the form on the left to submit one.</p>`;
       return;
     }
 
