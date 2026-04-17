@@ -498,20 +498,23 @@ function _progressBadge(done, total, doneLabel = 'Done') {
 
 /**
  * Resolve the nine_again checkbox state for a reviewed action.
- * Uses the explicitly saved value if present; otherwise auto-detects from
- * the validated pool expression via the character's skill nine-again flag.
+ * Character-derived nine_again (PT / MCI / skill flag) always wins over a
+ * saved false — a false in the review only applies when the character
+ * genuinely has no nine_again on the validated skill.
+ * Explicit saved true always wins regardless.
  * @param {object} rev          - st_review object
  * @param {string|null} poolValidated
  * @param {object|null} char
  * @returns {boolean}
  */
 function _resolveNineAgainState(rev, poolValidated, char) {
-  if (rev.nine_again != null) return rev.nine_again;
+  if (rev.nine_again === true) return true;
   if (char && poolValidated) {
     const discs   = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
     const parsed  = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, discs);
-    if (parsed?.skill) return skNineAgain(char, parsed.skill);
+    if (parsed?.skill && skNineAgain(char, parsed.skill)) return true;
   }
+  if (rev.nine_again != null) return rev.nine_again;
   return false;
 }
 
@@ -524,14 +527,14 @@ function _resolveNineAgainState(rev, poolValidated, char) {
  * @param {object|null} char
  * @returns {string|null}
  */
-function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
+function _augmentPoolWithSpecs(poolValidated, activeSpecs, char, nineAgain) {
   if (!poolValidated || !activeSpecs.length) return poolValidated;
   const eqIdx = poolValidated.lastIndexOf('=');
   if (eqIdx === -1) return poolValidated;
   const base     = poolValidated.slice(0, eqIdx).trim();
   const tot      = parseInt(poolValidated.slice(eqIdx + 1).trim()) || 0;
-  const specTotal = activeSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-  const specLabel = activeSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+  const specTotal = activeSpecs.reduce((s, sp) => s + ((nineAgain || (char && hasAoE(char, sp))) ? 2 : 1), 0);
+  const specLabel = activeSpecs.map(sp => `${sp} +${(nineAgain || (char && hasAoE(char, sp))) ? 2 : 1}`).join(', ');
   return `${base} + ${specLabel} = ${tot + specTotal}`;
 }
 
@@ -3904,7 +3907,9 @@ function renderProcessingMode(container) {
       const char = sub
         ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
         : null;
-      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
+      const skillSel = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-skill`);
+      const skillNa = char && skillSel ? skNineAgain(char, skillSel.value) : false;
+      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + ((skillNa || (char && hasAoE(char, sp))) ? 2 : 1), 0);
       // pool_mod_spec is applied at roll time only — no re-render needed; checkbox state already reflects the change
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
     });
@@ -5136,14 +5141,14 @@ function _updateFeedBuilderMeta(container, key) {
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
-      const aoe = hasAoE(char, sp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+      const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +${bon}</label>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char)) {
       if (fromSkill === skillName) continue; // already present as a native spec on this skill
       const checked = activeSpecs.includes(isSp);
-      const aoe = hasAoE(char, isSp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+      const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) +${bon}</label>`;
     }
     metaEl.innerHTML = h;
     metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
@@ -5155,29 +5160,31 @@ function _updateFeedBuilderMeta(container, key) {
         const activeSpecs2 = [...(rev2.active_feed_specs || [])];
         if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
         else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
+        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
         await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
       });
     });
     return;
   }
 
-  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox
+  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox.
+  // Always sync when char has nine_again on this skill — character data takes priority over
+  // a saved false (which may be stale from a commit before PT was entered).
   const sidebarNineAFeed = container.querySelector(`.proc-proj-9a[data-proc-key="${key}"]`);
-  if (sidebarNineAFeed && review.nine_again == null) {
+  if (sidebarNineAFeed && (nineA || review.nine_again == null)) {
     sidebarNineAFeed.checked = nineA;
   }
   let h = '';
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
-    const aoe = hasAoE(char, sp);
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+    const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +${bon}</label>`;
   }
   for (const { spec: isSp, fromSkill } of isSpecs(char)) {
     if (fromSkill === skillName) continue; // already present as a native spec on this skill
     const checked = activeSpecs.includes(isSp);
-    const aoe = hasAoE(char, isSp);
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+    const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) +${bon}</label>`;
   }
   metaEl.innerHTML = h;
   // Wire spec toggles injected by _updateFeedBuilderMeta — no re-render; pool_mod_spec applied at roll time
@@ -5190,7 +5197,7 @@ function _updateFeedBuilderMeta(container, key) {
       const activeSpecs2 = [...(rev2.active_feed_specs || [])];
       if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
       else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
+      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
     });
   });
@@ -5662,7 +5669,7 @@ function _renderProjRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainState);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
@@ -5904,7 +5911,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainStateFeed);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   if (poolValidated) {
     const feedNotes = [];
