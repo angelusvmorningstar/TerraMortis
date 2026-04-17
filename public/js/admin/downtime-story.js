@@ -1674,14 +1674,29 @@ function deriveMeritCategory(meritTypeStr) {
  * Returns { dots, qualifier, label }.
  */
 function getMeritDetails(char, action) {
-  const meritName = (action.merit_type || '').replace(/\s*\d+\s*$/, '').trim();
+  const rawType = action.merit_type || '';
+
+  // Extract qualifier from parentheses in stored merit label:
+  // "Allies ●●● (Underworld)" → inlineQualifier = "Underworld"
+  const parenMatch = rawType.match(/\(([^)]+)\)/);
+  const inlineQualifier = parenMatch ? parenMatch[1].trim() : '';
+
+  // Strip qualifier parens, dot chars, and trailing digits to get base name:
+  // "Allies ●●● (Underworld)" → "Allies"
+  const meritName = rawType
+    .replace(/\s*\([^)]*\)\s*/g, '')
+    .replace(/[\u25cf\u25cb●○]+/g, '')
+    .replace(/\s*\d+\s*$/, '')
+    .trim();
+
   const merit = char?.merits?.find(m =>
+    m.name?.toLowerCase() === meritName.toLowerCase() ||
     m.name?.toLowerCase().includes(meritName.toLowerCase()) ||
     meritName.toLowerCase().includes((m.name || '').toLowerCase())
   );
   return {
-    dots:      merit ? (merit.dots || 0) : 0,
-    qualifier: merit?.qualifier || action.qualifier || '',
+    dots:      merit ? (merit.dots || merit.rating || 0) : 0,
+    qualifier: inlineQualifier || merit?.qualifier || action.qualifier || '',
     label:     merit?.name || meritName,
   };
 }
