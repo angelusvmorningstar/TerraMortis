@@ -3563,6 +3563,28 @@ function renderProcessingMode(container) {
         if (status === 'resolved')   statusPatch.pool_resolved_by   = stName;
       }
       await saveEntryReview(entry, statusPatch);
+
+      // When committing a feeding pool, persist the vitae tally so the player
+      // portal can show correct values in the ready state (before they roll).
+      if (status === 'committed' && entry.source === 'feeding') {
+        const vitaePanel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
+        if (vitaePanel) {
+          const vitateTally = {
+            herd:               parseInt(vitaePanel.dataset.herd,       10) || 0,
+            ambience:           parseInt(vitaePanel.dataset.ambience,   10) || 0,
+            ambience_territory: vitaePanel.dataset.terrLabel || '',
+            oath_of_fealty:     parseInt(vitaePanel.dataset.oof,        10) || 0,
+            ghouls:             parseInt(vitaePanel.dataset.ghouls,     10) || 0,
+            rite_cost:          parseInt(vitaePanel.dataset.riteCost,   10) || 0,
+            manual:             parseInt(vitaePanel.dataset.manual,     10) || 0,
+            total_bonus:        parseInt(vitaePanel.dataset.totalBonus, 10) || 0,
+          };
+          await updateSubmission(entry.subId, { feeding_vitae_tally: vitateTally });
+          const sub = submissions.find(s => s._id === entry.subId);
+          if (sub) sub.feeding_vitae_tally = vitateTally;
+        }
+      }
+
       renderProcessingMode(container);
     });
   });
