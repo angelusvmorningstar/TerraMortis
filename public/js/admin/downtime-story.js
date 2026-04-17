@@ -18,7 +18,7 @@ import { ACTION_TYPE_LABELS, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_
 // ── Section routing ───────────────────────────────────────────────────────────
 
 // Sections whose save buttons route to handleActionSave
-const MERIT_SECTIONS = new Set(['allies_actions', 'status_actions', 'retainer_actions', 'contact_requests', 'misc_merit_actions']);
+const MERIT_SECTIONS = new Set(['allies_actions', 'status_actions', 'retainer_actions', 'contact_requests', 'resource_approvals', 'misc_merit_actions']);
 
 // Maps section key → save handler for sections that accept a status argument.
 // Adding a new saveable section requires one entry here, not two if-blocks.
@@ -197,17 +197,12 @@ export async function initDtStory(cycleId) {
     const feedApproveBtn = e.target.closest('.dt-feed-val-approve-btn');
     if (feedApproveBtn) { handleFeedingApproval(feedApproveBtn); return; }
 
-    // Approve / Flag (resources only)
-    const approveBtn = e.target.closest('.dt-story-approve-btn, .dt-story-flag-btn');
-    if (approveBtn && sectionKey === 'resource_approvals') { handleResourceApproval(approveBtn); return; }
-
     // Save Draft
     const saveDraftBtn = e.target.closest('.dt-story-save-draft-btn');
     if (saveDraftBtn && !saveDraftBtn.disabled) {
       const handler = SECTION_SAVE_HANDLERS[sectionKey];
       if (handler)                              { handler(saveDraftBtn, 'draft');        return; }
       if (MERIT_SECTIONS.has(sectionKey))       { handleActionSave(saveDraftBtn, 'draft'); return; }
-      if (sectionKey === 'resource_approvals')  { handleFlagNoteSave(saveDraftBtn);      return; }
       return;
     }
 
@@ -306,17 +301,7 @@ function isSectionDone(stNarrative, sectionKey, sub) {
       return territoryReportsComplete(sub);
     case 'project_responses':
       return projectResponsesComplete(sub);
-    case 'resource_approvals': {
-      // Complete when every resource action has been reviewed (approved or flagged)
-      const applicable = (sub?.merit_actions || []).filter((a, i) => {
-        const cat = deriveMeritCategory(a.merit_type);
-        const rev = sub?.merit_actions_resolved?.[i] || {};
-        return cat === 'resources' && rev.pool_status !== 'skipped';
-      });
-      if (!applicable.length) return true;
-      const approvals = stNarrative.resource_approvals || [];
-      return applicable.every((_, i) => approvals[i]?.approved !== undefined);
-    }
+    case 'resource_approvals':  return actionResponsesComplete(sub, ['resources']);
     case 'cacophony_savvy':
       return cacophonySavvyComplete(getCharForSub(sub), sub);
     case 'allies_actions':   return actionResponsesComplete(sub, ['allies']);
@@ -946,18 +931,6 @@ function getSectionProgress(stNarrative, sectionKey, sub) {
     return { state, done, total: feedTerrs.length };
   }
 
-  if (sectionKey === 'resource_approvals') {
-    const applicable = (sub?.merit_actions || []).filter((a, i) => {
-      const cat = deriveMeritCategory(a.merit_type);
-      const rev = sub?.merit_actions_resolved?.[i] || {};
-      return cat === 'resources' && rev.pool_status !== 'skipped';
-    });
-    if (!applicable.length) return { state: 'complete', done: 0, total: 0 };
-    const approvals = sn.resource_approvals || [];
-    const done      = applicable.filter((_, i) => approvals[i]?.approved !== undefined).length;
-    return { state: done === applicable.length ? 'complete' : done > 0 ? 'draft' : 'empty', done, total: applicable.length };
-  }
-
   if (sectionKey === 'cacophony_savvy') {
     const char   = getCharForSub(sub);
     const csDots = getCSDots(char);
@@ -976,6 +949,7 @@ function getSectionProgress(stNarrative, sectionKey, sub) {
     status_actions:     ['status'],
     retainer_actions:   ['retainer', 'staff'],
     contact_requests:   ['contacts'],
+    resource_approvals: ['resources'],
     misc_merit_actions: ['misc'],
   };
   const cats = CATEGORY_MAP[sectionKey];
@@ -1989,7 +1963,9 @@ function renderActionCard(char, sub, idx) {
   const isRevision = saved.status === 'needs_revision';
   const revNote    = saved.revision_note || '';
 
-  const dotStr  = dots ? '\u25CF'.repeat(dots) : '';
+  // Contacts and resources: show qualifier only (no dot count — qualifier is the identifier)
+  const showDots = meritCat !== 'contacts' && meritCat !== 'resources';
+  const dotStr  = (showDots && dots) ? '\u25CF'.repeat(dots) : '';
   const qualStr = qualifier ? ` (${qualifier})` : '';
   const actionLabel = ACTION_TYPE_LABELS[actionType] || actionType || 'Action';
 
@@ -2015,19 +1991,23 @@ function renderActionCard(char, sub, idx) {
 
   // Header
   h += `<div class="dt-story-merit-header">`;
-  h += `<span class="dt-story-mode-chip ${isAuto ? 'auto' : 'rolled'}">${modeLabel}</span>`;
+  const chipLabel = meritCat === 'resources' ? 'Request' : modeLabel;
+  const chipClass = (meritCat === 'resources' || isAuto) ? 'auto' : 'rolled';
+  h += `<span class="dt-story-mode-chip ${chipClass}">${chipLabel}</span>`;
   h += `<span class="dt-story-merit-label">${label}${dotStr ? ' ' + dotStr : ''}${qualStr}</span>`;
   h += `<button class="dt-story-copy-ctx-btn" data-action-idx="${idx}">Copy Context</button>`;
   h += `</div>`;
 
   // Meta row
   h += `<div class="dt-story-merit-meta">`;
-  // Contacts have no meaningful action type — suppress chip to avoid stale data showing
-  if (meritCat !== 'contacts') h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
+  // Contacts and resources: no action chip (contacts have no action type; resources show request description instead)
+  if (meritCat !== 'contacts' && meritCat !== 'resources') h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
   if (territory) h += `<span class="dt-story-proj-territory">Territory: ${territory}</span>`;
-  const poolRoll = [pool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
-  if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
-  if (action.desired_outcome) h += `<span class="dt-story-proj-outcome">Outcome: ${action.desired_outcome}</span>`;
+  if (meritCat !== 'resources') {
+    const poolRoll = [pool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
+    if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
+  }
+  if (action.desired_outcome) h += `<span class="dt-story-proj-outcome">${meritCat === 'resources' ? 'Requested: ' : 'Outcome: '}${action.desired_outcome}</span>`;
   h += `</div>`;
 
   // Collapsible context block
@@ -2104,68 +2084,8 @@ function renderRetainerSection(char, sub) { return renderMeritSection(char, sub,
 function renderContactsSection(char, sub) { return renderMeritSection(char, sub, 'contact_requests',  'Contact Requests',  ['contacts']); }
 function renderMiscMeritSection(char, sub){ return renderMeritSection(char, sub, 'misc_merit_actions', 'Influence Actions', ['misc']); }
 
-// ── Resources/Skill Acquisitions section (B3 Task 5) ─────────────────────────
-
 function renderResourcesSection(char, sub) {
-  const actions    = sub.merit_actions || [];
-  const resolved   = sub.merit_actions_resolved || [];
-  const stNarrative = sub.st_narrative;
-
-  const applicable = actions
-    .map((a, i) => ({ a, i, rev: resolved[i] || {} }))
-    .filter(({ a, rev }) => deriveMeritCategory(a.merit_type) === 'resources' && rev.pool_status !== 'skipped');
-
-  // Resources complete when all have approved !== undefined
-  const approvals    = stNarrative?.resource_approvals || [];
-  const allApproved  = applicable.length > 0
-    && applicable.every(({ i }) => approvals[i]?.approved !== undefined);
-  const dotClass = allApproved ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
-
-  let h = `<div class="dt-story-section" data-section="resource_approvals">`;
-  h += `<div class="dt-story-section-header">`;
-  h += `<span class="dt-story-section-label">Resources / Skill Acquisitions</span>`;
-  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
-  h += `</div>`;
-  h += `<div class="dt-story-section-body">`;
-
-  if (!applicable.length) {
-    h += `<div class="dt-story-section-empty">No resource actions for this submission.</div>`;
-  } else {
-    applicable.forEach(({ a, i }) => {
-      const approval     = approvals[i] || {};
-      const isApproved   = approval.approved === true;
-      const isFlagged    = approval.approved === false;
-      const flagNote     = approval.flag_note || '';
-      const { dots, qualifier, label } = getMeritDetails(char, a);
-      const dotStr  = dots ? '\u25CF'.repeat(dots) : '';
-      const qualStr = qualifier ? ` (${qualifier})` : '';
-
-      h += `<div class="dt-story-resources-card" data-action-idx="${i}">`;
-      h += `<div class="dt-story-merit-header">`;
-      h += `<span class="dt-story-merit-label">${label}${dotStr ? ' ' + dotStr : ''}${qualStr}</span>`;
-      h += `<div class="dt-story-resource-btns">`;
-      h += `<button class="dt-story-approve-btn${isApproved ? ' active' : ''}" data-action-idx="${i}" data-approved="true">Approve</button>`;
-      h += `<button class="dt-story-flag-btn${isFlagged ? ' active' : ''}" data-action-idx="${i}" data-approved="false">Flag</button>`;
-      h += `</div>`;
-      h += `</div>`;
-      if (a.desired_outcome || a.description) {
-        h += `<div class="dt-story-merit-meta">`;
-        if (a.desired_outcome) h += `<span class="dt-story-proj-outcome">Requested: ${a.desired_outcome}</span>`;
-        if (a.description)     h += `<span class="dt-story-proj-outcome">${a.description}</span>`;
-        h += `</div>`;
-      }
-      if (isFlagged) {
-        h += `<textarea class="dt-story-response-ta" data-action-idx="${i}" placeholder="Flag note\u2026">${flagNote}</textarea>`;
-        h += `<div class="dt-story-card-actions">`;
-        h += `<button class="dt-story-save-draft-btn dt-story-flag-note-save" data-action-idx="${i}">Save Note</button>`;
-        h += `</div>`;
-      }
-      h += `</div>`;
-    });
-  }
-
-  h += `</div></div>`;
-  return h;
+  return renderMeritSection(char, sub, 'resource_approvals', 'Resources / Skill Acquisitions', ['resources']);
 }
 
 // ── Territory Report helpers ──────────────────────────────────────────────────
@@ -2723,6 +2643,7 @@ const MERIT_SECTION_CATEGORIES = {
   status_actions:     ['status'],
   retainer_actions:   ['retainer', 'staff'],
   contact_requests:   ['contacts'],
+  resource_approvals: ['resources'],
   misc_merit_actions: ['misc'],
 };
 
@@ -2793,17 +2714,6 @@ function compilePushOutcome(sub) {
             parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
             hasContent = true;
           }
-        } else {
-          parts.push(`## ${label}\n\n${_GAP_TEXT}`);
-        }
-      });
-
-    } else if (key === 'resource_approvals') {
-      (sn.resource_approvals || []).forEach((approval, i) => {
-        const label = approval?.merit_type || `Resource ${i + 1}`;
-        if (approval?.status === 'complete') {
-          const response = approval?.response;
-          if (response?.trim()) { parts.push(`## ${label}\n\n${response.trim()}`); hasContent = true; }
         } else {
           parts.push(`## ${label}\n\n${_GAP_TEXT}`);
         }
@@ -3372,10 +3282,11 @@ async function handleActionSave(btn, status) {
     const sectionEl  = document.querySelector(`.dt-story-section[data-section="${sectionKey}"]`);
     if (sectionEl) {
       const renderers = {
-        allies_actions:   () => renderAlliesSection(char, _currentSub),
-        status_actions:   () => renderStatusSection(char, _currentSub),
-        retainer_actions: () => renderRetainerSection(char, _currentSub),
-        contact_requests: () => renderContactsSection(char, _currentSub),
+        allies_actions:     () => renderAlliesSection(char, _currentSub),
+        status_actions:     () => renderStatusSection(char, _currentSub),
+        retainer_actions:   () => renderRetainerSection(char, _currentSub),
+        contact_requests:   () => renderContactsSection(char, _currentSub),
+        resource_approvals: () => renderResourcesSection(char, _currentSub),
         misc_merit_actions: () => renderMiscMeritSection(char, _currentSub),
       };
       const render = renderers[sectionKey];
@@ -3418,102 +3329,6 @@ async function handleFeedingApproval(btn) {
   } catch (err) {
     console.error('Failed to save feeding validation:', err.message);
     btn.disabled = false;
-  }
-}
-
-async function handleResourceApproval(btn) {
-  const card = btn.closest('.dt-story-resources-card');
-  if (!card || !_currentSub) return;
-  const idx      = parseInt(card.dataset.actionIdx, 10);
-  const approved = btn.dataset.approved === 'true';
-
-  btn.disabled = true;
-  try {
-    const user   = getUser();
-    const author = user?.global_name || user?.username || 'ST';
-    const existing = _currentSub.st_narrative?.resource_approvals || [];
-    const updated  = buildUpdatedArray(existing, idx, { action_index: idx, approved, flag_note: '', reviewed_by: author });
-
-    await saveNarrativeField(_currentSub._id, { 'st_narrative.resource_approvals': updated });
-
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.resource_approvals = updated;
-
-    _refreshProgressTracker();
-
-    const char      = getCharForSub(_currentSub);
-    const sectionEl = document.querySelector('.dt-story-section[data-section="resource_approvals"]');
-    if (sectionEl) {
-      const tmp = document.createElement('div');
-      tmp.innerHTML = renderResourcesSection(char, _currentSub);
-      sectionEl.replaceWith(tmp.firstElementChild);
-    }
-
-    const signOff = document.querySelector('.dt-story-sign-off');
-    if (signOff) {
-      const sections = getApplicableSections(char, _currentSub);
-      const tmp2 = document.createElement('div');
-      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
-      signOff.replaceWith(tmp2.firstElementChild);
-    }
-
-    const rail = document.getElementById('dt-story-nav-rail');
-    if (rail) rail.innerHTML = renderNavRail();
-
-  } catch (err) {
-    btn.disabled = false;
-    console.error('Resource approval failed:', err);
-  }
-}
-
-async function handleFlagNoteSave(btn) {
-  const card = btn.closest('.dt-story-resources-card');
-  if (!card || !_currentSub) return;
-  const idx      = parseInt(card.dataset.actionIdx, 10);
-  const ta       = card.querySelector('.dt-story-response-ta');
-  const flagNote = ta?.value || '';
-
-  btn.disabled = true;
-  btn.textContent = 'Saving\u2026';
-  try {
-    const user     = getUser();
-    const author   = user?.global_name || user?.username || 'ST';
-    const existing = _currentSub.st_narrative?.resource_approvals || [];
-    const updated  = buildUpdatedArray(existing, idx, { action_index: idx, approved: false, flag_note: flagNote, reviewed_by: author });
-
-    await saveNarrativeField(_currentSub._id, { 'st_narrative.resource_approvals': updated });
-
-    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
-    _currentSub.st_narrative.resource_approvals = updated;
-
-    _refreshProgressTracker();
-    btn.textContent = 'Saved';
-    btn.disabled = false;
-    await new Promise(r => setTimeout(r, 900));
-
-    const char      = getCharForSub(_currentSub);
-    const sectionEl = document.querySelector('.dt-story-section[data-section="resource_approvals"]');
-    if (sectionEl) {
-      const tmp = document.createElement('div');
-      tmp.innerHTML = renderResourcesSection(char, _currentSub);
-      sectionEl.replaceWith(tmp.firstElementChild);
-    }
-
-    const signOff = document.querySelector('.dt-story-sign-off');
-    if (signOff) {
-      const sections = getApplicableSections(char, _currentSub);
-      const tmp2 = document.createElement('div');
-      tmp2.innerHTML = renderSignOffPanel(_currentSub.st_narrative, sections, _currentSub);
-      signOff.replaceWith(tmp2.firstElementChild);
-    }
-
-    const rail = document.getElementById('dt-story-nav-rail');
-    if (rail) rail.innerHTML = renderNavRail();
-
-  } catch (err) {
-    btn.disabled = false;
-    btn.textContent = 'Save Note';
-    console.error('Flag note save failed:', err);
   }
 }
 
