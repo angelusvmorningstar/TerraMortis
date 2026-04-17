@@ -83,7 +83,7 @@ function renderCourt() {
   for (const c of titled) {
     const _rt = terrDocs.find(td => td.regent_id === String(c._id));
     const territory = _rt ? ' — Regent of ' + esc(_rt.name || _rt.id) : '';
-    const epithet = c.court_title ? ` <span class="court-epithet">(${esc(c.court_title)})</span>` : '';
+    const epithet = (c.court_title && c.court_title !== c.court_category) ? ` <span class="court-epithet">(${esc(c.court_title)})</span>` : '';
     h += `<div class="court-row">
       <span class="court-title">${esc(c.court_category)}${epithet}</span>
       <span class="court-name">${esc(displayName(c))}</span>
