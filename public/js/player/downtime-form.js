@@ -1579,14 +1579,14 @@ function openCastModal(slotId, container) {
   const attendeeIds = new Set(lastGameAttendees.map(a => String(a.id)));
 
   // Build modal HTML
-  let h = '<div class="dt-cast-overlay" id="dt-cast-overlay">';
-  h += '<div class="dt-cast-modal">';
-  h += '<div class="dt-cast-modal-header">';
+  let h = '<div class="plm-overlay" id="dt-cast-overlay">';
+  h += '<div class="plm-dialog dt-cast-modal">';
+  h += '<div class="plm-header">';
   const modalTitle = typeof slotId === 'number' || /^\d+$/.test(slotId)
     ? `Select Characters — Action ${slotId}`
     : `Select Characters — Sphere ${slotId.replace('sphere_', '')}`;
-  h += `<h4>${modalTitle}</h4>`;
-  h += '<button type="button" class="dt-cast-modal-close" id="dt-cast-close">\u00D7</button>';
+  h += `<h3>${modalTitle}</h3>`;
+  h += '<button type="button" class="cd-close" id="dt-cast-close">\u00D7</button>';
   h += '</div>';
 
   // Filter toggle

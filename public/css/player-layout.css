@@ -1979,50 +1979,18 @@ body {
 .dt-cast-btn:hover { background: var(--surf3, #333); }
 
 /* ── Cast picker modal ── */
-.dt-cast-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  background: rgba(0,0,0,.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
+/* Outer backdrop: .plm-overlay (defined above)
+   Modal box: .plm-dialog (defined above) + .dt-cast-modal size override */
 .dt-cast-modal {
-  background: var(--surf);
-  border: 1px solid rgba(201,169,98,.25);
-  border-radius: 8px;
-  width: 100%;
   max-width: 420px;
+  padding: 0;
+  gap: 0;
   max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0,0,0,.5);
 }
-.dt-cast-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* Header: .plm-header (defined above) — restore inset padding since dialog padding is zeroed */
+.dt-cast-modal .plm-header {
   padding: 14px 18px 10px;
-  border-bottom: 1px solid rgba(201,169,98,.12);
 }
-.dt-cast-modal-header h4 {
-  margin: 0;
-  font-family: var(--fl);
-  font-size: 16px;
-  color: var(--accent);
-}
-.dt-cast-modal-close {
-  background: none;
-  border: none;
-  color: var(--txt3);
-  font-size: 22px;
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-}
-.dt-cast-modal-close:hover { color: var(--txt); }
 
 .dt-cast-filter {
   padding: 8px 18px;
