@@ -67,6 +67,24 @@ function renderBrackets(groups, activeId, dotsFn) {
   return h;
 }
 
+// ── Fixed-tier bracket row (always shown, vacant if empty) ────────────────────
+function renderTierRow(val, chars, activeId, dotsFn) {
+  let h = `<div class="status-bracket status-bracket-fixed">`;
+  h += `<div class="status-bracket-head">`;
+  h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
+  h += `<span class="status-bracket-val">${val}</span>`;
+  h += `</div>`;
+  h += `<div class="status-bracket-chips">`;
+  if (chars.length) {
+    for (const c of chars) h += renderChip(c, String(c._id) === activeId);
+  } else {
+    h += `<span class="status-vacant-chip">Vacant</span>`;
+  }
+  h += `</div>`;
+  h += `</div>`;
+  return h;
+}
+
 // ── Slot cards ────────────────────────────────────────────────────────────────
 function renderApexCard(c, activeId, valFn, dotsFn) {
   if (!c) {
@@ -115,17 +133,14 @@ function renderCitySection(chars, activeId) {
     sortName(a).localeCompare(sortName(b))
   );
 
-  const apexChar   = sorted.find(c => cityVal(c) === 10) || null;
-  const highChars  = sorted.filter(c => { const v = cityVal(c); return v >= 8 && v < 10; }).slice(0, 4);
-  const floorChars = sorted.filter(c => cityVal(c) < 8);
+  const byVal = new Map();
+  for (const c of sorted) {
+    const v = cityVal(c);
+    if (!byVal.has(v)) byVal.set(v, []);
+    byVal.get(v).push(c);
+  }
 
-  // Always show at least 2 high-seat placeholders; keep pairs even
-  const highSlots = [...highChars];
-  while (highSlots.length < 2) highSlots.push(null);
-  if (highSlots.length % 2 !== 0) highSlots.push(null);
-
-  const dotsFn = c => cityStatusDots(c);
-  const valFn  = c => cityVal(c);
+  const dotsFn = v => statusDots(v, 10);
 
   let h = `<div class="status-city-section">`;
   h += `<div class="status-section-head">`;
@@ -133,14 +148,14 @@ function renderCitySection(chars, activeId) {
   h += `<span class="status-section-caps">1@10 · 2@9 · 2@8 · 3@7 · 3@6 · 4@5 · 4@4 · open</span>`;
   h += `</div>`;
 
-  h += `<div class="status-apex-row">${renderApexCard(apexChar, activeId, valFn, dotsFn)}</div>`;
-
-  h += `<div class="status-high-row">`;
-  for (const c of highSlots) h += renderHighSeatCard(c, activeId, valFn, dotsFn);
-  h += `</div>`;
-
+  h += `<div class="status-brackets">`;
+  // Fixed upper tiers always shown
+  h += renderTierRow(10, byVal.get(10) || [], activeId, dotsFn);
+  h += renderTierRow(9,  byVal.get(9)  || [], activeId, dotsFn);
+  h += renderTierRow(8,  byVal.get(8)  || [], activeId, dotsFn);
+  // Floor — all remaining values
+  const floorChars = sorted.filter(c => cityVal(c) < 8);
   if (floorChars.length) {
-    // Group by status value descending
     const groups = [];
     for (const c of floorChars) {
       const v = cityVal(c);
@@ -148,8 +163,11 @@ function renderCitySection(chars, activeId) {
       if (last && last.val === v) last.chars.push(c);
       else groups.push({ val: v, chars: [c] });
     }
-    h += renderBrackets(groups, activeId, v => statusDots(v, 10));
+    for (const { val, chars } of groups) {
+      h += renderTierRow(val, chars, activeId, dotsFn);
+    }
   }
+  h += `</div>`;
 
   h += `</div>`;
   return h;
@@ -157,16 +175,13 @@ function renderCitySection(chars, activeId) {
 
 // ── Clan / Covenant section (column, with slot arch) ─────────────────────────
 function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) {
-  const apexChar  = rows.find(r => r.val === 5)?.c || null;
-  const highChars = rows.filter(r => r.val === 4).map(r => r.c);
-  const floorRows = rows.filter(r => r.val < 4);
+  const byVal = new Map();
+  for (const r of rows) {
+    if (!byVal.has(r.val)) byVal.set(r.val, []);
+    byVal.get(r.val).push(r.c);
+  }
 
-  const valMap = new Map(rows.map(r => [String(r.c._id), r.val]));
-  const valFn  = c => valMap.get(String(c._id)) || 0;
-  const dotsFn = c => statusDots(valFn(c), 5);
-
-  const highSlots = [...highChars];
-  while (highSlots.length < 2) highSlots.push(null);
+  const dotsFn = v => statusDots(v, 5);
 
   let h = `<div class="status-col">`;
   h += `<div class="status-col-head">${headingIcon} <span>${esc(heading)}</span>`;
@@ -176,12 +191,12 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
   if (!rows.length) {
     h += `<p class="placeholder-msg status-empty">${esc(placeholder)}</p>`;
   } else {
-    h += `<div class="status-apex-row status-apex-row--col">${renderApexCard(apexChar, activeId, valFn, dotsFn)}</div>`;
-
-    h += `<div class="status-high-row">`;
-    for (const c of highSlots) h += renderHighSeatCard(c, activeId, valFn, dotsFn);
-    h += `</div>`;
-
+    h += `<div class="status-brackets">`;
+    // Fixed upper tiers always shown
+    h += renderTierRow(5, byVal.get(5) || [], activeId, dotsFn);
+    h += renderTierRow(4, byVal.get(4) || [], activeId, dotsFn);
+    // Floor
+    const floorRows = rows.filter(r => r.val < 4);
     if (floorRows.length) {
       const groups = [];
       for (const r of floorRows) {
@@ -189,8 +204,11 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
         if (last && last.val === r.val) last.chars.push(r.c);
         else groups.push({ val: r.val, chars: [r.c] });
       }
-      h += renderBrackets(groups, activeId, v => statusDots(v, 5));
+      for (const { val, chars } of groups) {
+        h += renderTierRow(val, chars, activeId, dotsFn);
+      }
     }
+    h += `</div>`;
   }
 
   h += `</div>`;
