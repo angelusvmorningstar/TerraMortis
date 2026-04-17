@@ -197,7 +197,7 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
 }
 
 // ── Main render ──────────────────────────────────────────────────────────────
-export async function renderStatusTab(el, activeChar) {
+export async function renderStatusTab(el, activeChar, isST = false) {
   if (!el) return;
   if (!activeChar) {
     el.innerHTML = '<p class="placeholder-msg">Select a character first.</p>';
@@ -215,35 +215,63 @@ export async function renderStatusTab(el, activeChar) {
   }
 
   const activeId = String(activeChar._id);
-
-  const clanRows = chars
-    .filter(c => c.clan && c.clan === activeChar.clan)
-    .map(c => ({ c, val: c.status?.clan || 0 }))
-    .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-
-  const covRows = chars
-    .filter(c => c.covenant && c.covenant === activeChar.covenant)
-    .map(c => ({ c, val: c.status?.covenant || 0 }))
-    .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-
   let h = renderCitySection(chars, activeId);
 
-  h += `<div class="status-split">`;
-  h += renderStatusSection(
-    activeChar.clan || 'No clan',
-    activeChar.clan ? clanIcon(activeChar.clan, 18) : '',
-    clanRows,
-    activeId,
-    activeChar.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
-  );
-  h += renderStatusSection(
-    activeChar.covenant || 'No covenant',
-    activeChar.covenant ? covIcon(activeChar.covenant, 18) : '',
-    covRows,
-    activeId,
-    activeChar.covenant ? 'No other members in your covenant.' : 'Your character has no covenant set.'
-  );
-  h += `</div>`;
+  if (isST) {
+    // ST view: all clans and all covenants, each as its own column
+    const clans     = [...new Set(chars.map(c => c.clan).filter(Boolean))].sort();
+    const covenants = [...new Set(chars.map(c => c.covenant).filter(Boolean))].sort();
+
+    h += `<div class="status-group-head">By Clan</div>`;
+    h += `<div class="status-multi-split">`;
+    for (const clan of clans) {
+      const rows = chars
+        .filter(c => c.clan === clan)
+        .map(c => ({ c, val: c.status?.clan || 0 }))
+        .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+      h += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
+    }
+    h += `</div>`;
+
+    h += `<div class="status-group-head">By Covenant</div>`;
+    h += `<div class="status-multi-split">`;
+    for (const cov of covenants) {
+      const rows = chars
+        .filter(c => c.covenant === cov)
+        .map(c => ({ c, val: c.status?.covenant || 0 }))
+        .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+      h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
+    }
+    h += `</div>`;
+  } else {
+    // Player view: only active character's clan and covenant
+    const clanRows = chars
+      .filter(c => c.clan && c.clan === activeChar.clan)
+      .map(c => ({ c, val: c.status?.clan || 0 }))
+      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+
+    const covRows = chars
+      .filter(c => c.covenant && c.covenant === activeChar.covenant)
+      .map(c => ({ c, val: c.status?.covenant || 0 }))
+      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+
+    h += `<div class="status-split">`;
+    h += renderStatusSection(
+      activeChar.clan || 'No clan',
+      activeChar.clan ? clanIcon(activeChar.clan, 18) : '',
+      clanRows,
+      activeId,
+      activeChar.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
+    );
+    h += renderStatusSection(
+      activeChar.covenant || 'No covenant',
+      activeChar.covenant ? covIcon(activeChar.covenant, 18) : '',
+      covRows,
+      activeId,
+      activeChar.covenant ? 'No other members in your covenant.' : 'Your character has no covenant set.'
+    );
+    h += `</div>`;
+  }
 
   el.innerHTML = h;
 }

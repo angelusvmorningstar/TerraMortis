@@ -262,7 +262,7 @@ function selectCharacter(activeChars, idx) {
   renderFeedingTab(document.getElementById('feeding-content'), activeChar);
   renderStoryTab(document.getElementById('story-content'), activeChar);
   renderXpLogTab(document.getElementById('tab-xplog'), activeChar);
-  renderStatusTab(document.getElementById('tab-status'), activeChar);
+  renderStatusTab(document.getElementById('tab-status'), activeChar, isSTRole());
   initArchiveTab(document.getElementById('tab-archive'), activeChar, retiredChars);
 
   // Derive regent status from territories (single source of truth)
