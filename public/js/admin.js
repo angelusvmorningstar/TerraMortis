@@ -640,8 +640,43 @@ function closeCharDetail() {
 }
 
 async function createNewCharacter() {
-  const name = prompt('Character name:');
-  if (!name || !name.trim()) return;
+  // Replace browser prompt() with parchment modal
+  const name = await new Promise(resolve => {
+    document.getElementById('new-char-modal')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'new-char-modal';
+    overlay.className = 'plm-overlay';
+    document.getElementById('admin-app').appendChild(overlay);
+    overlay.innerHTML = `
+      <div class="plm-dialog" style="max-width:400px">
+        <div class="plm-header">
+          <h3>New Character</h3>
+          <button class="cd-close" id="ncm-close">&times;</button>
+        </div>
+        <div style="padding:16px 20px 20px">
+          <label class="plm-label" for="ncm-name">Character Name</label>
+          <input id="ncm-name" class="plm-input" type="text" placeholder="Enter name\u2026" autocomplete="off" style="width:100%;margin-top:6px">
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="dt-btn" id="ncm-confirm">Create</button>
+            <button class="dt-btn" id="ncm-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>`;
+    const close = val => { overlay.remove(); resolve(val); };
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
+    overlay.querySelector('#ncm-close').addEventListener('click', () => close(null));
+    overlay.querySelector('#ncm-cancel').addEventListener('click', () => close(null));
+    overlay.querySelector('#ncm-confirm').addEventListener('click', () => {
+      const val = overlay.querySelector('#ncm-name').value.trim();
+      if (val) close(val);
+    });
+    overlay.querySelector('#ncm-name').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { const val = overlay.querySelector('#ncm-name').value.trim(); if (val) close(val); }
+      if (e.key === 'Escape') close(null);
+    });
+    setTimeout(() => overlay.querySelector('#ncm-name').focus(), 50);
+  });
+  if (!name) return;
 
   const blank = {
     name: name.trim(),
