@@ -144,7 +144,9 @@ export function trackerWriteField(charId, field, value) {
   const cs = fromCache(c);
   cs[field] = value;
   if (['vitae', 'willpower', 'bashing', 'lethal', 'aggravated'].includes(field)) {
-    saveToApi(charId, { [field]: value }); // Single-field $set — safe before full load
+    // Only write to API if confirmed loaded — prevents migration code from
+    // overwriting real MongoDB data with stale localStorage on every page load
+    if (_confirmed.has(charId)) saveToApi(charId, { [field]: value });
   } else {
     saveLocal(charId, { [field]: value });
   }

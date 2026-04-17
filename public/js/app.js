@@ -144,7 +144,11 @@ function openChar(idx) {
   else if (hdrIcon) { hdrIcon.style.display = 'none'; }
   renderIdentityTab(c);
   renderAttrsTab(c);
-  editorRenderSheet(c);
+  editorRenderSheet(c);         // keep — editor/attrs tabs still use this
+  suiteState.sheetChar = c;
+  document.getElementById('sh-empty').style.display = 'none';
+  document.getElementById('sh-content-suite').style.display = '';
+  suiteRenderSheet();           // suite single-column sheet for the Sheets tab
 
   // Render pools panel — sets rollChar so Roll tab banner shows this character
   const poolsEl = document.getElementById('gcp-panel');
@@ -157,7 +161,7 @@ function openChar(idx) {
   }
 
   setSheetView('sheet');
-  goTab('editor');
+  goTab('sheets');
 }
 
 // ══════════════════════════════════════════════

@@ -371,7 +371,7 @@ development_status:
   lst-1-dt-contacts-qualifier: done
   lst-2-feed-roller-harmonise: done
   lst-3-tracker-migration: review
-  lst-4-st-sheet-swap: backlog          # blocked by lst-3
+  lst-4-st-sheet-swap: review
   lst-5-st-feeding-confirm: backlog     # blocked by lst-3
 
   epic-lst-retrospective: optional
