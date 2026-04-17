@@ -193,6 +193,11 @@ function playerForm(p, formId) {
           <option value="st" ${p?.role === 'st' ? 'selected' : ''}>Storyteller</option>
         </select>
       </label>
+      <label class="pv-label">
+        <span>Email</span>
+        <input class="pv-input" id="pv-f-email" type="email" value="${val('email')}" placeholder="e.g. player@example.com">
+        <span class="pv-hint">Used for automated downtime result notifications.</span>
+      </label>
     </div>
     <div class="pv-label">
       <span>Linked characters</span>
@@ -268,6 +273,7 @@ async function handleSave(formId) {
   const username = document.getElementById('pv-f-username')?.value.trim().replace(/^@/, '');
   const did      = document.getElementById('pv-f-did')?.value.trim();
   const role     = document.getElementById('pv-f-role')?.value;
+  const email    = document.getElementById('pv-f-email')?.value.trim();
   const errEl    = document.getElementById('pv-form-err');
 
   if (errEl) errEl.style.display = 'none';
@@ -285,6 +291,7 @@ async function handleSave(formId) {
     discord_id:        did || null,
     role:              role || 'player',
     character_ids:     characterIds,
+    email:             email || null,
   };
 
   try {

@@ -957,6 +957,7 @@ function renderForm(container) {
   h += '</div>';
 
   // Static sections: Court, Feeding, Regency Action (residency grid is in the Regency tab), Projects
+  const feedingLocked = currentCycle?.feeding_rights_confirmed !== true;
   for (const section of DOWNTIME_SECTIONS) {
     if (section.key === 'projects') continue;
     if (section.key === 'acquisitions') continue;
@@ -971,12 +972,25 @@ function renderForm(container) {
     h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}" data-section-key="${section.key}">`;
     h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
     h += '<div class="qf-section-body">';
-    if (section.intro) {
-      h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
-    }
-    for (const q of section.questions) {
-      const val = saved[q.key] || '';
-      h += renderQuestion(q, val);
+
+    // Feeding and Territory sections are locked until all Regents confirm
+    if ((section.key === 'feeding' || section.key === 'territory') && feedingLocked) {
+      const pendingTerrs = _territories
+        .filter(t => t.regent_id)
+        .filter(t => !(currentCycle?.regent_confirmations || []).some(c => c.territory_id === t.id));
+      const pendingNames = pendingTerrs.map(t => esc(t.name || t.id)).join(', ');
+      h += `<div class="dt-feeding-locked">`;
+      h += `<p class="dt-feeding-locked-msg">Feeding rights are being confirmed by Regents &mdash; this section will unlock once all territories are confirmed. Check back soon.</p>`;
+      if (pendingNames) h += `<p class="dt-feeding-locked-pending">Awaiting: ${pendingNames}</p>`;
+      h += `</div>`;
+    } else {
+      if (section.intro) {
+        h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+      }
+      for (const q of section.questions) {
+        const val = saved[q.key] || '';
+        h += renderQuestion(q, val);
+      }
     }
     h += '</div></div>';
   }

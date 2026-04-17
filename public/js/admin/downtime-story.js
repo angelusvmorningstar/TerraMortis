@@ -236,6 +236,22 @@ export async function initDtStory(cycleId) {
       return;
     }
   });
+
+  // Blur-save for ST Notes free-text field (focusout bubbles, blur doesn't)
+  panel.addEventListener('focusout', async e => {
+    const notesTa = e.target.closest('#dt-story-notes-ta');
+    if (!notesTa || !_currentSub) return;
+    const value = notesTa.value;
+    const statusEl = document.getElementById('dt-story-notes-status');
+    try {
+      await saveNarrativeField(_currentSub._id, { 'st_narrative.general_notes': value });
+      if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+      _currentSub.st_narrative.general_notes = value;
+      if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
+    } catch {
+      if (statusEl) statusEl.textContent = 'Save failed';
+    }
+  });
 }
 
 /**
@@ -481,10 +497,14 @@ function buildProjectContext(char, sub, idx, cycleData, territories) {
     lines.push(`Other actions in territory: ${otherActions.length ? otherActions.join(', ') : 'None'}`);
   }
 
-  // Player feedback
+  // Story context (ST-written context for AI prompt)
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+  }
+  if (rev.player_facing_note) {
+    lines.push('');
+    lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
   // ST directives
@@ -689,10 +709,14 @@ function buildPatrolContext(char, sub, idx, cycleData, territories) {
   lines.push(`Other actions in territory: ambience ${ambienceChars.join(', ') || 'None'} | patrol ${patrolChars.join(', ') || 'None'} | investigative ${investigateChars.join(', ') || 'None'} | misc ${miscChars.join(', ') || 'None'}`);
   lines.push(`Discipline activity: ${discProfileStr}`);
 
-  // Player feedback
+  // Story context (ST-written context for AI prompt)
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+  }
+  if (rev.player_facing_note) {
+    lines.push('');
+    lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
   // ST directives
@@ -1015,8 +1039,19 @@ function renderCharacterView(char, sub) {
     h += renderSection(section, char, sub, stNarrative);
   }
 
+  h += renderGeneralNotes(sub);
   h += renderSignOffPanel(stNarrative, sections, sub);
   h += `</div>`; // dt-story-char-content
+  return h;
+}
+
+function renderGeneralNotes(sub) {
+  const saved = sub?.st_narrative?.general_notes || '';
+  let h = '<div class="dt-story-general-notes">';
+  h += '<label class="dt-story-notes-label">ST Notes</label>';
+  h += `<textarea id="dt-story-notes-ta" class="dt-story-notes-ta" placeholder="Add any notes, plot hooks, or context not tied to a specific section\u2026">${esc(saved)}</textarea>`;
+  h += '<span id="dt-story-notes-status" class="dt-story-save-status"></span>';
+  h += '</div>';
   return h;
 }
 
@@ -1861,7 +1896,11 @@ function buildActionContext(char, sub, idx) {
 
   if (rev.player_feedback) {
     lines.push('');
-    lines.push(`ST clarifications (context; do not contradict): ${rev.player_feedback}`);
+    lines.push(`Story context (do not contradict): ${rev.player_feedback}`);
+  }
+  if (rev.player_facing_note) {
+    lines.push('');
+    lines.push(`Player-facing note: ${rev.player_facing_note}`);
   }
 
   lines.push('');
@@ -2665,7 +2704,8 @@ function compilePushOutcome(sub) {
         const response = sn.project_responses?.[i]?.response;
         if (response?.trim()) {
           const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
-          parts.push(`## ${label}\n\n${response.trim()}`);
+          const pfn = rev?.player_facing_note?.trim();
+          parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
         }
       });
 
@@ -2677,7 +2717,8 @@ function compilePushOutcome(sub) {
         const response = sn.action_responses?.[i]?.response;
         if (response?.trim()) {
           const label = action.merit_type || `Action ${i + 1}`;
-          parts.push(`## ${label}\n\n${response.trim()}`);
+          const pfn = sub.merit_actions_resolved?.[i]?.player_facing_note?.trim();
+          parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
         }
       });
 
@@ -2697,6 +2738,10 @@ function compilePushOutcome(sub) {
       });
     }
   }
+
+  // General notes — free text added by ST outside the structured sections
+  const generalNotes = sn.general_notes?.trim();
+  if (generalNotes) parts.push(generalNotes);
 
   return parts.join('\n\n');
 }

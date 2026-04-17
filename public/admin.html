@@ -105,15 +105,31 @@
       <div class="domain-header">
         <h2>Downtime</h2>
         <div id="dt-sub-tab-bar">
-          <button class="dt-sub-tab-btn active" data-tab="processing">DT Processing</button>
-          <button class="dt-sub-tab-btn" data-tab="city">DT City</button>
+          <button class="dt-sub-tab-btn active" data-tab="city">DT City</button>
+          <button class="dt-sub-tab-btn" data-tab="processing">DT Processing</button>
           <button class="dt-sub-tab-btn" data-tab="story">DT Story</button>
         </div>
       </div>
-      <div id="dt-processing-panel" class="dt-panel">
+      <div id="dt-ctrl-bar">
+        <div class="dt-toolbar">
+          <button class="dt-btn" id="dt-new-cycle">New Cycle</button>
+          <button class="dt-btn" id="dt-close-cycle" style="display:none">Close Cycle</button>
+          <button class="dt-btn dt-btn-export" id="dt-export-all" style="display:none">Export MD</button>
+          <button class="dt-btn dt-btn-export" id="dt-export-json" style="display:none">Export JSON</button>
+          <button class="dt-btn dt-btn-export" id="dt-import-csv">Import CSV</button>
+          <input type="file" id="dt-import-csv-input" accept=".csv" style="display:none">
+        </div>
+        <div id="dt-cycle-bar" class="dt-cycle-bar">
+          <select id="dt-cycle-sel" class="dt-cycle-sel"></select>
+          <span id="dt-cycle-status" class="dt-cycle-status"></span>
+        </div>
+      </div>
+      <div id="dt-phase-ribbon" style="display:none"></div>
+      <div id="dt-sub-ribbon" style="display:none"></div>
+      <div id="dt-processing-panel" class="dt-panel" style="display:none">
         <div id="downtime-content"></div>
       </div>
-      <div id="dt-city-panel" class="dt-panel" style="display:none"></div>
+      <div id="dt-city-panel" class="dt-panel"></div>
       <div id="dt-story-panel" class="dt-panel" style="display:none"></div>
     </section>
 

@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-15 (DTX epic added; dtx-3 ready-for-dev)
+last_updated: 2026-04-17 (CR, DI, FEAT epics added from backlog analysis session)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -298,3 +298,55 @@ development_status:
   dtp-3-feeding-tab-delivery: done
 
   epic-dtp-retrospective: optional
+
+  # ============================================================
+  # EPIC CR: CITY REFRESH — IN PROGRESS
+  # ============================================================
+  # Court title rename, layout audit/fix, status visualisation redesign,
+  # sphere view (ST admin), modal theming audit, favicon
+  # Sourced from backlog analysis session 2026-04-17
+  # Epic file: specs/epic-city-refresh.md
+  # Sequence: cr-6 (trivial) → cr-1 → cr-5 → cr-2 → cr-3 → cr-4
+
+  epic-cr: in-progress
+
+  cr-6-favicon-game-app: done
+  cr-1-court-title-rename-territory-name-fix: ready-for-dev
+  cr-5-modal-theming-audit: ready-for-dev
+  cr-2-layout-audit-two-panel-fix: ready-for-dev
+  cr-3-status-power-visualisation-player: ready-for-dev
+  cr-4-sphere-influence-view-st-admin: ready-for-dev
+
+  epic-cr-retrospective: optional
+
+  # ============================================================
+  # EPIC DI: DATA IMPORTS — BACKLOG
+  # ============================================================
+  # DT1 narratives, Game 1 letters, ordeal data sync
+  # Epic file: specs/epic-data-imports.md
+  # Note: DI-3 may be investigation-only (no code change)
+
+  epic-di: backlog
+
+  di-1-import-dt1-narratives: backlog
+  di-2-import-game1-letters: backlog
+  di-3-sync-ordeal-data: backlog
+
+  epic-di-retrospective: optional
+
+  # ============================================================
+  # EPIC FEAT: FEATURE BACKLOG — BACKLOG
+  # ============================================================
+  # Standalone features + deferred major systems
+  # Epic file: specs/epic-features.md
+  # FEAT-4 and FEAT-5 not ready for dev — need scoping
+
+  epic-feat: backlog
+
+  feat-1-remove-resolved-tickets: backlog
+  feat-2-non-vampire-territories: backlog
+  feat-3-duplicate-character-hard-delete: backlog
+  feat-4-st-plot-npc-tracker: backlog
+  feat-5-login-linked-to-email: backlog
+
+  epic-feat-retrospective: optional
