@@ -42,7 +42,7 @@ const ASSET_SKILLS = ['Intimidation', 'Empathy', 'Investigation'];
 async function run(skipPrompt) {
   const client = new MongoClient(process.env.MONGODB_URI);
   await client.connect();
-  const db = client.db('tm_suite');
+  const db = client.db(process.env.MONGODB_DB || 'tm_suite');
   const col = db.collection('characters');
 
   const char = await col.findOne({ name: CHAR_NAME });

@@ -498,20 +498,23 @@ function _progressBadge(done, total, doneLabel = 'Done') {
 
 /**
  * Resolve the nine_again checkbox state for a reviewed action.
- * Uses the explicitly saved value if present; otherwise auto-detects from
- * the validated pool expression via the character's skill nine-again flag.
+ * Character-derived nine_again (PT / MCI / skill flag) always wins over a
+ * saved false — a false in the review only applies when the character
+ * genuinely has no nine_again on the validated skill.
+ * Explicit saved true always wins regardless.
  * @param {object} rev          - st_review object
  * @param {string|null} poolValidated
  * @param {object|null} char
  * @returns {boolean}
  */
 function _resolveNineAgainState(rev, poolValidated, char) {
-  if (rev.nine_again != null) return rev.nine_again;
+  if (rev.nine_again === true) return true;
   if (char && poolValidated) {
     const discs   = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
     const parsed  = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, discs);
-    if (parsed?.skill) return skNineAgain(char, parsed.skill);
+    if (parsed?.skill && skNineAgain(char, parsed.skill)) return true;
   }
+  if (rev.nine_again != null) return rev.nine_again;
   return false;
 }
 
@@ -5162,9 +5165,11 @@ function _updateFeedBuilderMeta(container, key) {
     return;
   }
 
-  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox
+  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox.
+  // Always sync when char has nine_again on this skill — character data takes priority over
+  // a saved false (which may be stale from a commit before PT was entered).
   const sidebarNineAFeed = container.querySelector(`.proc-proj-9a[data-proc-key="${key}"]`);
-  if (sidebarNineAFeed && review.nine_again == null) {
+  if (sidebarNineAFeed && (nineA || review.nine_again == null)) {
     sidebarNineAFeed.checked = nineA;
   }
   let h = '';
