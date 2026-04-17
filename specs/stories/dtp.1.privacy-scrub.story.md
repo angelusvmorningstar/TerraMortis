@@ -1,6 +1,6 @@
 # Story DTP-1: Privacy Scrub — projects_resolved
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 
