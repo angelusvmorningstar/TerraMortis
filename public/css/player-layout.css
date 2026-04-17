@@ -2531,6 +2531,9 @@ body {
 .feeding-overfeed-warn { font-size: 12px; color: var(--err); margin-top: 8px; }
 .feeding-roll-btn { width: 100%; padding: 14px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: 6px; color: #fff; font-family: var(--fl); font-size: 14px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; margin-top: 16px; }
 .feeding-roll-btn:hover { filter: brightness(1.2); }
+.feeding-st-override { margin-top: 24px; padding: 12px 16px; border: 1px solid var(--gold2); border-radius: 6px; background: rgba(224,196,122,.06); display: flex; align-items: center; gap: 12px; }
+.feeding-st-label { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); white-space: nowrap; }
+.feeding-st-override .feeding-roll-btn { margin-top: 0; flex: 1; }
 .feeding-ready .feeding-warning { font-size: 12px; color: var(--err); margin-top: 8px; }
 .feeding-pool-display { display: flex; align-items: center; justify-content: space-between; padding: 14px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; margin: 12px 0; }
 .feeding-pool-breakdown { font-size: 13px; color: var(--txt2); }

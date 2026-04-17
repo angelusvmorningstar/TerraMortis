@@ -536,11 +536,22 @@ function render() {
       }
     }
 
-    if (isST) {
-      h += '<button id="feeding-reroll-btn" class="feeding-roll-btn" style="margin-top:16px;">Re-roll (ST)</button>';
-    }
-
     h += '</div>';
+  }
+
+  // ── ST OVERRIDE PANEL ──
+  if (isST && feedingState !== 'loading') {
+    if (feedingState === 'deferred') {
+      h += '<div class="feeding-st-override">';
+      h += '<span class="feeding-st-label">ST Override</span>';
+      h += '<button id="feeding-release-btn" class="feeding-roll-btn">Release Roll (ST)</button>';
+      h += '</div>';
+    } else if (feedingState === 'rolled') {
+      h += '<div class="feeding-st-override">';
+      h += '<span class="feeding-st-label">ST Override</span>';
+      h += '<button id="feeding-reroll-btn" class="feeding-roll-btn">Reset Roll (ST)</button>';
+      h += '</div>';
+    }
   }
 
   h += '</div>';
@@ -598,6 +609,27 @@ function wireEvents() {
       feedingState = 'no_submission';
     }
     render();
+  });
+
+  // ST release (deferred → ready)
+  container.querySelector('#feeding-release-btn')?.addEventListener('click', async () => {
+    if (!responseSubId) return;
+    try {
+      await apiPut(`/api/downtime_submissions/${responseSubId}`, {
+        feeding_deferred: null,
+        feeding_roll_player: null,
+        feeding_vitae_allocation: null,
+      });
+      if (declaredMethod) {
+        feedingState = 'ready';
+        buildPool(declaredMethod, declaredDisc, declaredSpec);
+      } else {
+        feedingState = 'no_submission';
+      }
+      render();
+    } catch {
+      alert('Could not release — please try again.');
+    }
   });
 
   // Defer button
