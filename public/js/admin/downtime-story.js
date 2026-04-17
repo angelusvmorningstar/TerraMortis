@@ -1653,6 +1653,25 @@ function buildMeritActions(sub) {
     }
   }
 
+  // ── Resource / skill acquisitions ──
+  // Stored separately from sphere actions — appended last so flat indices for
+  // spheres/contacts/retainers above are not disturbed.
+  const resAcqBlob = raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '';
+  if (resAcqBlob.trim()) {
+    const desc = resp['acq_description'] || resAcqBlob;
+    let meritsLabel = '';
+    try {
+      const keys = JSON.parse(resp['acq_merits'] || '[]');
+      if (keys.length) meritsLabel = keys.join(', ');
+    } catch { /* ignore */ }
+    actions.push({
+      merit_type:      'Resources',
+      action_type:     'acquisition',
+      desired_outcome: meritsLabel || '',
+      description:     desc,
+    });
+  }
+
   return actions;
 }
 
@@ -1977,9 +1996,13 @@ function renderActionCard(char, sub, idx) {
   // Roll summary
   let rollSummary = '';
   if (roll) {
-    const s = roll.successes ?? 0;
-    const exc = roll.exceptional ? ', Exceptional' : '';
-    rollSummary = `${s} success${s !== 1 ? 'es' : ''}${exc}`;
+    const s   = roll.successes ?? 0;
+    const exc = roll.exceptional ? ' \u2014 Exceptional' : '';
+    const againVal = roll.params?.again ?? 10;
+    const againStr = againVal === 8 ? ' \u00b7 8-Again' : againVal === 9 ? ' \u00b7 9-Again' : '';
+    const roteStr  = roll.params?.rote ? ' \u00b7 Rote' : '';
+    const diceStr  = roll.dice_string ? ` ${roll.dice_string}` : '';
+    rollSummary = `${s} success${s !== 1 ? 'es' : ''}${exc}${againStr}${roteStr}${diceStr}`;
   } else if (rev.pool_status === 'no_roll') {
     rollSummary = 'No roll';
   }
