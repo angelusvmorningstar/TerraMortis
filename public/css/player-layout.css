@@ -3845,6 +3845,7 @@ body {
 .status-bracket-chips {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
   padding: 10px 12px;
 }
