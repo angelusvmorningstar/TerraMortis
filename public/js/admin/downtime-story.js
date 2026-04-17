@@ -142,8 +142,9 @@ export async function initDtStory(cycleId) {
   view.innerHTML = '<div class="dt-story-empty">Select a character from the rail above.</div>';
   panel.appendChild(view);
 
-  // Event delegation — pill clicks + push button
+  // Event delegation — pill clicks, push button, publish all
   rail.addEventListener('click', e => {
+    if (e.target.closest('.dt-story-publish-all-btn')) { handlePublishAll(); return; }
     const pushBtn = e.target.closest('.dt-story-push-btn');
     if (pushBtn) { handlePushCharacter(pushBtn.dataset.subId, pushBtn.dataset.charId); return; }
     const pill = e.target.closest('.dt-story-pill');
@@ -847,6 +848,9 @@ function renderNavRail() {
 
   const isST = isSTRole();
   let h = '';
+  if (isST) {
+    h += `<div class="dt-story-rail-header"><button class="dt-story-publish-all-btn">Publish All</button></div>`;
+  }
   for (const sub of sorted) {
     const char = getCharForSub(sub);
     const name = char ? (char.moniker || char.name) : 'Unknown';
@@ -2680,38 +2684,54 @@ const MERIT_SECTION_CATEGORIES = {
   misc_merit_actions: ['misc'],
 };
 
+const _GAP_TEXT = '*Your Storyteller is still finalising this section \u2014 contact them if you have questions.*';
+
 /**
- * Compiles all non-empty st_narrative responses for a submission into a
- * single markdown string: "## Section Label\n\nResponse text\n\n..."
- * Sections with no response are silently skipped.
+ * Compiles applicable st_narrative sections for a submission into a markdown string.
+ * Only sections with status === 'complete' include their content.
+ * Applicable sections that are NOT complete appear as gap placeholders.
+ * Returns an empty string if zero sections are complete (push blocked).
  */
 function compilePushOutcome(sub) {
   const char = getCharForSub(sub);
   const sn = sub.st_narrative || {};
   const sections = getApplicableSections(char, sub);
   const parts = [];
+  let hasContent = false;
 
   for (const section of sections) {
     const key = section.key;
 
     if (key === 'letter_from_home' || key === 'touchstone' || key === 'feeding_validation') {
-      const response = sn[key]?.response;
-      if (response?.trim()) parts.push(`## ${section.label}\n\n${response.trim()}`);
+      if (sn[key]?.status === 'complete') {
+        const response = sn[key]?.response;
+        if (response?.trim()) { parts.push(`## ${section.label}\n\n${response.trim()}`); hasContent = true; }
+      } else {
+        parts.push(`## ${section.label}\n\n${_GAP_TEXT}`);
+      }
 
     } else if (key === 'territory_reports') {
-      const feedTerrs = _feedTerrEntries(sub);
-      feedTerrs.forEach((terr, i) => {
-        const response = sn.territory_reports?.[i]?.response;
-        if (response?.trim()) parts.push(`## ${terr.name}\n\n${response.trim()}`);
+      _feedTerrEntries(sub).forEach((terr, i) => {
+        if (sn.territory_reports?.[i]?.status === 'complete') {
+          const response = sn.territory_reports?.[i]?.response;
+          if (response?.trim()) { parts.push(`## ${terr.name}\n\n${response.trim()}`); hasContent = true; }
+        } else {
+          parts.push(`## ${terr.name}\n\n${_GAP_TEXT}`);
+        }
       });
 
     } else if (key === 'project_responses') {
       (sub.projects_resolved || []).forEach((rev, i) => {
-        const response = sn.project_responses?.[i]?.response;
-        if (response?.trim()) {
-          const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
-          const pfn = rev?.player_facing_note?.trim();
-          parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
+        const label = sub.responses?.[`project_${i + 1}_title`] || `Project ${i + 1}`;
+        if (sn.project_responses?.[i]?.status === 'complete') {
+          const response = sn.project_responses?.[i]?.response;
+          if (response?.trim()) {
+            const pfn = rev?.player_facing_note?.trim();
+            parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
+            hasContent = true;
+          }
+        } else {
+          parts.push(`## ${label}\n\n${_GAP_TEXT}`);
         }
       });
 
@@ -2720,36 +2740,117 @@ function compilePushOutcome(sub) {
       (sub.merit_actions || []).forEach((action, i) => {
         const cat = deriveMeritCategory(action.merit_type);
         if (!categories.includes(cat)) return;
-        const response = sn.action_responses?.[i]?.response;
-        if (response?.trim()) {
-          const label = action.merit_type || `Action ${i + 1}`;
-          const pfn = sub.merit_actions_resolved?.[i]?.player_facing_note?.trim();
-          parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
+        const label = action.merit_type || `Action ${i + 1}`;
+        if (sn.action_responses?.[i]?.status === 'complete') {
+          const response = sn.action_responses?.[i]?.response;
+          if (response?.trim()) {
+            const pfn = sub.merit_actions_resolved?.[i]?.player_facing_note?.trim();
+            parts.push(`## ${label}\n\n${response.trim()}${pfn ? `\n\n${pfn}` : ''}`);
+            hasContent = true;
+          }
+        } else {
+          parts.push(`## ${label}\n\n${_GAP_TEXT}`);
         }
       });
 
     } else if (key === 'resource_approvals') {
       (sn.resource_approvals || []).forEach((approval, i) => {
-        const response = approval?.response;
-        if (response?.trim()) {
-          const label = approval?.merit_type || `Resource ${i + 1}`;
-          parts.push(`## ${label}\n\n${response.trim()}`);
+        const label = approval?.merit_type || `Resource ${i + 1}`;
+        if (approval?.status === 'complete') {
+          const response = approval?.response;
+          if (response?.trim()) { parts.push(`## ${label}\n\n${response.trim()}`); hasContent = true; }
+        } else {
+          parts.push(`## ${label}\n\n${_GAP_TEXT}`);
         }
       });
 
     } else if (key === 'cacophony_savvy') {
       (sn.cacophony_savvy || []).forEach((slot, i) => {
-        const response = slot?.response;
-        if (response?.trim()) parts.push(`## Cacophony Savvy ${i + 1}\n\n${response.trim()}`);
+        const label = `Cacophony Savvy ${i + 1}`;
+        if (slot?.status === 'complete') {
+          const response = slot?.response;
+          if (response?.trim()) { parts.push(`## ${label}\n\n${response.trim()}`); hasContent = true; }
+        } else {
+          parts.push(`## ${label}\n\n${_GAP_TEXT}`);
+        }
       });
     }
   }
 
-  // General notes — free text added by ST outside the structured sections
+  // General notes — free text, always include if present (no status gate)
   const generalNotes = sn.general_notes?.trim();
-  if (generalNotes) parts.push(generalNotes);
+  if (generalNotes) { parts.push(generalNotes); hasContent = true; }
 
-  return parts.join('\n\n');
+  return hasContent ? parts.join('\n\n') : '';
+}
+
+/**
+ * Publishes all submissions that have at least one complete section.
+ * Returns { published, skipped } counts.
+ */
+async function _publishAllSubmissions(submissions) {
+  let published = 0, skipped = 0;
+  const now = new Date().toISOString();
+  await Promise.all(submissions.map(async sub => {
+    const md = compilePushOutcome(sub);
+    if (!md.trim()) { skipped++; return; }
+    const patch = {
+      'st_review.outcome_text':       md,
+      'st_review.outcome_visibility': 'published',
+      'st_review.published_at':       now,
+    };
+    try {
+      await apiPut('/api/downtime_submissions/' + sub._id, patch);
+      if (!sub.st_review) sub.st_review = {};
+      sub.st_review.outcome_text       = md;
+      sub.st_review.outcome_visibility = 'published';
+      published++;
+    } catch { skipped++; }
+  }));
+  return { published, skipped };
+}
+
+/**
+ * Exported: load submissions for a cycle and publish all with at least one
+ * complete section. Called from the cycle reset wizard (new game creation).
+ */
+export async function publishAllForCycle(cycleId) {
+  try {
+    const [subs, chars] = await Promise.all([
+      apiGet('/api/downtime_submissions?cycle_id=' + cycleId),
+      _allCharacters.length ? Promise.resolve(_allCharacters) : apiGet('/api/characters'),
+    ]);
+    if (!_allCharacters.length) _allCharacters = Array.isArray(chars) ? chars : [];
+    const submissions = (Array.isArray(subs) ? subs : []).map(sub => ({
+      ...sub,
+      merit_actions: buildMeritActions(sub),
+    }));
+    return await _publishAllSubmissions(submissions);
+  } catch {
+    return { published: 0, skipped: 0 };
+  }
+}
+
+/**
+ * Publishes all loaded submissions that have at least one complete section.
+ * Shows a summary in the rail once complete.
+ */
+async function handlePublishAll() {
+  const rail = document.getElementById('dt-story-nav-rail');
+  const btn = rail?.querySelector('.dt-story-publish-all-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Publishing\u2026'; }
+
+  const { published, skipped } = await _publishAllSubmissions(_allSubmissions);
+
+  if (rail) {
+    rail.innerHTML = renderNavRail();
+    // Show summary above the pill list
+    const summary = document.createElement('div');
+    summary.className = 'dt-story-publish-summary';
+    summary.textContent = `Published ${published} / ${_allSubmissions.length}${skipped ? ` \u2014 ${skipped} skipped (no sections complete)` : ''}.`;
+    rail.prepend(summary);
+    setTimeout(() => summary.remove(), 6000);
+  }
 }
 
 /**
@@ -2770,7 +2871,7 @@ async function handlePushCharacter(subId, charId) {
   try {
     const md = compilePushOutcome(sub);
     if (!md.trim()) {
-      _pushErrors.set(charId, 'Nothing to push — all narrative fields are empty (check General Notes and section responses)');
+      _pushErrors.set(charId, 'Nothing to push — no sections are marked complete yet.');
       if (rail) rail.innerHTML = renderNavRail();
       return;
     }

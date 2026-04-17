@@ -245,11 +245,12 @@ development_status:
   # Epic file: specs/epic-dtx-dt-experience.md
   # Merged to main 2026-04-16
 
-  epic-dtx: done
+  epic-dtx: in-progress
 
   dtx-1-cross-reference-callouts: done
   dtx-2-compact-panel-binary-actions: done
   dtx-3-notes-feedback-visual-hierarchy: done
+  dtx-8-completion-gated-publish: ready-for-dev
 
   epic-dtx-retrospective: optional
 
@@ -348,5 +349,6 @@ development_status:
   feat-3-duplicate-character-hard-delete: backlog
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
+  feat-6-player-sheet-width-consistency: backlog  # Left panel width varies between characters; sheet should be full-width consistently
 
   epic-feat-retrospective: optional

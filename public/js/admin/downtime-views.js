@@ -15,6 +15,7 @@ import { applyDerivedMerits } from '../editor/mci.js';
 import { SKILLS_MENTAL, ALL_ATTRS, ALL_SKILLS, SKILL_CATS } from '../data/constants.js';
 import { getUser } from '../auth/discord.js';
 import { ACTION_TYPE_LABELS as _ACTION_TYPE_LABELS_BASE, MERIT_MATRIX, INVESTIGATION_MATRIX, TERRITORY_SLUG_MAP as _TERRITORY_SLUG_MAP_BASE, AMBIENCE_STEPS as _AMBIENCE_STEPS_BASE } from './downtime-constants.js';
+import { publishAllForCycle } from './downtime-story.js';
 
 // Convert UTC ISO string to datetime-local input value (local time)
 function isoToLocalInput(iso) {
@@ -1371,6 +1372,9 @@ async function openResetWizard() {
   if (!cycle || cycle.status !== 'active') {
     // No active cycle to close — create the next one directly
     if (!confirm(`Create Downtime ${nextNum}?`)) return;
+    // Auto-publish any unpublished submissions from the most recent closed cycle
+    const prevCycle = allCycles.find(c => c.status === 'closed' || c.status === 'game');
+    if (prevCycle) publishAllForCycle(prevCycle._id);
     await createCycle(nextNum);
     await loadAllCycles();
     return;
@@ -1691,6 +1695,8 @@ async function runWizardPhases(overlay, cycle, nextNum) {
   setPhaseState(overlay, 'new-cycle', 'running');
   try {
     await closeCycle(cycleId);
+    // Auto-publish unpublished submissions for the cycle being superseded (fire-and-forget)
+    publishAllForCycle(cycleId);
     await createCycle(nextNum, deadlineAt);
     // Auto-create game session in Attendance & Finance so the record exists immediately.
     // session_date defaults to today — ST can update the actual game date via Next Session form.
