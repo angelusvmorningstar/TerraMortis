@@ -858,6 +858,7 @@ function renderNavRail() {
     if (isST) {
       if (isPublished) {
         h += `<span class="dt-proj-done-badge">Published</span>`;
+        h += `<button class="dt-story-push-btn dt-story-repush-btn" data-sub-id="${sub._id}" data-char-id="${charId}" title="Re-push narrative to player">↺</button>`;
       } else {
         h += `<button class="dt-story-push-btn" data-sub-id="${sub._id}" data-char-id="${charId}" title="Push narrative to player">Push</button>`;
       }
