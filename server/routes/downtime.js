@@ -154,11 +154,13 @@ submissionsRouter.get('/', async (req, res) => {
   }
 
   // Player: restrict to their characters
+  // Accept both ObjectId and legacy string-stored character_ids (CSV imports may store as string)
   if (req.user.role === 'player') {
-    const charIds = (req.user.character_ids || []).map(id =>
+    const charIdOids = (req.user.character_ids || []).map(id =>
       id instanceof ObjectId ? id : new ObjectId(id)
     );
-    filter.character_id = { $in: charIds };
+    const charIdStrs = charIdOids.map(id => id.toString());
+    filter.character_id = { $in: [...charIdOids, ...charIdStrs] };
   }
 
   const docs = await submissions().find(filter).toArray();
