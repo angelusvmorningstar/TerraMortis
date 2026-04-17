@@ -1,6 +1,6 @@
 # Story DTX.6: DT Workflow Ribbon Redesign
 
-Status: draft
+Status: complete
 
 ## Story
 
