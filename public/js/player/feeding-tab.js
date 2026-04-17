@@ -161,14 +161,34 @@ export async function renderFeedingTab(el, char) {
     declaredSpec = mySub.responses['_feed_spec'] || '';
   }
 
-  // Prefer ST-confirmed pool from downtime processing (feeding_roll.params)
+  // Prefer ST-confirmed pool from downtime processing.
+  // Priority 1: feeding_roll.params (ST rolled on behalf of player — has exact size)
+  // Priority 2: feeding_review.pool_validated (ST validated pool — parse size from expression)
+  // Fallback: buildPool() from player's declared method
   if (mySub?.feeding_roll?.params?.size) {
     poolTotal = mySub.feeding_roll.params.size;
     stRote  = mySub.feeding_roll.params.rote  || false;
     stAgain = mySub.feeding_roll.params.again ?? 10;
     const roteLabel = stRote ? ' \u2014 Rote quality' : '';
     poolBreakdown = `ST confirmed: ${poolTotal} dice${roteLabel}`;
-    feedingState = declaredMethod ? 'ready' : 'no_submission';
+    feedingState = 'ready';
+  } else if (mySub?.feeding_review?.pool_status === 'validated' && mySub.feeding_review.pool_validated) {
+    const rev = mySub.feeding_review;
+    const sizeMatch = rev.pool_validated.match(/=\s*(\d+)\s*$/);
+    if (sizeMatch) {
+      poolTotal = parseInt(sizeMatch[1], 10);
+      stRote  = mySub.st_review?.feeding_rote || false;
+      stAgain = rev.eight_again ? 8 : rev.nine_again ? 9 : 10;
+      const roteLabel = stRote ? ' \u2014 Rote quality' : '';
+      const againLabel = stAgain === 8 ? ' \u2014 8-Again' : stAgain === 9 ? ' \u2014 9-Again' : '';
+      poolBreakdown = `ST confirmed: ${rev.pool_validated}${roteLabel}${againLabel}`;
+      feedingState = 'ready';
+    } else if (declaredMethod) {
+      buildPool(declaredMethod, declaredDisc, declaredSpec);
+      feedingState = 'ready';
+    } else {
+      feedingState = 'no_submission';
+    }
   } else if (declaredMethod) {
     buildPool(declaredMethod, declaredDisc, declaredSpec);
     feedingState = 'ready';
@@ -516,11 +536,22 @@ function render() {
       }
     }
 
-    if (isST) {
-      h += '<button id="feeding-reroll-btn" class="feeding-roll-btn" style="margin-top:16px;">Re-roll (ST)</button>';
-    }
-
     h += '</div>';
+  }
+
+  // ── ST OVERRIDE PANEL ──
+  if (isST && feedingState !== 'loading') {
+    if (feedingState === 'deferred') {
+      h += '<div class="feeding-st-override">';
+      h += '<span class="feeding-st-label">ST Override</span>';
+      h += '<button id="feeding-release-btn" class="feeding-roll-btn">Release Roll (ST)</button>';
+      h += '</div>';
+    } else if (feedingState === 'rolled') {
+      h += '<div class="feeding-st-override">';
+      h += '<span class="feeding-st-label">ST Override</span>';
+      h += '<button id="feeding-reroll-btn" class="feeding-roll-btn">Reset Roll (ST)</button>';
+      h += '</div>';
+    }
   }
 
   h += '</div>';
@@ -578,6 +609,27 @@ function wireEvents() {
       feedingState = 'no_submission';
     }
     render();
+  });
+
+  // ST release (deferred → ready)
+  container.querySelector('#feeding-release-btn')?.addEventListener('click', async () => {
+    if (!responseSubId) return;
+    try {
+      await apiPut(`/api/downtime_submissions/${responseSubId}`, {
+        feeding_deferred: null,
+        feeding_roll_player: null,
+        feeding_vitae_allocation: null,
+      });
+      if (declaredMethod) {
+        feedingState = 'ready';
+        buildPool(declaredMethod, declaredDisc, declaredSpec);
+      } else {
+        feedingState = 'no_submission';
+      }
+      render();
+    } catch {
+      alert('Could not release — please try again.');
+    }
   });
 
   // Defer button
