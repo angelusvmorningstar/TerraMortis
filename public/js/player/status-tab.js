@@ -9,30 +9,11 @@
  *   High seats — rank 4 (clan/cov) or city ranks 9–8: pair of cards, shown even when vacant
  *   Open floor — ranks below: compact scrollable rows
  *
- * Composite dot display (city only):
- *   ● innate (status.city stored value)
- *   ◐ title-derived bonus (from COURT_TITLE_BONUS map)
+ * City status dots displayed out of 10 (status.city is the combined total).
  */
 
 import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
-
-// ── Court title → city status bonus (Damnation City rules) ─────────────────
-const COURT_TITLE_BONUS = {
-  'Premier':       3, // Head of State
-  'Seneschal':     3, // Head of State variant
-  'Primogen':      2,
-  'Harpy':         1, // Socialite
-  'Enforcer':      1,
-  'Sheriff':       1, // Enforcer variant
-  'Hound':         1, // Enforcer sub-role
-  'Administrator': 1,
-  'Notary':        1, // Administrator variant
-  'Regent':        0,
-};
-
-function titleBonus(c)         { return COURT_TITLE_BONUS[c.court_title] || 0; }
-function effectiveCityStatus(c){ return (c.status?.city || 0) + titleBonus(c); }
 
 // ── Avatar helper ────────────────────────────────────────────────────────────
 function avatarUrl(c) {
@@ -54,20 +35,13 @@ function statusDots(n, max = 5) {
   return '\u25CF'.repeat(v) + '\u25CB'.repeat(max - v);
 }
 
-// Composite dots — city only: ● innate, ◐ title-derived, ○ empty
+// City dots — out of 10
 function cityStatusDots(c) {
-  const innate = Math.max(0, Math.min(10, c.status?.city || 0));
-  const bonus  = Math.min(10 - innate, titleBonus(c));
-  const empty  = 10 - innate - bonus;
-  return (
-    `<span class="status-dot-innate">${'\u25CF'.repeat(innate)}</span>` +
-    `<span class="status-dot-bonus">${'\u25D0'.repeat(bonus)}</span>` +
-    `<span class="status-dot-empty">${'\u25CB'.repeat(empty)}</span>`
-  );
+  return statusDots(c.status?.city || 0, 10);
 }
 
-// ── Compact floor row (unchanged from original) ───────────────────────────
-function renderRow(c, val, rank, isMe) {
+// ── Compact floor row ────────────────────────────────────────────────────────
+function renderRow(c, val, rank, isMe, dotsFn = v => statusDots(v)) {
   return `<div class="status-row${isMe ? ' status-row-me' : ''}">
     <span class="status-rank">${rank}</span>
     <img class="status-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
@@ -75,7 +49,7 @@ function renderRow(c, val, rank, isMe) {
       <div class="status-name">${esc(displayName(c))}</div>
       ${c.player ? `<div class="status-player">${esc(redactPlayer(c.player))}</div>` : ''}
     </div>
-    <span class="status-dots">${statusDots(val)}</span>
+    <span class="status-dots">${dotsFn(val, c)}</span>
     <span class="status-val">${val}</span>
   </div>`;
 }
@@ -120,15 +94,17 @@ function renderHighSeatCard(c, activeId, valFn, dotsFn) {
 }
 
 // ── City Status section (full-width) ─────────────────────────────────────────
+function cityVal(c) { return c.status?.city || 0; }
+
 function renderCitySection(chars, activeId) {
   const sorted = [...chars].sort((a, b) =>
-    effectiveCityStatus(b) - effectiveCityStatus(a) ||
+    cityVal(b) - cityVal(a) ||
     sortName(a).localeCompare(sortName(b))
   );
 
-  const apexChar  = sorted.find(c => effectiveCityStatus(c) === 10) || null;
-  const highChars = sorted.filter(c => { const v = effectiveCityStatus(c); return v >= 8 && v < 10; }).slice(0, 4);
-  const floorChars = sorted.filter(c => effectiveCityStatus(c) < 8);
+  const apexChar   = sorted.find(c => cityVal(c) === 10) || null;
+  const highChars  = sorted.filter(c => { const v = cityVal(c); return v >= 8 && v < 10; }).slice(0, 4);
+  const floorChars = sorted.filter(c => cityVal(c) < 8);
 
   // Always show at least 2 high-seat placeholders; keep pairs even
   const highSlots = [...highChars];
@@ -136,7 +112,7 @@ function renderCitySection(chars, activeId) {
   if (highSlots.length % 2 !== 0) highSlots.push(null);
 
   const dotsFn = c => cityStatusDots(c);
-  const valFn  = c => effectiveCityStatus(c);
+  const valFn  = c => cityVal(c);
 
   let h = `<div class="status-city-section">`;
   h += `<div class="status-section-head">`;
@@ -153,7 +129,7 @@ function renderCitySection(chars, activeId) {
   if (floorChars.length) {
     h += `<div class="status-floor">`;
     floorChars.forEach((c, i) => {
-      h += renderRow(c, effectiveCityStatus(c), i + 1, String(c._id) === activeId);
+      h += renderRow(c, cityVal(c), i + 1, String(c._id) === activeId, v => statusDots(v, 10));
     });
     h += `</div>`;
   }
