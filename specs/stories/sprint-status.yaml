@@ -369,7 +369,7 @@ development_status:
   epic-lst: backlog
 
   lst-1-dt-contacts-qualifier: review
-  lst-2-feed-roller-harmonise: ready-for-dev
+  lst-2-feed-roller-harmonise: review
   lst-3-tracker-migration: ready-for-dev
   lst-4-st-sheet-swap: backlog          # blocked by lst-3
   lst-5-st-feeding-confirm: backlog     # blocked by lst-3

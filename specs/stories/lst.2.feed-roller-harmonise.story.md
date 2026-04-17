@@ -2,7 +2,7 @@
 
 **Story ID:** lst.2
 **Epic:** Live Session Toolkit — Game App QoL
-**Status:** ready-for-dev
+**Status:** review
 **Date:** 2026-04-18
 
 ---
@@ -100,12 +100,12 @@ The game app Roll tab feeding test is a convenience tool. If it can't be harmoni
 ## Acceptance Criteria
 
 **If harmonised:**
-- [ ] `tracker-feed.js` imports `FEED_METHODS` and `TERRITORY_DATA` from `public/js/player/downtime-data.js`
-- [ ] No hardcoded `FEED_METHODS` or `FEED_TERRS` remain in `tracker-feed.js`
-- [ ] All 5 method cards render correctly in the Roll tab
-- [ ] Territory dropdown populates and ambience modifier applies correctly
-- [ ] Pool totals match expected values for a test character
-- [ ] `feeding-tab.js` is untouched
+- [x] `tracker-feed.js` imports `FEED_METHODS` and `TERRITORY_DATA` from `public/js/player/downtime-data.js`
+- [x] No hardcoded `FEED_METHODS` or `FEED_TERRS` remain in `tracker-feed.js`
+- [x] All 5 method cards render correctly in the Roll tab (shared FEED_METHODS now includes 6th "Other" method)
+- [x] Territory dropdown populates and ambience modifier applies correctly
+- [x] Pool totals match expected values for a test character
+- [x] `feeding-tab.js` is untouched
 
 **If removed:**
 - [ ] `feed-section` removed from `index.html`
