@@ -358,3 +358,20 @@ development_status:
   feat-8-contact-action-type: backlog             # Contacts have only one fixed action — no action type selector should appear in DT Processing, and DT Story tab should not label contact actions with an action type
 
   epic-feat-retrospective: optional
+
+  # ============================================================
+  # EPIC LST: LIVE SESSION TOOLKIT — GAME APP QOL
+  # ============================================================
+  # Stories: lst.1–lst.5
+  # Delivery order: lst.1 + lst.2 (parallel) → lst.3 → lst.4 → lst.5
+  # lst.3 blocks lst.4 and lst.5
+
+  epic-lst: backlog
+
+  lst-1-dt-contacts-qualifier: review
+  lst-2-feed-roller-harmonise: ready-for-dev
+  lst-3-tracker-migration: ready-for-dev
+  lst-4-st-sheet-swap: backlog          # blocked by lst-3
+  lst-5-st-feeding-confirm: backlog     # blocked by lst-3
+
+  epic-lst-retrospective: optional

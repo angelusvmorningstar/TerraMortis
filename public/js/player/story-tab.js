@@ -291,7 +291,10 @@ function buildPlayerMeritActions(sub) {
   // Contacts
   const contactRaw = raw.contact_actions?.requests || [];
   if (contactRaw.length) {
-    contactRaw.forEach(() => actions.push({ merit_type: resp[`contact_1_merit`] || 'Contacts', action_type: 'misc' }));
+    contactRaw.forEach((_, idx) => {
+      const n = idx + 1;
+      actions.push({ merit_type: resp[`contact_${n}_merit`] || resp[`contact_1_merit`] || 'Contacts', action_type: 'misc' });
+    });
   } else {
     for (let n = 1; n <= 5; n++) {
       if (!resp[`contact_${n}_request`]) continue;
