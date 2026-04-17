@@ -4181,6 +4181,29 @@ function renderProcessingMode(container) {
     });
   });
 
+  // Wire contacts info type selector
+  container.querySelectorAll('.proc-contacts-info-type-sel').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_info_type: sel.value || null });
+    });
+  });
+
+  // Wire contacts subject text input
+  container.querySelectorAll('.proc-contacts-subject-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_subject: inp.value.trim() || null });
+    });
+  });
+
   // Wire patrol/scout detail level selector
   container.querySelectorAll('.proc-patrol-detail-sel').forEach(sel => {
     sel.addEventListener('click', e => e.stopPropagation());
@@ -6334,12 +6357,22 @@ function renderActionPanel(entry, review) {
     h += _renderActionTypeRow(entry, rev, meritEntChar);
   }
   if (entry.source === 'merit') {
-    // Contacts target field
+    // Contacts target + info type + subject fields
     if (entry.meritCategory === 'contacts') {
-      const _ciTarget = rev.contacts_target || '';
+      const _ciTarget   = rev.contacts_target    || '';
+      const _ciInfoType = rev.contacts_info_type || '';
+      const _ciSubject  = rev.contacts_subject   || '';
       h += `<div class="proc-recat-row proc-recat-row-tight">`;
       h += `<span class="proc-feed-lbl">Target</span>`;
       h += `<input type="text" class="proc-detail-input proc-contacts-target-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciTarget)}" placeholder="Person or group\u2026">`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
+      h += `<span class="proc-feed-lbl">Info Type</span>`;
+      h += `<select class="proc-recat-select proc-contacts-info-type-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${['Public', 'Internal', 'Confidential', 'Restricted'].map(t => `<option value="${t}"${_ciInfoType === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
+      h += `<span class="proc-feed-lbl">Subject</span>`;
+      h += `<input type="text" class="proc-detail-input proc-contacts-subject-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciSubject)}" placeholder="Topic or sphere\u2026">`;
       h += `</div>`;
     }
     // Patrol/Scout outcome fields
