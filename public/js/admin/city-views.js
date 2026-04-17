@@ -21,8 +21,8 @@ const TERRITORIES = [
 
 const AMBIENCE_LEVELS = ['Hostile', 'Barrens', 'Neglected', 'Untended', 'Settled', 'Tended', 'Curated'];
 
-const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
-const COURT_TITLES = ['', 'Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
+const CATEGORY_ORDER = ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer'];
+const COURT_CATEGORIES = ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer'];
 const CLANS = ['Daeva', 'Gangrel', 'Mekhet', 'Nosferatu', 'Ventrue'];
 const COVENANTS = ['Carthian Movement', 'Circle of the Crone', 'Invictus', 'Lancea et Sanctum', 'Ordo Dracul'];
 
@@ -73,9 +73,9 @@ function renderCity(container) {
 
 function renderCourt() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
-  const titled = active.filter(c => c.court_title && c.court_title !== 'Regent').sort((a, b) => {
-    const ai = TITLE_ORDER.indexOf(a.court_title);
-    const bi = TITLE_ORDER.indexOf(b.court_title);
+  const titled = active.filter(c => c.court_category).sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a.court_category);
+    const bi = CATEGORY_ORDER.indexOf(b.court_category);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || sortName(a).localeCompare(sortName(b));
   });
 
@@ -83,8 +83,9 @@ function renderCourt() {
   for (const c of titled) {
     const _rt = terrDocs.find(td => td.regent_id === String(c._id));
     const territory = _rt ? ' — Regent of ' + esc(_rt.name || _rt.id) : '';
+    const epithet = c.court_title ? ` <span class="court-epithet">(${esc(c.court_title)})</span>` : '';
     h += `<div class="court-row">
-      <span class="court-title">${esc(c.court_title)}</span>
+      <span class="court-title">${esc(c.court_category)}${epithet}</span>
       <span class="court-name">${esc(displayName(c))}</span>
       <span class="court-detail">${esc(c.clan || '')}${territory}</span>
     </div>`;
@@ -96,12 +97,11 @@ function renderCourt() {
   h += '<button class="city-edit-toggle" id="court-edit-toggle">Edit Court Positions</button>';
   h += '<div class="court-edit-panel" id="court-edit-panel" style="display:none">';
   h += '<div class="court-edit-grid">';
-  for (const title of COURT_TITLES) {
-    if (!title) continue;
-    const holder = active.find(c => c.court_title === title);
+  for (const cat of COURT_CATEGORIES) {
+    const holder = active.find(c => c.court_category === cat);
     h += `<div class="court-edit-row">`;
-    h += `<span class="court-edit-label">${esc(title)}</span>`;
-    h += `<select class="court-edit-sel" data-court-title="${esc(title)}">`;
+    h += `<span class="court-edit-label">${esc(cat)}</span>`;
+    h += `<select class="court-edit-sel" data-court-category="${esc(cat)}">`;
     h += '<option value="">— Vacant —</option>';
     for (const c of active) {
       const sel = holder && holder._id === c._id ? ' selected' : '';
@@ -530,29 +530,29 @@ async function saveFeedingRights(terrId) {
 
 async function saveCourt() {
   const status = document.getElementById('court-save-status');
-  const selects = document.querySelectorAll('[data-court-title]');
+  const selects = document.querySelectorAll('[data-court-category]');
   const assignments = {};
-  selects.forEach(sel => { assignments[sel.dataset.courtTitle] = sel.value; });
+  selects.forEach(sel => { assignments[sel.dataset.courtCategory] = sel.value; });
 
   try {
-    // Clear all existing court titles, then assign new ones
+    // Clear all existing court categories, then assign new ones
     const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
     for (const c of active) {
-      if (!c.court_title) continue;
+      if (!c.court_category) continue;
       // Check if still assigned
-      const stillAssigned = Object.entries(assignments).some(([title, id]) => id === c._id && title === c.court_title);
+      const stillAssigned = Object.entries(assignments).some(([cat, id]) => id === c._id && cat === c.court_category);
       if (!stillAssigned) {
-        await apiPut(`/api/characters/${c._id}`, { court_title: null });
-        c.court_title = null;
+        await apiPut(`/api/characters/${c._id}`, { court_category: null });
+        c.court_category = null;
       }
     }
-    // Assign new titles
-    for (const [title, charId] of Object.entries(assignments)) {
+    // Assign new categories
+    for (const [cat, charId] of Object.entries(assignments)) {
       if (!charId) continue;
       const c = active.find(x => x._id === charId);
-      if (c && c.court_title !== title) {
-        await apiPut(`/api/characters/${c._id}`, { court_title: title });
-        c.court_title = title;
+      if (c && c.court_category !== cat) {
+        await apiPut(`/api/characters/${c._id}`, { court_category: cat });
+        c.court_category = cat;
       }
     }
     if (status) status.textContent = 'Saved';

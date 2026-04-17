@@ -19,7 +19,7 @@ export function renderIdentityTab(c) {
   const dirgeOpts = MASKS_DIRGES.map(m => `<option${c.dirge === m ? ' selected' : ''}>${m}</option>`).join('');
   const clanOpts = CLANS.map(cl => `<option${c.clan === cl ? ' selected' : ''}>${cl}</option>`).join('');
   const covOpts = COVENANTS.map(cv => `<option${c.covenant === cv ? ' selected' : ''}>${cv}</option>`).join('');
-  const titleOpts = COURT_TITLES.map(t => `<option${c.court_title === t ? ' selected' : ''}>${t || '(none)'}</option>`).join('');
+  const categoryOpts = COURT_TITLES.map(t => `<option value="${esc(t)}"${c.court_category === t ? ' selected' : ''}>${t || '(none)'}</option>`).join('');
 
   el.innerHTML = `
     <div class="form-section">
@@ -78,8 +78,12 @@ export function renderIdentityTab(c) {
           <select class="form-select" onchange="updField('covenant',this.value)">${covOpts}</select>
         </div>
         <div class="form-row">
-          <label class="form-label">Court Title</label>
-          <select class="form-select" onchange="updField('court_title',this.value==='(none)'?null:this.value)">${titleOpts}</select>
+          <label class="form-label">Court Position</label>
+          <select class="form-select" onchange="updField('court_category',this.value||null)">${categoryOpts}</select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Court Epithet</label>
+          <input class="form-input" value="${esc(c.court_title || '')}" onchange="updField('court_title',this.value||null)" placeholder="e.g. Premier, Harpy, Protector">
         </div>
       </div>
     </div>

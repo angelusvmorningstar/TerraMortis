@@ -1515,12 +1515,13 @@ export function renderSheet(c, target = null) {
   h += '</div>'; // end left
   // Right panel
   h += '<div class="sh-hdr-right">';
-  const tOpts = COURT_TITLES.map(t => '<option' + (c.court_title === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join('');
+  const tOpts = COURT_TITLES.map(t => '<option value="' + esc(t) + '"' + (c.court_category === t ? ' selected' : '') + '>' + esc(t || '(none)') + '</option>').join('');
   // Regent territory is derived from territories collection, not stored on character
   const _regTerrName = c._regentTerritory?.territory || null;
+  const _courtLabel = c.court_category ? (c.court_title ? c.court_category + ' \u2014 ' + c.court_title : c.court_category) : '\u2014';
   h += '<div class="sh-hdr-row"><div class="sh-icon-slot"></div><div class="sh-faction-text">';
-  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_title\',this.value===\'(none)\'?null:this.value)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--accent)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
-  else { h += '<div class="sh-faction-label">' + esc(c.court_title || '\u2014') + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
+  if (editMode) { h += '<select class="sh-edit-select" onchange="shEdit(\'court_category\',this.value||null)">' + tOpts + '</select>'; if (_regTerrName) h += '<div style="margin-top:3px;font-size:10px;color:var(--accent)">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
+  else { h += '<div class="sh-faction-label">' + esc(_courtLabel) + '</div>'; if (_regTerrName) h += '<div class="sh-faction-bloodline">Regent \u2014 ' + esc(_regTerrName) + '</div>'; }
   const cityBase = st.city || 0, titleBonus = titleStatusBonus(c), cityTotal = cityBase + titleBonus;
   h += '<div class="sh-faction-sub">Title</div>'
     + _statusDots(cityBase, titleBonus, 10)

@@ -201,7 +201,7 @@ export function calcVitaeMax(c) {
 import { TITLE_STATUS_BONUS } from './constants.js';
 
 export function titleStatusBonus(c) {
-  return TITLE_STATUS_BONUS[c.court_title] || 0;
+  return TITLE_STATUS_BONUS[c.court_category] || 0;
 }
 
 export function calcCityStatus(c) {
