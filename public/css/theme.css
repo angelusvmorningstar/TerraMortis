@@ -10,7 +10,7 @@
 /* ── Parchment (default) ── */
 :root {
   /* Backgrounds & surfaces */
-  --bg:#F4EFE4;--surf:#EDE7D8;--surf2:#E5DEC9;--surf3:#DBD3BC;
+  --bg:#F4EFE4;--surf:#EDE7D8;--surf1:#E9E2D1;--surf2:#E5DEC9;--surf3:#DBD3BC;
   --surf-a6:rgba(244,239,228,.6);--surf2-a8:rgba(229,222,201,.8);
   --overlay:rgba(0,0,0,.50);--overlay2:rgba(0,0,0,.65);
 
