@@ -2,7 +2,7 @@
 
 **Story ID:** lst.3
 **Epic:** Live Session Toolkit — Game App QoL
-**Status:** ready-for-dev
+**Status:** review
 **Date:** 2026-04-18
 
 ---
