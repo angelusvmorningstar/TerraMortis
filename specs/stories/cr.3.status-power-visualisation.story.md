@@ -1,6 +1,6 @@
 # Story CR-3: Status & Power Visualisation (Player)
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 
@@ -503,13 +503,22 @@ Below 720px the high-seat pair stacks vertically. The existing `@media (max-widt
 ## Dev Agent Record
 
 ### Agent Model Used
-
-### Debug Log References
+claude-sonnet-4-6
 
 ### Completion Notes List
+
+- API /status projection extended to include `status.city` and `court_title`
+- COURT_TITLE_BONUS map added (Premier/Seneschal +3, Primogen +2, Harpy/Enforcer/Admin +1, Regent +0); effectiveCityStatus() = stored city + titleBonus()
+- cityStatusDots(): ● innate (U+25CF), ◐ title-derived (U+25D0), ○ empty (U+25CB) — city view only
+- renderApexCard() and renderHighSeatCard() handle null (vacant) gracefully with dashed placeholder
+- renderCitySection(): full-width, always shows apex + 2 high-seat slots even when all vacant; open floor for effective city < 8
+- renderStatusSection(): clan/covenant columns, apex at rank 5, high seats at rank 4 (padded to 2 slots minimum)
+- All new CSS under /* CR-3: slot architecture */ comment block; responsive: high-row stacks at 720px
+- court_category is null in DB (migrate-court-titles.js not yet run) — bonus lookup via court_title string works without it
 
 ### File List
 
 - `server/routes/characters.js`
 - `public/js/player/status-tab.js`
 - `public/css/player-layout.css`
+- `specs/stories/cr.3.status-power-visualisation.story.md`
