@@ -276,11 +276,6 @@ function renderProjectCards(sub) {
       h += `<div class="proj-card-objective">${esc(objective)}</div>`;
     }
 
-    const paras = resp.split(/\n{2,}/).filter(Boolean);
-    h += '<div class="proj-card-response">';
-    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
-    h += '</div>';
-
     // Pool expression: prefer pool object, fall back to pool_validated string
     const poolExpr = rev.pool?.expression || rev.pool_validated || (rev.pool?.total ? String(rev.pool.total) : '');
     if (!rev.no_roll && poolExpr) {
