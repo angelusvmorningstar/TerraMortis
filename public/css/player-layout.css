@@ -2517,6 +2517,14 @@ body {
   word-break: break-all;
 }
 
+.proj-card-dice {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--txt3);
+  word-break: break-all;
+  margin-top: 4px;
+}
+
 .feeding-result { text-align: center; padding: 24px; }
 .feeding-suc { font-family: var(--fl); font-size: 48px; color: var(--accent); }
 .feeding-suc-label { font-family: var(--fl); font-size: 13px; color: var(--txt3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 16px; }
