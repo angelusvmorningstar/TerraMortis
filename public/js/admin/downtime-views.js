@@ -77,7 +77,8 @@ const PHASE_LABELS = {
   status: 'Status',
   retainers: 'Retainers',
   contacts: 'Contacts',
-  resources_retainers: 'Resources & Retainers',
+  resources_retainers: 'Retainers',
+  resources: 'Resources',
   other_merit: 'Other Merit Actions',
 };
 
@@ -97,6 +98,7 @@ const PHASE_NUM_TO_LABEL = {
   11: 'contacts',
   12: 'resources_retainers',
   13: 'other_merit',
+  14: 'resources',
 };
 
 // Maps simplified ST-created action category to phase number
@@ -2189,8 +2191,8 @@ function buildProcessingQueue(subs) {
         key: `${sub._id}:acq:resources`,
         subId: sub._id,
         charName,
-        phase: PHASE_NUM_TO_LABEL[7],
-        phaseNum: 7,
+        phase: PHASE_NUM_TO_LABEL[14],
+        phaseNum: 14,
         actionType: 'resources_acquisitions',
         label: 'Resources Acquisitions',
         description: _acqRowSummary(resAcq),

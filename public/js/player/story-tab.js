@@ -98,6 +98,7 @@ function renderChronicle(subs, cycles, char) {
     h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
     h += renderOutcome(sub.published_outcome);
     h += renderProjectCards(sub);
+    h += renderMeritActionCards(sub);
     h += `</div>`;
   }
   h += '</div>';
@@ -127,6 +128,114 @@ function renderOutcome(text) {
     }
   }
   h += '</div>';
+  return h;
+}
+
+// ── Merit action cards ────────────────────────────────────────────
+
+/**
+ * Reconstructs the ordered list of merit actions from the submission's
+ * form responses. Ordering matches downtime-views.js flat index:
+ * spheres → contacts → retainers → resources.
+ */
+function buildPlayerMeritActions(sub) {
+  const resp = sub.responses || {};
+  const raw  = sub._raw    || {};
+  const actions = [];
+
+  // Spheres (Allies, Status, etc.)
+  const sphereRaw = raw.sphere_actions || [];
+  if (sphereRaw.length) {
+    sphereRaw.forEach((entry, idx) => {
+      const slot = idx + 1;
+      actions.push({
+        merit_type:  resp[`sphere_${slot}_merit`] || '',
+        action_type: entry.action_type || '',
+      });
+    });
+  } else {
+    for (let n = 1; n <= 5; n++) {
+      const mt = resp[`sphere_${n}_merit`];
+      if (!mt) continue;
+      actions.push({ merit_type: mt, action_type: resp[`sphere_${n}_action`] || '' });
+    }
+  }
+
+  // Contacts
+  const contactRaw = raw.contact_actions?.requests || [];
+  if (contactRaw.length) {
+    contactRaw.forEach(() => actions.push({ merit_type: resp[`contact_1_merit`] || 'Contacts', action_type: 'misc' }));
+  } else {
+    for (let n = 1; n <= 5; n++) {
+      if (!resp[`contact_${n}_request`]) continue;
+      actions.push({ merit_type: resp[`contact_${n}_merit`] || 'Contacts', action_type: 'misc' });
+    }
+  }
+
+  // Retainers
+  const retainerRaw = raw.retainer_actions?.actions || [];
+  if (retainerRaw.length) {
+    retainerRaw.forEach(() => actions.push({ merit_type: 'Retainer', action_type: 'misc' }));
+  } else {
+    for (let n = 1; n <= 4; n++) {
+      if (!resp[`retainer_${n}_task`]) continue;
+      actions.push({ merit_type: 'Retainer', action_type: 'misc' });
+    }
+  }
+
+  // Resources
+  const resBlob = raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '';
+  if (resBlob.trim()) {
+    actions.push({ merit_type: 'Resources', action_type: 'acquisition' });
+  }
+
+  return actions;
+}
+
+function renderMeritActionCards(sub) {
+  const actions  = buildPlayerMeritActions(sub);
+  if (!actions.length) return '';
+
+  const resolved = sub.merit_actions_resolved || [];
+  const cards = actions
+    .map((a, i) => ({ a, rev: resolved[i] || {} }))
+    .filter(({ rev }) => rev.pool || rev.roll);
+
+  if (!cards.length) return '';
+
+  let h = '';
+  for (const { a, rev } of cards) {
+    // Strip dot characters from stored label: "Allies ●●● (Finance)" → "Allies (Finance)"
+    const meritLabel = (a.merit_type || '').replace(/\s*[●○\u25cf\u25cb]+\s*/gi, ' ').replace(/\s+/g, ' ').trim();
+    const actionLabel = ACTION_TYPE_LABELS[a.action_type] || a.action_type || '';
+
+    h += '<div class="proj-card">';
+    h += '<div class="proj-card-header">';
+    if (actionLabel) h += `<span class="proj-card-type-chip">${esc(actionLabel)}</span>`;
+    h += `<span class="proj-card-name">${esc(meritLabel)}</span>`;
+    h += '</div>';
+
+    if (rev.pool) {
+      const expr = rev.pool.expression || String(rev.pool.total || '');
+      if (expr) h += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(expr)}</span></div>`;
+    }
+
+    if (rev.roll) {
+      const suc = rev.roll.successes ?? 0;
+      const exc = rev.roll.exceptional;
+      const label = exc ? 'Exceptional Success'
+        : suc === 0 ? 'Failure'
+        : `${suc} Success${suc !== 1 ? 'es' : ''}`;
+      const cls = exc ? ' proj-card-roll-exc' : suc === 0 ? ' proj-card-roll-fail' : '';
+      h += `<div class="proj-card-roll${cls}">${esc(label)}</div>`;
+    }
+
+    if (rev.player_feedback) {
+      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">Feedback</span>${esc(rev.player_feedback)}</div>`;
+    }
+
+    h += '</div>';
+  }
   return h;
 }
 

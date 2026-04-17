@@ -13,6 +13,17 @@ Import historical content into the player-facing Chronicles and Ordeals systems.
 
 ---
 
+## Completed Ad-Hoc: Missing Devotions Seeded to purchasable_powers
+
+**Status: Done — merged to main 2026-04-17**
+
+- 21 devotions missing from the `purchasable_powers` collection inserted via `server/migrate-devotions-missing.js`
+- Source: `st-working/reference/TM_rules_devotion_missing.json`
+- Bloodlines: Lasombra, Gorgon, Norvegi, Apollinaire, Zelani, Lygos, Rotgrafen, Mnemosyne, Order of Sir Martin; Mystery Cult of the Moulding Room devotions
+- Script is idempotent — safe to re-run; skips existing keys
+
+---
+
 ## Story DI-1: Import DT1 Narratives into Chronicles
 
 **Backlog item:** 7
