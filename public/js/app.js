@@ -84,6 +84,17 @@ import { renderSuiteStatusTab } from './suite/status.js';
 function toast(msg) { _toast(msg); }
 
 // ══════════════════════════════════════════════
+//  VIEW MODE (ST player-view toggle)
+// ══════════════════════════════════════════════
+
+const VIEW_MODE_KEY = 'tm_view_mode';
+let _viewMode = localStorage.getItem(VIEW_MODE_KEY) || 'st';
+
+function effectiveRole() {
+  return (getRole() === 'st' && _viewMode === 'player') ? 'player' : getRole();
+}
+
+// ══════════════════════════════════════════════
 //  DIRTY STATE MANAGEMENT (editor)
 // ══════════════════════════════════════════════
 
@@ -144,7 +155,11 @@ function openChar(idx) {
   else if (hdrIcon) { hdrIcon.style.display = 'none'; }
   renderIdentityTab(c);
   renderAttrsTab(c);
-  editorRenderSheet(c);
+  editorRenderSheet(c);         // keep — editor/attrs tabs still use this
+  suiteState.sheetChar = c;
+  document.getElementById('sh-empty').style.display = 'none';
+  document.getElementById('sh-content-suite').style.display = '';
+  suiteRenderSheet();           // suite single-column sheet for the Sheets tab
 
   // Render pools panel — sets rollChar so Roll tab banner shows this character
   const poolsEl = document.getElementById('gcp-panel');
@@ -157,7 +172,7 @@ function openChar(idx) {
   }
 
   setSheetView('sheet');
-  goTab('editor');
+  goTab('sheets');
 }
 
 // ══════════════════════════════════════════════
@@ -723,6 +738,14 @@ async function boot() {
     if (errorEl) errorEl.textContent = err.message;
   }
 
+  // Close profile dropdown on outside click
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#hdr-profile') && !e.target.closest('#hdr-profile-menu')) {
+      const menu = document.getElementById('hdr-profile-menu');
+      if (menu) menu.style.display = 'none';
+    }
+  });
+
   if (isLoggedIn()) {
     const valid = await validateToken();
     if (valid) {
@@ -758,51 +781,69 @@ function playerGoDowntime() {
   setSheetView('dt');
 }
 
-/** Hide ST-only UI for player role. */
+/** Apply nav and UI visibility for the current effective role. Idempotent — safe to call multiple times. */
 function applyRoleRestrictions() {
-  const role = getRole();
+  const role = effectiveRole();
   const isST = role === 'st';
+  const isRealST = getRole() === 'st';
 
-  // Territory and Tracker tabs — ST only
-  if (!isST) {
-    ['n-chars', 'n-territory', 'n-tracker'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-    // Player-only nav buttons
-    ['n-editor', 'n-dt', 'n-rules'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = '';
-    });
-    // Hide the sheet topbar (Sheet/DT Report/Rules/PDF/JSON toggle row)
-    const topbar = document.querySelector('.sheet-topbar');
-    if (topbar) topbar.style.display = 'none';
-  }
+  // ST nav — Characters, Territory, Tracker
+  ['n-chars', 'n-territory', 'n-tracker'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isST ? '' : 'none';
+  });
+
+  // Player nav — Sheet, Submit DT
+  ['n-editor', 'n-dt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isST ? 'none' : '';
+  });
+
+  // Rules and Status — visible to all
+  ['n-rules', 'n-status'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
 
   // Feeding test and Contested Roll — ST only
-  const feedSec   = document.getElementById('feed-section');
+  const feedSec = document.getElementById('feed-section');
   if (feedSec) feedSec.style.display = isST ? '' : 'none';
   const btnContested = document.getElementById('btn-contested');
   if (btnContested) btnContested.style.display = isST ? '' : 'none';
 
-  // Header nav — admin link ST only, player link for everyone
+  // ST Admin link — always visible to real STs regardless of view mode
   const navAdmin = document.getElementById('nav-admin');
-  if (navAdmin) navAdmin.style.display = isST ? '' : 'none';
+  if (navAdmin) navAdmin.style.display = isRealST ? '' : 'none';
 
-  // Hide Save All / import controls for players
+  // Save All / import controls — ST only
   const topbarRight = document.getElementById('topbar-right');
-  if (topbarRight && !isST) topbarRight.style.display = 'none';
+  if (topbarRight) topbarRight.style.display = isST ? '' : 'none';
 
-  // Restrict character list and hide filters for players
+  // Sheet topbar — hide for players
+  const topbar = document.querySelector('.sheet-topbar');
+  if (topbar) topbar.style.display = isST ? '' : 'none';
+
+  // Character list — restrict to player's own characters in player mode
   if (!isST) {
     const info = getPlayerInfo();
     setListLimit(info?.character_ids || []);
     const toolbar = document.querySelector('.list-toolbar');
     if (toolbar) toolbar.style.display = 'none';
+  } else {
+    setListLimit([]);
+    const toolbar = document.querySelector('.list-toolbar');
+    if (toolbar) toolbar.style.display = '';
+  }
+
+  // Update toggle button label
+  const toggleBtn = document.getElementById('btn-view-toggle');
+  if (toggleBtn) {
+    toggleBtn.textContent = isST ? 'Player View' : 'ST View';
+    toggleBtn.classList.toggle('view-toggle-active', !isST);
   }
 }
 
-/** Show logged-in user in header. */
+/** Show logged-in user in header with avatar dropdown for logout. */
 function renderUserHeader() {
   const user = getUser();
   if (!user) return;
@@ -812,7 +853,6 @@ function renderUserHeader() {
   if (!userEl) {
     userEl = document.createElement('div');
     userEl.id = 'hdr-user';
-    userEl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt3);';
     hdr.appendChild(userEl);
   }
   const name = user.global_name || user.username;
@@ -821,7 +861,64 @@ function renderUserHeader() {
     : user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`
       : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
-  userEl.innerHTML = `<img src="${avatarUrl}" style="width:24px;height:24px;border-radius:50%;"><span>${name}</span><button onclick="logout()" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;font-family:var(--fh);">Log out</button>`;
+  userEl.innerHTML = `
+    <div class="hdr-profile" id="hdr-profile" onclick="toggleProfileMenu()">
+      <img src="${avatarUrl}" class="hdr-avatar" alt="">
+      <span class="hdr-name">${name}</span>
+      <span class="hdr-caret">&#9662;</span>
+    </div>
+    <div class="hdr-profile-menu" id="hdr-profile-menu" style="display:none">
+      <button onclick="logout()" class="hdr-menu-item">Log out</button>
+    </div>
+  `;
+
+  // Show toggle for STs, restore saved label
+  const toggleBtn = document.getElementById('btn-view-toggle');
+  if (toggleBtn && getRole() === 'st') {
+    toggleBtn.style.display = '';
+    toggleBtn.textContent = _viewMode === 'st' ? 'Player View' : 'ST View';
+    toggleBtn.classList.toggle('view-toggle-active', _viewMode === 'player');
+  }
+
+  // Returning ST who last left in player mode — re-enter player view
+  if (getRole() === 'st' && _viewMode === 'player') {
+    applyRoleRestrictions();
+    _enterPlayerView();
+  }
+}
+
+function toggleProfileMenu() {
+  const menu = document.getElementById('hdr-profile-menu');
+  if (menu) menu.style.display = menu.style.display === 'none' ? '' : 'none';
+}
+
+function toggleViewMode() {
+  _viewMode = _viewMode === 'st' ? 'player' : 'st';
+  localStorage.setItem(VIEW_MODE_KEY, _viewMode);
+  applyRoleRestrictions();
+  if (_viewMode === 'player') {
+    _enterPlayerView();
+  } else {
+    _enterSTView();
+  }
+}
+
+function _enterPlayerView() {
+  const info = getPlayerInfo();
+  const ids = info?.character_ids || [];
+  if (!ids.length) {
+    goTab('editor');
+    const shContent = document.getElementById('sh-content');
+    if (shContent) shContent.innerHTML = '<div class="dtl-empty">No character detected — ask your Storyteller to link your Discord account.</div>';
+    return;
+  }
+  const idx = editorState.chars.findIndex(c => ids.includes(String(c._id)));
+  if (idx >= 0) openChar(idx);
+  else goTab('roll');
+}
+
+function _enterSTView() {
+  goTab('chars');
 }
 
 // Expose functions used in inline onclick handlers
@@ -829,6 +926,8 @@ window.logout = logout;
 window.playerGoDowntime  = playerGoDowntime;
 window.openRulesOverlay  = openRulesOverlay;
 window.closeRulesOverlay = closeRulesOverlay;
+window.toggleViewMode    = toggleViewMode;
+window.toggleProfileMenu = toggleProfileMenu;
 
 boot();
 const logo = document.getElementById('topbar-logo');
