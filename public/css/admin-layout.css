@@ -6548,6 +6548,10 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-story-push-btn:disabled { opacity: 0.5; cursor: default; }
 .dt-story-repush-btn { border-color: var(--gold-a40); color: var(--gold-a60); font-size: 12px; padding: 1px 5px; }
 .dt-error-msg { color: var(--crim); font-size: 10px; }
+.dt-story-rail-header { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; border-bottom: 1px solid var(--bdr); margin-bottom: 8px; width: 100%; }
+.dt-story-publish-all-btn { background: transparent; border: 1px solid var(--gold2); border-radius: 3px; color: var(--gold2); cursor: pointer; font-size: 11px; padding: 3px 10px; }
+.dt-story-publish-all-btn:disabled { opacity: 0.5; cursor: default; }
+.dt-story-publish-summary { color: var(--gold2); font-size: 11px; padding: 4px 0 6px; width: 100%; }
 
 /* ── DTX.7: Regent feeding gate ── */
 .dt-feeding-locked { background: var(--surf); border: 1px solid var(--bdr2); border-left: 3px solid var(--gold2); border-radius: 4px; padding: 14px 16px; }
