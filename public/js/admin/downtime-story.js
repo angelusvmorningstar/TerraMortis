@@ -1632,7 +1632,9 @@ function buildMeritActions(sub) {
     for (let n = 1; n <= 5; n++) {
       const req = resp[`contact_${n}_request`];
       if (!req) continue;
-      actions.push({ merit_type: 'Contacts', action_type: 'misc', desired_outcome: '', description: req });
+      // Use stored merit label (e.g. "Contacts ●●● (Crime)") so qualifier renders
+      const meritLbl = resp[`contact_${n}_merit`] || 'Contacts';
+      actions.push({ merit_type: meritLbl, action_type: 'misc', desired_outcome: '', description: req });
     }
   }
 
@@ -1997,7 +1999,8 @@ function renderActionCard(char, sub, idx) {
 
   // Meta row
   h += `<div class="dt-story-merit-meta">`;
-  h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
+  // Contacts have no meaningful action type — suppress chip to avoid stale data showing
+  if (meritCat !== 'contacts') h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
   if (territory) h += `<span class="dt-story-proj-territory">Territory: ${territory}</span>`;
   const poolRoll = [pool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
   if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
