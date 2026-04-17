@@ -184,11 +184,18 @@ export async function renderFeedingTab(el, char) {
     const sizeMatch = rev.pool_validated.match(/=\s*(\d+)\s*$/);
     if (sizeMatch) {
       poolTotal = parseInt(sizeMatch[1], 10);
+      // Include spec bonus from ST processing — pool_mod_spec is applied at
+      // roll time in the admin panel but was missing here, causing a mismatch
+      // between what the ST rolls and what the player sees/rolls.
+      poolTotal += (rev.pool_mod_spec || 0);
       stRote  = mySub.st_review?.feeding_rote || false;
       stAgain = rev.eight_again ? 8 : rev.nine_again ? 9 : 10;
+      const specInfo = (rev.active_feed_specs?.length)
+        ? ` + ${rev.active_feed_specs.join(', ')} +${rev.pool_mod_spec}`
+        : '';
       const roteLabel = stRote ? ' \u2014 Rote quality' : '';
       const againLabel = stAgain === 8 ? ' \u2014 8-Again' : stAgain === 9 ? ' \u2014 9-Again' : '';
-      poolBreakdown = `ST confirmed: ${rev.pool_validated}${roteLabel}${againLabel}`;
+      poolBreakdown = `ST confirmed: ${rev.pool_validated}${specInfo}${roteLabel}${againLabel}`;
       feedingState = 'ready';
     } else if (declaredMethod) {
       buildPool(declaredMethod, declaredDisc, declaredSpec);
