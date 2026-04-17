@@ -3300,11 +3300,13 @@ body {
   min-width: 0;
   border-right: 1px solid var(--bdr);
   overflow-y: auto;
+  padding: 16px;
 }
 .tab-split-right {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  padding: 16px;
 }
 
 /* Downtime keeps using dt-split class names — map to tab-split */
@@ -3877,6 +3879,13 @@ body {
   font-family: var(--fl);
   color: var(--txt);
   white-space: nowrap;
+}
+
+/* Vacant placeholder inside a fixed-tier bracket row */
+.status-vacant-chip {
+  font-size: 11px;
+  color: var(--txt3);
+  font-style: italic;
 }
 
 /* Chips inside column (clan/cov) get slightly more compact */

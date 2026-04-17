@@ -154,37 +154,55 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .sh-inf-merit{font-size:11px;color:var(--txt2);white-space:nowrap;}
 .sh-inf-dots{color:var(--info2-a9);letter-spacing:1px;}
 
+/* ── Faction display (single-column header) ── */
+.sh-faction-display{display:flex;flex-direction:column;gap:4px;padding:10px 14px 0;}
+.sh-faction-row{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;}
+.sh-faction-icon-sm{width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.sh-faction-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+.sh-faction-name{font-family:var(--fl);font-size:13px;font-variant:small-caps;font-weight:700;color:var(--accent);letter-spacing:.04em;line-height:1;}
+.sh-faction-type{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--label-tertiary);}
+.sh-faction-bloodline-sub{font-family:var(--fl);font-size:10px;font-weight:400;color:var(--label-secondary);}
+.sh-faction-dots{font-size:13px;color:var(--accent);letter-spacing:2px;line-height:1;margin-top:2px;}
+/* ── Header meta rows ── */
+.sh-char-meta{display:flex;flex-direction:column;gap:4px;padding:8px 14px 12px;}
+.sh-meta-pair{display:flex;gap:4px;}
+.sh-meta-pair .sh-meta-row{flex:1;}
+.sh-meta-row{display:flex;align-items:baseline;gap:8px;padding:5px 10px;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;}
+.sh-meta-lbl{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--label-tertiary);min-width:72px;flex-shrink:0;}
+.sh-meta-val{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);flex:1;}
+
 /* Suite-specific attribute/skill class names (without sh- prefix) */
-.attr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
-.attr-cell{background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;padding:7px 8px;}
-.attr-name{font-family:var(--fh);font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--txt2);margin-bottom:4px;}
-.attr-dots{font-size:15px;letter-spacing:2.5px;color:var(--gold);line-height:1;}
-.skill-row{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 6px;border-radius:4px;border:0.5px solid transparent;}
-.skill-row.has-dots{background:var(--surf2);border-color:var(--bdr);}
-.skill-name{font-family:var(--fh);font-size:10px;color:var(--txt2);letter-spacing:.06em;text-transform:uppercase;}
-.skill-row.has-dots .skill-name{color:var(--txt);}
-.skill-spec{font-family:var(--fh);font-size:10px;letter-spacing:.06em;color:var(--txt2);line-height:1.3;}
-.skill-na{font-family:var(--fh);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2);}
-.skill-dots{font-size:12px;color:var(--gold);letter-spacing:1.5px;flex-shrink:0;}
-.skill-zero{font-size:11px;color:var(--txt3);opacity:.55;}
+.attr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.attr-cell{display:flex;flex-direction:column;gap:0;}
+.attr-row-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:.5px solid var(--bdr);}
+.attr-row-item:last-child{border-bottom:none;}
+.attr-name{font-family:var(--fl);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--label-secondary);}
+.attr-group-hd{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);text-align:center;margin-bottom:6px;}
+.attr-dots{font-size:14px;letter-spacing:2px;color:var(--accent);line-height:1;}
+.skill-row{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 2px;border-bottom:.5px solid var(--bdr);}
+.skill-row:last-child{border-bottom:none;}
+.skill-name{font-family:var(--fl);font-size:10px;font-weight:700;color:var(--label-secondary);letter-spacing:.08em;text-transform:uppercase;}
+.skill-spec{font-family:var(--fl);font-size:10px;font-weight:400;color:var(--label-secondary);line-height:1.3;}
+.skill-na{font-family:var(--fl);font-size:9px;font-weight:700;font-variant:small-caps;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-a40);border-radius:3px;padding:1px 5px;background:var(--accent-a8);}
+.skill-dots{font-size:14px;color:var(--accent);letter-spacing:2px;flex-shrink:0;}
+.skill-zero{font-size:11px;color:var(--txt3);opacity:.4;}
 
 /* Suite-specific merit class names (without sh- prefix) */
-.merit-name{font-family:var(--fh);font-size:11px;color:var(--txt2);letter-spacing:.02em;}
-.merit-sub{font-family:var(--fh);font-size:10px;letter-spacing:.06em;color:var(--txt2);margin-top:2px;}
-.merit-dots{font-size:12px;color:var(--gold);letter-spacing:1.5px;flex-shrink:0;margin-right:6px;}
+.merit-name{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);letter-spacing:.03em;}
+.merit-sub{font-family:var(--fl);font-size:10px;font-weight:400;color:var(--label-secondary);margin-top:2px;}
+.merit-dots{font-size:14px;color:var(--accent);letter-spacing:2px;flex-shrink:0;}
 
-/* Standing merits */
+/* Standing merits — expandable drawers */
 .stand-list{display:flex;flex-direction:column;gap:3px;}
-.stand-row{padding:6px 8px;background:var(--surf2);border:0.5px solid var(--bdr);border-radius:4px;}
-.stand-name-row{display:flex;justify-content:space-between;align-items:center;}
-.stand-label{font-family:var(--fh);font-size:11px;color:var(--txt2);letter-spacing:.02em;}
-.stand-dots{font-size:13px;color:var(--gold);letter-spacing:1.5px;}
-.stand-sub{font-family:var(--fh);font-size:10px;letter-spacing:.06em;color:var(--txt2);margin-top:2px;}
-.mci-tier-list{margin:4px 0 2px 6px;padding:3px 0;}
-.mci-tier-row{display:flex;align-items:center;gap:6px;padding:1px 0;font-size:10px;}
-.mci-tier-dot{color:var(--gold2);font-size:10px;letter-spacing:1px;min-width:36px;}
-.mci-tier-label{color:var(--txt2);font-family:var(--fh);}
-.mci-tier-empty{color:var(--txt3);font-style:italic;}
+.stand-asset-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px 4px;}
+.stand-asset-lbl{font-family:var(--fl);font-size:10px;font-weight:700;color:var(--label-secondary);white-space:nowrap;}
+.stand-na-chip{font-family:var(--fl);font-size:10px;font-variant:small-caps;font-weight:600;color:var(--accent);border:1px solid var(--accent-a40);border-radius:3px;padding:1px 6px;background:var(--accent-a8);}
+.mci-tier-list{display:flex;flex-direction:column;padding:6px 0;}
+.mci-tier-row{display:flex;align-items:baseline;gap:10px;padding:3px 12px;border-bottom:.5px solid var(--bdr);}
+.mci-tier-row:last-child{border-bottom:none;}
+.mci-tier-dot{color:var(--accent);font-size:12px;letter-spacing:2px;min-width:62px;flex-shrink:0;}
+.mci-tier-label{color:var(--label-secondary);font-family:var(--fl);font-size:11px;line-height:1.5;}
+.mci-tier-empty{color:var(--txt3);font-style:normal;}
 
 /* ── Picker Panel ── */
 #panel-overlay{display:none;position:fixed;inset:0;background:var(--overlay);z-index:200;align-items:flex-end;}
