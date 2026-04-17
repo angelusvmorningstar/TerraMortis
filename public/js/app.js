@@ -731,6 +731,10 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
+      // Auto-open character for players so Sheet/Downtime tabs work immediately
+      if (getRole() !== 'st' && editorState.chars.length > 0) {
+        openChar(0);
+      }
       goTab('roll');
       return;
     }
