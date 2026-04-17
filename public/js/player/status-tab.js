@@ -14,6 +14,7 @@
 
 import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
+import { calcCityStatus } from '../data/accessors.js';
 
 // ── Avatar helper ────────────────────────────────────────────────────────────
 function avatarUrl(c) {
@@ -35,9 +36,9 @@ function statusDots(n, max = 5) {
   return '\u25CF'.repeat(v) + '\u25CB'.repeat(max - v);
 }
 
-// City dots — out of 10
+// City dots — out of 10, using effective city status (base + court title bonus)
 function cityStatusDots(c) {
-  return statusDots(c.status?.city || 0, 10);
+  return statusDots(calcCityStatus(c), 10);
 }
 
 // ── Bracket chip (avatar + name, no per-row dots/rank) ───────────────────────
@@ -106,7 +107,7 @@ function renderHighSeatCard(c, activeId, valFn, dotsFn) {
 }
 
 // ── City Status section (full-width) ─────────────────────────────────────────
-function cityVal(c) { return c.status?.city || 0; }
+function cityVal(c) { return calcCityStatus(c); }
 
 function renderCitySection(chars, activeId) {
   const sorted = [...chars].sort((a, b) =>
