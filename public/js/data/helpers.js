@@ -134,12 +134,24 @@ export function sortName(c) {
  * Returns { territory, territoryId, lieutenantId } or null.
  * Caches result on c._regentTerritory (ephemeral, not persisted).
  */
+// Fallback map for territory documents that pre-date the name field being saved.
+const _TERR_ID_NAME = {
+  academy:    'The Academy',
+  dockyards:  'The Dockyards',
+  harbour:    'The Harbour',
+  northshore: 'The North Shore',
+  secondcity: 'The Second City',
+};
+
 export function findRegentTerritory(territories, c) {
   if (!territories || !c) return null;
   if (c._regentTerritory !== undefined) return c._regentTerritory;
   const cid = String(c._id);
   const t = territories.find(t => t.regent_id === cid);
-  const result = t ? { territory: t.name || t.id, territoryId: t.id, lieutenantId: t.lieutenant_id || null } : null;
+  if (!t) { c._regentTerritory = null; return null; }
+  // Prefer stored name; fall back to the canonical id→name map for legacy docs without a name field.
+  const territory = (t.name && t.name !== t.id) ? t.name : (_TERR_ID_NAME[t.id] || t.id);
+  const result = { territory, territoryId: t.id, lieutenantId: t.lieutenant_id || null };
   c._regentTerritory = result;
   return result;
 }
