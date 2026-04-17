@@ -14,6 +14,17 @@ body{min-height:auto;}
 .hdr-title{font-family:var(--fhd);font-size:20px;color:var(--gold2);letter-spacing:.04em;}
 .hdr-sub{font-family:var(--fh);font-size:12px;letter-spacing:.30em;color:var(--txt2);text-transform:uppercase;margin-top:2px;}
 .hdr-nav{display:flex;gap:8px;align-items:center;}
+#hdr-user{position:relative;display:flex;align-items:center;}
+.hdr-profile{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 6px;border-radius:6px;}
+.hdr-profile:hover{background:var(--surf2);}
+.hdr-avatar{width:24px;height:24px;border-radius:50%;}
+.hdr-name{font-size:12px;color:var(--txt3);}
+.hdr-caret{font-size:10px;color:var(--txt3);}
+.hdr-profile-menu{position:absolute;top:100%;right:0;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:4px;z-index:200;min-width:100px;}
+.hdr-menu-item{display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--txt2);font-size:13px;font-family:var(--fh);text-align:left;cursor:pointer;border-radius:4px;}
+.hdr-menu-item:hover{background:var(--surf3);color:var(--txt);}
+.view-toggle-btn{background:var(--surf2);border:1px solid var(--bdr);color:var(--txt2);}
+.view-toggle-btn.view-toggle-active{background:rgba(224,196,122,.15);border-color:var(--gold2);color:var(--gold2);}
 #pool-banner{display:none;max-width:52%;background:var(--crim-a22);border:1px solid var(--crim-a45);border-radius:20px;padding:4px 10px;font-family:var(--fh);font-size:11px;letter-spacing:.04em;color:var(--gold2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #pool-banner.on{display:block;}
 

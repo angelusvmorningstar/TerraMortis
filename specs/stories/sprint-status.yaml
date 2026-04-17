@@ -373,5 +373,6 @@ development_status:
   lst-3-tracker-migration: review
   lst-4-st-sheet-swap: review
   lst-5-st-feeding-confirm: review
+  lst-6-st-player-view-toggle: review
 
   epic-lst-retrospective: optional
