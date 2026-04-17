@@ -1632,7 +1632,9 @@ function buildMeritActions(sub) {
     for (let n = 1; n <= 5; n++) {
       const req = resp[`contact_${n}_request`];
       if (!req) continue;
-      actions.push({ merit_type: 'Contacts', action_type: 'misc', desired_outcome: '', description: req });
+      // Use stored merit label (e.g. "Contacts ●●● (Crime)") so qualifier renders
+      const meritLbl = resp[`contact_${n}_merit`] || 'Contacts';
+      actions.push({ merit_type: meritLbl, action_type: 'misc', desired_outcome: '', description: req });
     }
   }
 
@@ -1649,6 +1651,25 @@ function buildMeritActions(sub) {
       if (!task) continue;
       actions.push({ merit_type: 'Retainer', action_type: 'misc', desired_outcome: '', description: task });
     }
+  }
+
+  // ── Resource / skill acquisitions ──
+  // Stored separately from sphere actions — appended last so flat indices for
+  // spheres/contacts/retainers above are not disturbed.
+  const resAcqBlob = raw.acquisitions?.resource_acquisitions || resp['resources_acquisitions'] || '';
+  if (resAcqBlob.trim()) {
+    const desc = resp['acq_description'] || resAcqBlob;
+    let meritsLabel = '';
+    try {
+      const keys = JSON.parse(resp['acq_merits'] || '[]');
+      if (keys.length) meritsLabel = keys.join(', ');
+    } catch { /* ignore */ }
+    actions.push({
+      merit_type:      'Resources',
+      action_type:     'acquisition',
+      desired_outcome: meritsLabel || '',
+      description:     desc,
+    });
   }
 
   return actions;
@@ -1975,9 +1996,13 @@ function renderActionCard(char, sub, idx) {
   // Roll summary
   let rollSummary = '';
   if (roll) {
-    const s = roll.successes ?? 0;
-    const exc = roll.exceptional ? ', Exceptional' : '';
-    rollSummary = `${s} success${s !== 1 ? 'es' : ''}${exc}`;
+    const s   = roll.successes ?? 0;
+    const exc = roll.exceptional ? ' \u2014 Exceptional' : '';
+    const againVal = roll.params?.again ?? 10;
+    const againStr = againVal === 8 ? ' \u00b7 8-Again' : againVal === 9 ? ' \u00b7 9-Again' : '';
+    const roteStr  = roll.params?.rote ? ' \u00b7 Rote' : '';
+    const diceStr  = roll.dice_string ? ` ${roll.dice_string}` : '';
+    rollSummary = `${s} success${s !== 1 ? 'es' : ''}${exc}${againStr}${roteStr}${diceStr}`;
   } else if (rev.pool_status === 'no_roll') {
     rollSummary = 'No roll';
   }
@@ -1997,7 +2022,8 @@ function renderActionCard(char, sub, idx) {
 
   // Meta row
   h += `<div class="dt-story-merit-meta">`;
-  h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
+  // Contacts have no meaningful action type — suppress chip to avoid stale data showing
+  if (meritCat !== 'contacts') h += `<span class="dt-story-action-chip">${actionLabel}</span>`;
   if (territory) h += `<span class="dt-story-proj-territory">Territory: ${territory}</span>`;
   const poolRoll = [pool ? `Pool: ${pool}` : '', rollSummary ? `Roll: ${rollSummary}` : ''].filter(Boolean).join(' \u2502 ');
   if (poolRoll) h += `<span class="dt-story-proj-pool">${poolRoll}</span>`;
