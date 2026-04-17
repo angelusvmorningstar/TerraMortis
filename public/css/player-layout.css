@@ -2535,6 +2535,18 @@ body {
 .fvc-consequence.fvc-drained { color: #C89040; }
 .fvc-consequence.fvc-serious { color: var(--crim); }
 .fvc-consequence.fvc-critical { color: #CC0000; }
+/* ── Vitae Tally Card (player portal) ── */
+.fvt-card { margin: 16px 0; padding: 14px 16px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; font-size: 13px; }
+.fvt-title { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); margin-bottom: 10px; }
+.fvt-row { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; color: var(--txt2); }
+.fvt-row .fvt-label { color: var(--txt2); }
+.fvt-row .fvt-val { font-family: var(--fm); min-width: 36px; text-align: right; }
+.fvt-pos .fvt-val { color: var(--green3); }
+.fvt-neg .fvt-val { color: var(--err); }
+.fvt-total { border-top: 1px solid var(--bdr); margin-top: 4px; padding-top: 6px; color: var(--txt); font-weight: 600; }
+.fvt-total .fvt-val { color: var(--gold2); }
+.fvt-divider { height: 1px; background: var(--bdr); margin: 6px 0; }
+
 .fvc-total { margin-top: 12px; font-size: 14px; color: var(--txt2); }
 .fvc-alloc-badge { display: inline-block; margin-top: 12px; padding: 6px 14px; background: var(--surf); border: 1px solid var(--green3); border-radius: 6px; color: var(--green3); font-size: 12px; font-family: var(--fl); text-transform: uppercase; letter-spacing: .08em; }
 .feeding-dramatic { margin-top: 16px; padding: 16px; background: var(--surf); border: 1px solid var(--err); border-radius: 8px; color: var(--err); font-size: 14px; text-align: center; }

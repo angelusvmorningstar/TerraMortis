@@ -47,6 +47,7 @@ let responseSubId = null; // submission _id for persisting player roll
 let publishedFeedingText = null; // extracted Feeding section from published_outcome
 let stRollResult = null; // ST's roll from admin processing (feeding_roll)
 let currentSub = null; // full submission doc for summary rendering
+let vitateTally = null; // feeding_vitae_tally from ST processing
 
 export async function renderFeedingTab(el, char) {
   currentChar = char;
@@ -68,6 +69,7 @@ export async function renderFeedingTab(el, char) {
   publishedFeedingText = null;
   stRollResult = null;
   currentSub = null;
+  vitateTally = null;
 
   // Find active cycle for feeding:
   // Primary: game phase cycle (ST has opened the session).
@@ -163,9 +165,12 @@ export async function renderFeedingTab(el, char) {
     declaredSpec = mySub.responses['_feed_spec'] || '';
   }
 
-  // Capture ST roll result if present (rolled by ST in admin processing)
+  // Capture ST roll result and vitae tally if present
   if (mySub?.feeding_roll?.successes != null) {
     stRollResult = mySub.feeding_roll;
+  }
+  if (mySub?.feeding_vitae_tally) {
+    vitateTally = mySub.feeding_vitae_tally;
   }
 
   // Prefer ST-confirmed pool from downtime processing.
@@ -543,11 +548,35 @@ function render() {
     }
     h += '</div>';
 
+    // ── Vitae breakdown card (shown when ST tally is available) ──
+    if (vitateTally) {
+      const vt = vitateTally;
+      const bonusVitae = vt.total_bonus ?? 0;
+      h += '<div class="fvt-card">';
+      h += '<div class="fvt-title">Vitae Sources</div>';
+      h += `<div class="fvt-row"><span class="fvt-label">Vessels (from roll)</span><span class="fvt-val">${vessels}</span></div>`;
+      if (vt.herd)          h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Herd</span><span class="fvt-val">+${vt.herd}</span></div>`;
+      if (vt.oath_of_fealty) h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Oath of Fealty</span><span class="fvt-val">+${vt.oath_of_fealty}</span></div>`;
+      if (vt.ambience != null && vt.ambience !== 0) {
+        const ambLabel = vt.ambience_territory ? `Ambience (${vt.ambience_territory})` : 'Ambience';
+        const ambCls = vt.ambience > 0 ? ' fvt-pos' : ' fvt-neg';
+        const ambSign = vt.ambience > 0 ? '+' : '';
+        h += `<div class="fvt-row${ambCls}"><span class="fvt-label">${esc(ambLabel)}</span><span class="fvt-val">${ambSign}${vt.ambience}</span></div>`;
+      }
+      if (vt.ghouls)     h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Ghoul retainers</span><span class="fvt-val">\u2212${vt.ghouls}</span></div>`;
+      if (vt.rite_cost)  h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Rite costs</span><span class="fvt-val">\u2212${vt.rite_cost}</span></div>`;
+      if (vt.manual)     h += `<div class="fvt-row${vt.manual > 0 ? ' fvt-pos' : ' fvt-neg'}"><span class="fvt-label">Adjustment</span><span class="fvt-val">${vt.manual > 0 ? '+' : ''}${vt.manual}</span></div>`;
+      h += '<div class="fvt-divider"></div>';
+      h += `<div class="fvt-row fvt-total"><span class="fvt-label">Bonus vitae</span><span class="fvt-val">+${bonusVitae}</span></div>`;
+      h += '</div>';
+    }
+
     if (dramaticFailure) {
       h += '<div class="feeding-dramatic">Dramatic failure \u2014 see your Storyteller at game before feeding.</div>';
     } else if (vessels === 0) {
       h += '<p class="feeding-no-vessels">No vessels secured this hunt.</p>';
     } else {
+      const bonusVitae = vitateTally?.total_bonus ?? 0;
       const allocated = vitaeAllocation && vitaeAllocation.length === vessels;
       h += `<div class="feeding-vessels-grid" id="feeding-vessels-grid">`;
       for (let i = 0; i < vessels; i++) {
@@ -574,11 +603,20 @@ function render() {
       }
       h += '</div>';
       if (allocated) {
-        const total = vitaeAllocation.reduce((a, b) => a + b, 0);
-        h += `<div class="fvc-total">Total Vitae: <strong>${total}</strong></div>`;
+        const vesselTotal = vitaeAllocation.reduce((a, b) => a + b, 0);
+        const grandTotal  = vesselTotal + (vitateTally?.total_bonus ?? 0);
+        if (vitateTally?.total_bonus) {
+          h += `<div class="fvc-total">Vessel vitae: <strong>${vesselTotal}</strong> + Bonus: <strong>+${vitateTally.total_bonus}</strong> = <strong>${grandTotal}</strong> total</div>`;
+        } else {
+          h += `<div class="fvc-total">Total Vitae: <strong>${vesselTotal}</strong></div>`;
+        }
         h += '<div class="fvc-alloc-badge">\u2713 Allocation recorded</div>';
       } else {
-        h += `<div class="fvc-total">Total Vitae: <span id="fvc-total-val">0</span></div>`;
+        if (bonusVitae) {
+          h += `<div class="fvc-total">Vessel vitae: <span id="fvc-total-val">0</span> + Bonus: <strong>+${bonusVitae}</strong> = <span id="fvc-grand-val">${bonusVitae}</span> total</div>`;
+        } else {
+          h += `<div class="fvc-total">Total Vitae: <span id="fvc-total-val">0</span></div>`;
+        }
         h += `<p class="feeding-overfeed-warn">Draining beyond safe vitae (${safeVitae}) risks a Humanity check.</p>`;
         h += '<button id="fvc-confirm" class="qf-btn qf-btn-submit" disabled>Confirm Allocation</button>';
       }
@@ -710,6 +748,8 @@ function updateVesselUI() {
   });
   const totalEl = container.querySelector('#fvc-total-val');
   if (totalEl) totalEl.textContent = total;
+  const grandEl = container.querySelector('#fvc-grand-val');
+  if (grandEl) grandEl.textContent = total + (vitateTally?.total_bonus ?? 0);
   const confirmBtn = container.querySelector('#fvc-confirm');
   if (confirmBtn) confirmBtn.disabled = !allFilled || sels.length === 0;
 }

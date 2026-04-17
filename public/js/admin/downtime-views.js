@@ -3937,12 +3937,33 @@ function renderProcessingMode(container) {
       const eightAgainChecked = rightPanel?.querySelector('.proc-proj-8a')?.checked  ?? (review?.eight_again || false);
       const again = eightAgainChecked ? 8 : nineAgainChecked ? 9 : 10;
       const sub = submissions.find(s => s._id === subId);
+      // Read vitae tally data attrs from the rendered panel
+      const vitaePanel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
+      const vtHerd    = vitaePanel ? (parseInt(vitaePanel.dataset.herd,   10) || 0) : 0;
+      const vtOof     = vitaePanel ? (parseInt(vitaePanel.dataset.oof,    10) || 0) : 0;
+      const vtAmb     = vitaePanel ? (parseInt(vitaePanel.dataset.ambience, 10) || 0) : 0;
+      const vtGhouls  = vitaePanel ? (parseInt(vitaePanel.dataset.ghouls, 10) || 0) : 0;
+      const vtRite    = vitaePanel ? (parseInt(vitaePanel.dataset.riteCost, 10) || 0) : 0;
+      const vtManual  = vitaePanel ? (parseInt(vitaePanel.dataset.manual,  10) || 0) : 0;
+      const vtTotal   = vitaePanel ? (parseInt(vitaePanel.dataset.totalBonus, 10) || 0) : 0;
+      const vtTerrLbl = vitaePanel ? (vitaePanel.dataset.terrLabel || '') : '';
+      const vitateTally = {
+        herd:               vtHerd,
+        ambience:           vtAmb,
+        ambience_territory: vtTerrLbl,
+        oath_of_fealty:     vtOof,
+        ghouls:             vtGhouls,
+        rite_cost:          vtRite,
+        manual:             vtManual,
+        total_bonus:        vtTotal,
+      };
+
       showRollModal(
         { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll,
           again, rote: isRote },
         async result => {
-          await updateSubmission(subId, { feeding_roll: result });
-          if (sub) sub.feeding_roll = result;
+          await updateSubmission(subId, { feeding_roll: result, feeding_vitae_tally: vitateTally });
+          if (sub) { sub.feeding_roll = result; sub.feeding_vitae_tally = vitateTally; }
           const cur = getEntryReview(entry)?.pool_status || 'pending';
           if (cur === 'pending' || cur === 'committed') {
             await saveEntryReview(entry, { pool_status: 'rolled' });
@@ -5869,7 +5890,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const herdData      = herdVitae     !== null ? String(herdVitae)    : '';
   const ambienceData  = ambienceVitae !== null ? String(ambienceVitae): '';
 
-  h += `<div class="proc-feed-right-section proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
+  h += `<div class="proc-feed-right-section proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}" data-terr-label="${esc(bestTerrLabel || '')}" data-rite-cost="${vitaeRite}" data-manual="${vitaeMod}" data-total-bonus="${finalVitae}">`;
   h += `<div class="proc-mod-panel-title">Vitae Tally</div>`;
 
   // Herd
@@ -5965,6 +5986,15 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`;
 
+  // ── Roll card ──
+  const feedRollObj = feedSub?.feeding_roll || null;
+  const showFeedRollBtn = poolStatus === 'committed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!feedRollObj;
+  h += _renderRollCard(key, feedRollObj, null, {
+    btnClass:  'proc-feed-roll-btn',
+    btnDataAttrs: ` data-sub-id="${esc(entry.subId)}" data-rote="${isRote}"`,
+    canRoll:   showFeedRollBtn,
+    noRollMsg: 'Commit pool first',
+  });
 
   h += `</div>`; // proc-feed-right
   return h;
