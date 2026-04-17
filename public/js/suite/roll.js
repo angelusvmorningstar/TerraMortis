@@ -32,6 +32,7 @@ function toast(msg) {
 export function loadPool(total, name, pi) {
   state.PS = Math.max(0, total);
   state.MOD = 0;
+  state.specBonuses = {};
   state.POOL_INFO = pi || null;
   // Auto-set 9-Again when the pool source grants it
   if (pi?.nineAgain) setAgain(9);
@@ -118,13 +119,43 @@ export function updPool() {
     if (specs.length) {
       html += '<div class="effpool-specs">' + specs.map(s => {
         const aoe = hasAoE(rc, s);
-        const bonus = na ? '2 (9-again)' : aoe ? '2 (AoE)' : '1';
-        return '<span class="effpool-spec">' + s + ' <span class="effpool-spec-bonus">+' + bonus + '</span></span>';
+        const bonusN = na || aoe ? 2 : 1;
+        const bonusLbl = na ? '2 (9-again)' : aoe ? '2 (AoE)' : '1';
+        const isOn = state.specBonuses[s] !== undefined;
+        const cls = 'effpool-spec' + (isOn ? ' on' : '');
+        const safe = String(s).replace(/"/g, '&quot;');
+        return `<span class="${cls}" data-spec="${safe}" data-bonus="${bonusN}" `
+             + `onclick="togSpec(this)" title="Click to add this specialty's bonus to your modifier">`
+             + `${s} <span class="effpool-spec-bonus">+${bonusLbl}</span></span>`;
       }).join('') + '</div>';
     }
   }
 
   el.innerHTML = html;
+}
+
+// ── SPECIALTY TOGGLE ──
+//
+// Click handler for the specialty badges under the effective-pool line.
+// Toggling a badge on adds its dice bonus to MOD; toggling off subtracts
+// the same amount. The per-spec bonus is stored in state.specBonuses so
+// we can reverse the exact amount even if the displayed bonus would be
+// different at toggle-off time (e.g. character data changed mid-roll).
+
+export function togSpec(badge) {
+  if (!badge) return;
+  const name = badge.dataset.spec;
+  const bonus = parseInt(badge.dataset.bonus, 10) || 0;
+  if (!name || !bonus) return;
+  const existing = state.specBonuses[name];
+  if (existing !== undefined) {
+    state.MOD = state.MOD - existing;
+    delete state.specBonuses[name];
+  } else {
+    state.MOD = state.MOD + bonus;
+    state.specBonuses[name] = bonus;
+  }
+  updPool();
 }
 
 // ── AGAIN / MODIFIER TOGGLES ──
