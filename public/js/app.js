@@ -75,6 +75,7 @@ import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
 import { SKILLS_MENTAL } from './data/constants.js';
 import { toast as _toast } from './suite/tracker.js';
 import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';
+import { renderSuiteStatusTab } from './suite/status.js';
 
 // ══════════════════════════════════════════════
 //  FORWARD WRAPPERS (suite)
@@ -199,6 +200,7 @@ function goTab(t) {
   if (t === 'territory') mountTerr();
   if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
   if (t === 'rules') initRules(document.getElementById('t-rules'));
+  if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
     const role = getRole();
