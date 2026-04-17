@@ -24,6 +24,12 @@ export async function renderStoryTab(el, char) {
       apiGet('/api/downtime_submissions'),
       apiGet('/api/downtime_cycles'),
     ]);
+    // STs receive raw docs; promote st_review → published_outcome so ST portal view matches player view
+    subs.forEach(s => {
+      if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+        s.published_outcome = s.st_review.outcome_text;
+      }
+    });
   } catch (err) {
     el.innerHTML = `<p class="placeholder-msg">Failed to load: ${esc(err.message)}</p>`;
     return;

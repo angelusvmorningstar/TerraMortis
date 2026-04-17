@@ -67,11 +67,40 @@ export async function renderFeedingTab(el, char) {
   publishedFeedingText = null;
   currentSub = null;
 
-  // Gate: only available once ST has opened the game phase
-  let gameCycle = null;
-  try { gameCycle = await getGamePhaseCycle(); } catch { /* offline */ }
-  if (!gameCycle) {
-    // Still show the split layout with last feeding result on right
+  // Find active cycle for feeding:
+  // Primary: game phase cycle (ST has opened the session).
+  // Fallback: most recent cycle where this character's narrative has been published
+  //   (ST has pushed their outcome — feeding is wired up even before game phase opens).
+  let activeCycle = null;
+  try { activeCycle = await getGamePhaseCycle(); } catch { /* offline */ }
+
+  let mySub = null;
+
+  if (!activeCycle) {
+    // Check if narrative has been published for this character (feeding wired up by ST push)
+    try {
+      const [allCycles, allSubs] = await Promise.all([
+        apiGet('/api/downtime_cycles'),
+        apiGet('/api/downtime_submissions'),
+      ]);
+      allSubs.forEach(s => {
+        if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+          s.published_outcome = s.st_review.outcome_text;
+        }
+      });
+      const charId = String(char._id);
+      const publishedSub = allSubs
+        .filter(s => String(s.character_id) === charId && s.published_outcome)
+        .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
+      if (publishedSub) {
+        activeCycle = allCycles.find(c => String(c._id) === String(publishedSub.cycle_id)) || null;
+        mySub = publishedSub; // already have it — skip the follow-up fetch
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (!activeCycle) {
+    // No game phase and no published submission — feeding is not yet available
     el.innerHTML = `<div class="tab-split">
       <div class="tab-split-left" id="feeding-left-pane"><p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p></div>
       <div class="tab-split-right" id="feeding-right-pane"></div>
@@ -81,16 +110,21 @@ export async function renderFeedingTab(el, char) {
     return;
   }
 
-  // Load submission first — it is the authoritative source for roll state
-  let mySub = null;
-  try {
-    const subs = await apiGet('/api/downtime_submissions?cycle_id=' + gameCycle._id);
-    mySub = subs.find(s =>
-      (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
-    ) || null;
-  } catch { /* no submissions */ }
+  // Load submission — skip if already loaded from published fallback above
+  if (!mySub) {
+    try {
+      const subs = await apiGet('/api/downtime_submissions?cycle_id=' + activeCycle._id);
+      mySub = subs.find(s =>
+        (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
+      ) || null;
+    } catch { /* no submissions */ }
+  }
 
   if (mySub) {
+    // Promote st_review → published_outcome for ST portal views
+    if (!mySub.published_outcome && mySub.st_review?.outcome_visibility === 'published') {
+      mySub.published_outcome = mySub.st_review.outcome_text;
+    }
     currentSub = mySub;
     responseSubId = mySub._id;
 
@@ -127,14 +161,34 @@ export async function renderFeedingTab(el, char) {
     declaredSpec = mySub.responses['_feed_spec'] || '';
   }
 
-  // Prefer ST-confirmed pool from downtime processing (feeding_roll.params)
+  // Prefer ST-confirmed pool from downtime processing.
+  // Priority 1: feeding_roll.params (ST rolled on behalf of player — has exact size)
+  // Priority 2: feeding_review.pool_validated (ST validated pool — parse size from expression)
+  // Fallback: buildPool() from player's declared method
   if (mySub?.feeding_roll?.params?.size) {
     poolTotal = mySub.feeding_roll.params.size;
     stRote  = mySub.feeding_roll.params.rote  || false;
     stAgain = mySub.feeding_roll.params.again ?? 10;
     const roteLabel = stRote ? ' \u2014 Rote quality' : '';
     poolBreakdown = `ST confirmed: ${poolTotal} dice${roteLabel}`;
-    feedingState = declaredMethod ? 'ready' : 'no_submission';
+    feedingState = 'ready';
+  } else if (mySub?.feeding_review?.pool_status === 'validated' && mySub.feeding_review.pool_validated) {
+    const rev = mySub.feeding_review;
+    const sizeMatch = rev.pool_validated.match(/=\s*(\d+)\s*$/);
+    if (sizeMatch) {
+      poolTotal = parseInt(sizeMatch[1], 10);
+      stRote  = mySub.st_review?.feeding_rote || false;
+      stAgain = rev.eight_again ? 8 : rev.nine_again ? 9 : 10;
+      const roteLabel = stRote ? ' \u2014 Rote quality' : '';
+      const againLabel = stAgain === 8 ? ' \u2014 8-Again' : stAgain === 9 ? ' \u2014 9-Again' : '';
+      poolBreakdown = `ST confirmed: ${rev.pool_validated}${roteLabel}${againLabel}`;
+      feedingState = 'ready';
+    } else if (declaredMethod) {
+      buildPool(declaredMethod, declaredDisc, declaredSpec);
+      feedingState = 'ready';
+    } else {
+      feedingState = 'no_submission';
+    }
   } else if (declaredMethod) {
     buildPool(declaredMethod, declaredDisc, declaredSpec);
     feedingState = 'ready';
@@ -162,6 +216,12 @@ async function renderFeedingHistoryPane(el, char) {
       apiGet('/api/downtime_submissions'),
       apiGet('/api/downtime_cycles'),
     ]);
+    // Promote st_review → published_outcome for ST portal views
+    allSubs.forEach(s => {
+      if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+        s.published_outcome = s.st_review.outcome_text;
+      }
+    });
   } catch {
     el.innerHTML = '<p class="placeholder-msg">Could not load history.</p>';
     return;
@@ -476,11 +536,22 @@ function render() {
       }
     }
 
-    if (isST) {
-      h += '<button id="feeding-reroll-btn" class="feeding-roll-btn" style="margin-top:16px;">Re-roll (ST)</button>';
-    }
-
     h += '</div>';
+  }
+
+  // ── ST OVERRIDE PANEL ──
+  if (isST && feedingState !== 'loading') {
+    if (feedingState === 'deferred') {
+      h += '<div class="feeding-st-override">';
+      h += '<span class="feeding-st-label">ST Override</span>';
+      h += '<button id="feeding-release-btn" class="feeding-roll-btn">Release Roll (ST)</button>';
+      h += '</div>';
+    } else if (feedingState === 'rolled') {
+      h += '<div class="feeding-st-override">';
+      h += '<span class="feeding-st-label">ST Override</span>';
+      h += '<button id="feeding-reroll-btn" class="feeding-roll-btn">Reset Roll (ST)</button>';
+      h += '</div>';
+    }
   }
 
   h += '</div>';
@@ -538,6 +609,27 @@ function wireEvents() {
       feedingState = 'no_submission';
     }
     render();
+  });
+
+  // ST release (deferred → ready)
+  container.querySelector('#feeding-release-btn')?.addEventListener('click', async () => {
+    if (!responseSubId) return;
+    try {
+      await apiPut(`/api/downtime_submissions/${responseSubId}`, {
+        feeding_deferred: null,
+        feeding_roll_player: null,
+        feeding_vitae_allocation: null,
+      });
+      if (declaredMethod) {
+        feedingState = 'ready';
+        buildPool(declaredMethod, declaredDisc, declaredSpec);
+      } else {
+        feedingState = 'no_submission';
+      }
+      render();
+    } catch {
+      alert('Could not release — please try again.');
+    }
   });
 
   // Defer button

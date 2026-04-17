@@ -26,6 +26,15 @@ const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Sta
 // Only 5 territories can receive influence (not The Barrens)
 const INFLUENCE_TERRITORIES = FEEDING_TERRITORIES.filter(t => !t.includes('Barrens'));
 
+// STs receive raw docs from the API (stripStReview not applied server-side for their role).
+// Promote st_review.outcome_text → published_outcome client-side so ST player-portal views
+// behave identically to player views.
+function _promotePublishedOutcome(sub) {
+  if (!sub.published_outcome && sub.st_review?.outcome_visibility === 'published') {
+    sub.published_outcome = sub.st_review.outcome_text;
+  }
+}
+
 let responseDoc = null;
 let currentChar = null;
 let currentCycle = null;
@@ -661,6 +670,7 @@ export async function renderDowntimeTab(targetEl, char, territories) {
       responseDoc = subs.find(s =>
         s.character_id === currentChar._id || s.character_id?.toString() === currentChar._id?.toString()
       ) || null;
+      if (responseDoc) _promotePublishedOutcome(responseDoc);
     } catch { /* no submission */ }
   }
 
@@ -668,6 +678,7 @@ export async function renderDowntimeTab(targetEl, char, territories) {
   if (currentCycle?.status === 'active' && !responseDoc?.published_outcome) {
     try {
       const allSubs = await apiGet('/api/downtime_submissions');
+      allSubs.forEach(_promotePublishedOutcome);
       const charId = String(currentChar._id);
       const currentCycleId = String(currentCycle._id);
       const priorPublished = allSubs
@@ -897,17 +908,14 @@ function renderForm(container) {
 
   let h = '';
 
-  // Results panel (Story 1.10) — show published outcome if available
+  // Status banner — results live in the Story tab, not here
   const published = responseDoc?.published_outcome;
   const pending = responseDoc && !published && status === 'submitted';
   if (published) {
-    h += renderDowntimeResults(published, responseDoc);
+    h += `<div class="qf-results-banner">&#x2713; Your results for this cycle are published &mdash; see the <strong>Story</strong> tab.</div>`;
   } else if (pending) {
     h += '<div class="qf-results-pending"><p class="qf-results-pending-msg">Your downtime submission has been received and is awaiting ST review. Results will appear here once published.</p></div>';
-  }
-
-  // Banner: prior cycle results published, visible in Story tab
-  if (!published && priorPublishedLabel) {
+  } else if (!published && priorPublishedLabel) {
     h += `<div class="qf-results-banner">&#x2713; Your <strong>${esc(priorPublishedLabel)}</strong> results are published &mdash; see the <strong>Story</strong> tab.</div>`;
   }
 

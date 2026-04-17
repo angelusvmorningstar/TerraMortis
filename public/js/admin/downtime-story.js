@@ -322,7 +322,8 @@ function isSectionDone(stNarrative, sectionKey, sub) {
     case 'allies_actions':   return actionResponsesComplete(sub, ['allies']);
     case 'status_actions':   return actionResponsesComplete(sub, ['status']);
     case 'retainer_actions': return actionResponsesComplete(sub, ['retainer', 'staff']);
-    case 'contact_requests': return actionResponsesComplete(sub, ['contacts']);
+    case 'contact_requests':   return actionResponsesComplete(sub, ['contacts']);
+    case 'misc_merit_actions': return actionResponsesComplete(sub, ['misc']);
     default:
       return isSectionComplete(stNarrative, sectionKey);
   }
@@ -2702,7 +2703,10 @@ function compilePushOutcome(sub) {
   for (const section of sections) {
     const key = section.key;
 
-    if (key === 'letter_from_home' || key === 'touchstone' || key === 'feeding_validation') {
+    if (key === 'feeding_validation') {
+      continue; // feeding handled separately via feeding_roll; no authored narrative response
+
+    } else if (key === 'letter_from_home' || key === 'touchstone') {
       if (sn[key]?.status === 'complete') {
         const response = sn[key]?.response;
         if (response?.trim()) { parts.push(`## ${section.label}\n\n${response.trim()}`); hasContent = true; }

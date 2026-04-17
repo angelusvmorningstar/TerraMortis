@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
 
-  const doc = await col().findOne({ character_id: oid });
+  const doc = await col().findOne({ character_id: { $in: [oid, oid.toString()] } });
   if (!doc) return res.json(null);
   res.json(doc);
 });
@@ -71,7 +71,7 @@ router.post('/', validate(questionnaireResponseSchema), async (req, res) => {
   }
 
   // Prevent duplicates
-  const existing = await col().findOne({ character_id: charOid });
+  const existing = await col().findOne({ character_id: { $in: [charOid, charOid.toString()] } });
   if (existing) return res.status(409).json({ error: 'CONFLICT', message: 'Response already exists — use PUT to update' });
 
   const now = new Date().toISOString();

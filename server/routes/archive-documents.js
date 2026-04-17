@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
     if (!owns) return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
   }
 
-  const filter = { character_id: oid, visible_to_player: true };
+  const filter = { character_id: { $in: [oid, oid.toString()] }, visible_to_player: true };
   const docs = await col().find(filter, { projection: { content_html: 0 } }).toArray();
   res.json(docs);
 });
