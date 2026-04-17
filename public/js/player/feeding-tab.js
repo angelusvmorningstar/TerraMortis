@@ -146,6 +146,7 @@ export async function renderFeedingTab(el, char) {
       if (mySub.feeding_vitae_allocation) {
         vitaeAllocation = mySub.feeding_vitae_allocation;
       }
+      vitateTally = mySub.feeding_vitae_tally || computeVitateTally(char, mySub);
       render();
       return;
     }
