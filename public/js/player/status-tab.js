@@ -40,18 +40,30 @@ function cityStatusDots(c) {
   return statusDots(c.status?.city || 0, 10);
 }
 
-// ── Compact floor row ────────────────────────────────────────────────────────
-function renderRow(c, val, rank, isMe, dotsFn = v => statusDots(v)) {
-  return `<div class="status-row${isMe ? ' status-row-me' : ''}">
-    <span class="status-rank">${rank}</span>
-    <img class="status-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
-    <div class="status-name-wrap">
-      <div class="status-name">${esc(displayName(c))}</div>
-      ${c.player ? `<div class="status-player">${esc(redactPlayer(c.player))}</div>` : ''}
-    </div>
-    <span class="status-dots">${dotsFn(val, c)}</span>
-    <span class="status-val">${val}</span>
+// ── Bracket chip (avatar + name, no per-row dots/rank) ───────────────────────
+function renderChip(c, isMe) {
+  return `<div class="status-chip${isMe ? ' status-chip-me' : ''}">
+    <img class="status-chip-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
+    <span class="status-chip-name">${esc(displayName(c))}</span>
   </div>`;
+}
+
+// ── Bracket section: one header + chip row per distinct value ─────────────────
+function renderBrackets(groups, activeId, dotsFn) {
+  let h = `<div class="status-brackets">`;
+  for (const { val, chars } of groups) {
+    h += `<div class="status-bracket">`;
+    h += `<div class="status-bracket-head">`;
+    h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
+    h += `<span class="status-bracket-val">${val}</span>`;
+    h += `</div>`;
+    h += `<div class="status-bracket-chips">`;
+    for (const c of chars) h += renderChip(c, String(c._id) === activeId);
+    h += `</div>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+  return h;
 }
 
 // ── Slot cards ────────────────────────────────────────────────────────────────
@@ -127,11 +139,15 @@ function renderCitySection(chars, activeId) {
   h += `</div>`;
 
   if (floorChars.length) {
-    h += `<div class="status-floor">`;
-    floorChars.forEach((c, i) => {
-      h += renderRow(c, cityVal(c), i + 1, String(c._id) === activeId, v => statusDots(v, 10));
-    });
-    h += `</div>`;
+    // Group by status value descending
+    const groups = [];
+    for (const c of floorChars) {
+      const v = cityVal(c);
+      const last = groups[groups.length - 1];
+      if (last && last.val === v) last.chars.push(c);
+      else groups.push({ val: v, chars: [c] });
+    }
+    h += renderBrackets(groups, activeId, v => statusDots(v, 10));
   }
 
   h += `</div>`;
@@ -166,11 +182,13 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
     h += `</div>`;
 
     if (floorRows.length) {
-      h += `<div class="status-floor">`;
-      floorRows.forEach((r, i) => {
-        h += renderRow(r.c, r.val, i + 1, String(r.c._id) === activeId);
-      });
-      h += `</div>`;
+      const groups = [];
+      for (const r of floorRows) {
+        const last = groups[groups.length - 1];
+        if (last && last.val === r.val) last.chars.push(r.c);
+        else groups.push({ val: r.val, chars: [r.c] });
+      }
+      h += renderBrackets(groups, activeId, v => statusDots(v, 5));
     }
   }
 

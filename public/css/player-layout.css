@@ -3780,6 +3780,84 @@ body {
   overflow: hidden;
 }
 
+/* ── Bracket grouping (floor below high seats) ───────────────────────────── */
+.status-brackets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-bracket {
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.status-bracket-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--bdr);
+}
+
+.status-bracket-dots {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--accent);
+}
+
+.status-bracket-val {
+  font-family: var(--fh);
+  font-size: 11px;
+  color: var(--txt3);
+  letter-spacing: .06em;
+}
+
+.status-bracket-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-radius: 20px;
+  padding: 3px 10px 3px 3px;
+}
+
+.status-chip-me {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.status-chip-me .status-chip-name { color: var(--accent); }
+
+.status-chip-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.status-chip-name {
+  font-size: 12px;
+  font-family: var(--fl);
+  color: var(--txt);
+  white-space: nowrap;
+}
+
+/* Chips inside column (clan/cov) get slightly more compact */
+.status-col .status-brackets { margin: 10px; }
+
 /* Slot highlight for active character */
 .status-slot-me {
   background: rgba(224, 196, 122, .10);
@@ -3812,7 +3890,8 @@ body {
 /* Slot content padding inside .status-col */
 .status-col .status-apex-row,
 .status-col .status-high-row,
-.status-col .status-floor { margin: 10px; }
+.status-col .status-floor,
+.status-col .status-brackets { margin: 10px; }
 .status-col .status-apex-row { margin-bottom: 0; }
 .status-col .status-high-row { margin-top: 8px; }
 
