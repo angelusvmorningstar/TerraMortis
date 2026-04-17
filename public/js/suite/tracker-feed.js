@@ -12,62 +12,7 @@ import {
   stGetTracker, stSetTracker, stMaxVitae, toast
 } from './tracker.js';
 import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
-
-// ══════════════════════════════════════════════
-//  FEEDING CONSTANTS
-// ══════════════════════════════════════════════
-
-const FEED_METHODS = [
-  {
-    id: 'seduction',
-    name: 'Seduction',
-    desc: 'Lure a vessel close',
-    attrs: ['Presence', 'Manipulation'],
-    skills: ['Empathy', 'Socialise', 'Persuasion'],
-    discs: ['Majesty', 'Dominate']
-  },
-  {
-    id: 'stalking',
-    name: 'Stalking',
-    desc: 'Prey on a target unseen',
-    attrs: ['Dexterity', 'Wits'],
-    skills: ['Stealth', 'Athletics'],
-    discs: ['Protean', 'Obfuscate']
-  },
-  {
-    id: 'force',
-    name: 'By Force',
-    desc: 'Overpower and drain',
-    attrs: ['Strength'],
-    skills: ['Brawl', 'Weaponry'],
-    discs: ['Vigour', 'Nightmare']
-  },
-  {
-    id: 'familiar',
-    name: 'Familiar Face',
-    desc: 'Exploit an existing acquaintance',
-    attrs: ['Manipulation', 'Presence'],
-    skills: ['Persuasion', 'Subterfuge'],
-    discs: ['Dominate', 'Majesty']
-  },
-  {
-    id: 'intimidation',
-    name: 'Intimidation',
-    desc: 'Compel through fear',
-    attrs: ['Strength', 'Manipulation'],
-    skills: ['Intimidation', 'Subterfuge'],
-    discs: ['Nightmare', 'Dominate']
-  }
-];
-
-const FEED_TERRS = [
-  { id: '', name: 'No territory', ambienceMod: 0 },
-  { id: 'academy', name: 'The Academy', ambience: 'Curated', ambienceMod: +3 },
-  { id: 'dockyards', name: 'The Dockyards', ambience: 'Settled', ambienceMod: 0 },
-  { id: 'harbour', name: 'The Harbour', ambience: 'Untended', ambienceMod: -2 },
-  { id: 'northshore', name: 'The North Shore', ambience: 'Tended', ambienceMod: +2 },
-  { id: 'secondcity', name: 'The Second City', ambience: 'Tended', ambienceMod: +2 }
-];
+import { FEED_METHODS, TERRITORY_DATA } from '../player/downtime-data.js';
 
 let feedMethod = null;
 
@@ -88,8 +33,7 @@ function feedInit() {
   // Populate territory dropdown
   const tsel = document.getElementById('feed-terr');
   if (tsel.options.length <= 1) {
-    FEED_TERRS.forEach(t => {
-      if (!t.id) return; // already have the blank option
+    TERRITORY_DATA.forEach(t => {
       const o = document.createElement('option');
       o.value = t.id;
       o.textContent = t.name + (t.ambience
@@ -148,7 +92,7 @@ function feedBuildPool() {
 
   // Territory ambience
   const terrId = document.getElementById('feed-terr').value;
-  const terr = FEED_TERRS.find(t => t.id === terrId) || { ambienceMod: 0 };
+  const terr = TERRITORY_DATA.find(t => t.id === terrId) || { ambienceMod: 0 };
   const ambMod = terr.ambienceMod || 0;
 
   // Discipline select — populate with valid discs char has
@@ -244,6 +188,7 @@ function feedAdjApply(d) {
 }
 
 function feedApplyVitae(safeMax) {
+  // TODO: lst.3 — replace stGetTracker/stSetTracker with trackerAdj from game/tracker.js
   const c = feedGetChar();
   if (!c) return;
   const n = parseInt(document.getElementById('feed-apply-n').textContent) || 0;
@@ -291,8 +236,6 @@ function feedClearState() {
 // ══════════════════════════════════════════════
 
 export {
-  FEED_METHODS,
-  FEED_TERRS,
   feedToggle,
   feedInit,
   feedSelectMethod,
