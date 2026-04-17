@@ -15,6 +15,51 @@ const ACTION_TYPE_LABELS = {
   grow: 'Grow', acquisition: 'Acquisition',
 };
 
+/**
+ * Fetches and renders only the most recent published DT report for a character.
+ * Used by the game app (index.html) Downtime tab.
+ */
+export async function renderLatestReport(el, char) {
+  el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
+  let subs = [], cycles = [];
+  try {
+    [subs, cycles] = await Promise.all([
+      apiGet('/api/downtime_submissions'),
+      apiGet('/api/downtime_cycles'),
+    ]);
+    subs.forEach(s => {
+      if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+        s.published_outcome = s.st_review.outcome_text;
+      }
+    });
+  } catch (err) {
+    el.innerHTML = `<p class="placeholder-msg">Failed to load: ${esc(err.message)}</p>`;
+    return;
+  }
+
+  const cycleMap = {};
+  for (const c of cycles) cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
+
+  const charId = String(char._id);
+  const published = subs
+    .filter(s => String(s.character_id) === charId && s.published_outcome)
+    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+
+  if (!published.length) {
+    el.innerHTML = '<p class="placeholder-msg">No published downtime narratives yet.</p>';
+    return;
+  }
+
+  const sub = published[0];
+  const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+  let h = '<div class="story-feed">';
+  h += `<div class="story-entry">`;
+  h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
+  h += renderOutcomeWithCards(sub);
+  h += `</div></div>`;
+  el.innerHTML = h;
+}
+
 export async function renderStoryTab(el, char) {
   el.innerHTML = '<p class="placeholder-msg">Loading...</p>';
 
