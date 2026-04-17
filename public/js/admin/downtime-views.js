@@ -180,6 +180,7 @@ function _computeMeritPoolSize(category, dots) {
 const POOL_STATUS_LABELS = {
   pending:     'Pending',
   committed:   'Committed',
+  rolled:      'Rolled',
   validated:   'Validated',
   no_roll:     'No Roll',
   no_feed:     'No Valid Feeding',
@@ -3940,6 +3941,10 @@ function renderProcessingMode(container) {
         async result => {
           await updateSubmission(subId, { feeding_roll: result });
           if (sub) sub.feeding_roll = result;
+          const cur = getEntryReview(entry)?.pool_status || 'pending';
+          if (cur === 'pending' || cur === 'committed') {
+            await saveEntryReview(entry, { pool_status: 'rolled' });
+          }
           renderProcessingMode(container);
         }
       );
@@ -4004,6 +4009,10 @@ function renderProcessingMode(container) {
         again, initialRote: roteChecked,
       }, async result => {
         await saveEntryReview(entry, { roll: result });
+        const cur = getEntryReview(entry)?.pool_status || 'pending';
+        if (cur === 'pending' || cur === 'committed') {
+          await saveEntryReview(entry, { pool_status: 'rolled' });
+        }
         renderProcessingMode(container);
       });
     });
@@ -4025,6 +4034,10 @@ function renderProcessingMode(container) {
         again: 10, initialRote: false,
       }, async result => {
         await saveEntryReview(entry, { roll: result });
+        const cur = getEntryReview(entry)?.pool_status || 'pending';
+        if (cur === 'pending' || cur === 'committed') {
+          await saveEntryReview(entry, { pool_status: 'rolled' });
+        }
         renderProcessingMode(container);
       });
     });
@@ -5480,7 +5493,7 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   const meritBtns = isAuto
     ? [['pending', 'Pending'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]
-    : [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+    : [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
@@ -5548,7 +5561,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
     const poolExprSorc = `${base} + 3${mgDots ? ` + ${mgDots} (Mandragora)` : ''}${eqMod ? ` ${eqMod > 0 ? '+' : ''}${eqMod}` : ''} = ${total} dice`;
@@ -5688,7 +5701,7 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
@@ -5930,7 +5943,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
   const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;

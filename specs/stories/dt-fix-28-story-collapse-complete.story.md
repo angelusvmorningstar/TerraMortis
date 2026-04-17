@@ -1,6 +1,6 @@
 # Story DT-Fix-28: DT Story — Collapse Completed Cards
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 
@@ -30,19 +30,19 @@ The DT Story character view renders all section cards for a character — projec
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Module state — add `_collapseComplete` Set (AC: 5)
-  - [ ] In `public/js/admin/downtime-story.js`, near the top of the module, add:
+- [x] Task 1: Module state — add `_collapseComplete` Set (AC: 5)
+  - [x] In `public/js/admin/downtime-story.js`, near the top of the module, add:
     ```javascript
     const _collapseComplete = new Set(); // char IDs with collapse-complete active
     ```
 
-- [ ] Task 2: `renderCharacterView` — add toggle button and wrapper attribute (AC: 1, 5)
-  - [ ] In `renderCharacterView`, read `const collapseActive = _collapseComplete.has(String(char?._id || ''));`
-  - [ ] Add collapse toggle button to the char header:
+- [x] Task 2: `renderCharacterView` — add toggle button and wrapper attribute (AC: 1, 5)
+  - [x] In `renderCharacterView`, read `const collapseActive = _collapseComplete.has(String(char?._id || ''));`
+  - [x] Add collapse toggle button to the char header:
     ```javascript
     h += `<button class="dt-story-collapse-toggle${collapseActive ? ' active' : ''}" data-char-id="${String(char?._id || '')}">${collapseActive ? 'Show all' : 'Collapse complete'}</button>`;
     ```
-  - [ ] Wrap all rendered content in a container div with the data attribute:
+  - [x] Wrap all rendered content in a container div with the data attribute:
     ```javascript
     // Outer wrapper applied to entire character view output
     const collapseAttr = collapseActive ? ' data-collapse-complete="true"' : '';
@@ -50,8 +50,8 @@ The DT Story character view renders all section cards for a character — projec
     ```
     The `.dt-story-char-content` wrapper sits inside `#dt-story-char-view` (the element that receives `innerHTML`).
 
-- [ ] Task 3: Click handler — wire the toggle button (AC: 3, 4, 5)
-  - [ ] In the panel's event delegation block (`panel.addEventListener('click', ...)`), add a handler for `.dt-story-collapse-toggle`:
+- [x] Task 3: Click handler — wire the toggle button (AC: 3, 4, 5)
+  - [x] In the panel's event delegation block (`panel.addEventListener('click', ...)`), add a handler for `.dt-story-collapse-toggle`:
     ```javascript
     const collapseToggle = e.target.closest('.dt-story-collapse-toggle');
     if (collapseToggle) {
@@ -70,8 +70,8 @@ The DT Story character view renders all section cards for a character — projec
     }
     ```
 
-- [ ] Task 4: CSS — hide non-header children of complete cards when collapse is active (AC: 2, 6, 7)
-  - [ ] In `public/css/admin-layout.css`, add a new block:
+- [x] Task 4: CSS — hide non-header children of complete cards when collapse is active (AC: 2, 6, 7)
+  - [x] In `public/css/admin-layout.css`, add a new block:
     ```css
     /* ── DT Story — Collapse complete cards ── */
     .dt-story-char-content[data-collapse-complete="true"] .dt-story-proj-card.complete > *:not(.dt-story-proj-header),
@@ -80,12 +80,12 @@ The DT Story character view renders all section cards for a character — projec
       display: none;
     }
     ```
-  - [ ] Identify the outer wrapper class used by `renderLetterFromHome` and `renderTouchstone` and add corresponding rules. Check the JS for the outermost `<div class="...">` in those functions and what their header child class is.
-  - [ ] Collapsed complete cards should still show the header with its ✓ dot, so the ST can see what's done at a glance.
+  - [x] Identify the outer wrapper class used by `renderLetterFromHome` and `renderTouchstone` and add corresponding rules. Check the JS for the outermost `<div class="...">` in those functions and what their header child class is.
+  - [x] Collapsed complete cards should still show the header with its ✓ dot, so the ST can see what's done at a glance.
 
-- [ ] Task 5: CSS — toggle button style (AC: 3)
-  - [ ] Add `.dt-story-collapse-toggle` button style: small, secondary, matching the existing `.dt-story-revision-note-btn` style (ghost/outline).
-  - [ ] `.dt-story-collapse-toggle.active`: gold border and text (matching `--gold2`).
+- [x] Task 5: CSS — toggle button style (AC: 3)
+  - [x] Add `.dt-story-collapse-toggle` button style: small, secondary, matching the existing `.dt-story-revision-note-btn` style (ghost/outline).
+  - [x] `.dt-story-collapse-toggle.active`: gold border and text (matching `--gold2`).
 
 ## Dev Notes
 
@@ -120,9 +120,13 @@ The trade-off: toggling the collapse state requires either a DOM attribute updat
 ## Dev Agent Record
 
 ### Agent Model Used
-
-### Debug Log References
+claude-sonnet-4-6
 
 ### Completion Notes List
+- Already implemented in a prior session; verified across both files
+- `downtime-story.js` line 29: `_collapseComplete` Set declared; line 1036–1044: `collapseActive` read + wrapper attr + toggle button in `renderCharacterView`; line 158–164: click handler in event delegation block
+- `admin-layout.css` lines 7248–7252: collapse CSS for proj/merit/cs-slot/section/terr-section card types; lines 7257–7269: toggle button style + `.active` gold state
 
 ### File List
+- `public/js/admin/downtime-story.js`
+- `public/css/admin-layout.css`

@@ -1,6 +1,6 @@
 # Story DT-Fix-26: Submission Checklist Column Redesign
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 
@@ -39,20 +39,20 @@ The submission checklist (`renderSubmissionChecklist` in `downtime-views.js`) ha
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update `CHK_SECTIONS` array (AC: 1)
-  - [ ] Remove `correspondence` and `xp` entries
-  - [ ] Remove `skill_acq` entry
-  - [ ] Replace the single `resources` entry (it stays) — no change to the key
-  - [ ] Add `allies_1` through `allies_5` (already present — verify labels are A1–A5)
-  - [ ] Add `status_1`, `status_2`, `status_3` with labels S1, S2, S3
-  - [ ] Add `retainers_1`, `retainers_2`, `retainers_3` with labels R1, R2, R3
-  - [ ] Reorder the array to: travel, feeding, project_1–4, allies_1–5, status_1–3, retainers_1–3, contacts_1–5, resources
+- [x] Task 1: Update `CHK_SECTIONS` array (AC: 1)
+  - [x] Remove `correspondence` and `xp` entries
+  - [x] Remove `skill_acq` entry
+  - [x] Replace the single `resources` entry (it stays) — no change to the key
+  - [x] Add `allies_1` through `allies_5` (already present — verify labels are A1–A5)
+  - [x] Add `status_1`, `status_2`, `status_3` with labels S1, S2, S3
+  - [x] Add `retainers_1`, `retainers_2`, `retainers_3` with labels R1, R2, R3
+  - [x] Reorder the array to: travel, feeding, project_1–4, allies_1–5, status_1–3, retainers_1–3, contacts_1–5, resources
 
-- [ ] Task 2: Add `_buildMeritSlotMap(sub)` helper (AC: 3, 4, 5, 6)
-  - [ ] Iterate `sub.merit_actions` (pre-built array). If absent, call `buildMeritActions`-equivalent logic inline using `sub._raw` / `sub.responses` (do NOT import from downtime-story.js — NFR-DS-01: no cross-file imports between admin JS files)
-  - [ ] For each entry at global flat index `i`, call `_parseMeritType(entry.merit_type)` to get `category`
-  - [ ] Build a map: `{ allies: [0, 3], status: [1], retainers: [2, 4], contacts: [5, 6] }` — values are global flat indices
-  - [ ] Return the map. This replaces the use of `_sphereCount(sub)` for contact offset calculation.
+- [x] Task 2: Add `_buildMeritSlotMap(sub)` helper (AC: 3, 4, 5, 6)
+  - [x] Iterate `sub.merit_actions` (pre-built array). If absent, call `buildMeritActions`-equivalent logic inline using `sub._raw` / `sub.responses` (do NOT import from downtime-story.js — NFR-DS-01: no cross-file imports between admin JS files)
+  - [x] For each entry at global flat index `i`, call `_parseMeritType(entry.merit_type)` to get `category`
+  - [x] Build a map: `{ allies: [0, 3], status: [1], retainers: [2, 4], contacts: [5, 6] }` — values are global flat indices
+  - [x] Return the map. This replaces the use of `_sphereCount(sub)` for contact offset calculation.
 
   ```javascript
   function _buildMeritSlotMap(sub) {
@@ -69,16 +69,16 @@ The submission checklist (`renderSubmissionChecklist` in `downtime-views.js`) ha
   }
   ```
 
-- [ ] Task 3: Update `_chkHasContent(sub, key)` (AC: 3, 4, 5)
-  - [ ] Remove `correspondence` and `xp` and `skill_acq` cases
-  - [ ] `allies_N`: use `_buildMeritSlotMap(sub).allies[N-1] !== undefined`
-  - [ ] `status_N`: use `_buildMeritSlotMap(sub).status[N-1] !== undefined`
-  - [ ] `retainers_N`: use `_buildMeritSlotMap(sub).retainers[N-1] !== undefined`
-  - [ ] `contacts_N` (unchanged key): use `_buildMeritSlotMap(sub).contacts[N-1] !== undefined`
-  - [ ] `resources`: unchanged — `!!(raw.acquisitions?.resource_acquisitions || resp.resources_acquisitions)`
+- [x] Task 3: Update `_chkHasContent(sub, key)` (AC: 3, 4, 5)
+  - [x] Remove `correspondence` and `xp` and `skill_acq` cases
+  - [x] `allies_N`: use `_buildMeritSlotMap(sub).allies[N-1] !== undefined`
+  - [x] `status_N`: use `_buildMeritSlotMap(sub).status[N-1] !== undefined`
+  - [x] `retainers_N`: use `_buildMeritSlotMap(sub).retainers[N-1] !== undefined`
+  - [x] `contacts_N` (unchanged key): use `_buildMeritSlotMap(sub).contacts[N-1] !== undefined`
+  - [x] `resources`: unchanged — `!!(raw.acquisitions?.resource_acquisitions || resp.resources_acquisitions)`
 
-- [ ] Task 4: Update `_chkState(sub, key)` (AC: 2, 3, 4, 5, 7)
-  - [ ] **Critical fix**: In the Projects block, change:
+- [x] Task 4: Update `_chkState(sub, key)` (AC: 2, 3, 4, 5, 7)
+  - [x] **Critical fix**: In the Projects block, change:
     ```javascript
     // BEFORE
     if (ps === 'validated') {
@@ -89,28 +89,28 @@ The submission checklist (`renderSubmissionChecklist` in `downtime-views.js`) ha
     // AFTER
     if (ps === 'validated') return 'confirmed';
     ```
-  - [ ] **Allies block**: replace current `alliesM` index logic. Use `_buildMeritSlotMap(sub).allies[idx]` to get the global flat index, then look up `resolved[globalIdx]?.pool_status`
-  - [ ] **Status block** (new): match `status_N` key. Use `_buildMeritSlotMap(sub).status[N-1]` → global index → `resolved[globalIdx]?.pool_status`. Terminal statuses → `'no_action'`; `'validated'` → `'confirmed'`
-  - [ ] **Retainers block** (new): match `retainers_N` key. Use `_buildMeritSlotMap(sub).retainers[N-1]` → global index → same logic
-  - [ ] **Contacts block**: replace current `_sphereCount(sub) + contactsM - 1` offset. Use `_buildMeritSlotMap(sub).contacts[N-1]` as the global index instead
-  - [ ] **Resources block** (updated): check `sub.st_review?.actions?.['acq:resources']?.pool_status`. Terminal statuses → `'confirmed'`; else fall through to sighted/unsighted
-  - [ ] Remove `skill_acq`, `correspondence`, `xp` cases
+  - [x] **Allies block**: replace current `alliesM` index logic. Use `_buildMeritSlotMap(sub).allies[idx]` to get the global flat index, then look up `resolved[globalIdx]?.pool_status`
+  - [x] **Status block** (new): match `status_N` key. Use `_buildMeritSlotMap(sub).status[N-1]` → global index → `resolved[globalIdx]?.pool_status`. Terminal statuses → `'no_action'`; `'validated'` → `'confirmed'`
+  - [x] **Retainers block** (new): match `retainers_N` key. Use `_buildMeritSlotMap(sub).retainers[N-1]` → global index → same logic
+  - [x] **Contacts block**: replace current `_sphereCount(sub) + contactsM - 1` offset. Use `_buildMeritSlotMap(sub).contacts[N-1]` as the global index instead
+  - [x] **Resources block** (updated): check `sub.st_review?.actions?.['acq:resources']?.pool_status`. Terminal statuses → `'confirmed'`; else fall through to sighted/unsighted
+  - [x] Remove `skill_acq`, `correspondence`, `xp` cases
 
-- [ ] Task 5: Update `_chkNavKey(sub, section)` (AC: click-to-jump)
-  - [ ] `allies_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).allies[N-1]}` (or null if undefined)
-  - [ ] `status_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).status[N-1]}` (or null)
-  - [ ] `retainers_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).retainers[N-1]}` (or null)
-  - [ ] `contacts_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).contacts[N-1]}` (or null)
-  - [ ] `resources`: return `${sub._id}:acq:resources`
-  - [ ] Remove `correspondence`, `xp`, `skill_acq` cases
+- [x] Task 5: Update `_chkNavKey(sub, section)` (AC: click-to-jump)
+  - [x] `allies_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).allies[N-1]}` (or null if undefined)
+  - [x] `status_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).status[N-1]}` (or null)
+  - [x] `retainers_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).retainers[N-1]}` (or null)
+  - [x] `contacts_N`: return `${sub._id}:merit:${_buildMeritSlotMap(sub).contacts[N-1]}` (or null)
+  - [x] `resources`: return `${sub._id}:acq:resources`
+  - [x] Remove `correspondence`, `xp`, `skill_acq` cases
 
-- [ ] Task 6: Update cell renderer in `renderSubmissionChecklist` (AC: 2)
-  - [ ] Merge `'dice_validated'` and `'drafted'` into the `'confirmed'` branch — they should both render as ★
-  - [ ] The `sighted` state remains `?` (manually flagged in progress)
-  - [ ] Update legend text: `★ done  ? in progress  X skipped  O not touched  — n/a` (already updated last session; verify)
+- [x] Task 6: Update cell renderer in `renderSubmissionChecklist` (AC: 2)
+  - [x] Merge `'dice_validated'` and `'drafted'` into the `'confirmed'` branch — they should both render as ★
+  - [x] The `sighted` state remains `?` (manually flagged in progress)
+  - [x] Update legend text: `★ done  ? in progress  X skipped  O not touched  — n/a` (already updated last session; verify)
 
-- [ ] Task 7: Update `fullySighted` counter logic (AC: 8)
-  - [ ] Ensure `dice_validated` and `drafted` are treated as "done" in the counter (same as `confirmed`)
+- [x] Task 7: Update `fullySighted` counter logic (AC: 8)
+  - [x] Ensure `dice_validated` and `drafted` are treated as "done" in the counter (same as `confirmed`)
 
 ---
 
@@ -207,5 +207,15 @@ claude-sonnet-4-6
 ### Debug Log References
 
 ### Completion Notes List
+- All tasks were already implemented in a prior session; verified in `downtime-views.js` line 7901–8115
+- `CHK_SECTIONS`: correct column order (T, F, P1–4, A1–5, S1–3, R1–3, C1–5, Resources) — no correspondence/xp/skill_acq
+- `_getSubMeritActions` + `_buildMeritSlotMap` both exist with `sub._chkSlotMap` caching
+- `_chkHasContent`: all categories handled via slot map
+- `_chkState`: no `dice_validated`/`drafted` intermediate states — `ps === 'validated'` → `'confirmed'` directly for all section types
+- `_chkNavKey`: all categories (allies/status/retainers/contacts) use slot map → `merit:gIdx` routing
+- Cell renderer: 5-state only (empty/confirmed/no_action/sighted/unsighted)
+- `fullySighted` counter: only `empty | no_action | confirmed` qualify as done
 
 ### File List
+- `public/js/admin/downtime-views.js`
+- `specs/stories/dt-fix-26-checklist-column-redesign.story.md`
