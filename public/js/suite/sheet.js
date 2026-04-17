@@ -23,6 +23,7 @@ import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
   influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft
 } from '../data/accessors.js';
+import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 
 // ── Sheet character selection ──
@@ -193,18 +194,31 @@ export function renderSheet() {
   const maxWP = calcWillpowerMax(c);
   const maxInf = influenceTotal(c);
 
-  // Load or seed persisted state
-  const tKey = 'tm_tracker_' + c.name;
-  let tState;
-  try { tState = JSON.parse(localStorage.getItem(tKey) || 'null'); } catch (e) { tState = null; }
-  if (!tState) tState = { health: maxH, vitae: maxV, wp: maxWP, inf: maxInf };
-  if (tState.health == null) tState.health = maxH;
-  tState.health = Math.max(0, Math.min(tState.health, maxH));
-  tState.vitae  = Math.max(0, Math.min(tState.vitae, maxV));
-  tState.wp     = Math.max(0, Math.min(tState.wp, maxWP));
-  tState.inf    = Math.max(0, Math.min(tState.inf, maxInf));
-  // Always write back so toggleBox can read it
-  localStorage.setItem(tKey, JSON.stringify(tState));
+  // Load from canonical tracker store (keyed by _id)
+  const charId = String(c._id);
+
+  // One-time migration: seed canonical store from old tm_tracker_{name} if not yet present
+  if (!trackerReadRaw(charId)) {
+    const oldKey = 'tm_tracker_' + c.name;
+    try {
+      const old = JSON.parse(localStorage.getItem(oldKey) || 'null');
+      if (old) {
+        const maxD = maxH - (old.health ?? maxH);
+        trackerWriteField(charId, 'vitae',     Math.max(0, Math.min(old.vitae  ?? maxV,  maxV)));
+        trackerWriteField(charId, 'willpower', Math.max(0, Math.min(old.wp     ?? maxWP, maxWP)));
+        trackerWriteField(charId, 'lethal',    Math.max(0, Math.min(maxD,                maxH)));
+        trackerWriteField(charId, 'inf',       Math.max(0, Math.min(old.inf    ?? maxInf, maxInf)));
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  const cs = trackerRead(charId);
+  const tState = {
+    vitae:  Math.max(0, Math.min(cs.vitae      ?? maxV,  maxV)),
+    wp:     Math.max(0, Math.min(cs.willpower  ?? maxWP, maxWP)),
+    health: Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0)),
+    inf:    Math.max(0, Math.min(cs.inf         ?? maxInf, maxInf)),
+  };
 
   const TRACKER_LABELS = { health: 'Health', vitae: 'Vitae', wp: 'Willpower', inf: 'Influence' };
 
@@ -567,44 +581,80 @@ export function renderSheet() {
 }
 
 // ── TRACKER TOGGLE ──
-// Event delegation on tracker-block — avoids inline onclick and string-escaping issues
-document.addEventListener('click', function(e){
+// Event delegation on tracker-block — writes through to the canonical tracker store.
+document.addEventListener('click', function(e) {
   const box = e.target.closest('[data-tracker]');
-  if(!box) return;
+  if (!box) return;
   const block = box.closest('#tracker-block');
-  if(!block) return;
+  if (!block) return;
+  if (!state.sheetChar) return;
 
-  const type = box.dataset.tracker;
-  const idx  = parseInt(box.dataset.idx);
-  const max  = parseInt(box.dataset.max);
+  const type      = box.dataset.tracker;
+  const idx       = parseInt(box.dataset.idx);
+  const max       = parseInt(box.dataset.max);
   const filledCls = box.dataset.filled;
+  const c         = state.sheetChar;
+  const charId    = String(c._id);
+  const cs        = trackerRead(charId);
+  if (!cs) return;
 
-  // Resolve the tKey from the currently displayed character
-  if(!state.sheetChar) return;
-  const tKey = 'tm_tracker_' + state.sheetChar.name;
-  let tState;
-  try{ tState = JSON.parse(localStorage.getItem(tKey)||'null'); }catch(e){ tState=null; }
-  if(!tState) return;
+  // Compute current value in sheet terms
+  const maxH = calcHealth(c);
+  let currentSheet;
+  if      (type === 'health') currentSheet = Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0));
+  else if (type === 'vitae')  currentSheet = cs.vitae      ?? 0;
+  else if (type === 'wp')     currentSheet = cs.willpower  ?? 0;
+  else if (type === 'inf')    currentSheet = cs.inf        ?? 0;
+  else return;
 
-  const current = tState[type];
   // Tap filled → spend down to idx; tap empty → recover up to idx+1
-  tState[type] = idx < current ? idx : idx + 1;
-  tState[type] = Math.max(0, Math.min(tState[type], max));
-  localStorage.setItem(tKey, JSON.stringify(tState));
+  const newVal = idx < currentSheet ? idx : idx + 1;
+  const delta  = newVal - currentSheet;
+  if (delta === 0) return;
 
-  // Re-render boxes
-  const boxesEl = document.getElementById('tb-'+type);
-  const numEl   = document.getElementById('tn-'+type);
-  if(boxesEl){
-    boxesEl.innerHTML = Array.from({length:max},(_,i)=>{
-      const filled = i < tState[type];
-      return `<div class="tbox${filled?' '+filledCls:''}" data-tracker="${type}" data-idx="${i}" data-max="${max}" data-filled="${filledCls}"></div>`;
+  if (type === 'health') {
+    if (delta < 0) {
+      // Taking damage — add lethal (ST reclassifies in Tracker if needed)
+      trackerAdj(charId, 'lethal', -delta);
+    } else {
+      // Healing — remove bashing first, then lethal, then aggravated
+      let rem = delta;
+      const removeBash = Math.min(rem, cs.bashing    ?? 0); rem -= removeBash;
+      const removeLet  = Math.min(rem, cs.lethal     ?? 0); rem -= removeLet;
+      const removeAgg  = Math.min(rem, cs.aggravated ?? 0);
+      if (removeBash) trackerAdj(charId, 'bashing',    -removeBash);
+      if (removeLet)  trackerAdj(charId, 'lethal',     -removeLet);
+      if (removeAgg)  trackerAdj(charId, 'aggravated', -removeAgg);
+    }
+  } else if (type === 'vitae') {
+    trackerAdj(charId, 'vitae', delta);
+  } else if (type === 'wp') {
+    trackerAdj(charId, 'willpower', delta);
+  } else if (type === 'inf') {
+    trackerAdj(charId, 'inf', delta);
+  }
+
+  // Re-read updated state and repaint boxes + number
+  const updated = trackerRead(charId);
+  let updatedSheet;
+  if      (type === 'health') updatedSheet = Math.max(0, maxH - (updated.bashing ?? 0) - (updated.lethal ?? 0) - (updated.aggravated ?? 0));
+  else if (type === 'vitae')  updatedSheet = updated.vitae      ?? 0;
+  else if (type === 'wp')     updatedSheet = updated.willpower  ?? 0;
+  else if (type === 'inf')    updatedSheet = updated.inf        ?? 0;
+
+  const boxesEl = document.getElementById('tb-' + type);
+  const numEl   = document.getElementById('tn-' + type);
+  if (boxesEl) {
+    boxesEl.innerHTML = Array.from({ length: max }, (_, i) => {
+      const filled = i < updatedSheet;
+      return `<div class="tbox${filled ? ' ' + filledCls : ''}" data-tracker="${type}" data-idx="${i}" data-max="${max}" data-filled="${filledCls}"></div>`;
     }).join('');
   }
-  // num shows true max (might exceed 15 display boxes for influence)
-  const trueMax = type==='health'? calcHealth(state.sheetChar)
-                : type==='vitae'? calcVitaeMax(state.sheetChar)
-                : type==='wp'? calcWillpowerMax(state.sheetChar)
-                : influenceTotal(state.sheetChar);
-  if(numEl) numEl.textContent = tState[type]+'/'+trueMax;
+  if (numEl) {
+    const trueMax = type === 'health' ? maxH
+      : type === 'vitae'  ? calcVitaeMax(c)
+      : type === 'wp'     ? calcWillpowerMax(c)
+      : influenceTotal(c);
+    numEl.textContent = updatedSheet + '/' + trueMax;
+  }
 });
