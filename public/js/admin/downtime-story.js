@@ -2764,6 +2764,11 @@ async function handlePushCharacter(subId, charId) {
 
   try {
     const md = compilePushOutcome(sub);
+    if (!md.trim()) {
+      _pushErrors.set(charId, 'Nothing to push — all narrative fields are empty (check General Notes and section responses)');
+      if (rail) rail.innerHTML = renderNavRail();
+      return;
+    }
     const patch = {
       'st_review.outcome_text':        md,
       'st_review.outcome_visibility':  'published',
