@@ -22,11 +22,11 @@ export async function renderCityTab(el, territories) {
   let terrs = territories || [];
   if (!terrs.length) { try { terrs = await apiGet('/api/territories'); } catch { terrs = []; } }
 
-  const TITLE_ORDER = ['Premier', 'Primogen', 'Administrator', 'Harpy', 'Protector'];
-  const courtHolders = chars.filter(c => TITLE_ORDER.includes(c.court_title))
+  const CATEGORY_ORDER = ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer'];
+  const courtHolders = chars.filter(c => CATEGORY_ORDER.includes(c.court_category))
     .sort((a, b) => {
-      const ai = TITLE_ORDER.indexOf(a.court_title);
-      const bi = TITLE_ORDER.indexOf(b.court_title);
+      const ai = CATEGORY_ORDER.indexOf(a.court_category);
+      const bi = CATEGORY_ORDER.indexOf(b.court_category);
       return ai - bi || sortName(a).localeCompare(sortName(b));
     });
   // Derive regents from territory documents (single source of truth)
@@ -60,7 +60,7 @@ export async function renderCityTab(el, territories) {
     for (const c of courtHolders) {
       h += '<div class="city-office-row">';
       h += `<span class="city-office-name">${esc(displayName(c))}</span>`;
-      h += `<span class="city-office-position">${esc(c.court_title)}</span>`;
+      h += `<span class="city-office-position">${esc(c.court_category)}</span>`;
       h += '</div>';
     }
     h += '</div>';
@@ -109,7 +109,7 @@ export async function renderCityTab(el, territories) {
       h += `<span class="city-char-name">${esc(displayName(c))}${c.player ? ` <span class="city-char-player">(${esc(redactPlayer(c.player))})</span>` : ''}</span>`;
       h += '<span class="city-char-meta">';
       if (c.clan) h += `${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span>`;
-      if (c.court_title) h += `<span class="city-char-position">${esc(c.court_title)}</span>`;
+      if (c.court_category) h += `<span class="city-char-position">${esc(c.court_category)}</span>`;
       h += '</span>';
       h += '</div>';
     }

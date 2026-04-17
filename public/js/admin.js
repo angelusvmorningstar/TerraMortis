@@ -478,7 +478,7 @@ function renderCharGrid() {
   function charCard(c) {
     const bp = c.blood_potency || 1;
     const hum = c.humanity != null ? c.humanity : '?';
-    const title = c.court_title ? `<span class="cc-tag title">${esc(c.court_title)}</span>` : '';
+    const title = (c.court_category || c.court_title) ? `<span class="cc-tag title">${esc(c.court_category || c.court_title)}</span>` : '';
     const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
     charAlerts(c); // runs applyDerivedMerits so xp/audit work correctly
     const xpL = xpLeft(c);
