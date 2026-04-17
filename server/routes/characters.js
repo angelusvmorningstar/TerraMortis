@@ -163,7 +163,8 @@ router.get('/status', async (req, res) => {
         projection: {
           name: 1, honorific: 1, moniker: 1,
           clan: 1, covenant: 1,
-          'status.clan': 1, 'status.covenant': 1,
+          'status.clan': 1, 'status.covenant': 1, 'status.city': 1,
+          court_title: 1,
           player: 1,
         },
       }

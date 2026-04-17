@@ -4772,6 +4772,20 @@ body {
 }
 .proc-feedback-input:focus { border-color: var(--accent); outline: none; }
 
+.proc-player-note-input {
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  color: var(--txt1);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--ft);
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.proc-player-note-input:focus { border-color: var(--accent); outline: none; }
+
 .proc-val-status {
   display: flex;
   gap: 6px;
