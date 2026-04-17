@@ -8,10 +8,10 @@
 
 import state from './data.js';
 import { rollPool, cntSuc } from '../shared/dice.js';
-import {
-  stGetTracker, stSetTracker, stMaxVitae, toast
-} from './tracker.js';
+import { toast } from './tracker.js';
+import { trackerAdj } from '../game/tracker.js';
 import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
+import { displayName } from '../data/helpers.js';
 import { FEED_METHODS, TERRITORY_DATA } from '../player/downtime-data.js';
 
 let feedMethod = null;
@@ -187,24 +187,14 @@ function feedAdjApply(d) {
   el.textContent = Math.max(0, cur + d);
 }
 
-function feedApplyVitae(safeMax) {
-  // TODO: lst.3 — replace stGetTracker/stSetTracker with trackerAdj from game/tracker.js
+async function feedApplyVitae(safeMax) {
   const c = feedGetChar();
   if (!c) return;
   const n = parseInt(document.getElementById('feed-apply-n').textContent) || 0;
   if (n === 0) { toast('0 vitae — nothing to apply'); return; }
-  const cur = stGetTracker(c);
-  const maxV = stMaxVitae(c);
-  const newV = Math.min(maxV, cur.vitae + n);
-  const gained = newV - cur.vitae;
-  cur.vitae = newV;
-  stSetTracker(c, cur);
-  // Update live tracker if character is open in ST overview
-  const slug = c.name.replace(/[^a-z0-9]/gi, '');
-  const el = document.getElementById('stv-v-' + slug);
-  if (el) el.textContent = newV;
-  const over = n > safeMax ? ' ⚠ Humanity check required' : '';
-  toast(c.name + ': +' + gained + ' Vitae' + (newV >= maxV ? ' (full)' : '') + over);
+  await trackerAdj(String(c._id), 'vitae', n);
+  const over = n > safeMax ? ' \u26A0 Humanity check required' : '';
+  toast(`${displayName(c)}: +${n} Vitae${over}`);
 }
 
 function feedReset() {

@@ -366,12 +366,13 @@ development_status:
   # Delivery order: lst.1 + lst.2 (parallel) → lst.3 → lst.4 → lst.5
   # lst.3 blocks lst.4 and lst.5
 
-  epic-lst: backlog
+  epic-lst: in-progress
 
-  lst-1-dt-contacts-qualifier: review
-  lst-2-feed-roller-harmonise: review
-  lst-3-tracker-migration: ready-for-dev
-  lst-4-st-sheet-swap: backlog          # blocked by lst-3
-  lst-5-st-feeding-confirm: backlog     # blocked by lst-3
+  lst-1-dt-contacts-qualifier: done
+  lst-2-feed-roller-harmonise: done
+  lst-3-tracker-migration: review
+  lst-4-st-sheet-swap: review
+  lst-5-st-feeding-confirm: review
+  lst-6-st-player-view-toggle: review
 
   epic-lst-retrospective: optional
