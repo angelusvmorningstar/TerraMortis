@@ -91,7 +91,7 @@ router.get('/public', async (req, res) => {
   const chars = await col()
     .find(
       { retired: { $ne: true }, pending_approval: { $ne: true } },
-      { projection: { name: 1, honorific: 1, moniker: 1, clan: 1, covenant: 1, court_title: 1, regent_territory: 1, player: 1 } }
+      { projection: { name: 1, honorific: 1, moniker: 1, clan: 1, covenant: 1, court_title: 1, court_category: 1, regent_territory: 1, player: 1 } }
     )
     .toArray();
   const sortKey = c => `${c.covenant || 'zzz'}|${(c.moniker || c.name || '').toLowerCase()}`;

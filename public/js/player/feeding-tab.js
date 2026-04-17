@@ -602,6 +602,13 @@ function render() {
       h += `</div>`;
     }
 
+    // Player Feedback (player_facing_note from feeding_review — read directly,
+    // as it is not embedded in the ## Feeding section of published_outcome)
+    const feedingNote = currentSub?.feeding_review?.player_facing_note?.trim();
+    if (feedingNote) {
+      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(feedingNote)}</div>`;
+    }
+
     h += '<div class="feeding-result">';
     if (methodName) h += `<p class="feeding-method-label">Method: <strong>${esc(methodName)}</strong></p>`;
     h += renderFeedingSummary();
