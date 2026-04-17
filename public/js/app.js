@@ -73,6 +73,7 @@ import { updResist, showResistSec } from './shared/resist.js';
 import { getPool } from './shared/pools.js';
 import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
 import { SKILLS_MENTAL } from './data/constants.js';
+import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
 import { toast as _toast } from './suite/tracker.js';
 import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';
 import { renderSuiteStatusTab } from './suite/status.js';
@@ -476,6 +477,26 @@ function openPanel(mode) {
           body.appendChild(el);
         }
       }
+    }
+  } else if (mode === 'auspex') {
+    title.textContent = 'Auspex Insight';
+    const c = suiteState.sheetChar;
+    const dots = c?.disciplines?.Auspex?.dots || 0;
+    if (!dots) {
+      body.innerHTML = '<div class="hempty" style="padding:24px 16px;">No Auspex rating detected.</div>';
+    } else {
+      let html = '';
+      const maxTier = Math.min(dots, 3);
+      for (let tier = 1; tier <= maxTier; tier++) {
+        html += `<div class="panel-section">Tier ${tier} \u2014 Auspex ${'&#9679;'.repeat(tier)}</div>`;
+        AUSPEX_QUESTIONS[tier].forEach(({ q, fmt }) => {
+          html += `<div class="auspex-q-item">
+            <div class="auspex-q-text">${q}</div>
+            <div class="auspex-q-fmt">${fmt}</div>
+          </div>`;
+        });
+      }
+      body.innerHTML = html;
     }
   } else if (mode === 'common') {
     title.textContent = 'Common Actions';

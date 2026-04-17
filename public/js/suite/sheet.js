@@ -316,9 +316,13 @@ export function renderSheet() {
           <div class="disc-power-effect">${p.effect || ''}</div>
         </div>`;
       });
+      if (d === 'Auspex' && r >= 1) {
+        drawerHtml += `<button class="auspex-insight-btn" onclick="openPanel('auspex')">Auspex Insight \u203A</button>`;
+      }
       const nameTag = (nameStyle ? '<span class="disc-tap-name" style="' + nameStyle + '">' : '<span class="disc-tap-name">') + d + '</span>';
       const dotsTag = r ? `<span class="disc-tap-dots">${dots(r)}</span>` : '';
-      if (!hasPowers) {
+      const isExpandable = hasPowers || (d === 'Auspex' && r >= 1);
+      if (!isExpandable) {
         return `<div class="disc-tap-row">
           <div class="disc-tap-left">${nameTag}${dotsTag}</div>
         </div>`;
