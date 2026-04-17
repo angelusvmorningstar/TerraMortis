@@ -169,9 +169,8 @@ export async function renderFeedingTab(el, char) {
   if (mySub?.feeding_roll?.successes != null) {
     stRollResult = mySub.feeding_roll;
   }
-  if (mySub?.feeding_vitae_tally) {
-    vitateTally = mySub.feeding_vitae_tally;
-  }
+  // Use ST-persisted tally if available; otherwise compute locally from char data
+  vitateTally = mySub?.feeding_vitae_tally || computeVitateTally(char, mySub);
 
   // Prefer ST-confirmed pool from downtime processing.
   // Priority 1: feeding_roll.params (ST rolled on behalf of player — has exact size)
@@ -413,6 +412,76 @@ function buildPool(method, discName, specName) {
   poolBreakdown = parts.join(' + ') + ` = ${poolTotal}`;
 }
 
+// ── Compute vitae tally from character + submission data ──────────────────────
+// Used when feeding_vitae_tally hasn't been saved by the ST yet (ready state).
+// Returns the same shape as feeding_vitae_tally.
+function computeVitateTally(char, sub) {
+  if (!char) return null;
+
+  // Herd: rating + bonus (includes SSJ/Flock extra dots if entered)
+  const herdMerit = (char.merits || []).find(m => m.name === 'Herd');
+  const herd = herdMerit ? (herdMerit.rating || 0) + (herdMerit.bonus || 0) : 0;
+
+  // Oath of Fealty: covenant status dots (only if character has the pact)
+  const hasOoF = (char.powers || []).some(p => p.category === 'pact' && p.name === 'Oath of Fealty');
+  const oath_of_fealty = hasOoF ? Math.max(char.status?.covenant || 0, char._ots_covenant_bonus || 0) : 0;
+
+  // Ghoul retainers: count Retainer merits with 'ghoul' qualifier
+  const ghouls = (char.merits || []).filter(m =>
+    m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
+  ).length;
+
+  // Ambience: best territory among player-declared feeding territories
+  let ambience = -4; // Barrens default
+  let ambience_territory = 'Barrens';
+  if (sub?.responses?.feeding_territories) {
+    try {
+      const grid = JSON.parse(sub.responses.feeding_territories);
+      for (const [tid, status] of Object.entries(grid)) {
+        if (status !== 'resident' && status !== 'poach') continue;
+        const td = TERRITORY_DATA.find(t => t.id === tid || tid.startsWith(t.id));
+        if (td?.ambienceMod != null && td.ambienceMod > ambience) {
+          ambience = td.ambienceMod;
+          ambience_territory = td.name;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Rite cost and manual adjustment from ST-saved feeding_review
+  const rev = sub?.feeding_review || {};
+  const rite_cost = rev.vitae_rite_cost  ?? 0;
+  const manual    = rev.vitae_mod_manual ?? 0;
+
+  const autoSum   = herd + oath_of_fealty + ambience - ghouls;
+  const total_bonus = Math.max(0, autoSum + manual - rite_cost);
+
+  return { herd, ambience, ambience_territory, oath_of_fealty, ghouls, rite_cost, manual, total_bonus };
+}
+
+// ── Render vitae breakdown card ───────────────────────────────────────────────
+function renderVitaeTallyCard(tally, vessels = null) {
+  if (!tally) return '';
+  let h = '<div class="fvt-card">';
+  h += '<div class="fvt-title">Vitae Sources</div>';
+  if (vessels !== null) h += `<div class="fvt-row"><span class="fvt-label">Vessels (from roll)</span><span class="fvt-val">${vessels}</span></div>`;
+  if (tally.herd)         h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Herd</span><span class="fvt-val">+${tally.herd}</span></div>`;
+  if (tally.oath_of_fealty) h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Oath of Fealty</span><span class="fvt-val">+${tally.oath_of_fealty}</span></div>`;
+  if (tally.ambience != null && tally.ambience !== 0) {
+    const lbl = tally.ambience_territory ? `Ambience (${tally.ambience_territory})` : 'Ambience';
+    const cls = tally.ambience > 0 ? ' fvt-pos' : ' fvt-neg';
+    const sign = tally.ambience > 0 ? '+' : '';
+    h += `<div class="fvt-row${cls}"><span class="fvt-label">${esc(lbl)}</span><span class="fvt-val">${sign}${tally.ambience}</span></div>`;
+  }
+  if (tally.ghouls)    h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Ghoul retainers</span><span class="fvt-val">\u2212${tally.ghouls}</span></div>`;
+  if (tally.rite_cost) h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Rite costs</span><span class="fvt-val">\u2212${tally.rite_cost}</span></div>`;
+  if (tally.manual)    h += `<div class="fvt-row${tally.manual > 0 ? ' fvt-pos' : ' fvt-neg'}"><span class="fvt-label">Adjustment</span><span class="fvt-val">${tally.manual > 0 ? '+' : ''}${tally.manual}</span></div>`;
+  h += '<div class="fvt-divider"></div>';
+  h += `<div class="fvt-row fvt-total"><span class="fvt-label">Bonus vitae</span><span class="fvt-val">+${tally.total_bonus}</span></div>`;
+  h += '</div>';
+  return h;
+}
+
 function fvcConseqText(v) {
   if (v <= 2) return 'Safe';
   if (v === 3) return 'Drained';
@@ -453,6 +522,7 @@ function render() {
     h += `<span class="feeding-pool-total">${poolTotal} dice</span>`;
     h += '</div>';
     h += renderFeedingSummary();
+    h += renderVitaeTallyCard(vitateTally);
     h += renderStRollResult();
     if (!stRollResult) {
       h += '<p class="feeding-warning">You only get one roll. Once you roll, you are committed to the result.</p>';
@@ -548,28 +618,8 @@ function render() {
     }
     h += '</div>';
 
-    // ── Vitae breakdown card (shown when ST tally is available) ──
-    if (vitateTally) {
-      const vt = vitateTally;
-      const bonusVitae = vt.total_bonus ?? 0;
-      h += '<div class="fvt-card">';
-      h += '<div class="fvt-title">Vitae Sources</div>';
-      h += `<div class="fvt-row"><span class="fvt-label">Vessels (from roll)</span><span class="fvt-val">${vessels}</span></div>`;
-      if (vt.herd)          h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Herd</span><span class="fvt-val">+${vt.herd}</span></div>`;
-      if (vt.oath_of_fealty) h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Oath of Fealty</span><span class="fvt-val">+${vt.oath_of_fealty}</span></div>`;
-      if (vt.ambience != null && vt.ambience !== 0) {
-        const ambLabel = vt.ambience_territory ? `Ambience (${vt.ambience_territory})` : 'Ambience';
-        const ambCls = vt.ambience > 0 ? ' fvt-pos' : ' fvt-neg';
-        const ambSign = vt.ambience > 0 ? '+' : '';
-        h += `<div class="fvt-row${ambCls}"><span class="fvt-label">${esc(ambLabel)}</span><span class="fvt-val">${ambSign}${vt.ambience}</span></div>`;
-      }
-      if (vt.ghouls)     h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Ghoul retainers</span><span class="fvt-val">\u2212${vt.ghouls}</span></div>`;
-      if (vt.rite_cost)  h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Rite costs</span><span class="fvt-val">\u2212${vt.rite_cost}</span></div>`;
-      if (vt.manual)     h += `<div class="fvt-row${vt.manual > 0 ? ' fvt-pos' : ' fvt-neg'}"><span class="fvt-label">Adjustment</span><span class="fvt-val">${vt.manual > 0 ? '+' : ''}${vt.manual}</span></div>`;
-      h += '<div class="fvt-divider"></div>';
-      h += `<div class="fvt-row fvt-total"><span class="fvt-label">Bonus vitae</span><span class="fvt-val">+${bonusVitae}</span></div>`;
-      h += '</div>';
-    }
+    // ── Vitae breakdown card ──
+    h += renderVitaeTallyCard(vitateTally, vessels);
 
     if (dramaticFailure) {
       h += '<div class="feeding-dramatic">Dramatic failure \u2014 see your Storyteller at game before feeding.</div>';
