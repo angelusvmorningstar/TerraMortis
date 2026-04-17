@@ -349,5 +349,6 @@ development_status:
   feat-3-duplicate-character-hard-delete: backlog
   feat-4-st-plot-npc-tracker: backlog
   feat-5-login-linked-to-email: backlog
+  feat-6-player-sheet-width-consistency: backlog  # Left panel width varies between characters; sheet should be full-width consistently
 
   epic-feat-retrospective: optional
