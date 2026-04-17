@@ -65,18 +65,53 @@ export function renderSheet() {
   let html = '';
 
   // ── HEADER ──
-  html += `<div class="sh-char-hdr">
-  <div class="sh-namerow">
+  html += `<div class="sh-char-hdr">`;
+
+  // Name row
+  html += `<div class="sh-namerow">
     <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
-      <span class="sh-char-player">${redactPlayer(c.player || '')}</span>
+      <span class="sh-char-player">${redactPlayer(c.player || '')}${c.pronouns ? ' \u00B7 ' + c.pronouns : ''}</span>
       <span class="sh-xp-badge">XP ${xpLeft(c)}/${c.xp_total != null ? c.xp_total : '?'}</span>
     </div>
-  </div>
-  <div class="sh-char-body">
-    <div class="sh-char-left">`;
+    ${c.concept ? `<div class="sh-char-concept" style="margin-top:4px">${c.concept}</div>` : ''}
+  </div>`;
 
-  if (c.concept) html += `<div class="sh-char-concept">${c.concept}</div>`;
+  // Faction display — Covenant first, then Clan
+  html += `<div class="sh-faction-display">`;
+  if (c.covenant) {
+    html += `<div class="sh-faction-row">
+      ${covSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${covSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
+      <div class="sh-faction-info">
+        <span class="sh-faction-name">${c.covenant}</span>
+        <span class="sh-faction-type">Covenant</span>
+        ${st.covenant ? `<span class="sh-faction-dots">${dots(st.covenant)}</span>` : ''}
+      </div>
+      <div class="sh-stat-pip">
+        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.covenant || 0}</span></div>
+        <div class="sh-status-lbl">Cov.</div>
+      </div>
+    </div>`;
+  }
+  if (c.clan) {
+    html += `<div class="sh-faction-row">
+      ${clanSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${clanSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
+      <div class="sh-faction-info">
+        <span class="sh-faction-name">${c.clan}</span>
+        ${bl ? `<span class="sh-faction-bloodline-sub">${bl}</span>` : ''}
+        <span class="sh-faction-type">Clan</span>
+        ${st.clan ? `<span class="sh-faction-dots">${dots(st.clan)}</span>` : ''}
+      </div>
+      <div class="sh-stat-pip">
+        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.clan || 0}</span></div>
+        <div class="sh-status-lbl">Clan</div>
+      </div>
+    </div>`;
+  }
+  html += `</div>`; // end sh-faction-display
+
+  // Meta rows: mask, dirge, curse/bane, touchstones, embrace, apparent age, features
+  html += `<div class="sh-char-meta">`;
 
   // Mask
   if (c.mask) {
@@ -90,9 +125,8 @@ export function renderSheet() {
                  (wp.dirge_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.dirge_all}</div>` : '');
     html += expRow('dirge', 'Dirge', c.dirge, body);
   }
-  // Curse
+  // Curse + Banes
   if (curse) html += expRow('curse', 'Curse', curse.name, `<div>${curse.effect || ''}</div>`);
-  // Banes
   regularBanes.forEach((b, i) => {
     html += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
@@ -100,7 +134,6 @@ export function renderSheet() {
   const ts = c.touchstones || [];
   if (ts.length) {
     const hum = c.humanity || 0;
-    const summary = '';
     const tsBody = ts.map(t => {
       const attached = hum >= t.humanity;
       return `<div class="exp-ts-row">
@@ -108,50 +141,27 @@ export function renderSheet() {
         <span class="exp-ts-name">${t.name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
-    html += expRow('touchstones', 'Touchstones', summary, tsBody);
+    html += expRow('touchstones', 'Touchstones', '', tsBody);
+  }
+  // Embrace + Apparent Age
+  if (c.date_of_embrace || c.apparent_age) {
+    html += `<div class="sh-meta-pair">`;
+    if (c.date_of_embrace) {
+      const dedDisp = new Date(c.date_of_embrace + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Embrace</span><span class="sh-meta-val">${dedDisp}</span></div>`;
+    }
+    if (c.apparent_age) {
+      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">App. Age</span><span class="sh-meta-val">${c.apparent_age}</span></div>`;
+    }
+    html += `</div>`;
+  }
+  // Features
+  if (c.features) {
+    html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Features</span><span class="sh-meta-val">${c.features}</span></div>`;
   }
 
-  html += `</div>`; // end sh-char-left
-
-  // Right panel
-  html += `<div class="sh-hdr-right">
-    <div class="sh-hdr-row">
-      <div class="sh-icon-slot"></div>
-      <div class="sh-faction-text">
-        <div class="sh-faction-label">${c.court_title || '\u2014'}</div>
-        <div class="sh-faction-sub">Title</div>
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${CITY_SVG}<span class="sh-status-n">${st.city || 0}</span></div>
-        <div class="sh-status-lbl">City</div>
-      </div>
-    </div>
-    <div class="sh-hdr-row">
-      ${covSvg ? `<div class="sh-faction-icon" style="color:#CC1111;width:36px;height:36px;flex-shrink:0">${covSvg}</div>` : `<div class="sh-icon-slot"></div>`}
-      <div class="sh-faction-text">
-        <div class="sh-faction-label">${c.covenant || '\u2014'}</div>
-        <div class="sh-faction-sub">Covenant</div>
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.covenant || 0}</span></div>
-        <div class="sh-status-lbl">Cov.</div>
-      </div>
-    </div>
-    <div class="sh-hdr-row">
-      ${clanSvg ? `<div class="sh-faction-icon" style="color:#CC1111;width:36px;height:36px;flex-shrink:0">${clanSvg}</div>` : `<div class="sh-icon-slot"></div>`}
-      <div class="sh-faction-text">
-        <div class="sh-faction-label">${c.clan || '\u2014'}</div>
-        ${bl ? `<div class="sh-faction-bloodline">${bl}</div>` : ''}
-        <div class="sh-faction-sub">Clan</div>
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.clan || 0}</span></div>
-        <div class="sh-status-lbl">Clan</div>
-      </div>
-    </div>
-  </div>`; // end sh-hdr-right
-
-  html += `</div></div>`; // end sh-char-body, sh-char-hdr
+  html += `</div>`; // end sh-char-meta
+  html += `</div>`; // end sh-char-hdr
 
   // ── COVENANT STRIP ──
   const covStandings = c.covenant_standings || {};
@@ -229,17 +239,21 @@ export function renderSheet() {
   // ── BODY ──
   html += `<div class="sh-body">`;
 
-  // Attributes (column-first: Mental/Physical/Social)
-  const ATTR_ROWS = [
-    ['Intelligence', 'Strength', 'Presence'],
-    ['Wits', 'Dexterity', 'Manipulation'],
-    ['Resolve', 'Stamina', 'Composure'],
+  // Attributes (3-column: Mental | Physical | Social)
+  const ATTR_COLS = [
+    { label: 'Mental',   attrs: ['Intelligence', 'Wits', 'Resolve'] },
+    { label: 'Physical', attrs: ['Strength', 'Dexterity', 'Stamina'] },
+    { label: 'Social',   attrs: ['Presence', 'Manipulation', 'Composure'] },
   ];
   html += `<div class="sh-sec"><div class="sh-sec-title">Attributes</div><div class="attr-grid">`;
-  ATTR_ROWS.forEach(row => row.forEach(a => {
-    const base = getAttrDots(c, a), bonus = getAttrBonus(c, a);
-    html += `<div class="attr-cell"><div class="attr-name">${a}</div><div class="attr-dots">${dotsWithBonus(base, bonus)}</div></div>`;
-  }));
+  ATTR_COLS.forEach(col => {
+    html += `<div class="attr-cell"><div class="attr-group-hd">${col.label}</div>`;
+    col.attrs.forEach(a => {
+      const base = getAttrDots(c, a), bonus = getAttrBonus(c, a);
+      html += `<div class="attr-row-item"><span class="attr-name">${a}</span><span class="attr-dots">${dotsWithBonus(base, bonus)}</span></div>`;
+    });
+    html += `</div>`;
+  });
   html += `</div></div>`;
 
   // Skills (3-col, all 24)
@@ -412,18 +426,17 @@ export function renderSheet() {
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (stndMerits.length) {
+    const tierDotStr = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
     html += `<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="stand-list">`;
-    stndMerits.forEach(m => {
-      html += `<div class="stand-row">
-        <div class="stand-name-row"><span class="stand-label">${m.name}</span><span class="stand-dots">${dots(m.rating || 0)}</span></div>
-        ${m.qualifier ? `<div class="stand-sub">${m.qualifier}</div>` : ''}
-        ${m.cult_name ? `<div class="stand-sub">${m.cult_name}</div>` : ''}
-      </div>`;
+    stndMerits.forEach((m, mi) => {
+      const sid = 'smt' + mi;
+      const qualifier = m.cult_name || m.qualifier || m.role || '';
+      // Build drawer content
+      let drawerHtml = '';
       if (m.name === 'Mystery Cult Initiation' && m.rating > 0) {
         const tg = m.tier_grants || [];
         const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
-        const tierDots = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
-        html += '<div class="mci-tier-list">';
+        drawerHtml += '<div class="mci-tier-list">';
         for (let d = 0; d < Math.min(5, m.rating); d++) {
           const tier = d + 1;
           const grant = tg.find(t => t.tier === tier);
@@ -433,9 +446,53 @@ export function renderSheet() {
           else if (d === 4 && d5c === 'advantage') label = 'Adv: ' + (m.dot5_text || '');
           else if (grant) label = grant.name + (grant.qualifier ? ' (' + grant.qualifier + ')' : '') + ' ' + dots(grant.rating);
           else label = '<span class="mci-tier-empty">(unassigned)</span>';
-          html += '<div class="mci-tier-row"><span class="mci-tier-dot">' + tierDots[d] + '</span><span class="mci-tier-label">' + label + '</span></div>';
+          drawerHtml += '<div class="mci-tier-row"><span class="mci-tier-dot">' + tierDotStr[d] + '</span><span class="mci-tier-label">' + label + '</span></div>';
         }
-        html += '</div>';
+        drawerHtml += '</div>';
+      } else if (m.name === 'Professional Training') {
+        const as = (m.asset_skills || []).filter(Boolean);
+        if (as.length) {
+          drawerHtml += `<div class="stand-asset-row"><span class="stand-asset-lbl">Asset Skills (9-Again):</span>${as.map(s => `<span class="stand-na-chip">${s}</span>`).join('')}</div>`;
+        }
+        // PT tier benefits up to purchased rating
+        const ptTiers = [
+          '2 dots of Contacts',
+          '2 Asset Skills',
+          '3rd Asset Skill, +2 Specialisations on Asset Skills',
+          '+1 dot in an Asset Skill',
+          'Rote quality on any Asset Skill roll (spend 1 Willpower)',
+        ];
+        drawerHtml += '<div class="mci-tier-list">';
+        for (let d = 0; d < Math.min(5, m.rating); d++) {
+          drawerHtml += `<div class="mci-tier-row"><span class="mci-tier-dot">${tierDotStr[d]}</span><span class="mci-tier-label">${ptTiers[d]}</span></div>`;
+        }
+        drawerHtml += '</div>';
+      }
+      // Render as expandable row if we have drawer content, plain row otherwise
+      if (drawerHtml) {
+        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="toggleDisc('${sid}')">
+          <div class="disc-tap-left">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="disc-tap-name">${m.name}</span>
+              ${qualifier ? `<span style="font-family:var(--fl);font-size:10px;color:var(--label-secondary);font-weight:400">${qualifier}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="disc-tap-dots">${dots(m.rating || 0)}</span>
+            <span class="disc-tap-arr">\u203A</span>
+          </div>
+        </div>
+        <div class="disc-drawer" id="disc-drawer-${sid}">${drawerHtml}</div>`;
+      } else {
+        html += `<div class="disc-tap-row" style="cursor:default">
+          <div class="disc-tap-left">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="disc-tap-name">${m.name}</span>
+              ${qualifier ? `<span style="font-family:var(--fl);font-size:10px;color:var(--label-secondary);font-weight:400">${qualifier}</span>` : ''}
+            </div>
+          </div>
+          <span class="disc-tap-dots">${dots(m.rating || 0)}</span>
+        </div>`;
       }
     });
     html += `</div></div>`;
