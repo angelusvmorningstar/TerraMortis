@@ -11,7 +11,7 @@
 import { apiGet, apiPut } from '../data/api.js';
 import { getGamePhaseCycle } from '../downtime/db.js';
 import { esc, displayName, hasAoE } from '../data/helpers.js';
-import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skSpecStr, skNineAgain } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
@@ -45,6 +45,7 @@ let vitaeAllocation = null; // array of ints after player confirms, or null
 let feedingRecord = null; // persisted feeding_rolls record from DB
 let responseSubId = null; // submission _id for persisting player roll
 let publishedFeedingText = null; // extracted Feeding section from published_outcome
+let stRollResult = null; // ST's roll from admin processing (feeding_roll)
 let currentSub = null; // full submission doc for summary rendering
 
 export async function renderFeedingTab(el, char) {
@@ -65,6 +66,7 @@ export async function renderFeedingTab(el, char) {
   stAgain = 10;
   responseSubId = null;
   publishedFeedingText = null;
+  stRollResult = null;
   currentSub = null;
 
   // Find active cycle for feeding:
@@ -161,6 +163,11 @@ export async function renderFeedingTab(el, char) {
     declaredSpec = mySub.responses['_feed_spec'] || '';
   }
 
+  // Capture ST roll result if present (rolled by ST in admin processing)
+  if (mySub?.feeding_roll?.successes != null) {
+    stRollResult = mySub.feeding_roll;
+  }
+
   // Prefer ST-confirmed pool from downtime processing.
   // Priority 1: feeding_roll.params (ST rolled on behalf of player — has exact size)
   // Priority 2: feeding_review.pool_validated (ST validated pool — parse size from expression)
@@ -177,11 +184,18 @@ export async function renderFeedingTab(el, char) {
     const sizeMatch = rev.pool_validated.match(/=\s*(\d+)\s*$/);
     if (sizeMatch) {
       poolTotal = parseInt(sizeMatch[1], 10);
+      // Include spec bonus from ST processing — pool_mod_spec is applied at
+      // roll time in the admin panel but was missing here, causing a mismatch
+      // between what the ST rolls and what the player sees/rolls.
+      poolTotal += (rev.pool_mod_spec || 0);
       stRote  = mySub.st_review?.feeding_rote || false;
       stAgain = rev.eight_again ? 8 : rev.nine_again ? 9 : 10;
+      const specInfo = (rev.active_feed_specs?.length)
+        ? ` + ${rev.active_feed_specs.join(', ')} +${rev.pool_mod_spec}`
+        : '';
       const roteLabel = stRote ? ' \u2014 Rote quality' : '';
       const againLabel = stAgain === 8 ? ' \u2014 8-Again' : stAgain === 9 ? ' \u2014 9-Again' : '';
-      poolBreakdown = `ST confirmed: ${rev.pool_validated}${roteLabel}${againLabel}`;
+      poolBreakdown = `ST confirmed: ${rev.pool_validated}${specInfo}${roteLabel}${againLabel}`;
       feedingState = 'ready';
     } else if (declaredMethod) {
       buildPool(declaredMethod, declaredDisc, declaredSpec);
@@ -332,6 +346,36 @@ function renderFeedingSummary() {
   return h;
 }
 
+function renderStRollResult() {
+  if (!stRollResult) return '';
+  const suc = stRollResult.successes ?? 0;
+  const exc = stRollResult.exceptional || suc >= 5;
+  const again = stRollResult.params?.again ?? 10;
+  const againLabel = again === 8 ? '8-Again' : again === 9 ? '9-Again' : '';
+  const rote = stRollResult.params?.rote;
+  const pool = stRollResult.params?.size ?? 0;
+  const cls = suc === 0 ? 'feeding-st-roll-fail' : exc ? 'feeding-st-roll-exc' : 'feeding-st-roll-suc';
+
+  let h = `<div class="feeding-st-roll">`;
+  h += `<div class="feeding-st-roll-head">ST Roll Result</div>`;
+  h += `<div class="feeding-st-roll-body">`;
+  h += `<span class="feeding-st-roll-dice">${pool} dice`;
+  if (againLabel) h += ` \u00B7 ${againLabel}`;
+  if (rote) h += ' \u00B7 Rote';
+  h += '</span>';
+  h += `<span class="feeding-st-roll-result ${cls}">${suc} success${suc !== 1 ? 'es' : ''}`;
+  if (exc && suc > 0) h += ' (exceptional)';
+  h += '</span>';
+
+  // Show individual dice if stored
+  if (stRollResult.dice_string) {
+    h += `<span class="feeding-st-roll-detail">${esc(stRollResult.dice_string)}</span>`;
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
 function buildPool(method, discName, specName) {
   const c = currentChar;
   if (!c || !method) { poolTotal = 0; poolBreakdown = ''; return; }
@@ -348,7 +392,8 @@ function buildPool(method, discName, specName) {
     if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = c.skills?.[s]?.specs || []; }
   }
 
-  const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE(c, specName) ? 2 : 1) : 0;
+  const na = bestS ? skNineAgain(c, bestS) : false;
+  const specBonus = specName && bestSpecs.includes(specName) ? ((na || hasAoE(c, specName)) ? 2 : 1) : 0;
   const discVal = (discName && c.disciplines?.[discName]?.dots) || 0;
   const unskilled = bestSV === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
@@ -403,8 +448,11 @@ function render() {
     h += `<span class="feeding-pool-total">${poolTotal} dice</span>`;
     h += '</div>';
     h += renderFeedingSummary();
-    h += '<p class="feeding-warning">You only get one roll. Once you roll, you are committed to the result.</p>';
-    h += `<button id="feeding-roll-btn" class="feeding-roll-btn">Roll Feeding (${poolTotal} dice)</button>`;
+    h += renderStRollResult();
+    if (!stRollResult) {
+      h += '<p class="feeding-warning">You only get one roll. Once you roll, you are committed to the result.</p>';
+      h += `<button id="feeding-roll-btn" class="feeding-roll-btn">Roll Feeding (${poolTotal} dice)</button>`;
+    }
     h += '</div>';
   }
 
