@@ -3,7 +3,7 @@
    State persists in localStorage for the duration of the session. */
 
 import suiteState from '../suite/data.js';
-import { calcVitaeMax, calcWillpowerMax, calcHealth } from '../data/accessors.js';
+import { calcVitaeMax, calcWillpowerMax, calcHealth, influenceTotal } from '../data/accessors.js';
 import { displayName, esc } from '../data/helpers.js';
 
 const KEY = 'tm_tracker_state';
@@ -24,6 +24,7 @@ function defaults(c) {
     lethal:     0,
     aggravated: 0,
     conditions: [],
+    inf:        influenceTotal(c),
   };
 }
 
@@ -36,6 +37,27 @@ function ensure(state, c) {
 // ── Public API ──
 
 let _el = null;
+
+export function trackerRead(charId) {
+  const st = load();
+  const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+  if (!c) return null;
+  return ensure(st, c); // seeds defaults if entry is missing
+}
+
+export function trackerReadRaw(charId) {
+  return load()[charId] || null;
+}
+
+export function trackerWriteField(charId, field, value) {
+  const st = load();
+  const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+  if (!c) return;
+  const cs = ensure(st, c);
+  cs[field] = value;
+  save(st);
+}
+
 
 export function trackerToggle(charId) {
   if (_expanded.has(charId)) _expanded.delete(charId);
@@ -70,6 +92,9 @@ export function trackerAdj(charId, field, delta) {
     cs.vitae = clamp(cs.vitae + delta, 0, calcVitaeMax(c));
   } else if (field === 'willpower') {
     cs.willpower = clamp(cs.willpower + delta, 0, calcWillpowerMax(c));
+  } else if (field === 'inf') {
+    const maxInf = influenceTotal(c);
+    cs.inf = clamp((cs.inf ?? maxInf) + delta, 0, maxInf);
   } else {
     const maxHp = calcHealth(c);
     const used  = cs.bashing + cs.lethal + cs.aggravated;
@@ -164,6 +189,9 @@ function cardHtml(id, c, cs) {
   h += counter('Vitae',      id, 'vitae',     cs.vitae,     vpMax, 'trk-row-v');
   // Willpower
   h += counter('Willpower',  id, 'willpower',  cs.willpower, wpMax, 'trk-row-w');
+  // Influence
+  const infMax = influenceTotal(c);
+  if (infMax > 0) h += counter('Influence', id, 'inf', cs.inf ?? infMax, infMax, 'trk-row-inf');
 
   // Health
   h += `<div class="trk-row trk-row-hp">`;
