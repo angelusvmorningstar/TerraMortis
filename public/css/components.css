@@ -268,7 +268,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-spec-counter .sc-parts{font-size:10px;color:var(--txt3);margin-top:1px;}
 .sk-spec-list{margin-top:3px;border-top:1px solid var(--bdr);padding-top:3px;}
 .sk-spec-row{display:flex;gap:4px;align-items:center;margin-bottom:2px;}
-.sk-spec-input{flex:1;background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-family:var(--ft);font-size:9px;padding:2px 5px;outline:none;}
+.sk-spec-input{flex:1;min-width:0;background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-family:var(--ft);font-size:9px;padding:2px 5px;outline:none;}
 .sk-spec-input:focus{border-color:var(--gold);}
 .sk-spec-rm{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:12px;padding:0 3px;line-height:1;}
 .sk-spec-rm:hover{color:var(--err);}
@@ -632,7 +632,7 @@ html:not([data-theme="dark"]) .edit-icon {
 
 /* ── Desktop character sheet: 3-column layout ── */
 .sh-desktop{display:grid;grid-template-columns:4fr 3fr 3fr;gap:0 24px;align-items:start;}
-.sh-dcol{min-width:0;overflow:hidden;}
+.sh-dcol{min-width:0;overflow:visible;}
 
 /* Narrow viewports: collapse the 3-col sheet into a single column.
    We do not touch sheet.js — this is a pure CSS override of the outer
@@ -640,7 +640,6 @@ html:not([data-theme="dark"]) .edit-icon {
    force a 3-wide layout inside the now-stacked column. */
 @media (max-width: 900px) {
   .sh-desktop { grid-template-columns: 1fr; gap: 16px; }
-  .sh-desktop .sh-dcol { overflow: visible; }
   .sh-desktop .attr-grid,
   .sh-desktop .sh-sec .attr-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .sh-desktop .skills-3col { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }

@@ -19,7 +19,8 @@ import { auditCharacter } from '../data/audit.js';
 // These produce arrays/objects in the old DEVOTIONS_DB/MERITS_DB/MAN_DB shape.
 function _devDB() {
   return getRulesByCategory('devotion').map(r => ({
-    n: r.name, p: r.prereq?.all?.map(n => ({ disc: n.name, dots: n.dots })) || (r.prereq?.type === 'discipline' ? [{ disc: r.prereq.name, dots: r.prereq.dots }] : []),
+    n: r.name, key: r.key,
+    p: r.prereq?.all?.map(n => ({ disc: n.name, dots: n.dots })) || (r.prereq?.type === 'discipline' ? [{ disc: r.prereq.name, dots: r.prereq.dots }] : []),
     xp: r.xp_fixed || 0, cost: r.cost || '', effect: r.description || '',
     stats: r.pool ? `Pool: ${[r.pool.attr, r.pool.skill, r.pool.disc].filter(Boolean).join(' + ')}` + (r.action ? `  •  ${r.action}` : '') + (r.duration ? `  •  ${r.duration}` : '') : '',
     bl: r.bloodline,
@@ -456,7 +457,7 @@ export function shRenderDisciplines(c, editMode) {
     });
     if (editMode) {
       const owned = new Set(devP.map(p => p.name)), avail = DEVOTIONS_DB.filter(d => !owned.has(d.n) && meetsDevPrereqs(c, d));
-      h += '<div class="dev-add-row"><select id="dev-add-select" class="dev-add-sel" style="display:none">'; if (avail.length) avail.forEach(d => { h += '<option value="' + esc(d.n) + '">' + esc(d.n) + ' (' + devPrereqStr(d) + ') \u2014 ' + d.xp + ' XP</option>'; });
+      h += '<div class="dev-add-row"><select id="dev-add-select" class="dev-add-sel" style="display:none">'; if (avail.length) avail.forEach(d => { h += '<option value="' + esc(d.key) + '">' + esc(d.n) + ' (' + devPrereqStr(d) + ') \u2014 ' + d.xp + ' XP</option>'; });
       h += '</select><button class="dev-add-btn"' + (avail.length ? ' onclick="shShowDevSelect(this)"' : ' disabled style="opacity:.4;cursor:default"') + '>' + (avail.length ? '+ Add Devotion (' + avail.length + ')' : 'No devotions available') + '</button></div>';
     }
     h += '</div></div>';
