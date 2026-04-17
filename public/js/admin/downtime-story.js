@@ -94,15 +94,20 @@ export async function initDtStory(cycleId) {
   if (!resolvedCycleId) {
     try {
       const cycles = await apiGet('/api/downtime_cycles');
-      const active = Array.isArray(cycles) ? cycles.find(c => c.status === 'active') : null;
-      resolvedCycleId = active?._id || null;
+      if (Array.isArray(cycles) && cycles.length) {
+        const sorted = cycles.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+        const preferred = sorted.find(c => c.status === 'active')
+          || sorted.find(c => c.status === 'game' || c.status === 'closed')
+          || sorted[0];
+        resolvedCycleId = preferred?._id || null;
+      }
     } catch {
       resolvedCycleId = null;
     }
   }
 
   if (!resolvedCycleId) {
-    panel.innerHTML = '<div class="dt-story-empty">No active downtime cycle. Select a cycle in DT Processing first.</div>';
+    panel.innerHTML = '<div class="dt-story-empty">No downtime cycles found. Create a cycle in DT Processing first.</div>';
     return;
   }
 
