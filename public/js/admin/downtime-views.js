@@ -180,6 +180,7 @@ function _computeMeritPoolSize(category, dots) {
 const POOL_STATUS_LABELS = {
   pending:     'Pending',
   committed:   'Committed',
+  rolled:      'Rolled',
   validated:   'Validated',
   no_roll:     'No Roll',
   no_feed:     'No Valid Feeding',
@@ -498,20 +499,23 @@ function _progressBadge(done, total, doneLabel = 'Done') {
 
 /**
  * Resolve the nine_again checkbox state for a reviewed action.
- * Uses the explicitly saved value if present; otherwise auto-detects from
- * the validated pool expression via the character's skill nine-again flag.
+ * Character-derived nine_again (PT / MCI / skill flag) always wins over a
+ * saved false — a false in the review only applies when the character
+ * genuinely has no nine_again on the validated skill.
+ * Explicit saved true always wins regardless.
  * @param {object} rev          - st_review object
  * @param {string|null} poolValidated
  * @param {object|null} char
  * @returns {boolean}
  */
 function _resolveNineAgainState(rev, poolValidated, char) {
-  if (rev.nine_again != null) return rev.nine_again;
+  if (rev.nine_again === true) return true;
   if (char && poolValidated) {
     const discs   = _charDiscsArray(char).filter(d => d.dots > 0).map(d => d.name);
     const parsed  = _parsePoolExpr(poolValidated, ALL_ATTRS, ALL_SKILLS, discs);
-    if (parsed?.skill) return skNineAgain(char, parsed.skill);
+    if (parsed?.skill && skNineAgain(char, parsed.skill)) return true;
   }
+  if (rev.nine_again != null) return rev.nine_again;
   return false;
 }
 
@@ -524,14 +528,14 @@ function _resolveNineAgainState(rev, poolValidated, char) {
  * @param {object|null} char
  * @returns {string|null}
  */
-function _augmentPoolWithSpecs(poolValidated, activeSpecs, char) {
+function _augmentPoolWithSpecs(poolValidated, activeSpecs, char, nineAgain) {
   if (!poolValidated || !activeSpecs.length) return poolValidated;
   const eqIdx = poolValidated.lastIndexOf('=');
   if (eqIdx === -1) return poolValidated;
   const base     = poolValidated.slice(0, eqIdx).trim();
   const tot      = parseInt(poolValidated.slice(eqIdx + 1).trim()) || 0;
-  const specTotal = activeSpecs.reduce((s, sp) => s + (char && hasAoE(char, sp) ? 2 : 1), 0);
-  const specLabel = activeSpecs.map(sp => `${sp} +${char && hasAoE(char, sp) ? 2 : 1}`).join(', ');
+  const specTotal = activeSpecs.reduce((s, sp) => s + ((nineAgain || (char && hasAoE(char, sp))) ? 2 : 1), 0);
+  const specLabel = activeSpecs.map(sp => `${sp} +${(nineAgain || (char && hasAoE(char, sp))) ? 2 : 1}`).join(', ');
   return `${base} + ${specLabel} = ${tot + specTotal}`;
 }
 
@@ -3904,7 +3908,9 @@ function renderProcessingMode(container) {
       const char = sub
         ? (characters.find(c => String(c._id) === String(sub.character_id)) || charMap.get((sub.character_name || '').toLowerCase().trim()))
         : null;
-      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + (char && hasAoE(char, sp) ? 2 : 1), 0);
+      const skillSel = container.querySelector(`.proc-pool-builder[data-proc-key="${key}"] .proc-pool-skill`);
+      const skillNa = char && skillSel ? skNineAgain(char, skillSel.value) : false;
+      const specBonus = activeFeedSpecs.reduce((sum, sp) => sum + ((skillNa || (char && hasAoE(char, sp))) ? 2 : 1), 0);
       // pool_mod_spec is applied at roll time only — no re-render needed; checkbox state already reflects the change
       await saveEntryReview(entry, { active_feed_specs: activeFeedSpecs, pool_mod_spec: specBonus });
     });
@@ -3931,12 +3937,37 @@ function renderProcessingMode(container) {
       const eightAgainChecked = rightPanel?.querySelector('.proc-proj-8a')?.checked  ?? (review?.eight_again || false);
       const again = eightAgainChecked ? 8 : nineAgainChecked ? 9 : 10;
       const sub = submissions.find(s => s._id === subId);
+      // Read vitae tally data attrs from the rendered panel
+      const vitaePanel = container.querySelector(`.proc-feed-vitae-panel[data-proc-key="${key}"]`);
+      const vtHerd    = vitaePanel ? (parseInt(vitaePanel.dataset.herd,   10) || 0) : 0;
+      const vtOof     = vitaePanel ? (parseInt(vitaePanel.dataset.oof,    10) || 0) : 0;
+      const vtAmb     = vitaePanel ? (parseInt(vitaePanel.dataset.ambience, 10) || 0) : 0;
+      const vtGhouls  = vitaePanel ? (parseInt(vitaePanel.dataset.ghouls, 10) || 0) : 0;
+      const vtRite    = vitaePanel ? (parseInt(vitaePanel.dataset.riteCost, 10) || 0) : 0;
+      const vtManual  = vitaePanel ? (parseInt(vitaePanel.dataset.manual,  10) || 0) : 0;
+      const vtTotal   = vitaePanel ? (parseInt(vitaePanel.dataset.totalBonus, 10) || 0) : 0;
+      const vtTerrLbl = vitaePanel ? (vitaePanel.dataset.terrLabel || '') : '';
+      const vitateTally = {
+        herd:               vtHerd,
+        ambience:           vtAmb,
+        ambience_territory: vtTerrLbl,
+        oath_of_fealty:     vtOof,
+        ghouls:             vtGhouls,
+        rite_cost:          vtRite,
+        manual:             vtManual,
+        total_bonus:        vtTotal,
+      };
+
       showRollModal(
         { size: diceCount, expression: `Feeding: ${poolValidated}`, existingRoll: sub?.feeding_roll,
           again, rote: isRote },
         async result => {
-          await updateSubmission(subId, { feeding_roll: result });
-          if (sub) sub.feeding_roll = result;
+          await updateSubmission(subId, { feeding_roll: result, feeding_vitae_tally: vitateTally });
+          if (sub) { sub.feeding_roll = result; sub.feeding_vitae_tally = vitateTally; }
+          const cur = getEntryReview(entry)?.pool_status || 'pending';
+          if (cur === 'pending' || cur === 'committed') {
+            await saveEntryReview(entry, { pool_status: 'rolled' });
+          }
           renderProcessingMode(container);
         }
       );
@@ -4001,6 +4032,10 @@ function renderProcessingMode(container) {
         again, initialRote: roteChecked,
       }, async result => {
         await saveEntryReview(entry, { roll: result });
+        const cur = getEntryReview(entry)?.pool_status || 'pending';
+        if (cur === 'pending' || cur === 'committed') {
+          await saveEntryReview(entry, { pool_status: 'rolled' });
+        }
         renderProcessingMode(container);
       });
     });
@@ -4022,6 +4057,10 @@ function renderProcessingMode(container) {
         again: 10, initialRote: false,
       }, async result => {
         await saveEntryReview(entry, { roll: result });
+        const cur = getEntryReview(entry)?.pool_status || 'pending';
+        if (cur === 'pending' || cur === 'committed') {
+          await saveEntryReview(entry, { pool_status: 'rolled' });
+        }
         renderProcessingMode(container);
       });
     });
@@ -4175,6 +4214,29 @@ function renderProcessingMode(container) {
       const entry = _getQueueEntry(key);
       if (!entry) return;
       await saveEntryReview(entry, { contacts_target: inp.value.trim() || null });
+    });
+  });
+
+  // Wire contacts info type selector
+  container.querySelectorAll('.proc-contacts-info-type-sel').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const key   = sel.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_info_type: sel.value || null });
+    });
+  });
+
+  // Wire contacts subject text input
+  container.querySelectorAll('.proc-contacts-subject-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', async e => {
+      e.stopPropagation();
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { contacts_subject: inp.value.trim() || null });
     });
   });
 
@@ -5136,14 +5198,14 @@ function _updateFeedBuilderMeta(container, key) {
     let h = '';
     for (const sp of specs) {
       const checked = activeSpecs.includes(sp);
-      const aoe = hasAoE(char, sp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+      const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +${bon}</label>`;
     }
     for (const { spec: isSp, fromSkill } of isSpecs(char)) {
       if (fromSkill === skillName) continue; // already present as a native spec on this skill
       const checked = activeSpecs.includes(isSp);
-      const aoe = hasAoE(char, isSp);
-      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+      const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+      h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) +${bon}</label>`;
     }
     metaEl.innerHTML = h;
     metaEl.querySelectorAll('.dt-feed-spec-toggle').forEach(cb => {
@@ -5155,29 +5217,31 @@ function _updateFeedBuilderMeta(container, key) {
         const activeSpecs2 = [...(rev2.active_feed_specs || [])];
         if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
         else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
+        const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
         await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
       });
     });
     return;
   }
 
-  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox
+  // Feeding: 9-again lives in the right panel; sync auto-detected state to sidebar checkbox.
+  // Always sync when char has nine_again on this skill — character data takes priority over
+  // a saved false (which may be stale from a commit before PT was entered).
   const sidebarNineAFeed = container.querySelector(`.proc-proj-9a[data-proc-key="${key}"]`);
-  if (sidebarNineAFeed && review.nine_again == null) {
+  if (sidebarNineAFeed && (nineA || review.nine_again == null)) {
     sidebarNineAFeed.checked = nineA;
   }
   let h = '';
   for (const sp of specs) {
     const checked = activeSpecs.includes(sp);
-    const aoe = hasAoE(char, sp);
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} ${aoe ? '+2' : '+1'}</label>`;
+    const bon = (nineA || hasAoE(char, sp)) ? 2 : 1;
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(sp)}"${checked ? ' checked' : ''}>${esc(sp)} +${bon}</label>`;
   }
   for (const { spec: isSp, fromSkill } of isSpecs(char)) {
     if (fromSkill === skillName) continue; // already present as a native spec on this skill
     const checked = activeSpecs.includes(isSp);
-    const aoe = hasAoE(char, isSp);
-    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) ${aoe ? '+2' : '+1'}</label>`;
+    const bon = (nineA || hasAoE(char, isSp)) ? 2 : 1;
+    h += `<label class="dt-spec-toggle-lbl"><input type="checkbox" class="dt-feed-spec-toggle" data-proc-key="${key}" data-spec="${esc(isSp)}"${checked ? ' checked' : ''}>${esc(isSp)} (${esc(fromSkill)}) +${bon}</label>`;
   }
   metaEl.innerHTML = h;
   // Wire spec toggles injected by _updateFeedBuilderMeta — no re-render; pool_mod_spec applied at roll time
@@ -5190,7 +5254,7 @@ function _updateFeedBuilderMeta(container, key) {
       const activeSpecs2 = [...(rev2.active_feed_specs || [])];
       if (cb.checked) { if (!activeSpecs2.includes(cb.dataset.spec)) activeSpecs2.push(cb.dataset.spec); }
       else { const i = activeSpecs2.indexOf(cb.dataset.spec); if (i !== -1) activeSpecs2.splice(i, 1); }
-      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + (hasAoE(char, sp) ? 2 : 1), 0);
+      const specBonus2 = activeSpecs2.reduce((sum, sp) => sum + ((nineA || hasAoE(char, sp)) ? 2 : 1), 0);
       await saveEntryReview(entry2, { active_feed_specs: activeSpecs2, pool_mod_spec: specBonus2 });
     });
   });
@@ -5452,7 +5516,7 @@ function _renderMeritRightPanel(entry, rev) {
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
   const meritBtns = isAuto
     ? [['pending', 'Pending'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]
-    : [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
+    : [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['resolved', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']];
   h += _renderValStatusButtons(key, poolStatus, meritBtns);
   // Committed pool display
   const poolValidatedMerit = rev.pool_validated || '';
@@ -5520,7 +5584,7 @@ function _renderSorceryRightPanel(entry, char, sub, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['resolved', 'Resolved'], ['no_effect', 'No Effect'], ['skipped', 'Skip']]);
   // Committed pool display — shows computed total when rite is selected
   if (canRoll) {
     const poolExprSorc = `${base} + 3${mgDots ? ` + ${mgDots} (Mandragora)` : ''}${eqMod ? ` ${eqMod > 0 ? '+' : ''}${eqMod}` : ''} = ${total} dice`;
@@ -5660,9 +5724,9 @@ function _renderProjRightPanel(entry, char, rev) {
   // ── Validation Status ──
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_roll', 'No Roll Needed'], ['skipped', 'Skip']]);
   // Committed pool expression with active specs
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainState);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   // Validation notation: show active flags + validator chip when validated
   if (poolStatus === 'validated') {
@@ -5826,7 +5890,7 @@ function _renderFeedRightPanel(entry, char, rev) {
   const herdData      = herdVitae     !== null ? String(herdVitae)    : '';
   const ambienceData  = ambienceVitae !== null ? String(ambienceVitae): '';
 
-  h += `<div class="proc-feed-right-section proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}">`;
+  h += `<div class="proc-feed-right-section proc-feed-vitae-panel" data-proc-key="${esc(key)}" data-herd="${esc(herdData)}" data-oof="${oofVitae}" data-ambience="${esc(ambienceData)}" data-ghouls="${ghoulCount}" data-terr-label="${esc(bestTerrLabel || '')}" data-rite-cost="${vitaeRite}" data-manual="${vitaeMod}" data-total-bonus="${finalVitae}">`;
   h += `<div class="proc-mod-panel-title">Vitae Tally</div>`;
 
   // Herd
@@ -5902,9 +5966,9 @@ function _renderFeedRightPanel(entry, char, rev) {
   const poolStatus = rev.pool_status || 'pending';
   h += `<div class="proc-feed-right-section proc-feed-right-validation">`;
   h += `<div class="proc-mod-panel-title">Validation Status</div>`;
-  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
+  h += _renderValStatusButtons(key, poolStatus, [['pending', 'Pending'], ['committed', 'Committed'], ['rolled', 'Rolled'], ['validated', 'Validated'], ['no_feed', 'No Valid Feeding']]);
   // Committed pool expression display — augmented with active spec names if any
-  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char);
+  const displayPool = _augmentPoolWithSpecs(poolValidated, rev.active_feed_specs || [], char, nineAgainStateFeed);
   h += `<div class="proc-feed-committed-pool" data-proc-key="${esc(key)}">${displayPool ? esc(displayPool) : '<span class="dt-dim-italic">Not yet committed</span>'}</div>`;
   if (poolValidated) {
     const feedNotes = [];
@@ -5922,6 +5986,15 @@ function _renderFeedRightPanel(entry, char, rev) {
 
   h += `</div>`;
 
+  // ── Roll card ──
+  const feedRollObj = feedSub?.feeding_roll || null;
+  const showFeedRollBtn = poolStatus === 'committed' || poolStatus === 'rolled' || poolStatus === 'validated' || !!feedRollObj;
+  h += _renderRollCard(key, feedRollObj, null, {
+    btnClass:  'proc-feed-roll-btn',
+    btnDataAttrs: ` data-sub-id="${esc(entry.subId)}" data-rote="${isRote}"`,
+    canRoll:   showFeedRollBtn,
+    noRollMsg: 'Commit pool first',
+  });
 
   h += `</div>`; // proc-feed-right
   return h;
@@ -6329,12 +6402,22 @@ function renderActionPanel(entry, review) {
     h += _renderActionTypeRow(entry, rev, meritEntChar);
   }
   if (entry.source === 'merit') {
-    // Contacts target field
+    // Contacts target + info type + subject fields
     if (entry.meritCategory === 'contacts') {
-      const _ciTarget = rev.contacts_target || '';
+      const _ciTarget   = rev.contacts_target    || '';
+      const _ciInfoType = rev.contacts_info_type || '';
+      const _ciSubject  = rev.contacts_subject   || '';
       h += `<div class="proc-recat-row proc-recat-row-tight">`;
       h += `<span class="proc-feed-lbl">Target</span>`;
       h += `<input type="text" class="proc-detail-input proc-contacts-target-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciTarget)}" placeholder="Person or group\u2026">`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row proc-recat-row-spaced">`;
+      h += `<span class="proc-feed-lbl">Info Type</span>`;
+      h += `<select class="proc-recat-select proc-contacts-info-type-sel" data-proc-key="${esc(entry.key)}"><option value="">\u2014 Select \u2014</option>${['Public', 'Internal', 'Confidential', 'Restricted'].map(t => `<option value="${t}"${_ciInfoType === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
+      h += `</div>`;
+      h += `<div class="proc-recat-row proc-recat-row-tight">`;
+      h += `<span class="proc-feed-lbl">Subject</span>`;
+      h += `<input type="text" class="proc-detail-input proc-contacts-subject-input" data-proc-key="${esc(entry.key)}" value="${esc(_ciSubject)}" placeholder="Topic or sphere\u2026">`;
       h += `</div>`;
     }
     // Patrol/Scout outcome fields

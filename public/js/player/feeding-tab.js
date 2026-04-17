@@ -11,7 +11,7 @@
 import { apiGet, apiPut } from '../data/api.js';
 import { getGamePhaseCycle } from '../downtime/db.js';
 import { esc, displayName, hasAoE } from '../data/helpers.js';
-import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skSpecStr, skNineAgain } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
@@ -45,7 +45,9 @@ let vitaeAllocation = null; // array of ints after player confirms, or null
 let feedingRecord = null; // persisted feeding_rolls record from DB
 let responseSubId = null; // submission _id for persisting player roll
 let publishedFeedingText = null; // extracted Feeding section from published_outcome
+let stRollResult = null; // ST's roll from admin processing (feeding_roll)
 let currentSub = null; // full submission doc for summary rendering
+let vitateTally = null; // feeding_vitae_tally from ST processing
 
 export async function renderFeedingTab(el, char) {
   currentChar = char;
@@ -65,7 +67,9 @@ export async function renderFeedingTab(el, char) {
   stAgain = 10;
   responseSubId = null;
   publishedFeedingText = null;
+  stRollResult = null;
   currentSub = null;
+  vitateTally = null;
 
   // Find active cycle for feeding:
   // Primary: game phase cycle (ST has opened the session).
@@ -161,6 +165,14 @@ export async function renderFeedingTab(el, char) {
     declaredSpec = mySub.responses['_feed_spec'] || '';
   }
 
+  // Capture ST roll result and vitae tally if present
+  if (mySub?.feeding_roll?.successes != null) {
+    stRollResult = mySub.feeding_roll;
+  }
+  if (mySub?.feeding_vitae_tally) {
+    vitateTally = mySub.feeding_vitae_tally;
+  }
+
   // Prefer ST-confirmed pool from downtime processing.
   // Priority 1: feeding_roll.params (ST rolled on behalf of player — has exact size)
   // Priority 2: feeding_review.pool_validated (ST validated pool — parse size from expression)
@@ -177,11 +189,18 @@ export async function renderFeedingTab(el, char) {
     const sizeMatch = rev.pool_validated.match(/=\s*(\d+)\s*$/);
     if (sizeMatch) {
       poolTotal = parseInt(sizeMatch[1], 10);
+      // Include spec bonus from ST processing — pool_mod_spec is applied at
+      // roll time in the admin panel but was missing here, causing a mismatch
+      // between what the ST rolls and what the player sees/rolls.
+      poolTotal += (rev.pool_mod_spec || 0);
       stRote  = mySub.st_review?.feeding_rote || false;
       stAgain = rev.eight_again ? 8 : rev.nine_again ? 9 : 10;
+      const specInfo = (rev.active_feed_specs?.length)
+        ? ` + ${rev.active_feed_specs.join(', ')} +${rev.pool_mod_spec}`
+        : '';
       const roteLabel = stRote ? ' \u2014 Rote quality' : '';
       const againLabel = stAgain === 8 ? ' \u2014 8-Again' : stAgain === 9 ? ' \u2014 9-Again' : '';
-      poolBreakdown = `ST confirmed: ${rev.pool_validated}${roteLabel}${againLabel}`;
+      poolBreakdown = `ST confirmed: ${rev.pool_validated}${specInfo}${roteLabel}${againLabel}`;
       feedingState = 'ready';
     } else if (declaredMethod) {
       buildPool(declaredMethod, declaredDisc, declaredSpec);
@@ -332,6 +351,36 @@ function renderFeedingSummary() {
   return h;
 }
 
+function renderStRollResult() {
+  if (!stRollResult) return '';
+  const suc = stRollResult.successes ?? 0;
+  const exc = stRollResult.exceptional || suc >= 5;
+  const again = stRollResult.params?.again ?? 10;
+  const againLabel = again === 8 ? '8-Again' : again === 9 ? '9-Again' : '';
+  const rote = stRollResult.params?.rote;
+  const pool = stRollResult.params?.size ?? 0;
+  const cls = suc === 0 ? 'feeding-st-roll-fail' : exc ? 'feeding-st-roll-exc' : 'feeding-st-roll-suc';
+
+  let h = `<div class="feeding-st-roll">`;
+  h += `<div class="feeding-st-roll-head">ST Roll Result</div>`;
+  h += `<div class="feeding-st-roll-body">`;
+  h += `<span class="feeding-st-roll-dice">${pool} dice`;
+  if (againLabel) h += ` \u00B7 ${againLabel}`;
+  if (rote) h += ' \u00B7 Rote';
+  h += '</span>';
+  h += `<span class="feeding-st-roll-result ${cls}">${suc} success${suc !== 1 ? 'es' : ''}`;
+  if (exc && suc > 0) h += ' (exceptional)';
+  h += '</span>';
+
+  // Show individual dice if stored
+  if (stRollResult.dice_string) {
+    h += `<span class="feeding-st-roll-detail">${esc(stRollResult.dice_string)}</span>`;
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
 function buildPool(method, discName, specName) {
   const c = currentChar;
   if (!c || !method) { poolTotal = 0; poolBreakdown = ''; return; }
@@ -348,7 +397,8 @@ function buildPool(method, discName, specName) {
     if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = c.skills?.[s]?.specs || []; }
   }
 
-  const specBonus = specName && bestSpecs.includes(specName) ? (hasAoE(c, specName) ? 2 : 1) : 0;
+  const na = bestS ? skNineAgain(c, bestS) : false;
+  const specBonus = specName && bestSpecs.includes(specName) ? ((na || hasAoE(c, specName)) ? 2 : 1) : 0;
   const discVal = (discName && c.disciplines?.[discName]?.dots) || 0;
   const unskilled = bestSV === 0
     ? (method.skills.some(s => !SKILLS_MENTAL.includes(s)) ? -1 : -3)
@@ -403,8 +453,11 @@ function render() {
     h += `<span class="feeding-pool-total">${poolTotal} dice</span>`;
     h += '</div>';
     h += renderFeedingSummary();
-    h += '<p class="feeding-warning">You only get one roll. Once you roll, you are committed to the result.</p>';
-    h += `<button id="feeding-roll-btn" class="feeding-roll-btn">Roll Feeding (${poolTotal} dice)</button>`;
+    h += renderStRollResult();
+    if (!stRollResult) {
+      h += '<p class="feeding-warning">You only get one roll. Once you roll, you are committed to the result.</p>';
+      h += `<button id="feeding-roll-btn" class="feeding-roll-btn">Roll Feeding (${poolTotal} dice)</button>`;
+    }
     h += '</div>';
   }
 
@@ -495,11 +548,35 @@ function render() {
     }
     h += '</div>';
 
+    // ── Vitae breakdown card (shown when ST tally is available) ──
+    if (vitateTally) {
+      const vt = vitateTally;
+      const bonusVitae = vt.total_bonus ?? 0;
+      h += '<div class="fvt-card">';
+      h += '<div class="fvt-title">Vitae Sources</div>';
+      h += `<div class="fvt-row"><span class="fvt-label">Vessels (from roll)</span><span class="fvt-val">${vessels}</span></div>`;
+      if (vt.herd)          h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Herd</span><span class="fvt-val">+${vt.herd}</span></div>`;
+      if (vt.oath_of_fealty) h += `<div class="fvt-row fvt-pos"><span class="fvt-label">Oath of Fealty</span><span class="fvt-val">+${vt.oath_of_fealty}</span></div>`;
+      if (vt.ambience != null && vt.ambience !== 0) {
+        const ambLabel = vt.ambience_territory ? `Ambience (${vt.ambience_territory})` : 'Ambience';
+        const ambCls = vt.ambience > 0 ? ' fvt-pos' : ' fvt-neg';
+        const ambSign = vt.ambience > 0 ? '+' : '';
+        h += `<div class="fvt-row${ambCls}"><span class="fvt-label">${esc(ambLabel)}</span><span class="fvt-val">${ambSign}${vt.ambience}</span></div>`;
+      }
+      if (vt.ghouls)     h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Ghoul retainers</span><span class="fvt-val">\u2212${vt.ghouls}</span></div>`;
+      if (vt.rite_cost)  h += `<div class="fvt-row fvt-neg"><span class="fvt-label">Rite costs</span><span class="fvt-val">\u2212${vt.rite_cost}</span></div>`;
+      if (vt.manual)     h += `<div class="fvt-row${vt.manual > 0 ? ' fvt-pos' : ' fvt-neg'}"><span class="fvt-label">Adjustment</span><span class="fvt-val">${vt.manual > 0 ? '+' : ''}${vt.manual}</span></div>`;
+      h += '<div class="fvt-divider"></div>';
+      h += `<div class="fvt-row fvt-total"><span class="fvt-label">Bonus vitae</span><span class="fvt-val">+${bonusVitae}</span></div>`;
+      h += '</div>';
+    }
+
     if (dramaticFailure) {
       h += '<div class="feeding-dramatic">Dramatic failure \u2014 see your Storyteller at game before feeding.</div>';
     } else if (vessels === 0) {
       h += '<p class="feeding-no-vessels">No vessels secured this hunt.</p>';
     } else {
+      const bonusVitae = vitateTally?.total_bonus ?? 0;
       const allocated = vitaeAllocation && vitaeAllocation.length === vessels;
       h += `<div class="feeding-vessels-grid" id="feeding-vessels-grid">`;
       for (let i = 0; i < vessels; i++) {
@@ -526,11 +603,20 @@ function render() {
       }
       h += '</div>';
       if (allocated) {
-        const total = vitaeAllocation.reduce((a, b) => a + b, 0);
-        h += `<div class="fvc-total">Total Vitae: <strong>${total}</strong></div>`;
+        const vesselTotal = vitaeAllocation.reduce((a, b) => a + b, 0);
+        const grandTotal  = vesselTotal + (vitateTally?.total_bonus ?? 0);
+        if (vitateTally?.total_bonus) {
+          h += `<div class="fvc-total">Vessel vitae: <strong>${vesselTotal}</strong> + Bonus: <strong>+${vitateTally.total_bonus}</strong> = <strong>${grandTotal}</strong> total</div>`;
+        } else {
+          h += `<div class="fvc-total">Total Vitae: <strong>${vesselTotal}</strong></div>`;
+        }
         h += '<div class="fvc-alloc-badge">\u2713 Allocation recorded</div>';
       } else {
-        h += `<div class="fvc-total">Total Vitae: <span id="fvc-total-val">0</span></div>`;
+        if (bonusVitae) {
+          h += `<div class="fvc-total">Vessel vitae: <span id="fvc-total-val">0</span> + Bonus: <strong>+${bonusVitae}</strong> = <span id="fvc-grand-val">${bonusVitae}</span> total</div>`;
+        } else {
+          h += `<div class="fvc-total">Total Vitae: <span id="fvc-total-val">0</span></div>`;
+        }
         h += `<p class="feeding-overfeed-warn">Draining beyond safe vitae (${safeVitae}) risks a Humanity check.</p>`;
         h += '<button id="fvc-confirm" class="qf-btn qf-btn-submit" disabled>Confirm Allocation</button>';
       }
@@ -662,6 +748,8 @@ function updateVesselUI() {
   });
   const totalEl = container.querySelector('#fvc-total-val');
   if (totalEl) totalEl.textContent = total;
+  const grandEl = container.querySelector('#fvc-grand-val');
+  if (grandEl) grandEl.textContent = total + (vitateTally?.total_bonus ?? 0);
   const confirmBtn = container.querySelector('#fvc-confirm');
   if (confirmBtn) confirmBtn.disabled = !allFilled || sels.length === 0;
 }

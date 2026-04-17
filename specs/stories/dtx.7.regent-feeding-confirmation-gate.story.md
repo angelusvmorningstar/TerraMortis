@@ -1,6 +1,6 @@
 # Story DTX.7: Regent Feeding Confirmation Gate
 
-Status: draft
+Status: complete
 
 ## Story
 

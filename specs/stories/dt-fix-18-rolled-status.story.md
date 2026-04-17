@@ -1,6 +1,6 @@
 # Story DT-Fix-18: Rolled Intermediate Status After Dice Roll
 
-## Status: ready-for-dev
+## Status: complete
 
 ## Story
 
@@ -34,29 +34,29 @@ A `rolled` status sits between `committed` and the terminal statuses. It is set 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `rolled` to labels and NOT to done statuses (`downtime-views.js`)
-  - [ ] 1.1: Add `rolled: 'Rolled'` to `POOL_STATUS_LABELS` (line ~257)
-  - [ ] 1.2: Confirm `rolled` is absent from `DONE_STATUSES` (line ~269) — do not add it
+- [x] Task 1: Add `rolled` to labels and NOT to done statuses (`downtime-views.js`)
+  - [x] 1.1: Add `rolled: 'Rolled'` to `POOL_STATUS_LABELS` (line ~257)
+  - [x] 1.2: Confirm `rolled` is absent from `DONE_STATUSES` (line ~269) — do not add it
 
-- [ ] Task 2: Add `Rolled` button to all status button call sites
-  - [ ] 2.1: Find all `_renderValStatusButtons(...)` calls that include `['committed', 'Committed']` and insert `['rolled', 'Rolled']` after `committed` and before `resolved` in the array
+- [x] Task 2: Add `Rolled` button to all status button call sites
+  - [x] 2.1: Find all `_renderValStatusButtons(...)` calls that include `['committed', 'Committed']` and insert `['rolled', 'Rolled']` after `committed` and before `resolved` in the array
 
-- [ ] Task 3: Auto-advance status on roll
-  - [ ] 3.1: In the `.proc-proj-roll-btn` handler (line ~3905), after `await saveEntryReview(entry, { roll: result })`, check current status:
+- [x] Task 3: Auto-advance status on roll
+  - [x] 3.1: In the `.proc-proj-roll-btn` handler (line ~3905), after `await saveEntryReview(entry, { roll: result })`, check current status:
     ```js
     const currentStatus = review?.pool_status || 'pending';
     if (currentStatus === 'pending' || currentStatus === 'committed') {
       await saveEntryReview(entry, { pool_status: 'rolled' });
     }
     ```
-  - [ ] 3.2: If a separate feeding roll button exists, apply the same auto-advance logic there
+  - [x] 3.2: If a separate feeding roll button exists, apply the same auto-advance logic there
 
-- [ ] Task 4: Add CSS for `rolled` state (`admin-layout.css`)
-  - [ ] 4.1: `.proc-row-status.rolled` — amber, slightly more saturated than committed:
+- [x] Task 4: Add CSS for `rolled` state (`admin-layout.css`)
+  - [x] 4.1: `.proc-row-status.rolled` — amber, slightly more saturated than committed:
     ```css
     .proc-row-status.rolled { background: rgba(180,140,60,0.28); color: var(--gold2); }
     ```
-  - [ ] 4.2: `.proc-val-status button.active.rolled` — amber scheme:
+  - [x] 4.2: `.proc-val-status button.active.rolled` — amber scheme:
     ```css
     .proc-val-status button.active.rolled { border-color: var(--gold2); color: var(--gold2); background: rgba(180,140,60,0.2); }
     ```
@@ -146,10 +146,14 @@ Manual verification: commit an action, roll dice — confirm status badge jumps 
 ## Dev Agent Record
 
 ### Agent Model Used
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes List
-_to be filled by dev agent_
+- `POOL_STATUS_LABELS`: added `rolled: 'Rolled'` between `committed` and `validated`
+- `DONE_STATUSES`: confirmed `rolled` absent (not added)
+- `_renderValStatusButtons` — 4 call sites updated: merit (non-auto branch), sorcery, project, feeding — `['rolled', 'Rolled']` inserted after `['committed', 'Committed']` in each
+- Roll handler auto-advance added to `proc-proj-roll-btn`, `proc-merit-roll-btn`, `proc-feed-roll-btn` — checks `pending | committed` before setting `pool_status: 'rolled'`; ritual roll skipped (auto-resolves to `resolved`/`no_effect`)
+- CSS: `.proc-row-status.rolled` (darker amber 0.28 vs committed 0.18) and `.proc-val-status button.active.rolled` (gold2 scheme) added after committed rules in both dark and parchment theme blocks
 
 ### File List
 - `public/js/admin/downtime-views.js`

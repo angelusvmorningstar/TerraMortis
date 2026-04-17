@@ -1,6 +1,6 @@
 # Story DTP-3: Feeding Tab — Validated Delivery
 
-Status: ready-for-dev
+Status: complete
 
 ## Story
 
@@ -25,7 +25,7 @@ The ST sets pool size, rote, and again (8/9/10) when rolling feeding dice in the
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Parameterise `mkDie` / `mkChain` / `rollDice` for configurable again threshold (AC: 2)
+- [x] Task 1: Parameterise `mkDie` / `mkChain` / `rollDice` for configurable again threshold (AC: 2)
   - [ ] Replace the existing dice functions at the top of `public/js/player/feeding-tab.js`:
     ```js
     function mkDie(v, again = 10)  { return { v, s: v >= 8, x: v >= again }; }
@@ -46,7 +46,7 @@ The ST sets pool size, rote, and again (8/9/10) when rolling feeding dice in the
     }
     ```
 
-- [ ] Task 2: Read `params.again` and `feeding_deferred` from `mySub` on init (AC: 1, 6)
+- [x] Task 2: Read `params.again` and `feeding_deferred` from `mySub` on init (AC: 1, 6)
   - [ ] After the existing `stRote` assignment (~line 136), add:
     ```js
     stAgain   = mySub.feeding_roll?.params?.again  ?? 10;
@@ -61,7 +61,7 @@ The ST sets pool size, rote, and again (8/9/10) when rolling feeding dice in the
     }
     ```
 
-- [ ] Task 3: Remove all localStorage usage (AC: 3)
+- [x] Task 3: Remove all localStorage usage (AC: 3)
   - [ ] Remove the localStorage read block (~lines 114–121):
     ```js
     // DELETE: Fall back to localStorage lock
@@ -83,7 +83,7 @@ The ST sets pool size, rote, and again (8/9/10) when rolling feeding dice in the
     ```
   - [ ] If the DB write fails in `doFeedingRoll`, keep the existing `catch` but do NOT fall back to localStorage — stay in rolled state visually but alert the player the save failed so they can retry
 
-- [ ] Task 4: Use `stAgain` in `doFeedingRoll` (AC: 2)
+- [x] Task 4: Use `stAgain` in `doFeedingRoll` (AC: 2)
   - [ ] In `doFeedingRoll`, replace:
     ```js
     const cols = stRote ? rollDiceRote(poolTotal) : rollDice(poolTotal);
@@ -94,7 +94,7 @@ The ST sets pool size, rote, and again (8/9/10) when rolling feeding dice in the
     ```
   - [ ] Store `again: stAgain` in `rollResult` for reference
 
-- [ ] Task 5: Display 9-Again / 8-Again badge in ready state (AC: 1)
+- [x] Task 5: Display 9-Again / 8-Again badge in ready state (AC: 1)
   - [ ] In `render()`, in the `feedingState === 'ready'` block, after the existing Rote badge:
     ```js
     if (stAgain === 9) h += ' <span class="feeding-again-badge">9-Again</span>';
@@ -118,7 +118,7 @@ The ST sets pool size, rote, and again (8/9/10) when rolling feeding dice in the
     }
     ```
 
-- [ ] Task 6: Add "See Storytellers" defer path for unvalidated state (AC: 4–5)
+- [x] Task 6: Add "See Storytellers" defer path for unvalidated state (AC: 4–5)
   - [ ] In `render()`, in the `feedingState === 'no_submission'` block, add a separator and defer button after the method selection UI:
     ```js
     h += '<div class="feeding-defer-row">';

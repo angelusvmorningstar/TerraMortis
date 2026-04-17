@@ -31,22 +31,18 @@ This is a Zone 1b addition — new coding controls in the Action Definition zone
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add fields to merit panel left column
-  - [ ] In `renderActionPanel`, merit block, after the merit-link dropdown and territory pills
-  - [ ] Gate on `entry.meritCategory === 'contacts'`
-  - [ ] Render info-type selector and subject text input (edit mode inside `proc-feed-desc-card` or as standalone rows)
-  - [ ] Pre-populate from `rev.contacts_info_type` and `rev.contacts_subject`
+- [x] Task 1: Add fields to merit panel left column
+  - [x] In left panel contacts block, after Target field
+  - [x] Gate on `entry.meritCategory === 'contacts'`
+  - [x] Render info-type selector (Public/Internal/Confidential/Restricted) and subject text input
+  - [x] Pre-populate from `rev.contacts_info_type` and `rev.contacts_subject`
 
-- [ ] Task 2: Save handlers
-  - [ ] `contacts_info_type` → `saveEntryReview(entry, { contacts_info_type: val })`
-  - [ ] `contacts_subject` → `saveEntryReview(entry, { contacts_subject: val })`
+- [x] Task 2: Save handlers
+  - [x] `contacts_info_type` → `saveEntryReview(entry, { contacts_info_type: val })` on `change`
+  - [x] `contacts_subject` → `saveEntryReview(entry, { contacts_subject: val })` on `blur`
 
-- [ ] Task 3: Wire into `buildActionContext`
-  - [ ] In `downtime-story.js`, after existing fields:
-    ```js
-    if (rev.contacts_info_type) lines.push(`Info Type: ${rev.contacts_info_type}`);
-    if (rev.contacts_subject)   lines.push(`Subject: ${rev.contacts_subject}`);
-    ```
+- [x] Task 3: Wire into `buildActionContext`
+  - [x] Already present in `downtime-story.js` lines 1864-1865
 
 - [ ] Task 4: Manual verification
   - [ ] Open a Contacts merit action
@@ -87,3 +83,20 @@ Saved via `saveEntryReview(entry, patch)` → `merit_actions_resolved[idx]`.
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2026-04-15 | 1.0 | Initial draft | Bob (bmad-agent-sm) |
+| 2026-04-17 | 1.1 | Tasks 1-2 implemented | claude-sonnet-4-6 |
+
+## Dev Agent Record
+
+### Agent Model Used
+claude-sonnet-4-6
+
+### Completion Notes List
+- Info Type selector (Public/Internal/Confidential/Restricted) added to contacts panel in `downtime-views.js`, after existing Target field, gated on `entry.meritCategory === 'contacts'`
+- Subject text input added below Info Type
+- Both fields pre-populate from `rev.contacts_info_type` / `rev.contacts_subject`
+- Save handlers wired: info type on `change`, subject on `blur`; both via `saveEntryReview(entry, patch)`
+- `buildActionContext` in `downtime-story.js` already had Tasks 3 lines (1864-1865); no change needed there
+
+### File List
+- `public/js/admin/downtime-views.js`
+- `specs/stories/feature.71.dt-processing-contacts-info-type.story.md`

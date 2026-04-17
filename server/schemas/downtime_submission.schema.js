@@ -320,6 +320,20 @@ export const downtimeSubmissionSchema = {
     feeding_roll:        { $ref: '#/definitions/rollResult' },
     feeding_roll_player: { $ref: '#/definitions/rollResult' },  // Player-side roll (persisted)
     feeding_deferred:    { type: 'boolean' },                   // Player chose to defer — see Storytellers at game
+    feeding_vitae_tally: {                                      // Saved at ST roll time; visible to players
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        herd:                { type: 'integer' },
+        ambience:            { type: 'integer' },
+        ambience_territory:  { type: 'string' },
+        oath_of_fealty:      { type: 'integer' },
+        ghouls:              { type: 'integer' },
+        rite_cost:           { type: 'integer' },
+        manual:              { type: 'integer' },
+        total_bonus:         { type: 'integer' },
+      },
+    },
 
     // ── ST narrative authoring (DT Story tab) ───────────────────
     // Written by STs via the DT Story tab; persisted as a top-level object.

@@ -1,6 +1,6 @@
 # Story DTX.5: Single-Character Downtime Push
 
-Status: draft
+Status: complete
 
 ## Story
 
@@ -21,11 +21,11 @@ so that I can test delivery live and correct individual responses after a bulk p
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `compilePushOutcome(sub)` helper — iterates `getApplicableSections(char, sub)`, concatenates `## {label}\n\n{response}\n\n` for each section that has a non-empty response in `st_narrative`, returns trimmed markdown string.
-- [ ] Task 2: Add `handlePushCharacter(sub)` async function — calls `compilePushOutcome`, PUTs `{ 'st_review.outcome_text': md, 'st_review.outcome_visibility': 'published', 'st_review.published_at': iso }`, updates local `sub.st_review` object, re-renders character list.
-- [ ] Task 3: Add Push button to character list item render (`renderCharList` or equivalent in `downtime-story.js`) — shown when `sub.st_review?.outcome_visibility !== 'published'`.
-- [ ] Task 4: Add "Published" badge to character list item — shown when `sub.st_review?.outcome_visibility === 'published'`. Uses existing `.dt-proj-done-badge` CSS class or equivalent gold-outline chip.
-- [ ] Task 5: Wire error display — if `handlePushCharacter` throws, show inline error text in the character row (e.g. `<span class="dt-error-msg">Push failed: {message}</span>`); clear on next successful push.
+- [x] Task 1: Add `compilePushOutcome(sub)` helper — iterates `getApplicableSections(char, sub)`, concatenates `## {label}\n\n{response}\n\n` for each section that has a non-empty response in `st_narrative`, returns trimmed markdown string.
+- [x] Task 2: Add `handlePushCharacter(sub)` async function — calls `compilePushOutcome`, PUTs `{ 'st_review.outcome_text': md, 'st_review.outcome_visibility': 'published', 'st_review.published_at': iso }`, updates local `sub.st_review` object, re-renders character list.
+- [x] Task 3: Add Push button to character list item render (`renderCharList` or equivalent in `downtime-story.js`) — shown when `sub.st_review?.outcome_visibility !== 'published'`.
+- [x] Task 4: Add "Published" badge to character list item — shown when `sub.st_review?.outcome_visibility === 'published'`. Uses existing `.dt-proj-done-badge` CSS class or equivalent gold-outline chip.
+- [x] Task 5: Wire error display — if `handlePushCharacter` throws, show inline error text in the character row (e.g. `<span class="dt-error-msg">Push failed: {message}</span>`); clear on next successful push.
 
 ## Dev Notes
 
