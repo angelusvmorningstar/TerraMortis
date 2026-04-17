@@ -2739,6 +2739,10 @@ function compilePushOutcome(sub) {
     }
   }
 
+  // General notes — free text added by ST outside the structured sections
+  const generalNotes = sn.general_notes?.trim();
+  if (generalNotes) parts.push(generalNotes);
+
   return parts.join('\n\n');
 }
 
