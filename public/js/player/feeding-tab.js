@@ -91,6 +91,10 @@ export async function renderFeedingTab(el, char) {
   } catch { /* no submissions */ }
 
   if (mySub) {
+    // Promote st_review → published_outcome for ST portal views
+    if (!mySub.published_outcome && mySub.st_review?.outcome_visibility === 'published') {
+      mySub.published_outcome = mySub.st_review.outcome_text;
+    }
     currentSub = mySub;
     responseSubId = mySub._id;
 
@@ -162,6 +166,12 @@ async function renderFeedingHistoryPane(el, char) {
       apiGet('/api/downtime_submissions'),
       apiGet('/api/downtime_cycles'),
     ]);
+    // Promote st_review → published_outcome for ST portal views
+    allSubs.forEach(s => {
+      if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+        s.published_outcome = s.st_review.outcome_text;
+      }
+    });
   } catch {
     el.innerHTML = '<p class="placeholder-msg">Could not load history.</p>';
     return;
