@@ -189,8 +189,11 @@ submissionsRouter.put('/:id', async (req, res) => {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your submission' });
     }
 
-    // Enforce cycle deadline
-    if (existing.cycle_id) {
+    // Enforce cycle deadline — but allow feeding-related fields through,
+    // since feeding rolls happen at game time (after the submission deadline).
+    const FEEDING_FIELDS = new Set(['feeding_roll_player', 'feeding_vitae_allocation', 'feeding_deferred']);
+    const allFieldsFeeding = Object.keys(req.body).every(k => FEEDING_FIELDS.has(k));
+    if (!allFieldsFeeding && existing.cycle_id) {
       const cycleOid = existing.cycle_id instanceof ObjectId ? existing.cycle_id : parseId(String(existing.cycle_id));
       if (cycleOid) {
         const cycle = await cycles().findOne({ _id: cycleOid });
