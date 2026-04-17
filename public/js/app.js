@@ -742,17 +742,35 @@ async function boot() {
   document.getElementById('login-btn').addEventListener('click', login);
 }
 
+/** Navigate to editor tab in downtime view, highlighting the DT nav button. */
+function playerGoDowntime() {
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nbtn').forEach(el => el.classList.remove('on'));
+  const tabEl = document.getElementById('t-editor');
+  if (tabEl) tabEl.classList.add('active');
+  document.getElementById('n-dt')?.classList.add('on');
+  setSheetView('dt');
+}
+
 /** Hide ST-only UI for player role. */
 function applyRoleRestrictions() {
   const role = getRole();
   const isST = role === 'st';
 
-  // Territory, Tracker, and Rules tabs — ST only
+  // Territory and Tracker tabs — ST only
   if (!isST) {
-    ['n-territory', 'n-tracker', 'n-rules'].forEach(id => {
+    ['n-chars', 'n-territory', 'n-tracker'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
+    // Player-only nav buttons
+    ['n-editor', 'n-dt', 'n-rules'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+    // Hide the sheet topbar (Sheet/DT Report/Rules/PDF/JSON toggle row)
+    const topbar = document.querySelector('.sheet-topbar');
+    if (topbar) topbar.style.display = 'none';
   }
 
   // Feeding test and Contested Roll — ST only
@@ -802,6 +820,7 @@ function renderUserHeader() {
 
 // Expose functions used in inline onclick handlers
 window.logout = logout;
+window.playerGoDowntime  = playerGoDowntime;
 window.openRulesOverlay  = openRulesOverlay;
 window.closeRulesOverlay = closeRulesOverlay;
 
