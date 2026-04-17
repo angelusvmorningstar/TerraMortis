@@ -2851,7 +2851,7 @@ body {
 .proj-card {
   border: 1px solid var(--bdr);
   border-radius: 6px;
-  margin: 12px 16px 0;
+  margin: 12px 16px 20px;
   padding: 14px 16px;
   background: var(--surf2);
 }
