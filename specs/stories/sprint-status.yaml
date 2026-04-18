@@ -357,9 +357,9 @@ development_status:
   feat-7-player-read-latest-downtime: backlog     # Player can read their own submitted downtime responses (not just the ST narrative) — read-only view of previous cycle submissions accessible from the player portal
   feat-8-contact-action-type: backlog             # Contacts have only one fixed action — no action type selector should appear in DT Processing, and DT Story tab should not label contact actions with an action type
   feat-9-auspex-insight-overlay: done              # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
-  feat-10-covenant-standings-fix: ready-for-dev   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
-  feat-11-influence-total-fix: ready-for-dev      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
-  feat-12-feed-confirm-card-improvements: ready-for-dev  # ST confirm card: fix default vitae, real influence spend, overwrite not add, button CSS
+  feat-10-covenant-standings-fix: done   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
+  feat-11-influence-total-fix: done      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
+  feat-12-feed-confirm-card-improvements: done  # ST confirm card: fix default vitae, real influence spend, overwrite not add, button CSS
 
   epic-feat-retrospective: optional
 
@@ -370,13 +370,13 @@ development_status:
   # Delivery order: lst.1 + lst.2 (parallel) → lst.3 → lst.4 → lst.5
   # lst.3 blocks lst.4 and lst.5
 
-  epic-lst: in-progress
+  epic-lst: done
 
   lst-1-dt-contacts-qualifier: done
   lst-2-feed-roller-harmonise: done
-  lst-3-tracker-migration: review
-  lst-4-st-sheet-swap: review
-  lst-5-st-feeding-confirm: review
-  lst-6-st-player-view-toggle: review
+  lst-3-tracker-migration: done
+  lst-4-st-sheet-swap: done
+  lst-5-st-feeding-confirm: done
+  lst-6-st-player-view-toggle: done
 
   epic-lst-retrospective: optional
