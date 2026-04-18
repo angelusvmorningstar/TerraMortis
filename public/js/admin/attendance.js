@@ -10,7 +10,7 @@ import { displayName, sortName, redactPlayer } from '../data/helpers.js';
 let chars = [];
 let sessions = [];
 let activeSession = null;
-let dirty = false;
+let _saveTimer = null;
 let _sortBy = 'character'; // 'character' | 'player'
 
 function esc(s) {
@@ -127,9 +127,9 @@ function renderToolbar(el) {
       <button class="att-btn" id="att-new-btn">+ New Session</button>
     </div>
     <div class="att-toolbar-right">
+      <span class="att-save-status" id="att-save-status"></span>
       <button class="att-btn" id="att-add-btn">+ Add Character</button>
       <button class="att-btn att-delete-btn" id="att-delete-btn" style="display:none">Delete Session</button>
-      <button class="att-btn att-save-btn" id="att-save-btn" style="display:none">Save Changes</button>
     </div>
   </div>
   <div id="att-add-form" class="att-add-form" style="display:none"></div>
@@ -138,17 +138,12 @@ function renderToolbar(el) {
   el.innerHTML = html;
 
   document.getElementById('att-session-sel').addEventListener('change', e => {
-    if (dirty && !confirm('You have unsaved changes. Discard?')) {
-      e.target.value = activeSession._id;
-      return;
-    }
     const s = sessions.find(x => x._id === e.target.value);
     if (s) selectSession(s);
   });
 
   document.getElementById('att-new-btn').addEventListener('click', createNewSession);
   document.getElementById('att-add-btn').addEventListener('click', showAddForm);
-  document.getElementById('att-save-btn').addEventListener('click', saveSession);
   document.getElementById('att-delete-btn').addEventListener('click', deleteSession);
 }
 
@@ -159,16 +154,32 @@ function renderEmpty(el) {
 
 function selectSession(session) {
   activeSession = session;
-  dirty = false;
+  clearTimeout(_saveTimer);
+  _saveTimer = null;
   hideAddForm();
-  document.getElementById('att-save-btn').style.display = 'none';
   document.getElementById('att-delete-btn').style.display = sessions.length > 1 ? '' : 'none';
   renderGrid();
 }
 
-function markDirty() {
-  dirty = true;
-  document.getElementById('att-save-btn').style.display = '';
+function scheduleAutosave() {
+  const statusEl = document.getElementById('att-save-status');
+  if (statusEl) statusEl.textContent = 'Saving\u2026';
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(doAutosave, 800);
+}
+
+async function doAutosave() {
+  if (!activeSession) return;
+  const statusEl = document.getElementById('att-save-status');
+  try {
+    const { _id, ...body } = activeSession;
+    const updated = await apiPut('/api/game_sessions/' + _id, body);
+    Object.assign(activeSession, updated);
+    if (statusEl) statusEl.textContent = '';
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Save failed \u2014 retrying\u2026';
+    _saveTimer = setTimeout(doAutosave, 3000);
+  }
 }
 
 async function createNewSession() {
@@ -290,7 +301,7 @@ function attSort(field) {
 function attUpdate(idx, field, value) {
   if (!activeSession) return;
   activeSession.attendance[idx][field] = value;
-  markDirty();
+  scheduleAutosave();
   renderGrid();
 }
 
@@ -303,7 +314,8 @@ async function deleteSession() {
     await apiDelete('/api/game_sessions/' + activeSession._id);
     sessions = sessions.filter(s => s._id !== activeSession._id);
     activeSession = null;
-    dirty = false;
+    clearTimeout(_saveTimer);
+    _saveTimer = null;
     const el = document.getElementById('attendance-content');
     renderToolbar(el);
     if (sessions.length) {
@@ -316,23 +328,6 @@ async function deleteSession() {
   }
 }
 
-async function saveSession() {
-  if (!activeSession) return;
-  const btn = document.getElementById('att-save-btn');
-  btn.textContent = 'Saving...';
-
-  try {
-    const { _id, ...body } = activeSession;
-    const updated = await apiPut('/api/game_sessions/' + _id, body);
-    Object.assign(activeSession, updated);
-    dirty = false;
-    btn.style.display = 'none';
-    btn.textContent = 'Save Changes';
-  } catch (err) {
-    btn.textContent = 'Error — retry';
-    console.error('Save failed:', err.message);
-  }
-}
 
 // Expose to inline handlers
 Object.assign(window, { attUpdate, attSort });
