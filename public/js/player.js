@@ -8,6 +8,7 @@ import { renderSheet, toggleExp, toggleDisc } from './editor/sheet.js';
 import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
+import { renderOfficeTab } from './player/office-tab.js';
 import { renderFeedingTab } from './player/feeding-tab.js';
 import { renderStoryTab } from './player/story-tab.js';
 import { initArchiveTab } from './player/archive-tab.js';
@@ -275,6 +276,15 @@ function selectCharacter(activeChars, idx) {
     renderRegencyTab(document.getElementById('regency-content'), activeChar, _territories);
   } else {
     if (regBtn) regBtn.style.display = 'none';
+  }
+
+  // Office tab — only visible for characters with a court office
+  const offBtn = document.getElementById('tab-btn-office');
+  if (activeChar.court_category) {
+    if (offBtn) offBtn.style.display = '';
+    renderOfficeTab(document.getElementById('office-content'), activeChar);
+  } else {
+    if (offBtn) offBtn.style.display = 'none';
   }
 }
 

@@ -4235,4 +4235,24 @@ html:not([data-theme="dark"]) .tk-badge-closed     { background: var(--gold-a10)
 html:not([data-theme="dark"]) .tk-badge-bug        { background: var(--crim-a12);       color: var(--crim); }
 html:not([data-theme="dark"]) .tk-badge-feature    { background: rgba(130,80,180,.12);  color: #6A30A0; }
 html:not([data-theme="dark"]) .tk-badge-question   { background: rgba(20,120,110,.10);  color: #186058; }
+
+/* ── Office tab ── */
+
+.office-tab { padding: 20px; max-width: 680px; }
+.office-header { margin-bottom: 20px; }
+.office-title { font-family: var(--fh); font-size: 22px; color: var(--gold); letter-spacing: .06em; }
+.office-role  { font-family: var(--fl); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--txt2); margin-top: 2px; }
+
+.office-section { margin-bottom: 24px; }
+.office-section-hd { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); border-bottom: 1px solid var(--bdr); padding-bottom: 4px; margin-bottom: 12px; }
+
+.office-status-power { font-family: var(--fb); font-size: 14px; color: var(--txt); line-height: 1.7; padding: 14px 16px; background: rgba(224,196,122,.06); border: 1px solid var(--gold2); border-radius: 6px; }
+
+.office-manoeuvre-list { display: flex; flex-direction: column; gap: 10px; }
+.office-manoeuvre { padding: 10px 14px; background: var(--surf2); border-radius: 5px; }
+.office-manoeuvre-name { font-family: var(--fl); font-size: 13px; color: var(--accent); letter-spacing: .04em; margin-bottom: 4px; }
+.office-manoeuvre-effect { font-family: var(--fb); font-size: 13px; color: var(--txt2); line-height: 1.5; }
+
+.office-merit-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.office-merit-chip { font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; padding: 3px 8px; }
 html:not([data-theme="dark"]) .tk-badge-sheet      { background: var(--gold-a12);       color: var(--gold); }
