@@ -252,6 +252,9 @@ export const characterSchema = {
       }
     },
 
+    // ── Influence balance (monthly income accumulator) ────────
+    influence_balance: { type: 'number', minimum: 0 },
+
     // ── XP log ────────────────────────────────────────────────
     xp_log: {
       type: 'object',
