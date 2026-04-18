@@ -703,20 +703,9 @@ function render() {
       const stBonus = vitateTally?.total_bonus ?? 0;
       const stDefault = stVesselTotal + stBonus;
       const charId = String(currentChar._id);
-      if (!_stConfirmed[charId]) {
-        try {
-          const raw = localStorage.getItem('tm_st_feed_' + charId);
-          if (raw) _stConfirmed[charId] = JSON.parse(raw);
-        } catch { /* ignore */ }
-      }
       const confirmed = _stConfirmed[charId];
       const vitaeMax = calcVitaeMax(currentChar);
       const infMax   = calcTotalInfluence(currentChar);
-      let infCurrent = infMax;
-      try {
-        const loc = JSON.parse(localStorage.getItem('tm_tracker_local_' + charId) || '{}');
-        if (loc.inf != null) infCurrent = loc.inf;
-      } catch { /* ignore */ }
       h += `<div class="feed-st-confirm">`;
       if (confirmed) {
         const vitaeStr = confirmed.vitaeMax != null
@@ -881,34 +870,18 @@ function wireEvents() {
     const infEl = container.querySelector('#feed-inf-spent');
     const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
 
-    // Compute pre-confirm influence state for the confirmed record
     const vitaeMax = calcVitaeMax(currentChar);
     const infMax   = calcTotalInfluence(currentChar);
-    let infCurrent = infMax;
-    try {
-      const loc = JSON.parse(localStorage.getItem('tm_tracker_local_' + charId) || '{}');
-      if (loc.inf != null) infCurrent = loc.inf;
-    } catch { /* ignore */ }
-    const infAfter = Math.max(0, infCurrent - infSpent);
+    const infAfter = Math.max(0, infMax - infSpent);
 
-    // Write vitae directly to API — trackerAdj needs suiteState.chars which is
-    // empty in player.html context
+    // Write vitae and influence to API — single source of truth for tracker state
     try {
-      await apiPut('/api/tracker_state/' + charId, { vitae: n });
-      // Also write to localStorage so game app tracker picks it up without tab navigation
-      try {
-        const key = 'tm_tracker_local_' + charId;
-        const loc = JSON.parse(localStorage.getItem(key) || '{}');
-        loc.vitae_confirmed = n;
-        if (infSpent > 0) loc.inf = infAfter;
-        localStorage.setItem(key, JSON.stringify(loc));
-      } catch { /* ignore */ }
+      await apiPut('/api/tracker_state/' + charId, { vitae: n, influence: infAfter });
       const record = { vitae: n, vitaeMax, infSpent, infAfter, infMax };
       _stConfirmed[charId] = record;
-      try { localStorage.setItem('tm_st_feed_' + charId, JSON.stringify(record)); } catch { /* ignore */ }
       render();
     } catch (err) {
-      console.error('Tracker vitae write failed:', err);
+      console.error('Tracker feed confirm failed:', err);
       if (btn) {
         btn.textContent = 'Save failed \u2014 retry';
         btn.style.background = 'var(--crim)';
@@ -920,9 +893,7 @@ function wireEvents() {
 
   container.querySelector('#feed-reconfirm-btn')?.addEventListener('click', () => {
     if (!currentChar) return;
-    const cid = String(currentChar._id);
-    delete _stConfirmed[cid];
-    try { localStorage.removeItem('tm_st_feed_' + cid); } catch { /* ignore */ }
+    delete _stConfirmed[String(currentChar._id)];
     render();
   });
 
