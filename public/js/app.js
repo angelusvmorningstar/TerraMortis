@@ -31,7 +31,6 @@ import {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shEditMeritAttache,
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   registerCallbacks as registerEditCallbacks
