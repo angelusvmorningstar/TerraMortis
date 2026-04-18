@@ -146,6 +146,10 @@ body {
   #sidebar { position: fixed; z-index: 1050; height: 100vh; }
   .sb-collapsed #sidebar { width: 0; }
   #admin-app:not(.sb-collapsed) .sb-open-btn { display: none; }
+  /* Larger tap targets on tablet/mobile */
+  .sb-close-btn { width: 44px; height: 44px; font-size: 20px; top: 16px; right: 8px; }
+  .sb-link-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .sidebar-btn { min-height: 44px; }
 }
 
 /* ── Content area ── */
