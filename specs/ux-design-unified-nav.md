@@ -167,19 +167,68 @@ Every feature exists once. Feeding is implemented once. The sheet is implemented
 - City/court administration
 - Data portability
 
+### `player.html` — Full Tab Inventory and Migration
+
+`player.html` currently has 12 tabs (some conditional by role). Every tab has a destination in the unified app:
+
+| `player.html` tab | Condition | Unified app destination |
+|---|---|---|
+| Sheet | Always | Primary nav — Sheet |
+| Regency | Conditional (role) | More grid — Regency (conditional) |
+| Office | Conditional (role) | More grid — Office (conditional) |
+| Submit DT | Always | More grid — DT Submission (player only) |
+| Feeding | Always | More grid — Feeding (lifecycle-aware) |
+| Ordeals & XP | Always | More grid — Ordeals |
+| Story | Always | More grid — DT Report |
+| Archive | Conditional | More grid — Archive (conditional) |
+| City | Always | Primary nav — Map |
+| Status | Always | More grid — Status |
+| Primer | Always | More grid — Primer |
+| Tickets | Always | More grid — Tickets |
+
+No `player.html` functionality is lost. Every tab has an explicit destination.
+
 ### Deprecated / consolidated:
-- `player.html` — superseded by unified game app. May remain as desktop-optimised redirect or legacy access point.
+- `player.html` — superseded by unified game app. May remain as a redirect or legacy desktop access point during transition.
 - Duplicate feeding implementations — one remains.
 - Duplicate sheet implementations — one remains.
 
 ---
 
+## Theme Support
+
+### Current state (problem)
+
+The two apps have **opposite theme defaults**:
+
+| App | Default theme | Logic |
+|---|---|---|
+| `index.html` (game app) | Dark | Defaults dark; only light if localStorage is `'light'` |
+| `player.html` (player portal) | Parchment/light | Defaults light; only dark if localStorage is `'dark'` |
+
+A player moving from the portal to the game app currently gets a jarring theme flip.
+
+### Unified app requirement
+
+The unified app must support both themes and let users choose. Recommended approach:
+
+- **Default: Dark** — game venues are dim. Dark mode is appropriate for the primary context (at game). It also matches the current game app default.
+- **User-controlled toggle** — accessible from the More grid or app settings. Preference saved to `localStorage['tm-theme']`.
+- **Consistent token system** — all CSS already uses `--accent`, `--surf*`, `--txt*` etc. The token system works in both themes. No hardcoded colours should be added to unified app components.
+
+### Theme and context
+
+There is a UX argument for **context-aware defaults**: a player opening the app on a bright afternoon to submit their downtime might prefer parchment. The same player at game in a dark venue wants dark. A future enhancement could offer a setting like "at-game mode" that switches to dark automatically — but this is optional complexity. For now: dark default, user toggle.
+
+---
+
 ## Open Questions (for future planning)
 
-1. **`player.html` fate** — full retirement, redirect, or maintained as desktop-only DT form surface?
-2. **Home screen** — does the unified app have a "home" view (lifecycle card dashboard) or does it open directly to the Dice tab?
+1. **`player.html` fate** — full retirement during next major epic, redirect in the interim?
+2. **Home screen** — does the unified app have a "home" view (lifecycle card dashboard) or open directly to Dice?
 3. **Offline / low-signal** — game venues can have poor connectivity. What degrades gracefully vs what requires network?
-4. **Notification model** — how does the app alert players that feeding is open or DT is due? Push notification, in-app badge, or passive card only?
+4. **Notification model** — how does the app surface that feeding is open or DT is due? Badge, passive card, or push notification?
+5. **Regency / Office conditional tabs** — what triggers these to appear in the More grid? Court role assignment from the characters collection?
 
 ---
 
@@ -188,13 +237,16 @@ Every feature exists once. Feeding is implemented once. The sheet is implemented
 This specification describes the **target UX state**. Implementation is a separate planning exercise. The primary structural work required:
 
 - Unify `index.html` and `player.html` into a single entry point with role-aware rendering
-- Implement the More grid app launcher component
+- Implement the More grid app launcher with conditional visibility
 - Lifecycle-phase detection to drive contextual card surfacing
 - Sheet component receives viewport + role signals and adapts layout
+- Theme toggle accessible from unified app (dark default, user-controlled)
+- Reconcile opposite theme defaults between current `index.html` and `player.html`
 
 Existing work that already supports this direction:
 - Single-column sheet CSS breakpoints (EPB.2) ✓
 - Character chips in game app (EPB.6) ✓
-- Role-aware nav in suite app (applyRoleRestrictions) ✓
+- Role-aware nav in suite app (`applyRoleRestrictions`) ✓
 - Sign-in tab with API-backed attendance (EPC.4) ✓
 - Tracker state in MongoDB (EPA.2) ✓
+- Token-based CSS system works in both themes throughout all components ✓
