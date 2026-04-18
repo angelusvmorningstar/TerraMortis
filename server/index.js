@@ -23,6 +23,7 @@ import attendanceRouter from './routes/attendance.js';
 import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
+import adminMigrationsRouter from './routes/admin-migrations.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
 // specs/guidance/pdf-target/PRIOR-ART.md for the post-mortem on why the
@@ -92,6 +93,7 @@ app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
 app.use('/api/game_sessions', requireAuth, requireRole('st'), gameSessionsRouter);
 app.use('/api/downtime_investigations', requireAuth, investigationsRouter);
 app.use('/api/npcs', requireAuth, npcsRouter);
+app.use('/api/admin', requireAuth, requireRole('st'), adminMigrationsRouter);
 
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable
