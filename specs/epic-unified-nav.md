@@ -1,5 +1,9 @@
 ---
-stepsCompleted: [1]
+stepsCompleted: [1, 2, 3, 4]
+status: ready-for-development
+stories: 13
+epics: 3
+validatedDate: 2026-04-19
 inputDocuments:
   - specs/ux-design-unified-nav.md
   - specs/architecture/system-map.md
