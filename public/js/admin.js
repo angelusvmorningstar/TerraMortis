@@ -1065,6 +1065,7 @@ Object.assign(window, {
     try {
       fresh = await apiGet('/api/characters');
       fresh.forEach(sanitiseChar);
+      await loadGameXP(fresh);
     } catch (err) {
       alert('Export failed: could not fetch character data from API.\n\n' + err.message);
       return;
