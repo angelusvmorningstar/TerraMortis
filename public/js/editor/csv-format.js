@@ -5,7 +5,7 @@ import {
   meritsByCategory, influenceMerits, domainMerits, standingMerits, generalMerits,
   influenceTotal, domainRating,
   calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
-  BP_TABLE
+  calcCityStatus, BP_TABLE
 } from '../data/accessors.js';
 import { xpLeft, xpEarned } from './xp.js';
 import { getWillpower } from '../data/helpers.js';
@@ -185,8 +185,8 @@ export function charToRow(c) {
     row.push(specs.length ? specs.join(', ') : '');
   }
 
-  // Status
-  row.push(c.status?.city || 0);
+  // Status — use calcCityStatus to include title bonus and regent ambience bonus
+  row.push(calcCityStatus(c));
   row.push(c.status?.clan || 0);
   row.push(c.status?.covenant || 0);
 
