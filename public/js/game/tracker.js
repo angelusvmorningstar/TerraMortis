@@ -168,14 +168,15 @@ export async function initTracker(el) {
 }
 
 export async function trackerReset() {
-  if (!confirm('Reset all characters to full Vitae and Willpower, clear all damage and conditions?')) return;
+  if (!confirm('Reset all characters to zero Vitae and full Willpower? Damage and conditions are preserved.')) return;
   for (const c of (suiteState.chars || [])) {
     const id = String(c._id);
-    const d = defaults(c);
-    _cache[id] = d;
+    if (!_confirmed.has(id)) await ensureLoaded(c);
+    const cs = _cache[id] || {};
+    cs.vitae = 0;
+    cs.willpower = calcWillpowerMax(c);
     _confirmed.add(id);
-    saveToApi(id, persistedFields(d));
-    saveLocal(id, { inf: d.inf, conditions: [] });
+    saveToApi(id, persistedFields(cs));
   }
   renderAll();
 }
@@ -237,7 +238,7 @@ function renderAll() {
   const chars = suiteState.chars || [];
 
   let h = '<div class="trk-wrap">';
-  h += '<div class="trk-toolbar"><button class="trk-reset-btn" onclick="trackerReset()">Reset All</button><span class="trk-toolbar-hint">Resets tracks &amp; clears conditions</span></div>';
+  h += '<div class="trk-toolbar"><button class="trk-reset-btn" onclick="trackerReset()">Reset All</button><span class="trk-toolbar-hint">Zero Vitae, full WP &mdash; damage preserved</span></div>';
 
   if (!chars.length) {
     h += '<div class="dtl-empty">No characters loaded.</div>';

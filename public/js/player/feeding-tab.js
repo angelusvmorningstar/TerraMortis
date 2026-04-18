@@ -16,7 +16,7 @@ import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
 import { domMeritContrib } from '../editor/domain.js';
-import { trackerAdj } from '../game/tracker.js';
+import { trackerAdj, trackerRead } from '../game/tracker.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
@@ -685,11 +685,21 @@ function render() {
 
     // ── ST CONFIRM PANEL ──
     if (isST) {
+      const stVesselTotal = vitaeAllocation
+        ? vitaeAllocation.reduce((a, b) => a + b, 0)
+        : safeVitae;
+      const stBonus = vitateTally?.total_bonus ?? 0;
+      const stDefault = stVesselTotal + stBonus;
       h += `<div class="feed-st-confirm">`;
       h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
+      if (stBonus) {
+        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
+      } else {
+        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
+      }
       h += `<div class="feed-confirm-controls">`;
       h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
-      h += `<span class="feed-confirm-val" id="feed-confirm-n">${safeVitae}</span>`;
+      h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
       h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
       h += `</div>`;
       h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
@@ -808,9 +818,17 @@ function wireEvents() {
   });
   container.querySelector('#feed-confirm-btn')?.addEventListener('click', async () => {
     if (!currentChar) return;
+    const charId = String(currentChar._id);
     const n = parseInt(container.querySelector('#feed-confirm-n')?.textContent) || 0;
-    if (n === 0) return;
-    await trackerAdj(String(currentChar._id), 'vitae', n);
+
+    const current = trackerRead(charId).vitae ?? 0;
+    const delta = n - current;
+    if (delta !== 0) await trackerAdj(charId, 'vitae', delta);
+
+    const infEl = container.querySelector('#feed-inf-spent');
+    const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
+    if (infSpent > 0) await trackerAdj(charId, 'inf', -infSpent);
+
     const btn = container.querySelector('#feed-confirm-btn');
     if (btn) { btn.textContent = 'Confirmed \u2713'; btn.disabled = true; }
   });
@@ -908,19 +926,17 @@ async function doFeedingRoll() {
 }
 
 // ── ST: Influence spend display ──
-// inf_spent/inf_cost are not yet tracked in merit_actions_resolved — shows 0
-// until DT processing is updated to record influence spend per action.
 async function loadInfluenceSpend(charId) {
   const el = container?.querySelector('#feed-inf-spent');
   if (!el) return;
   try {
     const subs = await apiGet('/api/downtime_submissions');
-    const resolved = subs
-      .filter(s => String(s.character_id) === charId && s.merit_actions_resolved?.length)
-      .sort((a, b) => String(b._id) > String(a._id) ? 1 : -1)[0];
-    if (!resolved) { el.textContent = '0'; return; }
-    const total = (resolved.merit_actions_resolved || [])
-      .reduce((sum, rev) => sum + (rev.inf_spent || rev.inf_cost || 0), 0);
+    const latest = subs
+      .filter(s => String(s.character_id) === charId && s.responses?.influence_spend)
+      .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0];
+    if (!latest) { el.textContent = '0'; return; }
+    const spendObj = JSON.parse(latest.responses.influence_spend || '{}');
+    const total = Object.values(spendObj).reduce((sum, v) => sum + Math.abs(v || 0), 0);
     el.textContent = String(total);
   } catch {
     el.textContent = 'N/A';

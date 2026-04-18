@@ -240,6 +240,13 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .pi-badge{font-family:var(--fh);font-size:10px;color:var(--gdim);}
 .pi-pool{width:36px;height:36px;border-radius:8px;background:var(--crim);display:flex;align-items:center;justify-content:center;font-family:var(--fhd);font-size:15px;color:var(--txt);flex-shrink:0;}
 .pi-pool.nr{background:var(--surf2);color:var(--txt3);}
+/* ── Auspex Insight ── */
+.auspex-insight-btn{display:block;width:100%;margin-top:10px;padding:10px 14px;background:var(--gold-a8);border:1px solid var(--gold-a20);border-radius:6px;color:var(--gold);font-family:var(--fh);font-size:12px;letter-spacing:.1em;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.auspex-insight-btn:active{background:var(--gold-a15);}
+.auspex-q-item{padding:10px 16px;border-bottom:0.5px solid var(--bdr);display:flex;flex-direction:column;gap:3px;}
+.auspex-q-item:last-child{border-bottom:none;}
+.auspex-q-text{font-family:var(--fb);font-size:13px;color:var(--txt);line-height:1.4;}
+.auspex-q-fmt{font-family:var(--fh);font-size:10px;letter-spacing:.08em;color:var(--gold);text-transform:uppercase;}
 
 /* ════════════════════════════════
    TERRITORY + ST TABS

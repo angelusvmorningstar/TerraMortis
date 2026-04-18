@@ -166,7 +166,15 @@ export function renderSheet() {
 
   // ── COVENANT STRIP ──
   const covStandings = c.covenant_standings || {};
-  const covSEntries = Object.entries(covStandings).filter(([, v]) => v !== undefined);
+  const COV_SHORT = {
+    'Carthian Movement': 'Carthian',
+    'Circle of the Crone': 'Crone',
+    'Invictus': 'Invictus',
+    'Lancea et Sanctum': 'Lance',
+  };
+  const ownLabel = COV_SHORT[c.covenant] || null;
+  const covSEntries = Object.entries(covStandings)
+    .filter(([label, v]) => v !== undefined && label !== ownLabel);
   if (covSEntries.length) {
     html += `<div class="cov-strip">`;
     covSEntries.forEach(([label, status]) => {
@@ -192,7 +200,7 @@ export function renderSheet() {
   const maxH  = calcHealth(c);
   const maxV  = calcVitaeMax(c);
   const maxWP = calcWillpowerMax(c);
-  const maxInf = influenceTotal(c);
+  const maxInf = calcTotalInfluence(c);
 
   // Load from canonical tracker store (keyed by _id)
   const charId = String(c._id);
@@ -235,12 +243,11 @@ export function renderSheet() {
     </div>`;
   }
 
-  const activeInfMerits = influenceMerits(c).filter(m => !m.prereq_failed && (m.rating || 0) > 0);
-  const infBreakdown = activeInfMerits.length
-    ? `<div class="sh-inf-breakdown">${activeInfMerits.map(m => {
-        const total = (m.rating || 0) + (m.bonus || 0);
-        return `<span class="sh-inf-merit">${m.name} <span class="sh-inf-dots">${'\u25CF'.repeat(Math.min(total, 10))}</span></span>`;
-      }).join('')}</div>`
+  const bdLines = influenceBreakdown(c);
+  const infBreakdown = bdLines.length
+    ? `<div class="sh-inf-breakdown">${bdLines.map(l =>
+        `<span class="sh-inf-merit">${l}</span>`
+      ).join('')}</div>`
     : '';
 
   html += `<div class="sh-tracker-block" id="tracker-block">
@@ -316,9 +323,13 @@ export function renderSheet() {
           <div class="disc-power-effect">${p.effect || ''}</div>
         </div>`;
       });
+      if (d === 'Auspex' && r >= 1) {
+        drawerHtml += `<button class="auspex-insight-btn" onclick="openPanel('auspex')">Auspex Insight \u203A</button>`;
+      }
       const nameTag = (nameStyle ? '<span class="disc-tap-name" style="' + nameStyle + '">' : '<span class="disc-tap-name">') + d + '</span>';
       const dotsTag = r ? `<span class="disc-tap-dots">${dots(r)}</span>` : '';
-      if (!hasPowers) {
+      const isExpandable = hasPowers || (d === 'Auspex' && r >= 1);
+      if (!isExpandable) {
         return `<div class="disc-tap-row">
           <div class="disc-tap-left">${nameTag}${dotsTag}</div>
         </div>`;
@@ -654,7 +665,7 @@ document.addEventListener('click', function(e) {
     const trueMax = type === 'health' ? maxH
       : type === 'vitae'  ? calcVitaeMax(c)
       : type === 'wp'     ? calcWillpowerMax(c)
-      : influenceTotal(c);
+      : calcTotalInfluence(c);
     numEl.textContent = updatedSheet + '/' + trueMax;
   }
 });

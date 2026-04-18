@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-17 (DTX.8 done; DTP delivery bugs + feeding tab ST override shipped; ObjectId audit complete)
+last_updated: 2026-04-18 (feat.9 auspex insight done; feat.10 covenant standings fix ready-for-dev; tracker reset fix)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -169,22 +169,22 @@ development_status:
   # ~620 entries across 7 categories consolidated into MongoDB
   # No story files exist yet
 
-  epic-pp: in-progress
+  epic-pp: in-progress  # pp-9 pending full validation
 
   pp-1-schema-collection-seed-script: done
-  pp-2-api-route-client-loader: review
-  pp-3-prerequisite-engine-rewrite: review
-  pp-4-migrate-consumers-character-editor: review
-  pp-5-migrate-consumers-suite-game-app: review
-  pp-6-migrate-consumers-downtime-player-portal: review
-  pp-7-remove-legacy-data-files: review
-  pp-8-admin-rules-editor: review
-  pp-9-schema-v3-inline-creation: review
+  pp-2-api-route-client-loader: done
+  pp-3-prerequisite-engine-rewrite: done
+  pp-4-migrate-consumers-character-editor: done
+  pp-5-migrate-consumers-suite-game-app: done
+  pp-6-migrate-consumers-downtime-player-portal: done
+  pp-7-remove-legacy-data-files: done
+  pp-8-admin-rules-editor: done
+  pp-9-schema-v3-inline-creation: review  # migration only tested on 2/31 chars — needs full validation
   pp-10-migrate-client-to-v3: done
-  pp-11-rules-editor-ux-overhaul: review
-  pp-12-mci-per-tier-merit-tracking: review
-  pp-13-excel-to-v3-ingestion: review
-  pp-14-excel-import-ui: review
+  pp-11-rules-editor-ux-overhaul: done
+  pp-12-mci-per-tier-merit-tracking: done
+  pp-13-excel-to-v3-ingestion: done
+  pp-14-excel-import-ui: done
 
   epic-pp-retrospective: optional
 
@@ -246,14 +246,14 @@ development_status:
   # dtx-1/2/3 merged 2026-04-16; dtx-8 merged 2026-04-17
   # dtx-5/6/7 story files written; no code yet
 
-  epic-dtx: in-progress
+  epic-dtx: done
 
   dtx-1-cross-reference-callouts: done
   dtx-2-compact-panel-binary-actions: done
   dtx-3-notes-feedback-visual-hierarchy: done
-  dtx-5-single-character-push: ready-for-dev
-  dtx-6-workflow-ribbon-redesign: ready-for-dev
-  dtx-7-regent-feeding-confirmation-gate: ready-for-dev
+  dtx-5-single-character-push: done
+  dtx-6-workflow-ribbon-redesign: done
+  dtx-7-regent-feeding-confirmation-gate: done
   dtx-8-completion-gated-publish: done
 
   epic-dtx-retrospective: optional
@@ -313,14 +313,14 @@ development_status:
   # Epic file: specs/epic-city-refresh.md
   # Sequence: cr-6 (trivial) → cr-1 → cr-5 → cr-2 → cr-3 → cr-4
 
-  epic-cr: in-progress
+  epic-cr: done
 
   cr-6-favicon-game-app: done
   cr-1-court-title-rename-territory-name-fix: done
   cr-5-modal-theming-audit: done
   cr-2-layout-audit-two-panel-fix: done
   cr-3-status-power-visualisation-player: done
-  cr-4-sphere-influence-view-st-admin: ready-for-dev
+  cr-4-sphere-influence-view-st-admin: done
 
   epic-cr-retrospective: optional
 
@@ -356,6 +356,10 @@ development_status:
   feat-6-player-sheet-width-consistency: backlog  # Left panel width varies between characters; sheet should be full-width consistently
   feat-7-player-read-latest-downtime: backlog     # Player can read their own submitted downtime responses (not just the ST narrative) — read-only view of previous cycle submissions accessible from the player portal
   feat-8-contact-action-type: backlog             # Contacts have only one fixed action — no action type selector should appear in DT Processing, and DT Story tab should not label contact actions with an action type
+  feat-9-auspex-insight-overlay: done              # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
+  feat-10-covenant-standings-fix: done   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
+  feat-11-influence-total-fix: done      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
+  feat-12-feed-confirm-card-improvements: done  # ST confirm card: fix default vitae, real influence spend, overwrite not add, button CSS
 
   epic-feat-retrospective: optional
 
@@ -366,13 +370,13 @@ development_status:
   # Delivery order: lst.1 + lst.2 (parallel) → lst.3 → lst.4 → lst.5
   # lst.3 blocks lst.4 and lst.5
 
-  epic-lst: in-progress
+  epic-lst: done
 
   lst-1-dt-contacts-qualifier: done
   lst-2-feed-roller-harmonise: done
-  lst-3-tracker-migration: review
-  lst-4-st-sheet-swap: review
-  lst-5-st-feeding-confirm: review
-  lst-6-st-player-view-toggle: review
+  lst-3-tracker-migration: done
+  lst-4-st-sheet-swap: done
+  lst-5-st-feeding-confirm: done
+  lst-6-st-player-view-toggle: done
 
   epic-lst-retrospective: optional
