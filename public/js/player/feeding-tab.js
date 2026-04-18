@@ -735,7 +735,7 @@ function render() {
         h += `<div class="feed-st-row-lbl">Vitae Gained</div>`;
         h += `<div class="feed-st-row-ctrl">`;
         h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
-        h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
+        h += `<span class="feed-confirm-val" id="feed-confirm-n" data-vit-max="${vitaeMax}">${stDefault}</span>`;
         h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
         h += `</div>`;
         h += `<div class="feed-st-row-max">/ ${vitaeMax}</div>`;
@@ -774,9 +774,6 @@ function render() {
   h += '</div>';
   container.innerHTML = h;
   wireEvents();
-  if (isST && feedingState === 'rolled' && currentChar) {
-    loadInfluenceSpend(String(currentChar._id));
-  }
 }
 
 function wireEvents() {
@@ -859,7 +856,9 @@ function wireEvents() {
   });
   container.querySelector('#feed-confirm-adj-up')?.addEventListener('click', () => {
     const el = container.querySelector('#feed-confirm-n');
-    if (el) el.textContent = (parseInt(el.textContent) || 0) + 1;
+    if (!el) return;
+    const max = parseInt(el.dataset.vitMax) || 0;
+    el.textContent = String(Math.min(max, (parseInt(el.textContent) || 0) + 1));
   });
   // ST confirm feed — influence stepper
   container.querySelector('#feed-inf-adj-down')?.addEventListener('click', () => {
