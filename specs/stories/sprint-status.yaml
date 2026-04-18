@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-17 (DTX.8 done; DTP delivery bugs + feeding tab ST override shipped; ObjectId audit complete)
+last_updated: 2026-04-18 (feat.9 auspex insight done; feat.10 covenant standings fix ready-for-dev; tracker reset fix)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -356,7 +356,10 @@ development_status:
   feat-6-player-sheet-width-consistency: backlog  # Left panel width varies between characters; sheet should be full-width consistently
   feat-7-player-read-latest-downtime: backlog     # Player can read their own submitted downtime responses (not just the ST narrative) — read-only view of previous cycle submissions accessible from the player portal
   feat-8-contact-action-type: backlog             # Contacts have only one fixed action — no action type selector should appear in DT Processing, and DT Story tab should not label contact actions with an action type
-  feat-9-auspex-insight-overlay: ready-for-dev    # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
+  feat-9-auspex-insight-overlay: done              # Auspex Insight question reference overlay in game app — triggered from Auspex discipline drawer
+  feat-10-covenant-standings-fix: ready-for-dev   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
+  feat-11-influence-total-fix: ready-for-dev      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
+  feat-12-feed-confirm-card-improvements: ready-for-dev  # ST confirm card: fix default vitae, real influence spend, overwrite not add, button CSS
 
   epic-feat-retrospective: optional
 
