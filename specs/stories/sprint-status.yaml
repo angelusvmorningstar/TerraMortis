@@ -246,14 +246,14 @@ development_status:
   # dtx-1/2/3 merged 2026-04-16; dtx-8 merged 2026-04-17
   # dtx-5/6/7 story files written; no code yet
 
-  epic-dtx: in-progress
+  epic-dtx: done
 
   dtx-1-cross-reference-callouts: done
   dtx-2-compact-panel-binary-actions: done
   dtx-3-notes-feedback-visual-hierarchy: done
-  dtx-5-single-character-push: ready-for-dev
-  dtx-6-workflow-ribbon-redesign: ready-for-dev
-  dtx-7-regent-feeding-confirmation-gate: ready-for-dev
+  dtx-5-single-character-push: done
+  dtx-6-workflow-ribbon-redesign: done
+  dtx-7-regent-feeding-confirmation-gate: done
   dtx-8-completion-gated-publish: done
 
   epic-dtx-retrospective: optional
