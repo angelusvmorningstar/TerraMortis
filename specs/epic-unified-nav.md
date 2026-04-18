@@ -17,6 +17,95 @@ This document provides the complete epic and story breakdown for the unified app
 
 ---
 
+## Design & API Constraints (applies to ALL stories)
+
+Every story in this epic that touches UI or data must comply with the following. These are not suggestions — they are non-negotiable requirements derived from the design system and architecture audit.
+
+### CSS Design System
+
+**Style guide:** `public/mockups/font-test.html` — living reference for all components, tokens, and patterns. If a component exists in font-test.html, use it. If a new component is needed, follow the same token vocabulary.
+
+**Token rules (no hardcoded values anywhere):**
+
+| Purpose | Token | Notes |
+|---|---|---|
+| Primary text | `--txt` | |
+| Secondary text | `--txt2` | |
+| Tertiary / muted | `--txt3` | |
+| Labels (strong) | `--label-secondary` | Lato, uppercase, letter-spacing |
+| Labels (subtle) | `--label-tertiary` | |
+| Surfaces | `--surf`, `--surf2`, `--surf3` | Layered backgrounds |
+| Borders | `--bdr`, `--bdr2`, `--bdr3` | Never raw rgba() |
+| Accent (interactive) | `--accent` | Crimson on parchment, gold on dark |
+| Accent transparent | `--accent-a8`, `--accent-a25`, `--accent-a40` | Hover, fill, border |
+| Error / danger | `--crim`, `--crim-a8`, `--crim-a25` | |
+| Success | `--green-dk`, `--green-dk-bg`, `--green-dk-bdr` | |
+
+**Font stack (three fonts only):**
+- `--fh` (Cinzel) — character names, app title, display headings only
+- `--fl` (Lato) — all labels, nav, tabs, buttons, chips, section titles
+- `--ft` (Libre Baskerville) — body text, prose, form inputs
+
+**Established component classes (use these, don't reinvent):**
+
+| Component | Class | Where defined |
+|---|---|---|
+| Card container | `.panel` + `.panel-label` + `.panel-body` | font-test.html, components.css |
+| Tab (horizontal) | `.tab`, `.tab.on` | font-test.html, components.css |
+| Chip label | `.chip` | font-test.html, components.css |
+| Status badge | `.badge`, `.badge.ok/.warn/.pending/.err` | font-test.html, components.css |
+| Action button | `.action-btn`, `.action-btn.on` | font-test.html, components.css |
+| Section title | `.section-title` | font-test.html, components.css |
+| Attribute row | `.attr-row`, `.attr-name`, `.attr-dots` | font-test.html |
+| Bottom nav button | `.nbtn` | suite.css |
+| Character chip | `.char-chip` | components.css (EPB.6) |
+
+**New components for this epic (must follow existing vocabulary):**
+
+| New component | Required tokens | Pattern to follow |
+|---|---|---|
+| More grid app icon | `--surf2`, `--bdr`, `--accent` on active | Extend `.char-chip` pattern — same shape, larger |
+| Nav tab badge (notification dot) | `--accent` dot, `--surf` background ring | Absolute-positioned circle on `.nbtn` |
+| Contextual lifecycle card | `.panel` container, `--accent` accent | Follow existing `.dt-card` or `.panel` pattern |
+| Bottom nav bar (4 tabs) | `--surf2` background, `--bdr` top border, `.nbtn` | Extend existing `#bnav` + `.nbtn` in suite.css |
+
+**Theme requirement:** All new CSS must work in both dark and parchment themes using tokens only. Test against both `[data-theme="dark"]` and default (parchment). Do NOT add hardcoded light/dark values — if a new component needs a theme-specific override, add it to the correct parchment override block at the end of the relevant CSS file.
+
+**Mobile tap targets:** Every interactive element ≥44px height/width. No exceptions.
+
+---
+
+### API Data Rules
+
+**Reference:** `specs/architecture/system-map.md` — authoritative endpoint and auth map.
+
+**Core rules every story must follow:**
+
+1. **No localStorage for persistent data.** Tracker state (vitae, WP, influence) lives in MongoDB via `/api/tracker_state`. Character data comes from `/api/characters`. Downtime data from `/api/downtime_submissions`. Never write persistent state to localStorage.
+
+2. **localStorage is only for UI preferences.** Theme (`tm-theme`), auth token (`tm_auth_token`, `tm_auth_expires`, `tm_auth_user`) — these are the only things that belong in localStorage. Anything else must go to the API.
+
+3. **Role gating is server-enforced.** The API already requires `requireAuth` on all protected routes and `requireRole('st')` on ST-only routes. Client-side role checks (hiding buttons, filtering More grid) are UX only — never the sole security gate.
+
+4. **Key API endpoints for this epic:**
+
+| Data needed | Endpoint | Auth |
+|---|---|---|
+| Character data (player view) | `GET /api/characters?mine=1` | requireAuth |
+| All characters (ST view) | `GET /api/characters` | requireAuth, ST gets all |
+| Territory/map data | `GET /api/territories` | requireAuth |
+| Tracker state | `GET/PUT /api/tracker_state/:id` | requireAuth + ST |
+| Active downtime cycle | `GET /api/downtime_cycles` | requireAuth |
+| Player's submission | `GET /api/downtime_submissions` | requireAuth |
+| Next game session | `GET /api/game_sessions/next` | PUBLIC |
+| Player record (emergency contact) | `GET /api/players` | requireAuth + ST |
+
+5. **Derived stats are never stored.** Health max, vitae max, willpower max, influence total — always calculate at render time from character data. Never write these to the database.
+
+6. **Attendance writes go through game_sessions.** There is no `/api/attendance` write endpoint. Attendance changes must use `PUT /api/game_sessions/:id`.
+
+---
+
 ## Requirements Inventory
 
 ### Functional Requirements
