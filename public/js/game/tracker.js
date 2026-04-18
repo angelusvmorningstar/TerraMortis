@@ -3,7 +3,8 @@
    Influence and Conditions stay localStorage-only (per-device session state). */
 
 import suiteState from '../suite/data.js';
-import { calcVitaeMax, calcWillpowerMax, calcHealth, influenceTotal } from '../data/accessors.js';
+import { calcVitaeMax, calcWillpowerMax, calcHealth } from '../data/accessors.js';
+import { calcTotalInfluence } from '../editor/domain.js';
 import { displayName, esc } from '../data/helpers.js';
 
 const LOCAL_PREFIX = 'tm_tracker_local_';
@@ -27,7 +28,7 @@ function defaults(c) {
     lethal:     0,
     aggravated: 0,
     conditions: [],
-    inf:        influenceTotal(c),
+    inf:        calcTotalInfluence(c),
   };
 }
 
@@ -82,7 +83,7 @@ async function ensureLoaded(c) {
       bashing:    remote.bashing    ?? 0,
       lethal:     remote.lethal     ?? 0,
       aggravated: remote.aggravated ?? 0,
-      inf:        local.inf         ?? influenceTotal(c),
+      inf:        local.inf         ?? calcTotalInfluence(c),
       conditions: local.conditions  ?? [],
     };
     _confirmed.add(id);
@@ -102,7 +103,7 @@ async function ensureLoaded(c) {
         aggravated: old.aggravated ?? 0,
       };
       saveToApi(id, migrated);
-      _cache[id] = { ...migrated, inf: local.inf ?? old.inf ?? influenceTotal(c), conditions: local.conditions ?? old.conditions ?? [] };
+      _cache[id] = { ...migrated, inf: local.inf ?? old.inf ?? calcTotalInfluence(c), conditions: local.conditions ?? old.conditions ?? [] };
       _confirmed.add(id);
       return _cache[id];
     }
@@ -163,6 +164,9 @@ export function trackerToggle(charId) {
 export async function initTracker(el) {
   _el = el;
   el.innerHTML = '<div class="dtl-empty">Loading tracker\u2026</div>';
+  // Clear confirmed set so API is re-fetched every time the tab opens —
+  // picks up vitae changes written by player.html feeding confirm
+  _confirmed.clear();
   await Promise.all((suiteState.chars || []).map(c => ensureLoaded(c)));
   renderAll();
 }
@@ -193,7 +197,7 @@ export async function trackerAdj(charId, field, delta) {
   } else if (field === 'willpower') {
     cs.willpower = clamp(cs.willpower + delta, 0, calcWillpowerMax(c));
   } else if (field === 'inf') {
-    const maxInf = influenceTotal(c);
+    const maxInf = calcTotalInfluence(c);
     cs.inf = clamp((cs.inf ?? maxInf) + delta, 0, maxInf);
     saveLocal(charId, { inf: cs.inf });
     patchCard(charId, c, cs);
@@ -285,7 +289,7 @@ function cardHtml(id, c, cs) {
 
   h += counter('Vitae',     id, 'vitae',    cs.vitae,    vpMax, 'trk-row-v');
   h += counter('Willpower', id, 'willpower', cs.willpower, wpMax, 'trk-row-w');
-  const infMax = influenceTotal(c);
+  const infMax = calcTotalInfluence(c);
   if (infMax > 0) h += counter('Influence', id, 'inf', cs.inf ?? infMax, infMax, 'trk-row-inf');
 
   h += `<div class="trk-row trk-row-hp">`;
