@@ -166,7 +166,15 @@ export function renderSheet() {
 
   // ── COVENANT STRIP ──
   const covStandings = c.covenant_standings || {};
-  const covSEntries = Object.entries(covStandings).filter(([, v]) => v !== undefined);
+  const COV_SHORT = {
+    'Carthian Movement': 'Carthian',
+    'Circle of the Crone': 'Crone',
+    'Invictus': 'Invictus',
+    'Lancea et Sanctum': 'Lance',
+  };
+  const ownLabel = COV_SHORT[c.covenant] || null;
+  const covSEntries = Object.entries(covStandings)
+    .filter(([label, v]) => v !== undefined && label !== ownLabel);
   if (covSEntries.length) {
     html += `<div class="cov-strip">`;
     covSEntries.forEach(([label, status]) => {
