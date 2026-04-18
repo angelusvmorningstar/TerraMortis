@@ -271,6 +271,13 @@ document.addEventListener('click', e => {
     appEl.classList.remove('sb-collapsed');
     localStorage.setItem(SB_KEY, '0');
   });
+  // Click outside sidebar to close on tablet/mobile
+  document.getElementById('content')?.addEventListener('click', () => {
+    if (window.innerWidth <= 1024 && !appEl.classList.contains('sb-collapsed')) {
+      appEl.classList.add('sb-collapsed');
+      localStorage.setItem(SB_KEY, '1');
+    }
+  });
 }
 
 // ── Sidebar footer nav ──
