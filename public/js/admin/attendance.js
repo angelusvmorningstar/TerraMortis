@@ -271,7 +271,8 @@ function renderGrid() {
     </tr></thead><tbody>`;
 
   for (const { a, i, c } of sorted) {
-    const charDisplay = c ? sortName(c) : (a.character_display || a.display_name || a.name || '');
+    const rawName = c ? sortName(c) : (a.character_display || a.display_name || a.name || '');
+    const charDisplay = rawName.replace(/\b\w/g, l => l.toUpperCase());
     const playerName = a.player || (c ? c.player : '') || '';
     const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
     const absentClass = a.attended ? '' : ' att-absent';
