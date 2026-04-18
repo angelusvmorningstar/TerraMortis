@@ -204,6 +204,12 @@ export function titleStatusBonus(c) {
   return TITLE_STATUS_BONUS[c.court_category] || 0;
 }
 
+const REGENT_AMBIENCE_BONUS = { 'Curated': 1, 'Verdant': 1, 'The Rack': 2 };
+
+export function regentAmienceBonus(c) {
+  return REGENT_AMBIENCE_BONUS[c._regentTerritory?.ambience] || 0;
+}
+
 export function calcCityStatus(c) {
-  return (c.status?.city || 0) + titleStatusBonus(c);
+  return (c.status?.city || 0) + titleStatusBonus(c) + regentAmienceBonus(c);
 }

@@ -151,7 +151,7 @@ export function findRegentTerritory(territories, c) {
   if (!t) { c._regentTerritory = null; return null; }
   // Prefer stored name; fall back to the canonical id→name map for legacy docs without a name field.
   const territory = (t.name && t.name !== t.id) ? t.name : (_TERR_ID_NAME[t.id] || t.id);
-  const result = { territory, territoryId: t.id, lieutenantId: t.lieutenant_id || null };
+  const result = { territory, territoryId: t.id, lieutenantId: t.lieutenant_id || null, ambience: t.ambience || null };
   c._regentTerritory = result;
   return result;
 }

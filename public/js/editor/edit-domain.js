@@ -36,6 +36,7 @@ export function shEditInflMerit(idx, field, val) {
   else if (field === 'area') m.area = val;
   else if (field === 'rating') m.rating = Math.max(0, Math.min(5, parseInt(val) || 0));
   else if (field === 'ghoul') m.ghoul = val === true || val === 'true' || val === 1;
+  else if (field === 'attached_to') { if (val) m.attached_to = val; else delete m.attached_to; }
   _markDirty();
   _renderSheet(c);
 }
@@ -229,22 +230,6 @@ export function shRemoveStandMerit(idx) {
     (c.fighting_styles || []).forEach(fs => { fs.free_mci = 0; });
   }
   removeMerit(c, realIdx);
-  _markDirty();
-  _renderSheet(c);
-}
-
-export function shEditMeritAttache(realIdx, retainerKey, dots) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const m = (c.merits || [])[realIdx];
-  if (!m) return;
-  if (!retainerKey) {
-    m.free_attache = 0;
-    delete m.retainer_source;
-  } else {
-    m.retainer_source = retainerKey;
-    m.free_attache = Math.max(0, dots || 0);
-  }
   _markDirty();
   _renderSheet(c);
 }

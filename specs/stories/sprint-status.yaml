@@ -360,6 +360,9 @@ development_status:
   feat-10-covenant-standings-fix: done   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
   feat-11-influence-total-fix: done      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
   feat-12-feed-confirm-card-improvements: done  # ST confirm card: fix default vitae, real influence spend, overwrite not add, button CSS
+  feat-13-regent-territory-ambience-status-bonus: done  # +1 Curated/Verdant, +2 The Rack — extend findRegentTerritory, add regentAmienceBonus, fix two calcCityStatus bypasses
+  feat-14-city-status-appellations: done  # Show rank label (Acknowledged–Exalted) on each city status bracket row in both index.html and player.html
+  feat-15-attache-merit-redesign: done   # Redesign Attaché as 1-dot influence merit; attached_to field; effectiveInvictusStatus helper; remove retainer-pool mechanic
 
   epic-feat-retrospective: optional
 

@@ -231,7 +231,7 @@ export function hasInvested(c) {
 /** Invested pool: dots equal to effective Invictus (covenant) Status (including OTS floor). */
 export function investedPool(c) {
   if (!hasInvested(c)) return 0;
-  return Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0);
+  return effectiveInvictusStatus(c);
 }
 
 /** Count Invested bonus dots allocated via free_inv on Herd/Mentor/Resources/Retainer. */
@@ -244,24 +244,18 @@ export function investedUsed(c) {
   return total;
 }
 
-/** Check if character has the Attaché merit. */
-export function hasAttache(c) {
-  return (c.merits || []).some(m => m.name === 'Attach\u00e9');
+/** Effective Invictus covenant status — includes Oath of the Scapegoat floor. */
+export function effectiveInvictusStatus(c) {
+  if (c.covenant !== 'Invictus') return 0;
+  const st = c.status || {};
+  return Math.max(st.covenant || 0, c._ots_covenant_bonus || 0);
 }
 
-/** Attaché pool per retainer = Invictus covenant Status. */
-export function attachePool(c) {
-  if (!hasAttache(c)) return 0;
-  return (c.status || {}).covenant || 0;
-}
-
-/** Count Attaché free_attache dots allocated from a specific retainer key. */
-export function attacheUsed(c, attacheKey) {
-  let total = 0;
-  (c.merits || []).forEach(m => {
-    if (m.retainer_source === attacheKey) total += (m.free_attache || 0);
-  });
-  return total;
+/** Dots granted by an Attaché merit linked to the named target merit. */
+export function attacheBonusDots(c, meritName) {
+  const att = (c.merits || []).find(m => m.name === 'Attach\u00e9' && m.attached_to === meritName);
+  if (!att) return 0;
+  return effectiveInvictusStatus(c);
 }
 
 /** Check if character has the Lorekeeper merit. */

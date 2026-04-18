@@ -811,6 +811,16 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
   letter-spacing: .06em;
 }
 
+.status-bracket-appellation {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--txt2);
+  margin-left: 8px;
+  text-transform: uppercase;
+  align-self: center;
+}
+
 .status-bracket-chips {
   display: flex;
   flex-wrap: wrap;

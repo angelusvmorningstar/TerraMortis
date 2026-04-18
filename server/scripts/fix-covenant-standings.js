@@ -35,4 +35,4 @@ for (const c of all) {
 }
 
 console.log(`\nDone. ${fixed} character(s) updated.`);
-await client.disconnect();
+await client.close();

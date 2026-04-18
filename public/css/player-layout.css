@@ -3853,6 +3853,16 @@ body {
   letter-spacing: .06em;
 }
 
+.status-bracket-appellation {
+  font-family: var(--fl);
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--txt2);
+  margin-left: 8px;
+  text-transform: uppercase;
+  align-self: center;
+}
+
 .status-bracket-chips {
   display: flex;
   flex-wrap: wrap;
