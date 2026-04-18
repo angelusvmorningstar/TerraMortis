@@ -654,19 +654,22 @@ export function shRenderInfluenceMerits(c, editMode) {
     nonContacts.forEach(m => {
       const idx = inflM.indexOf(m), inf = calcMeritInfluence(m, _inflHWV), tOpts = INFLUENCE_MERIT_TYPES.map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + t + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0);
       const _iPurch = (m.cp || 0) + (m.xp || 0);
-      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _inflArea(m, idx, false) + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
-      if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
-      h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
-      h += meritBdRow(rIdx, m, m.name === 'Attach\u00e9' ? null : meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && m.name === 'Allies', showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && (_invMerits.has(m.name) || (m.name === 'Attach\u00e9' && (m.cp || 0) + (m.xp || 0) >= 1)), attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
-      h += _derivedNotes(m);
+      let _areaHtml;
       if (m.name === 'Attach\u00e9') {
         const _attEligible = (c.merits || []).filter(m2 => ['Contacts', 'Resources', 'Safe Place'].includes(m2.name));
         const _attKey = m2 => m2.name + (m2.area ? ' (' + m2.area + ')' : '');
         const _attOpts = ['<option value="">(select target)</option>']
           .concat(_attEligible.map(m2 => '<option value="' + esc(_attKey(m2)) + '"' + (m.attached_to === _attKey(m2) ? ' selected' : '') + '>' + esc(_attKey(m2)) + '</option>'))
           .join('');
-        h += '<div class="derived-note"><select class="infl-area" onchange="shEditInflMerit(' + idx + ',\'attached_to\',this.value||null)">' + _attOpts + '</select></div>';
+        _areaHtml = '<select class="infl-area" onchange="shEditInflMerit(' + idx + ',\'attached_to\',this.value||null)">' + _attOpts + '</select>';
+      } else {
+        _areaHtml = _inflArea(m, idx, false);
       }
+      h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _areaHtml + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
+      if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
+      h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
+      h += meritBdRow(rIdx, m, m.name === 'Attach\u00e9' ? null : meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && m.name === 'Allies', showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && (_invMerits.has(m.name) || (m.name === 'Attach\u00e9' && (m.cp || 0) + (m.xp || 0) >= 1)), attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
+      h += _derivedNotes(m);
       const _attBonus = attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name);
       if (_attBonus > 0) h += '<div class="derived-note">Attach\u00e9: +' + _attBonus + ' dot' + (_attBonus !== 1 ? 's' : '') + ' (Invictus Status ' + effectiveInvictusStatus(c) + ')</div>';
     });
