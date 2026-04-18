@@ -7214,3 +7214,14 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   color: #fff;
 }
 
+/* ── Emergency contact modal ── */
+.ec-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ec-modal-box { max-width: 420px; width: 100%; }
+.ec-modal-body { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.ec-row { display: flex; gap: 10px; align-items: baseline; }
+.ec-lbl { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--label-secondary); flex-shrink: 0; width: 60px; }
+.ec-val { font-family: var(--ft); font-size: 14px; color: var(--txt); }
+.ec-val a { color: var(--accent); text-decoration: none; }
+.ec-empty { font-family: var(--ft); font-size: 13px; color: var(--txt3); font-style: italic; }
+.ec-close-btn { margin-top: 4px; }
+
