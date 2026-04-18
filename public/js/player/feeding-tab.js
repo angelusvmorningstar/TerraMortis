@@ -60,6 +60,9 @@ export async function renderFeedingTab(el, char) {
     return;
   }
 
+  // Snapshot char at entry — used to detect stale async calls after character switch
+  const charSnapshot = char;
+
   feedingState = 'loading';
   rollResult = null;
   vitaeAllocation = null;
@@ -78,17 +81,23 @@ export async function renderFeedingTab(el, char) {
   let liveTerrDocs = [];
   try { liveTerrDocs = await apiGet('/api/territories'); } catch { /* fall back to hardcoded */ }
 
+  // Bail if character changed while we were fetching
+  if (currentChar !== charSnapshot) return;
+
   // Find active cycle for feeding:
   // Primary: game phase cycle (ST has opened the session).
-  // Fallback: most recent cycle where this character's narrative has been published
-  //   (ST has pushed their outcome — feeding is wired up even before game phase opens).
+  // Fallback: most recent cycle where this character has a roll, published outcome,
+  //   or deferred flag — covers the case where the game phase cycle has moved states
+  //   but the player already rolled.
   let activeCycle = null;
   try { activeCycle = await getGamePhaseCycle(); } catch { /* offline */ }
+
+  if (currentChar !== charSnapshot) return;
 
   let mySub = null;
 
   if (!activeCycle) {
-    // Check if narrative has been published for this character (feeding wired up by ST push)
+    // Check for any submission with a roll, published outcome, or deferred flag
     try {
       const [allCycles, allSubs] = await Promise.all([
         apiGet('/api/downtime_cycles'),
@@ -100,18 +109,21 @@ export async function renderFeedingTab(el, char) {
         }
       });
       const charId = String(char._id);
-      const publishedSub = allSubs
-        .filter(s => String(s.character_id) === charId && s.published_outcome)
+      const candidateSub = allSubs
+        .filter(s => String(s.character_id) === charId &&
+          (s.published_outcome || s.feeding_roll_player || s.feeding_deferred))
         .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0] || null;
-      if (publishedSub) {
-        activeCycle = allCycles.find(c => String(c._id) === String(publishedSub.cycle_id)) || null;
-        mySub = publishedSub; // already have it — skip the follow-up fetch
+      if (candidateSub) {
+        activeCycle = allCycles.find(c => String(c._id) === String(candidateSub.cycle_id)) || null;
+        mySub = candidateSub;
       }
     } catch { /* ignore */ }
   }
 
+  if (currentChar !== charSnapshot) return;
+
   if (!activeCycle) {
-    // No game phase and no published submission — feeding is not yet available
+    // No game phase and no eligible submission — feeding is not yet available
     el.innerHTML = `<div class="tab-split">
       <div class="tab-split-left" id="feeding-left-pane"><p class="placeholder-msg">Feeding rolls open when the Storyteller opens the game phase.</p></div>
       <div class="tab-split-right" id="feeding-right-pane"></div>
@@ -121,15 +133,16 @@ export async function renderFeedingTab(el, char) {
     return;
   }
 
-  // Load submission — skip if already loaded from published fallback above
+  // Load submission — skip if already loaded from fallback above
   if (!mySub) {
     try {
       const subs = await apiGet('/api/downtime_submissions?cycle_id=' + activeCycle._id);
-      mySub = subs.find(s =>
-        (s.character_id === char._id || s.character_id?.toString() === char._id?.toString())
-      ) || null;
+      const charIdStr = String(char._id);
+      mySub = subs.find(s => String(s.character_id) === charIdStr) || null;
     } catch { /* no submissions */ }
   }
+
+  if (currentChar !== charSnapshot) return;
 
   if (mySub) {
     // Promote st_review → published_outcome for ST portal views
