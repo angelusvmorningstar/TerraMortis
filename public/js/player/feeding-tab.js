@@ -818,13 +818,25 @@ function wireEvents() {
     const charId = String(currentChar._id);
     const n = parseInt(container.querySelector('#feed-confirm-n')?.textContent) || 0;
 
-    const current = trackerRead(charId).vitae ?? 0;
-    const delta = n - current;
-    if (delta !== 0) await trackerAdj(charId, 'vitae', delta);
+    // Write vitae directly to API — trackerAdj needs suiteState.chars which is
+    // empty in player.html context
+    try {
+      await apiPut('/api/tracker_state/' + charId, { vitae: n });
+    } catch (err) {
+      console.error('Tracker vitae write failed:', err);
+    }
 
+    // Influence is localStorage-only; write directly (same origin as game app)
     const infEl = container.querySelector('#feed-inf-spent');
     const infSpent = infEl ? (parseInt(infEl.value) || 0) : 0;
-    if (infSpent > 0) await trackerAdj(charId, 'inf', -infSpent);
+    if (infSpent > 0) {
+      try {
+        const key = 'tm_tracker_local_' + charId;
+        const local = JSON.parse(localStorage.getItem(key) || '{}');
+        local.inf = Math.max(0, (local.inf ?? 0) - infSpent);
+        localStorage.setItem(key, JSON.stringify(local));
+      } catch { /* ignore */ }
+    }
 
     const btn = container.querySelector('#feed-confirm-btn');
     if (btn) { btn.textContent = 'Confirmed \u2713'; btn.disabled = true; }
