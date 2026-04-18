@@ -703,6 +703,12 @@ function render() {
       const stBonus = vitateTally?.total_bonus ?? 0;
       const stDefault = stVesselTotal + stBonus;
       const charId = String(currentChar._id);
+      if (!_stConfirmed[charId]) {
+        try {
+          const raw = localStorage.getItem('tm_st_feed_' + charId);
+          if (raw) _stConfirmed[charId] = JSON.parse(raw);
+        } catch { /* ignore */ }
+      }
       const confirmed = _stConfirmed[charId];
       h += `<div class="feed-st-confirm">`;
       if (confirmed) {
@@ -717,13 +723,13 @@ function render() {
         } else {
           h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
         }
+        h += `<div class="feed-st-confirm-lbl feed-inf-row">Influence spent last cycle: <input type="number" id="feed-inf-spent" class="feed-inf-input" min="0" value="0" placeholder="0"></div>`;
         h += `<div class="feed-confirm-controls">`;
         h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
         h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
         h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
         h += `</div>`;
         h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
-        h += `<div class="feed-st-confirm-lbl feed-inf-row">Influence spent last cycle: <input type="number" id="feed-inf-spent" class="feed-inf-input" min="0" value="0" placeholder="0"></div>`;
       }
       h += `</div>`;
     }
@@ -858,6 +864,7 @@ function wireEvents() {
         } catch { /* ignore */ }
       }
       _stConfirmed[charId] = { vitae: n, infSpent };
+      try { localStorage.setItem('tm_st_feed_' + charId, JSON.stringify({ vitae: n, infSpent })); } catch { /* ignore */ }
       render();
     } catch (err) {
       console.error('Tracker vitae write failed:', err);
@@ -872,7 +879,9 @@ function wireEvents() {
 
   container.querySelector('#feed-reconfirm-btn')?.addEventListener('click', () => {
     if (!currentChar) return;
-    delete _stConfirmed[String(currentChar._id)];
+    const cid = String(currentChar._id);
+    delete _stConfirmed[cid];
+    try { localStorage.removeItem('tm_st_feed_' + cid); } catch { /* ignore */ }
     render();
   });
 
