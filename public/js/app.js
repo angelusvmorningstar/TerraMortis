@@ -189,6 +189,11 @@ const TAB_SUBTITLES = {
   territory: 'Territory',
   tracker: 'Live Tracker',
   rules: 'Rules Reference',
+  // Unified nav tab names (Story 1.4)
+  dice: 'Dice',
+  sheet: 'Sheet',
+  map: 'Map',
+  more: 'More',
 };
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
@@ -218,6 +223,36 @@ function goTab(t) {
   if (t === 'rules') initRules(document.getElementById('t-rules'));
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
+
+  // ── Unified nav tab aliases (Story 1.4) ──────────────────────────────────
+  // New tab names that Story 1.2 nav buttons will call.
+  // These forward to existing implementations until Epic 2 provides full content.
+  if (t === 'dice') {
+    // Dice tab — copy roll tab content into t-dice container
+    const rollEl = document.getElementById('t-roll');
+    const diceEl = document.getElementById('t-dice');
+    if (rollEl && diceEl && !diceEl.hasChildNodes()) {
+      diceEl.innerHTML = rollEl.innerHTML;
+    }
+  }
+  if (t === 'sheet') {
+    // Sheet tab — show character picker (ST) or own sheet (player)
+    const role = getRole();
+    if (role !== 'st') {
+      const info = getPlayerInfo();
+      const ids = info?.character_ids || [];
+      if (ids.length === 1) {
+        const idx = editorState.chars.findIndex(c => c._id === ids[0]);
+        if (idx >= 0) { openChar(idx); return; }
+      }
+      renderList(ids);
+    } else {
+      renderList();
+    }
+  }
+  // map → territory: Story 1.2 will add #terr-root to #t-map; for now delegate
+  // to the existing territory tab so content renders immediately on nav switch
+  if (t === 'map') mountTerr();
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
     const role = getRole();
