@@ -173,7 +173,7 @@ export async function renderSuiteStatusTab(el) {
     for (const cov of covenants) {
       const rows = chars
         .filter(c => c.covenant === cov)
-        .map(c => ({ c, val: c.status?.covenant || 0 }))
+        .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
       h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
@@ -189,7 +189,7 @@ export async function renderSuiteStatusTab(el) {
     // Player: their covenant first, then their clan
     const covRows = activeChar
       ? chars.filter(c => c.covenant && c.covenant === activeChar.covenant)
-            .map(c => ({ c, val: c.status?.covenant || 0 }))
+            .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
             .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)))
       : [];
     const clanRows = activeChar
