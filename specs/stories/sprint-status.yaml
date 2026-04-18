@@ -360,6 +360,7 @@ development_status:
   feat-10-covenant-standings-fix: done   # Render fix + data migration: remove own-covenant key from covenant_standings; add defensive filter in suite/sheet.js cov-strip
   feat-11-influence-total-fix: done      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
   feat-12-feed-confirm-card-improvements: done  # ST confirm card: fix default vitae, real influence spend, overwrite not add, button CSS
+  feat-13-regent-territory-ambience-status-bonus: ready-for-dev  # +1 Curated/Verdant, +2 The Rack — extend findRegentTerritory, add regentAmienceBonus, fix two calcCityStatus bypasses
 
   epic-feat-retrospective: optional
 
