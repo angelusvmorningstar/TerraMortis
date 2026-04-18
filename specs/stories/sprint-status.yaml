@@ -361,6 +361,7 @@ development_status:
   feat-11-influence-total-fix: done      # suite/sheet.js maxInf uses wrong function (influenceTotal vs calcTotalInfluence) — 3-line fix + breakdown rewrite
   feat-12-feed-confirm-card-improvements: done  # ST confirm card: fix default vitae, real influence spend, overwrite not add, button CSS
   feat-13-regent-territory-ambience-status-bonus: ready-for-dev  # +1 Curated/Verdant, +2 The Rack — extend findRegentTerritory, add regentAmienceBonus, fix two calcCityStatus bypasses
+  feat-14-city-status-appellations: ready-for-dev  # Show rank label (Acknowledged–Exalted) on each city status bracket row in both index.html and player.html
 
   epic-feat-retrospective: optional
 
