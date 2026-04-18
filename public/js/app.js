@@ -31,7 +31,6 @@ import {
   shAddDomainPartner, shRemoveDomainPartner,
   shEditGenMerit, shRemoveGenMerit, shAddGenMerit,
   shEditStandMerit, shEditStandAssetSkill,
-  shEditMeritAttache,
   shToggleMCI, shTogglePT, shEditMCIDot, shRemoveStandMerit, shAddStandMCI, shAddStandPT,
   shEditMeritPt, shStepMeritRating, shEditXP, shAdjAttrBonus,
   registerCallbacks as registerEditCallbacks
@@ -76,7 +75,7 @@ import { SKILLS_MENTAL } from './data/constants.js';
 import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
 import { toast as _toast } from './suite/tracker.js';
 import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';
-import { renderSuiteStatusTab } from './suite/status.js';
+import { renderSuiteStatusTab, suiteStatusOpenEdit, suiteStatusCloseEdit, suiteStatusAdjustCity } from './suite/status.js';
 
 // ══════════════════════════════════════════════
 //  FORWARD WRAPPERS (suite)
@@ -836,10 +835,6 @@ function applyRoleRestrictions() {
   const navAdmin = document.getElementById('nav-admin');
   if (navAdmin) navAdmin.style.display = isRealST ? '' : 'none';
 
-  // Save All / import controls — ST only
-  const topbarRight = document.getElementById('topbar-right');
-  if (topbarRight) topbarRight.style.display = isST ? '' : 'none';
-
   // Sheet topbar — hide for players
   const topbar = document.querySelector('.sheet-topbar');
   if (topbar) topbar.style.display = isST ? '' : 'none';
@@ -949,6 +944,9 @@ window.openRulesOverlay  = openRulesOverlay;
 window.closeRulesOverlay = closeRulesOverlay;
 window.toggleViewMode    = toggleViewMode;
 window.toggleProfileMenu = toggleProfileMenu;
+window.suiteStatusOpenEdit   = suiteStatusOpenEdit;
+window.suiteStatusCloseEdit  = suiteStatusCloseEdit;
+window.suiteStatusAdjustCity = suiteStatusAdjustCity;
 
 boot();
 const logo = document.getElementById('topbar-logo');

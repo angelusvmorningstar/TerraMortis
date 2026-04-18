@@ -11,11 +11,11 @@
 import { apiGet, apiPut } from '../data/api.js';
 import { getGamePhaseCycle } from '../downtime/db.js';
 import { esc, displayName, hasAoE } from '../data/helpers.js';
-import { getAttrEffective as getAttrVal, skDots, skSpecStr, skNineAgain } from '../data/accessors.js';
+import { getAttrEffective as getAttrVal, skDots, skSpecStr, skNineAgain, calcVitaeMax } from '../data/accessors.js';
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
-import { domMeritContrib, effectiveInvictusStatus } from '../editor/domain.js';
+import { domMeritContrib, effectiveInvictusStatus, calcTotalInfluence } from '../editor/domain.js';
 import { trackerAdj, trackerRead } from '../game/tracker.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
@@ -73,6 +73,10 @@ export async function renderFeedingTab(el, char) {
   stRollResult = null;
   currentSub = null;
   vitateTally = null;
+
+  // Fetch live territory ambience from DB (used by computeVitateTally)
+  let liveTerrDocs = [];
+  try { liveTerrDocs = await apiGet('/api/territories'); } catch { /* fall back to hardcoded */ }
 
   // Find active cycle for feeding:
   // Primary: game phase cycle (ST has opened the session).
@@ -148,7 +152,7 @@ export async function renderFeedingTab(el, char) {
       if (mySub.feeding_vitae_allocation) {
         vitaeAllocation = mySub.feeding_vitae_allocation;
       }
-      vitateTally = mySub.feeding_vitae_tally || computeVitateTally(char, mySub);
+      vitateTally = mySub.feeding_vitae_tally || computeVitateTally(char, mySub, liveTerrDocs);
       render();
       return;
     }
@@ -174,7 +178,7 @@ export async function renderFeedingTab(el, char) {
     stRollResult = mySub.feeding_roll;
   }
   // Use ST-persisted tally if available; otherwise compute locally from char data
-  vitateTally = mySub?.feeding_vitae_tally || computeVitateTally(char, mySub);
+  vitateTally = mySub?.feeding_vitae_tally || computeVitateTally(char, mySub, liveTerrDocs);
 
   // Prefer ST-confirmed pool from downtime processing.
   // Priority 1: feeding_roll.params (ST rolled on behalf of player — has exact size)
@@ -419,7 +423,8 @@ function buildPool(method, discName, specName) {
 // ── Compute vitae tally from character + submission data ──────────────────────
 // Used when feeding_vitae_tally hasn't been saved by the ST yet (ready state).
 // Returns the same shape as feeding_vitae_tally.
-function computeVitateTally(char, sub) {
+// liveTerrDocs: array from /api/territories — overrides hardcoded TERRITORY_DATA ambienceMod
+function computeVitateTally(char, sub, liveTerrDocs = []) {
   if (!char) return null;
 
   // Herd: effective dots (cp + free + free_mci + xp + SSJ/Flock bonuses)
@@ -434,6 +439,12 @@ function computeVitateTally(char, sub) {
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
   ).length;
 
+  // Merge live territory docs over hardcoded defaults — live values take precedence
+  const effectiveTerrs = TERRITORY_DATA.map(t => {
+    const live = liveTerrDocs.find(d => d.id === t.id);
+    return live ? { ...t, ambience: live.ambience ?? t.ambience, ambienceMod: live.ambienceMod ?? t.ambienceMod } : t;
+  });
+
   // Ambience: best territory among player-declared feeding territories
   let ambience = -4; // Barrens default
   let ambience_territory = 'Barrens';
@@ -442,7 +453,7 @@ function computeVitateTally(char, sub) {
       const grid = JSON.parse(sub.responses.feeding_territories);
       for (const [tid, status] of Object.entries(grid)) {
         if (status !== 'resident' && status !== 'poach') continue;
-        const td = TERRITORY_DATA.find(t => t.id === tid || tid.startsWith(t.id));
+        const td = effectiveTerrs.find(t => t.id === tid || tid.startsWith(t.id));
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;
@@ -692,31 +703,54 @@ function render() {
       const stBonus = vitateTally?.total_bonus ?? 0;
       const stDefault = stVesselTotal + stBonus;
       const charId = String(currentChar._id);
+      if (!_stConfirmed[charId]) {
+        try {
+          const raw = localStorage.getItem('tm_st_feed_' + charId);
+          if (raw) _stConfirmed[charId] = JSON.parse(raw);
+        } catch { /* ignore */ }
+      }
       const confirmed = _stConfirmed[charId];
+      const vitaeMax = calcVitaeMax(currentChar);
+      const infMax   = calcTotalInfluence(currentChar);
+      let infCurrent = infMax;
+      try {
+        const loc = JSON.parse(localStorage.getItem('tm_tracker_local_' + charId) || '{}');
+        if (loc.inf != null) infCurrent = loc.inf;
+      } catch { /* ignore */ }
       h += `<div class="feed-st-confirm">`;
       if (confirmed) {
-        // ── Persistent confirmed record ──
-        let rec = `Vitae \u2192 ${confirmed.vitae}`;
-        if (confirmed.infSpent > 0) rec += `\u2002|\u2002Inf \u2212${confirmed.infSpent}`;
+        const vitaeStr = confirmed.vitaeMax != null
+          ? `Vitae ${confirmed.vitae}/${confirmed.vitaeMax}`
+          : `Vitae \u2192 ${confirmed.vitae}`;
+        const infStr = confirmed.infAfter != null && confirmed.infMax != null
+          ? `Inf ${confirmed.infAfter}/${confirmed.infMax}`
+          : confirmed.infSpent > 0 ? `Inf \u2212${confirmed.infSpent}` : null;
+        let rec = vitaeStr;
+        if (infStr) rec += ` \u2002|\u2002 ${infStr}`;
         h += `<div class="feed-confirmed-record">\u2713 Feed confirmed \u2014 ${rec}</div>`;
         h += `<button class="feed-reconfirm-btn" id="feed-reconfirm-btn">Edit</button>`;
       } else {
-        h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
-        if (stBonus) {
-          h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
-        } else {
-          h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
-        }
-        h += `<div class="feed-confirm-controls">`;
+        // Vitae row
+        h += `<div class="feed-st-row">`;
+        h += `<div class="feed-st-row-lbl">Vitae Gained</div>`;
+        h += `<div class="feed-st-row-ctrl">`;
         h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
         h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
         h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
         h += `</div>`;
-        h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
-        h += `<div class="feed-inf-display">`;
-        h += `<span class="feed-inf-lbl">Influence spent last cycle:</span>`;
-        h += `<span class="feed-inf-val" id="feed-inf-spent">Loading\u2026</span>`;
+        h += `<div class="feed-st-row-max">/ ${vitaeMax}</div>`;
         h += `</div>`;
+        // Influence row
+        h += `<div class="feed-st-row">`;
+        h += `<div class="feed-st-row-lbl">Influence Spent</div>`;
+        h += `<div class="feed-st-row-ctrl">`;
+        h += `<button class="feed-adj" id="feed-inf-adj-down">\u2212</button>`;
+        h += `<span class="feed-inf-val" id="feed-inf-spent">0</span>`;
+        h += `<button class="feed-adj" id="feed-inf-adj-up">+</button>`;
+        h += `</div>`;
+        h += `<div class="feed-st-row-max">/ ${infCurrent} avail</div>`;
+        h += `</div>`;
+        h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
       }
       h += `</div>`;
     }
@@ -818,7 +852,7 @@ function wireEvents() {
     }
   });
 
-  // ST confirm feed
+  // ST confirm feed — vitae stepper
   container.querySelector('#feed-confirm-adj-down')?.addEventListener('click', () => {
     const el = container.querySelector('#feed-confirm-n');
     if (el) el.textContent = Math.max(0, (parseInt(el.textContent) || 0) - 1);
@@ -827,26 +861,68 @@ function wireEvents() {
     const el = container.querySelector('#feed-confirm-n');
     if (el) el.textContent = (parseInt(el.textContent) || 0) + 1;
   });
+  // ST confirm feed — influence stepper
+  container.querySelector('#feed-inf-adj-down')?.addEventListener('click', () => {
+    const el = container.querySelector('#feed-inf-spent');
+    if (el) el.textContent = String(Math.max(0, (parseInt(el.textContent) || 0) - 1));
+  });
+  container.querySelector('#feed-inf-adj-up')?.addEventListener('click', () => {
+    const el = container.querySelector('#feed-inf-spent');
+    if (el) el.textContent = String((parseInt(el.textContent) || 0) + 1);
+  });
   container.querySelector('#feed-confirm-btn')?.addEventListener('click', async () => {
     if (!currentChar) return;
     const charId = String(currentChar._id);
     const n = parseInt(container.querySelector('#feed-confirm-n')?.textContent) || 0;
 
-    const current = trackerRead(charId).vitae ?? 0;
-    const delta = n - current;
-    if (delta !== 0) await trackerAdj(charId, 'vitae', delta);
+    const btn = container.querySelector('#feed-confirm-btn');
+    if (btn) { btn.textContent = 'Saving\u2026'; btn.disabled = true; }
 
     const infEl = container.querySelector('#feed-inf-spent');
     const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
-    if (infSpent > 0) await trackerAdj(charId, 'inf', -infSpent);
 
-    _stConfirmed[charId] = { vitae: n, infSpent };
-    render();
+    // Compute pre-confirm influence state for the confirmed record
+    const vitaeMax = calcVitaeMax(currentChar);
+    const infMax   = calcTotalInfluence(currentChar);
+    let infCurrent = infMax;
+    try {
+      const loc = JSON.parse(localStorage.getItem('tm_tracker_local_' + charId) || '{}');
+      if (loc.inf != null) infCurrent = loc.inf;
+    } catch { /* ignore */ }
+    const infAfter = Math.max(0, infCurrent - infSpent);
+
+    // Write vitae directly to API — trackerAdj needs suiteState.chars which is
+    // empty in player.html context
+    try {
+      await apiPut('/api/tracker_state/' + charId, { vitae: n });
+      // Also write to localStorage so game app tracker picks it up without tab navigation
+      try {
+        const key = 'tm_tracker_local_' + charId;
+        const loc = JSON.parse(localStorage.getItem(key) || '{}');
+        loc.vitae_confirmed = n;
+        if (infSpent > 0) loc.inf = infAfter;
+        localStorage.setItem(key, JSON.stringify(loc));
+      } catch { /* ignore */ }
+      const record = { vitae: n, vitaeMax, infSpent, infAfter, infMax };
+      _stConfirmed[charId] = record;
+      try { localStorage.setItem('tm_st_feed_' + charId, JSON.stringify(record)); } catch { /* ignore */ }
+      render();
+    } catch (err) {
+      console.error('Tracker vitae write failed:', err);
+      if (btn) {
+        btn.textContent = 'Save failed \u2014 retry';
+        btn.style.background = 'var(--crim)';
+        btn.style.color = '#fff';
+        btn.disabled = false;
+      }
+    }
   });
 
   container.querySelector('#feed-reconfirm-btn')?.addEventListener('click', () => {
     if (!currentChar) return;
-    delete _stConfirmed[String(currentChar._id)];
+    const cid = String(currentChar._id);
+    delete _stConfirmed[cid];
+    try { localStorage.removeItem('tm_st_feed_' + cid); } catch { /* ignore */ }
     render();
   });
 
@@ -942,7 +1018,7 @@ async function doFeedingRoll() {
   render();
 }
 
-// ── ST: Influence spend display ──
+// ── ST: Influence spend pre-fill ──
 async function loadInfluenceSpend(charId) {
   const el = container?.querySelector('#feed-inf-spent');
   if (!el) return;
@@ -953,9 +1029,9 @@ async function loadInfluenceSpend(charId) {
       .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0];
     if (!latest) { el.textContent = '0'; return; }
     const spendObj = JSON.parse(latest.responses.influence_spend || '{}');
-    const total = Object.values(spendObj).reduce((sum, v) => sum + Math.abs(v || 0), 0);
+    const total = Object.values(spendObj).reduce((sum, v) => sum + Math.abs(Number(v) || 0), 0);
     el.textContent = String(total);
   } catch {
-    el.textContent = 'N/A';
+    el.textContent = '0';
   }
 }

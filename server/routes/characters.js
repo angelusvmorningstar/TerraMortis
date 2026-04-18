@@ -165,7 +165,7 @@ router.get('/status', async (req, res) => {
           clan: 1, covenant: 1,
           'status.clan': 1, 'status.covenant': 1, 'status.city': 1,
           court_title: 1, court_category: 1,
-          player: 1,
+          player: 1, powers: 1,
         },
       }
     )
@@ -186,6 +186,9 @@ router.get('/status', async (req, res) => {
   }
   for (const c of chars) {
     c._player_info = charToPlayer.get(String(c._id)) || null;
+    const otsOath = (c.powers || []).find(p => p.category === 'pact' && (p.name || '').toLowerCase() === 'oath of the scapegoat');
+    c._ots_covenant_bonus = otsOath ? ((otsOath.cp || 0) + (otsOath.xp || 0)) : 0;
+    delete c.powers;
   }
 
   res.json(chars);

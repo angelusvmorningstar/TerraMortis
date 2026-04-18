@@ -366,6 +366,7 @@ export const characterSchema = {
         free_lk:        { type: 'integer', minimum: 0 },
         free_ohm:       { type: 'integer', minimum: 0 },
         free_inv:       { type: 'integer', minimum: 0 },
+        free_attache:   { type: 'integer', minimum: 0 },
         free_pt:        { type: 'integer', minimum: 0 },
         free_mdb:       { type: 'integer', minimum: 0 },
         free_sw:        { type: 'integer', minimum: 0 },

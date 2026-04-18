@@ -234,11 +234,11 @@ export function investedPool(c) {
   return effectiveInvictusStatus(c);
 }
 
-/** Count Invested bonus dots allocated via free_inv on Herd/Mentor/Resources/Retainer. */
+/** Count Invested bonus dots allocated via free_inv on eligible merits. */
 export function investedUsed(c) {
   let total = 0;
   (c.merits || []).forEach((m, i) => {
-    if (!['Herd', 'Mentor', 'Resources', 'Retainer'].includes(m.name)) return;
+    if (!['Herd', 'Mentor', 'Resources', 'Retainer', 'Attach\u00e9'].includes(m.name)) return;
     total += (m.free_inv || 0);
   });
   return total;
