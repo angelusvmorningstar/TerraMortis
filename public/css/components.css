@@ -45,6 +45,8 @@
 .dot{width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;user-select:none;-webkit-tap-highlight-color:transparent;transition:opacity .1s;}
 .dot.filled{color:var(--accent);}
 .dot.bonus{color:var(--accent2);}
+/* CSS-rendered hollow dot — matches filled ● size on all platforms including iOS Safari */
+.dot-hollow{display:inline-block;width:.65em;height:.65em;border:1.5px solid currentColor;border-radius:50%;vertical-align:middle;margin-bottom:.1em;}
 .dot.empty{color:var(--accent-a25);}
 .dot:hover{opacity:1;}
 
