@@ -59,7 +59,8 @@ export function getAttrEffective(c, attr) {
 
 export function setAttrVal(c, attr, dots, bonus) {
   if (!c.attributes) c.attributes = {};
-  c.attributes[attr] = { dots: dots, bonus: bonus || 0 };
+  // Preserve cp/xp/free/rule_key — only overwrite dots and bonus
+  c.attributes[attr] = { ...(c.attributes[attr] || {}), dots, bonus: bonus || 0 };
 }
 
 // ── Skills ──
