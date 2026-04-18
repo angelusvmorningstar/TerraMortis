@@ -73,6 +73,10 @@ export async function renderFeedingTab(el, char) {
   currentSub = null;
   vitateTally = null;
 
+  // Fetch live territory ambience from DB (used by computeVitateTally)
+  let liveTerrDocs = [];
+  try { liveTerrDocs = await apiGet('/api/territories'); } catch { /* fall back to hardcoded */ }
+
   // Find active cycle for feeding:
   // Primary: game phase cycle (ST has opened the session).
   // Fallback: most recent cycle where this character's narrative has been published
@@ -147,7 +151,7 @@ export async function renderFeedingTab(el, char) {
       if (mySub.feeding_vitae_allocation) {
         vitaeAllocation = mySub.feeding_vitae_allocation;
       }
-      vitateTally = mySub.feeding_vitae_tally || computeVitateTally(char, mySub);
+      vitateTally = mySub.feeding_vitae_tally || computeVitateTally(char, mySub, liveTerrDocs);
       render();
       return;
     }
@@ -173,7 +177,7 @@ export async function renderFeedingTab(el, char) {
     stRollResult = mySub.feeding_roll;
   }
   // Use ST-persisted tally if available; otherwise compute locally from char data
-  vitateTally = mySub?.feeding_vitae_tally || computeVitateTally(char, mySub);
+  vitateTally = mySub?.feeding_vitae_tally || computeVitateTally(char, mySub, liveTerrDocs);
 
   // Prefer ST-confirmed pool from downtime processing.
   // Priority 1: feeding_roll.params (ST rolled on behalf of player — has exact size)
@@ -418,7 +422,8 @@ function buildPool(method, discName, specName) {
 // ── Compute vitae tally from character + submission data ──────────────────────
 // Used when feeding_vitae_tally hasn't been saved by the ST yet (ready state).
 // Returns the same shape as feeding_vitae_tally.
-function computeVitateTally(char, sub) {
+// liveTerrDocs: array from /api/territories — overrides hardcoded TERRITORY_DATA ambienceMod
+function computeVitateTally(char, sub, liveTerrDocs = []) {
   if (!char) return null;
 
   // Herd: effective dots (cp + free + free_mci + xp + SSJ/Flock bonuses)
@@ -433,6 +438,12 @@ function computeVitateTally(char, sub) {
     m.name === 'Retainer' && (m.area || m.qualifier || '').toLowerCase().includes('ghoul')
   ).length;
 
+  // Merge live territory docs over hardcoded defaults — live values take precedence
+  const effectiveTerrs = TERRITORY_DATA.map(t => {
+    const live = liveTerrDocs.find(d => d.id === t.id);
+    return live ? { ...t, ambience: live.ambience ?? t.ambience, ambienceMod: live.ambienceMod ?? t.ambienceMod } : t;
+  });
+
   // Ambience: best territory among player-declared feeding territories
   let ambience = -4; // Barrens default
   let ambience_territory = 'Barrens';
@@ -441,7 +452,7 @@ function computeVitateTally(char, sub) {
       const grid = JSON.parse(sub.responses.feeding_territories);
       for (const [tid, status] of Object.entries(grid)) {
         if (status !== 'resident' && status !== 'poach') continue;
-        const td = TERRITORY_DATA.find(t => t.id === tid || tid.startsWith(t.id));
+        const td = effectiveTerrs.find(t => t.id === tid || tid.startsWith(t.id));
         if (td?.ambienceMod != null && td.ambienceMod > ambience) {
           ambience = td.ambienceMod;
           ambience_territory = td.name;
