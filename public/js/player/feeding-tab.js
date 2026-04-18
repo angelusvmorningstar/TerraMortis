@@ -748,7 +748,7 @@ function render() {
         h += `<span class="feed-inf-val" id="feed-inf-spent">0</span>`;
         h += `<button class="feed-adj" id="feed-inf-adj-up">+</button>`;
         h += `</div>`;
-        h += `<div class="feed-st-row-max">/ ${infCurrent} avail</div>`;
+        h += `<div class="feed-st-row-max">/ ${infMax}</div>`;
         h += `</div>`;
         h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
       }
