@@ -11,11 +11,26 @@
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/player-layout.css">
-<!-- Theme init: run before body renders to prevent flash -->
+<!-- Theme init: dark unless user explicitly saved 'light'. Matches index.html default. -->
 <script>
 (function(){
   var t=localStorage.getItem('tm-theme');
-  if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+  if(t !== 'light') document.documentElement.setAttribute('data-theme','dark');
+})();
+</script>
+<!-- Unified app redirect: player.html is now a redirect to the unified game app (index.html).
+     All player functionality lives in index.html with role-aware rendering.
+     This page is kept for backwards-compatible URLs during transition. -->
+<script>
+(function(){
+  // Preserve any OAuth callback params so auth still completes correctly
+  var search = window.location.search;
+  var hash = window.location.hash;
+  if (search || hash) {
+    window.location.replace('/' + search + hash);
+  } else {
+    window.location.replace('/');
+  }
 })();
 </script>
 </head>

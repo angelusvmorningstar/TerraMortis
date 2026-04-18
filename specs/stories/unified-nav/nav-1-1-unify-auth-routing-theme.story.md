@@ -1,6 +1,6 @@
 # Story 1.1: Unify Auth, Routing, and Theme Default
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -26,17 +26,17 @@ So that I don't need to know which of two apps to open and the app looks right f
 
 ## Tasks / Subtasks
 
-- [ ] Audit current auth init in `index.html` vs `player.html` (AC: #1, #2)
-  - [ ] Document which API calls each makes on load
-  - [ ] Identify what `player.html` does that `index.html` does not yet do
-- [ ] Reconcile theme init logic (AC: #4, #5)
-  - [ ] Update `index.html` theme init script: dark if no preference OR preference is `'dark'`; parchment if preference is `'light'`
-  - [ ] Confirm no flash — theme applied before body renders
-- [ ] Add redirect to `player.html` (AC: #3)
-  - [ ] `player.html` meta-redirect or JS redirect to `/` (index.html)
-- [ ] Verify role-aware rendering still works after auth reconciliation (AC: #1, #2)
-  - [ ] ST login → ST tabs visible
-  - [ ] Player login → player tabs visible, ST tabs hidden
+- [x] Audit current auth init in `index.html` vs `player.html` (AC: #1, #2)
+  - [x] Document which API calls each makes on load
+  - [x] Identify what `player.html` does that `index.html` does not yet do
+- [x] Reconcile theme init logic (AC: #4, #5)
+  - [x] Update `index.html` theme init script: dark if no preference OR preference is `'dark'`; parchment if preference is `'light'`
+  - [x] Confirm no flash — theme applied before body renders
+- [x] Add redirect to `player.html` (AC: #3)
+  - [x] `player.html` JS redirect to `/` preserving OAuth callback params
+- [x] Verify role-aware rendering still works after auth reconciliation (AC: #1, #2)
+  - [x] ST login → ST tabs visible
+  - [x] Player login → player tabs visible, ST tabs hidden
 
 ## Dev Notes
 
@@ -56,9 +56,19 @@ So that I don't need to know which of two apps to open and the app looks right f
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- `index.html` theme init was already correct (`if t !== 'light'` → dark default) — no change needed
+- `player.html` theme init was opposite (`if t==='dark'`) — fixed to match
+- OAuth redirect URI is `/admin` in `discord.js` — player.html redirect doesn't interfere
+- Smoke test passes (pre-existing `ordeals.filter` console error unrelated to this story)
 
 ### Completion Notes List
+- `index.html` theme init: already correct, no change made
+- `player.html` theme init: fixed from `if(t==='dark')` to `if(t !== 'light')` — now dark default
+- `player.html` redirect: JS redirect to `/` preserving `search` and `hash` params for OAuth compatibility
+- Role-aware rendering: `applyRoleRestrictions()` in `app.js` unchanged and working
 
 ### File List
+- public/player.html
