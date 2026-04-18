@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## !! HARD RULE: Git Push and Merge
+
+**NEVER push to origin or merge to main.** Not after a commit. Not at the end of a session. Not ever, unless the user's current message explicitly says "push", "merge to main", or "deploy".
+
+- `commit` = `git commit` only. Nothing else.
+- `merge to main` = explicit instruction, one-time, in that message only.
+- A prior "commit and merge" in the same session does NOT carry forward.
+- Always work on `Morningstar` branch. If the session starts on `main`, switch to `Morningstar` before making any changes.
+- Each Netlify/Render deploy costs money. The user controls deploy cadence.
+
 ## Project Overview
 
 Terra Mortis TM Suite is a browser-based character management system for a Vampire: The Requiem 2nd Edition campaign. Express API backend on Render, static frontend on Netlify, MongoDB Atlas for persistence, Discord OAuth for ST authentication.
