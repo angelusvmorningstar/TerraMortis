@@ -1067,6 +1067,10 @@ Object.assign(window, {
       fresh = await apiGet('/api/characters');
       fresh.forEach(sanitiseChar);
       await loadGameXP(fresh);
+      try {
+        const terrs = await apiGet('/api/territories');
+        fresh.forEach(c => findRegentTerritory(terrs, c));
+      } catch { /* territories unavailable — city status exports without regent ambience bonus */ }
     } catch (err) {
       alert('Export failed: could not fetch character data from API.\n\n' + err.message);
       return;

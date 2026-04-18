@@ -188,7 +188,7 @@ export function charToRow(c) {
   // Status — use calcCityStatus to include title bonus and regent ambience bonus
   row.push(calcCityStatus(c));
   row.push(c.status?.clan || 0);
-  row.push(c.status?.covenant || 0);
+  row.push(Math.max(c.status?.covenant || 0, c._ots_covenant_bonus || 0));
 
   // Covenant standings (4 covenant slots)
   for (const cov of COV_ORDER) {
