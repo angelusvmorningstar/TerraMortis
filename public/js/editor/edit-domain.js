@@ -108,7 +108,10 @@ export function shEditGenMerit(idx, field, val) {
   const c = state.chars[state.editIdx];
   const { merit: m } = meritByCategory(c, 'general', idx);
   if (!m) return;
-  if (field === 'name') { m.name = val; m.rule_key = ruleKeyFor(val); }
+  if (field === 'name') {
+    m.name = val; m.rule_key = ruleKeyFor(val);
+    if (val === 'Attach\u00e9') { m.category = 'influence'; m.rating = 1; }
+  }
   else if (field === 'qualifier') {
     const prevQualifier = m.qualifier;
     if (val) m.qualifier = val; else delete m.qualifier;

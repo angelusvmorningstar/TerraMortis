@@ -180,6 +180,8 @@ function getPrestigeData() {
     const st = c.status || {};
     const clan = st.clan || 0;
     const cov = st.covenant || 0;
+    const otsBonus = c._ots_covenant_bonus || 0;
+    const effectiveCov = cov - otsBonus;
     const influence = calcTotalInfluence(c);
     const cSize = clanSize[c.clan] || 1;
     const cvSize = covSize[c.covenant] || 1;
@@ -190,12 +192,12 @@ function getPrestigeData() {
       covenant: c.covenant || '',
       clanStatus: clan,
       covStatus: cov,
-      prestige: clan + cov,
+      prestige: clan + effectiveCov,
       influence,
       // View 3: weighted (+members)
-      weighted: clan + cov + cSize + cvSize,
+      weighted: clan + effectiveCov + cSize + cvSize,
       // View 4: highly weighted (×members)
-      highWeighted: (clan * cSize) + (cov * cvSize),
+      highWeighted: (clan * cSize) + (effectiveCov * cvSize),
       // Tiebreakers
       clanEminence: clanEminence[c.clan] || 0,
       covAscendancy: covAscendancy[c.covenant] || 0,

@@ -113,7 +113,8 @@ function renderPrestige() {
     const st = c.status || {};
     const clan = st.clan || 0;
     const cov = st.covenant || 0;
-    const prestige = clan + cov;
+    const otsBonus = c._ots_covenant_bonus || 0;
+    const prestige = clan + cov - otsBonus;
     const influence = influenceTotal(c);
     return { name: displayName(c), clan, cov, prestige, influence };
   }).sort((a, b) => b.prestige - a.prestige || b.influence - a.influence).slice(0, 6);
