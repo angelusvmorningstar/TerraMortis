@@ -2483,8 +2483,9 @@ body {
 #dice-engine .mchip.on { border-color: var(--crim-a55); color: var(--accent); background: var(--crim-a15); }
 
 /* Roll button */
-.de-roll-btn { height: 50px; border-radius: 8px; background: var(--crim); border: 1px solid var(--crim-a70); color: var(--txt); font-family: var(--fl); font-size: 13px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
+.de-roll-btn { height: 50px; min-height: 48px; min-width: 120px; border-radius: 8px; background: var(--crim); border: 1px solid var(--crim-a70); color: var(--txt); font-family: var(--fl); font-size: 15px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
 .de-roll-btn:hover { background: var(--crim2); }
+@media (max-width: 768px) { .de-roll-btn { width: 100%; font-size: 15px; } }
 
 /* Result area */
 .de-res-area { border: 1px solid var(--bdr); border-radius: 8px; background: var(--surf-a6); }
