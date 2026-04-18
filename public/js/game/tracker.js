@@ -1,6 +1,6 @@
 /* Game app — live tracker.
-   Vitae, Willpower, Health persist to MongoDB via /api/tracker_state.
-   Influence and Conditions stay localStorage-only (per-device session state). */
+   Vitae, Willpower, Health, and Influence persist to MongoDB via /api/tracker_state.
+   Conditions stay localStorage-only (per-device session state). */
 
 import suiteState from '../suite/data.js';
 import { calcVitaeMax, calcWillpowerMax, calcHealth } from '../data/accessors.js';
@@ -39,6 +39,7 @@ function persistedFields(cs) {
     bashing:    cs.bashing,
     lethal:     cs.lethal,
     aggravated: cs.aggravated,
+    influence:  cs.inf,
   };
 }
 
@@ -78,14 +79,12 @@ async function ensureLoaded(c) {
 
   if (remote) {
     _cache[id] = {
-      // Prefer vitae_confirmed from localStorage when present — written by player.html
-      // feeding confirm so the game app reflects the new value without tab navigation
-      vitae:      local.vitae_confirmed ?? remote.vitae      ?? defaults(c).vitae,
+      vitae:      remote.vitae      ?? defaults(c).vitae,
       willpower:  remote.willpower  ?? defaults(c).willpower,
       bashing:    remote.bashing    ?? 0,
       lethal:     remote.lethal     ?? 0,
       aggravated: remote.aggravated ?? 0,
-      inf:        local.inf         ?? calcTotalInfluence(c),
+      inf:        remote.influence  ?? calcTotalInfluence(c),
       conditions: local.conditions  ?? [],
     };
     _confirmed.add(id);
@@ -105,7 +104,7 @@ async function ensureLoaded(c) {
         aggravated: old.aggravated ?? 0,
       };
       saveToApi(id, migrated);
-      _cache[id] = { ...migrated, inf: local.inf ?? old.inf ?? calcTotalInfluence(c), conditions: local.conditions ?? old.conditions ?? [] };
+      _cache[id] = { ...migrated, inf: old.inf ?? calcTotalInfluence(c), conditions: local.conditions ?? old.conditions ?? [] };
       _confirmed.add(id);
       return _cache[id];
     }
@@ -209,7 +208,7 @@ export async function trackerAdj(charId, field, delta) {
   } else if (field === 'inf') {
     const maxInf = calcTotalInfluence(c);
     cs.inf = clamp((cs.inf ?? maxInf) + delta, 0, maxInf);
-    saveLocal(charId, { inf: cs.inf });
+    saveToApi(charId, { influence: cs.inf });
     patchCard(charId, c, cs);
     return;
   } else {
