@@ -482,11 +482,19 @@ function wireEvents(container) {
       return;
     }
 
-    // Save ambience override
+    // Save ambience override (manual button — kept as fallback)
     const ambSaveBtn = e.target.closest('[data-terr-amb-save]');
     if (ambSaveBtn) {
       saveTerrAmbience(ambSaveBtn.dataset.terrAmbSave);
       return;
+    }
+  });
+
+  // Auto-save ambience on select change
+  container.addEventListener('change', e => {
+    const sel = e.target.closest('.terr-amb-level-sel');
+    if (sel?.dataset.terrId) {
+      saveTerrAmbience(sel.dataset.terrId);
     }
   });
 

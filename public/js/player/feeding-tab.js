@@ -818,10 +818,15 @@ function wireEvents() {
     const charId = String(currentChar._id);
     const n = parseInt(container.querySelector('#feed-confirm-n')?.textContent) || 0;
 
+    const btn = container.querySelector('#feed-confirm-btn');
+    if (btn) { btn.textContent = 'Saving\u2026'; btn.disabled = true; }
+
+    let vitaeOk = false;
     // Write vitae directly to API — trackerAdj needs suiteState.chars which is
     // empty in player.html context
     try {
       await apiPut('/api/tracker_state/' + charId, { vitae: n });
+      vitaeOk = true;
     } catch (err) {
       console.error('Tracker vitae write failed:', err);
     }
@@ -838,8 +843,19 @@ function wireEvents() {
       } catch { /* ignore */ }
     }
 
-    const btn = container.querySelector('#feed-confirm-btn');
-    if (btn) { btn.textContent = 'Confirmed \u2713'; btn.disabled = true; }
+    if (btn) {
+      if (vitaeOk) {
+        const infLine = infSpent > 0 ? ` \u00B7 Inf \u2212${infSpent}` : '';
+        btn.textContent = `\u2713 Vitae ${n}${infLine}`;
+        btn.style.background = 'var(--green2, #4a7c59)';
+        btn.style.color = 'var(--bg)';
+      } else {
+        btn.textContent = 'Save failed \u2014 retry';
+        btn.style.background = 'var(--crim)';
+        btn.style.color = '#fff';
+        btn.disabled = false;
+      }
+    }
   });
 
   // Defer button
