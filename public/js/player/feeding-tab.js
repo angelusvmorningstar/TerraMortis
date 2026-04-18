@@ -50,6 +50,7 @@ let publishedFeedingText = null; // extracted Feeding section from published_out
 let stRollResult = null; // ST's roll from admin processing (feeding_roll)
 let currentSub = null; // full submission doc for summary rendering
 let vitateTally = null; // feeding_vitae_tally from ST processing
+const _stConfirmed = {}; // charId → {vitae, infSpent} — persists within session
 
 export async function renderFeedingTab(el, char) {
   currentChar = char;
@@ -701,20 +702,29 @@ function render() {
         : safeVitae;
       const stBonus = vitateTally?.total_bonus ?? 0;
       const stDefault = stVesselTotal + stBonus;
+      const charId = String(currentChar._id);
+      const confirmed = _stConfirmed[charId];
       h += `<div class="feed-st-confirm">`;
-      h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
-      h += `<div class="feed-st-confirm-lbl feed-inf-row">Influence spent last cycle: <input type="number" id="feed-inf-spent" class="feed-inf-input" min="0" value="0" placeholder="0"></div>`;
-      if (stBonus) {
-        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
+      if (confirmed) {
+        let rec = `Vitae \u2192 ${confirmed.vitae}`;
+        if (confirmed.infSpent > 0) rec += `\u2002|\u2002Inf \u2212${confirmed.infSpent}`;
+        h += `<div class="feed-confirmed-record">\u2713 Feed confirmed \u2014 ${rec}</div>`;
+        h += `<button class="feed-reconfirm-btn" id="feed-reconfirm-btn">Edit</button>`;
       } else {
-        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
+        h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
+        if (stBonus) {
+          h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
+        } else {
+          h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
+        }
+        h += `<div class="feed-confirm-controls">`;
+        h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
+        h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
+        h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
+        h += `</div>`;
+        h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
+        h += `<div class="feed-st-confirm-lbl feed-inf-row">Influence spent last cycle: <input type="number" id="feed-inf-spent" class="feed-inf-input" min="0" value="0" placeholder="0"></div>`;
       }
-      h += `<div class="feed-confirm-controls">`;
-      h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
-      h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
-      h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
-      h += `</div>`;
-      h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
       h += `</div>`;
     }
   }
@@ -832,41 +842,38 @@ function wireEvents() {
     const btn = container.querySelector('#feed-confirm-btn');
     if (btn) { btn.textContent = 'Saving\u2026'; btn.disabled = true; }
 
-    let vitaeOk = false;
+    const infEl = container.querySelector('#feed-inf-spent');
+    const infSpent = infEl ? (parseInt(infEl.value) || 0) : 0;
+
     // Write vitae directly to API — trackerAdj needs suiteState.chars which is
     // empty in player.html context
     try {
       await apiPut('/api/tracker_state/' + charId, { vitae: n });
-      vitaeOk = true;
+      if (infSpent > 0) {
+        try {
+          const key = 'tm_tracker_local_' + charId;
+          const local = JSON.parse(localStorage.getItem(key) || '{}');
+          local.inf = Math.max(0, (local.inf ?? 0) - infSpent);
+          localStorage.setItem(key, JSON.stringify(local));
+        } catch { /* ignore */ }
+      }
+      _stConfirmed[charId] = { vitae: n, infSpent };
+      render();
     } catch (err) {
       console.error('Tracker vitae write failed:', err);
-    }
-
-    // Influence is localStorage-only; write directly (same origin as game app)
-    const infEl = container.querySelector('#feed-inf-spent');
-    const infSpent = infEl ? (parseInt(infEl.value) || 0) : 0;
-    if (infSpent > 0) {
-      try {
-        const key = 'tm_tracker_local_' + charId;
-        const local = JSON.parse(localStorage.getItem(key) || '{}');
-        local.inf = Math.max(0, (local.inf ?? 0) - infSpent);
-        localStorage.setItem(key, JSON.stringify(local));
-      } catch { /* ignore */ }
-    }
-
-    if (btn) {
-      if (vitaeOk) {
-        const infLine = infSpent > 0 ? ` \u00B7 Inf \u2212${infSpent}` : '';
-        btn.textContent = `\u2713 Vitae ${n}${infLine}`;
-        btn.style.background = 'var(--green2, #4a7c59)';
-        btn.style.color = 'var(--bg)';
-      } else {
+      if (btn) {
         btn.textContent = 'Save failed \u2014 retry';
         btn.style.background = 'var(--crim)';
         btn.style.color = '#fff';
         btn.disabled = false;
       }
     }
+  });
+
+  container.querySelector('#feed-reconfirm-btn')?.addEventListener('click', () => {
+    if (!currentChar) return;
+    delete _stConfirmed[String(currentChar._id)];
+    render();
   });
 
   // Defer button

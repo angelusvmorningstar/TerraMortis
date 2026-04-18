@@ -2577,6 +2577,9 @@ body {
 .feed-inf-val { color: var(--accent); font-family: var(--fl); }
 .feed-inf-row { display: flex; align-items: center; gap: 8px; }
 .feed-inf-input { width: 52px; background: var(--surf2); border: 1px solid var(--gold2); border-radius: 4px; color: var(--gold2); font-family: var(--fl); font-size: 13px; text-align: center; padding: 2px 4px; }
+.feed-confirmed-record { font-family: var(--fl); font-size: 14px; color: var(--accent); letter-spacing: .04em; margin-bottom: 10px; }
+.feed-reconfirm-btn { background: none; border: 1px solid var(--gold2); border-radius: 4px; color: var(--gold2); font-family: var(--fl); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; cursor: pointer; opacity: .7; }
+.feed-reconfirm-btn:hover { opacity: 1; }
 .feeding-ready .feeding-warning { font-size: 12px; color: var(--err); margin-top: 8px; }
 .feeding-pool-display { display: flex; align-items: center; justify-content: space-between; padding: 14px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; margin: 12px 0; }
 .feeding-pool-breakdown { font-size: 13px; color: var(--txt2); }

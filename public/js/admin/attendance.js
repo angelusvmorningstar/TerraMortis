@@ -5,12 +5,13 @@
  */
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
-import { displayName, redactPlayer } from '../data/helpers.js';
+import { displayName, sortName, redactPlayer } from '../data/helpers.js';
 
 let chars = [];
 let sessions = [];
 let activeSession = null;
 let dirty = false;
+let _sortBy = 'character'; // 'character' | 'player'
 
 function esc(s) {
   if (s == null) return '';
@@ -225,8 +226,11 @@ function renderGrid() {
     return { a, i, c, player };
   });
   sorted.sort((x, y) => {
-    const nx = x.c ? displayName(x.c) : (x.a.character_display || x.a.name || '');
-    const ny = y.c ? displayName(y.c) : (y.a.character_display || y.a.name || '');
+    if (_sortBy === 'player') {
+      return (x.player || '').localeCompare(y.player || '');
+    }
+    const nx = x.c ? sortName(x.c) : (x.a.character_display || x.a.name || '');
+    const ny = y.c ? sortName(y.c) : (y.a.character_display || y.a.name || '');
     return nx.localeCompare(ny);
   });
 
@@ -240,10 +244,12 @@ function renderGrid() {
     <span class="att-stat">Paid: <strong>${totalPaid}</strong> / ${att.length}</span>
   </div>`;
 
+  const pArrow = _sortBy === 'player'    ? ' \u25B2' : '';
+  const cArrow = _sortBy === 'character' ? ' \u25B2' : '';
   html += `<table class="att-table">
     <thead><tr>
-      <th class="att-name-col">Player</th>
-      <th class="att-char-col">Character</th>
+      <th class="att-name-col att-sort-hd" onclick="attSort('player')">Player${pArrow}</th>
+      <th class="att-char-col att-sort-hd" onclick="attSort('character')">Character${cArrow}</th>
       <th class="att-check-col">Attended</th>
       <th class="att-check-col">Costume</th>
       <th class="att-check-col">Downtime</th>
@@ -254,7 +260,7 @@ function renderGrid() {
     </tr></thead><tbody>`;
 
   for (const { a, i, c } of sorted) {
-    const charDisplay = c ? displayName(c) : (a.character_display || a.display_name || a.name || '');
+    const charDisplay = c ? sortName(c) : (a.character_display || a.display_name || a.name || '');
     const playerName = a.player || (c ? c.player : '') || '';
     const xp = (a.attended ? 1 : 0) + (a.costuming ? 1 : 0) + (a.downtime ? 1 : 0) + (a.extra || 0);
     const absentClass = a.attended ? '' : ' att-absent';
@@ -274,6 +280,11 @@ function renderGrid() {
 
   html += '</tbody></table>';
   wrap.innerHTML = html;
+}
+
+function attSort(field) {
+  _sortBy = field;
+  renderGrid();
 }
 
 function attUpdate(idx, field, value) {
@@ -324,4 +335,4 @@ async function saveSession() {
 }
 
 // Expose to inline handlers
-Object.assign(window, { attUpdate });
+Object.assign(window, { attUpdate, attSort });
