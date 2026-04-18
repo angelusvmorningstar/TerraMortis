@@ -742,10 +742,10 @@ function render() {
         h += `</div>`;
         // Influence row
         h += `<div class="feed-st-row">`;
-        h += `<div class="feed-st-row-lbl">Influence Spent</div>`;
+        h += `<div class="feed-st-row-lbl">Influence Remaining</div>`;
         h += `<div class="feed-st-row-ctrl">`;
         h += `<button class="feed-adj" id="feed-inf-adj-down">\u2212</button>`;
-        h += `<span class="feed-inf-val" id="feed-inf-spent">0</span>`;
+        h += `<span class="feed-inf-val" id="feed-inf-spent" data-inf-max="${infMax}">${infMax}</span>`;
         h += `<button class="feed-adj" id="feed-inf-adj-up">+</button>`;
         h += `</div>`;
         h += `<div class="feed-st-row-max">/ ${infMax}</div>`;
@@ -868,7 +868,9 @@ function wireEvents() {
   });
   container.querySelector('#feed-inf-adj-up')?.addEventListener('click', () => {
     const el = container.querySelector('#feed-inf-spent');
-    if (el) el.textContent = String((parseInt(el.textContent) || 0) + 1);
+    if (!el) return;
+    const max = parseInt(el.dataset.infMax) || 0;
+    el.textContent = String(Math.min(max, (parseInt(el.textContent) || 0) + 1));
   });
   container.querySelector('#feed-confirm-btn')?.addEventListener('click', async () => {
     if (!currentChar) return;
@@ -879,17 +881,11 @@ function wireEvents() {
     if (btn) { btn.textContent = 'Saving\u2026'; btn.disabled = true; }
 
     const infEl = container.querySelector('#feed-inf-spent');
-    const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
-
-    // Compute pre-confirm influence state for the confirmed record
     const vitaeMax = calcVitaeMax(currentChar);
     const infMax   = calcTotalInfluence(currentChar);
-    let infCurrent = infMax;
-    try {
-      const loc = JSON.parse(localStorage.getItem('tm_tracker_local_' + charId) || '{}');
-      if (loc.inf != null) infCurrent = loc.inf;
-    } catch { /* ignore */ }
-    const infAfter = Math.max(0, infCurrent - infSpent);
+    // Stepper value is the NEW remaining influence (starts at max, ticked down)
+    const infAfter = infEl ? Math.max(0, parseInt(infEl.textContent) || 0) : infMax;
+    const infSpent = infMax - infAfter;
 
     // Write vitae directly to API — trackerAdj needs suiteState.chars which is
     // empty in player.html context
@@ -900,7 +896,7 @@ function wireEvents() {
         const key = 'tm_tracker_local_' + charId;
         const loc = JSON.parse(localStorage.getItem(key) || '{}');
         loc.vitae_confirmed = n;
-        if (infSpent > 0) loc.inf = infAfter;
+        loc.inf = infAfter;
         localStorage.setItem(key, JSON.stringify(loc));
       } catch { /* ignore */ }
       const record = { vitae: n, vitaeMax, infSpent, infAfter, infMax };
