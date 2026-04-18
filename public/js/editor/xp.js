@@ -189,7 +189,7 @@ export function xpLeft(c) {
 export function meritRating(c, m) {
   if (m.cp === undefined && m.xp === undefined) return m.rating || 0;
   return (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0)
-    + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.free_attache || 0) + (m.xp || 0);
+    + (m.free_ohm || 0) + (m.free_inv || 0) + (m.free_pt || 0) + (m.free_mdb || 0) + (m.free_sw || 0) + (m.xp || 0);
 }
 
 /**
@@ -201,8 +201,8 @@ export function meritRating(c, m) {
  *   threshold is met, then shows fixedAt.
  */
 export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
-  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = mc.free_bloodline || 0, fret = mc.free_pet || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0, finv = mc.free_inv || 0, fpt = mc.free_pt || 0, fmdb = mc.free_mdb || 0, fsw = mc.free_sw || 0, fatt = mc.free_attache || 0;
-  const total = cp + xp + fbl + fret + fmci + fvm + flk + fohm + finv + fpt + fmdb + fsw + fatt;
+  const cp = mc.cp || 0, xp = mc.xp || 0, fbl = mc.free_bloodline || 0, fret = mc.free_pet || 0, fmci = mc.free_mci || 0, fvm = mc.free_vm || 0, flk = mc.free_lk || 0, fohm = mc.free_ohm || 0, finv = mc.free_inv || 0, fpt = mc.free_pt || 0, fmdb = mc.free_mdb || 0, fsw = mc.free_sw || 0;
+  const total = cp + xp + fbl + fret + fmci + fvm + flk + fohm + finv + fpt + fmdb + fsw + (opts.attachBonus || 0);
   // Effective display: for fixed merits, only show dots once the threshold is reached
   const effective = (fixedAt != null) ? (total >= fixedAt ? fixedAt : 0) : total;
   const needsHint = (fixedAt != null && total > 0 && total < fixedAt)
@@ -216,22 +216,6 @@ export function meritBdRow(realIdx, mc, fixedAt, opts = {}) {
   if (opts.showLK) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">LK</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + flk + '" onchange="shEditMeritPt(' + realIdx + ',\'free_lk\',+this.value)"></div>';
   if (opts.showOHM) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">OHM</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + fohm + '" onchange="shEditMeritPt(' + realIdx + ',\'free_ohm\',+this.value)"></div>';
   if (opts.showINV) h += '<div class="bd-grp"><span class="bd-lbl bd-bonus-lbl">INV</span><input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + finv + '" onchange="shEditMeritPt(' + realIdx + ',\'free_inv\',+this.value)"></div>';
-  if (opts.showAttache) {
-    const _aKeys = opts.showAttache.keys;
-    const _aCurKey = mc.retainer_source || '';
-    const _aCurDots = fatt;
-    h += '<div class="bd-grp">'
-      + '<span class="bd-lbl bd-bonus-lbl">Att</span>'
-      + '<select class="merit-bd-input bd-bonus-input" style="padding:1px 2px" onchange="shEditMeritAttache(' + realIdx + ',this.value,' + _aCurDots + ')">'
-      + '<option value="">\u2014</option>'
-      + _aKeys.map(k => '<option value="' + k + '"' + (_aCurKey === k ? ' selected' : '') + '>' + k + '</option>').join('')
-      + '</select>'
-      + '</div>'
-      + '<div class="bd-grp">'
-      + '<span class="bd-lbl bd-bonus-lbl">dots</span>'
-      + '<input class="merit-bd-input bd-bonus-input" type="number" min="0" value="' + _aCurDots + '" onchange="shEditMeritAttache(' + realIdx + ',\'' + _aCurKey + '\',+this.value)">'
-      + '</div>';
-  }
   h += '<div class="bd-eq"><span class="bd-val">' + effective + ' dot' + (effective === 1 ? '' : 's') + '</span>' + needsHint + '</div>'
     + '</div>';
   return h;

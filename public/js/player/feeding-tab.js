@@ -15,7 +15,7 @@ import { getAttrEffective as getAttrVal, skDots, skSpecStr, skNineAgain } from '
 import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
-import { domMeritContrib } from '../editor/domain.js';
+import { domMeritContrib, effectiveInvictusStatus } from '../editor/domain.js';
 import { trackerAdj, trackerRead } from '../game/tracker.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
@@ -426,7 +426,7 @@ function computeVitateTally(char, sub) {
 
   // Oath of Fealty: covenant status dots (only if character has the pact)
   const hasOoF = (char.powers || []).some(p => p.category === 'pact' && p.name === 'Oath of Fealty');
-  const oath_of_fealty = hasOoF ? Math.max(char.status?.covenant || 0, char._ots_covenant_bonus || 0) : 0;
+  const oath_of_fealty = hasOoF ? effectiveInvictusStatus(char) : 0;
 
   // Ghoul retainers: count Retainer merits with 'ghoul' qualifier
   const ghouls = (char.merits || []).filter(m =>
