@@ -692,6 +692,7 @@ function render() {
       const stDefault = stVesselTotal + stBonus;
       h += `<div class="feed-st-confirm">`;
       h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
+      h += `<div class="feed-st-confirm-lbl feed-inf-row">Influence spent last cycle: <input type="number" id="feed-inf-spent" class="feed-inf-input" min="0" value="0" placeholder="0"></div>`;
       if (stBonus) {
         h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
       } else {
@@ -703,10 +704,6 @@ function render() {
       h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
       h += `</div>`;
       h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
-      h += `<div class="feed-inf-display">`;
-      h += `<span class="feed-inf-lbl">Influence spent last cycle:</span>`;
-      h += `<span class="feed-inf-val" id="feed-inf-spent">Loading\u2026</span>`;
-      h += `</div>`;
       h += `</div>`;
     }
   }
@@ -826,7 +823,7 @@ function wireEvents() {
     if (delta !== 0) await trackerAdj(charId, 'vitae', delta);
 
     const infEl = container.querySelector('#feed-inf-spent');
-    const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
+    const infSpent = infEl ? (parseInt(infEl.value) || 0) : 0;
     if (infSpent > 0) await trackerAdj(charId, 'inf', -infSpent);
 
     const btn = container.querySelector('#feed-confirm-btn');
@@ -925,20 +922,17 @@ async function doFeedingRoll() {
   render();
 }
 
-// ── ST: Influence spend display ──
+// ── ST: Influence spend pre-fill ──
 async function loadInfluenceSpend(charId) {
   const el = container?.querySelector('#feed-inf-spent');
   if (!el) return;
   try {
     const subs = await apiGet('/api/downtime_submissions');
     const latest = subs
-      .filter(s => String(s.character_id) === charId && s.responses?.influence_spend)
+      .filter(s => String(s.character_id) === charId && s.st_review?.influence_spent != null)
       .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0];
-    if (!latest) { el.textContent = '0'; return; }
-    const spendObj = JSON.parse(latest.responses.influence_spend || '{}');
-    const total = Object.values(spendObj).reduce((sum, v) => sum + Math.abs(v || 0), 0);
-    el.textContent = String(total);
+    el.value = latest ? String(latest.st_review.influence_spent) : '0';
   } catch {
-    el.textContent = 'N/A';
+    el.value = '0';
   }
 }
