@@ -652,21 +652,22 @@ export function shRenderInfluenceMerits(c, editMode) {
     const nonContacts = inflM.filter(m => m.name !== 'Contacts');
     const _inflHWV = hasHoneyWithVinegar(c);
     nonContacts.forEach(m => {
-      const idx = inflM.indexOf(m), inf = calcMeritInfluence(m, _inflHWV), tOpts = INFLUENCE_MERIT_TYPES.map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + t + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.name) + (m.xp || 0);
+      const idx = inflM.indexOf(m), inf = calcMeritInfluence(m, _inflHWV), tOpts = INFLUENCE_MERIT_TYPES.map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + t + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_ohm || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0);
       const _iPurch = (m.cp || 0) + (m.xp || 0);
       h += '<div class="infl-edit-row"><select class="infl-type" onchange="shEditInflMerit(' + idx + ',\'name\',this.value);renderSheet(chars[editIdx])">' + tOpts + '</select>' + _inflArea(m, idx, false) + '<span class="infl-dots-derived">' + '\u25CF'.repeat(_iPurch) + '\u25CB'.repeat(Math.max(0, dd - _iPurch)) + '</span><span class="infl-inf">' + (inf ? '<span class="infl-tier-chip">' + inf + ' Inf</span>' : '') + '</span>';
       if (m.granted_by) h += '<span class="gen-granted-tag">' + esc(m.granted_by) + '</span>';
       h += '<button class="dev-rm-btn" onclick="shRemoveInflMerit(' + idx + ')" title="Remove">&times;</button></div>';
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && m.name === 'Allies', showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && _invMerits.has(m.name), attachBonus: attacheBonusDots(c, m.name) }); h += _prereqWarn(c, m.name);
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _inflMciPool > 0, showVM: _inflHasVM && m.name === 'Allies', showLK: _inflHasLK && m.name === 'Retainer', showINV: _inflHasINV && _invMerits.has(m.name), attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Attach\u00e9') {
         const _attEligible = (c.merits || []).filter(m2 => ['Contacts', 'Resources', 'Safe Place'].includes(m2.name));
+        const _attKey = m2 => m2.name + (m2.area ? ' (' + m2.area + ')' : '');
         const _attOpts = ['<option value="">(select target)</option>']
-          .concat(_attEligible.map(m2 => '<option value="' + esc(m2.name) + '"' + (m.attached_to === m2.name ? ' selected' : '') + '>' + esc(m2.name) + (m2.area ? ' (' + esc(m2.area) + ')' : '') + '</option>'))
+          .concat(_attEligible.map(m2 => '<option value="' + esc(_attKey(m2)) + '"' + (m.attached_to === _attKey(m2) ? ' selected' : '') + '>' + esc(_attKey(m2)) + '</option>'))
           .join('');
-        h += '<div class="derived-note"><select onchange="shEditInflMerit(' + idx + ',\'attached_to\',this.value||null)">' + _attOpts + '</select></div>';
+        h += '<div class="derived-note"><select class="infl-area" onchange="shEditInflMerit(' + idx + ',\'attached_to\',this.value||null)">' + _attOpts + '</select></div>';
       }
-      const _attBonus = attacheBonusDots(c, m.name);
+      const _attBonus = attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name);
       if (_attBonus > 0) h += '<div class="derived-note">Attach\u00e9: +' + _attBonus + ' dot' + (_attBonus !== 1 ? 's' : '') + ' (Invictus Status ' + effectiveInvictusStatus(c) + ')</div>';
     });
     // Contacts: single entry with sphere-per-dot
@@ -675,8 +676,9 @@ export function shRenderInfluenceMerits(c, editMode) {
     if (contactsEntry) {
       const cIdx = c.merits.indexOf(contactsEntry), rating = contactsEntry.rating || 0, spheres = contactsEntry.spheres || [], baseDots = (contactsEntry.cp || 0) + (contactsEntry.xp || 0), spOpts = s => INFLUENCE_SPHERES.map(sp => '<option' + (s === sp ? ' selected' : '') + '>' + sp + '</option>').join('');
       h += '<div class="contacts-edit-block"><div class="contacts-edit-hdr">Contacts ' + '\u25CF'.repeat(baseDots) + '\u25CB'.repeat(Math.max(0, rating - baseDots)) + (cInf ? ' \u2014 <span class="inf-val">' + cInf + '</span> inf' : '') + '</div>';
-      h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0, attachBonus: attacheBonusDots(c, 'Contacts') });
-      const _cAttBonus = attacheBonusDots(c, 'Contacts');
+      const _cKey = contactsEntry.area ? 'Contacts (' + contactsEntry.area + ')' : 'Contacts';
+      h += meritBdRow(cIdx, contactsEntry, meritFixedRating(contactsEntry.name), { showMCI: _inflMciPool > 0, attachBonus: attacheBonusDots(c, _cKey) });
+      const _cAttBonus = attacheBonusDots(c, _cKey);
       if (_cAttBonus > 0) h += '<div class="derived-note">Attach\u00e9: +' + _cAttBonus + ' dot' + (_cAttBonus !== 1 ? 's' : '') + ' (Invictus Status ' + effectiveInvictusStatus(c) + ')</div>';
       h += _derivedNotes(contactsEntry);
       for (let d = 0; d < rating; d++) {
@@ -694,7 +696,7 @@ export function shRenderInfluenceMerits(c, editMode) {
     inflM.filter(m => m.name !== 'Contacts').slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((m, idx) => {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
       const iRIdx = c.merits.indexOf(m);
-      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_pt || 0) + (m.free_sw || 0) + attacheBonusDots(c, m.name);
+      const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_pt || 0) + (m.free_sw || 0) + attacheBonusDots(c, area ? m.name + ' (' + area + ')' : m.name);
       h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + (m.rating ? ' ' + shDots(m.rating) : '') + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
@@ -746,7 +748,7 @@ export function shRenderDomainMerits(c, editMode) {
     const _domMciPool = (c.merits || []).filter(m => m.name === 'Mystery Cult Initiation' && m.active !== false).reduce((s, m) => s + mciPoolTotal(m), 0);
     const _hasLK = hasLorekeeper(c); const _hasINV = hasInvested(c);
     domM.forEach((m, di) => {
-      const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di), tOpts = DOMAIN_MERIT_TYPES.filter(t => t !== 'Herd' || !hTk || m.name === 'Herd').map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + esc(t) + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.name) + (m.xp || 0), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => ch.name !== c.name && !parts.includes(ch.name)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const hTk = domM.some((dm, dj) => dm.name === 'Herd' && dj !== di), tOpts = DOMAIN_MERIT_TYPES.filter(t => t !== 'Herd' || !hTk || m.name === 'Herd').map(t => '<option' + (m.name === t ? ' selected' : '') + '>' + esc(t) + '</option>').join(''), rIdx = c.merits.indexOf(m), dd = (m.cp || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), parts = m.shared_with || [], eT = domMeritTotal(c, m.name), avP = [...chars].filter(ch => ch.name !== c.name && !parts.includes(ch.name)).sort((a, b) => sortName(a).localeCompare(sortName(b)));
       // Total display: own dots filled + partner contribution hollow.
       // Cap own at the total so a single character can't double-paint dots
       // beyond the merit's effective rating.
@@ -756,7 +758,7 @@ export function shRenderDomainMerits(c, editMode) {
       const _dPurch = (m.cp || 0) + (m.xp || 0);
       h += '<div class="dom-edit-block"><div class="infl-edit-row"><select class="infl-type" onchange="shEditDomMerit(' + di + ',\'name\',this.value)">' + tOpts + '</select><span class="dom-contrib-lbl">My dots: ' + '\u25CF'.repeat(_dPurch) + '\u25CB'.repeat(Math.max(0, dd - _dPurch)) + '</span><span class="dom-total-lbl" title="Total across all contributors (\u25CF own, \u25CB partners)">Total: ' + _totalDots + '</span><button class="dev-rm-btn" onclick="shRemoveDomMerit(' + di + ')" title="Remove">&times;</button></div>';
       const _isLKMerit = m.name === 'Herd' || m.name === 'Retainer'; const _isINVMerit = m.name === 'Herd';
-      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.name) }); h += _prereqWarn(c, m.name);
+      h += meritBdRow(rIdx, m, meritFixedRating(m.name), { showMCI: _domMciPool > 0, showLK: _hasLK && _isLKMerit, showINV: _hasINV && _isINVMerit, attachBonus: attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) }); h += _prereqWarn(c, m.name);
       h += _derivedNotes(m);
       if (m.name === 'Herd' && hasViralMythology(c)) { const vmB = vmHerdPool(c); if (vmB) h += '<div class="derived-note">VM Bonus: +' + vmB + ' dots (' + shDots(vmB) + ') \u2014 lost if VM removed</div>'; }
       if (m.name === 'Herd') { const ssjB = ssjHerdBonus(c); if (ssjB) h += '<div class="derived-note">SSJ Bonus: +' + ssjB + ' dots (' + shDots(ssjB) + ') \u2014 equals MCI dots</div>'; }
@@ -768,7 +770,7 @@ export function shRenderDomainMerits(c, editMode) {
     h += '<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddDomMerit()">+ Add Domain Merit</button></div>';
   } else {
     domM.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach(m => {
-      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, dPurch = (ssjB > 0 || flockB > 0) ? _dRaw : Math.min(5, _dRaw);
+      const dp = m.shared_with && m.shared_with.length ? m.shared_with : null, de = domMeritTotal(c, m.name), dO = domMeritContrib(c, m.name), _dRaw = (m.cp || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_mci || 0) + (m.free_vm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + attacheBonusDots(c, m.area ? m.name + ' (' + m.area + ')' : m.name) + (m.xp || 0), ssjB = !dp && m.name === 'Herd' ? ssjHerdBonus(c) : 0, flockB = !dp && m.name === 'Herd' ? flockHerdBonus(c) : 0, dPurch = (ssjB > 0 || flockB > 0) ? _dRaw : Math.min(5, _dRaw);
       const dotHtml = (ssjB > 0 || flockB > 0) ? shDotsMixed(dPurch, Math.max(0, de - dPurch)) : '<span class="trait-dots">' + shDots(de) + '</span>';
       // Shared display: own dots filled + partner contribution hollow.
       const _shOwn = Math.min(dO, de);
