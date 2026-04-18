@@ -114,6 +114,7 @@ export function domMeritAccess(c, name) {
  * @returns {number}
  */
 export function calcMeritInfluence(m, hwv = false) {
+  if (m.name !== 'Allies' && m.name !== 'Status' && m.name !== 'Contacts') return 0;
   if (m.name === 'Contacts') return 0;
   const r = m.rating || 0;
   if (m.name === 'Status') {
