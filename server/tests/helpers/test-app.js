@@ -13,6 +13,7 @@ import gameSessionsRouter from '../../routes/game-sessions.js';
 import playersRouter from '../../routes/players.js';
 import residencyRouter from '../../routes/territory-residency.js';
 import attendanceRouter from '../../routes/attendance.js';
+import trackerRouter from '../../routes/tracker.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 
@@ -53,6 +54,7 @@ export function createTestApp() {
   // ST-only routes
   app.use('/api/territories', mockAuth, requireRole('st'), territoriesRouter);
   app.use('/api/game_sessions', mockAuth, requireRole('st'), gameSessionsRouter);
+  app.use('/api/tracker_state', mockAuth, requireRole('st'), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, ordealSubmissionsRouter);
   app.use('/api/archive_documents', mockAuth, archiveDocumentsRouter);
 
