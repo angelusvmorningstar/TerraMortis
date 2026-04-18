@@ -25,11 +25,11 @@
 
 <!-- Login screen (shown before auth) -->
 <div id="login-screen" style="display:none">
-  <div class="login-box" style="text-align:center;max-width:360px;margin:auto;padding-top:30vh;">
-    <div style="font-family:var(--fhd);font-size:28px;color:var(--gold2);letter-spacing:2px;">Terra Mortis</div>
-    <div style="font-family:var(--fh);font-size:12px;color:var(--txt3);text-transform:uppercase;letter-spacing:3px;margin:6px 0 32px;">Game App</div>
-    <button id="login-btn" style="padding:12px 32px;background:var(--crim);border:1px solid var(--crim-a70);border-radius:6px;color:#fff;font-family:var(--fh);font-size:13px;letter-spacing:.1em;cursor:pointer;">Login with Discord</button>
-    <p id="login-error" style="color:var(--err);font-size:13px;margin-top:16px;"></p>
+  <div class="login-box">
+    <div class="login-title">Terra Mortis</div>
+    <div class="login-subtitle">Game App</div>
+    <button id="login-btn" class="login-crim-btn">Login with Discord</button>
+    <p id="login-error" class="login-error"></p>
   </div>
 </div>
 
@@ -43,6 +43,7 @@
     </div>
     <div id="pool-banner"></div>
     <div class="hdr-nav" id="hdr-nav">
+      <button id="btn-view-toggle" class="app-nav-btn view-toggle-btn" onclick="toggleViewMode()" style="display:none">Player View</button>
       <a href="/player" id="nav-player" class="app-nav-btn">Player</a>
       <a href="/admin" id="nav-admin" class="app-nav-btn" style="display:none">ST Admin</a>
     </div>
@@ -76,7 +77,7 @@
         <button onclick="goTab('chars')">&larr; Back</button>
         <div class="svt-toggle">
           <button class="svt-btn on" id="svt-sheet" onclick="setSheetView('sheet')">Sheet</button>
-          <button class="svt-btn" id="svt-dt" onclick="setSheetView('dt')">Downtime</button>
+          <button class="svt-btn" id="svt-dt" onclick="setSheetView('dt')">DT Report</button>
         </div>
         <button class="sheet-edit-btn" onclick="openRulesOverlay()">Rules</button>
         <button class="sheet-edit-btn" id="btn-print" onclick="printPDF()">PDF</button>
@@ -165,7 +166,7 @@
       </div>
       <div>
         <div class="hist-hdr">
-          <div class="slabel" style="margin:0;">History</div>
+          <div class="slabel slabel-inline">History</div>
           <button class="hist-clr" onclick="clrHist()">Clear</button>
         </div>
         <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
@@ -178,7 +179,7 @@
         </button>
         <div id="feed-panel" class="feed-panel" style="display:none">
           <div class="feed-row">
-            <div class="sel-wrap" style="flex:1">
+            <div class="sel-wrap sel-wrap-flex">
               <select class="sh-char-sel" id="feed-terr" onchange="feedBuildPool()">
                 <option value="">&#8212; Territory (optional) &#8212;</option>
               </select>
@@ -196,7 +197,7 @@
             </div>
             <div class="feed-disc-row">
               <span class="feed-disc-lbl">+ Discipline</span>
-              <div class="sel-wrap" style="flex:1">
+              <div class="sel-wrap sel-wrap-flex">
                 <select class="sh-char-sel" id="feed-disc" onchange="feedBuildPool()">
                   <option value="">None</option>
                 </select>
@@ -220,11 +221,23 @@
       <div id="terr-root"></div>
     </div>
 
+    <!-- ═══ SHEETS TAB (ST opens a character sheet) ═══ -->
+    <div id="t-sheets" class="tab">
+      <div class="sheet-topbar">
+        <button onclick="goTab('chars')">&larr; Back</button>
+      </div>
+      <div id="sh-empty" class="dtl-empty">No character selected</div>
+      <div id="sh-content-suite" style="display:none"></div>
+    </div>
+
     <!-- ═══ TRACKER TAB ═══ -->
     <div id="t-tracker" class="tab"></div>
 
     <!-- ═══ RULES TAB ═══ -->
     <div id="t-rules" class="tab"></div>
+
+    <!-- ═══ STATUS TAB ═══ -->
+    <div id="t-status" class="tab"></div>
 
   </div><!-- /tab-wrap -->
 
@@ -234,6 +247,7 @@
       <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>
       Roll
     </button>
+    <!-- ST nav -->
     <button class="nbtn" id="n-chars" onclick="goTab('chars')">
       <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.19 13.89 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
       Characters
@@ -246,9 +260,22 @@
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       Tracker
     </button>
+    <!-- Player nav (hidden until applyRoleRestrictions runs) -->
+    <button class="nbtn" id="n-editor" onclick="setSheetView('sheet');goTab('editor')" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Sheet
+    </button>
+    <button class="nbtn" id="n-dt" onclick="playerGoDowntime()" style="display:none">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Downtime
+    </button>
     <button class="nbtn" id="n-rules" onclick="goTab('rules')">
       <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       Rules
+    </button>
+    <button class="nbtn" id="n-status" onclick="goTab('status')">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Status
     </button>
   </nav>
 </div>

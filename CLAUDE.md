@@ -108,6 +108,16 @@ XP functions in `public/js/editor/xp.js`: `xpEarned()`, `xpSpent()`, `xpLeft()`,
 - **Font stack**: Cinzel / Cinzel Decorative for headings, Lora for body (Google Fonts CDN)
 - **CSS custom properties** defined on `:root` — dark theme with `--bg: #0D0B09`, `--surf*` surface tiers, `--gold*` accent tiers, `--crim: #8B0000` for damage states
 
+## Data Sources of Truth
+
+Before building any feature that reads or writes data, consult `specs/reference-data-ssot.md`. It maps every domain to its MongoDB collection, API endpoint, auth boundary, and the UI surface where it is managed.
+
+Key rules:
+- `FEED_METHODS` and `TERRITORY_DATA` live in `public/js/player/downtime-data.js` — import from there, never duplicate
+- Tracker state (`tracker_state` collection) is ST-auth only at the API level — player access requires explicit auth change
+- Two client tracker implementations exist and are fragmented (`public/js/game/tracker.js` keyed by `_id` is canonical; `public/js/suite/tracker.js` keyed by name is legacy)
+- Derived stats (health max, vitae max, willpower max, influence total, XP) are never stored — always calculate at render time
+
 ## Live data vs reference files
 
 **MongoDB Atlas is the live data source.** Never treat local files as a substitute for querying the database.

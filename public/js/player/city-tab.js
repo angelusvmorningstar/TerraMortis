@@ -6,6 +6,7 @@
 import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, redactPlayer } from '../data/helpers.js';
 import { clanIcon, covIcon } from '../data/helpers.js';
+import { TERRITORY_DATA } from './downtime-data.js';
 
 export async function renderCityTab(el, territories) {
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
@@ -34,7 +35,8 @@ export async function renderCityTab(el, territories) {
     .filter(t => t.regent_id)
     .map(t => {
       const c = chars.find(ch => String(ch._id) === t.regent_id);
-      return { territory: t.name || t.id, char: c };
+      const tdEntry = TERRITORY_DATA.find(td => td.id === t.id);
+      return { territory: tdEntry?.name || t.name || t.id, char: c };
     })
     .sort((a, b) => a.territory.localeCompare(b.territory));
 

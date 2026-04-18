@@ -9,11 +9,12 @@
 import { apiGet } from './api.js';
 import { displayName } from './helpers.js';
 
-export async function loadGameXP(chars) {
+export async function loadGameXP(chars, isST = true) {
   try {
-    // Try ST endpoint first, fall back to public character-scoped endpoint
+    // ST users get the full sessions list; players use the character-scoped endpoint
     let gameSessions;
     try {
+      if (!isST) throw new Error('player');
       gameSessions = await apiGet('/api/game_sessions');
     } catch {
       gameSessions = await apiGet('/api/characters/game-xp');

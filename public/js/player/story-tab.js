@@ -15,6 +15,51 @@ const ACTION_TYPE_LABELS = {
   grow: 'Grow', acquisition: 'Acquisition',
 };
 
+/**
+ * Fetches and renders only the most recent published DT report for a character.
+ * Used by the game app (index.html) Downtime tab.
+ */
+export async function renderLatestReport(el, char) {
+  el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
+  let subs = [], cycles = [];
+  try {
+    [subs, cycles] = await Promise.all([
+      apiGet('/api/downtime_submissions'),
+      apiGet('/api/downtime_cycles'),
+    ]);
+    subs.forEach(s => {
+      if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+        s.published_outcome = s.st_review.outcome_text;
+      }
+    });
+  } catch (err) {
+    el.innerHTML = `<p class="placeholder-msg">Failed to load: ${esc(err.message)}</p>`;
+    return;
+  }
+
+  const cycleMap = {};
+  for (const c of cycles) cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
+
+  const charId = String(char._id);
+  const published = subs
+    .filter(s => String(s.character_id) === charId && s.published_outcome)
+    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+
+  if (!published.length) {
+    el.innerHTML = '<p class="placeholder-msg">No published downtime narratives yet.</p>';
+    return;
+  }
+
+  const sub = published[0];
+  const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+  let h = '<div class="story-feed">';
+  h += `<div class="story-entry">`;
+  h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
+  h += renderOutcomeWithCards(sub);
+  h += `</div></div>`;
+  el.innerHTML = h;
+}
+
 export async function renderStoryTab(el, char) {
   el.innerHTML = '<p class="placeholder-msg">Loading...</p>';
 
@@ -96,17 +141,81 @@ function renderChronicle(subs, cycles, char) {
     const cycleLabel = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
     h += `<div class="story-entry">`;
     h += `<div class="story-cycle-label">${esc(cycleLabel)}</div>`;
-    h += renderOutcome(sub.published_outcome);
-    h += renderProjectCards(sub);
-    h += renderMeritActionCards(sub);
+    h += renderOutcomeWithCards(sub);
     h += `</div>`;
   }
   h += '</div>';
   return h;
 }
 
-function renderOutcome(text) {
-  const sections = parseOutcomeSections(text);
+/** Normalise a heading/title for fuzzy matching (lowercase, collapse non-alpha). */
+function _normTitle(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Render the published narrative with project cards injected immediately
+ * after their matching section heading. Unmatched cards and merit action
+ * cards are appended at the bottom.
+ */
+function renderOutcomeWithCards(sub) {
+  const sections = parseOutcomeSections(sub.published_outcome);
+
+  // Build project card lookup: normalisedTitle → { html, used }
+  const cardLookup = {};
+  const responses  = sub.st_narrative?.project_responses || [];
+  const resolved   = sub.projects_resolved || [];
+  const unmatched  = [];
+
+  for (let i = 0; i < 4; i++) {
+    const n     = i + 1;
+    const title = sub.responses?.[`project_${n}_title`] || sub[`project_${n}_title`];
+    if (!title) continue;
+
+    const resp     = responses[i]?.response || '';
+    const rev      = resolved[i] || {};
+    const actType  = rev.action_type || sub.responses?.[`project_${n}_action`] || sub[`project_${n}_action`] || '';
+    const typeLabel = ACTION_TYPE_LABELS[actType] || actType;
+
+    let cardHtml;
+    if (!resp) {
+      cardHtml  = '<div class="proj-card proj-card-withheld">';
+      cardHtml += `<div class="proj-card-name">${esc(title)}</div>`;
+      cardHtml += '<p class="proj-card-withheld-msg">Project withheld — see your Storytellers.</p>';
+      cardHtml += '</div>';
+    } else {
+      cardHtml  = '<div class="proj-card">';
+      cardHtml += '<div class="proj-card-header">';
+      if (typeLabel) cardHtml += `<span class="proj-card-type-chip">${esc(typeLabel)}</span>`;
+      cardHtml += `<span class="proj-card-name">${esc(title)}</span>`;
+      cardHtml += '</div>';
+
+
+      const poolExpr = rev.pool?.expression || rev.pool_validated || (rev.pool?.total ? String(rev.pool.total) : '');
+      if (!rev.no_roll && poolExpr) {
+        cardHtml += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(poolExpr)}</span></div>`;
+      }
+
+      if (rev.roll) {
+        const suc = rev.roll.successes ?? 0;
+        const exc = rev.roll.exceptional;
+        const label = exc ? 'Exceptional Success' : suc === 0 ? 'Failure' : `${suc} Success${suc !== 1 ? 'es' : ''}`;
+        const cls   = exc ? ' proj-card-roll-exc' : suc === 0 ? ' proj-card-roll-fail' : '';
+        cardHtml += `<div class="proj-card-roll${cls}">${esc(label)}</div>`;
+        if (rev.roll.dice_string) cardHtml += `<div class="proj-card-dice">${esc(rev.roll.dice_string)}</div>`;
+      }
+
+      const note = rev.player_facing_note || rev.player_feedback || '';
+      if (note) cardHtml += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
+
+      cardHtml += '</div>';
+    }
+
+    cardLookup[_normTitle(title)] = { html: cardHtml, used: false };
+    unmatched.push(_normTitle(title));
+  }
+
+  // Render sections, injecting matched cards inline
   let h = '<div class="story-narrative">';
   for (const sec of sections) {
     if (sec.heading) {
@@ -121,6 +230,13 @@ function renderOutcome(text) {
         h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
       }
       h += '</div>';
+
+      // Inject matching project card immediately after this section
+      const norm = _normTitle(sec.heading);
+      if (cardLookup[norm] && !cardLookup[norm].used) {
+        cardLookup[norm].used = true;
+        h += cardLookup[norm].html;
+      }
     } else {
       const body = sec.lines.join('\n').trim();
       const paras = body.split(/\n{2,}/).filter(Boolean);
@@ -128,6 +244,17 @@ function renderOutcome(text) {
     }
   }
   h += '</div>';
+
+  // Unmatched project cards at the bottom
+  for (const key of unmatched) {
+    if (cardLookup[key] && !cardLookup[key].used) {
+      h += cardLookup[key].html;
+    }
+  }
+
+  // Merit action cards always at the bottom
+  h += renderMeritActionCards(sub);
+
   return h;
 }
 
@@ -164,7 +291,10 @@ function buildPlayerMeritActions(sub) {
   // Contacts
   const contactRaw = raw.contact_actions?.requests || [];
   if (contactRaw.length) {
-    contactRaw.forEach(() => actions.push({ merit_type: resp[`contact_1_merit`] || 'Contacts', action_type: 'misc' }));
+    contactRaw.forEach((_, idx) => {
+      const n = idx + 1;
+      actions.push({ merit_type: resp[`contact_${n}_merit`] || resp[`contact_1_merit`] || 'Contacts', action_type: 'misc' });
+    });
   } else {
     for (let n = 1; n <= 5; n++) {
       if (!resp[`contact_${n}_request`]) continue;
@@ -236,77 +366,6 @@ function renderMeritActionCards(sub) {
 
     h += '</div>';
   }
-  return h;
-}
-
-// ── Project result cards ──────────────────────────────────────────
-
-function renderProjectCards(sub) {
-  const responses = sub.st_narrative?.project_responses || [];
-  const resolved  = sub.projects_resolved || [];
-  let h = '';
-
-  for (let i = 0; i < 4; i++) {
-    const n     = i + 1;
-    const title = sub.responses?.[`project_${n}_title`] || sub[`project_${n}_title`];
-    if (!title) continue;
-
-    const resp     = responses[i]?.response || '';
-    const rev      = resolved[i] || {};
-    const actType  = rev.action_type || sub.responses?.[`project_${n}_action`] || sub[`project_${n}_action`] || '';
-    const typeLabel = ACTION_TYPE_LABELS[actType] || actType;
-
-    if (!resp) {
-      h += '<div class="proj-card proj-card-withheld">';
-      h += `<div class="proj-card-name">${esc(title)}</div>`;
-      h += '<p class="proj-card-withheld-msg">Project withheld — see your Storytellers.</p>';
-      h += '</div>';
-      continue;
-    }
-
-    h += '<div class="proj-card">';
-
-    h += '<div class="proj-card-header">';
-    if (typeLabel) h += `<span class="proj-card-type-chip">${esc(typeLabel)}</span>`;
-    h += `<span class="proj-card-name">${esc(title)}</span>`;
-    h += '</div>';
-
-    const objective = sub.responses?.[`project_${n}_description`] || sub[`project_${n}_description`];
-    if (objective) {
-      h += `<div class="proj-card-objective">${esc(objective)}</div>`;
-    }
-
-    const paras = resp.split(/\n{2,}/).filter(Boolean);
-    h += '<div class="proj-card-response">';
-    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
-    h += '</div>';
-
-    // Pool expression: prefer pool object, fall back to pool_validated string
-    const poolExpr = rev.pool?.expression || rev.pool_validated || (rev.pool?.total ? String(rev.pool.total) : '');
-    if (!rev.no_roll && poolExpr) {
-      h += `<div class="proj-card-pool"><span class="proj-card-pool-label">Pool</span> <span class="proj-card-pool-val">${esc(poolExpr)}</span></div>`;
-    }
-
-    if (rev.roll) {
-      const suc = rev.roll.successes ?? 0;
-      const exc = rev.roll.exceptional;
-      const label = exc ? 'Exceptional Success'
-        : suc === 0 ? 'Failure'
-        : `${suc} Success${suc !== 1 ? 'es' : ''}`;
-      const cls = exc ? ' proj-card-roll-exc' : suc === 0 ? ' proj-card-roll-fail' : '';
-      h += `<div class="proj-card-roll${cls}">${esc(label)}</div>`;
-      if (rev.roll.dice_string) h += `<div class="proj-card-dice">${esc(rev.roll.dice_string)}</div>`;
-    }
-
-    // ST note for the player: prefer player_facing_note, fall back to player_feedback
-    const note = rev.player_facing_note || rev.player_feedback || '';
-    if (note) {
-      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(note)}</div>`;
-    }
-
-    h += '</div>';
-  }
-
   return h;
 }
 

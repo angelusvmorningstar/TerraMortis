@@ -83,7 +83,7 @@ function renderCourt() {
   for (const c of titled) {
     const _rt = terrDocs.find(td => td.regent_id === String(c._id));
     const territory = _rt ? ' — Regent of ' + esc(_rt.name || _rt.id) : '';
-    const epithet = c.court_title ? ` <span class="court-epithet">(${esc(c.court_title)})</span>` : '';
+    const epithet = (c.court_title && c.court_title !== c.court_category) ? ` <span class="court-epithet">(${esc(c.court_title)})</span>` : '';
     h += `<div class="court-row">
       <span class="court-title">${esc(c.court_category)}${epithet}</span>
       <span class="court-name">${esc(displayName(c))}</span>
@@ -517,7 +517,8 @@ async function saveFeedingRights(terrId) {
   const status = document.getElementById('terr-feed-status-' + terrId);
   const rights = _feedingEdits[terrId] || [];
   try {
-    await apiPost('/api/territories', { id: terrId, feeding_rights: rights });
+    const terrNameF = TERRITORIES.find(t => t.id === terrId)?.name || terrId;
+    await apiPost('/api/territories', { id: terrId, name: terrNameF, feeding_rights: rights });
     // Update local cache
     const idx = terrDocs.findIndex(d => d.id === terrId);
     if (idx >= 0) terrDocs[idx] = { ...terrDocs[idx], feeding_rights: rights };
@@ -571,7 +572,8 @@ async function saveTerrAmbience(terrId) {
   const ambienceMod = ambience ? (AMBIENCE_MODS[ambience] ?? 0) : 0;
 
   try {
-    await apiPost('/api/territories', { id: terrId, ambience, ambienceMod });
+    const terrNameA = TERRITORIES.find(t => t.id === terrId)?.name || terrId;
+    await apiPost('/api/territories', { id: terrId, name: terrNameA, ambience, ambienceMod });
     // Update local cache
     const idx = terrDocs.findIndex(d => d.id === terrId);
     const patch = { ambience, ambienceMod };
@@ -596,7 +598,8 @@ async function saveTerritory(terrId) {
   const lieutenantId = ltSel?.value || null;
 
   try {
-    await apiPost('/api/territories', { id: terrId, regent_id: regentId, lieutenant_id: lieutenantId });
+    const terrName = TERRITORIES.find(t => t.id === terrId)?.name || terrId;
+    await apiPost('/api/territories', { id: terrId, name: terrName, regent_id: regentId, lieutenant_id: lieutenantId });
 
     // Update local cache
     const idx = terrDocs.findIndex(d => d.id === terrId);

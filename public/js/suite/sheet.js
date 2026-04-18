@@ -23,6 +23,7 @@ import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
   influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft
 } from '../data/accessors.js';
+import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 
 // ── Sheet character selection ──
@@ -65,18 +66,53 @@ export function renderSheet() {
   let html = '';
 
   // ── HEADER ──
-  html += `<div class="sh-char-hdr">
-  <div class="sh-namerow">
+  html += `<div class="sh-char-hdr">`;
+
+  // Name row
+  html += `<div class="sh-namerow">
     <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
-      <span class="sh-char-player">${redactPlayer(c.player || '')}</span>
+      <span class="sh-char-player">${redactPlayer(c.player || '')}${c.pronouns ? ' \u00B7 ' + c.pronouns : ''}</span>
       <span class="sh-xp-badge">XP ${xpLeft(c)}/${c.xp_total != null ? c.xp_total : '?'}</span>
     </div>
-  </div>
-  <div class="sh-char-body">
-    <div class="sh-char-left">`;
+    ${c.concept ? `<div class="sh-char-concept" style="margin-top:4px">${c.concept}</div>` : ''}
+  </div>`;
 
-  if (c.concept) html += `<div class="sh-char-concept">${c.concept}</div>`;
+  // Faction display — Covenant first, then Clan
+  html += `<div class="sh-faction-display">`;
+  if (c.covenant) {
+    html += `<div class="sh-faction-row">
+      ${covSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${covSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
+      <div class="sh-faction-info">
+        <span class="sh-faction-name">${c.covenant}</span>
+        <span class="sh-faction-type">Covenant</span>
+        ${st.covenant ? `<span class="sh-faction-dots">${dots(st.covenant)}</span>` : ''}
+      </div>
+      <div class="sh-stat-pip">
+        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.covenant || 0}</span></div>
+        <div class="sh-status-lbl">Cov.</div>
+      </div>
+    </div>`;
+  }
+  if (c.clan) {
+    html += `<div class="sh-faction-row">
+      ${clanSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${clanSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
+      <div class="sh-faction-info">
+        <span class="sh-faction-name">${c.clan}</span>
+        ${bl ? `<span class="sh-faction-bloodline-sub">${bl}</span>` : ''}
+        <span class="sh-faction-type">Clan</span>
+        ${st.clan ? `<span class="sh-faction-dots">${dots(st.clan)}</span>` : ''}
+      </div>
+      <div class="sh-stat-pip">
+        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.clan || 0}</span></div>
+        <div class="sh-status-lbl">Clan</div>
+      </div>
+    </div>`;
+  }
+  html += `</div>`; // end sh-faction-display
+
+  // Meta rows: mask, dirge, curse/bane, touchstones, embrace, apparent age, features
+  html += `<div class="sh-char-meta">`;
 
   // Mask
   if (c.mask) {
@@ -90,9 +126,8 @@ export function renderSheet() {
                  (wp.dirge_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.dirge_all}</div>` : '');
     html += expRow('dirge', 'Dirge', c.dirge, body);
   }
-  // Curse
+  // Curse + Banes
   if (curse) html += expRow('curse', 'Curse', curse.name, `<div>${curse.effect || ''}</div>`);
-  // Banes
   regularBanes.forEach((b, i) => {
     html += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
@@ -100,7 +135,6 @@ export function renderSheet() {
   const ts = c.touchstones || [];
   if (ts.length) {
     const hum = c.humanity || 0;
-    const summary = '';
     const tsBody = ts.map(t => {
       const attached = hum >= t.humanity;
       return `<div class="exp-ts-row">
@@ -108,54 +142,39 @@ export function renderSheet() {
         <span class="exp-ts-name">${t.name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
-    html += expRow('touchstones', 'Touchstones', summary, tsBody);
+    html += expRow('touchstones', 'Touchstones', '', tsBody);
+  }
+  // Embrace + Apparent Age
+  if (c.date_of_embrace || c.apparent_age) {
+    html += `<div class="sh-meta-pair">`;
+    if (c.date_of_embrace) {
+      const dedDisp = new Date(c.date_of_embrace + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Embrace</span><span class="sh-meta-val">${dedDisp}</span></div>`;
+    }
+    if (c.apparent_age) {
+      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">App. Age</span><span class="sh-meta-val">${c.apparent_age}</span></div>`;
+    }
+    html += `</div>`;
+  }
+  // Features
+  if (c.features) {
+    html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Features</span><span class="sh-meta-val">${c.features}</span></div>`;
   }
 
-  html += `</div>`; // end sh-char-left
-
-  // Right panel
-  html += `<div class="sh-hdr-right">
-    <div class="sh-hdr-row">
-      <div class="sh-icon-slot"></div>
-      <div class="sh-faction-text">
-        <div class="sh-faction-label">${c.court_title || '\u2014'}</div>
-        <div class="sh-faction-sub">Title</div>
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${CITY_SVG}<span class="sh-status-n">${st.city || 0}</span></div>
-        <div class="sh-status-lbl">City</div>
-      </div>
-    </div>
-    <div class="sh-hdr-row">
-      ${covSvg ? `<div class="sh-faction-icon" style="color:#CC1111;width:36px;height:36px;flex-shrink:0">${covSvg}</div>` : `<div class="sh-icon-slot"></div>`}
-      <div class="sh-faction-text">
-        <div class="sh-faction-label">${c.covenant || '\u2014'}</div>
-        <div class="sh-faction-sub">Covenant</div>
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.covenant || 0}</span></div>
-        <div class="sh-status-lbl">Cov.</div>
-      </div>
-    </div>
-    <div class="sh-hdr-row">
-      ${clanSvg ? `<div class="sh-faction-icon" style="color:#CC1111;width:36px;height:36px;flex-shrink:0">${clanSvg}</div>` : `<div class="sh-icon-slot"></div>`}
-      <div class="sh-faction-text">
-        <div class="sh-faction-label">${c.clan || '\u2014'}</div>
-        ${bl ? `<div class="sh-faction-bloodline">${bl}</div>` : ''}
-        <div class="sh-faction-sub">Clan</div>
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.clan || 0}</span></div>
-        <div class="sh-status-lbl">Clan</div>
-      </div>
-    </div>
-  </div>`; // end sh-hdr-right
-
-  html += `</div></div>`; // end sh-char-body, sh-char-hdr
+  html += `</div>`; // end sh-char-meta
+  html += `</div>`; // end sh-char-hdr
 
   // ── COVENANT STRIP ──
   const covStandings = c.covenant_standings || {};
-  const covSEntries = Object.entries(covStandings).filter(([, v]) => v !== undefined);
+  const COV_SHORT = {
+    'Carthian Movement': 'Carthian',
+    'Circle of the Crone': 'Crone',
+    'Invictus': 'Invictus',
+    'Lancea et Sanctum': 'Lance',
+  };
+  const ownLabel = COV_SHORT[c.covenant] || null;
+  const covSEntries = Object.entries(covStandings)
+    .filter(([label, v]) => v !== undefined && label !== ownLabel);
   if (covSEntries.length) {
     html += `<div class="cov-strip">`;
     covSEntries.forEach(([label, status]) => {
@@ -181,20 +200,33 @@ export function renderSheet() {
   const maxH  = calcHealth(c);
   const maxV  = calcVitaeMax(c);
   const maxWP = calcWillpowerMax(c);
-  const maxInf = influenceTotal(c);
+  const maxInf = calcTotalInfluence(c);
 
-  // Load or seed persisted state
-  const tKey = 'tm_tracker_' + c.name;
-  let tState;
-  try { tState = JSON.parse(localStorage.getItem(tKey) || 'null'); } catch (e) { tState = null; }
-  if (!tState) tState = { health: maxH, vitae: maxV, wp: maxWP, inf: maxInf };
-  if (tState.health == null) tState.health = maxH;
-  tState.health = Math.max(0, Math.min(tState.health, maxH));
-  tState.vitae  = Math.max(0, Math.min(tState.vitae, maxV));
-  tState.wp     = Math.max(0, Math.min(tState.wp, maxWP));
-  tState.inf    = Math.max(0, Math.min(tState.inf, maxInf));
-  // Always write back so toggleBox can read it
-  localStorage.setItem(tKey, JSON.stringify(tState));
+  // Load from canonical tracker store (keyed by _id)
+  const charId = String(c._id);
+
+  // One-time migration: seed canonical store from old tm_tracker_{name} if not yet present
+  if (!trackerReadRaw(charId)) {
+    const oldKey = 'tm_tracker_' + c.name;
+    try {
+      const old = JSON.parse(localStorage.getItem(oldKey) || 'null');
+      if (old) {
+        const maxD = maxH - (old.health ?? maxH);
+        trackerWriteField(charId, 'vitae',     Math.max(0, Math.min(old.vitae  ?? maxV,  maxV)));
+        trackerWriteField(charId, 'willpower', Math.max(0, Math.min(old.wp     ?? maxWP, maxWP)));
+        trackerWriteField(charId, 'lethal',    Math.max(0, Math.min(maxD,                maxH)));
+        trackerWriteField(charId, 'inf',       Math.max(0, Math.min(old.inf    ?? maxInf, maxInf)));
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  const cs = trackerRead(charId);
+  const tState = {
+    vitae:  Math.max(0, Math.min(cs.vitae      ?? maxV,  maxV)),
+    wp:     Math.max(0, Math.min(cs.willpower  ?? maxWP, maxWP)),
+    health: Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0)),
+    inf:    Math.max(0, Math.min(cs.inf         ?? maxInf, maxInf)),
+  };
 
   const TRACKER_LABELS = { health: 'Health', vitae: 'Vitae', wp: 'Willpower', inf: 'Influence' };
 
@@ -211,12 +243,11 @@ export function renderSheet() {
     </div>`;
   }
 
-  const activeInfMerits = influenceMerits(c).filter(m => !m.prereq_failed && (m.rating || 0) > 0);
-  const infBreakdown = activeInfMerits.length
-    ? `<div class="sh-inf-breakdown">${activeInfMerits.map(m => {
-        const total = (m.rating || 0) + (m.bonus || 0);
-        return `<span class="sh-inf-merit">${m.name} <span class="sh-inf-dots">${'\u25CF'.repeat(Math.min(total, 10))}</span></span>`;
-      }).join('')}</div>`
+  const bdLines = influenceBreakdown(c);
+  const infBreakdown = bdLines.length
+    ? `<div class="sh-inf-breakdown">${bdLines.map(l =>
+        `<span class="sh-inf-merit">${l}</span>`
+      ).join('')}</div>`
     : '';
 
   html += `<div class="sh-tracker-block" id="tracker-block">
@@ -229,17 +260,21 @@ export function renderSheet() {
   // ── BODY ──
   html += `<div class="sh-body">`;
 
-  // Attributes (column-first: Mental/Physical/Social)
-  const ATTR_ROWS = [
-    ['Intelligence', 'Strength', 'Presence'],
-    ['Wits', 'Dexterity', 'Manipulation'],
-    ['Resolve', 'Stamina', 'Composure'],
+  // Attributes (3-column: Mental | Physical | Social)
+  const ATTR_COLS = [
+    { label: 'Mental',   attrs: ['Intelligence', 'Wits', 'Resolve'] },
+    { label: 'Physical', attrs: ['Strength', 'Dexterity', 'Stamina'] },
+    { label: 'Social',   attrs: ['Presence', 'Manipulation', 'Composure'] },
   ];
   html += `<div class="sh-sec"><div class="sh-sec-title">Attributes</div><div class="attr-grid">`;
-  ATTR_ROWS.forEach(row => row.forEach(a => {
-    const base = getAttrDots(c, a), bonus = getAttrBonus(c, a);
-    html += `<div class="attr-cell"><div class="attr-name">${a}</div><div class="attr-dots">${dotsWithBonus(base, bonus)}</div></div>`;
-  }));
+  ATTR_COLS.forEach(col => {
+    html += `<div class="attr-cell"><div class="attr-group-hd">${col.label}</div>`;
+    col.attrs.forEach(a => {
+      const base = getAttrDots(c, a), bonus = getAttrBonus(c, a);
+      html += `<div class="attr-row-item"><span class="attr-name">${a}</span><span class="attr-dots">${dotsWithBonus(base, bonus)}</span></div>`;
+    });
+    html += `</div>`;
+  });
   html += `</div></div>`;
 
   // Skills (3-col, all 24)
@@ -288,9 +323,13 @@ export function renderSheet() {
           <div class="disc-power-effect">${p.effect || ''}</div>
         </div>`;
       });
+      if (d === 'Auspex' && r >= 1) {
+        drawerHtml += `<button class="auspex-insight-btn" onclick="openPanel('auspex')">Auspex Insight \u203A</button>`;
+      }
       const nameTag = (nameStyle ? '<span class="disc-tap-name" style="' + nameStyle + '">' : '<span class="disc-tap-name">') + d + '</span>';
       const dotsTag = r ? `<span class="disc-tap-dots">${dots(r)}</span>` : '';
-      if (!hasPowers) {
+      const isExpandable = hasPowers || (d === 'Auspex' && r >= 1);
+      if (!isExpandable) {
         return `<div class="disc-tap-row">
           <div class="disc-tap-left">${nameTag}${dotsTag}</div>
         </div>`;
@@ -412,18 +451,17 @@ export function renderSheet() {
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (stndMerits.length) {
+    const tierDotStr = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
     html += `<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="stand-list">`;
-    stndMerits.forEach(m => {
-      html += `<div class="stand-row">
-        <div class="stand-name-row"><span class="stand-label">${m.name}</span><span class="stand-dots">${dots(m.rating || 0)}</span></div>
-        ${m.qualifier ? `<div class="stand-sub">${m.qualifier}</div>` : ''}
-        ${m.cult_name ? `<div class="stand-sub">${m.cult_name}</div>` : ''}
-      </div>`;
+    stndMerits.forEach((m, mi) => {
+      const sid = 'smt' + mi;
+      const qualifier = m.cult_name || m.qualifier || m.role || '';
+      // Build drawer content
+      let drawerHtml = '';
       if (m.name === 'Mystery Cult Initiation' && m.rating > 0) {
         const tg = m.tier_grants || [];
         const d1c = m.dot1_choice || 'merits', d3c = m.dot3_choice || 'merits', d5c = m.dot5_choice || 'merits';
-        const tierDots = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
-        html += '<div class="mci-tier-list">';
+        drawerHtml += '<div class="mci-tier-list">';
         for (let d = 0; d < Math.min(5, m.rating); d++) {
           const tier = d + 1;
           const grant = tg.find(t => t.tier === tier);
@@ -433,9 +471,53 @@ export function renderSheet() {
           else if (d === 4 && d5c === 'advantage') label = 'Adv: ' + (m.dot5_text || '');
           else if (grant) label = grant.name + (grant.qualifier ? ' (' + grant.qualifier + ')' : '') + ' ' + dots(grant.rating);
           else label = '<span class="mci-tier-empty">(unassigned)</span>';
-          html += '<div class="mci-tier-row"><span class="mci-tier-dot">' + tierDots[d] + '</span><span class="mci-tier-label">' + label + '</span></div>';
+          drawerHtml += '<div class="mci-tier-row"><span class="mci-tier-dot">' + tierDotStr[d] + '</span><span class="mci-tier-label">' + label + '</span></div>';
         }
-        html += '</div>';
+        drawerHtml += '</div>';
+      } else if (m.name === 'Professional Training') {
+        const as = (m.asset_skills || []).filter(Boolean);
+        if (as.length) {
+          drawerHtml += `<div class="stand-asset-row"><span class="stand-asset-lbl">Asset Skills (9-Again):</span>${as.map(s => `<span class="stand-na-chip">${s}</span>`).join('')}</div>`;
+        }
+        // PT tier benefits up to purchased rating
+        const ptTiers = [
+          '2 dots of Contacts',
+          '2 Asset Skills',
+          '3rd Asset Skill, +2 Specialisations on Asset Skills',
+          '+1 dot in an Asset Skill',
+          'Rote quality on any Asset Skill roll (spend 1 Willpower)',
+        ];
+        drawerHtml += '<div class="mci-tier-list">';
+        for (let d = 0; d < Math.min(5, m.rating); d++) {
+          drawerHtml += `<div class="mci-tier-row"><span class="mci-tier-dot">${tierDotStr[d]}</span><span class="mci-tier-label">${ptTiers[d]}</span></div>`;
+        }
+        drawerHtml += '</div>';
+      }
+      // Render as expandable row if we have drawer content, plain row otherwise
+      if (drawerHtml) {
+        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="toggleDisc('${sid}')">
+          <div class="disc-tap-left">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="disc-tap-name">${m.name}</span>
+              ${qualifier ? `<span style="font-family:var(--fl);font-size:10px;color:var(--label-secondary);font-weight:400">${qualifier}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="disc-tap-dots">${dots(m.rating || 0)}</span>
+            <span class="disc-tap-arr">\u203A</span>
+          </div>
+        </div>
+        <div class="disc-drawer" id="disc-drawer-${sid}">${drawerHtml}</div>`;
+      } else {
+        html += `<div class="disc-tap-row" style="cursor:default">
+          <div class="disc-tap-left">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span class="disc-tap-name">${m.name}</span>
+              ${qualifier ? `<span style="font-family:var(--fl);font-size:10px;color:var(--label-secondary);font-weight:400">${qualifier}</span>` : ''}
+            </div>
+          </div>
+          <span class="disc-tap-dots">${dots(m.rating || 0)}</span>
+        </div>`;
       }
     });
     html += `</div></div>`;
@@ -510,44 +592,80 @@ export function renderSheet() {
 }
 
 // ── TRACKER TOGGLE ──
-// Event delegation on tracker-block — avoids inline onclick and string-escaping issues
-document.addEventListener('click', function(e){
+// Event delegation on tracker-block — writes through to the canonical tracker store.
+document.addEventListener('click', function(e) {
   const box = e.target.closest('[data-tracker]');
-  if(!box) return;
+  if (!box) return;
   const block = box.closest('#tracker-block');
-  if(!block) return;
+  if (!block) return;
+  if (!state.sheetChar) return;
 
-  const type = box.dataset.tracker;
-  const idx  = parseInt(box.dataset.idx);
-  const max  = parseInt(box.dataset.max);
+  const type      = box.dataset.tracker;
+  const idx       = parseInt(box.dataset.idx);
+  const max       = parseInt(box.dataset.max);
   const filledCls = box.dataset.filled;
+  const c         = state.sheetChar;
+  const charId    = String(c._id);
+  const cs        = trackerRead(charId);
+  if (!cs) return;
 
-  // Resolve the tKey from the currently displayed character
-  if(!state.sheetChar) return;
-  const tKey = 'tm_tracker_' + state.sheetChar.name;
-  let tState;
-  try{ tState = JSON.parse(localStorage.getItem(tKey)||'null'); }catch(e){ tState=null; }
-  if(!tState) return;
+  // Compute current value in sheet terms
+  const maxH = calcHealth(c);
+  let currentSheet;
+  if      (type === 'health') currentSheet = Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0));
+  else if (type === 'vitae')  currentSheet = cs.vitae      ?? 0;
+  else if (type === 'wp')     currentSheet = cs.willpower  ?? 0;
+  else if (type === 'inf')    currentSheet = cs.inf        ?? 0;
+  else return;
 
-  const current = tState[type];
   // Tap filled → spend down to idx; tap empty → recover up to idx+1
-  tState[type] = idx < current ? idx : idx + 1;
-  tState[type] = Math.max(0, Math.min(tState[type], max));
-  localStorage.setItem(tKey, JSON.stringify(tState));
+  const newVal = idx < currentSheet ? idx : idx + 1;
+  const delta  = newVal - currentSheet;
+  if (delta === 0) return;
 
-  // Re-render boxes
-  const boxesEl = document.getElementById('tb-'+type);
-  const numEl   = document.getElementById('tn-'+type);
-  if(boxesEl){
-    boxesEl.innerHTML = Array.from({length:max},(_,i)=>{
-      const filled = i < tState[type];
-      return `<div class="tbox${filled?' '+filledCls:''}" data-tracker="${type}" data-idx="${i}" data-max="${max}" data-filled="${filledCls}"></div>`;
+  if (type === 'health') {
+    if (delta < 0) {
+      // Taking damage — add lethal (ST reclassifies in Tracker if needed)
+      trackerAdj(charId, 'lethal', -delta);
+    } else {
+      // Healing — remove bashing first, then lethal, then aggravated
+      let rem = delta;
+      const removeBash = Math.min(rem, cs.bashing    ?? 0); rem -= removeBash;
+      const removeLet  = Math.min(rem, cs.lethal     ?? 0); rem -= removeLet;
+      const removeAgg  = Math.min(rem, cs.aggravated ?? 0);
+      if (removeBash) trackerAdj(charId, 'bashing',    -removeBash);
+      if (removeLet)  trackerAdj(charId, 'lethal',     -removeLet);
+      if (removeAgg)  trackerAdj(charId, 'aggravated', -removeAgg);
+    }
+  } else if (type === 'vitae') {
+    trackerAdj(charId, 'vitae', delta);
+  } else if (type === 'wp') {
+    trackerAdj(charId, 'willpower', delta);
+  } else if (type === 'inf') {
+    trackerAdj(charId, 'inf', delta);
+  }
+
+  // Re-read updated state and repaint boxes + number
+  const updated = trackerRead(charId);
+  let updatedSheet;
+  if      (type === 'health') updatedSheet = Math.max(0, maxH - (updated.bashing ?? 0) - (updated.lethal ?? 0) - (updated.aggravated ?? 0));
+  else if (type === 'vitae')  updatedSheet = updated.vitae      ?? 0;
+  else if (type === 'wp')     updatedSheet = updated.willpower  ?? 0;
+  else if (type === 'inf')    updatedSheet = updated.inf        ?? 0;
+
+  const boxesEl = document.getElementById('tb-' + type);
+  const numEl   = document.getElementById('tn-' + type);
+  if (boxesEl) {
+    boxesEl.innerHTML = Array.from({ length: max }, (_, i) => {
+      const filled = i < updatedSheet;
+      return `<div class="tbox${filled ? ' ' + filledCls : ''}" data-tracker="${type}" data-idx="${i}" data-max="${max}" data-filled="${filledCls}"></div>`;
     }).join('');
   }
-  // num shows true max (might exceed 15 display boxes for influence)
-  const trueMax = type==='health'? calcHealth(state.sheetChar)
-                : type==='vitae'? calcVitaeMax(state.sheetChar)
-                : type==='wp'? calcWillpowerMax(state.sheetChar)
-                : influenceTotal(state.sheetChar);
-  if(numEl) numEl.textContent = tState[type]+'/'+trueMax;
+  if (numEl) {
+    const trueMax = type === 'health' ? maxH
+      : type === 'vitae'  ? calcVitaeMax(c)
+      : type === 'wp'     ? calcWillpowerMax(c)
+      : calcTotalInfluence(c);
+    numEl.textContent = updatedSheet + '/' + trueMax;
+  }
 });

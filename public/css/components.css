@@ -14,8 +14,8 @@
 .cc-top{display:flex;align-items:center;gap:10px;}
 .cc-alert-wrap{margin-left:auto;flex-shrink:0;}
 .cc-alert{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:700;font-family:var(--ft);line-height:1;}
-.cc-alert.red{background:rgba(180,30,30,.9);color:#fff;border:1px solid rgba(255,80,80,.4);}
-.cc-alert.yellow{background:rgba(180,140,20,.85);color:#fff;border:1px solid rgba(255,210,60,.4);font-size:8px;}
+.cc-alert.red{background:var(--badge-err-bg);color:#fff;border:1px solid var(--badge-err-bdr);}
+.cc-alert.yellow{background:var(--badge-warn-bg);color:#fff;border:1px solid var(--badge-warn-bdr);font-size:8px;}
 .cc-identity{flex:1;min-width:0;}
 .cc-name{font-family:var(--fh);font-size:15px;font-weight:700;color:var(--accent);letter-spacing:.04em;}
 .cc-player{font-family:var(--fl);font-size:12px;font-weight:700;color:var(--label-tertiary);}
@@ -100,7 +100,7 @@
 .bd-needs-hint{font-size:9px;color:var(--txt3);font-style:italic;margin-left:4px;}
 .dots-purch{color:var(--gold2);}
 .dots-bonus{color:var(--gdim);}
-.merit-prereq-warn{font-size:10px;font-family:var(--ft);color:var(--err);background:rgba(139,0,0,.12);border:1px solid rgba(139,0,0,.3);border-radius:3px;padding:3px 8px;margin-bottom:4px;}
+.merit-prereq-warn{font-size:10px;font-family:var(--ft);color:var(--err);background:var(--crim-a12);border:1px solid var(--crim-a30);border-radius:3px;padding:3px 8px;margin-bottom:4px;}
 .merit-prereq-txt{color:var(--txt2);font-style:italic;}
 .merit-prereq-fail{border-left:2px solid var(--err)!important;}
 
@@ -268,7 +268,7 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-spec-counter .sc-parts{font-size:10px;color:var(--txt3);margin-top:1px;}
 .sk-spec-list{margin-top:3px;border-top:1px solid var(--bdr);padding-top:3px;}
 .sk-spec-row{display:flex;gap:4px;align-items:center;margin-bottom:2px;}
-.sk-spec-input{flex:1;background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-family:var(--ft);font-size:9px;padding:2px 5px;outline:none;}
+.sk-spec-input{flex:1;min-width:0;background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt2);font-family:var(--ft);font-size:9px;padding:2px 5px;outline:none;}
 .sk-spec-input:focus{border-color:var(--gold);}
 .sk-spec-rm{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:12px;padding:0 3px;line-height:1;}
 .sk-spec-rm:hover{color:var(--err);}
@@ -632,7 +632,7 @@ html:not([data-theme="dark"]) .edit-icon {
 
 /* ── Desktop character sheet: 3-column layout ── */
 .sh-desktop{display:grid;grid-template-columns:4fr 3fr 3fr;gap:0 24px;align-items:start;}
-.sh-dcol{min-width:0;overflow:hidden;}
+.sh-dcol{min-width:0;overflow:visible;}
 
 /* Narrow viewports: collapse the 3-col sheet into a single column.
    We do not touch sheet.js — this is a pure CSS override of the outer
@@ -640,7 +640,6 @@ html:not([data-theme="dark"]) .edit-icon {
    force a 3-wide layout inside the now-stacked column. */
 @media (max-width: 900px) {
   .sh-desktop { grid-template-columns: 1fr; gap: 16px; }
-  .sh-desktop .sh-dcol { overflow: visible; }
   .sh-desktop .attr-grid,
   .sh-desktop .sh-sec .attr-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .sh-desktop .skills-3col { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
@@ -797,8 +796,8 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
  * Wrap content in <div class="reading-pane"> to activate. */
 
 .reading-pane {
-  background: #F0E6D4;
-  color: #2A1F14;
+  background: var(--rp-bg);
+  color: var(--rp-txt);
   border: 1px solid rgba(139,0,0,.18);
   border-radius: 8px;
   padding: 24px 20px;
@@ -812,13 +811,13 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .reading-pane h3,
 .reading-pane .qf-title {
-  color: #5A1A1A;
+  color: var(--rp-head);
   font-weight: 700;
 }
 
 .reading-pane h4,
 .reading-pane .qf-section-title {
-  color: #5A1A1A;
+  color: var(--rp-head);
   font-weight: 700;
 }
 
@@ -832,15 +831,15 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane .qf-intro,
 .reading-pane .qf-section-intro,
 .reading-pane .qf-desc {
-  color: #3A2A1A;
+  color: var(--rp-txt2);
 }
 
 .reading-pane .qf-label {
-  color: #2A1F14;
+  color: var(--rp-txt);
 }
 
 .reading-pane .qf-readonly-value {
-  color: #2A1F14;
+  color: var(--rp-txt);
 }
 
 /* ── Form inputs (editing mode) ── */
@@ -848,38 +847,38 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane .qf-input,
 .reading-pane .qf-textarea,
 .reading-pane .qf-select {
-  background: #FFF8EE;
-  color: #2A1F14;
+  background: var(--rp-surf);
+  color: var(--rp-txt);
   border-color: rgba(139,0,0,.2);
 }
 
 .reading-pane .qf-input:focus,
 .reading-pane .qf-textarea:focus,
 .reading-pane .qf-select:focus {
-  border-color: #8B0000;
+  border-color: var(--rp-accent);
 }
 
 .reading-pane .qf-input::placeholder,
 .reading-pane .qf-textarea::placeholder {
-  color: #9A8A70;
+  color: var(--rp-placeholder);
 }
 
 /* ── Locked fields (from character sheet) ── */
 
 .reading-pane .qf-locked-value {
-  background: #E8DCC8;
-  color: #2A1F14;
+  background: var(--rp-surf2);
+  color: var(--rp-txt);
   border-color: rgba(139,0,0,.15);
 }
 
 .reading-pane .qf-locked-note {
-  color: #7A6A50;
+  color: var(--rp-txt3);
 }
 
 /* ── Radio and select ── */
 
 .reading-pane .qf-radio-label {
-  color: #2A1F14;
+  color: var(--rp-txt);
 }
 
 .reading-pane .qf-radio-label:hover {
@@ -887,20 +886,20 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 
 .reading-pane .qf-radio-label input[type="radio"] {
-  accent-color: #8B0000;
+  accent-color: var(--rp-accent);
 }
 
 /* ── Badges ── */
 
 .reading-pane .qf-badge-draft {
   background: rgba(139,0,0,.1);
-  color: #8B0000;
+  color: var(--rp-accent);
   border-color: rgba(139,0,0,.3);
 }
 
 .reading-pane .qf-badge-submitted {
   background: rgba(139,0,0,.1);
-  color: #8B0000;
+  color: var(--rp-accent);
   border-color: rgba(139,0,0,.3);
 }
 
@@ -911,7 +910,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 
 .reading-pane .qf-save-status {
-  color: #7A6A50;
+  color: var(--rp-txt3);
 }
 
 .reading-pane .qf-deadline {
@@ -973,13 +972,13 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   padding: 14px 18px;
   background: rgba(139,0,0,.06);
   border: 1px solid rgba(139,0,0,.15);
-  border-left: 3px solid #8B0000;
+  border-left: 3px solid var(--rp-accent);
   border-radius: 6px;
 }
 .reading-pane .qf-results-pending-msg {
   margin: 0;
   font-size: 14px;
-  color: #3A2A1A;
+  color: var(--rp-txt2);
   font-weight: 500;
   line-height: 1.5;
 }
@@ -992,7 +991,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 /* ── Required marker ── */
 
 .reading-pane .qf-req {
-  color: #8B0000;
+  color: var(--rp-accent);
 }
 
 /* ── Section dividers ── */
@@ -1004,23 +1003,23 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 /* ── Buttons ── */
 
 .reading-pane .qf-btn-save {
-  background: #E8DCC8;
-  color: #3A2A1A;
+  background: var(--rp-surf2);
+  color: var(--rp-txt2);
   border-color: rgba(139,0,0,.2);
 }
 
 .reading-pane .qf-btn-save:hover {
-  border-color: #8B0000;
+  border-color: var(--rp-accent);
 }
 
 .reading-pane .qf-btn-submit {
-  background: #8B0000;
-  color: #F0E6D4;
+  background: var(--rp-accent);
+  color: var(--rp-bg);
 }
 
 .reading-pane .qf-btn-edit {
-  background: #E8DCC8;
-  color: #5A1A1A;
+  background: var(--rp-surf2);
+  color: var(--rp-head);
   border-color: rgba(139,0,0,.3);
 }
 
@@ -1061,7 +1060,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane h1,
 .reading-pane h2 {
   font-family: 'Cinzel Decorative', 'Cinzel', serif;
-  color: #5A1A1A;
+  color: var(--rp-head);
   font-weight: 700;
   line-height: 1.2;
   margin: 1.4em 0 0.5em;
@@ -1095,7 +1094,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane h5,
 .reading-pane h6 {
   font-family: 'Cinzel', serif;
-  color: #5A1A1A;
+  color: var(--rp-head);
   font-weight: 700;
   font-size: 0.95rem;
   margin: 0.9em 0 0.3em;
@@ -1112,7 +1111,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   color: #3A1A0F;
   font-weight: 700;
 }
-.reading-pane em { font-style: italic; color: #3A2A1A; }
+.reading-pane em { font-style: italic; color: var(--rp-txt2); }
 
 .reading-pane a {
   color: #7A1010;
@@ -1122,8 +1121,8 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   transition: color 0.15s, text-decoration-color 0.15s;
 }
 .reading-pane a:hover {
-  color: #8B0000;
-  text-decoration-color: #8B0000;
+  color: var(--rp-accent);
+  text-decoration-color: var(--rp-accent);
 }
 
 .reading-pane ul,
@@ -1133,7 +1132,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   font-family: 'Libre Baskerville', Georgia, serif;
   font-size: 15px;
   line-height: 1.7;
-  color: #3A2A1A;
+  color: var(--rp-txt2);
 }
 .reading-pane li { margin: 0.25em 0; }
 .reading-pane li > ul,
@@ -1146,7 +1145,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   padding: 0.6em 1.1em;
   background: rgba(139, 0, 0, 0.04);
   border-left: 3px solid rgba(139, 0, 0, 0.4);
-  color: #3A2A1A;
+  color: var(--rp-txt2);
   font-style: italic;
 }
 .reading-pane blockquote p:last-child { margin-bottom: 0; }
@@ -1181,7 +1180,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .reading-pane table th {
   background: rgba(139, 0, 0, 0.1);
-  color: #5A1A1A;
+  color: var(--rp-head);
   font-family: 'Cinzel', serif;
   font-weight: 700;
   text-align: left;
@@ -1193,7 +1192,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane table td {
   padding: 10px 12px;
   border-bottom: 1px solid rgba(139, 0, 0, 0.1);
-  color: #2A1F14;
+  color: var(--rp-txt);
   vertical-align: top;
   line-height: 1.55;
 }

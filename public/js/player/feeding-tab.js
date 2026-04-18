@@ -16,6 +16,7 @@ import { FEED_METHODS, TERRITORY_DATA } from './downtime-data.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { isSTRole } from '../auth/discord.js';
 import { domMeritContrib } from '../editor/domain.js';
+import { trackerAdj, trackerRead } from '../game/tracker.js';
 
 // Dice math (configurable again threshold: 10 = standard, 9 = 9-again, 8 = 8-again)
 function d10() { return Math.floor(Math.random() * 10) + 1; }
@@ -146,6 +147,7 @@ export async function renderFeedingTab(el, char) {
       if (mySub.feeding_vitae_allocation) {
         vitaeAllocation = mySub.feeding_vitae_allocation;
       }
+      vitateTally = mySub.feeding_vitae_tally || computeVitateTally(char, mySub);
       render();
       return;
     }
@@ -601,6 +603,13 @@ function render() {
       h += `</div>`;
     }
 
+    // Player Feedback (player_facing_note from feeding_review — read directly,
+    // as it is not embedded in the ## Feeding section of published_outcome)
+    const feedingNote = currentSub?.feeding_review?.player_facing_note?.trim();
+    if (feedingNote) {
+      h += `<div class="proj-card-feedback"><span class="proj-card-feedback-label">ST Note</span>${esc(feedingNote)}</div>`;
+    }
+
     h += '<div class="feeding-result">';
     if (methodName) h += `<p class="feeding-method-label">Method: <strong>${esc(methodName)}</strong></p>`;
     h += renderFeedingSummary();
@@ -673,6 +682,33 @@ function render() {
     }
 
     h += '</div>';
+
+    // ── ST CONFIRM PANEL ──
+    if (isST) {
+      const stVesselTotal = vitaeAllocation
+        ? vitaeAllocation.reduce((a, b) => a + b, 0)
+        : safeVitae;
+      const stBonus = vitateTally?.total_bonus ?? 0;
+      const stDefault = stVesselTotal + stBonus;
+      h += `<div class="feed-st-confirm">`;
+      h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
+      if (stBonus) {
+        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
+      } else {
+        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
+      }
+      h += `<div class="feed-confirm-controls">`;
+      h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
+      h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
+      h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
+      h += `</div>`;
+      h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
+      h += `<div class="feed-inf-display">`;
+      h += `<span class="feed-inf-lbl">Influence spent last cycle:</span>`;
+      h += `<span class="feed-inf-val" id="feed-inf-spent">Loading\u2026</span>`;
+      h += `</div>`;
+      h += `</div>`;
+    }
   }
 
   // ── ST OVERRIDE PANEL ──
@@ -693,6 +729,9 @@ function render() {
   h += '</div>';
   container.innerHTML = h;
   wireEvents();
+  if (isST && feedingState === 'rolled' && currentChar) {
+    loadInfluenceSpend(String(currentChar._id));
+  }
 }
 
 function wireEvents() {
@@ -766,6 +805,32 @@ function wireEvents() {
     } catch {
       alert('Could not release — please try again.');
     }
+  });
+
+  // ST confirm feed
+  container.querySelector('#feed-confirm-adj-down')?.addEventListener('click', () => {
+    const el = container.querySelector('#feed-confirm-n');
+    if (el) el.textContent = Math.max(0, (parseInt(el.textContent) || 0) - 1);
+  });
+  container.querySelector('#feed-confirm-adj-up')?.addEventListener('click', () => {
+    const el = container.querySelector('#feed-confirm-n');
+    if (el) el.textContent = (parseInt(el.textContent) || 0) + 1;
+  });
+  container.querySelector('#feed-confirm-btn')?.addEventListener('click', async () => {
+    if (!currentChar) return;
+    const charId = String(currentChar._id);
+    const n = parseInt(container.querySelector('#feed-confirm-n')?.textContent) || 0;
+
+    const current = trackerRead(charId).vitae ?? 0;
+    const delta = n - current;
+    if (delta !== 0) await trackerAdj(charId, 'vitae', delta);
+
+    const infEl = container.querySelector('#feed-inf-spent');
+    const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
+    if (infSpent > 0) await trackerAdj(charId, 'inf', -infSpent);
+
+    const btn = container.querySelector('#feed-confirm-btn');
+    if (btn) { btn.textContent = 'Confirmed \u2713'; btn.disabled = true; }
   });
 
   // Defer button
@@ -858,4 +923,22 @@ async function doFeedingRoll() {
   }
 
   render();
+}
+
+// ── ST: Influence spend display ──
+async function loadInfluenceSpend(charId) {
+  const el = container?.querySelector('#feed-inf-spent');
+  if (!el) return;
+  try {
+    const subs = await apiGet('/api/downtime_submissions');
+    const latest = subs
+      .filter(s => String(s.character_id) === charId && s.responses?.influence_spend)
+      .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1))[0];
+    if (!latest) { el.textContent = '0'; return; }
+    const spendObj = JSON.parse(latest.responses.influence_spend || '{}');
+    const total = Object.values(spendObj).reduce((sum, v) => sum + Math.abs(v || 0), 0);
+    el.textContent = String(total);
+  } catch {
+    el.textContent = 'N/A';
+  }
 }

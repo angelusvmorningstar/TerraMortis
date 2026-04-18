@@ -1,20 +1,19 @@
-/* Status tab — hierarchical city / clan / covenant standing.
+/* Suite status tab — city / covenant / clan standings.
  *
- * Layout:
- *   City Status — full-width section with apex/high-seat/floor slot architecture
- *   Clan Status  │  Covenant Status  — two columns below, each with same slot arch
- *
- * Slot architecture (shared across all three views):
- *   Apex      — rank 5 (clan/cov) or city rank 10: single prominent card, shown even when vacant
- *   High seats — rank 4 (clan/cov) or city ranks 9–8: pair of cards, shown even when vacant
- *   Open floor — ranks below: compact scrollable rows
- *
- * City status dots displayed out of 10 (status.city is the combined total).
+ * Ported from public/js/player/status-tab.js.
+ * Differences from the player portal version:
+ *   - Exported function is renderSuiteStatusTab(el) — reads suiteState.rollChar
+ *     and getRole() internally rather than taking activeChar/isST as params.
+ *   - Section order: city → covenants (full-width) → clans (full-width), all
+ *     single-column. No horizontal splits used in the rendered HTML.
+ *   - Called fresh on every tab open; no caching.
  */
 
 import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
+import suiteState from './data.js';
+import { getRole } from '../auth/discord.js';
 
 // ── Avatar helper ────────────────────────────────────────────────────────────
 function avatarUrl(c) {
@@ -30,41 +29,17 @@ function avatarUrl(c) {
 }
 
 // ── Dot helpers ──────────────────────────────────────────────────────────────
-// Plain dots — for clan and covenant views
 function statusDots(n, max = 5) {
   const v = Math.max(0, Math.min(max, n | 0));
   return '\u25CF'.repeat(v) + '\u25CB'.repeat(max - v);
 }
 
-// City dots — out of 10, using effective city status (base + court title bonus)
-function cityStatusDots(c) {
-  return statusDots(calcCityStatus(c), 10);
-}
-
-// ── Bracket chip (avatar + name, no per-row dots/rank) ───────────────────────
+// ── Bracket chip (avatar + name) ─────────────────────────────────────────────
 function renderChip(c, isMe) {
   return `<div class="status-chip${isMe ? ' status-chip-me' : ''}">
     <img class="status-chip-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
     <span class="status-chip-name">${esc(displayName(c))}</span>
   </div>`;
-}
-
-// ── Bracket section: one header + chip row per distinct value ─────────────────
-function renderBrackets(groups, activeId, dotsFn) {
-  let h = `<div class="status-brackets">`;
-  for (const { val, chars } of groups) {
-    h += `<div class="status-bracket">`;
-    h += `<div class="status-bracket-head">`;
-    h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
-    h += `<span class="status-bracket-val">${val}</span>`;
-    h += `</div>`;
-    h += `<div class="status-bracket-chips">`;
-    for (const c of chars) h += renderChip(c, String(c._id) === activeId);
-    h += `</div>`;
-    h += `</div>`;
-  }
-  h += `</div>`;
-  return h;
 }
 
 // ── Fixed-tier bracket row (always shown, vacant if empty) ────────────────────
@@ -83,45 +58,6 @@ function renderTierRow(val, chars, activeId, dotsFn) {
   h += `</div>`;
   h += `</div>`;
   return h;
-}
-
-// ── Slot cards ────────────────────────────────────────────────────────────────
-function renderApexCard(c, activeId, valFn, dotsFn) {
-  if (!c) {
-    return `<div class="status-apex status-vacant"><span class="status-vacant-label">Vacant</span></div>`;
-  }
-  const isMe = String(c._id) === activeId;
-  return `<div class="status-apex${isMe ? ' status-slot-me' : ''}">
-    <img class="status-apex-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
-    <div class="status-apex-info">
-      <div class="status-apex-name">${esc(displayName(c))}</div>
-      ${c.player ? `<div class="status-apex-player">${esc(redactPlayer(c.player))}</div>` : ''}
-      ${c.court_title ? `<div class="status-apex-title">${esc(c.court_title)}</div>` : ''}
-    </div>
-    <div class="status-apex-score">
-      <div class="status-apex-dots">${dotsFn(c)}</div>
-      <div class="status-apex-val">${valFn(c)}</div>
-    </div>
-  </div>`;
-}
-
-function renderHighSeatCard(c, activeId, valFn, dotsFn) {
-  if (!c) {
-    return `<div class="status-high status-vacant"><span class="status-vacant-label">Vacant</span></div>`;
-  }
-  const isMe = String(c._id) === activeId;
-  return `<div class="status-high${isMe ? ' status-slot-me' : ''}">
-    <img class="status-high-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
-    <div class="status-high-info">
-      <div class="status-high-name">${esc(displayName(c))}</div>
-      ${c.player ? `<div class="status-high-player">${esc(redactPlayer(c.player))}</div>` : ''}
-      ${c.court_title ? `<div class="status-high-title">${esc(c.court_title)}</div>` : ''}
-    </div>
-    <div class="status-high-score">
-      <div class="status-high-dots">${dotsFn(c)}</div>
-      <div class="status-high-val">${valFn(c)}</div>
-    </div>
-  </div>`;
 }
 
 // ── City Status section (full-width) ─────────────────────────────────────────
@@ -149,11 +85,9 @@ function renderCitySection(chars, activeId) {
   h += `</div>`;
 
   h += `<div class="status-brackets">`;
-  // Fixed upper tiers always shown
   h += renderTierRow(10, byVal.get(10) || [], activeId, dotsFn);
   h += renderTierRow(9,  byVal.get(9)  || [], activeId, dotsFn);
   h += renderTierRow(8,  byVal.get(8)  || [], activeId, dotsFn);
-  // Floor — all remaining values
   const floorChars = sorted.filter(c => cityVal(c) < 8);
   if (floorChars.length) {
     const groups = [];
@@ -168,12 +102,11 @@ function renderCitySection(chars, activeId) {
     }
   }
   h += `</div>`;
-
   h += `</div>`;
   return h;
 }
 
-// ── Clan / Covenant section (column, with slot arch) ─────────────────────────
+// ── Covenant / Clan section (single-column, same slot arch) ──────────────────
 function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) {
   const byVal = new Map();
   for (const r of rows) {
@@ -192,10 +125,8 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
     h += `<p class="placeholder-msg status-empty">${esc(placeholder)}</p>`;
   } else {
     h += `<div class="status-brackets">`;
-    // Fixed upper tiers always shown
     h += renderTierRow(5, byVal.get(5) || [], activeId, dotsFn);
     h += renderTierRow(4, byVal.get(4) || [], activeId, dotsFn);
-    // Floor
     const floorRows = rows.filter(r => r.val < 4);
     if (floorRows.length) {
       const groups = [];
@@ -216,44 +147,27 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
 }
 
 // ── Main render ──────────────────────────────────────────────────────────────
-export async function renderStatusTab(el, activeChar, isST = false) {
+export async function renderSuiteStatusTab(el) {
   if (!el) return;
-  if (!activeChar) {
-    el.innerHTML = '<p class="placeholder-msg">Select a character first.</p>';
-    return;
-  }
-
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
 
   let chars;
   try {
     chars = await apiGet('/api/characters/status');
   } catch (err) {
-    el.innerHTML = `<p class="placeholder-msg">Failed to load status data: ${esc(err.message)}</p>`;
+    el.innerHTML = `<p class="placeholder-msg">Failed to load: ${esc(err.message)}</p>`;
     return;
   }
 
-  const activeId = String(activeChar._id);
+  const activeChar = suiteState.rollChar || null;
+  const activeId   = activeChar ? String(activeChar._id) : '';
+  const isST       = getRole() === 'st';
+
   let h = renderCitySection(chars, activeId);
 
   if (isST) {
-    // ST view: all clans and all covenants, each as its own column
-    const clans     = [...new Set(chars.map(c => c.clan).filter(Boolean))].sort();
+    // All covenants, then all clans — each full-width, stacked
     const covenants = [...new Set(chars.map(c => c.covenant).filter(Boolean))].sort();
-
-    h += `<div class="status-group-head">By Clan</div>`;
-    h += `<div class="status-multi-split">`;
-    for (const clan of clans) {
-      const rows = chars
-        .filter(c => c.clan === clan)
-        .map(c => ({ c, val: c.status?.clan || 0 }))
-        .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-      h += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
-    }
-    h += `</div>`;
-
-    h += `<div class="status-group-head">By Covenant</div>`;
-    h += `<div class="status-multi-split">`;
     for (const cov of covenants) {
       const rows = chars
         .filter(c => c.covenant === cov)
@@ -261,35 +175,38 @@ export async function renderStatusTab(el, activeChar, isST = false) {
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
       h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
-    h += `</div>`;
+    const clans = [...new Set(chars.map(c => c.clan).filter(Boolean))].sort();
+    for (const clan of clans) {
+      const rows = chars
+        .filter(c => c.clan === clan)
+        .map(c => ({ c, val: c.status?.clan || 0 }))
+        .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
+      h += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
+    }
   } else {
-    // Player view: only active character's clan and covenant
-    const clanRows = chars
-      .filter(c => c.clan && c.clan === activeChar.clan)
-      .map(c => ({ c, val: c.status?.clan || 0 }))
-      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-
-    const covRows = chars
-      .filter(c => c.covenant && c.covenant === activeChar.covenant)
-      .map(c => ({ c, val: c.status?.covenant || 0 }))
-      .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-
-    h += `<div class="status-split">`;
+    // Player: their covenant first, then their clan
+    const covRows = activeChar
+      ? chars.filter(c => c.covenant && c.covenant === activeChar.covenant)
+            .map(c => ({ c, val: c.status?.covenant || 0 }))
+            .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)))
+      : [];
+    const clanRows = activeChar
+      ? chars.filter(c => c.clan && c.clan === activeChar.clan)
+            .map(c => ({ c, val: c.status?.clan || 0 }))
+            .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)))
+      : [];
     h += renderStatusSection(
-      activeChar.clan || 'No clan',
-      activeChar.clan ? clanIcon(activeChar.clan, 18) : '',
-      clanRows,
-      activeId,
-      activeChar.clan ? 'No other members in your clan.' : 'Your character has no clan set.'
+      activeChar?.covenant || 'No covenant',
+      activeChar?.covenant ? covIcon(activeChar.covenant, 18) : '',
+      covRows, activeId,
+      activeChar?.covenant ? 'No other members in your covenant.' : 'No character selected.'
     );
     h += renderStatusSection(
-      activeChar.covenant || 'No covenant',
-      activeChar.covenant ? covIcon(activeChar.covenant, 18) : '',
-      covRows,
-      activeId,
-      activeChar.covenant ? 'No other members in your covenant.' : 'Your character has no covenant set.'
+      activeChar?.clan || 'No clan',
+      activeChar?.clan ? clanIcon(activeChar.clan, 18) : '',
+      clanRows, activeId,
+      activeChar?.clan ? 'No other members in your clan.' : 'No character selected.'
     );
-    h += `</div>`;
   }
 
   el.innerHTML = h;

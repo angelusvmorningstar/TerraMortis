@@ -1,20 +1,23 @@
 /* Game app — live tracker.
-   Per-character Vitae, Willpower, Health, and Conditions.
-   State persists in localStorage for the duration of the session. */
+   Vitae, Willpower, Health persist to MongoDB via /api/tracker_state.
+   Influence and Conditions stay localStorage-only (per-device session state). */
 
 import suiteState from '../suite/data.js';
-import { calcVitaeMax, calcWillpowerMax, calcHealth } from '../data/accessors.js';
+import { calcVitaeMax, calcWillpowerMax, calcHealth, influenceTotal } from '../data/accessors.js';
 import { displayName, esc } from '../data/helpers.js';
 
-const KEY = 'tm_tracker_state';
+const LOCAL_PREFIX = 'tm_tracker_local_';
 
-// UI-only — which cards are currently expanded (collapsed by default)
+// In-memory cache — populated by initTracker() / ensureLoaded()
+const _cache = {};
+
+// charIds confirmed loaded from API (or migrated) — guards against overwriting real data with defaults
+const _confirmed = new Set();
+
+// UI-only — which cards are currently expanded
 const _expanded = new Set();
 
-function load() {
-  try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
-}
-function save(state) { localStorage.setItem(KEY, JSON.stringify(state)); }
+// ── Storage helpers ──
 
 function defaults(c) {
   return {
@@ -24,52 +27,177 @@ function defaults(c) {
     lethal:     0,
     aggravated: 0,
     conditions: [],
+    inf:        influenceTotal(c),
   };
 }
 
-function ensure(state, c) {
+function persistedFields(cs) {
+  return {
+    vitae:      cs.vitae,
+    willpower:  cs.willpower,
+    bashing:    cs.bashing,
+    lethal:     cs.lethal,
+    aggravated: cs.aggravated,
+  };
+}
+
+function loadLocal(charId) {
+  try { return JSON.parse(localStorage.getItem(LOCAL_PREFIX + charId) || '{}'); } catch { return {}; }
+}
+
+function saveLocal(charId, fields) {
+  localStorage.setItem(LOCAL_PREFIX + charId, JSON.stringify({ ...loadLocal(charId), ...fields }));
+}
+
+async function loadFromApi(charId) {
+  try {
+    const res = await fetch(`/api/tracker_state/${charId}`, { credentials: 'include' });
+    if (res.ok) return await res.json();
+  } catch { /* network failure — fall through to null */ }
+  return null;
+}
+
+function saveToApi(charId, fields) {
+  // Optimistic: update cache immediately, write in background
+  _cache[charId] = { ...(_cache[charId] || {}), ...fields };
+  fetch(`/api/tracker_state/${charId}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  }).catch(() => { /* silent fail — cache remains valid */ });
+}
+
+async function ensureLoaded(c) {
   const id = String(c._id);
-  if (!state[id]) state[id] = defaults(c);
-  return state[id];
+  if (_confirmed.has(id)) return _cache[id];
+
+  const remote = await loadFromApi(id);
+  const local = loadLocal(id);
+
+  if (remote) {
+    _cache[id] = {
+      vitae:      remote.vitae      ?? defaults(c).vitae,
+      willpower:  remote.willpower  ?? defaults(c).willpower,
+      bashing:    remote.bashing    ?? 0,
+      lethal:     remote.lethal     ?? 0,
+      aggravated: remote.aggravated ?? 0,
+      inf:        local.inf         ?? influenceTotal(c),
+      conditions: local.conditions  ?? [],
+    };
+    _confirmed.add(id);
+    return _cache[id];
+  }
+
+  // No API entry — attempt migration from old localStorage key
+  try {
+    const oldStore = JSON.parse(localStorage.getItem('tm_tracker_state') || '{}');
+    const old = oldStore[id];
+    if (old) {
+      const migrated = {
+        vitae:      old.vitae      ?? defaults(c).vitae,
+        willpower:  old.willpower  ?? defaults(c).willpower,
+        bashing:    old.bashing    ?? 0,
+        lethal:     old.lethal     ?? 0,
+        aggravated: old.aggravated ?? 0,
+      };
+      saveToApi(id, migrated);
+      _cache[id] = { ...migrated, inf: local.inf ?? old.inf ?? influenceTotal(c), conditions: local.conditions ?? old.conditions ?? [] };
+      _confirmed.add(id);
+      return _cache[id];
+    }
+  } catch { /* ignore */ }
+
+  // Seed fresh defaults and persist
+  const d = defaults(c);
+  _cache[id] = d;
+  saveToApi(id, persistedFields(d));
+  _confirmed.add(id);
+  return _cache[id];
+}
+
+function fromCache(c) {
+  const id = String(c._id);
+  if (_cache[id]) return _cache[id];
+  // Cache miss before init completes — seed defaults without API write
+  _cache[id] = defaults(c);
+  return _cache[id];
 }
 
 // ── Public API ──
 
 let _el = null;
 
+export function trackerRead(charId) {
+  const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+  if (!c) return null;
+  return fromCache(c);
+}
+
+export function trackerReadRaw(charId) {
+  return _cache[charId] || null;
+}
+
+export function trackerWriteField(charId, field, value) {
+  const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+  if (!c) return;
+  const cs = fromCache(c);
+  cs[field] = value;
+  if (['vitae', 'willpower', 'bashing', 'lethal', 'aggravated'].includes(field)) {
+    // Only write to API if confirmed loaded — prevents migration code from
+    // overwriting real MongoDB data with stale localStorage on every page load
+    if (_confirmed.has(charId)) saveToApi(charId, { [field]: value });
+  } else {
+    saveLocal(charId, { [field]: value });
+  }
+}
+
 export function trackerToggle(charId) {
   if (_expanded.has(charId)) _expanded.delete(charId);
   else _expanded.add(charId);
-  // Patch just the card to avoid re-rendering the whole list
   const c = (suiteState.chars || []).find(x => String(x._id) === charId);
   if (!c) return;
-  const state = load();
-  patchCard(charId, c, ensure(state, c));
+  patchCard(charId, c, fromCache(c));
 }
 
-export function initTracker(el) {
+export async function initTracker(el) {
   _el = el;
+  el.innerHTML = '<div class="dtl-empty">Loading tracker\u2026</div>';
+  await Promise.all((suiteState.chars || []).map(c => ensureLoaded(c)));
   renderAll();
 }
 
-export function trackerReset() {
-  if (!confirm('Reset all characters to full Vitae and Willpower, clear all damage and conditions?')) return;
-  const state = {};
-  for (const c of (suiteState.chars || [])) state[String(c._id)] = defaults(c);
-  save(state);
+export async function trackerReset() {
+  if (!confirm('Reset all characters to zero Vitae and full Willpower? Damage and conditions are preserved.')) return;
+  for (const c of (suiteState.chars || [])) {
+    const id = String(c._id);
+    if (!_confirmed.has(id)) await ensureLoaded(c);
+    const cs = _cache[id] || {};
+    cs.vitae = 0;
+    cs.willpower = calcWillpowerMax(c);
+    _confirmed.add(id);
+    saveToApi(id, persistedFields(cs));
+  }
   renderAll();
 }
 
-export function trackerAdj(charId, field, delta) {
+export async function trackerAdj(charId, field, delta) {
   const c = (suiteState.chars || []).find(x => String(x._id) === charId);
   if (!c) return;
-  const state = load();
-  const cs = ensure(state, c);
+  // Load from API if not yet confirmed — prevents overwriting real data with seeded defaults
+  if (!_confirmed.has(charId)) await ensureLoaded(c);
+  const cs = _cache[charId];
 
   if (field === 'vitae') {
     cs.vitae = clamp(cs.vitae + delta, 0, calcVitaeMax(c));
   } else if (field === 'willpower') {
     cs.willpower = clamp(cs.willpower + delta, 0, calcWillpowerMax(c));
+  } else if (field === 'inf') {
+    const maxInf = influenceTotal(c);
+    cs.inf = clamp((cs.inf ?? maxInf) + delta, 0, maxInf);
+    saveLocal(charId, { inf: cs.inf });
+    patchCard(charId, c, cs);
+    return;
   } else {
     const maxHp = calcHealth(c);
     const used  = cs.bashing + cs.lethal + cs.aggravated;
@@ -77,7 +205,7 @@ export function trackerAdj(charId, field, delta) {
     cs[field] = Math.max(0, cs[field] + delta);
   }
 
-  save(state);
+  saveToApi(charId, persistedFields(cs));
   patchCard(charId, c, cs);
 }
 
@@ -87,10 +215,9 @@ export function trackerAddCondition(charId) {
   if (!val) return;
   const c = (suiteState.chars || []).find(x => String(x._id) === charId);
   if (!c) return;
-  const state = load();
-  const cs    = ensure(state, c);
+  const cs = fromCache(c);
   cs.conditions = [...(cs.conditions || []), val];
-  save(state);
+  saveLocal(charId, { conditions: cs.conditions });
   input.value = '';
   patchCard(charId, c, cs);
 }
@@ -98,10 +225,9 @@ export function trackerAddCondition(charId) {
 export function trackerRemoveCond(charId, idx) {
   const c = (suiteState.chars || []).find(x => String(x._id) === charId);
   if (!c) return;
-  const state = load();
-  const cs    = ensure(state, c);
+  const cs = fromCache(c);
   cs.conditions = (cs.conditions || []).filter((_, i) => i !== idx);
-  save(state);
+  saveLocal(charId, { conditions: cs.conditions });
   patchCard(charId, c, cs);
 }
 
@@ -110,21 +236,19 @@ export function trackerRemoveCond(charId, idx) {
 function renderAll() {
   if (!_el) return;
   const chars = suiteState.chars || [];
-  const state = load();
 
   let h = '<div class="trk-wrap">';
-  h += '<div class="trk-toolbar"><button class="trk-reset-btn" onclick="trackerReset()">Reset All</button><span class="trk-toolbar-hint">Resets tracks &amp; clears conditions</span></div>';
+  h += '<div class="trk-toolbar"><button class="trk-reset-btn" onclick="trackerReset()">Reset All</button><span class="trk-toolbar-hint">Zero Vitae, full WP &mdash; damage preserved</span></div>';
 
   if (!chars.length) {
     h += '<div class="dtl-empty">No characters loaded.</div>';
   } else {
     h += '<div class="trk-list">';
-    for (const c of chars) h += cardHtml(String(c._id), c, ensure(state, c));
+    for (const c of chars) h += cardHtml(String(c._id), c, fromCache(c));
     h += '</div>';
   }
   h += '</div>';
   _el.innerHTML = h;
-  save(state); // persist any newly initialised defaults
 }
 
 function patchCard(charId, c, cs) {
@@ -145,7 +269,6 @@ function cardHtml(id, c, cs) {
 
   let h = `<div class="trk-card${open ? ' trk-open' : ''}" id="trk-card-${id}">`;
 
-  // Header — always visible, tappable to toggle
   const dmgStr  = dmg > 0 ? `<span class="trk-hd-dmg">${dmg}dmg</span>` : '';
   const condStr = (cs.conditions || []).length > 0 ? `<span class="trk-hd-cond">${cs.conditions.length} cond</span>` : '';
   h += `<button class="trk-card-hd" onclick="trackerToggle('${id}')">`;
@@ -160,12 +283,11 @@ function cardHtml(id, c, cs) {
 
   if (!open) { h += '</div>'; return h; }
 
-  // Vitae
-  h += counter('Vitae',      id, 'vitae',     cs.vitae,     vpMax, 'trk-row-v');
-  // Willpower
-  h += counter('Willpower',  id, 'willpower',  cs.willpower, wpMax, 'trk-row-w');
+  h += counter('Vitae',     id, 'vitae',    cs.vitae,    vpMax, 'trk-row-v');
+  h += counter('Willpower', id, 'willpower', cs.willpower, wpMax, 'trk-row-w');
+  const infMax = influenceTotal(c);
+  if (infMax > 0) h += counter('Influence', id, 'inf', cs.inf ?? infMax, infMax, 'trk-row-inf');
 
-  // Health
   h += `<div class="trk-row trk-row-hp">`;
   h += `<span class="trk-lbl">Health <span class="trk-hp-total">${dmg}/${hpMax}</span></span>`;
   h += `<div class="trk-dmg-cols">`;
@@ -174,7 +296,6 @@ function cardHtml(id, c, cs) {
   h += dmgCol('Agg',     id, 'aggravated', cs.aggravated, 'trk-agg');
   h += `</div></div>`;
 
-  // Conditions
   const conds = cs.conditions || [];
   h += '<div class="trk-conds">';
   if (conds.length) {

@@ -534,11 +534,10 @@ export function shShowDevSelect(btn) {
     sel.style.display = '';
     btn.textContent = 'Confirm';
   } else {
-    // Actually add the devotion
+    // Actually add the devotion — sel.value is the rule's DB key, use it directly
     if (!sel.value) return;
     const c = state.chars[state.editIdx];
-    const slug = 'devotion-' + sel.value.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const rule = getRuleByKey(slug);
+    const rule = getRuleByKey(sel.value);
     if (!rule) return;
     if (!c.powers) c.powers = [];
     if (c.powers.some(p => p.category === 'devotion' && p.name === rule.name)) return;

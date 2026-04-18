@@ -8,8 +8,20 @@
 
 import { apiGet } from '../data/api.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { displayName } from '../data/helpers.js';
+import { esc, displayName, sortName, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { INFLUENCE_SPHERES } from '../data/constants.js';
+
+function avatarUrl(c) {
+  const pi = c._player_info || {};
+  if (isRedactMode() || !pi.discord_id || !pi.discord_avatar) {
+    if (isRedactMode()) return discordAvatarUrl(null, null);
+    let h = 0;
+    const s = String(c._id || c.name || '');
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return `https://cdn.discordapp.com/embed/avatars/${Math.abs(h) % 6}.png`;
+  }
+  return discordAvatarUrl(pi.discord_id, pi.discord_avatar, 64);
+}
 
 let chars = [];
 
@@ -51,12 +63,7 @@ function getSpheresData() {
     if (!spheres[key]) spheres[key] = {};
     const cid = String(c._id || c.name);
     if (!spheres[key][cid]) {
-      spheres[key][cid] = {
-        name: displayName(c),
-        allies: 0,
-        status: 0,
-        hasContacts: false,
-      };
+      spheres[key][cid] = { c, allies: 0, status: 0, hasContacts: false };
     }
     return spheres[key][cid];
   };
@@ -99,7 +106,7 @@ function getSpheresData() {
       ...r,
       total: r.allies + r.status,
     }));
-    rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    rows.sort((a, b) => b.total - a.total || sortName(a.c).localeCompare(sortName(b.c)));
     const sphereTotal = rows.reduce((s, r) => s + r.total, 0);
     out.push({ sphere, rows, total: sphereTotal });
   }
@@ -114,34 +121,105 @@ function getSpheresData() {
   return out;
 }
 
-function esc(s) {
-  if (s == null) return '';
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function renderSpherePyramid(rows, dimension) {
+  const holders = rows
+    .filter(r => r[dimension] > 0)
+    .sort((a, b) => b[dimension] - a[dimension] || sortName(a.c).localeCompare(sortName(b.c)));
+
+  const apex      = holders.find(r => r[dimension] === 5) || null;
+  const highSeats = holders.filter(r => r[dimension] === 4).slice(0, 2);
+  const floor     = holders.filter(r => r[dimension] < 4);
+
+  const highSlots = [...highSeats];
+  while (highSlots.length < 2) highSlots.push(null);
+
+  let h = `<div class="sph-pyramid-col">`;
+  h += `<div class="sph-pyramid-col-head">${dimension === 'allies' ? 'Allies' : 'Status'}</div>`;
+
+  // Apex
+  if (apex) {
+    h += `<div class="sph-apex">`;
+    h += `<img class="sph-apex-avatar" src="${esc(avatarUrl(apex.c))}" alt="" loading="lazy">`;
+    h += `<div class="sph-apex-info">`;
+    h += `<span class="sph-apex-name">${esc(displayName(apex.c))}</span>`;
+    h += `<span class="sph-apex-dots">\u25CF\u25CF\u25CF\u25CF\u25CF</span>`;
+    h += `</div>`;
+    h += `<span class="sph-apex-val">5</span>`;
+    h += `</div>`;
+  } else {
+    h += `<div class="sph-apex sph-vacant"><span class="sph-vacant-label">Vacant</span></div>`;
+  }
+
+  // High seats
+  h += `<div class="sph-high-row">`;
+  for (const r of highSlots) {
+    if (r) {
+      h += `<div class="sph-high">`;
+      h += `<img class="sph-high-avatar" src="${esc(avatarUrl(r.c))}" alt="" loading="lazy">`;
+      h += `<span class="sph-high-name">${esc(displayName(r.c))}</span>`;
+      h += `<span class="sph-high-val">4</span>`;
+      h += `</div>`;
+    } else {
+      h += `<div class="sph-high sph-vacant"><span class="sph-vacant-label">\u2013</span></div>`;
+    }
+  }
+  h += `</div>`;
+
+  // Floor: group by value descending
+  if (floor.length) {
+    h += `<div class="sph-floor">`;
+    const groups = [];
+    for (const r of floor) {
+      const last = groups[groups.length - 1];
+      if (last && last.val === r[dimension]) last.items.push(r);
+      else groups.push({ val: r[dimension], items: [r] });
+    }
+    for (const g of groups) {
+      h += `<div class="sph-floor-bracket">`;
+      h += `<span class="sph-floor-dots">${'\u25CF'.repeat(g.val)}${'\u25CB'.repeat(5 - g.val)}</span>`;
+      for (const r of g.items) h += `<span class="sph-floor-name">${esc(displayName(r.c))}</span>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+
+  h += `</div>`;
+  return h;
 }
 
 function renderSphereCard({ sphere, rows, total }) {
-  const vacant = rows.length === 0;
+  const vacant = rows.filter(r => r.total > 0 || r.hasContacts).length === 0;
   let h = `<div class="sphere-card${vacant ? ' sphere-card-vacant' : ''}">`;
   h += `<div class="sphere-head"><span class="sphere-name">${esc(sphere)}</span>`;
   if (!vacant) h += `<span class="sphere-total">${total} dots</span>`;
   h += `</div>`;
+
   if (vacant) {
     h += `<p class="sphere-vacant-msg">No current holders</p>`;
   } else {
-    h += `<ul class="sphere-card-list">`;
-    rows.forEach((r, i) => {
-      const isDominant = i === 0;
-      h += `<li class="sphere-card-item${isDominant ? ' sphere-dominant' : ''}">`;
-      h += `<span class="sphere-char-name">${i + 1}. ${esc(r.name)}</span>`;
-      h += `<span class="sphere-char-meta">`;
-      if (r.allies)      h += `A${r.allies} `;
-      if (r.status)      h += `S${r.status} `;
-      if (r.hasContacts) h += `\u2713`;
-      h += `</span>`;
-      h += `</li>`;
-    });
-    h += `</ul>`;
+    h += `<div class="sph-pyramid-split">`;
+    h += renderSpherePyramid(rows, 'status');
+    h += renderSpherePyramid(rows, 'allies');
+    h += `</div>`;
+
+    const contactChars = rows
+      .filter(r => r.hasContacts)
+      .sort((a, b) => sortName(a.c).localeCompare(sortName(b.c)));
+    if (contactChars.length) {
+      h += `<div class="sph-contacts-section">`;
+      h += `<div class="sph-contacts-label">Contacts</div>`;
+      h += `<div class="sph-contacts-chips">`;
+      for (const r of contactChars) {
+        h += `<div class="sph-contact-chip">`;
+        h += `<img class="sph-contact-avatar" src="${esc(avatarUrl(r.c))}" alt="" loading="lazy">`;
+        h += `<span class="sph-contact-name">${esc(displayName(r.c))}</span>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
+      h += `</div>`;
+    }
   }
+
   h += `</div>`;
   return h;
 }

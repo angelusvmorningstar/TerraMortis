@@ -1646,6 +1646,16 @@ function buildMeritActions(sub) {
     });
   }
 
+  const skillAcqBlob = raw.acquisitions?.skill_acquisitions || resp['skill_acquisitions'] || '';
+  if (skillAcqBlob.trim()) {
+    actions.push({
+      merit_type:      'Skill Acquisition',
+      action_type:     'acquisition',
+      desired_outcome: '',
+      description:     skillAcqBlob,
+    });
+  }
+
   return actions;
 }
 
@@ -1661,6 +1671,7 @@ function deriveMeritCategory(meritTypeStr) {
   if (/staff/.test(s))     return 'staff';
   if (/contacts?/.test(s)) return 'contacts';
   if (/resources?/.test(s)) return 'resources';
+  if (/skill/.test(s))      return 'resources';
   return 'misc';
 }
 
@@ -1804,6 +1815,45 @@ function getTerritoryOverlap(sub, meritFlatIdx, allSubmissions, allChars) {
 // ── Action context builder (B3 + A1) ─────────────────────────────────────────
 
 /**
+ * Specialised prompt for resource acquisition actions.
+ */
+function _buildResourceAcqContext(char, action, rev, dots) {
+  const lines = ['Draft a resources acquisition response for:', '', _compactCharHeader(char)];
+
+  // Resources merit dots
+  const resourcesMerit = char?.merits?.find(m => /^resources$/i.test(m.merit_name || m.name || ''));
+  const resDots = resourcesMerit ? (resourcesMerit.dots || 0) : (dots || 0);
+  lines.push(`Resources: ${'●'.repeat(resDots)} (${resDots} dots)`);
+
+  // Fixer merit
+  const hasFixer = char?.merits?.some(m => /fixer/i.test(m.merit_name || m.name || ''));
+  if (hasFixer) lines.push('Fixer merit: Yes');
+
+  // Parse item + availability from description blob
+  const desc = action.description || '';
+  const itemMatch = desc.match(/acquisition description[:\s]+([^\n]+)/i);
+  const availMatch = desc.match(/availability[:\s]+([^\n]+)/i);
+  const item = itemMatch ? itemMatch[1].trim() : (desc.trim() || 'Not specified');
+  const avail = availMatch ? availMatch[1].trim() : null;
+
+  lines.push(`Item: ${item}`);
+  if (avail) lines.push(`Availability: ${avail}`);
+
+  // ST notes thread
+  const notes = Array.isArray(rev.notes_thread) ? rev.notes_thread : [];
+  if (notes.length) {
+    lines.push('');
+    lines.push('ST directives:');
+    notes.forEach(n => lines.push(`- [${n.author_name || 'ST'}] ${n.text || ''}`));
+  }
+
+  lines.push('');
+  lines.push('This is a purchase, not a contacts report. Register: transactional. Confirm whether the acquisition succeeds, note any complications (cost, time, conditions). 40-80 words. Use house style.');
+
+  return lines.join('\n');
+}
+
+/**
  * Assembles the Copy Context prompt for a single merit action.
  * Pure function — reads module-level _allSubmissions / _allCharacters for cross-action chips.
  */
@@ -1814,6 +1864,12 @@ function buildActionContext(char, sub, idx) {
   const actionType  = rev.action_type_override || action.action_type || '';
   const meritCat    = deriveMeritCategory(action.merit_type);
   const { dots, qualifier, label } = getMeritDetails(char, action);
+
+  // ── Resource acquisition: specialised prompt ──────────────────────────────
+  if (meritCat === 'resources' && actionType === 'acquisition') {
+    return _buildResourceAcqContext(char, action, rev, dots);
+  }
+
   const matrixEntry = MERIT_MATRIX[meritCat]?.[actionType] || {};
   const isAuto      = matrixEntry.poolFormula === 'none';
   const mode        = isAuto ? 'Auto (no roll)' : 'Rolled';
