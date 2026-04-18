@@ -4262,3 +4262,11 @@ html:not([data-theme="dark"]) .tk-badge-question   { background: rgba(20,120,110
 .office-merit-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .office-merit-chip { font-family: var(--fl); font-size: 12px; color: var(--txt2); background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; padding: 3px 8px; }
 html:not([data-theme="dark"]) .tk-badge-sheet      { background: var(--gold-a12);       color: var(--gold); }
+
+/* ── Responsive character sheet — collapse 3-col grids on mobile ── */
+@media (max-width: 768px) {
+  .sh-attr-grid { grid-template-columns: 1fr !important; gap: 12px; }
+  .skill-grid   { grid-template-columns: 1fr !important; gap: 12px; }
+  .sh-body { padding: 0 8px 20px; }
+  .sh-sec  { margin-top: 12px; }
+}
