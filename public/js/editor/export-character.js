@@ -96,7 +96,7 @@ export function serialiseForPrint(c, territories) {
     size: calcSize(c),
     vitae_max: calcVitaeMax(c),
     status: {
-      city: (st.city || 0) + titleStatusBonus(c),
+      city: calcCityStatus(c),
       clan: st.clan || 0,
       covenant: Math.max(st.covenant || 0, c._ots_covenant_bonus || 0),
     },
