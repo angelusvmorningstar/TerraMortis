@@ -6,8 +6,10 @@
    Loaded by all three apps (index.html, admin.html, player.html).
    ══════════════════════════════════════════ */
 
-/* ── Character cards ── */
-.char-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
+/* ── Character cards / chips ── */
+.char-grid{display:flex;flex-wrap:wrap;gap:8px;}
+.char-chip{background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:10px 16px;min-height:44px;font-family:var(--fl);font-size:13px;font-weight:600;letter-spacing:.04em;color:var(--txt);cursor:pointer;display:inline-flex;align-items:center;text-align:left;transition:border-color .15s,background .15s;}
+.char-chip:hover{border-color:var(--bdr2);background:var(--surf3);color:var(--accent);}
 .char-card{background:var(--surf);border:1px solid var(--bdr);border-radius:8px;padding:14px 18px;cursor:pointer;transition:border-color .15s,background .15s;display:flex;flex-direction:column;gap:6px;position:relative;}
 .char-card:hover{border-color:var(--bdr2);background:var(--surf2);}
 .char-card.dirty{border-left:3px solid var(--gold);}

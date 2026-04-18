@@ -1,8 +1,7 @@
 /* List view — character grid rendering and filtering */
 
 import state from '../data/state.js';
-import { esc, clanIcon, covIcon, shortCov, cardName, sortName, redactPlayer } from '../data/helpers.js';
-import { xpLeft, xpEarned } from './xp.js';
+import { esc, cardName, sortName } from '../data/helpers.js';
 
 /**
  * Render the character card grid, respecting search and filter inputs.
@@ -28,30 +27,7 @@ export function renderList(limitIds) {
   filtered.sort((a, b) => sortName(a.c).localeCompare(sortName(b.c)));
 
   grid.innerHTML = filtered.map(({ c, i }) => {
-    const bp = c.blood_potency || 1;
-    const hum = c.humanity != null ? c.humanity : '?';
-    const xpL = xpLeft(c);
-
-    const isDirty = state.dirty.has(i) ? ' dirty' : '';
-    const title = (c.court_category || c.court_title) ? `<span class="cc-tag title">${esc(c.court_category || c.court_title)}</span>` : '';
-    const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
-    return `<div class="char-card${isDirty}" onclick="openChar(${i})">
-      <div class="cc-top">
-        <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
-        <div class="cc-identity"><span class="cc-name">${esc(cardName(c))}</span><br><span class="cc-player">${esc(redactPlayer(c.player || ''))}</span></div>
-      </div>
-      <div class="cc-mid">
-        <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>
-        <span class="cc-tag clan">${clanIcon(c.clan, 14)} ${esc(c.clan || '?')}</span>
-        ${c.bloodline ? `<span class="cc-tag">${esc(c.bloodline)}</span>` : ''}
-        ${title}
-      </div>
-      <div class="cc-bot">
-        <span>BP <span class="val">${bp}</span></span>
-        <span>Hum <span class="val">${hum}</span></span>
-        <span>XP <span class="val">${xpL}/${xpEarned(c)}</span></span>
-      </div>
-    </div>`;
+    return `<button class="char-chip" onclick="openChar(${i})">${esc(cardName(c))}</button>`;
   }).join('');
 
   document.getElementById('list-count').textContent = filtered.length + ' / ' + state.chars.length + ' characters';
