@@ -10,19 +10,14 @@
 //
 // Usage: cd server && node patch-presence-cp-recovery.js
 
-import { MongoClient } from 'mongodb';
-import 'dotenv/config';
-
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) { console.error('MONGODB_URI not set'); process.exit(1); }
+import { connectDb, getDb, closeDb } from './db.js';
 
 // Affected characters — searched by legal name OR moniker
 const AFFECTED_NAMES = ['Alice', 'Anichka', 'Brandy', 'Cyrus', 'Etsy', 'Jack', 'Keeper'];
 
 async function run() {
-  const client = new MongoClient(MONGODB_URI);
-  await client.connect();
-  const db = client.db('tm_suite');
+  await connectDb();
+  const db = getDb();
   const col = db.collection('characters');
 
   // Match on legal name OR moniker, case-insensitive prefix
@@ -71,7 +66,7 @@ async function run() {
     console.log(`    [patched]`);
   }
 
-  await client.close();
+  await closeDb();
   console.log('\nDone.');
 }
 
