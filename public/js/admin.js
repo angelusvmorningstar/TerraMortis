@@ -182,7 +182,7 @@ function switchDomain(domain) {
   if (btn) btn.classList.add('on');
 
   if (domain === 'players') initPlayersView(chars);
-  if (domain === 'engine') { initNextSession(); initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
+  if (domain === 'engine') { /* Engine tab removed — dice, feeding, session tracker were Engine-only tools */ }
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
   if (domain === 'downtime') {
@@ -200,7 +200,7 @@ function switchDomain(domain) {
       renderCityOverview();
     }
   }
-  if (domain === 'attendance') initAttendance(chars);
+  if (domain === 'attendance') { initNextSession(); initAttendance(chars); }
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
