@@ -63,7 +63,7 @@ export const AMBIENCE_CAP = {
 // Ambience level → default dice modifier
 export const AMBIENCE_MODS = {
   Hostile: -5, Barrens: -4, Neglected: -3, Untended: -2,
-  Settled: 0, Tended: 2, Curated: 3,
+  Settled: 0, Tended: 2, Curated: 3, Verdant: 4, 'The Rack': 5,
 };
 
 // Territory definitions with current ambience (mirrors city-views.js)

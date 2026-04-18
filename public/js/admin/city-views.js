@@ -19,7 +19,7 @@ const TERRITORIES = [
   { id: 'secondcity', name: 'The Second City', ambience: 'Tended', ambienceMod: +2 },
 ];
 
-const AMBIENCE_LEVELS = ['Hostile', 'Barrens', 'Neglected', 'Untended', 'Settled', 'Tended', 'Curated'];
+const AMBIENCE_LEVELS = ['Hostile', 'Barrens', 'Neglected', 'Untended', 'Settled', 'Tended', 'Curated', 'Verdant', 'The Rack'];
 
 const CATEGORY_ORDER = ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer'];
 const COURT_CATEGORIES = ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer'];
