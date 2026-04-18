@@ -192,7 +192,7 @@ export function renderSheet() {
   const maxH  = calcHealth(c);
   const maxV  = calcVitaeMax(c);
   const maxWP = calcWillpowerMax(c);
-  const maxInf = influenceTotal(c);
+  const maxInf = calcTotalInfluence(c);
 
   // Load from canonical tracker store (keyed by _id)
   const charId = String(c._id);
@@ -235,12 +235,11 @@ export function renderSheet() {
     </div>`;
   }
 
-  const activeInfMerits = influenceMerits(c).filter(m => !m.prereq_failed && (m.rating || 0) > 0);
-  const infBreakdown = activeInfMerits.length
-    ? `<div class="sh-inf-breakdown">${activeInfMerits.map(m => {
-        const total = (m.rating || 0) + (m.bonus || 0);
-        return `<span class="sh-inf-merit">${m.name} <span class="sh-inf-dots">${'\u25CF'.repeat(Math.min(total, 10))}</span></span>`;
-      }).join('')}</div>`
+  const bdLines = influenceBreakdown(c);
+  const infBreakdown = bdLines.length
+    ? `<div class="sh-inf-breakdown">${bdLines.map(l =>
+        `<span class="sh-inf-merit">${l}</span>`
+      ).join('')}</div>`
     : '';
 
   html += `<div class="sh-tracker-block" id="tracker-block">
@@ -658,7 +657,7 @@ document.addEventListener('click', function(e) {
     const trueMax = type === 'health' ? maxH
       : type === 'vitae'  ? calcVitaeMax(c)
       : type === 'wp'     ? calcWillpowerMax(c)
-      : influenceTotal(c);
+      : calcTotalInfluence(c);
     numEl.textContent = updatedSheet + '/' + trueMax;
   }
 });
