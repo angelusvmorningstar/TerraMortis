@@ -99,7 +99,7 @@ UX-DR8: Ensure admin portal has ≥44px tap targets and collapsible sidebar for 
 
 1. **Navigation Shell** — New 4-tab primary nav and More grid launcher
 2. **Content Migration** — Migrate player.html and suite app content into unified app
-3. **Contextual Intelligence** — Lifecycle cards and theme system
+3. **Contextual Intelligence** — Lifecycle cards, badge system, and theme toggle
 
 ---
 
@@ -109,11 +109,13 @@ UX-DR8: Ensure admin portal has ≥44px tap targets and collapsible sidebar for 
 
 **Why first:** Nothing else can be built until the nav container exists. This epic creates the shell; subsequent epics fill it.
 
-### Story 1.1: Unify auth and routing into a single entry point
+**Story sequencing note:** Stories 1.1 and 1.4 run as parallel discovery work — 1.1 is the routing/auth architecture, 1.4 is the content inventory. Stories 1.2 and 1.3 build the nav structure informed by both. Do not start 1.2 or 1.3 until 1.1 and 1.4 are complete.
+
+### Story 1.1: Unify auth, routing, and theme default
 
 As an authenticated user (player or ST),
-I want a single URL to open the Terra Mortis game app regardless of my role,
-So that I don't need to know which of two apps to open.
+I want a single URL to open the Terra Mortis game app with the correct theme and role-appropriate content,
+So that I don't need to know which of two apps to open and the app looks right from the first render.
 
 **Acceptance Criteria:**
 
@@ -129,7 +131,13 @@ So that I don't need to know which of two apps to open.
 **When** the page loads
 **Then** it redirects to the unified app (or renders identically)
 
-**Architectural decision (resolved):** Evolve `index.html` — absorb `player.html`'s functionality progressively. No new HTML file needed. `player.html` becomes a redirect once migration is complete. Desktop-oriented features (DT Submission, Ordeals) live in the unified app; responsive behaviour handles viewport differences, no separate URL. Dark theme is the unified default; theme toggle is added in Epic 3.
+**Architectural decision (resolved):** Evolve `index.html` — absorb `player.html`'s functionality progressively. No new HTML file needed. `player.html` becomes a redirect once migration is complete. Desktop-oriented features (DT Submission, Ordeals) live in the unified app; responsive behaviour handles viewport differences, no separate URL.
+
+**Theme correctness (not polish):** The two current apps have opposite defaults (`index.html` defaults dark, `player.html` defaults light). This story fixes that — dark is the unified default, applied correctly on first load. The user-controlled toggle is Epic 3. This is a correctness fix, not a feature.
+
+**Given** any user opens the unified app for the first time (no saved preference)
+**When** the app loads
+**Then** dark theme is applied before first render — no flash of wrong theme
 
 ---
 
@@ -219,11 +227,11 @@ So that the app is usable from the moment it ships — not a skeleton.
 
 **Why second:** The shell exists from Epic 1. Now we fill it with real content. No duplication survives this epic.
 
-### Story 2.1: Platform-aware character sheet (single implementation)
+### Story 2.1: Read-only platform-aware character sheet (single implementation)
 
 As a user on any device,
-I want the character sheet to render appropriately for my screen,
-So that I get the best experience whether I'm on a phone or desktop.
+I want a read-only character sheet that renders appropriately for my screen,
+So that I can reference my character's stats clearly whether I'm on a phone or desktop.
 
 **Acceptance Criteria:**
 
@@ -247,7 +255,11 @@ So that I get the best experience whether I'm on a phone or desktop.
 **When** the tab opens
 **Then** their own character sheet renders immediately (no picker)
 
-**Notes:** Consolidate `editor/sheet.js` and `suite/sheet.js` into a single platform-aware renderer. EPB.2 CSS breakpoints already exist in player-layout.css. The editor sheet is more complete — likely the base to extend.
+**Scope boundary:** This story is **read-only only**. Edit mode stays in `admin.html` — it is not part of the unified app. Players never need edit mode. STs in the game app are looking up characters, not editing them.
+
+**Implementation approach:** `suite/sheet.js` is the base (already read-only). Extend it with the responsive CSS from EPB.2. Do not touch `editor/sheet.js` — that remains the admin-only edit implementation.
+
+**Notes:** EPB.2 CSS breakpoints already exist in player-layout.css. This story wires the responsive behaviour that already exists into a single clean component.
 
 ---
 
@@ -358,7 +370,7 @@ So that there is one feeding experience with no divergence between surfaces.
 
 ## Epic 3: Contextual Intelligence
 
-**Goal:** Make the app context-aware — surfacing feeding when it's open, signalling DT deadlines, and letting users control their theme preference. The app knows where you are in the game cycle and shows what's relevant.
+**Goal:** Make the app context-aware — surfacing feeding when it's open, signalling DT deadlines, badging the More tab when content awaits, and letting users control their theme preference. The app knows where you are in the game cycle and shows what's relevant.
 
 **Why third:** Requires the unified shell (Epic 1) and real content (Epic 2) to already be in place. Contextual cards are a layer on top of a working app.
 
@@ -414,4 +426,56 @@ So that I can choose the display that suits my environment.
 **When** the user looks in the More grid or app settings
 **Then** the toggle is no more than 2 taps away from any screen
 
-**Notes:** The token-based CSS system already supports both themes throughout all components. The change is: (1) unify the theme init logic from the two opposite defaults, (2) add a toggle UI, (3) ensure all new components in Epics 1–2 use only token-based colours.
+**Notes:** The token-based CSS system already supports both themes throughout all components. Story 1.1 already fixes the default — this story adds the user toggle on top. The change is: (1) add a toggle UI (More grid or settings), (2) persist preference to localStorage, (3) ensure all new components in Epics 1–2 use only token-based colours.
+
+---
+
+### Story 3.3: More grid badge — unread/pending indicator
+
+As a user,
+I want a badge on the More tab when something inside it needs my attention,
+So that I don't miss content that's waiting for me without having to open More to find out.
+
+**Acceptance Criteria:**
+
+**Given** a player has a published DT narrative they haven't viewed
+**When** the app loads
+**Then** the More tab shows a badge indicator (dot or count)
+
+**Given** the feeding phase is open and this player hasn't rolled yet
+**When** the app loads
+**Then** the More tab badge is shown
+
+**Given** the player opens More and views the relevant content
+**When** they return to the primary nav
+**Then** the badge clears
+
+**Given** no unread content or pending actions exist in More
+**When** the app loads
+**Then** no badge is shown on the More tab
+
+**Notes:** Requires API queries on load: `/api/downtime_cycles` (active cycle), `/api/downtime_submissions` (has published outcome not yet viewed?), `/api/game_sessions/next` (feeding phase active + no roll). These are lightweight reads — batch or cache on load. Badge uses `--accent` dot, no count needed for v1. "Viewed" state can be tracked via localStorage keyed to submission ID (simple) or a server-side flag (robust — defer to later iteration).
+
+---
+
+### Story 3.4: DT Report unread state
+
+As a player,
+I want to know when a new downtime narrative has been published for me,
+So that I read it promptly rather than discovering it by chance.
+
+**Acceptance Criteria:**
+
+**Given** the ST pushes a player's downtime outcome
+**When** the player next opens the app
+**Then** the DT Report icon in the More grid shows an unread indicator
+
+**Given** the player opens DT Report and views their narrative
+**When** they close the view
+**Then** the unread indicator clears
+
+**Given** the player has already viewed their current narrative
+**When** the app loads
+**Then** no unread indicator is shown on DT Report
+
+**Notes:** This is the More grid icon-level badge — Story 3.3 handles the tab-level badge, this handles the individual app icon. "Viewed" tracking: store last-viewed submission ID in localStorage. If the current published submission ID differs, show badge. Server-side tracking is a future enhancement.
