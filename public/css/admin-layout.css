@@ -2329,7 +2329,7 @@ body {
 .att-name-col { text-align: left; min-width: 130px; }
 .att-char-col { text-align: left; min-width: 140px; }
 .att-sort-hd { cursor: pointer; user-select: none; white-space: nowrap; }
-.att-sort-hd:hover { color: var(--gold2); }
+.att-sort-hd:hover { color: var(--accent); }
 .att-check-col { width: 70px; }
 .att-num-col { width: 60px; }
 .att-xp-col { width: 50px; }
