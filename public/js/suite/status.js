@@ -12,6 +12,7 @@
 import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
+import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
 import suiteState from './data.js';
 import { getRole } from '../auth/discord.js';
 
@@ -43,11 +44,12 @@ function renderChip(c, isMe) {
 }
 
 // ── Fixed-tier bracket row (always shown, vacant if empty) ────────────────────
-function renderTierRow(val, chars, activeId, dotsFn) {
+function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false) {
   let h = `<div class="status-bracket status-bracket-fixed">`;
   h += `<div class="status-bracket-head">`;
   h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
   h += `<span class="status-bracket-val">${val}</span>`;
+  if (showAppellation) h += `<span class="status-bracket-appellation">${CITY_STATUS_APPELLATIONS[val] || ''}</span>`;
   h += `</div>`;
   h += `<div class="status-bracket-chips">`;
   if (chars.length) {
@@ -85,9 +87,9 @@ function renderCitySection(chars, activeId) {
   h += `</div>`;
 
   h += `<div class="status-brackets">`;
-  h += renderTierRow(10, byVal.get(10) || [], activeId, dotsFn);
-  h += renderTierRow(9,  byVal.get(9)  || [], activeId, dotsFn);
-  h += renderTierRow(8,  byVal.get(8)  || [], activeId, dotsFn);
+  h += renderTierRow(10, byVal.get(10) || [], activeId, dotsFn, true);
+  h += renderTierRow(9,  byVal.get(9)  || [], activeId, dotsFn, true);
+  h += renderTierRow(8,  byVal.get(8)  || [], activeId, dotsFn, true);
   const floorChars = sorted.filter(c => cityVal(c) < 8);
   if (floorChars.length) {
     const groups = [];
@@ -98,7 +100,7 @@ function renderCitySection(chars, activeId) {
       else groups.push({ val: v, chars: [c] });
     }
     for (const { val, chars } of groups) {
-      h += renderTierRow(val, chars, activeId, dotsFn);
+      h += renderTierRow(val, chars, activeId, dotsFn, true);
     }
   }
   h += `</div>`;
