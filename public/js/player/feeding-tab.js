@@ -50,6 +50,7 @@ let publishedFeedingText = null; // extracted Feeding section from published_out
 let stRollResult = null; // ST's roll from admin processing (feeding_roll)
 let currentSub = null; // full submission doc for summary rendering
 let vitateTally = null; // feeding_vitae_tally from ST processing
+const _stConfirmed = {}; // charId → {vitae, infSpent} — persists within session
 
 export async function renderFeedingTab(el, char) {
   currentChar = char;
@@ -690,23 +691,33 @@ function render() {
         : safeVitae;
       const stBonus = vitateTally?.total_bonus ?? 0;
       const stDefault = stVesselTotal + stBonus;
+      const charId = String(currentChar._id);
+      const confirmed = _stConfirmed[charId];
       h += `<div class="feed-st-confirm">`;
-      h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
-      if (stBonus) {
-        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
+      if (confirmed) {
+        // ── Persistent confirmed record ──
+        let rec = `Vitae \u2192 ${confirmed.vitae}`;
+        if (confirmed.infSpent > 0) rec += `\u2002|\u2002Inf \u2212${confirmed.infSpent}`;
+        h += `<div class="feed-confirmed-record">\u2713 Feed confirmed \u2014 ${rec}</div>`;
+        h += `<button class="feed-reconfirm-btn" id="feed-reconfirm-btn">Edit</button>`;
       } else {
-        h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
+        h += `<div class="feed-st-confirm-lbl">Confirm vitae gained:</div>`;
+        if (stBonus) {
+          h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong> + Bonus: <strong>+${stBonus}</strong> = <strong>${stDefault}</strong> total</div>`;
+        } else {
+          h += `<div class="feed-st-vitae-total">Vessel vitae: <strong>${stVesselTotal}</strong></div>`;
+        }
+        h += `<div class="feed-confirm-controls">`;
+        h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
+        h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
+        h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
+        h += `</div>`;
+        h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
+        h += `<div class="feed-inf-display">`;
+        h += `<span class="feed-inf-lbl">Influence spent last cycle:</span>`;
+        h += `<span class="feed-inf-val" id="feed-inf-spent">Loading\u2026</span>`;
+        h += `</div>`;
       }
-      h += `<div class="feed-confirm-controls">`;
-      h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
-      h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
-      h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
-      h += `</div>`;
-      h += `<button class="feed-confirm-btn" id="feed-confirm-btn">Confirm Feed</button>`;
-      h += `<div class="feed-inf-display">`;
-      h += `<span class="feed-inf-lbl">Influence spent last cycle:</span>`;
-      h += `<span class="feed-inf-val" id="feed-inf-spent">Loading\u2026</span>`;
-      h += `</div>`;
       h += `</div>`;
     }
   }
@@ -829,8 +840,14 @@ function wireEvents() {
     const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
     if (infSpent > 0) await trackerAdj(charId, 'inf', -infSpent);
 
-    const btn = container.querySelector('#feed-confirm-btn');
-    if (btn) { btn.textContent = 'Confirmed \u2713'; btn.disabled = true; }
+    _stConfirmed[charId] = { vitae: n, infSpent };
+    render();
+  });
+
+  container.querySelector('#feed-reconfirm-btn')?.addEventListener('click', () => {
+    if (!currentChar) return;
+    delete _stConfirmed[String(currentChar._id)];
+    render();
   });
 
   // Defer button
