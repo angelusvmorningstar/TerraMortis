@@ -1,6 +1,8 @@
 /**
- * API tests — /api/players, /api/game_sessions, /api/territory-residency.
+ * API tests — /api/game_sessions, /api/territory-residency.
  * Tests role gating, CRUD, validation.
+ *
+ * /api/players tests live in api-players.test.js (removed from here — was duplicate).
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -12,7 +14,7 @@ import { setupDb, teardownDb } from './helpers/db-setup.js';
 import { getCollection } from '../db.js';
 
 let app;
-const cleanupIds = { players: [], game_sessions: [], territory_residency: [] };
+const cleanupIds = { game_sessions: [], territory_residency: [] };
 
 beforeAll(async () => {
   await setupDb();
@@ -22,140 +24,14 @@ beforeAll(async () => {
 afterEach(async () => {
   for (const [colName, ids] of Object.entries(cleanupIds)) {
     const col = getCollection(colName);
-    for (const id of ids) {
-      await col.deleteOne({ _id: id });
-    }
+    for (const id of ids) await col.deleteOne({ _id: id });
     cleanupIds[colName] = [];
   }
-  // Clean up residency test docs by territory name
   await getCollection('territory_residency').deleteMany({ territory: /^Test / });
 });
 
 afterAll(async () => {
   await teardownDb();
-});
-
-// ══════════════════════════════════════
-//  PLAYERS
-// ══════════════════════════════════════
-
-describe('GET /api/players — Role gating', () => {
-  it('ST can list all players', async () => {
-    const res = await request(app)
-      .get('/api/players')
-      .set('X-Test-User', stUser());
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
-  });
-
-  it('player cannot list all players', async () => {
-    const res = await request(app)
-      .get('/api/players')
-      .set('X-Test-User', playerUser([]));
-    expect(res.status).toBe(403);
-  });
-
-  it('returns 401 without auth', async () => {
-    const res = await request(app).get('/api/players');
-    expect(res.status).toBe(401);
-  });
-});
-
-describe('POST /api/players — Create', () => {
-  it('ST can create a player', async () => {
-    const uid = 'test-discord-' + Date.now();
-    const res = await request(app)
-      .post('/api/players')
-      .set('X-Test-User', stUser())
-      .send({ discord_id: uid, display_name: 'Test Player', role: 'player' });
-    expect(res.status).toBe(201);
-    expect(res.body.discord_id).toBe(uid);
-    expect(res.body.display_name).toBe('Test Player');
-    cleanupIds.players.push(new ObjectId(res.body._id));
-  });
-
-  it('rejects missing display_name', async () => {
-    const res = await request(app)
-      .post('/api/players')
-      .set('X-Test-User', stUser())
-      .send({ discord_id: 'test-no-name-' + Date.now() });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('VALIDATION_ERROR');
-  });
-
-  it('rejects duplicate discord_id', async () => {
-    const uid = 'test-dup-' + Date.now();
-    const res1 = await request(app)
-      .post('/api/players')
-      .set('X-Test-User', stUser())
-      .send({ discord_id: uid, display_name: 'First' });
-    expect(res1.status).toBe(201);
-    cleanupIds.players.push(new ObjectId(res1.body._id));
-
-    const res2 = await request(app)
-      .post('/api/players')
-      .set('X-Test-User', stUser())
-      .send({ discord_id: uid, display_name: 'Duplicate' });
-    expect(res2.status).toBe(409);
-    expect(res2.body.error).toBe('CONFLICT');
-  });
-
-  it('player cannot create players', async () => {
-    const res = await request(app)
-      .post('/api/players')
-      .set('X-Test-User', playerUser([]))
-      .send({ discord_id: 'blocked', display_name: 'Blocked' });
-    expect(res.status).toBe(403);
-  });
-});
-
-describe('PUT /api/players/:id — Update', () => {
-  it('ST can update a player', async () => {
-    const uid = 'test-update-' + Date.now();
-    const create = await request(app)
-      .post('/api/players')
-      .set('X-Test-User', stUser())
-      .send({ discord_id: uid, display_name: 'Before' });
-    cleanupIds.players.push(new ObjectId(create.body._id));
-
-    const res = await request(app)
-      .put(`/api/players/${create.body._id}`)
-      .set('X-Test-User', stUser())
-      .send({ display_name: 'After' });
-    expect(res.status).toBe(200);
-    expect(res.body.display_name).toBe('After');
-  });
-
-  it('returns 404 for non-existent player', async () => {
-    const res = await request(app)
-      .put('/api/players/000000000000000000000000')
-      .set('X-Test-User', stUser())
-      .send({ display_name: 'Ghost' });
-    expect(res.status).toBe(404);
-  });
-});
-
-describe('DELETE /api/players/:id', () => {
-  it('ST can delete a player', async () => {
-    const uid = 'test-delete-' + Date.now();
-    const create = await request(app)
-      .post('/api/players')
-      .set('X-Test-User', stUser())
-      .send({ discord_id: uid, display_name: 'Doomed' });
-
-    const res = await request(app)
-      .delete(`/api/players/${create.body._id}`)
-      .set('X-Test-User', stUser());
-    expect(res.status).toBe(204);
-  });
-
-  it('returns 404 for non-existent player', async () => {
-    const res = await request(app)
-      .delete('/api/players/000000000000000000000000')
-      .set('X-Test-User', stUser());
-    expect(res.status).toBe(404);
-  });
 });
 
 // ══════════════════════════════════════
