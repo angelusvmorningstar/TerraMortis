@@ -169,22 +169,22 @@ development_status:
   # ~620 entries across 7 categories consolidated into MongoDB
   # No story files exist yet
 
-  epic-pp: in-progress
+  epic-pp: in-progress  # pp-9 pending full validation
 
   pp-1-schema-collection-seed-script: done
-  pp-2-api-route-client-loader: review
-  pp-3-prerequisite-engine-rewrite: review
-  pp-4-migrate-consumers-character-editor: review
-  pp-5-migrate-consumers-suite-game-app: review
-  pp-6-migrate-consumers-downtime-player-portal: review
-  pp-7-remove-legacy-data-files: review
-  pp-8-admin-rules-editor: review
-  pp-9-schema-v3-inline-creation: review
+  pp-2-api-route-client-loader: done
+  pp-3-prerequisite-engine-rewrite: done
+  pp-4-migrate-consumers-character-editor: done
+  pp-5-migrate-consumers-suite-game-app: done
+  pp-6-migrate-consumers-downtime-player-portal: done
+  pp-7-remove-legacy-data-files: done
+  pp-8-admin-rules-editor: done
+  pp-9-schema-v3-inline-creation: review  # migration only tested on 2/31 chars — needs full validation
   pp-10-migrate-client-to-v3: done
-  pp-11-rules-editor-ux-overhaul: review
-  pp-12-mci-per-tier-merit-tracking: review
-  pp-13-excel-to-v3-ingestion: review
-  pp-14-excel-import-ui: review
+  pp-11-rules-editor-ux-overhaul: done
+  pp-12-mci-per-tier-merit-tracking: done
+  pp-13-excel-to-v3-ingestion: done
+  pp-14-excel-import-ui: done
 
   epic-pp-retrospective: optional
 
