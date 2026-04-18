@@ -75,7 +75,7 @@ import { SKILLS_MENTAL } from './data/constants.js';
 import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
 import { toast as _toast } from './suite/tracker.js';
 import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';
-import { renderSuiteStatusTab } from './suite/status.js';
+import { renderSuiteStatusTab, suiteStatusOpenEdit, suiteStatusCloseEdit, suiteStatusAdjustCity } from './suite/status.js';
 
 // ══════════════════════════════════════════════
 //  FORWARD WRAPPERS (suite)
@@ -948,6 +948,9 @@ window.openRulesOverlay  = openRulesOverlay;
 window.closeRulesOverlay = closeRulesOverlay;
 window.toggleViewMode    = toggleViewMode;
 window.toggleProfileMenu = toggleProfileMenu;
+window.suiteStatusOpenEdit   = suiteStatusOpenEdit;
+window.suiteStatusCloseEdit  = suiteStatusCloseEdit;
+window.suiteStatusAdjustCity = suiteStatusAdjustCity;
 
 boot();
 const logo = document.getElementById('topbar-logo');

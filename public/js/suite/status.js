@@ -7,14 +7,20 @@
  *   - Section order: city → covenants (full-width) → clans (full-width), all
  *     single-column. No horizontal splits used in the rendered HTML.
  *   - Called fresh on every tab open; no caching.
+ *   - In ST mode, city chips are clickable — opens an edit popup (feat.16).
  */
 
-import { apiGet } from '../data/api.js';
+import { apiGet, apiPut } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
 import suiteState from './data.js';
 import { getRole } from '../auth/discord.js';
+
+// ── Module-level state ───────────────────────────────────────────────────────
+let _statusTabEl  = null;   // stored for re-renders after edits
+let _lastChars    = null;   // last fetched status chars, for popup lookup
+let _editPopupEl  = null;   // current edit popup element
 
 // ── Avatar helper ────────────────────────────────────────────────────────────
 function avatarUrl(c) {
@@ -35,7 +41,7 @@ function statusDots(n, max = 5) {
   return '\u25CF'.repeat(v) + '\u25CB'.repeat(max - v);
 }
 
-// ── Bracket chip (avatar + name) ─────────────────────────────────────────────
+// ── Chip renderers ───────────────────────────────────────────────────────────
 function renderChip(c, isMe) {
   return `<div class="status-chip${isMe ? ' status-chip-me' : ''}">
     <img class="status-chip-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
@@ -43,8 +49,18 @@ function renderChip(c, isMe) {
   </div>`;
 }
 
-// ── Fixed-tier bracket row (always shown, vacant if empty) ────────────────────
-function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false) {
+// City chip — in ST mode, clickable to open edit popup
+function renderCityChip(c, isMe, isST) {
+  const id = esc(String(c._id));
+  const click = isST ? ` onclick="suiteStatusOpenEdit('${id}')"` : '';
+  return `<div class="status-chip${isMe ? ' status-chip-me' : ''}${isST ? ' status-chip-st' : ''}"${click}>
+    <img class="status-chip-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
+    <span class="status-chip-name">${esc(displayName(c))}</span>
+  </div>`;
+}
+
+// ── Fixed-tier bracket row ────────────────────────────────────────────────────
+function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false, isCityST = false) {
   let h = `<div class="status-bracket status-bracket-fixed">`;
   h += `<div class="status-bracket-head">`;
   h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
@@ -53,7 +69,11 @@ function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false) {
   h += `</div>`;
   h += `<div class="status-bracket-chips">`;
   if (chars.length) {
-    for (const c of chars) h += renderChip(c, String(c._id) === activeId);
+    for (const c of chars) {
+      h += isCityST
+        ? renderCityChip(c, String(c._id) === activeId, true)
+        : renderChip(c, String(c._id) === activeId);
+    }
   } else {
     h += `<span class="status-vacant-chip">Vacant</span>`;
   }
@@ -65,7 +85,7 @@ function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false) {
 // ── City Status section (full-width) ─────────────────────────────────────────
 function cityVal(c) { return calcCityStatus(c); }
 
-function renderCitySection(chars, activeId) {
+function renderCitySection(chars, activeId, isST = false) {
   const sorted = [...chars].sort((a, b) =>
     cityVal(b) - cityVal(a) ||
     sortName(a).localeCompare(sortName(b))
@@ -87,9 +107,9 @@ function renderCitySection(chars, activeId) {
   h += `</div>`;
 
   h += `<div class="status-brackets">`;
-  h += renderTierRow(10, byVal.get(10) || [], activeId, dotsFn, true);
-  h += renderTierRow(9,  byVal.get(9)  || [], activeId, dotsFn, true);
-  h += renderTierRow(8,  byVal.get(8)  || [], activeId, dotsFn, true);
+  h += renderTierRow(10, byVal.get(10) || [], activeId, dotsFn, true, isST);
+  h += renderTierRow(9,  byVal.get(9)  || [], activeId, dotsFn, true, isST);
+  h += renderTierRow(8,  byVal.get(8)  || [], activeId, dotsFn, true, isST);
   const floorChars = sorted.filter(c => cityVal(c) < 8);
   if (floorChars.length) {
     const groups = [];
@@ -100,7 +120,7 @@ function renderCitySection(chars, activeId) {
       else groups.push({ val: v, chars: [c] });
     }
     for (const { val, chars } of groups) {
-      h += renderTierRow(val, chars, activeId, dotsFn, true);
+      h += renderTierRow(val, chars, activeId, dotsFn, true, isST);
     }
   }
   h += `</div>`;
@@ -148,9 +168,93 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
   return h;
 }
 
+// ── Edit popup helpers ────────────────────────────────────────────────────────
+function _buildEditPopup(c) {
+  const base  = c.status?.city || 0;
+  const total = cityVal(c);
+  const bonus = total - base;
+  const id    = esc(String(c._id));
+  const totalLine = bonus > 0
+    ? `Total: ${total} (base ${base} + ${bonus})`
+    : `Total: ${total}`;
+  return `<div class="cs-edit-overlay" id="cs-edit-overlay" onclick="if(event.target===this)suiteStatusCloseEdit()">
+    <div class="cs-edit-panel">
+      <button class="cs-edit-close" onclick="suiteStatusCloseEdit()">\u00D7</button>
+      <img class="cs-edit-avatar" src="${esc(avatarUrl(c))}" alt="" loading="lazy">
+      <div class="cs-edit-name">${esc(displayName(c))}</div>
+      <div class="cs-edit-stepper">
+        <button class="cs-step-btn" onclick="suiteStatusAdjustCity('${id}',1)"${base >= 10 ? ' disabled' : ''}>\u25B2</button>
+        <div class="cs-edit-val" id="cs-edit-val">${base}</div>
+        <button class="cs-step-btn" onclick="suiteStatusAdjustCity('${id}',-1)"${base <= 0 ? ' disabled' : ''}>\u25BC</button>
+      </div>
+      <div class="cs-edit-total" id="cs-edit-total">${esc(totalLine)}</div>
+      <div class="cs-edit-err" id="cs-edit-err" style="display:none"></div>
+    </div>
+  </div>`;
+}
+
+function _updateEditPopup(c, errMsg) {
+  if (!_editPopupEl) return;
+  const base  = c.status?.city || 0;
+  const total = cityVal(c);
+  const bonus = total - base;
+  const totalLine = bonus > 0
+    ? `Total: ${total} (base ${base} + ${bonus})`
+    : `Total: ${total}`;
+  const valEl  = _editPopupEl.querySelector('#cs-edit-val');
+  const totEl  = _editPopupEl.querySelector('#cs-edit-total');
+  const errEl  = _editPopupEl.querySelector('#cs-edit-err');
+  const btns   = _editPopupEl.querySelectorAll('.cs-step-btn');
+  if (valEl) valEl.textContent = base;
+  if (totEl) totEl.textContent = totalLine;
+  if (errEl) { errEl.textContent = errMsg || ''; errEl.style.display = errMsg ? '' : 'none'; }
+  if (btns[0]) btns[0].disabled = base >= 10;
+  if (btns[1]) btns[1].disabled = base <= 0;
+}
+
+// ── Exported popup handlers (exposed on window in app.js) ────────────────────
+export function suiteStatusOpenEdit(charId) {
+  const c = (_lastChars || []).find(ch => String(ch._id) === charId);
+  if (!c) return;
+  suiteStatusCloseEdit();
+  const div = document.createElement('div');
+  div.innerHTML = _buildEditPopup(c);
+  _editPopupEl = div.firstElementChild;
+  document.body.appendChild(_editPopupEl);
+}
+
+export function suiteStatusCloseEdit() {
+  _editPopupEl?.remove();
+  _editPopupEl = null;
+}
+
+export async function suiteStatusAdjustCity(charId, delta) {
+  const c = (_lastChars || []).find(ch => String(ch._id) === charId);
+  if (!c) return;
+  const oldVal = c.status?.city || 0;
+  const newVal = Math.max(0, Math.min(10, oldVal + delta));
+  if (newVal === oldVal) return;
+
+  // Optimistic update
+  c.status = c.status || {};
+  c.status.city = newVal;
+  _updateEditPopup(c);
+
+  try {
+    await apiPut('/api/characters/' + charId, { 'status.city': newVal });
+  } catch (err) {
+    c.status.city = oldVal;
+    _updateEditPopup(c, 'Save failed');
+    return;
+  }
+
+  if (_statusTabEl) renderSuiteStatusTab(_statusTabEl);
+}
+
 // ── Main render ──────────────────────────────────────────────────────────────
 export async function renderSuiteStatusTab(el) {
   if (!el) return;
+  _statusTabEl = el;
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
 
   let chars;
@@ -161,11 +265,13 @@ export async function renderSuiteStatusTab(el) {
     return;
   }
 
+  _lastChars = chars;
+
   const activeChar = suiteState.rollChar || null;
   const activeId   = activeChar ? String(activeChar._id) : '';
   const isST       = getRole() === 'st';
 
-  let h = renderCitySection(chars, activeId);
+  let h = renderCitySection(chars, activeId, isST);
 
   if (isST) {
     // All covenants, then all clans — each full-width, stacked
