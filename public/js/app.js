@@ -835,10 +835,6 @@ function applyRoleRestrictions() {
   const navAdmin = document.getElementById('nav-admin');
   if (navAdmin) navAdmin.style.display = isRealST ? '' : 'none';
 
-  // Save All / import controls — ST only
-  const topbarRight = document.getElementById('topbar-right');
-  if (topbarRight) topbarRight.style.display = isST ? '' : 'none';
-
   // Sheet topbar — hide for players
   const topbar = document.querySelector('.sheet-topbar');
   if (topbar) topbar.style.display = isST ? '' : 'none';

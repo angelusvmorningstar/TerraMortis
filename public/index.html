@@ -17,7 +17,7 @@
 <script>
 (function(){
   var t=localStorage.getItem('tm-theme');
-  if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+  if(t !== 'light') document.documentElement.setAttribute('data-theme','dark');
 })();
 </script>
 </head>
@@ -46,9 +46,6 @@
       <button id="btn-view-toggle" class="app-nav-btn view-toggle-btn" onclick="toggleViewMode()" style="display:none">Player View</button>
       <a href="/player" id="nav-player" class="app-nav-btn">Player</a>
       <a href="/admin" id="nav-admin" class="app-nav-btn" style="display:none">ST Admin</a>
-    </div>
-    <div class="topbar-right" id="topbar-right" style="display:none">
-      <button class="topbar-action" onclick="saveAll()" id="btn-save">Save All</button>
     </div>
   </div>
 
