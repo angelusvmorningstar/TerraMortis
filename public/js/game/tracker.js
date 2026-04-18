@@ -167,7 +167,7 @@ export async function initTracker(el) {
   // Clear confirmed set so API is re-fetched every time the tab opens —
   // picks up vitae changes written by player.html feeding confirm
   _confirmed.clear();
-  await Promise.all((suiteState.chars || []).map(c => ensureLoaded(c)));
+  await Promise.all((suiteState.chars || []).filter(c => !c.retired).map(c => ensureLoaded(c)));
   renderAll();
 }
 
@@ -239,7 +239,7 @@ export function trackerRemoveCond(charId, idx) {
 
 function renderAll() {
   if (!_el) return;
-  const chars = suiteState.chars || [];
+  const chars = (suiteState.chars || []).filter(c => !c.retired);
 
   let h = '<div class="trk-wrap">';
   h += '<div class="trk-toolbar"><button class="trk-reset-btn" onclick="trackerReset()">Reset All</button><span class="trk-toolbar-hint">Zero Vitae, full WP &mdash; damage preserved</span></div>';
