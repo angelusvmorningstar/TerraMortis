@@ -44,10 +44,9 @@ export function xpOrdeals(c) {
   return ((c.ordeals || []).filter(o => o.complete).length) * 3;
 }
 
-/** XP from game attendance. Uses cached _gameXP from sessions if available, falls back to xp_log. */
+/** XP from game attendance. Requires loadGameXP() to have run — returns 0 if not yet loaded. */
 export function xpGame(c) {
-  if (c._gameXP != null) return c._gameXP;
-  return ((c.xp_log || {}).earned || {}).game || 0;
+  return c._gameXP ?? 0;
 }
 
 /** XP bonus from Professional Training: 1 XP per asset skill at 5+ effective dots (requires PT ≥ 4).
