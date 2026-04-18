@@ -2568,13 +2568,17 @@ body {
 .feed-st-confirm-lbl { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); margin-bottom: 10px; }
 .feed-confirm-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .feed-confirm-val { font-family: var(--fl); font-size: 24px; color: var(--accent); min-width: 32px; text-align: center; }
+.feed-st-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.feed-st-row-lbl { font-family: var(--fl); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--txt2); min-width: 120px; }
+.feed-st-row-ctrl { display: flex; align-items: center; gap: 8px; }
+.feed-st-row-max { font-family: var(--fl); font-size: 12px; color: var(--txt3); margin-left: 4px; }
 .feed-confirm-btn { width: 100%; padding: 12px; background: var(--gold); border: none; border-radius: 6px; color: var(--bg); font-family: var(--fl); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
 .feed-confirm-btn:hover { filter: brightness(1.1); }
 .feed-confirm-btn:disabled { opacity: .6; cursor: default; }
 .feed-st-vitae-total { font-family: var(--fl); font-size: 13px; color: var(--accent); margin-bottom: 10px; }
 .feed-inf-display { margin-top: 12px; font-size: 13px; color: var(--txt2); display: flex; gap: 8px; align-items: center; }
 .feed-inf-lbl { color: var(--txt2); }
-.feed-inf-val { color: var(--accent); font-family: var(--fl); }
+.feed-inf-val { color: var(--accent); font-family: var(--fl); font-size: 24px; min-width: 32px; text-align: center; }
 .feed-inf-row { display: flex; align-items: center; gap: 8px; }
 .feed-inf-input { width: 52px; background: var(--surf2); border: 1px solid var(--gold2); border-radius: 4px; color: var(--gold2); font-family: var(--fl); font-size: 13px; text-align: center; padding: 2px 4px; }
 .feed-confirmed-record { font-family: var(--fl); font-size: 14px; color: var(--accent); letter-spacing: .04em; margin-bottom: 10px; }

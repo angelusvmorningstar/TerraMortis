@@ -78,7 +78,9 @@ async function ensureLoaded(c) {
 
   if (remote) {
     _cache[id] = {
-      vitae:      remote.vitae      ?? defaults(c).vitae,
+      // Prefer vitae_confirmed from localStorage when present — written by player.html
+      // feeding confirm so the game app reflects the new value without tab navigation
+      vitae:      local.vitae_confirmed ?? remote.vitae      ?? defaults(c).vitae,
       willpower:  remote.willpower  ?? defaults(c).willpower,
       bashing:    remote.bashing    ?? 0,
       lethal:     remote.lethal     ?? 0,
@@ -194,6 +196,14 @@ export async function trackerAdj(charId, field, delta) {
 
   if (field === 'vitae') {
     cs.vitae = clamp(cs.vitae + delta, 0, calcVitaeMax(c));
+    // Clear feed-confirmed vitae so manual ST adjustment takes precedence
+    try {
+      const loc = JSON.parse(localStorage.getItem(LOCAL_PREFIX + charId) || '{}');
+      if (loc.vitae_confirmed != null) {
+        delete loc.vitae_confirmed;
+        localStorage.setItem(LOCAL_PREFIX + charId, JSON.stringify(loc));
+      }
+    } catch { /* ignore */ }
   } else if (field === 'willpower') {
     cs.willpower = clamp(cs.willpower + delta, 0, calcWillpowerMax(c));
   } else if (field === 'inf') {
