@@ -479,7 +479,7 @@ function openPanel(mode) {
     }
   } else if (mode === 'auspex') {
     title.textContent = 'Auspex Insight';
-    const c = suiteState.sheetChar;
+    const c = suiteState.rollChar || suiteState.sheetChar;
     const dots = c?.disciplines?.Auspex?.dots || 0;
     if (!dots) {
       body.innerHTML = '<div class="hempty" style="padding:24px 16px;">No Auspex rating detected.</div>';
@@ -564,6 +564,19 @@ function pickChar(c) {
   // Reset and re-init feeding (ST only — section hidden for players)
   feedClearState();
   feedInit();
+
+  // Render tappable pool chips in the roll tab for the selected character
+  const rollPoolsEl = document.getElementById('roll-char-pools');
+  if (rollPoolsEl) {
+    renderCharPools(rollPoolsEl, c, (p) => {
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
+    });
+    rollPoolsEl.style.display = '';
+  }
+
+  // Show Auspex button if character has Auspex
+  const auspexBtn = document.getElementById('sc-auspex');
+  if (auspexBtn) auspexBtn.style.display = (c.disciplines?.Auspex?.dots || 0) > 0 ? '' : 'none';
 }
 
 // ══════════════════════════════════════════════
