@@ -46,6 +46,7 @@ import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
+import { initSignIn } from './game/signin-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
@@ -216,6 +217,7 @@ function goTab(t) {
   if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
   if (t === 'rules') initRules(document.getElementById('t-rules'));
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
+  if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
     const role = getRole();
@@ -820,8 +822,8 @@ function applyRoleRestrictions() {
   const isST = role === 'st';
   const isRealST = getRole() === 'st';
 
-  // ST nav — Characters, Territory, Tracker
-  ['n-chars', 'n-territory', 'n-tracker'].forEach(id => {
+  // ST nav — Characters, Territory, Tracker, Sign-In
+  ['n-chars', 'n-territory', 'n-tracker', 'n-signin'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = isST ? '' : 'none';
   });
