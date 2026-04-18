@@ -475,37 +475,22 @@ function renderCharGrid() {
   const retired = sorted.filter(c => c.retired);
 
   function charCard(c) {
-    const bp = c.blood_potency || 1;
-    const hum = c.humanity != null ? c.humanity : '?';
-    const title = (c.court_category || c.court_title) ? `<span class="cc-tag title">${esc(c.court_category || c.court_title)}</span>` : '';
-    const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
     charAlerts(c); // runs applyDerivedMerits so xp/audit work correctly
-    const xpL = xpLeft(c);
     const audit = auditCharacter(c);
     const auditBadges = _auditBadges(audit);
 
     const ordeals = c.ordeals || [];
     const ordDone = ordeals.filter(o => o.complete).length;
     const ordTotal = ordeals.length;
+    const ordChip = ordTotal > 0
+      ? `<span class="cc-ordeals cc-tag" onclick="event.stopPropagation(); window._openOrdealsModal('${c._id}')" title="Manage ordeals">Ord ${ordDone}/${ordTotal}</span>`
+      : '';
 
     const unlinked = !linkedCharIds.has(String(c._id));
     return `<div class="char-card${c.retired ? ' retired' : ''}${unlinked ? ' unlinked' : ''}" data-id="${c._id}">
       <div class="cc-top">
-        <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
-        <div class="cc-identity"><span class="cc-name">${esc(cardName(c))}</span><br><span class="cc-player">${esc(redactPlayer(c.player || ''))}</span></div>
-        ${auditBadges}
-      </div>
-      <div class="cc-mid">
-        <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>
-        <span class="cc-tag clan">${clanIcon(c.clan, 14)} ${esc(c.clan || '?')}</span>
-        ${c.bloodline ? `<span class="cc-tag">${esc(c.bloodline)}</span>` : ''}
-        ${title}
-      </div>
-      <div class="cc-bot">
-        <span>BP <span class="val">${bp}</span></span>
-        <span>Hum <span class="val">${hum}</span></span>
-        <span>XP <span class="val">${xpL}/${xpEarned(c)}</span></span>
-        <span class="cc-ordeals" onclick="event.stopPropagation(); window._openOrdealsModal('${c._id}')" title="Manage ordeals">Ord <span class="val">${ordDone}/${ordTotal}</span></span>
+        <span class="cc-name">${esc(cardName(c))}</span>
+        <div class="cc-card-right">${auditBadges}${ordChip}</div>
       </div>
     </div>`;
   }

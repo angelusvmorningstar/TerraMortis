@@ -12,7 +12,8 @@
 .char-card:hover{border-color:var(--bdr2);background:var(--surf2);}
 .char-card.dirty{border-left:3px solid var(--gold);}
 .cc-top{display:flex;align-items:center;gap:10px;}
-.cc-alert-wrap{margin-left:auto;flex-shrink:0;}
+.cc-card-right{margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:6px;}
+.cc-alert-wrap{flex-shrink:0;}
 .cc-alert{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:700;font-family:var(--ft);line-height:1;}
 .cc-alert.red{background:var(--badge-err-bg);color:#fff;border:1px solid var(--badge-err-bdr);}
 .cc-alert.yellow{background:var(--badge-warn-bg);color:#fff;border:1px solid var(--badge-warn-bdr);font-size:8px;}
