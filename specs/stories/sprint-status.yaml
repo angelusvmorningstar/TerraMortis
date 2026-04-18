@@ -363,6 +363,9 @@ development_status:
   feat-13-regent-territory-ambience-status-bonus: done  # +1 Curated/Verdant, +2 The Rack — extend findRegentTerritory, add regentAmienceBonus, fix two calcCityStatus bypasses
   feat-14-city-status-appellations: done  # Show rank label (Acknowledged–Exalted) on each city status bracket row in both index.html and player.html
   feat-15-attache-merit-redesign: done   # Redesign Attaché as 1-dot influence merit; attached_to field; effectiveInvictusStatus helper; remove retainer-pool mechanic
+  feat-16-st-city-status-edit: ready-for-dev  # ST can adjust inherent status.city via +/- controls on city chips in game app status tab
+  feat-17-rules-city-status-territory: ready-for-dev  # Add City Status and Territory sections to the rules quick reference in the game app
+  fix-44-attache-invested-gate: ready-for-dev  # Invested bonus dots allocatable to Attaché; INV box appears only after first dot purchased
 
   epic-feat-retrospective: optional
 
