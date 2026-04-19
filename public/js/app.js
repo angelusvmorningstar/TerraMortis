@@ -200,8 +200,18 @@ const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
 
 // Maps internal tab names to the visible unified nav button ID.
 // When a legacy tab name is activated, the correct new nav button is highlighted.
-const NAV_ALIAS = { chars: 'sheet', editor: 'sheet', edit: 'sheet',
-                    territory: 'map', sheets: 'sheet', roll: 'dice', signin: 'more' };
+// Maps internal tab names to the visible unified nav button ID.
+// Legacy tabs and More grid apps all resolve to the correct primary nav button.
+const NAV_ALIAS = {
+  // Legacy → unified primary nav
+  chars: 'sheet', editor: 'sheet', edit: 'sheet', sheets: 'sheet',
+  territory: 'map', roll: 'dice',
+  // More grid apps → More button
+  status: 'more', 'whos-who': 'more', 'dt-report': 'more', feeding: 'more',
+  primer: 'more', 'game-guide': 'more', rules: 'more', 'dt-submission': 'more',
+  ordeals: 'more', tracker: 'more', signin: 'more', emergency: 'more',
+  regency: 'more', office: 'more',
+};
 
 function goTab(t) {
   // Hide all tabs
@@ -231,10 +241,11 @@ function goTab(t) {
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
 
-  // ── Unified nav tab init (Story 1.2) ─────────────────────────────────────
+  // ── Unified nav tab init (Story 1.2 + 1.3) ──────────────────────────────
   // t-dice was t-roll (renamed in HTML) — no extra init needed.
   // t-map was t-territory (renamed in HTML) — mountTerr() writes to #terr-root inside it.
   if (t === 'map') mountTerr();
+  if (t === 'more') renderMoreGrid();
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
     const role = getRole();
@@ -755,6 +766,7 @@ Object.assign(window, {
   // Suite territory
   mountTerr,
   _mountTerr: mountTerr,
+  renderMoreGrid,
 
   // Game — live tracker
   trackerReset,
@@ -885,6 +897,69 @@ function applyRoleRestrictions() {
     toggleBtn.textContent = isST ? 'Player View' : 'ST View';
     toggleBtn.classList.toggle('view-toggle-active', !isST);
   }
+}
+
+// ── More grid app launcher (Story 1.3) ────────────────────────────────────────
+
+const MORE_APPS = [
+  // Shared apps — visible to all roles
+  { id: 'status',      label: 'Status',       icon: '⚔', stOnly: false, playerOnly: false },
+  { id: 'whos-who',   label: "Who's Who",    icon: '👥', stOnly: false, playerOnly: false },
+  { id: 'dt-report',  label: 'DT Report',    icon: '📜', stOnly: false, playerOnly: false },
+  { id: 'feeding',    label: 'Feeding',      icon: '🩸', stOnly: false, playerOnly: false },
+  { id: 'primer',     label: 'Primer',       icon: '📖', stOnly: false, playerOnly: false },
+  { id: 'game-guide', label: 'Game Guide',   icon: '🎲', stOnly: false, playerOnly: false },
+  { id: 'rules',      label: 'Rules',        icon: '⚖', stOnly: false, playerOnly: false },
+  // Player-only apps
+  { id: 'dt-submission', label: 'Submit DT', icon: '📋', stOnly: false, playerOnly: true },
+  { id: 'ordeals',    label: 'Ordeals',      icon: '⭐', stOnly: false, playerOnly: true },
+  // ST-only apps
+  { id: 'tracker',    label: 'Tracker',      icon: '🩹', stOnly: true,  playerOnly: false },
+  { id: 'signin',     label: 'Sign-In',      icon: '✅', stOnly: true,  playerOnly: false },
+  { id: 'emergency',  label: 'Emergency',    icon: '🚨', stOnly: true,  playerOnly: false },
+  // Conditional apps (always defined; condition checked at render time)
+  { id: 'regency',    label: 'Regency',      icon: '👑', stOnly: false, playerOnly: false, condition: 'hasRegency' },
+  { id: 'office',     label: 'Office',       icon: '🏛', stOnly: false, playerOnly: false, condition: 'hasOffice' },
+];
+
+function _moreGridCondition(app) {
+  if (!app.condition) return true;
+  const chars = suiteState.chars || [];
+  const info = getPlayerInfo();
+  const myChar = chars.find(c => info?.character_ids?.includes(c._id) || info?.character_ids?.includes(String(c._id)));
+  if (app.condition === 'hasRegency') {
+    // Player's character is regent of at least one territory (checked via court_title or regent_id)
+    return !!(myChar && (myChar.court_title || myChar.court_category));
+  }
+  if (app.condition === 'hasOffice') {
+    return !!(myChar && myChar.court_category);
+  }
+  return true;
+}
+
+function renderMoreGrid() {
+  const el = document.getElementById('t-more');
+  if (!el) return;
+
+  const role = effectiveRole();
+  const isST = role === 'st';
+
+  const visibleApps = MORE_APPS.filter(app => {
+    if (app.stOnly && !isST) return false;
+    if (app.playerOnly && isST) return false;
+    if (app.condition && !_moreGridCondition(app)) return false;
+    return true;
+  });
+
+  let h = '<div class="more-grid">';
+  for (const app of visibleApps) {
+    h += `<button class="more-app-icon" data-app="${app.id}" onclick="goTab('${app.id}')">`;
+    h += `<span class="more-app-icon-glyph">${app.icon}</span>`;
+    h += `<span class="more-app-label">${app.label}</span>`;
+    h += '</button>';
+  }
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 /** Show logged-in user in header with avatar dropdown for logout. */

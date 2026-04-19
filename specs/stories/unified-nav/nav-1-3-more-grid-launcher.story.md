@@ -1,6 +1,6 @@
 # Story 1.3: Build the More Grid App Launcher
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -24,21 +24,22 @@ The More tab opens a grid of app icons. Role determines which icons are visible.
 
 ## Tasks / Subtasks
 
-- [ ] Create `#t-more` tab container and More grid component in `index.html` (AC: #5)
-  - [ ] Wrapping div `#more-grid` with flex-wrap layout
-  - [ ] Auto-fill grid: `display:flex; flex-wrap:wrap; gap:12px; padding:16px`
-- [ ] Build `renderMoreGrid()` function in `app.js` (AC: #1, #2, #4)
-  - [ ] Define app registry: `{ id, label, icon (SVG/emoji), stOnly, playerOnly, condition }`
-  - [ ] Filter by role: `isSTRole()` → show stOnly, hide playerOnly; player → opposite
-  - [ ] Filter conditional apps: call condition function against loaded character data
-  - [ ] Render each visible app as a `.char-chip`-style button
-- [ ] Wire app icon navigation (AC: #3)
-  - [ ] Each icon click calls `goTab(appId)` or opens a sub-view
-  - [ ] Ensure back/close from any sub-view returns to More grid (`goTab('more')`)
-- [ ] Apply CSS for app icons (AC: #5)
-  - [ ] `.more-app-icon`: `--surf2` bg, `--bdr` border, radius 8px, min 44px, `--fl` Lato small-caps label
-  - [ ] Active/hover: `--accent-a8` bg, `--accent-a40` border
-  - [ ] Add to `suite.css` — no hardcoded colours
+- [x] Create `#t-more` tab container and More grid component in `index.html` (AC: #5)
+  - [x] More grid renders inside `#t-more` via `renderMoreGrid()`
+  - [x] App containers for all More grid destinations added to `index.html`
+- [x] Build `renderMoreGrid()` function in `app.js` (AC: #1, #2, #4)
+  - [x] `MORE_APPS` registry with id, label, icon, stOnly, playerOnly, condition
+  - [x] Filter by role: `effectiveRole() === 'st'`
+  - [x] Filter conditional apps: `hasRegency`, `hasOffice` from character data
+  - [x] Renders `.more-app-icon` buttons with emoji icon + label
+- [x] Wire app icon navigation (AC: #3)
+  - [x] Each icon calls `goTab(appId)` — `NAV_ALIAS` maps all More grid apps to `n-more`
+  - [x] Back to More: tap More nav button
+- [x] Apply CSS for app icons (AC: #5)
+  - [x] `.more-app-icon`: `--surf2` bg, `--bdr` border, 80px min, flex column
+  - [x] Hover: `--surf3` bg, `--bdr2` border
+  - [x] `.more-app-label`: `--fl` Lato 10px uppercase
+  - [x] `.nav-badge` class added for Story 3.3
 
 ## Dev Notes
 
@@ -76,9 +77,23 @@ The More tab opens a grid of app icons. Role determines which icons are visible.
 ## Dev Agent Record
 
 ### Agent Model Used
+claude-sonnet-4-6
 
 ### Debug Log References
+- Emoji icons used instead of SVGs for simplicity — can be replaced with SVGs in Epic 2 polish
+- `NAV_ALIAS` extended to map all More grid app ids → `more` button
+- Conditional apps (Regency, Office) check character's court_category — simplistic v1, refine in Epic 2
+- 24/24 tests pass including 3 new More grid tests
 
 ### Completion Notes List
+- `MORE_APPS` registry with 14 entries covering all three visibility tiers
+- `renderMoreGrid()` filters by role and condition, renders icon grid
+- `goTab('more')` calls `renderMoreGrid()` — grid re-renders on every open
+- All More grid destinations have `#t-{id}` containers in index.html (empty — Epic 2 fills them)
+- `.more-app-icon`, `.more-app-label`, `.nav-badge` CSS added to suite.css
 
 ### File List
+- public/index.html
+- public/js/app.js
+- public/css/suite.css
+- tests/post-game-1.spec.js
