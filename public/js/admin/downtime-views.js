@@ -1011,15 +1011,25 @@ function renderPlayerResponses(s) {
   }
 
   // ── Court ──
-  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
-  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations' };
+  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
+  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence' };
   const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
-  if (courtVals.length) {
+  const aspLines = [1,2,3].map(n => {
+    const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
+    return (t && v) ? `${t}: ${v}` : null;
+  }).filter(Boolean);
+  const hasCourtContent = courtVals.length || aspLines.length || r['aspirations'];
+  if (hasCourtContent) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
     for (const k of courtVals) {
       let val = r[k];
       if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).map(id => { const ch = characters.find(c => String(c._id) === String(id)); return ch ? (ch.moniker || ch.name) : id; }).join(', '); } catch { /* ignore */ } }
       h += row(courtLabels[k] || k, val);
+    }
+    if (aspLines.length) {
+      h += row('Aspirations', aspLines.join('\n'));
+    } else if (r['aspirations']) {
+      h += row('Aspirations', r['aspirations']);
     }
     h += '</div>';
   }
@@ -1031,6 +1041,10 @@ function renderPlayerResponses(s) {
     if (!action) continue;
     const actionLabel = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     let desc = r[`project_${n}_description`] || r[`project_${n}_xp_trait`] || '';
+    if (action === 'xp_spend') {
+      const cat = r[`project_${n}_xp_category`]; const item = r[`project_${n}_xp_item`];
+      if (cat && item) desc = `${cat}: ${item}`;
+    }
     projRows.push(`${n}. ${actionLabel}${desc ? ': ' + desc : ''}`);
   }
   if (projRows.length) {
@@ -1470,7 +1484,8 @@ function buildProcessingQueue(subs) {
       const feedRote        = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
       let   feedTerrs   = {};
       try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
-      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
+      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'feeding_rights' || feedTerrs[k] === 'resident')
+                       || Object.keys(feedTerrs).find(k => feedTerrs[k] === 'poaching' || feedTerrs[k] === 'poacher')
                        || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
                        || '';
       const truncDesc = feedDesc.length > 40 ? feedDesc.slice(0, 40) + '\u2026' : feedDesc;
@@ -2273,17 +2288,18 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
 
 // ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
 
-const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
+const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
 const COURT_LABELS = {
   travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
-  correspondence: 'Dear X', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations',
+  correspondence: 'Dear X',
 };
 
 function renderPreReadSection() {
   const readable = submissions
     .filter(s => {
       const r = s.responses || {};
-      return COURT_KEYS.some(k => r[k]?.trim?.()) || r.vamping?.trim?.() || r.lore_request?.trim?.();
+      const hasAsp = [1,2,3].some(n => r[`aspiration_${n}_text`]?.trim?.()) || r.aspirations?.trim?.();
+      return COURT_KEYS.some(k => r[k]?.trim?.()) || hasAsp || r.vamping?.trim?.() || r.lore_request?.trim?.();
     })
     .sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
 
@@ -2315,7 +2331,11 @@ function renderPreReadSection() {
 
         // Court section
         const courtVals = COURT_KEYS.filter(k => r[k]?.trim?.());
-        if (courtVals.length) {
+        const preReadAspLines = [1,2,3].map(n => {
+          const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
+          return (t && v) ? `${t}: ${v}` : null;
+        }).filter(Boolean);
+        if (courtVals.length || preReadAspLines.length || r.aspirations) {
           h += `<div class="dt-resp-section">`;
           h += `<div class="dt-resp-section-title">Court</div>`;
           for (const k of courtVals) {
@@ -2333,6 +2353,11 @@ function renderPreReadSection() {
             h += `<span class="dt-resp-label">${esc(COURT_LABELS[k] || k)}</span>`;
             h += `<span class="dt-resp-val">${esc(val)}</span>`;
             h += `</div>`;
+          }
+          if (preReadAspLines.length) {
+            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${preReadAspLines.map(esc).join('<br>')}</span></div>`;
+          } else if (r.aspirations) {
+            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${esc(r.aspirations)}</span></div>`;
           }
           h += `</div>`;
         }
@@ -2591,7 +2616,26 @@ function renderXpReviewStep() {
   if (isExpanded) {
     for (const s of xpSubs) {
       let rows = [];
-      try { rows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item); } catch { /* ignore */ }
+      // New format: project_N_xp_category/item
+      for (let n = 1; n <= 4; n++) {
+        if (s.responses?.[`project_${n}_action`] !== 'xp_spend') continue;
+        const cat  = s.responses?.[`project_${n}_xp_category`] || '';
+        const item = s.responses?.[`project_${n}_xp_item`] || '';
+        if (cat && item) {
+          const costMap = { attribute: 4, skill: 2, discipline: 3, rite: 4, devotion: 2 };
+          const cost = costMap[cat] || 1;
+          rows.push({ category: cat, item, cost, dotsBuying: 1, _proj: n });
+        } else {
+          // Legacy free-text fallback
+          const legacy = s.responses?.[`project_${n}_xp_trait`] || s.responses?.[`project_${n}_xp`];
+          if (legacy) rows.push({ category: 'xp_spend', item: legacy, cost: null, _proj: n });
+        }
+      }
+      // Also include admin xp_grid rows (free merits)
+      try {
+        const adminRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
+        rows = rows.concat(adminRows);
+      } catch { /* ignore */ }
       if (!rows.length) continue;
 
       const { char, charName } = resolveSubChar(s);
@@ -7921,8 +7965,8 @@ function getPrimaryTerritory(sub) {
   if (!sub?.responses?.feeding_territories) return null;
   let grid;
   try { grid = JSON.parse(sub.responses.feeding_territories); } catch { return null; }
-  // Prefer resident, fall back to poacher
-  for (const status of ['resident', 'poacher']) {
+  // Prefer feeding_rights, fall back to poaching (include legacy values)
+  for (const status of ['feeding_rights', 'resident', 'poaching', 'poacher']) {
     for (const [key, val] of Object.entries(grid)) {
       if (val === status) {
         return FEEDING_TERRITORIES.find(t =>
@@ -8210,7 +8254,7 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
     h += '</tr>';
   }
   h += '</tbody></table>';
-  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
+  h += '<p class="dt-matrix-note">O = feeding rights. X = poaching. Rights set via City tab.</p>';
   return h;
 }
 

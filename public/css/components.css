@@ -1971,57 +1971,41 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 
 /* ── Feeding territory grid ── */
-.dt-feed-grid {
-  display: grid;
-  grid-template-columns: 30% repeat(3, 1fr);
-  gap: 0;
-  margin: 12px 0 16px;
-}
+.dt-feed-grid { display: flex; flex-direction: column; gap: 0; margin: 12px 0 16px; }
 .dt-feed-grid-row {
-  display: contents;
-}
-.dt-feed-grid-row:not(.dt-feed-grid-header) .dt-feed-grid-terr,
-.dt-feed-grid-row:not(.dt-feed-grid-header) .dt-feed-grid-col {
-  padding: 10px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
   border-bottom: 1px solid rgba(139,0,0,.1);
-}
-.dt-feed-grid-header .dt-feed-grid-col {
-  text-align: center;
-  font-weight: 600;
-  color: var(--rp-head);
-  font-size: 0.85rem;
-  padding: 6px 4px 10px;
-  border-bottom: 2px solid rgba(139,0,0,.18);
+  gap: 12px;
 }
 .dt-feed-grid-terr {
   font-size: 0.9rem;
   color: var(--rp-txt);
+  flex: 1;
   display: flex;
   align-items: center;
+  gap: 8px;
 }
-.dt-feed-grid-col {
-  text-align: center;
+.dt-feed-ambience {
+  font-size: 0.75rem;
+  color: var(--txt3);
+  font-style: italic;
+}
+.dt-feed-grid-options { display: flex; gap: 16px; flex-shrink: 0; }
+.dt-feed-radio-label {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-.dt-feed-grid-col input[type="radio"] {
-  width: 18px;
-  height: 18px;
+  gap: 5px;
+  font-size: 0.85rem;
   cursor: pointer;
+  white-space: nowrap;
 }
-.dt-feed-resident .dt-feed-grid-terr,
-.dt-feed-resident .dt-feed-grid-col {
-  background: rgba(34, 120, 60, 0.08);
-}
-.dt-feed-resident-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #2A7A3A;
-  margin-left: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
+.dt-feed-radio-label input[type="radio"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--crim); }
+.dt-feed-primary { color: var(--rp-head); font-weight: 600; }
+.dt-feed-rights { background: rgba(34, 120, 60, 0.06); border-radius: 3px; }
+.dt-feed-rights .dt-feed-primary { color: #2A7A3A; }
 
 /* ── Influence spending grid ── */
 .dt-influence-grid {
@@ -2577,6 +2561,17 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 
 /* ── XP Spend Grid ── */
+/* ── XP spend picker (project slot) ── */
+.dt-xp-picker { margin: 8px 0; }
+.dt-xp-picker-budget { font-size: 12px; font-weight: 600; color: var(--txt2); margin-bottom: 8px; }
+.dt-xp-picker-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* ── Project XP carry-forward (admin) ── */
+.dt-xp-proj-commits { margin: 0 0 12px; border: 1px solid rgba(224,196,122,.2); border-radius: 4px; overflow: hidden; }
+.dt-xp-proj-commits-title { background: rgba(224,196,122,.08); padding: 5px 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
+.dt-xp-proj-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px; border-top: 1px solid rgba(224,196,122,.1); }
+.dt-xp-proj-num { font-weight: 600; color: var(--txt2); flex-shrink: 0; min-width: 60px; }
+.dt-xp-proj-label { flex: 1; color: var(--txt1); }
+
 .dt-xp-grid { margin: 12px 0 16px; }
 .dt-xp-budget {
   font-size: 0.95rem;
@@ -2722,11 +2717,46 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-vitae-over { color: var(--crim); font-weight: 700; }
 
 /* ── Shoutout picks ── */
-.dt-shoutout-picks {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.dt-shoutout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px 12px;
+  margin-top: 4px;
 }
+.dt-shoutout-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.dt-shoutout-item:hover { background: var(--surf2); }
+.dt-shoutout-item input[type="checkbox"] { accent-color: var(--gold2); flex-shrink: 0; }
+.dt-shoutout-item input[disabled] + span { opacity: 0.45; }
+.dt-shoutout-att { color: var(--gold2); }
+.dt-shoutout-limit {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--txt2);
+  margin-top: 6px;
+}
+
+/* ── Aspiration slots ── */
+.dt-aspiration-slots { display: flex; flex-direction: column; gap: 8px; }
+.dt-aspiration-slot { display: flex; gap: 8px; align-items: center; }
+.dt-aspiration-type { width: 110px; flex-shrink: 0; }
+.dt-aspiration-text { flex: 1; }
+
+/* ── Regency sub-field (inside Vamping) ── */
+.dt-regency-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surf3); }
+
+/* ── Target pickers ── */
+.dt-target-flex { display: flex; flex-direction: column; gap: 8px; }
+.dt-target-flex-radios { display: flex; gap: 16px; flex-wrap: wrap; }
+.dt-flex-radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.dt-flex-char-sel, .dt-flex-terr-sel { width: 100%; margin-top: 4px; }
 
 /* ── Feeding method selector ── */
 .dt-feed-methods {
@@ -2861,6 +2891,11 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane .dt-feed-blood-label input { accent-color: var(--rp-accent); }
 
 /* ── Rote feeding checkbox ── */
+.dt-rote-toggle-wrap { margin-bottom: 8px; }
+.dt-rote-slot-picker { margin-top: 10px; padding: 10px 12px; background: var(--surf2); border-radius: 4px; border-left: 2px solid var(--gold2); }
+.dt-proj-rote-locked { padding: 10px 12px; background: rgba(224,196,122,.08); border: 1px solid rgba(224,196,122,.25); border-radius: 4px; }
+.dt-proj-rote-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
+.dt-proj-rote-desc { margin: 6px 0 0; font-size: 13px; color: var(--txt2); font-style: italic; }
 .dt-feed-rote { margin-bottom: 0; }
 .dt-feed-rote-label {
   display: flex;
@@ -3395,47 +3430,9 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 
 @media (max-width: 600px) {
-  .dt-feed-grid { display: block; }
-  .dt-feed-grid-header { display: none; }
-  .dt-feed-grid-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 14px;
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(139, 0, 0, .1);
-  }
-  .dt-feed-grid-row:last-child { border-bottom: none; }
-  .dt-feed-grid-row:not(.dt-feed-grid-header) .dt-feed-grid-terr,
-  .dt-feed-grid-row:not(.dt-feed-grid-header) .dt-feed-grid-col {
-    padding: 0;
-    border: none;
-  }
-  .dt-feed-grid-row .dt-feed-grid-terr {
-    flex: 1 1 100%;
-    justify-content: flex-start;
-    font-weight: 600;
-  }
-  .dt-feed-grid-row .dt-feed-grid-col {
-    flex: 0 0 auto;
-    gap: 6px;
-    justify-content: flex-start;
-  }
-  .dt-feed-grid-row .dt-feed-grid-col:nth-child(2)::after {
-    content: "Resident";
-    font-size: 11px;
-    color: var(--txt2);
-  }
-  .dt-feed-grid-row .dt-feed-grid-col:nth-child(3)::after {
-    content: "Poacher";
-    font-size: 11px;
-    color: var(--txt2);
-  }
-  .dt-feed-grid-row .dt-feed-grid-col:nth-child(4)::after {
-    content: "Not feeding";
-    font-size: 11px;
-    color: var(--txt2);
-  }
+  .dt-feed-grid-row { flex-wrap: wrap; }
+  .dt-feed-grid-terr { flex: 1 1 100%; }
+  .dt-feed-grid-options { flex-wrap: wrap; }
 
   /* Influence spending row: territory label jumps above the +/- buttons */
   .dt-influence-row { flex-wrap: wrap; }

@@ -19,6 +19,7 @@ const PROJECT_ACTIONS = [
   { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'xp_spend', label: 'XP Spend: Grow your character' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
+  { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
 
 // Action type options for sphere (social merit) slots
@@ -35,7 +36,6 @@ export const SPHERE_ACTIONS = [
   { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'grow', label: 'Grow: Attempt to acquire Allies or Status 4 or 5' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
-  { value: 'acquisition', label: 'Acquisition: Use your standing in Status/Mystery Cult to procure an item' },
 ];
 
 export const FEEDING_TERRITORIES = [
@@ -131,47 +131,27 @@ export const DOWNTIME_SECTIONS = [
         desc: 'Write a brief letter, message, or communiqué from your character to a contact, sire, childe, or associate not present at Court.\n\nExample: "Dear Magistrix, The colonials are more fractious than anticipated. The Invictus here lack a unifying voice. I have begun positioning accordingly — your investment is well placed. Yours in blood, V."',
       },
       {
-        key: 'trust',
-        label: 'Who does your character currently \'trust\' the most among the other PCs?',
-        type: 'textarea',
-        required: false,
-        desc: 'Briefly explain why. Trust is not the same as friendship — it may be pragmatic.',
-      },
-      {
-        key: 'harm',
-        label: 'Who is your character currently trying to actively harm or hamper among the other PCs?',
-        type: 'textarea',
-        required: false,
-        desc: 'Briefly explain the motive and method. This informs ST plot preparation.',
-      },
-      {
         key: 'aspirations',
-        label: 'What are your current Short/Medium/Long term Aspirations?',
-        type: 'textarea',
+        label: 'Aspirations',
+        type: 'aspiration_slots',
         required: false,
-        desc: 'Briefly outline the goals you\'re working towards.\n\nShort: Something achievable this session or next.\nMedium: A goal spanning a few sessions.\nLong: A defining ambition that may take months of play.',
-      },
-    ],
-  },
-
-  // 2. Feeding — method selection, pool, rote, description
-  {
-    key: 'feeding',
-    title: 'Feeding: The Hunt',
-    gate: null,
-    intro: null,
-    questions: [
-      {
-        key: 'feeding_method',
-        label: 'How does your character hunt?',
-        type: 'feeding_method',
-        required: true,
         desc: null,
       },
     ],
   },
 
-  // 2b. Territory — residence/poaching grid + influence spend
+  // 2. Blood Sorcery — auto-gated by disciplines, rendered dynamically; declared before Feeding
+  //    so players know which rites affect their hunt pool before committing to a method
+  {
+    key: 'blood_sorcery',
+    title: 'Blood Sorcery: Theban and Cruac',
+    gate: 'has_sorcery',
+    intro: 'Select the rites you wish to cast this Downtime. Ritual details are pre-filled from your character sheet.',
+    questions: [], // rendered dynamically by downtime-form.js
+    sorcerySlots: 3,
+  },
+
+  // 3. Territory — declared before Feeding so players know their ambience and cap
   {
     key: 'territory',
     title: 'The City: Territory and Influence',
@@ -195,7 +175,24 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 3. Regency action — gated: only shown for regents
+  // 4. Feeding — method selection, pool, rote, description
+  {
+    key: 'feeding',
+    title: 'Feeding: The Hunt',
+    gate: null,
+    intro: null,
+    questions: [
+      {
+        key: 'feeding_method',
+        label: 'How does your character hunt?',
+        type: 'feeding_method',
+        required: true,
+        desc: null,
+      },
+    ],
+  },
+
+  // 5. Regency action — gated: kept in array for collectResponses; rendered as sub-field of Vamping
   {
     key: 'regency',
     title: 'Regency Action',
@@ -212,7 +209,7 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 4. Projects — always shown, 4 slots rendered dynamically by downtime-form.js
+  // 6. Projects — always shown, 4 slots rendered dynamically by downtime-form.js
   {
     key: 'projects',
     title: 'Projects: Personal Actions',
@@ -222,10 +219,10 @@ export const DOWNTIME_SECTIONS = [
     projectSlots: 4,
   },
 
-  // 5–7: Spheres, Contacts, Retainers — now rendered dynamically from character merits
+  // 7–9: Spheres, Contacts, Retainers — now rendered dynamically from character merits
   // (see downtime-form.js renderMeritSections)
 
-  // 8. Acquisitions — manual gate (anyone can attempt skill-based acquisitions)
+  // 10. Acquisitions — manual gate (anyone can attempt skill-based acquisitions)
   {
     key: 'acquisitions',
     title: 'Acquisition: Resources and Skills',
@@ -249,17 +246,7 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 9. Blood Sorcery — auto-gated by disciplines, rendered dynamically
-  {
-    key: 'blood_sorcery',
-    title: 'Blood Sorcery: Theban and Cruac',
-    gate: 'has_sorcery',
-    intro: 'Select the rites you wish to cast this Downtime. Ritual details are pre-filled from your character sheet.',
-    questions: [], // rendered dynamically by downtime-form.js
-    sorcerySlots: 3,
-  },
-
-  // 10. Equipment — always shown
+  // 11. Equipment — always shown
   {
     key: 'equipment',
     title: 'Equipment: Items and Gear',
@@ -268,7 +255,7 @@ export const DOWNTIME_SECTIONS = [
     questions: [], // rendered dynamically
   },
 
-  // 11. Vamping — always shown
+  // 12. Vamping — always shown; includes conditional Regency sub-field for Regents
   {
     key: 'vamping',
     title: 'Vamping: Fever for the Flavour',
@@ -285,7 +272,7 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 12. Admin — always shown
+  // 13. Admin — always shown
   {
     key: 'admin',
     title: 'Admin: Crunching Numbers and Asking Questions',
