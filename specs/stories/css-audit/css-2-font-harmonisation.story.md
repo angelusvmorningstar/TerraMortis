@@ -1,6 +1,6 @@
 # Story CSS-2: Font Harmonisation — Cinzel on Interactive Elements → Lato
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
