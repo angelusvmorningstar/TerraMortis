@@ -255,6 +255,27 @@ export const characterSchema = {
     // ── Influence balance (monthly income accumulator) ────────
     influence_balance: { type: 'number', minimum: 0 },
 
+    // ── Equipment ─────────────────────────────────────────────
+    equipment: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          type:             { type: 'string', enum: ['weapon', 'armour'] },
+          name:             { type: 'string' },
+          damage_rating:    { type: 'number' },
+          damage_type:      { type: 'string', enum: ['B', 'L', 'A'] },
+          attack_skill:     { type: 'string', enum: ['Brawl', 'Weaponry', 'Firearms'] },
+          general_ar:       { type: 'number' },
+          ballistic_ar:     { type: 'number' },
+          mobility_penalty: { type: 'number' },
+          tags:             { type: 'array', items: { type: 'string' } },
+          notes:            { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+
     // ── XP log ────────────────────────────────────────────────
     xp_log: {
       type: 'object',
