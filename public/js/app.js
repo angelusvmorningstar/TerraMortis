@@ -48,7 +48,6 @@ import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initSignIn } from './game/signin-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
-import { renderCityTab } from './player/city-tab.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -239,11 +238,7 @@ function goTab(t) {
   if (saveRow) saveRow.style.display = EDITOR_TABS.has(t) ? '' : 'none';
 
   // Tab-specific init
-  // Territory: API-backed city reference view — re-fetches on every open (nav-2-2)
-  if (t === 'territory') {
-    const el = document.getElementById('t-territory');
-    if (el) renderCityTab(el);
-  }
+  if (t === 'territory') mountTerr();
   if (t === 'tracker') initTracker(document.getElementById('t-tracker'));
   if (t === 'rules') initRules(document.getElementById('t-rules'));
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
