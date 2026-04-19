@@ -1,6 +1,6 @@
 # Story CSS-5: Reading Experience — DT Report and Primer for Mobile
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
