@@ -1599,12 +1599,11 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 /* Primary nav — 3-column tile grid matching section grids */
 #desktop-sidebar .sidebar-nav { display: flex; flex-direction: column; padding: 6px 0; flex-shrink: 0; }
 .sidebar-primary-grid { grid-template-columns: repeat(3, 1fr) !important; padding: 6px 10px 10px; border-bottom: 1px solid var(--bdr); margin-bottom: 4px; }
-/* Action tiles (theme/desktop/admin) — compact 3-col in sidebar header */
-.sidebar-actions { padding: 8px 0 0; }
-.sidebar-action-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 5px; padding: 0; }
-.sidebar-action-grid .sidebar-app-tile { aspect-ratio: 1; padding: 6px 4px; }
-.sidebar-action-grid .sidebar-app-tile-icon svg { width: 16px; height: 16px; }
-.sidebar-action-grid .sidebar-app-tile-label { font-size: 7px; }
+/* Action buttons in sidebar header — original red button style */
+.sidebar-actions { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.sidebar-actions .app-nav-btn { font-size: 11px; padding: 5px 10px; }
+.sidebar-actions .theme-toggle-btn,
+.sidebar-actions .desktop-toggle-btn { padding: 5px 8px; }
 /* sidebar-btn kept for any legacy uses */
 #desktop-sidebar .sidebar-btn {
   background: none; border: none; border-left: 3px solid transparent;
