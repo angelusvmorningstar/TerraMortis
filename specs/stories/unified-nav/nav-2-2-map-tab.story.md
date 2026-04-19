@@ -1,6 +1,6 @@
 # Story 2.2: Map Tab Renders Territory View
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -17,17 +17,11 @@ So that I can reference territory control and ambience during scenes.
 
 ## Tasks / Subtasks
 
-- [ ] Wire Map tab to existing territory view (AC: #1)
-  - [ ] `goTab('map')` calls `mountTerr(document.getElementById('t-map'))`
-  - [ ] Confirm `#t-map` container exists in `index.html` (from Story 1.2)
-- [ ] Verify territory data loads correctly (AC: #1, #2)
-  - [ ] `GET /api/territories` called on mount
-  - [ ] Regent and ambience fields display per territory
-- [ ] Responsive check (AC: #3)
-  - [ ] Confirm territory view works at 390px — no overflow or hidden content
-  - [ ] If territory component has fixed widths, add responsive overrides in `suite.css`
-- [ ] Refresh on re-open (AC: #4)
-  - [ ] Ensure `mountTerr()` re-fetches on each `goTab('map')` call, not cached from first load
+- [x] Wired Territory tab to `renderCityTab()` from `player/city-tab.js` — API-backed, not the localStorage bidding tracker (AC: #1, #2)
+- [x] `renderCityTab` fetches `GET /api/territories` and `GET /api/characters/public` on every open (AC: #4)
+- [x] Imported `renderCityTab` into `app.js` 
+- [x] City CSS classes ported from `player-layout.css` to `suite.css` (AC: #3)
+- [x] Responsive: `.city-split` stacks vertically at ≤768px (AC: #3)
 
 ## Dev Notes
 
