@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY, displayName, sortName, redactPlayer, discordAvatarUrl } from './data/helpers.js';
+import { CLAN_ICON_KEY, covIcon, displayName, sortName, redactPlayer, discordAvatarUrl } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -245,26 +245,14 @@ function goTab(t) {
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
 
   // ── Unified nav tab init ──────────────────────────────────────────────────
-  // t-dice was t-roll (renamed in HTML) — no extra init needed.
-  // Status: third primary tab — court hierarchy and prestige display.
-  // Territory: accessible via More grid, not primary nav.
-  if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
-  if (t === 'territory') mountTerr();
   if (t === 'more') renderMoreGrid();
   if (t === 'chars') {
-    // Players skip the list — go straight to their sheet
+    // Sheet tab: ST sees 3-col character picker; player sees their own sheet
     const role = getRole();
     if (role !== 'st') {
-      const info = getPlayerInfo();
-      const ids = info?.character_ids || [];
-      if (ids.length === 1) {
-        const idx = editorState.chars.findIndex(c => c._id === ids[0]);
-        if (idx >= 0) { openChar(idx); return; }
-      }
-      // Multiple characters — filter the list to just theirs
-      renderList(ids);
+      showPlayerSheet();
     } else {
-      renderList();
+      renderSheetPicker(document.getElementById('t-chars'));
     }
   }
 }
@@ -772,6 +760,9 @@ Object.assign(window, {
   mountTerr,
   _mountTerr: mountTerr,
   renderMoreGrid,
+  renderSheetPicker,
+  openSheetChar,
+  showPlayerSheet,
 
   // Game — live tracker
   trackerReset,
@@ -1004,6 +995,42 @@ function renderMoreGrid() {
   }
   h += '</div>';
   el.innerHTML = h;
+}
+
+// ── Sheet tab — character picker and player sheet (nav-2-1) ──────────────────
+
+function renderSheetPicker(el) {
+  if (!el) return;
+  const chars = (suiteState.chars || []).filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+
+  let h = '<div class="sheet-picker"><div class="sheet-picker-grid">';
+  for (const c of chars) {
+    const name = displayName(c);
+    const icon = covIcon(c.covenant, 18);
+    const esc = s => s ? s.replace(/&/g,'&amp;').replace(/"/g,'&quot;') : '';
+    h += `<button class="sheet-char-chip" onclick="openSheetChar('${esc(c.name)}')" title="${esc(name)}">`;
+    h += `<span class="sheet-char-chip-icon">${icon}</span>`;
+    h += `<span class="sheet-char-chip-name">${esc(name)}</span>`;
+    h += '</button>';
+  }
+  h += '</div></div>';
+  el.innerHTML = h;
+}
+
+function openSheetChar(charName) {
+  onSheetChar(charName);
+  goTab('sheets');
+}
+
+function showPlayerSheet() {
+  const info = getPlayerInfo();
+  const ids = info?.character_ids || [];
+  const chars = suiteState.chars || [];
+  const myChar = chars.find(c => ids.includes(String(c._id)) || ids.includes(c._id));
+  if (myChar) {
+    onSheetChar(myChar.name);
+    goTab('sheets');
+  }
 }
 
 /** Show logged-in user in header with avatar dropdown for logout. */
