@@ -385,3 +385,83 @@ test('EPB.3 — admin dice engine roll button min-height on mobile', async ({ pa
   });
   expect(hasMinHeight).toBeGreaterThanOrEqual(48);
 });
+
+// ── nav-1-3 — More grid app launcher ─────────────────────────────────────────
+
+test('nav-1-3 — More tab renders app grid for ST', async ({ page }) => {
+  await setupAdminPage(page);
+
+  // Navigate to suite app
+  await page.goto('/');
+  await page.addInitScript((user) => {
+    localStorage.setItem('tm_auth_token', 'local-test-token');
+    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+  }, ST_USER);
+  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
+
+  await page.click('#n-more');
+  await page.waitForSelector('.more-grid', { state: 'visible', timeout: 10000 });
+
+  // ST-only apps visible
+  await expect(page.locator('.more-app-icon[data-app="tracker"]')).toBeVisible();
+  await expect(page.locator('.more-app-icon[data-app="signin"]')).toBeVisible();
+  await expect(page.locator('.more-app-icon[data-app="emergency"]')).toBeVisible();
+
+  // Player-only apps NOT visible for ST
+  await expect(page.locator('.more-app-icon[data-app="dt-submission"]')).toHaveCount(0);
+  await expect(page.locator('.more-app-icon[data-app="ordeals"]')).toHaveCount(0);
+
+  // Shared apps visible
+  await expect(page.locator('.more-app-icon[data-app="rules"]')).toBeVisible();
+  await expect(page.locator('.more-app-icon[data-app="feeding"]')).toBeVisible();
+});
+
+test('nav-1-3 — More grid shows player-only apps for player role', async ({ page }) => {
+  const playerUser = {
+    id: '999', username: 'player_test', global_name: 'Player',
+    avatar: null, role: 'player', player_id: 'p-002',
+    character_ids: ['char-001'], is_dual_role: false,
+  };
+  await page.addInitScript((user) => {
+    localStorage.setItem('tm_auth_token', 'local-test-token');
+    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+  }, playerUser);
+  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
+
+  await page.click('#n-more');
+  await page.waitForSelector('.more-grid', { state: 'visible', timeout: 10000 });
+
+  // Player-only apps visible
+  await expect(page.locator('.more-app-icon[data-app="dt-submission"]')).toBeVisible();
+  await expect(page.locator('.more-app-icon[data-app="ordeals"]')).toBeVisible();
+
+  // ST-only apps NOT visible for player
+  await expect(page.locator('.more-app-icon[data-app="tracker"]')).toHaveCount(0);
+  await expect(page.locator('.more-app-icon[data-app="signin"]')).toHaveCount(0);
+});
+
+test('nav-1-3 — tapping More grid app navigates to that tab', async ({ page }) => {
+  await page.addInitScript((user) => {
+    localStorage.setItem('tm_auth_token', 'local-test-token');
+    localStorage.setItem('tm_auth_expires', String(Date.now() + 3600000));
+    localStorage.setItem('tm_auth_user', JSON.stringify(user));
+  }, ST_USER);
+  await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
+
+  await page.click('#n-more');
+  await page.waitForSelector('.more-app-icon[data-app="rules"]', { state: 'visible', timeout: 10000 });
+  await page.locator('.more-app-icon[data-app="rules"]').click();
+
+  // Rules tab should be active
+  await expect(page.locator('#t-rules')).toHaveClass(/active/, { timeout: 5000 });
+  // More nav button should remain highlighted
+  await expect(page.locator('#n-more')).toHaveClass(/on/);
+});
