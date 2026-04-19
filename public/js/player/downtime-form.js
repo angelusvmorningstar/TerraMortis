@@ -44,7 +44,7 @@ let saveTimer = null;
 let priorPublishedLabel = null; // label of most recent published cycle other than current
 
 // Merits detected from the character sheet, grouped by type
-let detectedMerits = { spheres: [], contacts: [], retainers: [] };
+let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
 
 // All active characters (lightweight: _id, name, moniker, honorific) for regency dropdowns
 let allCharNames = [];
@@ -91,16 +91,17 @@ const ACTION_SHORT = {
 // Which fields each action type shows
 const ACTION_FIELDS = {
   '': [],
-  'feed': ['summary'],
+  'feed': [],
   'xp_spend': ['xp_note'],
   'ambience_increase': ['title', 'territory', 'pools', 'cast', 'description'],
   'ambience_decrease': ['title', 'territory', 'pools', 'cast', 'description'],
-  'attack': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
-  'investigate': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
-  'hide_protect': ['title', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'attack': ['title', 'target_char', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
+  'investigate': ['title', 'target_flex', 'investigate_lead', 'pools', 'outcome', 'cast', 'merits', 'description'],
+  'hide_protect': ['title', 'target_own_merit', 'pools', 'outcome', 'cast', 'merits', 'description'],
   'patrol_scout': ['title', 'pools', 'outcome', 'territory', 'cast', 'description'],
   'support': ['title', 'pools', 'outcome', 'cast', 'description'],
   'misc': ['title', 'pools', 'outcome', 'cast', 'description'],
+  'maintenance': ['description'],
 };
 
 // Which fields each sphere action type shows (no dice pools)
@@ -118,18 +119,17 @@ const ACTION_POOL_DEFAULTS = {
 
 const SPHERE_ACTION_FIELDS = {
   '': [],
-  'ambience_increase': ['territory', 'outcome', 'description'],
-  'ambience_decrease': ['territory', 'outcome', 'description'],
-  'attack': ['cast', 'outcome', 'description'],
-  'block': ['cast', 'outcome', 'description'],
-  'hide_protect': ['outcome', 'description'],
-  'investigate': ['territory', 'outcome', 'description'],
+  'ambience_increase': ['territory', 'outcome'],
+  'ambience_decrease': ['territory', 'outcome'],
+  'attack': ['target_char', 'outcome'],
+  'block': ['target_char', 'block_merit', 'outcome'],
+  'hide_protect': ['target_own_merit', 'outcome'],
+  'investigate': ['target_flex', 'investigate_lead', 'outcome'],
   'patrol_scout': ['territory', 'outcome', 'description'],
   'rumour': ['outcome', 'description'],
-  'support': ['cast', 'outcome', 'description'],
+  'support': ['project_support', 'outcome'],
   'grow': ['outcome', 'description'],
   'misc': ['outcome', 'description'],
-  'acquisition': ['outcome', 'description'],
 };
 
 function scheduleSave() {
@@ -177,8 +177,11 @@ function detectMerits() {
   }
 
   detectedMerits.spheres = deduplicateMerits(expandedInfluence.filter(m =>
-    m.category === 'influence' && (m.name === 'Allies' || m.name === 'Status')
+    m.category === 'influence' && m.name === 'Allies'
   ));
+  detectedMerits.status = deduplicateMerits(merits.filter(m =>
+    m.category === 'influence' && m.name === 'Status'
+  )).concat(merits.filter(m => m.category === 'standing' && m.name === 'MCI'));
   // Contacts: expand spheres array into individual entries for toggle rendering
   const rawContacts = deduplicateMerits(expandedInfluence.filter(m =>
     m.category === 'influence' && m.name === 'Contacts'
@@ -344,9 +347,13 @@ function collectResponses() {
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
     const xpTraitEl = document.getElementById(`dt-project_${n}_xp_trait`);
     responses[`project_${n}_xp_trait`] = xpTraitEl ? xpTraitEl.value : '';
-    // Secondary feed method (rote feed action)
-    const feedMethod2El = document.getElementById(`dt-project_${n}_feed_method2`);
-    if (feedMethod2El) responses[`project_${n}_feed_method2`] = feedMethod2El.value;
+    // Target pickers (attack, hide_protect, investigate)
+    const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
+    responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
+    const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
+    responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
+    responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
     // Cast checkboxes
     const castHidden = document.querySelectorAll(`input[type="hidden"][data-proj-cast-cb="${n}"]`);
@@ -390,18 +397,33 @@ function collectResponses() {
   // Sphere action fields (tabbed — up to 5 slots)
   const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
   for (let n = 1; n <= maxSpheres; n++) {
-    for (const suffix of ['action', 'outcome', 'description', 'territory']) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'target_value', 'block_merit', 'project_support', 'investigate_lead']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
     }
+    const flexRadio = document.querySelector(`input[name="dt-sphere_${n}_target_type"]:checked`);
+    responses[`sphere_${n}_target_type`] = flexRadio ? flexRadio.value : '';
     // Merit label for this slot
     const m = detectedMerits.spheres[n - 1];
     if (m) responses[`sphere_${n}_merit`] = meritLabel(m);
-    // Cast hidden inputs
+    // Cast hidden inputs (legacy — kept for backwards compat)
     const castHidden = document.querySelectorAll(`input[type="hidden"][data-sphere-cast-cb="${n}"]`);
     const castIds = [];
     castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
     responses[`sphere_${n}_cast`] = JSON.stringify(castIds);
+  }
+
+  // Status action fields
+  const maxStatus = Math.min(detectedMerits.status.length, 5);
+  for (let n = 1; n <= maxStatus; n++) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'target_value', 'investigate_lead']) {
+      const el = document.getElementById(`dt-status_${n}_${suffix}`);
+      if (el) responses[`status_${n}_${suffix}`] = el.value;
+    }
+    const flexRadio = document.querySelector(`input[name="dt-status_${n}_target_type"]:checked`);
+    responses[`status_${n}_target_type`] = flexRadio ? flexRadio.value : '';
+    const sm = detectedMerits.status[n - 1];
+    if (sm) responses[`status_${n}_merit`] = meritLabel(sm);
   }
 
   // Contact fields (expandable table — up to 5)
@@ -1227,6 +1249,18 @@ function renderForm(container) {
       );
       return;
     }
+    // Status tab switching
+    const statusTab = e.target.closest('[data-status-tab]');
+    if (statusTab) {
+      const n = parseInt(statusTab.dataset.statusTab, 10);
+      container.querySelectorAll('[data-status-tab]').forEach(t =>
+        t.classList.toggle('dt-proj-tab-active', parseInt(t.dataset.statusTab, 10) === n)
+      );
+      container.querySelectorAll('[data-status-pane]').forEach(p =>
+        p.classList.toggle('dt-proj-pane-hidden', parseInt(p.dataset.statusPane, 10) !== n)
+      );
+      return;
+    }
     // Project tab switching
     const tab = e.target.closest('[data-proj-tab]');
     if (tab) {
@@ -1313,6 +1347,24 @@ function renderForm(container) {
     const sphereAction = e.target.closest('[data-sphere-action]');
     if (sphereAction) {
       activeSphereTab = parseInt(sphereAction.dataset.sphereAction, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Status action change — re-render for action-specific fields
+    const statusAction = e.target.closest('[data-status-action]');
+    if (statusAction) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Flex target type radio — re-render to show correct input
+    const flexType = e.target.closest('[data-flex-type]');
+    if (flexType) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1752,9 +1804,16 @@ function renderProjectSlots(saved) {
     (currentChar.disciplines[d]?.dots || 0) > 0
   );
 
-  // Character merits for the merit picker
+  // Character merits for the merit picker and own-merit target
   const charMerits = (currentChar.merits || []).filter(m =>
     m.category === 'general' || m.category === 'influence' || m.category === 'standing'
+  );
+
+  const hasMaintenance = (currentChar.merits || []).some(m =>
+    m.name === 'Professional Training' || m.name === 'MCI'
+  );
+  const availableActions = PROJECT_ACTIONS.filter(opt =>
+    opt.value !== 'maintenance' || hasMaintenance
   );
 
   let h = '<div class="qf-section collapsed" data-section-key="projects">';
@@ -1790,60 +1849,17 @@ function renderProjectSlots(saved) {
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
     h += `<select id="dt-project_${n}_action" class="qf-select" data-project-action="${n}">`;
-    for (const opt of PROJECT_ACTIONS) {
+    for (const opt of availableActions) {
       const sel = actionVal === opt.value ? ' selected' : '';
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
     h += '</select></div>';
 
-    // ── Feed (rote) — primary summary + secondary hunt ──
-    if (fields.includes('summary')) {
-      const method = FEED_METHODS.find(m => m.id === feedMethodId);
-      const methodName = method ? method.name : feedMethodId || 'Not selected';
-      let poolSummary = methodName;
-      if (feedDiscName) poolSummary += ` + ${feedDiscName}`;
-      if (feedSpecName) poolSummary += ` (${feedSpecName})`;
+    // ── Feed — committed to rote, no independent configuration ──
+    if (actionVal === 'feed') {
       h += '<div class="dt-proj-feed-summary">';
-      h += `<p>Primary hunt from Feeding section receives <strong>Rote quality</strong>.</p>`;
-      h += `<p class="dt-proj-feed-method">Rote Pool: <strong>${esc(poolSummary)}</strong></p>`;
+      h += '<p>Committed to feeding rote \u2014 see Feeding section.</p>';
       h += '</div>';
-
-      // Secondary hunt — additional method, pool, territory, description
-      h += '<p class="qf-section-intro" style="margin-top:14px;">You may also conduct a second hunt with a different approach.</p>';
-
-      // Secondary method selector
-      const savedMethod2 = saved[`project_${n}_feed_method2`] || '';
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-project_${n}_feed_method2">Secondary Hunt Method</label>`;
-      h += `<select id="dt-project_${n}_feed_method2" class="qf-select">`;
-      h += '<option value="">— Same as primary —</option>';
-      for (const fm of FEED_METHODS) {
-        const sel = savedMethod2 === fm.id ? ' selected' : '';
-        h += `<option value="${esc(fm.id)}"${sel}>${esc(fm.name)} \u2014 ${esc(fm.desc)}</option>`;
-      }
-      h += '</select></div>';
-
-      // Secondary dice pool
-      h += renderDicePool(n, 'pool', 'Secondary Hunt Dice Pool', attrs, skills, discs, saved);
-
-      // Territory for this hunt
-      const savedTerr = saved[`project_${n}_territory`] || '';
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-project_${n}_territory">Hunting Territory</label>`;
-      h += `<select id="dt-project_${n}_territory" class="qf-select">`;
-      h += '<option value="">— No Territory —</option>';
-      for (const t of TERRITORY_DATA) {
-        const sel = savedTerr === t.id ? ' selected' : '';
-        h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
-      }
-      h += '</select></div>';
-
-      // Description
-      h += renderQuestion({
-        key: `project_${n}_description`, label: 'Description',
-        type: 'textarea', required: false,
-        desc: 'Describe the additional hunt \u2014 where, how, and any relevant context.',
-      }, saved[`project_${n}_description`] || '');
     }
 
     // ── Title ──
@@ -1883,10 +1899,82 @@ function renderProjectSlots(saved) {
       h += '</select></div>';
     }
 
+    // ── Target: character (attack) ──
+    if (fields.includes('target_char')) {
+      const savedVal = saved[`project_${n}_target_value`] || '';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-project_${n}_target_value">Target Character <span class="qf-req">*</span></label>`;
+      h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
+      h += '<option value="">— Select Target —</option>';
+      for (const c of allCharacters) {
+        const sel = String(c.id) === String(savedVal) ? ' selected' : '';
+        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+      }
+      h += '</select></div>';
+    }
+
+    // ── Target: own merit (hide_protect) ──
+    if (fields.includes('target_own_merit')) {
+      const savedVal = saved[`project_${n}_target_value`] || '';
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-project_${n}_target_value">What are you protecting?</label>`;
+      h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
+      h += '<option value="">— Select Merit / Asset —</option>';
+      for (const m of charMerits) {
+        const mLabel = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+        const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+        const sel = mKey === savedVal ? ' selected' : '';
+        h += `<option value="${esc(mKey)}"${sel}>${esc(mLabel)}</option>`;
+      }
+      h += '</select></div>';
+    }
+
+    // ── Target: flex (investigate) ──
+    if (fields.includes('target_flex')) {
+      const savedType = saved[`project_${n}_target_type`] || '';
+      const savedVal = saved[`project_${n}_target_value`] || '';
+      h += '<div class="qf-field dt-target-flex">';
+      h += `<label class="qf-label">What are you investigating?</label>`;
+      h += `<div class="dt-target-flex-radios">`;
+      for (const opt of [['character', 'Character'], ['territory', 'Territory'], ['other', 'Other']]) {
+        const chk = savedType === opt[0] ? ' checked' : '';
+        h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-project_${n}_target_type" value="${opt[0]}"${chk} data-flex-type="project_${n}"> ${opt[1]}</label>`;
+      }
+      h += '</div>';
+      if (savedType === 'character') {
+        h += `<select id="dt-project_${n}_target_value" class="qf-select dt-flex-char-sel">`;
+        h += '<option value="">— Select Character —</option>';
+        for (const c of allCharacters) {
+          const sel = String(c.id) === String(savedVal) ? ' selected' : '';
+          h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+        }
+        h += '</select>';
+      } else if (savedType === 'territory') {
+        h += `<select id="dt-project_${n}_target_value" class="qf-select dt-flex-terr-sel">`;
+        h += '<option value="">— Select Territory —</option>';
+        for (const t of TERRITORY_DATA) {
+          const sel = t.id === savedVal ? ' selected' : '';
+          h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
+        }
+        h += '</select>';
+      } else if (savedType === 'other') {
+        h += `<input type="text" id="dt-project_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
+      }
+      h += '</div>';
+    }
+
+    // ── Investigate lead (mandatory for investigate) ──
+    if (fields.includes('investigate_lead')) {
+      h += renderQuestion({
+        key: `project_${n}_investigate_lead`, label: 'What is your lead on this investigation? \u2731',
+        type: 'textarea', required: true,
+        desc: 'Provide a specific starting point, source, or known fact. Investigations without a lead cannot proceed.',
+      }, saved[`project_${n}_investigate_lead`] || '');
+    }
+
     // ── Dice pools ──
     if (fields.includes('pools')) {
-      const poolDefaults = ACTION_POOL_DEFAULTS[actionVal] || null;
-      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved, poolDefaults);
+      h += renderDicePool(n, 'pool', 'Primary Dice Pool', attrs, skills, discs, saved);
       h += renderDicePool(n, 'pool2', 'Secondary Dice Pool (optional)', attrs, skills, discs, saved);
     }
 
@@ -1977,17 +2065,11 @@ function renderProjectSlots(saved) {
   return h;
 }
 
-function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved, defaults) {
+function renderDicePool(slotNum, poolKey, label, attrs, skills, discs, saved) {
   const prefix = `project_${slotNum}_${poolKey}`;
-  let savedAttr  = saved[`${prefix}_attr`]  || '';
-  let savedSkill = saved[`${prefix}_skill`] || '';
+  const savedAttr  = saved[`${prefix}_attr`]  || '';
+  const savedSkill = saved[`${prefix}_skill`] || '';
   const savedDisc = saved[`${prefix}_disc`] || '';
-
-  // Apply defaults when both attr and skill are unset and the character has the default skill
-  if (!savedAttr && !savedSkill && defaults && skills.includes(defaults.skill)) {
-    savedAttr  = defaults.attr;
-    savedSkill = defaults.skill;
-  }
 
   // Calculate total from saved selections
   let total = 0;
@@ -2768,13 +2850,151 @@ function renderMeritToggle(m, saved, formHtml) {
 }
 
 /** Render merit toggle radios with inline form sections. */
+function renderSphereFields(n, prefix, fields, saved, charMerits) {
+  let h = '';
+
+  if (fields.includes('territory')) {
+    const savedTerr = saved[`${prefix}_${n}_territory`] || '';
+    h += '<div class="qf-field">';
+    h += `<label class="qf-label" for="dt-${prefix}_${n}_territory">Territory</label>`;
+    h += `<select id="dt-${prefix}_${n}_territory" class="qf-select">`;
+    h += '<option value="">— No Territory —</option>';
+    for (const t of TERRITORY_DATA) {
+      const sel = savedTerr === t.id ? ' selected' : '';
+      h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
+    }
+    h += '</select></div>';
+  }
+
+  if (fields.includes('target_char')) {
+    const savedVal = saved[`${prefix}_${n}_target_value`] || '';
+    h += '<div class="qf-field">';
+    h += `<label class="qf-label" for="dt-${prefix}_${n}_target_value">Target Character</label>`;
+    h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select">`;
+    h += '<option value="">— Select Target —</option>';
+    for (const c of allCharacters) {
+      const sel = String(c.id) === String(savedVal) ? ' selected' : '';
+      h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+    }
+    h += '</select></div>';
+  }
+
+  if (fields.includes('block_merit')) {
+    const savedMerit = saved[`${prefix}_${n}_block_merit`] || '';
+    h += '<div class="qf-field">';
+    h += `<label class="qf-label" for="dt-${prefix}_${n}_block_merit">Which merit are you targeting?</label>`;
+    h += `<p class="qf-desc">Name your best guess — you may not know exactly what they have.</p>`;
+    h += `<input type="text" id="dt-${prefix}_${n}_block_merit" class="qf-input" value="${esc(savedMerit)}" placeholder="e.g. Allies (Police), Status (Lancea)">`;
+    h += '</div>';
+  }
+
+  if (fields.includes('target_own_merit')) {
+    const savedVal = saved[`${prefix}_${n}_target_value`] || '';
+    h += '<div class="qf-field">';
+    h += `<label class="qf-label" for="dt-${prefix}_${n}_target_value">What are you protecting?</label>`;
+    h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select">`;
+    h += '<option value="">— Select Merit / Asset —</option>';
+    for (const m of charMerits) {
+      const mLabel = m.area ? `${m.name} (${m.area})` : (m.qualifier ? `${m.name} (${m.qualifier})` : m.name);
+      const mKey = `${m.name}|${m.area || m.qualifier || ''}`;
+      const sel = mKey === savedVal ? ' selected' : '';
+      h += `<option value="${esc(mKey)}"${sel}>${esc(mLabel)}</option>`;
+    }
+    h += '</select></div>';
+  }
+
+  if (fields.includes('target_flex')) {
+    const savedType = saved[`${prefix}_${n}_target_type`] || '';
+    const savedVal = saved[`${prefix}_${n}_target_value`] || '';
+    h += '<div class="qf-field dt-target-flex">';
+    h += '<label class="qf-label">What are you investigating?</label>';
+    h += '<div class="dt-target-flex-radios">';
+    for (const opt of [['character', 'Character'], ['territory', 'Territory'], ['other', 'Other']]) {
+      const chk = savedType === opt[0] ? ' checked' : '';
+      h += `<label class="dt-flex-radio-label"><input type="radio" name="dt-${prefix}_${n}_target_type" value="${opt[0]}"${chk} data-flex-type="${prefix}_${n}"> ${opt[1]}</label>`;
+    }
+    h += '</div>';
+    if (savedType === 'character') {
+      h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select dt-flex-char-sel">`;
+      h += '<option value="">— Select Character —</option>';
+      for (const c of allCharacters) {
+        const sel = String(c.id) === String(savedVal) ? ' selected' : '';
+        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+      }
+      h += '</select>';
+    } else if (savedType === 'territory') {
+      h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select dt-flex-terr-sel">`;
+      h += '<option value="">— Select Territory —</option>';
+      for (const t of TERRITORY_DATA) {
+        const sel = t.id === savedVal ? ' selected' : '';
+        h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
+      }
+      h += '</select>';
+    } else if (savedType === 'other') {
+      h += `<input type="text" id="dt-${prefix}_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
+    }
+    h += '</div>';
+  }
+
+  if (fields.includes('investigate_lead')) {
+    h += renderQuestion({
+      key: `${prefix}_${n}_investigate_lead`, label: 'What is your lead on this investigation? \u2731',
+      type: 'textarea', required: true,
+      desc: 'Provide a specific starting point, source, or known fact.',
+    }, saved[`${prefix}_${n}_investigate_lead`] || '');
+  }
+
+  if (fields.includes('project_support')) {
+    const savedVal = saved[`${prefix}_${n}_project_support`] || '';
+    const activeProjects = [];
+    const projectSection = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
+    const slotCount = projectSection?.projectSlots || 4;
+    for (let p = 1; p <= slotCount; p++) {
+      const act = saved[`project_${p}_action`] || '';
+      if (act && act !== '') {
+        const title = saved[`project_${p}_title`] || `Action ${p}`;
+        activeProjects.push({ value: String(p), label: `${title} (${act})` });
+      }
+    }
+    h += '<div class="qf-field">';
+    h += `<label class="qf-label" for="dt-${prefix}_${n}_project_support">Which project are you supporting?</label>`;
+    h += `<select id="dt-${prefix}_${n}_project_support" class="qf-select">`;
+    h += '<option value="">— Select Project —</option>';
+    for (const p of activeProjects) {
+      const sel = p.value === savedVal ? ' selected' : '';
+      h += `<option value="${esc(p.value)}"${sel}>${esc(p.label)}</option>`;
+    }
+    h += '</select></div>';
+  }
+
+  if (fields.includes('outcome')) {
+    h += renderQuestion({
+      key: `${prefix}_${n}_outcome`, label: 'Desired Outcome',
+      type: 'text', required: false, desc: null,
+    }, saved[`${prefix}_${n}_outcome`] || '');
+  }
+
+  if (fields.includes('description')) {
+    h += renderQuestion({
+      key: `${prefix}_${n}_description`, label: 'Description',
+      type: 'textarea', required: false, desc: null,
+    }, saved[`${prefix}_${n}_description`] || '');
+  }
+
+  return h;
+}
+
 function renderMeritToggles(saved) {
   let h = '';
   const hasSpheres = detectedMerits.spheres.length > 0;
   const hasContacts = detectedMerits.contacts.length > 0;
   const hasRetainers = detectedMerits.retainers.length > 0;
+  const hasStatus = detectedMerits.status.length > 0;
+  const charMerits = (currentChar.merits || []).filter(m =>
+    m.category === 'general' || m.category === 'influence' || m.category === 'standing'
+  );
 
-  if (!hasSpheres && !hasContacts && !hasRetainers) return '';
+  if (!hasSpheres && !hasContacts && !hasRetainers && !hasStatus) return '';
 
   // ── Spheres of Influence (tabbed, max 5) ──
   if (hasSpheres) {
@@ -2826,63 +3046,61 @@ function renderMeritToggles(saved) {
       }
       h += '</select></div>';
 
-      // ── Territory picker ──
-      if (fields.includes('territory')) {
-        const savedTerr = saved[`sphere_${n}_territory`] || '';
-        h += '<div class="qf-field">';
-        h += `<label class="qf-label" for="dt-sphere_${n}_territory">Territory</label>`;
-        h += `<select id="dt-sphere_${n}_territory" class="qf-select">`;
-        h += '<option value="">— No Territory —</option>';
-        for (const t of TERRITORY_DATA) {
-          const sel = savedTerr === t.id ? ' selected' : '';
-          h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
-        }
-        h += '</select></div>';
-      }
-
-      // ── Cast picker ──
-      if (fields.includes('cast')) {
-        let castPicks = [];
-        try { castPicks = JSON.parse(saved[`sphere_${n}_cast`] || '[]'); } catch { /* ignore */ }
-        const castNames = castPicks.map(id => {
-          const c = allCharacters.find(ch => ch.id === id || String(ch.id) === String(id));
-          return c ? c.name : '';
-        }).filter(Boolean);
-        h += '<div class="qf-field">';
-        h += `<label class="qf-label">Target Character(s)</label>`;
-        h += `<div class="dt-cast-summary" data-cast-slot="sphere_${n}">`;
-        if (castNames.length) {
-          h += '<span class="dt-cast-pills">';
-          castNames.forEach(name => { h += `<span class="dt-cast-pill">${esc(name)}</span>`; });
-          h += '</span>';
-        } else {
-          h += '<span class="dt-cast-none">None selected</span>';
-        }
-        h += `<button type="button" class="dt-cast-btn" data-cast-open="sphere_${n}">Select\u2026</button>`;
-        h += '</div>';
-        castPicks.forEach(id => {
-          h += `<input type="hidden" data-sphere-cast-cb="${n}" value="${esc(String(id))}">`;
-        });
-        h += '</div>';
-      }
-
-      // ── Desired outcome ──
-      if (fields.includes('outcome')) {
-        h += renderQuestion({
-          key: `sphere_${n}_outcome`, label: 'Desired Outcome',
-          type: 'text', required: false, desc: null,
-        }, saved[`sphere_${n}_outcome`] || '');
-      }
-
-      // ── Description ──
-      if (fields.includes('description')) {
-        h += renderQuestion({
-          key: `sphere_${n}_description`, label: 'Description',
-          type: 'textarea', required: false, desc: null,
-        }, saved[`sphere_${n}_description`] || '');
-      }
+      h += renderSphereFields(n, 'sphere', fields, saved, charMerits);
 
       h += '</div>'; // pane
+    }
+
+    h += '</div></div>';
+  }
+
+  // ── Status (Broad / Narrow / MCI) ──
+  if (detectedMerits.status.length > 0) {
+    const maxStatus = Math.min(detectedMerits.status.length, 5);
+    h += '<div class="qf-section collapsed" data-section-key="status">';
+    h += '<h4 class="qf-section-title">Status: Social Standing<span class="qf-section-tick">✔</span></h4>';
+    h += '<div class="qf-section-body">';
+    h += '<p class="qf-section-intro">Use your Status merits to take social actions this Downtime.</p>';
+
+    h += '<div class="dt-proj-tabs">';
+    for (let n = 1; n <= maxStatus; n++) {
+      const m = detectedMerits.status[n - 1];
+      const actionVal = saved[`status_${n}_action`] || '';
+      const icon = ACTION_ICONS[actionVal] || ACTION_ICONS[''];
+      const label = actionVal ? (ACTION_SHORT[actionVal] || actionVal) : 'No Action';
+      const active = n === 1 ? ' dt-proj-tab-active' : '';
+      const noAction = !actionVal ? ' dt-proj-tab-empty' : '';
+      const statusLabel = m.name === 'MCI' ? `MCI${m.cult_name ? ` (${m.cult_name})` : ''}` :
+        (m.qualifier || m.area ? `Status (${m.qualifier || m.area})` : 'Broad Status');
+      h += `<button type="button" class="dt-proj-tab${active}${noAction}" data-status-tab="${n}">`;
+      h += `<span class="dt-proj-tab-icon">${icon}</span>`;
+      h += `<span class="dt-proj-tab-num">${esc(statusLabel)}</span>`;
+      h += `<span class="dt-proj-tab-label">${esc(label)}</span>`;
+      h += '</button>';
+    }
+    h += '</div>';
+
+    for (let n = 1; n <= maxStatus; n++) {
+      const m = detectedMerits.status[n - 1];
+      const actionVal = saved[`status_${n}_action`] || '';
+      const visible = n === 1;
+      const fields = SPHERE_ACTION_FIELDS[actionVal] || [];
+
+      h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-status-pane="${n}">`;
+      h += `<input type="hidden" id="dt-status_${n}_merit_key" value="${esc(meritKey(m))}">`;
+
+      h += '<div class="qf-field">';
+      h += `<label class="qf-label" for="dt-status_${n}_action">Action Type</label>`;
+      h += `<select id="dt-status_${n}_action" class="qf-select" data-status-action="${n}">`;
+      for (const opt of SPHERE_ACTIONS) {
+        const sel = actionVal === opt.value ? ' selected' : '';
+        h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
+      }
+      h += '</select></div>';
+
+      h += renderSphereFields(n, 'status', fields, saved, charMerits);
+
+      h += '</div>';
     }
 
     h += '</div></div>';

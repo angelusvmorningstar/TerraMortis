@@ -221,8 +221,10 @@ In `SPHERE_ACTION_FIELDS`:
 
 ## Dev Agent Record
 ### Agent Model Used
-_to be filled_
+claude-sonnet-4-6
 ### Completion Notes
-_to be filled_
+ACTION_FIELDS updated: feed → locked message only, attack/investigate/hide_protect get target pickers, maintenance added (gated on Prof Training or MCI). SPHERE_ACTION_FIELDS: description removed from ambience/attack/block/hide_protect/investigate/support; acquisition removed from SPHERE_ACTIONS and the field map. Pool pre-loading defaults removed from renderDicePool. renderSphereFields helper extracted (shared by Allies and Status panes). Status section added to renderMeritToggles with auto-detection of Broad/Narrow/MCI. detectedMerits.status added; spheres now Allies-only. Status/flex-type/status-action change handlers wired in. collectResponses updated for new target_type/target_value/investigate_lead/status fields.
 ### File List
-_to be filled_
+- public/js/player/downtime-data.js
+- public/js/player/downtime-form.js
+- public/css/components.css

@@ -2748,6 +2748,15 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   margin-top: 6px;
 }
 
+/* ── Regency sub-field (inside Vamping) ── */
+.dt-regency-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surf3); }
+
+/* ── Target pickers ── */
+.dt-target-flex { display: flex; flex-direction: column; gap: 8px; }
+.dt-target-flex-radios { display: flex; gap: 16px; flex-wrap: wrap; }
+.dt-flex-radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.dt-flex-char-sel, .dt-flex-terr-sel { width: 100%; margin-top: 4px; }
+
 /* ── Feeding method selector ── */
 .dt-feed-methods {
   display: grid;

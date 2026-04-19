@@ -19,6 +19,7 @@ const PROJECT_ACTIONS = [
   { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'xp_spend', label: 'XP Spend: Grow your character' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
+  { value: 'maintenance', label: 'Maintenance: Upkeep of professional or cult relationships' },
 ];
 
 // Action type options for sphere (social merit) slots
@@ -35,7 +36,6 @@ export const SPHERE_ACTIONS = [
   { value: 'support', label: 'Support: Assists any other action type by you or another' },
   { value: 'grow', label: 'Grow: Attempt to acquire Allies or Status 4 or 5' },
   { value: 'misc', label: 'Misc: For things that don\'t fit in other categories' },
-  { value: 'acquisition', label: 'Acquisition: Use your standing in Status/Mystery Cult to procure an item' },
 ];
 
 export const FEEDING_TERRITORIES = [
