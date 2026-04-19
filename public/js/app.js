@@ -924,27 +924,36 @@ const _svg = {
   office:   '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
 };
 
+// section: 'game' | 'player' | 'lore' | 'st'
+// Render order: game → player (if visible) → lore → st (if visible)
 const MORE_APPS = [
-  // Shared apps — visible to all roles
-  { id: 'status',        label: 'Status',     icon: _svg.status,   stOnly: false, playerOnly: false },
-  { id: 'whos-who',     label: "Who's Who",   icon: _svg.whosWho,  stOnly: false, playerOnly: false },
-  { id: 'dt-report',    label: 'DT Report',   icon: _svg.dtReport, stOnly: false, playerOnly: false },
-  { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  stOnly: false, playerOnly: false },
-  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   stOnly: false, playerOnly: false },
-  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    stOnly: false, playerOnly: false },
-  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    stOnly: false, playerOnly: false },
-  // Player-only apps
-  { id: 'dt-submission', label: 'Submit DT',  icon: _svg.dtSubmit, stOnly: false, playerOnly: true },
-  { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  stOnly: false, playerOnly: true },
-  // ST-only apps
-  { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  stOnly: true,  playerOnly: false },
-  { id: 'signin',       label: 'Sign-In',     icon: _svg.signin,   stOnly: true,  playerOnly: false },
-  { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,stOnly: true,  playerOnly: false },
-  // Conditional apps
-  { id: 'regency',      label: 'Regency',     icon: _svg.regency,  stOnly: false, playerOnly: false, condition: 'hasRegency' },
-  { id: 'office',       label: 'Office',      icon: _svg.office,   stOnly: false, playerOnly: false, condition: 'hasOffice' },
-  // Territory — moved from primary nav to More grid (nav-1-hf1)
-  { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', stOnly: false, playerOnly: false },
+  // ── Game section ──
+  { id: 'status',        label: 'Status',     icon: _svg.status,   section: 'game' },
+  { id: 'whos-who',     label: "Who's Who",   icon: _svg.whosWho,  section: 'game' },
+  { id: 'dt-report',    label: 'DT Report',   icon: _svg.dtReport, section: 'game' },
+  { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
+  { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'game' },
+  // ── Player section (player role only) ──
+  { id: 'dt-submission', label: 'Submit DT',  icon: _svg.dtSubmit, section: 'player', playerOnly: true },
+  { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player', playerOnly: true },
+  // ── Lore section ──
+  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore' },
+  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore' },
+  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore' },
+  // ── Storyteller section (ST role only) ──
+  { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
+  { id: 'signin',       label: 'Sign-In',     icon: _svg.signin,   section: 'st', stOnly: true },
+  { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', stOnly: true },
+  // ── Conditional apps (section determined by context) ──
+  { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
+  { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
+];
+
+const MORE_SECTIONS = [
+  { id: 'game',   label: 'Game' },
+  { id: 'player', label: 'Player' },
+  { id: 'lore',   label: 'Lore' },
+  { id: 'st',     label: 'Storyteller' },
 ];
 
 function _moreGridCondition(app) {
@@ -969,19 +978,29 @@ function renderMoreGrid() {
   const role = effectiveRole();
   const isST = role === 'st';
 
-  const visibleApps = MORE_APPS.filter(app => {
+  function appVisible(app) {
     if (app.stOnly && !isST) return false;
     if (app.playerOnly && isST) return false;
     if (app.condition && !_moreGridCondition(app)) return false;
     return true;
-  });
+  }
 
-  let h = '<div class="more-grid">';
-  for (const app of visibleApps) {
-    h += `<button class="more-app-icon" data-app="${app.id}" onclick="goTab('${app.id}')">`;
-    h += `<span class="more-app-icon-svg">${app.icon}</span>`;
-    h += `<span class="more-app-label">${app.label}</span>`;
-    h += '</button>';
+  function appIcon(app) {
+    return `<button class="more-app-icon" data-app="${app.id}" onclick="goTab('${app.id}')">` +
+      `<span class="more-app-icon-svg">${app.icon}</span>` +
+      `<span class="more-app-label">${app.label}</span>` +
+      '</button>';
+  }
+
+  let h = '<div class="more-grid-wrap">';
+  for (const section of MORE_SECTIONS) {
+    const sectionApps = MORE_APPS.filter(a => a.section === section.id && appVisible(a));
+    if (!sectionApps.length) continue;
+    h += `<div class="more-section">`;
+    h += `<div class="more-section-label">${section.label}</div>`;
+    h += `<div class="more-section-grid">`;
+    h += sectionApps.map(appIcon).join('');
+    h += `</div></div>`;
   }
   h += '</div>';
   el.innerHTML = h;

@@ -1,6 +1,6 @@
 # Story nav-1-3b: More Grid Layout — Equal Tiles and Section Groupings
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -29,26 +29,19 @@ nav-1-3 built the More grid with functional role-aware icons. Two layout problem
 
 ## Tasks / Subtasks
 
-- [ ] Update More grid CSS for equal-width tiles (AC: #1, #2, #6)
-  - [ ] Replace `flex-wrap` free layout with CSS grid: `grid-template-columns: repeat(3, 1fr)`
-  - [ ] Fixed row height so all tiles are square or consistent
-  - [ ] Gap: 10–12px between tiles; outer padding: 16px
-- [ ] Update `MORE_APPS` registry to add section grouping (AC: #3, #4)
-  - [ ] Add `section` property to each app entry: `'game' | 'lore' | 'st' | 'player'`
-  - [ ] Section assignments:
-    - game: status, whos-who, dt-report, feeding
-    - lore: rules, primer, game-guide
-    - st: tracker, signin, emergency
-    - player: dt-submission, ordeals
-- [ ] Update `renderMoreGrid()` to render by section (AC: #3, #4, #5)
-  - [ ] Render visible sections in order: game → player (if visible) → lore → st (if visible)
-  - [ ] Each section: label heading + grid of that section's apps
-  - [ ] Section label: `<div class="more-section-label">Section Name</div>`
-  - [ ] Section grid: `<div class="more-section-grid">` containing `.more-app-icon` tiles
-- [ ] Add section CSS to `suite.css` (AC: #5)
-  - [ ] `.more-section-label`: `--fl` Lato 10px uppercase `--label-secondary`, padding 12px 0 6px
-  - [ ] `.more-section-grid`: `display:grid; grid-template-columns:repeat(3,1fr); gap:10px`
-  - [ ] `.more-grid` wrapper: `padding:16px; display:flex; flex-direction:column; gap:4px`
+- [x] Updated CSS: `.more-section-grid` uses `grid-template-columns: repeat(3, 1fr)` (AC: #1, #2, #6)
+  - [x] `aspect-ratio: 1` on `.more-app-icon` — square tiles regardless of content
+  - [x] Gap 10px; outer padding 16px
+- [x] `MORE_APPS` updated with `section` property on every entry (AC: #3, #4)
+  - [x] game: status, whos-who, dt-report, feeding, territory, regency, office
+  - [x] player: dt-submission, ordeals
+  - [x] lore: rules, primer, game-guide
+  - [x] st: tracker, signin, emergency
+- [x] `renderMoreGrid()` renders by section using `MORE_SECTIONS` array (AC: #3, #4, #5)
+  - [x] Sections render in order; empty sections are skipped
+  - [x] Section label with `--bdr` bottom border
+  - [x] `.more-section-grid` per section
+- [x] Section CSS added to `suite.css` (AC: #5)
 
 ## Dev Notes
 

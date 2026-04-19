@@ -403,7 +403,7 @@ test('nav-1-3 — More tab renders app grid for ST', async ({ page }) => {
   await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
 
   await page.click('#n-more');
-  await page.waitForSelector('.more-grid', { state: 'visible', timeout: 10000 });
+  await page.waitForSelector('.more-grid-wrap', { state: 'visible', timeout: 10000 });
 
   // ST-only apps visible
   await expect(page.locator('.more-app-icon[data-app="tracker"]')).toBeVisible();
@@ -435,7 +435,7 @@ test('nav-1-3 — More grid shows player-only apps for player role', async ({ pa
   await page.waitForSelector('#app', { state: 'visible', timeout: 15000 });
 
   await page.click('#n-more');
-  await page.waitForSelector('.more-grid', { state: 'visible', timeout: 10000 });
+  await page.waitForSelector('.more-grid-wrap', { state: 'visible', timeout: 10000 });
 
   // Player-only apps visible
   await expect(page.locator('.more-app-icon[data-app="dt-submission"]')).toBeVisible();
