@@ -48,6 +48,13 @@ import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initSignIn } from './game/signin-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
+// Player portal tabs — migrated to More grid (nav-2-3)
+import { renderStoryTab } from './player/story-tab.js';
+import { renderStatusTab } from './player/status-tab.js';
+import { renderPrimerTab } from './player/primer-tab.js';
+import { renderTicketsTab } from './player/tickets-tab.js';
+import { initOrdeals } from './player/ordeals-view.js';
+import { renderDowntimeTab } from './player/downtime-form.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -212,7 +219,7 @@ const NAV_ALIAS = {
   // More grid apps → More button
   'whos-who': 'more', 'dt-report': 'more', feeding: 'more',
   primer: 'more', 'game-guide': 'more', rules: 'more', 'dt-submission': 'more',
-  ordeals: 'more', tracker: 'more', signin: 'more', emergency: 'more',
+  ordeals: 'more', tickets: 'more', tracker: 'more', signin: 'more', emergency: 'more',
   regency: 'more', office: 'more',
 };
 
@@ -246,6 +253,41 @@ function goTab(t) {
 
   // ── Unified nav tab init ──────────────────────────────────────────────────
   if (t === 'more') renderMoreGrid();
+
+  // ── More grid apps — player portal tabs (nav-2-3) ────────────────────────
+  if (t === 'dt-report') {
+    const el = document.getElementById('t-dt-report');
+    const char = _activeMoreChar();
+    if (el && char) renderStoryTab(el, char);
+  }
+  if (t === 'status') {
+    // Status tab is also the primary nav #3 — handled above; this covers More grid access
+  }
+  if (t === 'primer') {
+    const el = document.getElementById('t-primer');
+    if (el) renderPrimerTab(el);
+  }
+  if (t === 'ordeals') {
+    const el = document.getElementById('t-ordeals');
+    const char = _activeMoreChar();
+    if (el && char) initOrdeals(char, suiteState.chars);
+  }
+  if (t === 'dt-submission') {
+    const el = document.getElementById('t-dt-submission');
+    const char = _activeMoreChar();
+    if (el && char) {
+      // Desktop-optimised: show notice on narrow viewports
+      if (window.innerWidth <= 600) {
+        el.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
+      } else {
+        renderDowntimeTab(el, char);
+      }
+    }
+  }
+  if (t === 'tickets') {
+    const el = document.getElementById('t-tickets');
+    if (el) renderTicketsTab(el);
+  }
   if (t === 'chars') {
     // Sheet tab: ST sees 3-col character picker; player sees their own sheet
     const role = getRole();
@@ -995,6 +1037,22 @@ function renderMoreGrid() {
   }
   h += '</div>';
   el.innerHTML = h;
+}
+
+// ── More grid helpers ─────────────────────────────────────────────────────────
+
+/** Get the active character for More grid player tabs.
+ *  ST: returns suiteState.rollChar (last selected in Sheet/Dice)
+ *  Player: returns their own character */
+function _activeMoreChar() {
+  const role = getRole();
+  const chars = suiteState.chars || [];
+  if (role !== 'st') {
+    const info = getPlayerInfo();
+    const ids = info?.character_ids || [];
+    return chars.find(c => ids.includes(String(c._id)) || ids.includes(c._id)) || null;
+  }
+  return suiteState.rollChar || chars[0] || null;
 }
 
 // ── Sheet tab — character picker and player sheet (nav-2-1) ──────────────────

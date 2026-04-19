@@ -1,6 +1,6 @@
 # Story 2.3: Migrate player.html Core Tabs to More Grid
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
