@@ -667,8 +667,8 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   } catch { /* no cycles */ }
 
   // Dev bypass: on localhost with no active cycle, stub one so the form renders for design iteration
-  if (!currentCycle && location.hostname === 'localhost') {
-    currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]' };
+  if ((!currentCycle || currentCycle.status !== 'active') && location.hostname === 'localhost') {
+    currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
   // Load existing submission for this character + cycle

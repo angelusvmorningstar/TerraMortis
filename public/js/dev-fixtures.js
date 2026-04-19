@@ -28,13 +28,15 @@ window.fetch=function devFix(url,opts){
   if(method==='GET'&&seg[0]==='characters'&&seg[1]==='public')return _mock(CHARS);
   if(method==='GET'&&seg[0]==='characters'&&seg[1]==='status')return _mock(CHARS.map(function(c){return{_id:c._id,name:c.name,honorific:c.honorific,moniker:c.moniker,clan:c.clan,covenant:c.covenant,status:c.status,court_category:c.court_category,court_title:c.court_title,player:c.player,powers:c.powers||[],_player_info:{discord_id:null,discord_avatar:null},_ots_covenant_bonus:0};}));
   if(method==='GET'&&seg[0]==='characters'&&seg[1]==='combat')return _mock(CHARS.map(function(c){return{_id:c._id,name:c.name,honorific:c.honorific,moniker:c.moniker,clan:c.clan,covenant:c.covenant,blood_potency:c.blood_potency,attributes:c.attributes,disciplines:c.disciplines};}));
-  if(method==='GET'&&seg[0]==='characters'&&seg[1]&&['public','status','combat'].indexOf(seg[1])<0){var c=CHARS.find(function(x){return x._id===seg[1];});return c?_mock(c):_mock({error:'NOT_FOUND'},404);}
+  if(method==='GET'&&seg[0]==='characters'&&seg[1]==='names')return _mock(CHARS.map(function(c){return{_id:c._id,name:c.name,honorific:c.honorific,moniker:c.moniker,player:c.player||''};}));
+  if(method==='GET'&&seg[0]==='attendance'){var qStr=urlStr.indexOf('?')>=0?urlStr.slice(urlStr.indexOf('?')+1):'';var qCid=new URLSearchParams(qStr).get('character_id')||'';var ats=CHARS.filter(function(c){return String(c._id)!==qCid;}).map(function(c){return{id:c._id,name:c.moniker||c.name};});return _mock({attended:true,attendees:ats});}
+  if(method==='GET'&&seg[0]==='characters'&&seg[1]&&['public','status','combat','names'].indexOf(seg[1])<0){var c=CHARS.find(function(x){return x._id===seg[1];});return c?_mock(c):_mock({error:'NOT_FOUND'},404);}
   if(method==='PUT'&&seg[0]==='characters'&&seg[1]){var c=CHARS.find(function(x){return x._id===seg[1];});return c?_mock(c):_mock({error:'NOT_FOUND'},404);}
   if(method==='GET'&&seg[0]==='territories'&&!seg[1])return _mock(TERRITORIES);
   if(method==='GET'&&seg[0]==='tracker_state'&&seg[1]){var ts=TRACKER_STATE[seg[1]];return ts?_mock(ts):_mock(null,404);}
   if(method==='PUT'&&seg[0]==='tracker_state')return _mock(null,204);
   if(method==='GET'&&seg[0]==='downtime_cycles')return _mock(DT_CYCLES);
-  if(method==='GET'&&seg[0]==='downtime_submissions')return _mock(DT_SUBS);
+  if(method==='GET'&&seg[0]==='downtime_submissions'){var qCycle=new URLSearchParams(urlStr.indexOf('?')>=0?urlStr.slice(urlStr.indexOf('?')+1):'').get('cycle_id');return _mock(qCycle?DT_SUBS.filter(function(s){return String(s.cycle_id)===qCycle;}):DT_SUBS);}
   if(method==='POST'&&seg[0]==='downtime_submissions')return _mock({_id:'sub_dev',status:'submitted'},201);
   if(method==='GET'&&seg[0]==='game_sessions')return _mock(GAME_SESSIONS);
   if(method==='GET'&&seg[0]==='tickets')return _mock([]);

@@ -219,8 +219,20 @@ This is a **verification and fix** story. Do NOT rewrite or redesign. Walk the f
 
 ## Dev Agent Record
 ### Agent Model Used
-_to be filled_
+claude-sonnet-4-6
 ### Completion Notes
-_to be filled_
+Four bugs found and fixed via code analysis:
+
+1. **Dev stub not injected with closed cycle** (`downtime-form.js` line 670) — `DT_CYCLES` fixture has one closed cycle, so `currentCycle` was always set and `!currentCycle` was false. Stub condition broadened to `!currentCycle || currentCycle.status !== 'active'`. This restores `[Dev] Save skipped` behaviour.
+
+2. **feedingLocked always true in dev** — Dev stub lacked `feeding_rights_confirmed: true`. Added to stub. Feeding and Territory sections now render (not locked) in dev mode.
+
+3. **`/api/characters/names` returned 404 in dev fixtures** — The `seg[1]==='names'` path fell into the character-by-ID lookup branch and returned 404. Added explicit mock before that branch: returns `CHARS` mapped to `{_id, name, honorific, moniker, player}`. Cast pickers and shoutout picks now populate.
+
+4. **`/api/attendance` not mocked; `DT_SUBS` cycle filter missing** — Added attendance mock returning `attended: true` + all other chars as attendees (Court section now shows). Fixed `DT_SUBS` mock to filter by `cycle_id` query param so the old Downtime 2 submission doesn't bleed into the dev stub cycle form.
+
+No regressions to `player.html`: dev bypass only fires on `localhost` with a non-active cycle; production paths unchanged.
+
 ### File List
-_to be filled_
+- `public/js/player/downtime-form.js` — dev stub injection condition + feeding_rights_confirmed
+- `public/js/dev-fixtures.js` — characters/names mock, attendance mock, DT_SUBS cycle filter
