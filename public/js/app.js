@@ -58,6 +58,7 @@ import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderOfficeTab } from './player/office-tab.js';
 import { initArchiveTab } from './player/archive-tab.js';
+import { renderFeedingTab } from './player/feeding-tab.js';
 import { findRegentTerritory } from './data/helpers.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
@@ -86,7 +87,7 @@ import { getAttrEffective as getAttrVal, skDots } from './data/accessors.js';
 import { SKILLS_MENTAL } from './data/constants.js';
 import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
 import { toast as _toast } from './suite/tracker.js';
-import { feedToggle, feedInit, feedBuildPool, feedRoll, feedReset, feedAdjApply, feedApplyVitae, feedSelectMethod, feedClearState } from './suite/tracker-feed.js';
+// suite/tracker-feed.js removed — feeding consolidated to More grid (nav-2-5)
 import { renderSuiteStatusTab, suiteStatusOpenEdit, suiteStatusCloseEdit, suiteStatusAdjustCity } from './suite/status.js';
 
 // ══════════════════════════════════════════════
@@ -264,6 +265,11 @@ function goTab(t) {
     if (el && !el.innerHTML.trim()) {
       el.innerHTML = '<div class="city-map-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>';
     }
+  }
+  if (t === 'feeding') {
+    const el = document.getElementById('t-feeding');
+    const char = _activeMoreChar();
+    if (el && char) renderFeedingTab(el, char);
   }
   if (t === 'regency') {
     const el = document.getElementById('t-regency');
@@ -658,8 +664,7 @@ function pickChar(c) {
   if (sec) sec.style.display = 'none';
 
   // Reset and re-init feeding (ST only — section hidden for players)
-  feedClearState();
-  feedInit();
+  // Legacy feed init removed — feeding is now in More grid (nav-2-5)
 
   // Render tappable pool chips in the roll tab for the selected character
   const rollPoolsEl = document.getElementById('roll-char-pools');
@@ -815,15 +820,7 @@ Object.assign(window, {
   toast,
 
   // Suite feeding (ST only, in Roll tab)
-  feedToggle,
-  feedInit,
-  feedBuildPool,
-  feedRoll,
-  feedReset,
-  feedAdjApply,
-  feedApplyVitae,
-  feedSelectMethod,
-  feedClearState,
+  // feedToggle/feedInit etc removed — feeding consolidated to More grid (nav-2-5)
 
   // Suite import
   handleImport: _handleImport,
@@ -934,9 +931,7 @@ function applyRoleRestrictions() {
     if (el) el.style.display = 'none';
   });
 
-  // Feeding test and Contested Roll — ST only
-  const feedSec = document.getElementById('feed-section');
-  if (feedSec) feedSec.style.display = isST ? '' : 'none';
+  // Contested Roll — ST only (Feeding is now in More grid)
   const btnContested = document.getElementById('btn-contested');
   if (btnContested) btnContested.style.display = isST ? '' : 'none';
 

@@ -172,49 +172,7 @@
         </div>
         <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
       </div>
-      <!-- Feeding test (ST only) -->
-      <div class="feed-section" id="feed-section" style="display:none">
-        <button class="feed-toggle" onclick="feedToggle()">
-          <span class="feed-toggle-label">Feeding Test</span>
-          <span id="feed-chev">&#9662;</span>
-        </button>
-        <div id="feed-panel" class="feed-panel" style="display:none">
-          <div class="feed-row">
-            <div class="sel-wrap sel-wrap-flex">
-              <select class="sh-char-sel" id="feed-terr" onchange="feedBuildPool()">
-                <option value="">&#8212; Territory (optional) &#8212;</option>
-              </select>
-              <div class="sel-arr">&#9662;</div>
-            </div>
-          </div>
-          <div class="feed-methods" id="feed-methods"></div>
-          <div id="feed-pool-section" style="display:none">
-            <div class="feed-pool-box">
-              <div class="feed-pool-breakdown" id="feed-breakdown"></div>
-              <div class="feed-pool-total">
-                <span class="feed-pool-n" id="feed-pool-n">0</span>
-                <span class="feed-pool-lbl">dice</span>
-              </div>
-            </div>
-            <div class="feed-disc-row">
-              <span class="feed-disc-lbl">+ Discipline</span>
-              <div class="sel-wrap sel-wrap-flex">
-                <select class="sh-char-sel" id="feed-disc" onchange="feedBuildPool()">
-                  <option value="">None</option>
-                </select>
-                <div class="sel-arr">&#9662;</div>
-              </div>
-            </div>
-            <button class="feed-roll-btn" onclick="feedRoll()">Roll Feeding</button>
-          </div>
-          <div id="feed-result-section" style="display:none">
-            <div class="feed-result-box" id="feed-result-box"></div>
-            <div class="feed-vessel-row" id="feed-vessel-row"></div>
-            <div class="feed-push-row" id="feed-push-row"></div>
-            <button class="feed-reset-btn" onclick="feedReset()">New Roll</button>
-          </div>
-        </div>
-      </div>
+      <!-- Feeding moved to More grid → Feeding app (nav-2-5) -->
     </div>
 
     <!-- ═══ TERRITORY TAB ═══ -->
