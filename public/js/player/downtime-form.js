@@ -1329,6 +1329,14 @@ function renderForm(container) {
       applyRoteToProject1(container);
       return;
     }
+    // Territory radio change — re-render to update vitae projection
+    if (e.target.closest('[data-feed-terr]')) {
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     const gateInput = e.target.closest('[data-gate]');
     if (gateInput) {
       gateValues[gateInput.dataset.gate] = gateInput.value;
@@ -3604,11 +3612,15 @@ function renderQuestion(q, value) {
         h += '</div>';
       }
 
-      // ── Vitae Budget ──
+      // ── Vitae Projection ──
       {
         const allResp = responseDoc?.responses || {};
         const vitaeMax = calcVitaeMax(c);
-        const ghoulCount = (c.merits || []).filter(m => m.ghoul).length;
+
+        // Monthly costs
+        const ghoulCost = (c.merits || [])
+          .filter(m => m.name === 'Retainer' && (m.ghoul || m.type === 'ghoul'))
+          .reduce((sum, m) => sum + (m.rating || 0), 0);
         const rites = (c.powers || []).filter(p => p.category === 'rite');
         const sorcCount = parseInt(allResp['sorcery_slot_count'] || '1', 10);
         let riteVitaeCost = 0;
@@ -3621,17 +3633,40 @@ function renderQuestion(q, value) {
         }
         const mandMerit = (c.merits || []).find(m => m.name === 'Mandragora Garden');
         const mandDots = mandMerit ? (mandMerit.rating || 0) : 0;
-        const totalCost = ghoulCount + riteVitaeCost + mandDots;
-        const startVitae = vitaeMax - totalCost;
+        const totalCost = ghoulCost + riteVitaeCost + mandDots;
         const mandFruit = mandDots * 2;
 
+        // Ambience from selected feeding territory
+        let feedingGrid = {};
+        try { feedingGrid = JSON.parse(allResp['feeding_territories'] || '{}'); } catch { /* ignore */ }
+        const primaryTerrKey = Object.keys(feedingGrid).find(k =>
+          feedingGrid[k] === 'feeding_rights' || feedingGrid[k] === 'poaching' ||
+          feedingGrid[k] === 'resident' || feedingGrid[k] === 'poacher'
+        );
+        const primaryTerrName = primaryTerrKey
+          ? FEEDING_TERRITORIES.find(t => t.toLowerCase().replace(/[^a-z0-9]+/g, '_') === primaryTerrKey)
+          : null;
+        const terrData = primaryTerrName ? TERRITORY_DATA.find(t => t.name === primaryTerrName) : null;
+        const ambienceMod = terrData ? (terrData.ambienceMod || 0) : null;
+
+        const netVitae = ambienceMod !== null
+          ? Math.max(0, Math.min(vitaeMax, vitaeMax - totalCost + ambienceMod))
+          : null;
+
         h += '<div class="dt-vitae-budget">';
-        h += '<div class="dt-vitae-budget-title">Vitae Budget</div>';
+        h += '<div class="dt-vitae-budget-title">Vitae Projection</div>';
         h += `<div class="dt-vitae-row"><span>Vitae Max (BP ${c.blood_potency || 1})</span><span>${vitaeMax}</span></div>`;
-        if (ghoulCount > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Ghoul Retainers (\u00D7${ghoulCount})</span><span>\u2212${ghoulCount}</span></div>`;
+        if (ghoulCost > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Ghoul Retainers</span><span>\u2212${ghoulCost}</span></div>`;
         if (riteVitaeCost > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Cruac Rites</span><span>\u2212${riteVitaeCost}</span></div>`;
         if (mandDots > 0) h += `<div class="dt-vitae-row dt-vitae-cost"><span>Mandragora Garden (${'●'.repeat(mandDots)})</span><span>\u2212${mandDots}</span></div>`;
-        h += `<div class="dt-vitae-row dt-vitae-total"><span>Starting Vitae (before feeding)</span><span class="${startVitae < 0 ? 'dt-vitae-over' : ''}">${startVitae}</span></div>`;
+        if (ambienceMod !== null) {
+          const ambLabel = `${esc(terrData.ambience)} (${primaryTerrName})`;
+          const modStr = ambienceMod >= 0 ? `+${ambienceMod}` : `${ambienceMod}`;
+          h += `<div class="dt-vitae-row dt-vitae-note"><span>Ambience: ${ambLabel}</span><span>${modStr}</span></div>`;
+          h += `<div class="dt-vitae-row dt-vitae-total"><span>Net Vitae after feeding</span><span class="${netVitae === 0 ? 'dt-vitae-over' : ''}">${netVitae}</span></div>`;
+        } else {
+          h += `<div class="dt-vitae-row dt-vitae-note"><span style="font-style:italic;color:var(--txt3)">Select a feeding territory above to see your projection.</span><span></span></div>`;
+        }
         if (mandFruit > 0) h += `<div class="dt-vitae-row dt-vitae-note"><span>Mandragora Fruit (equipment, not on Vitae track)</span><span>+${mandFruit}</span></div>`;
         h += '</div>';
       }
