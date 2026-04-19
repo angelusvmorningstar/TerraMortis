@@ -1,6 +1,6 @@
 # Story CSS-1: Token Cleanup — Define Missing Tokens, Remove Hardcoded Colours
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
