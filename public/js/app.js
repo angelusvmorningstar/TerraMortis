@@ -1006,7 +1006,7 @@ function renderSheetPicker(el) {
   let h = '<div class="sheet-picker"><div class="sheet-picker-grid">';
   for (const c of chars) {
     const name = displayName(c);
-    const icon = covIcon(c.covenant, 18);
+    const icon = covIcon(c.covenant, 40);
     const esc = s => s ? s.replace(/&/g,'&amp;').replace(/"/g,'&quot;') : '';
     h += `<button class="sheet-char-chip" onclick="openSheetChar('${esc(c.name)}')" title="${esc(name)}">`;
     h += `<span class="sheet-char-chip-icon">${icon}</span>`;
