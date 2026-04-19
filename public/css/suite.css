@@ -110,7 +110,7 @@ body{min-height:auto;}
 .mchip.wp-chip.on{border-color:var(--green-a45);color:var(--green2);background:var(--green-a15);}
 
 /* Roll button */
-#roll-btn{height:58px;border-radius:8px;background:var(--crim);border:1px solid var(--crim-a70);color:var(--txt);font-family:var(--fh);font-size:13px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+#roll-btn{min-height:58px;padding:18px 16px;border-radius:8px;background:var(--crim);border:1px solid var(--crim-a70);color:var(--txt);font-family:var(--fh);font-size:13px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 #roll-btn:active{background:var(--crim2);}
 
 /* Result area */
