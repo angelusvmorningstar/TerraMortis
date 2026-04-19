@@ -1109,6 +1109,25 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
   .city-left { border-right: none; border-bottom: 1px solid var(--bdr); }
 }
 
+/* ── Lifecycle contextual cards (nav-3-1) ── */
+#lifecycle-cards { display: flex; flex-direction: column; gap: 8px; padding: 0 0 4px; }
+.lifecycle-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; background: var(--surf2);
+  border: 1px solid var(--accent-a25); border-radius: 8px;
+  cursor: pointer; text-align: left; width: 100%;
+  transition: background .15s, border-color .15s;
+}
+.lifecycle-card:hover { background: var(--surf3); border-color: var(--accent-a40); }
+.lifecycle-card-urgent { border-color: var(--crim-a40); background: var(--crim-a8); }
+.lifecycle-card-urgent:hover { background: var(--crim-a8); border-color: var(--crim); }
+.lifecycle-card-icon { color: var(--accent); flex-shrink: 0; display: flex; }
+.lifecycle-card-urgent .lifecycle-card-icon { color: var(--crim); }
+.lifecycle-card-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.lifecycle-card-title { font-family: var(--fl); font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--txt); }
+.lifecycle-card-sub { font-family: var(--fl); font-size: 11px; color: var(--txt3); }
+.lifecycle-card-arr { color: var(--txt3); font-size: 18px; flex-shrink: 0; }
+
 /* ── DT Submission mobile notice (nav-2-3) ── */
 .dt-mobile-notice {
   padding: 24px 20px; text-align: center;

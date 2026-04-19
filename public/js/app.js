@@ -257,6 +257,7 @@ function goTab(t) {
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
 
   // ── Unified nav tab init ──────────────────────────────────────────────────
+  if (t === 'dice') { _clearLifecycleCache(); renderLifecycleCards(); }
   if (t === 'more') renderMoreGrid();
 
   // ── More grid apps — player portal tabs (nav-2-3) ────────────────────────
@@ -891,6 +892,7 @@ async function boot() {
         openChar(0);
       }
       goTab('dice');
+      renderLifecycleCards(); // non-blocking — shows cards when API responds
       return;
     }
   }
@@ -1125,6 +1127,82 @@ function showPlayerSheet() {
     onSheetChar(myChar.name);
     goTab('sheets');
   }
+}
+
+// ── Lifecycle-aware contextual cards (nav-3-1) ───────────────────────────────
+
+let _lifecycleCache = null; // cached { nextSession, activeCycle, mySubmission }
+
+async function _loadLifecycleData() {
+  if (_lifecycleCache) return _lifecycleCache;
+  try {
+    const [nextSession, cycles] = await Promise.all([
+      fetch('/api/game_sessions/next', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null),
+      apiGet('/api/downtime_cycles').catch(() => []),
+    ]);
+    const activeCycle = Array.isArray(cycles)
+      ? cycles.find(c => c.status === 'open' || c.status === 'active') || null
+      : null;
+    let mySubmission = null;
+    if (activeCycle) {
+      const subs = await apiGet('/api/downtime_submissions').catch(() => []);
+      const char = _activeMoreChar();
+      if (char && Array.isArray(subs)) {
+        mySubmission = subs.find(s => String(s.character_id) === String(char._id)) || null;
+      }
+    }
+    _lifecycleCache = { nextSession, activeCycle, mySubmission };
+    return _lifecycleCache;
+  } catch {
+    return { nextSession: null, activeCycle: null, mySubmission: null };
+  }
+}
+
+function _clearLifecycleCache() { _lifecycleCache = null; }
+
+async function renderLifecycleCards() {
+  const el = document.getElementById('lifecycle-cards');
+  if (!el) return;
+
+  const { nextSession, activeCycle, mySubmission } = await _loadLifecycleData();
+  const today = new Date().toISOString().slice(0, 10);
+
+  let h = '';
+
+  // Feeding card: game phase open AND player hasn't rolled yet
+  const feedingOpen = nextSession && nextSession.session_date >= today;
+  const hasRolled = mySubmission?.feeding_roll_player != null;
+  if (feedingOpen && !hasRolled) {
+    h += `<button class="lifecycle-card lifecycle-card-feeding" onclick="goTab('feeding')">
+      <span class="lifecycle-card-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg></span>
+      <span class="lifecycle-card-text">
+        <span class="lifecycle-card-title">Your feeding roll is ready</span>
+        <span class="lifecycle-card-sub">Tap to roll before game night</span>
+      </span>
+      <span class="lifecycle-card-arr">›</span>
+    </button>`;
+  }
+
+  // DT deadline card: active cycle with deadline within 7 days
+  if (activeCycle?.deadline_at) {
+    const deadline = new Date(activeCycle.deadline_at);
+    const daysLeft = Math.ceil((deadline - new Date()) / 86400000);
+    if (daysLeft > 0 && daysLeft <= 7) {
+      const urgency = daysLeft <= 3 ? ' lifecycle-card-urgent' : '';
+      const deadlineStr = deadline.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+      h += `<button class="lifecycle-card${urgency}" onclick="goTab('dt-submission')">
+        <span class="lifecycle-card-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+        <span class="lifecycle-card-text">
+          <span class="lifecycle-card-title">Downtime due ${deadlineStr}</span>
+          <span class="lifecycle-card-sub">${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</span>
+        </span>
+        <span class="lifecycle-card-arr">›</span>
+      </button>`;
+    }
+  }
+
+  el.innerHTML = h;
+  el.style.display = h ? '' : 'none';
 }
 
 /** Show logged-in user in header with avatar dropdown for logout. */
