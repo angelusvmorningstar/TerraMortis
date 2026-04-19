@@ -1,0 +1,10 @@
+[
+  {
+    "_id": "gs0000000000000000000001",
+    "session_number": 3,
+    "date": "2026-05-10T17:00:00.000Z",
+    "location": "The Usual Venue",
+    "status": "upcoming",
+    "notes": "Dev fixture game session"
+  }
+]

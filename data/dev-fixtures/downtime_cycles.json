@@ -1,0 +1,10 @@
+[
+  {
+    "_id": "dc0000000000000000000001",
+    "cycle": 3,
+    "label": "Downtime Cycle 3",
+    "status": "open",
+    "open_date": "2026-04-20T00:00:00.000Z",
+    "close_date": "2026-05-03T00:00:00.000Z"
+  }
+]

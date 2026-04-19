@@ -1,0 +1,29 @@
+[
+  {
+    "_id": "t00000000000000000000001",
+    "id": "academy",
+    "name": "The Academy",
+    "regent_id": "600000000000000000000002",
+    "ambience": "Curated",
+    "ambienceMod": 3,
+    "updated_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "_id": "t00000000000000000000002",
+    "id": "northshore",
+    "name": "The North Shore",
+    "regent_id": null,
+    "ambience": "Tended",
+    "ambienceMod": 2,
+    "updated_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "_id": "t00000000000000000000003",
+    "id": "dockyards",
+    "name": "The Dockyards",
+    "regent_id": null,
+    "ambience": "Settled",
+    "ambienceMod": 0,
+    "updated_at": "2026-04-01T00:00:00.000Z"
+  }
+]
