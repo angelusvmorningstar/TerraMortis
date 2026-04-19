@@ -1,6 +1,6 @@
 # Story CSS-4: Mobile Tap Targets and Padding
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
