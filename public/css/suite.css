@@ -1467,3 +1467,80 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .dt-hist-section-head { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
 .dt-hist-mech .dt-hist-section-head { color: var(--label-secondary); }
 .dt-hist-empty { font-family: var(--ft); font-size: 13px; color: var(--txt3); font-style: italic; padding: 12px 0; text-align: center; }
+
+/* ── Two-panel layout fixes — all apps (css-audit follow-up) ── */
+/* Force single-column on phone; restore side-by-side only at tablet+ */
+
+/* story-split: DT Report Chronicle + Documents */
+.story-split {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px;
+}
+@media (min-width: 900px) {
+  .story-split {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 28px;
+    align-items: start;
+  }
+}
+
+/* tab-split: used by Feeding and Ordeals */
+.tab-split { display: flex; flex-direction: column; height: auto; }
+.tab-split-left,.tab-split-right { width: 100%; border-right: none; }
+.tab-split-left { border-bottom: 1px solid var(--bdr); }
+@media (min-width: 900px) {
+  .tab-split { flex-direction: row; height: 100%; }
+  .tab-split-left { flex: 1; border-right: 1px solid var(--bdr); border-bottom: none; }
+  .tab-split-right { flex: 1; }
+}
+
+/* status-split: used by Status tab */
+.status-split { display: flex; flex-direction: column; gap: 16px; }
+@media (min-width: 768px) {
+  .status-split { flex-direction: row; gap: 24px; }
+}
+
+/* ── DT Submission — dark theme override (css-audit follow-up) ── */
+/* .reading-pane in game app = dark theme, not parchment */
+#t-dt-submission .reading-pane,
+#t-feeding .reading-pane {
+  background: var(--bg);
+  color: var(--txt);
+}
+
+/* Override parchment form elements → dark theme tokens */
+#t-dt-submission .qf-input,
+#t-dt-submission .qf-textarea,
+#t-dt-submission .qf-select,
+#t-feeding .qf-input,
+#t-feeding .qf-textarea,
+#t-feeding .qf-select {
+  background: var(--surf2) !important;
+  color: var(--txt) !important;
+  border: 1px solid var(--bdr2) !important;
+}
+#t-dt-submission .qf-input:focus,
+#t-dt-submission .qf-textarea:focus,
+#t-dt-submission .qf-select:focus {
+  border-color: var(--accent) !important;
+  background: var(--surf2) !important;
+}
+#t-dt-submission .qf-section-title { color: var(--accent); font-family: var(--fl); }
+#t-dt-submission .qf-section-intro,
+#t-dt-submission .qf-label { color: var(--txt2); font-family: var(--ft); }
+#t-dt-submission .qf-section-body { background: transparent; }
+#t-dt-submission .qf-tag { background: var(--accent-a8); color: var(--accent); border-color: var(--accent-a25); }
+#t-dt-submission .qf-radio-label,
+#t-dt-submission .qf-checkbox-label { color: var(--txt); }
+#t-dt-submission .qf-radio-label:hover,
+#t-dt-submission .qf-checkbox-label:hover { background: var(--surf2); }
+#t-dt-submission .qf-btn-submit { background: var(--crim); color: var(--txt); border: 1px solid var(--crim-a70); }
+#t-dt-submission .qf-btn-save { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
+#t-dt-submission .qf-opener-label,
+#t-dt-submission .qf-section-title { color: var(--accent); }
+/* Headings in DT submission form */
+#t-dt-submission h2,
+#t-dt-submission h3 { font-family: var(--fh); color: var(--accent); }
+#t-dt-submission p { font-family: var(--ft); color: var(--txt); line-height: 1.6; }
