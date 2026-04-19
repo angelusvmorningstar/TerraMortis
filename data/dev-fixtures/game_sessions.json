@@ -5,7 +5,7 @@
     "title": "Game 3",
     "attendance": [
       {
-        "player": "Player A",
+        "player": "Alana W",
         "character_id": "69d73ea49162ece35897a498",
         "character_name": "Tegan Groves",
         "character_display": "Tegan Groves",
@@ -17,7 +17,7 @@
         "payment_method": ""
       },
       {
-        "player": "Player B",
+        "player": "Amelia I",
         "character_id": "69d73ea49162ece35897a48d",
         "character_name": "Julia Dolancia",
         "character_display": "Lady Julia Dolancia",
@@ -29,7 +29,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player C",
+        "player": "Archer W",
         "character_id": "69d73ea49162ece35897a47f",
         "character_name": "Carver",
         "character_display": "Carver",
@@ -41,7 +41,7 @@
         "payment_method": "Waived"
       },
       {
-        "player": "Player D",
+        "player": "Arlo V",
         "character_id": "69d73ea49162ece35897a486",
         "character_name": "Edna Judge",
         "character_display": "Bishop Edna Judge",
@@ -53,7 +53,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player E",
+        "player": "Arnold W",
         "character_id": "69d73ea49162ece35897a483",
         "character_name": "Conrad Sondergaard",
         "character_display": "Conrad Sondergaard",
@@ -65,7 +65,7 @@
         "payment_method": "Cash"
       },
       {
-        "player": "Player F",
+        "player": "Ashley K",
         "character_id": "69d73ea49162ece35897a47e",
         "character_name": "Brandy LaRoux",
         "character_display": "Harpy Brandy LaRoux",
@@ -77,7 +77,7 @@
         "payment_method": "PayID (Symon)"
       },
       {
-        "player": "Player G",
+        "player": "Bill C",
         "character_id": "69d73ea49162ece35897a484",
         "character_name": "Cyrus Reynolds",
         "character_display": "Cyrus Reynolds",
@@ -89,7 +89,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player H",
+        "player": "Brae C",
         "character_id": "69d73ea49162ece35897a480",
         "character_name": "Casamir",
         "character_display": "Dr Cazz",
@@ -101,7 +101,7 @@
         "payment_method": "Cash"
       },
       {
-        "player": "Player I",
+        "player": "Charlie BC",
         "character_id": "69d73ea49162ece35897a492",
         "character_name": "Macheath",
         "character_display": "Mac",
@@ -113,7 +113,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player J",
+        "player": "Clair H",
         "character_id": "69d73ea49162ece35897a490",
         "character_name": "Livia",
         "character_display": "Livia",
@@ -125,7 +125,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player K",
+        "player": "Conan French",
         "character_id": "69d73ea49162ece35897a494",
         "character_name": "Reed Justice",
         "character_display": "Regent Reed Justice",
@@ -137,7 +137,7 @@
         "payment_method": "Waived"
       },
       {
-        "player": "Player L",
+        "player": "Daniel B",
         "character_id": "69da21a09aa8d408d64748f6",
         "character_name": "Don Ezzelino Rocio",
         "character_display": "Etsy",
@@ -149,7 +149,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player M",
+        "player": "George T",
         "character_id": "69d73ea49162ece35897a48c",
         "character_name": "Jack Fallow",
         "character_display": "Regent Jack Fallow",
@@ -161,7 +161,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player N",
+        "player": "James G",
         "character_id": "69d73ea49162ece35897a49a",
         "character_name": "Xavier Boussade",
         "character_display": "Xavier Boussade",
@@ -173,7 +173,7 @@
         "payment_method": "PayID (Symon)"
       },
       {
-        "player": "Player O",
+        "player": "Jamie H",
         "character_id": "69d73ea49162ece35897a488",
         "character_name": "Eve Lockridge",
         "character_display": "Premier Eve Lockridge",
@@ -185,7 +185,7 @@
         "payment_method": "PayID (Symon)"
       },
       {
-        "player": "Player P",
+        "player": "Jess BC",
         "character_id": "69d73ea49162ece35897a485",
         "character_name": "MArgaret Kane",
         "character_display": "Protector Doc",
@@ -197,7 +197,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player Q",
+        "player": "Katherine H",
         "character_id": "69d73ea49162ece35897a47c",
         "character_name": "Alice Vunder",
         "character_display": "Regent Alice Vunder",
@@ -209,7 +209,7 @@
         "payment_method": "PayID (Symon)"
       },
       {
-        "player": "Player R",
+        "player": "Katie H",
         "character_id": "69d73ea49162ece35897a47d",
         "character_name": "Anichka",
         "character_display": "Hierophant Anichka",
@@ -221,7 +221,7 @@
         "payment_method": "Cash"
       },
       {
-        "player": "Player S",
+        "player": "Kurtis W",
         "character_id": "69d73ea49162ece35897a482",
         "character_name": "Charlie Ballsack",
         "character_display": "Sir Knight Charlie Ballsack",
@@ -233,7 +233,7 @@
         "payment_method": "Waived"
       },
       {
-        "player": "Player T",
+        "player": "Leo T",
         "character_id": "69d73ea49162ece35897a481",
         "character_name": "Charles Mercer-Willows",
         "character_display": "Preacher Charles Mercer-Willows",
@@ -245,7 +245,7 @@
         "payment_method": ""
       },
       {
-        "player": "Player U",
+        "player": "Luca V",
         "character_id": "69d73ea49162ece35897a495",
         "character_name": "René Meyer",
         "character_display": "Regent René Meyer",
@@ -257,7 +257,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player V",
+        "player": "Lyn H",
         "character_id": "69d73ea49162ece35897a48b",
         "character_name": "Ivana Horvat",
         "character_display": "Ivana Horvat",
@@ -269,7 +269,7 @@
         "payment_method": "Waived"
       },
       {
-        "player": "Player W",
+        "player": "Marni K",
         "character_id": "69d73ea49162ece35897a48a",
         "character_name": "Hazel",
         "character_display": "Sister Hazel",
@@ -281,7 +281,7 @@
         "payment_method": ""
       },
       {
-        "player": "Player X",
+        "player": "Matt B",
         "character_id": "69d73ea49162ece35897a496",
         "character_name": "René St. Dominique",
         "character_display": "Primogen René St. Dominique",
@@ -293,7 +293,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player Y",
+        "player": "Michael VDK",
         "character_id": "69d73ea49162ece35897a499",
         "character_name": "Wan Yelong",
         "character_display": "Lord Wan Yelong",
@@ -305,7 +305,7 @@
         "payment_method": "PayID (Symon)"
       },
       {
-        "player": "Player Z",
+        "player": "Nathan H",
         "character_id": "69d73ea49162ece35897a487",
         "character_name": "Einar Solveig",
         "character_display": "Einar Solveig",
@@ -317,7 +317,7 @@
         "payment_method": "Waived"
       },
       {
-        "player": "Player AA",
+        "player": "Patrick T",
         "character_id": "69d73ea49162ece35897a497",
         "character_name": "Ryan Ambrose",
         "character_display": "Mister Ryan Ambrose",
@@ -329,7 +329,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player BB",
+        "player": "Peter K",
         "character_id": "69d720427fdd1b1f9498b0d4",
         "character_name": "Yusuf Kalusicj",
         "character_display": "Yusuf Kalusicj",
@@ -341,7 +341,7 @@
         "payment_method": "Waived"
       },
       {
-        "player": "Player CC",
+        "player": "Sky K",
         "character_id": "69d73ea49162ece35897a491",
         "character_name": "Ludica Lachramore",
         "character_display": "Lady Ludica Lachramore",
@@ -353,7 +353,7 @@
         "payment_method": "Transfer (Lyn)"
       },
       {
-        "player": "Player DD",
+        "player": "Symon G",
         "character_id": "69d73ea49162ece35897a48e",
         "character_name": "Keeper",
         "character_display": "Keeper",
@@ -731,7 +731,7 @@
         "character_id": "69d73ea49162ece35897a49a",
         "character_name": "Xavier Boussade",
         "character_display": "Xavier Boussade",
-        "player": "Player N",
+        "player": "James G",
         "attended": false,
         "costuming": false,
         "downtime": true,
@@ -743,7 +743,7 @@
         "character_id": "69d73ea49162ece35897a48d",
         "character_name": "Julia Dolancia",
         "character_display": "Lady Julia Dolancia",
-        "player": "Player B",
+        "player": "Amelia I",
         "attended": true,
         "costuming": true,
         "downtime": true,
