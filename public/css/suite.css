@@ -1432,3 +1432,38 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 }
 /* Territory tracker needs internal padding not outer wrapper */
 #t-territory { padding: 0 0 80px; }
+
+/* ── DT Report (Story tab) CSS — mobile-first (css-5) ── */
+#t-dt-report.active { display: block; overflow-y: auto; padding: 16px 16px 80px; }
+.story-split { display: flex; flex-direction: column; gap: 20px; }
+.story-left,.story-right { display: flex; flex-direction: column; gap: 16px; }
+.story-pane-title { font-family: var(--fl); font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--bdr); }
+.story-feed { display: flex; flex-direction: column; gap: 16px; }
+.story-entry { background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; overflow: hidden; }
+.story-cycle-label { background: var(--surf2); padding: 8px 16px; font-family: var(--fl); font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--bdr); }
+.story-narrative { padding: 16px; font-family: var(--ft); font-size: 14px; color: var(--txt); line-height: 1.75; }
+.story-narrative p { margin: 0 0 12px; }
+.story-narrative p:last-child { margin-bottom: 0; }
+.story-section { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--bdr); }
+.story-section:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+.story-section-head { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; }
+.story-section-mech { background: var(--surf2); padding: 10px 12px; border-radius: 5px; }
+.story-pre { font-family: var(--ft); font-size: 12px; white-space: pre-wrap; margin: 0; color: var(--txt3); }
+.story-placeholder,.story-empty { font-family: var(--ft); font-size: 13px; color: var(--txt3); font-style: italic; padding: 8px 0; }
+/* Desktop: side-by-side */
+@media (min-width: 900px) {
+  .story-split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+}
+/* Feeding history panel (inside feeding tab) */
+.dt-hist-panel { display: flex; flex-direction: column; padding: 16px; }
+.dt-hist-title { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--label-secondary); margin-bottom: 12px; }
+.dt-hist-entry { border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+.dt-hist-entry-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surf2); border-bottom: 1px solid var(--bdr); }
+.dt-hist-cycle { flex: 1; font-family: var(--fl); font-size: 13px; color: var(--txt); }
+.dt-hist-has-outcome { font-size: 11px; color: var(--accent); }
+.dt-hist-outcome { padding: 10px 12px; font-family: var(--ft); font-size: 13px; line-height: 1.65; color: var(--txt); }
+.dt-hist-outcome p { margin: 0 0 0.5em; }
+.dt-hist-outcome p:last-child { margin-bottom: 0; }
+.dt-hist-section-head { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.dt-hist-mech .dt-hist-section-head { color: var(--label-secondary); }
+.dt-hist-empty { font-family: var(--ft); font-size: 13px; color: var(--txt3); font-style: italic; padding: 12px 0; text-align: center; }
