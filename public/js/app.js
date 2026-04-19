@@ -48,6 +48,7 @@ import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initSignIn } from './game/signin-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
+import { initCombatTab } from './game/combat-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
 import { renderStoryTab } from './player/story-tab.js';
@@ -329,6 +330,10 @@ function goTab(t) {
   if (t === 'emergency') {
     const el = document.getElementById('t-emergency');
     if (el && !el.innerHTML.trim()) renderEmergencyTab(el);
+  }
+  if (t === 'combat') {
+    const el = document.getElementById('t-combat');
+    if (el) initCombatTab(el);
   }
   if (t === 'dt-submission') {
     const el = document.getElementById('t-dt-submission');
@@ -1045,6 +1050,7 @@ const MORE_APPS = [
   { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore' },
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
+  { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
   { id: 'signin',       label: 'Sign-In',     icon: _svg.signin,   section: 'st', stOnly: true },
   { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', stOnly: true },
   // ── Conditional apps (section determined by context) ──
@@ -1491,6 +1497,7 @@ function _enterSTView() {
 }
 
 // Expose functions used in inline onclick handlers
+window.goTab  = goTab;
 window.logout = logout;
 window.playerGoDowntime  = playerGoDowntime;
 window.openRulesOverlay  = openRulesOverlay;
