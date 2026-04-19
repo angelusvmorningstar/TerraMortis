@@ -1596,9 +1596,8 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 .sidebar-actions .theme-toggle-btn,
 .sidebar-actions .desktop-toggle-btn { padding: 5px 8px; }
 
-/* Primary nav — 3-column tile grid matching section grids */
+/* Sidebar nav — all section grids use 3 columns */
 #desktop-sidebar .sidebar-nav { display: flex; flex-direction: column; padding: 6px 0; flex-shrink: 0; }
-.sidebar-primary-grid { grid-template-columns: repeat(3, 1fr) !important; padding: 6px 10px 10px; border-bottom: 1px solid var(--bdr); margin-bottom: 4px; }
 /* Action buttons in sidebar header — original red button style */
 .sidebar-actions { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
 .sidebar-actions .app-nav-btn { font-size: 11px; padding: 5px 10px; }
@@ -1626,7 +1625,7 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 /* 2-column app icon grid — mirrors More grid, compact */
 .sidebar-app-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   padding: 4px 10px 8px;
 }
