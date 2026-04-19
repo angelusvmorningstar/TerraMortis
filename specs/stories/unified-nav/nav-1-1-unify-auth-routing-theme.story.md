@@ -37,6 +37,9 @@ So that I don't need to know which of two apps to open and the app looks right f
 - [x] Verify role-aware rendering still works after auth reconciliation (AC: #1, #2)
   - [x] ST login → ST tabs visible
   - [x] Player login → player tabs visible, ST tabs hidden
+- [ ] Remove "Player" button from `#hdr-nav` in `index.html` (deferred cleanup)
+  - [ ] `<a href="/player" id="nav-player">Player</a>` is redundant — player.html now redirects to `/`
+  - [ ] File: `public/index.html` — remove the anchor element
 
 ## Dev Notes
 
