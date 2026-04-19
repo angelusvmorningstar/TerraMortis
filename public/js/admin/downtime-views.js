@@ -1011,15 +1011,25 @@ function renderPlayerResponses(s) {
   }
 
   // ── Court ──
-  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'aspirations'];
-  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence', aspirations: 'Aspirations' };
+  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
+  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence' };
   const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
-  if (courtVals.length) {
+  const aspLines = [1,2,3].map(n => {
+    const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
+    return (t && v) ? `${t}: ${v}` : null;
+  }).filter(Boolean);
+  const hasCourtContent = courtVals.length || aspLines.length || r['aspirations'];
+  if (hasCourtContent) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
     for (const k of courtVals) {
       let val = r[k];
       if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).map(id => { const ch = characters.find(c => String(c._id) === String(id)); return ch ? (ch.moniker || ch.name) : id; }).join(', '); } catch { /* ignore */ } }
       h += row(courtLabels[k] || k, val);
+    }
+    if (aspLines.length) {
+      h += row('Aspirations', aspLines.join('\n'));
+    } else if (r['aspirations']) {
+      h += row('Aspirations', r['aspirations']);
     }
     h += '</div>';
   }
@@ -2273,17 +2283,18 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
 
 // ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
 
-const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'aspirations'];
+const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
 const COURT_LABELS = {
   travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
-  correspondence: 'Dear X', aspirations: 'Aspirations',
+  correspondence: 'Dear X',
 };
 
 function renderPreReadSection() {
   const readable = submissions
     .filter(s => {
       const r = s.responses || {};
-      return COURT_KEYS.some(k => r[k]?.trim?.()) || r.vamping?.trim?.() || r.lore_request?.trim?.();
+      const hasAsp = [1,2,3].some(n => r[`aspiration_${n}_text`]?.trim?.()) || r.aspirations?.trim?.();
+      return COURT_KEYS.some(k => r[k]?.trim?.()) || hasAsp || r.vamping?.trim?.() || r.lore_request?.trim?.();
     })
     .sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
 
@@ -2315,7 +2326,11 @@ function renderPreReadSection() {
 
         // Court section
         const courtVals = COURT_KEYS.filter(k => r[k]?.trim?.());
-        if (courtVals.length) {
+        const preReadAspLines = [1,2,3].map(n => {
+          const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
+          return (t && v) ? `${t}: ${v}` : null;
+        }).filter(Boolean);
+        if (courtVals.length || preReadAspLines.length || r.aspirations) {
           h += `<div class="dt-resp-section">`;
           h += `<div class="dt-resp-section-title">Court</div>`;
           for (const k of courtVals) {
@@ -2333,6 +2348,11 @@ function renderPreReadSection() {
             h += `<span class="dt-resp-label">${esc(COURT_LABELS[k] || k)}</span>`;
             h += `<span class="dt-resp-val">${esc(val)}</span>`;
             h += `</div>`;
+          }
+          if (preReadAspLines.length) {
+            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${preReadAspLines.map(esc).join('<br>')}</span></div>`;
+          } else if (r.aspirations) {
+            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${esc(r.aspirations)}</span></div>`;
           }
           h += `</div>`;
         }

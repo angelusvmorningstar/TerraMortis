@@ -148,8 +148,8 @@ Same pattern — remove `aspirations` from `COURT_KEYS`, add structured + legacy
 
 ## Dev Agent Record
 ### Agent Model Used
-_to be filled_
+placeholder
 ### Completion Notes
-_to be filled_
+placeholder
 ### File List
-_to be filled_
+placeholder

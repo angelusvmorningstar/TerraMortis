@@ -132,10 +132,10 @@ export const DOWNTIME_SECTIONS = [
       },
       {
         key: 'aspirations',
-        label: 'What are your current Short/Medium/Long term Aspirations?',
-        type: 'textarea',
+        label: 'Aspirations',
+        type: 'aspiration_slots',
         required: false,
-        desc: 'Briefly outline the goals you\'re working towards.\n\nShort: Something achievable this session or next.\nMedium: A goal spanning a few sessions.\nLong: A defining ambition that may take months of play.',
+        desc: null,
       },
     ],
   },

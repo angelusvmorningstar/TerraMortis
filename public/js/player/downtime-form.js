@@ -320,6 +320,14 @@ function collectResponses() {
     }
   }
 
+  // Aspiration structured slots
+  for (let n = 1; n <= 3; n++) {
+    const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
+    const textEl = document.getElementById(`dt-aspiration_${n}_text`);
+    responses[`aspiration_${n}_type`] = typeEl ? typeEl.value : '';
+    responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
+  }
+
   // Collect project slots
   const projectSection = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
   const projectSlotCount = projectSection?.projectSlots || 4;
@@ -3628,6 +3636,26 @@ function renderQuestion(q, value) {
       }
 
       h += '</div>'; // dt-feed-card-wrap
+      break;
+    }
+
+    case 'aspiration_slots': {
+      const saved = responseDoc?.responses || {};
+      h += '<div class="dt-aspiration-slots">';
+      for (let n = 1; n <= 3; n++) {
+        const savedType = saved[`aspiration_${n}_type`] || '';
+        const savedText = saved[`aspiration_${n}_text`] || '';
+        h += '<div class="dt-aspiration-slot">';
+        h += `<select id="dt-aspiration_${n}_type" class="qf-select dt-aspiration-type">`;
+        h += '<option value="">\u2014 Type \u2014</option>';
+        for (const t of ['Short', 'Medium', 'Long']) {
+          h += `<option value="${t}"${savedType === t ? ' selected' : ''}>${t}</option>`;
+        }
+        h += '</select>';
+        h += `<input type="text" id="dt-aspiration_${n}_text" class="qf-input dt-aspiration-text" value="${esc(savedText)}" placeholder="Aspiration ${n}">`;
+        h += '</div>';
+      }
+      h += '</div>';
       break;
     }
 

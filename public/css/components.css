@@ -2748,6 +2748,12 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   margin-top: 6px;
 }
 
+/* ── Aspiration slots ── */
+.dt-aspiration-slots { display: flex; flex-direction: column; gap: 8px; }
+.dt-aspiration-slot { display: flex; gap: 8px; align-items: center; }
+.dt-aspiration-type { width: 110px; flex-shrink: 0; }
+.dt-aspiration-text { flex: 1; }
+
 /* ── Regency sub-field (inside Vamping) ── */
 .dt-regency-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surf3); }
 
