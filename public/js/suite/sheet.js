@@ -37,6 +37,7 @@ export function onSheetChar(name) {
   }
   state.sheetChar = state.chars.find(c => c.name === name) || null;
   if (!state.sheetChar) return;
+  state.rollChar = state.sheetChar;
   document.getElementById('sh-empty').style.display = 'none';
   document.getElementById('sh-content-suite').style.display = '';
   renderSheet();
