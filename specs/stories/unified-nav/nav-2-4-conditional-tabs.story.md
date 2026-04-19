@@ -1,6 +1,6 @@
 # Story 2.4: Migrate Conditional player.html Tabs (Regency, Office, Archive)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
