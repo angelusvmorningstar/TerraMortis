@@ -1135,7 +1135,31 @@ function toggleDesktopMode() {
   const isDesktop = document.body.classList.toggle('desktop-mode');
   localStorage.setItem('tm-mode', isDesktop ? 'desktop' : 'game');
   _updateDesktopIcon();
+  _syncSidebarActions();
   if (isDesktop) renderDesktopSidebar();
+}
+
+function _syncSidebarActions() {
+  const actionsEl = document.getElementById('desktop-sidebar-actions');
+  if (!actionsEl) return;
+  const isDesktop = document.body.classList.contains('desktop-mode');
+  if (!isDesktop) { actionsEl.innerHTML = ''; return; }
+  // Clone the header nav buttons into the sidebar actions row
+  const themeBtn = document.getElementById('btn-theme-toggle');
+  const desktopBtn = document.getElementById('btn-desktop-toggle');
+  const adminLink = document.getElementById('nav-admin');
+  actionsEl.innerHTML = '';
+  if (themeBtn) actionsEl.appendChild(themeBtn.cloneNode(true));
+  if (desktopBtn) {
+    const clone = desktopBtn.cloneNode(true);
+    clone.id = 'btn-desktop-toggle-sidebar';
+    clone.setAttribute('onclick', 'toggleDesktopMode()');
+    actionsEl.appendChild(clone);
+  }
+  if (adminLink && adminLink.style.display !== 'none') {
+    const clone = adminLink.cloneNode(true);
+    actionsEl.appendChild(clone);
+  }
 }
 
 function _updateDesktopIcon() {
@@ -1150,6 +1174,7 @@ function _initDesktopMode() {
   if (localStorage.getItem('tm-mode') === 'desktop') {
     document.body.classList.add('desktop-mode');
     _updateDesktopIcon();
+    _syncSidebarActions();
     renderDesktopSidebar();
   }
 }
@@ -1161,10 +1186,17 @@ function renderDesktopSidebar() {
   const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'dice';
   const isActive = (id) => id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab));
 
-  // Primary tabs — full-width buttons with left-border active indicator
+  // Primary tabs — full-width with SVG icons matching bottom nav
+  const primaryTabs = [
+    { id: 'dice',   label: 'Dice',   icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>' },
+    { id: 'chars',  label: 'Sheet',  icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' },
+    { id: 'status', label: 'Status', icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>' },
+  ];
   let h = '';
-  for (const [id, label] of [['dice','Dice'],['chars','Sheet'],['status','Status']]) {
-    h += `<button class="sidebar-btn${isActive(id) ? ' on' : ''}" onclick="goTab('${id}')">${label}</button>`;
+  for (const { id, label, icon } of primaryTabs) {
+    h += `<button class="sidebar-btn${isActive(id) ? ' on' : ''}" onclick="goTab('${id}')">`;
+    h += `<span class="sidebar-btn-icon">${icon}</span>${label}`;
+    h += `</button>`;
   }
 
   // Section app grids — 2-column icon grid matching More grid style

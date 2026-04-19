@@ -114,8 +114,9 @@ test('desktop-mode — tapping sidebar Dice navigates to dice tab', async ({ pag
 test('desktop-mode — toggling back restores game mode', async ({ page }) => {
   await setupSuite(page);
 
-  await page.click('#btn-desktop-toggle'); // → desktop
-  await page.click('#btn-desktop-toggle'); // → game
+  await page.click('#btn-desktop-toggle'); // → desktop (header visible)
+  // In desktop mode, header is hidden — use JS to toggle back
+  await page.evaluate(() => window.toggleDesktopMode()); // → game
 
   const hasClass = await page.evaluate(() => document.body.classList.contains('desktop-mode'));
   expect(hasClass).toBe(false);

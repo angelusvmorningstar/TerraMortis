@@ -1547,14 +1547,14 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 
 /* ── Desktop mode (nav-desktop-mode — revised) ── */
 
-/* #app stays flex-column always; header spans full width */
+/* #app stays flex-column always; header hidden in desktop mode */
 body.desktop-mode #app { max-width: none; }
-body.desktop-mode #hdr { max-width: none; }
+body.desktop-mode #hdr { display: none; }
 body.desktop-mode #bnav { display: none !important; }
 
 /* app-body: sidebar + content side-by-side below header */
 #app-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-body.desktop-mode #app-body { height: calc(100dvh - 56px); } /* 56px = header height approx */
+body.desktop-mode #app-body { height: 100dvh; }
 
 /* Content area: scrollable, max-width 900px centred */
 body.desktop-mode .tab-wrap {
@@ -1590,9 +1590,16 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 }
 #desktop-sidebar .sidebar-title { font-family: var(--fh); font-size: 15px; color: var(--accent); letter-spacing: .04em; }
 #desktop-sidebar .sidebar-sub { font-family: var(--fl); font-size: 10px; color: var(--txt3); text-transform: uppercase; letter-spacing: .14em; margin-top: 3px; }
+/* Action buttons cloned into sidebar header */
+.sidebar-actions { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.sidebar-actions .app-nav-btn { font-size: 11px; padding: 5px 10px; }
+.sidebar-actions .theme-toggle-btn,
+.sidebar-actions .desktop-toggle-btn { padding: 5px 8px; }
 
-/* Primary nav buttons — full width, left-border active */
+/* Primary nav buttons — full width with SVG icons */
 #desktop-sidebar .sidebar-nav { display: flex; flex-direction: column; padding: 6px 0; flex-shrink: 0; }
+.sidebar-btn-icon { display: inline-flex; align-items: center; margin-right: 8px; flex-shrink: 0; }
+.sidebar-btn-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 #desktop-sidebar .sidebar-btn {
   background: none; border: none; border-left: 3px solid transparent;
   color: var(--txt2); font-family: var(--fl); font-size: 12px; font-weight: 700;
