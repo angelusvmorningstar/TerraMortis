@@ -1480,7 +1480,8 @@ function buildProcessingQueue(subs) {
       const feedRote        = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
       let   feedTerrs   = {};
       try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
-      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
+      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'feeding_rights' || feedTerrs[k] === 'resident')
+                       || Object.keys(feedTerrs).find(k => feedTerrs[k] === 'poaching' || feedTerrs[k] === 'poacher')
                        || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
                        || '';
       const truncDesc = feedDesc.length > 40 ? feedDesc.slice(0, 40) + '\u2026' : feedDesc;
@@ -7941,8 +7942,8 @@ function getPrimaryTerritory(sub) {
   if (!sub?.responses?.feeding_territories) return null;
   let grid;
   try { grid = JSON.parse(sub.responses.feeding_territories); } catch { return null; }
-  // Prefer resident, fall back to poacher
-  for (const status of ['resident', 'poacher']) {
+  // Prefer feeding_rights, fall back to poaching (include legacy values)
+  for (const status of ['feeding_rights', 'resident', 'poaching', 'poacher']) {
     for (const [key, val] of Object.entries(grid)) {
       if (val === status) {
         return FEEDING_TERRITORIES.find(t =>
@@ -8230,7 +8231,7 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
     h += '</tr>';
   }
   h += '</tbody></table>';
-  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
+  h += '<p class="dt-matrix-note">O = feeding rights. X = poaching. Rights set via City tab.</p>';
   return h;
 }
 

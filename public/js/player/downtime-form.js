@@ -3264,10 +3264,11 @@ function updateSectionTicks(container) {
       return;
     }
 
-    // Territory: tick when any feeding territory has a resident/poach selection
+    // Territory: tick when any feeding territory has a feeding_rights or poaching selection
     if (key === 'territory') {
       const feedRadios = body.querySelectorAll('input[type="radio"]:checked');
-      const hasSelection = Array.from(feedRadios).some(r => r.value === 'resident' || r.value === 'poach');
+      const activeVals = new Set(['feeding_rights', 'poaching', 'resident', 'poach']);
+      const hasSelection = Array.from(feedRadios).some(r => activeVals.has(r.value));
       tick.classList.toggle('visible', hasSelection);
       return;
     }
@@ -3755,40 +3756,50 @@ function renderQuestion(q, value) {
     }
 
     case 'territory_grid': {
-      // Parse saved value: JSON object { territory: status } or empty
       let gridVals = {};
-      if (value) {
-        try { gridVals = JSON.parse(value); } catch { /* ignore */ }
-      }
-      const statuses = ['resident', 'poacher', 'none'];
-      const statusLabels = ['Resident', 'Poacher', 'Not feeding here'];
+      if (value) { try { gridVals = JSON.parse(value); } catch { /* ignore */ } }
 
+      h += '<p class="qf-desc">Ambience shown is current. Actual feeding ambience is calculated after Downtime processing and may shift based on how many Kindred feed in each territory.</p>';
       h += `<div class="dt-feed-grid" id="dt-${q.key}">`;
-      // Header row
-      h += '<div class="dt-feed-grid-row dt-feed-grid-header">';
-      h += '<span class="dt-feed-grid-terr"></span>';
-      for (const lbl of statusLabels) {
-        h += `<span class="dt-feed-grid-col">${lbl}</span>`;
-      }
-      h += '</div>';
-      // Territory rows
+
       for (const terr of FEEDING_TERRITORIES) {
         const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        // Check if character has been granted residency in this territory
-        const isResident = (residencyByTerritory[terr] || new Set()).has(currentChar._id);
-        // Default to 'resident' if granted, 'none' otherwise; saved value takes priority
-        const hasExplicitSave = gridVals[terrKey] !== undefined;
-        const effectiveVal = hasExplicitSave ? gridVals[terrKey] : (isResident ? 'resident' : 'none');
+        const isBarrens = terr.includes('Barrens');
+        const terrData = TERRITORY_DATA.find(t => t.name === terr);
+        const ambience = terrData ? terrData.ambience : '';
 
-        const rowClass = isResident ? 'dt-feed-grid-row dt-feed-resident' : 'dt-feed-grid-row';
+        // Feeding rights: check _territories feeding_rights array
+        const hasFeedingRights = !isBarrens && (_territories || []).some(t =>
+          t.name === terr && Array.isArray(t.feeding_rights) &&
+          t.feeding_rights.some(id => String(id) === String(currentChar._id))
+        );
+
+        // Normalise saved value (legacy mapping)
+        let savedVal = gridVals[terrKey] || 'none';
+        if (savedVal === 'resident') savedVal = 'feeding_rights';
+        if (savedVal === 'poacher') savedVal = 'poaching';
+
+        // Default to primary option if no explicit save
+        if (gridVals[terrKey] === undefined && !isBarrens) {
+          savedVal = hasFeedingRights ? 'feeding_rights' : 'none';
+        }
+
+        const rowClass = hasFeedingRights ? 'dt-feed-grid-row dt-feed-rights' : 'dt-feed-grid-row';
         h += `<div class="${rowClass}">`;
         h += `<span class="dt-feed-grid-terr">${esc(terr)}`;
-        if (isResident) h += ' <span class="dt-feed-resident-badge">Resident</span>';
+        if (ambience) h += ` <span class="dt-feed-ambience">${esc(ambience)}</span>`;
         h += '</span>';
-        for (let si = 0; si < statuses.length; si++) {
-          const checked = effectiveVal === statuses[si] ? ' checked' : '';
-          h += '<span class="dt-feed-grid-col">';
-          h += `<input type="radio" name="feed-${terrKey}" value="${statuses[si]}"${checked} data-feed-terr="${terrKey}">`;
+
+        if (isBarrens) {
+          h += '<span class="dt-feed-grid-options">';
+          h += `<label class="dt-feed-radio-label"><input type="radio" name="feed-${terrKey}" value="none"${savedVal === 'none' ? ' checked' : ''}> Not feeding here</label>`;
+          h += '</span>';
+        } else {
+          const opt1Val = hasFeedingRights ? 'feeding_rights' : 'poaching';
+          const opt1Label = hasFeedingRights ? 'Feeding Rights' : 'Poaching';
+          h += '<span class="dt-feed-grid-options">';
+          h += `<label class="dt-feed-radio-label dt-feed-primary"><input type="radio" name="feed-${terrKey}" value="${opt1Val}"${savedVal === opt1Val ? ' checked' : ''}> ${opt1Label}</label>`;
+          h += `<label class="dt-feed-radio-label"><input type="radio" name="feed-${terrKey}" value="none"${savedVal === 'none' ? ' checked' : ''}> Not feeding here</label>`;
           h += '</span>';
         }
         h += '</div>';
