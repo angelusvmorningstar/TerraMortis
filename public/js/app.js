@@ -48,13 +48,17 @@ import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initSignIn } from './game/signin-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
-// Player portal tabs — migrated to More grid (nav-2-3)
+// Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
 import { renderStoryTab } from './player/story-tab.js';
 import { renderStatusTab } from './player/status-tab.js';
 import { renderPrimerTab } from './player/primer-tab.js';
 import { renderTicketsTab } from './player/tickets-tab.js';
 import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
+import { renderRegencyTab } from './player/regency-tab.js';
+import { renderOfficeTab } from './player/office-tab.js';
+import { initArchiveTab } from './player/archive-tab.js';
+import { findRegentTerritory } from './data/helpers.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
 
@@ -220,7 +224,7 @@ const NAV_ALIAS = {
   'whos-who': 'more', 'dt-report': 'more', feeding: 'more', map: 'more',
   primer: 'more', 'game-guide': 'more', rules: 'more', 'dt-submission': 'more',
   ordeals: 'more', tickets: 'more', tracker: 'more', signin: 'more', emergency: 'more',
-  regency: 'more', office: 'more',
+  regency: 'more', office: 'more', archive: 'more',
 };
 
 function goTab(t) {
@@ -260,6 +264,22 @@ function goTab(t) {
     if (el && !el.innerHTML.trim()) {
       el.innerHTML = '<div class="city-map-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>';
     }
+  }
+  if (t === 'regency') {
+    const el = document.getElementById('t-regency');
+    const char = _activeMoreChar();
+    const terrs = suiteState.territories || [];
+    if (el && char) renderRegencyTab(el, char, terrs);
+  }
+  if (t === 'office') {
+    const el = document.getElementById('t-office');
+    const char = _activeMoreChar();
+    if (el && char) renderOfficeTab(el, char);
+  }
+  if (t === 'archive') {
+    const el = document.getElementById('t-archive');
+    const char = _activeMoreChar();
+    if (el && char) initArchiveTab(el, char, (suiteState.chars || []).filter(c => c.retired));
   }
   if (t === 'dt-report') {
     const el = document.getElementById('t-dt-report');
@@ -366,7 +386,12 @@ async function loadAllData() {
   window._charNames = suiteState.chars.map(c => c.name);
   window._charDisplayMap = Object.fromEntries(suiteState.chars.map(c => [c.name, displayName(c)]));
 
-  // 3. Populate suite dropdowns
+  // 3. Load territories (used by regency condition + renderRegencyTab)
+  try {
+    suiteState.territories = await apiGet('/api/territories');
+  } catch { suiteState.territories = []; }
+
+  // 4. Populate suite dropdowns
   populateSuiteDropdowns(sortedChars);
 }
 
@@ -988,6 +1013,7 @@ const MORE_APPS = [
   // ── Conditional apps (section determined by context) ──
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
+  { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'game', condition: 'hasArchive' },
 ];
 
 const MORE_SECTIONS = [
@@ -1003,11 +1029,16 @@ function _moreGridCondition(app) {
   const info = getPlayerInfo();
   const myChar = chars.find(c => info?.character_ids?.includes(c._id) || info?.character_ids?.includes(String(c._id)));
   if (app.condition === 'hasRegency') {
-    // Player's character is regent of at least one territory (checked via court_title or regent_id)
-    return !!(myChar && (myChar.court_title || myChar.court_category));
+    // Regent if their character _id matches a territory's regent_id
+    const terrs = suiteState.territories || [];
+    return !!(myChar && findRegentTerritory(terrs, myChar));
   }
   if (app.condition === 'hasOffice') {
     return !!(myChar && myChar.court_category);
+  }
+  if (app.condition === 'hasArchive') {
+    // Archive visible if character has any archive documents — check loaded state
+    return !!(myChar && myChar._has_archive);
   }
   return true;
 }
