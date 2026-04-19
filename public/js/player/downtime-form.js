@@ -3178,7 +3178,11 @@ function renderFeedingTerritoryPills(gridVals) {
     h += `<button type="button" class="dt-terr-pill${activeClass}"`;
     h += ` data-feed-terr-key="${terrKey}" data-feed-status="${statusVal}" data-feed-active="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
-    if (ambience && !isBarrens) h += `<span class="dt-terr-pill-amb">${esc(ambience)}</span>`;
+    if (ambience && !isBarrens) {
+      const mod = terrData?.ambienceMod;
+      const modStr = mod !== undefined ? ` (${mod >= 0 ? '+' : ''}${mod})` : '';
+      h += `<span class="dt-terr-pill-amb">${esc(ambience)}${modStr}</span>`;
+    }
     if (isActive && !isBarrens) h += `<span class="dt-terr-pill-status">${statusLabel}</span>`;
     h += '</button>';
     h += `<input type="hidden" id="feed-val-${terrKey}" value="${savedVal}">`;
