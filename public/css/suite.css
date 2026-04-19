@@ -1596,10 +1596,10 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 .sidebar-actions .theme-toggle-btn,
 .sidebar-actions .desktop-toggle-btn { padding: 5px 8px; }
 
-/* Primary nav buttons — full width with SVG icons */
+/* Primary nav — 3-column tile grid matching section grids */
 #desktop-sidebar .sidebar-nav { display: flex; flex-direction: column; padding: 6px 0; flex-shrink: 0; }
-.sidebar-btn-icon { display: inline-flex; align-items: center; margin-right: 8px; flex-shrink: 0; }
-.sidebar-btn-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar-primary-grid { grid-template-columns: repeat(3, 1fr) !important; padding: 6px 10px 10px; border-bottom: 1px solid var(--bdr); margin-bottom: 4px; }
+/* sidebar-btn kept for any legacy uses */
 #desktop-sidebar .sidebar-btn {
   background: none; border: none; border-left: 3px solid transparent;
   color: var(--txt2); font-family: var(--fl); font-size: 12px; font-weight: 700;

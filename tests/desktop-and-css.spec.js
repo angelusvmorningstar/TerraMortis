@@ -106,8 +106,8 @@ test('desktop-mode — tapping sidebar Dice navigates to dice tab', async ({ pag
   await page.evaluate(() => window.goTab('status'));
   await page.waitForTimeout(200);
 
-  // Click Dice in sidebar
-  await page.locator('#desktop-sidebar-nav .sidebar-btn').filter({ hasText: /^Dice$/i }).click();
+  // Click Dice in sidebar (now a .sidebar-app-tile in primary grid)
+  await page.locator('#desktop-sidebar-nav .sidebar-app-tile').filter({ hasText: /Dice/i }).click();
   await expect(page.locator('#t-dice')).toHaveClass(/active/, { timeout: 5000 });
 });
 
