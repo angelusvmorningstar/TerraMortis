@@ -2880,6 +2880,11 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .reading-pane .dt-feed-blood-label input { accent-color: var(--rp-accent); }
 
 /* ── Rote feeding checkbox ── */
+.dt-rote-toggle-wrap { margin-bottom: 8px; }
+.dt-rote-slot-picker { margin-top: 10px; padding: 10px 12px; background: var(--surf2); border-radius: 4px; border-left: 2px solid var(--gold2); }
+.dt-proj-rote-locked { padding: 10px 12px; background: rgba(224,196,122,.08); border: 1px solid rgba(224,196,122,.25); border-radius: 4px; }
+.dt-proj-rote-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
+.dt-proj-rote-desc { margin: 6px 0 0; font-size: 13px; color: var(--txt2); font-style: italic; }
 .dt-feed-rote { margin-bottom: 0; }
 .dt-feed-rote-label {
   display: flex;

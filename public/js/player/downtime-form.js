@@ -70,6 +70,7 @@ let feedCustomAttr = '';
 let feedCustomSkill = '';
 let feedCustomDisc = '';
 let feedRoteAction = false;
+let feedRoteSlot = 1;
 
 // Project tab state
 let activeProjectTab = 1;
@@ -263,6 +264,7 @@ function collectResponses() {
         responses['_feed_custom_skill'] = feedCustomSkill;
         responses['_feed_custom_disc'] = feedCustomDisc;
         responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
+        responses['_feed_rote_slot'] = feedRoteAction ? String(feedRoteSlot) : '';
         // Blood type checkboxes
         const bloodChecked = [];
         document.querySelectorAll('[data-blood-type]:checked').forEach(cb => bloodChecked.push(cb.value));
@@ -350,6 +352,12 @@ function collectResponses() {
     const xpEl = document.getElementById(`dt-project_${n}_xp`);
     responses[`project_${n}_outcome`] = outcomeEl ? outcomeEl.value : '';
     responses[`project_${n}_description`] = descEl ? descEl.value : '';
+    // Rote-locked slot: pull description from rote textarea
+    if (feedRoteAction && n === feedRoteSlot) {
+      const roteDescEl = document.getElementById('dt-rote-description');
+      if (roteDescEl) responses[`project_${n}_description`] = roteDescEl.value;
+      responses[`project_${n}_action`] = 'feed';
+    }
     responses[`project_${n}_title`] = titleEl ? titleEl.value : '';
     responses[`project_${n}_territory`] = terrEl ? terrEl.value : '';
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
@@ -1145,8 +1153,8 @@ function renderForm(container) {
   // Ensure rote feeding data is set in saved responses (no re-render)
   if (feedRoteAction && feedMethodId) {
     const s = responseDoc?.responses;
-    if (s && s['project_1_action'] !== 'feed') {
-      s['project_1_action'] = 'feed';
+    if (s && s[`project_${feedRoteSlot}_action`] !== 'feed') {
+      s[`project_${feedRoteSlot}_action`] = 'feed';
     }
   }
 
@@ -1326,7 +1334,13 @@ function renderForm(container) {
     // Rote feeding checkbox
     if (e.target.id === 'dt-feed-rote') {
       feedRoteAction = e.target.checked;
-      applyRoteToProject1(container);
+      applyRoteToProjectSlot(container, null);
+      return;
+    }
+    if (e.target.id === 'dt-rote-slot-sel') {
+      const prev = feedRoteSlot;
+      feedRoteSlot = parseInt(e.target.value, 10) || 1;
+      applyRoteToProjectSlot(container, prev);
       return;
     }
     // Territory radio change — re-render to update vitae projection
@@ -1783,17 +1797,25 @@ function openCastModal(slotId, container) {
 
 // ── Rote feeding → Project 1 ──
 
-function applyRoteToProject1(container) {
+function applyRoteToProjectSlot(container, prevSlot) {
   const responses = collectResponses();
   if (feedRoteAction && feedMethodId) {
-    responses['project_1_action'] = 'feed';
-    activeProjectTab = 1;
-  } else if (responses['project_1_action'] === 'feed') {
-    responses['project_1_action'] = '';
-    responses['project_1_outcome'] = '';
-    responses['project_1_description'] = '';
-  } else {
-    return; // nothing to change
+    responses[`project_${feedRoteSlot}_action`] = 'feed';
+    activeProjectTab = feedRoteSlot;
+  }
+  // Clear the previous slot if it changed
+  if (prevSlot && prevSlot !== feedRoteSlot && responses[`project_${prevSlot}_action`] === 'feed') {
+    responses[`project_${prevSlot}_action`] = '';
+    responses[`project_${prevSlot}_description`] = '';
+  }
+  // If rote deactivated, clear the slot
+  if (!feedRoteAction) {
+    for (let n = 1; n <= 4; n++) {
+      if (responses[`project_${n}_action`] === 'feed') {
+        responses[`project_${n}_action`] = '';
+        responses[`project_${n}_description`] = '';
+      }
+    }
   }
   if (responseDoc) responseDoc.responses = responses;
   else responseDoc = { responses };
@@ -1861,6 +1883,19 @@ function renderProjectSlots(saved) {
 
     h += `<div class="dt-proj-pane${visible ? '' : ' dt-proj-pane-hidden'}" data-proj-pane="${n}">`;
 
+    // ── Rote-locked slot ──
+    const isRoteLocked = feedRoteAction && n === feedRoteSlot;
+    if (isRoteLocked) {
+      const roteDesc = saved[`project_${n}_description`] || '';
+      h += '<div class="dt-proj-rote-locked">';
+      h += '<span class="dt-proj-rote-badge">Committed to Feeding (Rote)</span>';
+      if (roteDesc) h += `<p class="dt-proj-rote-desc">${esc(roteDesc)}</p>`;
+      h += '</div>';
+      h += `<input type="hidden" id="dt-project_${n}_action" value="feed">`;
+      h += '</div>';
+      continue;
+    }
+
     // Action type selector — always visible
     h += '<div class="qf-field">';
     h += `<label class="qf-label" for="dt-project_${n}_action">Action Type ${n === 1 ? '<span class="qf-req">*</span>' : ''}</label>`;
@@ -1870,13 +1905,6 @@ function renderProjectSlots(saved) {
       h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
     }
     h += '</select></div>';
-
-    // ── Feed — committed to rote, no independent configuration ──
-    if (actionVal === 'feed') {
-      h += '<div class="dt-proj-feed-summary">';
-      h += '<p>Committed to feeding rote \u2014 see Feeding section.</p>';
-      h += '</div>';
-    }
 
     // ── Title ──
     // ── XP Spend note ──
@@ -3597,13 +3625,34 @@ function renderQuestion(q, value) {
         // Restore rote state from saved responses
         const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
         if (savedRote && !feedRoteAction) feedRoteAction = true;
+        const savedRoteSlot = parseInt(responseDoc?.responses?.['_feed_rote_slot'] || '1', 10);
+        if (savedRoteSlot && savedRoteSlot !== feedRoteSlot) feedRoteSlot = savedRoteSlot;
 
-        h += '<div class="dt-feed-rote">';
-        h += `<label class="dt-feed-rote-label">`;
-        h += `<input type="checkbox" id="dt-feed-rote" ${feedRoteAction ? 'checked' : ''}>`;
-        h += `<span>Spend a Project action for Rote feeding</span>`;
-        h += '</label>';
-        h += '<p class="qf-desc" style="margin:4px 0 0 24px;">Dedicates Project 1 to feeding. The pool and method above will be copied automatically.</p>';
+        const saved = responseDoc?.responses || {};
+        const roteDesc = saved[`project_${feedRoteSlot}_description`] || '';
+
+        h += '<div class="dt-rote-toggle-wrap">';
+        h += `<label class="dt-feed-rote-label"><input type="checkbox" id="dt-feed-rote"${feedRoteAction ? ' checked' : ''}> Commit a Project action for Rote quality on this hunt</label>`;
+        if (feedRoteAction) {
+          h += '<div class="dt-rote-slot-picker">';
+          h += '<div class="qf-field">';
+          h += '<label class="qf-label" for="dt-rote-slot-sel">Project slot to commit</label>';
+          h += '<select id="dt-rote-slot-sel" class="qf-select" style="width:auto">';
+          for (let n = 1; n <= 4; n++) {
+            const otherAction = saved[`project_${n}_action`];
+            const isOccupied = otherAction && otherAction !== 'feed' && n !== feedRoteSlot;
+            if (!isOccupied) {
+              h += `<option value="${n}"${feedRoteSlot === n ? ' selected' : ''}>Project ${n}</option>`;
+            }
+          }
+          h += '</select></div>';
+          h += renderQuestion({
+            key: 'rote-description', label: 'Describe your dedicated feeding effort',
+            type: 'textarea', required: false,
+            desc: 'The pool and method above apply. Describe where, how, and any relevant context.',
+          }, roteDesc);
+          h += '</div>';
+        }
         h += '</div>';
 
         h += '<div class="qf-field">';
