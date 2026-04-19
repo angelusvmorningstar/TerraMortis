@@ -1041,6 +1041,10 @@ function renderPlayerResponses(s) {
     if (!action) continue;
     const actionLabel = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     let desc = r[`project_${n}_description`] || r[`project_${n}_xp_trait`] || '';
+    if (action === 'xp_spend') {
+      const cat = r[`project_${n}_xp_category`]; const item = r[`project_${n}_xp_item`];
+      if (cat && item) desc = `${cat}: ${item}`;
+    }
     projRows.push(`${n}. ${actionLabel}${desc ? ': ' + desc : ''}`);
   }
   if (projRows.length) {
@@ -2612,7 +2616,26 @@ function renderXpReviewStep() {
   if (isExpanded) {
     for (const s of xpSubs) {
       let rows = [];
-      try { rows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item); } catch { /* ignore */ }
+      // New format: project_N_xp_category/item
+      for (let n = 1; n <= 4; n++) {
+        if (s.responses?.[`project_${n}_action`] !== 'xp_spend') continue;
+        const cat  = s.responses?.[`project_${n}_xp_category`] || '';
+        const item = s.responses?.[`project_${n}_xp_item`] || '';
+        if (cat && item) {
+          const costMap = { attribute: 4, skill: 2, discipline: 3, rite: 4, devotion: 2 };
+          const cost = costMap[cat] || 1;
+          rows.push({ category: cat, item, cost, dotsBuying: 1, _proj: n });
+        } else {
+          // Legacy free-text fallback
+          const legacy = s.responses?.[`project_${n}_xp_trait`] || s.responses?.[`project_${n}_xp`];
+          if (legacy) rows.push({ category: 'xp_spend', item: legacy, cost: null, _proj: n });
+        }
+      }
+      // Also include admin xp_grid rows (free merits)
+      try {
+        const adminRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
+        rows = rows.concat(adminRows);
+      } catch { /* ignore */ }
       if (!rows.length) continue;
 
       const { char, charName } = resolveSubChar(s);

@@ -93,7 +93,7 @@ const ACTION_SHORT = {
 const ACTION_FIELDS = {
   '': [],
   'feed': [],
-  'xp_spend': ['xp_note'],
+  'xp_spend': ['xp_picker'],
   'ambience_increase': ['title', 'territory', 'pools', 'cast', 'description'],
   'ambience_decrease': ['title', 'territory', 'pools', 'cast', 'description'],
   'attack': ['title', 'target_char', 'pools', 'outcome', 'territory', 'cast', 'merits', 'description'],
@@ -363,6 +363,11 @@ function collectResponses() {
     responses[`project_${n}_xp`] = xpEl ? xpEl.value : '';
     const xpTraitEl = document.getElementById(`dt-project_${n}_xp_trait`);
     responses[`project_${n}_xp_trait`] = xpTraitEl ? xpTraitEl.value : '';
+    const xpCatEl = document.getElementById(`dt-project_${n}_xp_category`);
+    const xpItemEl = document.getElementById(`dt-project_${n}_xp_item`);
+    responses[`project_${n}_xp_category`] = xpCatEl ? xpCatEl.value : '';
+    responses[`project_${n}_xp_item`] = xpItemEl ? xpItemEl.value : '';
+    if (responses[`project_${n}_action`] === 'xp_spend') responses[`project_${n}_xp_dots`] = '1';
     // Target pickers (attack, hide_protect, investigate)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
@@ -1363,6 +1368,16 @@ function renderForm(container) {
       gateValues[`merit_${mk}`] = meritToggle.value;
       updateMeritSections(container);
     }
+    // XP category picker — re-render to show item dropdown
+    if (e.target.closest('[data-xp-pick-cat]') || e.target.closest('[data-xp-pick-item]')) {
+      const slotEl = e.target.closest('[data-xp-pick-cat]') || e.target.closest('[data-xp-pick-item]');
+      activeProjectTab = parseInt(slotEl.dataset.xpPickCat || slotEl.dataset.xpPickItem, 10);
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     // Project action change — re-render to show correct fields for action type
     const projectAction = e.target.closest('[data-project-action]');
     if (projectAction) {
@@ -1906,19 +1921,62 @@ function renderProjectSlots(saved) {
     }
     h += '</select></div>';
 
-    // ── Title ──
-    // ── XP Spend note ──
-    if (fields.includes('xp_note')) {
-      h += '<div class="dt-proj-feed-summary">';
-      h += '<p>This action dedicates a Project slot to XP spending.</p>';
-      h += '<p>Each XP Spend action allows purchasing <strong>1 dot</strong> of an Attribute, Skill, Discipline, Devotion, or Rite in the <strong>Admin</strong> section below.</p>';
-      h += '<p class="qf-desc" style="margin:6px 0 0;">Merits at 1\u20133 dots can be purchased freely without dedicating an action.</p>';
+    // ── XP Spend picker (structured) ──
+    if (fields.includes('xp_picker')) {
+      const savedCat  = saved[`project_${n}_xp_category`] || '';
+      const savedItem = saved[`project_${n}_xp_item`] || '';
+      const budget = xpLeft(currentChar);
+
+      // Deduct already-committed project XP from other slots
+      let committed = 0;
+      for (let s = 1; s <= 4; s++) {
+        if (s === n) continue;
+        if (saved[`project_${s}_action`] === 'xp_spend') {
+          const cat = saved[`project_${s}_xp_category`];
+          const item = saved[`project_${s}_xp_item`];
+          if (cat && item) committed += getRowCost({ category: cat, item, dotsBuying: 1 });
+        }
+      }
+      const remaining = budget - committed;
+
+      h += '<div class="dt-xp-picker">';
+      h += '<p class="qf-desc">Select one trait to purchase. 1 dot per project action committed.</p>';
+      h += `<div class="dt-xp-picker-budget ${remaining < 0 ? 'dt-influence-over' : ''}">`;
+      h += `${remaining} / ${budget} XP available</div>`;
+
+      // Category dropdown (merits excluded — use Admin section for free merits)
+      h += `<div class="dt-xp-picker-row">`;
+      h += `<select id="dt-project_${n}_xp_category" class="qf-select dt-xp-pick-cat" data-xp-pick-cat="${n}">`;
+      h += '<option value="">\u2014 Category \u2014</option>';
+      for (const opt of XP_CATEGORIES.filter(o => o.value && o.value !== 'merit')) {
+        h += `<option value="${esc(opt.value)}"${savedCat === opt.value ? ' selected' : ''}>${esc(opt.label)}</option>`;
+      }
+      h += '</select>';
+
+      if (savedCat) {
+        const items = getItemsForCategory(savedCat);
+        h += `<select id="dt-project_${n}_xp_item" class="qf-select dt-xp-pick-item" data-xp-pick-item="${n}">`;
+        h += '<option value="">\u2014 Item \u2014</option>';
+        for (const item of items) {
+          h += `<option value="${esc(item.value)}"${savedItem === item.value ? ' selected' : ''}>${esc(item.label)}</option>`;
+        }
+        h += '</select>';
+      }
+
+      if (savedCat && savedItem) {
+        const cost = getRowCost({ category: savedCat, item: savedItem, dotsBuying: 1 });
+        const insufficient = cost > remaining;
+        h += `<span class="dt-xp-cost${insufficient ? ' dt-vitae-over' : ''}">${cost} XP${insufficient ? ' \u2014 Insufficient XP' : ''}</span>`;
+      }
       h += '</div>';
+
       h += renderQuestion({
-        key: `project_${n}_xp_trait`, label: 'What are you growing and how?',
+        key: `project_${n}_xp_trait`, label: 'In-character justification',
         type: 'textarea', required: false,
-        desc: 'Describe the trait you intend to grow and the in-character activity that justifies it. e.g. "Raising Subterfuge \u2014 Creban spends evenings practicing deception with mortals at the casino."',
+        desc: 'Describe the activity or events that justify this growth.',
       }, saved[`project_${n}_xp_trait`] || '');
+
+      h += '</div>';
     }
 
     if (fields.includes('title')) {
@@ -3762,6 +3820,19 @@ function renderQuestion(q, value) {
         if (saved[`project_${n}_action`] === 'xp_spend') xpActions++;
       }
 
+      // ── Project XP Commitments (read-only carry-forward) ──
+      const projCommits = [];
+      for (let n = 1; n <= 4; n++) {
+        if (saved[`project_${n}_action`] !== 'xp_spend') continue;
+        const cat  = saved[`project_${n}_xp_category`] || '';
+        const item = saved[`project_${n}_xp_item`] || '';
+        if (!cat || !item) { projCommits.push({ n, cat: '', item: '', cost: 0, label: '(not yet selected)' }); continue; }
+        const cost = getRowCost({ category: cat, item, dotsBuying: 1 });
+        const catLabel = XP_CATEGORIES.find(o => o.value === cat)?.label || cat;
+        const itemLabel = getItemsForCategory(cat).find(i => i.value === item)?.label || item;
+        projCommits.push({ n, cat, item, cost, label: `${catLabel} \u2014 ${itemLabel}` });
+      }
+
       // Count dots already allocated to non-merit categories
       let dotsUsed = 0;
       for (const r of xpRows) {
@@ -3776,7 +3847,8 @@ function renderQuestion(q, value) {
       const dotsRemaining = xpActions - dotsUsed;
 
       const budget = xpLeft(currentChar);
-      const totalSpent = xpRows.reduce((sum, r) => sum + getRowCost(r), 0);
+      const projCommitCost = projCommits.reduce((s, p) => s + p.cost, 0);
+      const totalSpent = xpRows.reduce((sum, r) => sum + getRowCost(r), 0) + projCommitCost;
       const remaining = budget - totalSpent;
 
       h += `<div class="dt-xp-grid" id="dt-${q.key}">`;
@@ -3784,6 +3856,20 @@ function renderQuestion(q, value) {
       h += `<span class="dt-influence-remaining${remaining < 0 ? ' dt-influence-over' : ''}">${remaining}</span>`;
       h += ` / ${budget} XP remaining`;
       h += '</div>';
+
+      // ── Project XP Commitments (read-only) ──
+      if (projCommits.length) {
+        h += '<div class="dt-xp-proj-commits">';
+        h += '<div class="dt-xp-proj-commits-title">Project XP Commitments</div>';
+        for (const p of projCommits) {
+          h += `<div class="dt-xp-proj-row">`;
+          h += `<span class="dt-xp-proj-num">Action ${p.n}</span>`;
+          h += `<span class="dt-xp-proj-label">${esc(p.label)}</span>`;
+          h += p.cost > 0 ? `<span class="dt-xp-cost">${p.cost} XP</span>` : '';
+          h += '</div>';
+        }
+        h += '</div>';
+      }
 
       // Action budget indicator
       h += '<div class="dt-xp-action-budget">';

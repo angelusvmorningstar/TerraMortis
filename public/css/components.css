@@ -2561,6 +2561,17 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 
 /* ── XP Spend Grid ── */
+/* ── XP spend picker (project slot) ── */
+.dt-xp-picker { margin: 8px 0; }
+.dt-xp-picker-budget { font-size: 12px; font-weight: 600; color: var(--txt2); margin-bottom: 8px; }
+.dt-xp-picker-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* ── Project XP carry-forward (admin) ── */
+.dt-xp-proj-commits { margin: 0 0 12px; border: 1px solid rgba(224,196,122,.2); border-radius: 4px; overflow: hidden; }
+.dt-xp-proj-commits-title { background: rgba(224,196,122,.08); padding: 5px 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gold2); }
+.dt-xp-proj-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px; border-top: 1px solid rgba(224,196,122,.1); }
+.dt-xp-proj-num { font-weight: 600; color: var(--txt2); flex-shrink: 0; min-width: 60px; }
+.dt-xp-proj-label { flex: 1; color: var(--txt1); }
+
 .dt-xp-grid { margin: 12px 0 16px; }
 .dt-xp-budget {
   font-size: 0.95rem;
