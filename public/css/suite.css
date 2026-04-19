@@ -1075,6 +1075,40 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
   .sh-body { padding: 0 8px 20px; }
 }
 
+/* ── Territory / City tab — ported from player-layout.css (nav-2-2) ── */
+#t-territory.active { display: flex; flex-direction: column; overflow-y: auto; }
+.city-split { display: flex; gap: 0; align-items: flex-start; min-height: 100%; }
+.city-left { flex: 1; min-width: 0; border-right: 1px solid var(--bdr); display: flex; flex-direction: column; }
+.city-right { flex: 1; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.city-panel { border-bottom: 1px solid var(--bdr); padding: 12px 14px; }
+.city-panel-title { font-family: var(--fl); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--txt3); margin-bottom: 8px; }
+.city-office-list { display: flex; flex-direction: column; gap: 4px; }
+.city-office-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--bdr); }
+.city-office-row:last-child { border-bottom: none; }
+.city-office-name { color: var(--txt); }
+.city-office-position { font-family: var(--fl); font-size: 11px; color: var(--accent); letter-spacing: .04em; }
+.city-map-wrap { overflow: hidden; background: #000; }
+.city-map { width: 100%; display: block; touch-action: pinch-zoom; }
+.city-regent-list { display: flex; flex-direction: column; gap: 2px; }
+.city-regent-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--bdr); }
+.city-regent-row:last-child { border-bottom: none; }
+.city-regent-territory { color: var(--txt3); font-size: 12px; }
+.city-regent-name { color: var(--txt); text-align: right; }
+.city-cov-group { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }
+.city-cov-heading { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-family: var(--fl); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--bdr); background: var(--surf2); }
+.city-char-list { padding: 2px 0; }
+.city-char-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid var(--bdr); }
+.city-char-row:last-child { border-bottom: none; }
+.city-char-name { font-size: 13px; color: var(--txt); }
+.city-char-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt3); }
+.city-char-position { font-family: var(--fl); font-size: 11px; color: var(--accent); letter-spacing: .04em; }
+.city-char-player { font-size: 11px; color: var(--txt3); font-style: italic; }
+.city-placeholder { font-size: 12px; margin: 0; }
+@media (max-width: 768px) {
+  .city-split { flex-direction: column; align-items: stretch; }
+  .city-left { border-right: none; border-bottom: 1px solid var(--bdr); }
+}
+
 /* Nav badge (used by More tab and app icons — Story 3.3) */
 .nav-badge {
   position: absolute; top: 6px; right: 6px;
