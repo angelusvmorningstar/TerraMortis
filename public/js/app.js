@@ -969,6 +969,7 @@ const MORE_APPS = [
   // ── Player section (player role only) ──
   { id: 'dt-submission', label: 'Submit DT',  icon: _svg.dtSubmit, section: 'player', playerOnly: true },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player', playerOnly: true },
+  { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', section: 'player', playerOnly: true },
   // ── Lore section ──
   { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore' },
   { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore' },
