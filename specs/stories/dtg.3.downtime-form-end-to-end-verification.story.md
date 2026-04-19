@@ -2,7 +2,7 @@
 id: dtg.3
 epic: downtime-game-app
 group: B
-status: ready-for-dev
+status: complete
 priority: high
 depends_on: [dtg.1, dtg.2]
 ---

@@ -2749,6 +2749,40 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-aspiration-type { width: 110px; flex-shrink: 0; }
 .dt-aspiration-text { flex: 1; }
 
+/* ── Territory pill switcher ── */
+.dt-terr-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.dt-terr-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(139,0,0,.25);
+  background: var(--surf2);
+  color: var(--txt2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1.2;
+}
+.dt-terr-pill:hover { background: var(--surf3); color: var(--txt1); }
+.dt-terr-pill-on { background: var(--gold2); color: #1a1207; border-color: var(--gold2); font-weight: 600; }
+.dt-terr-pill-name { font-size: 13px; }
+.dt-terr-pill-amb { font-size: 10px; opacity: 0.7; font-style: italic; }
+.dt-terr-pill-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
+/* Feeding multi-select states */
+.dt-terr-pill-rights { background: rgba(34,120,60,.15); color: #1e6b35; border-color: rgba(34,120,60,.4); font-weight: 600; }
+.dt-terr-pill-rights .dt-terr-pill-status { color: #1e6b35; }
+.dt-terr-pill-poach { background: rgba(180,100,0,.12); color: #8a5000; border-color: rgba(180,100,0,.35); font-weight: 600; }
+.dt-terr-pill-poach .dt-terr-pill-status { color: #8a5000; }
+.dt-terr-pill-barrens { background: rgba(139,0,0,.1); color: var(--crim); border-color: rgba(139,0,0,.3); font-weight: 600; }
+
 /* ── Feed pool suggestion chips ── */
 .dt-feed-suggest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .dt-feed-suggest-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--txt3); flex-shrink: 0; }
