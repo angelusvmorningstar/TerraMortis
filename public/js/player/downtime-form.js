@@ -355,10 +355,10 @@ function collectResponses() {
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
-    // Cast checkboxes
-    const castHidden = document.querySelectorAll(`input[type="hidden"][data-proj-cast-cb="${n}"]`);
+    // Cast checkboxes (inline grid)
+    const castCbs = document.querySelectorAll(`.dt-cast-proj-cb[data-cast-slot="${n}"]:checked`);
     const castIds = [];
-    castHidden.forEach(el => { if (el.value) castIds.push(el.value); });
+    castCbs.forEach(cb => { if (cb.value) castIds.push(cb.value); });
     responses[`project_${n}_cast`] = JSON.stringify(castIds);
 
     // Merit checkboxes
@@ -743,7 +743,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       name: c.moniker || c.name,
       fullName: c.name,
       player: c.player || '',
-    }));
+    })).sort((a, b) => a.name.localeCompare(b.name));
     // If attendee list empty, fall back to full list
     if (!lastGameAttendees.length) {
       lastGameAttendees = others.map(c => ({ id: c._id, name: c.moniker || c.name }));
@@ -1987,32 +1987,24 @@ function renderProjectSlots(saved) {
       }, saved[`project_${n}_outcome`] || '');
     }
 
-    // ── Cast (other characters involved) ──
+    // ── Cast (other characters involved) — inline checkbox grid ──
     if (fields.includes('cast')) {
       let castPicks = [];
       try { castPicks = JSON.parse(saved[`project_${n}_cast`] || '[]'); } catch { /* ignore */ }
-      // Build summary of selected characters
-      const castNames = castPicks.map(id => {
-        const c = allCharacters.find(ch => ch.id === id || String(ch.id) === String(id));
-        return c ? c.name : '';
-      }).filter(Boolean);
+      const castSet = new Set(castPicks.map(String));
       h += '<div class="qf-field">';
-      h += `<label class="qf-label">Characters Involved</label>`;
-      h += `<div class="dt-cast-summary" data-cast-slot="${n}">`;
-      if (castNames.length) {
-        h += `<span class="dt-cast-pills">`;
-        castNames.forEach(name => { h += `<span class="dt-cast-pill">${esc(name)}</span>`; });
-        h += '</span>';
-      } else {
-        h += '<span class="dt-cast-none">None selected</span>';
+      h += '<label class="qf-label">Characters Involved</label>';
+      h += '<p class="qf-desc">Tick any characters your character collaborates with on this action. Attendees from last game are highlighted.</p>';
+      h += `<div class="dt-shoutout-grid">`;
+      for (const c of allCharacters) {
+        const isChecked = castSet.has(String(c.id));
+        const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
+        h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
+        h += `<input type="checkbox" class="dt-cast-proj-cb" data-cast-slot="${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
+        h += `<span>${esc(c.name)}</span>`;
+        h += '</label>';
       }
-      h += `<button type="button" class="dt-cast-btn" data-cast-open="${n}">Select\u2026</button>`;
-      h += '</div>';
-      // Hidden inputs to preserve state
-      castPicks.forEach(id => {
-        h += `<input type="hidden" data-proj-cast-cb="${n}" value="${esc(String(id))}">`;
-      });
-      h += '</div>';
+      h += '</div></div>';
     }
 
     // ── Merits (applicable character merits) ──
