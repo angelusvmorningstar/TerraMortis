@@ -1544,3 +1544,100 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 #t-dt-submission h2,
 #t-dt-submission h3 { font-family: var(--fh); color: var(--accent); }
 #t-dt-submission p { font-family: var(--ft); color: var(--txt); line-height: 1.6; }
+
+/* ── Desktop mode (nav-desktop-mode) ── */
+body.desktop-mode #app {
+  max-width: none;
+  flex-direction: row;
+  height: 100dvh;
+  overflow: hidden;
+}
+body.desktop-mode #bnav { display: none !important; }
+body.desktop-mode .tab-wrap { flex: 1; min-width: 0; overflow-y: auto; height: 100dvh; }
+body.desktop-mode #hdr { max-width: none; }
+
+/* Desktop sidebar */
+#desktop-sidebar {
+  display: none;
+  width: clamp(180px, 16vw, 220px);
+  flex-shrink: 0;
+  background: var(--surf);
+  border-right: 1px solid var(--bdr);
+  flex-direction: column;
+  height: 100dvh;
+  overflow-y: auto;
+  position: relative;
+  z-index: 10;
+}
+body.desktop-mode #desktop-sidebar { display: flex; }
+
+/* Sidebar header */
+#desktop-sidebar .sidebar-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--bdr);
+  flex-shrink: 0;
+}
+#desktop-sidebar .sidebar-title {
+  font-family: var(--fh);
+  font-size: 16px;
+  color: var(--accent);
+  letter-spacing: .04em;
+}
+#desktop-sidebar .sidebar-sub {
+  font-family: var(--fl);
+  font-size: 11px;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  margin-top: 3px;
+}
+
+/* Sidebar nav items */
+#desktop-sidebar .sidebar-nav { display: flex; flex-direction: column; padding: 8px 0; flex: 1; }
+#desktop-sidebar .sidebar-btn {
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--txt2);
+  font-family: var(--fl);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 11px 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s, color .15s, border-color .15s;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+#desktop-sidebar .sidebar-btn:hover { background: var(--surf2); color: var(--txt); }
+#desktop-sidebar .sidebar-btn.on {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--surf2);
+}
+
+/* Section group labels */
+#desktop-sidebar .sidebar-section-label {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--label-secondary);
+  padding: 12px 20px 4px;
+  border-top: 1px solid var(--bdr);
+  margin-top: 4px;
+}
+
+/* User area */
+#desktop-sidebar .sidebar-user {
+  padding: 12px 16px;
+  border-top: 1px solid var(--bdr);
+  flex-shrink: 0;
+}
+
+/* Desktop toggle button */
+.desktop-toggle-btn { padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; }
+.desktop-toggle-btn svg { display: block; }

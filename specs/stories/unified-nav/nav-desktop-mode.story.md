@@ -1,6 +1,6 @@
 # Story: Desktop Mode Toggle
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 

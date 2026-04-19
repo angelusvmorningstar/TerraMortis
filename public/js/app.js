@@ -257,6 +257,7 @@ function goTab(t) {
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
 
   // ── Unified nav tab init ──────────────────────────────────────────────────
+  if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
   if (t === 'dice') { _clearLifecycleCache(); renderLifecycleCards(); }
   if (t === 'more') renderMoreGrid();
 
@@ -832,6 +833,8 @@ Object.assign(window, {
   // Suite territory
   mountTerr,
   _mountTerr: mountTerr,
+  toggleDesktopMode,
+  renderDesktopSidebar,
   toggleTheme,
   renderMoreGrid,
   renderSheetPicker,
@@ -898,6 +901,7 @@ async function boot() {
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       _updateThemeIcon();     // set correct sun/moon on load
+      _initDesktopMode();     // restore desktop mode if saved
       return;
     }
   }
@@ -1123,6 +1127,72 @@ function _markSubViewed() {
     checkMoreBadge();
     renderMoreGrid(); // refresh icon-level badge on DT Report
   }
+}
+
+// ── Desktop mode toggle (nav-desktop-mode) ───────────────────────────────────
+
+function toggleDesktopMode() {
+  const isDesktop = document.body.classList.toggle('desktop-mode');
+  localStorage.setItem('tm-mode', isDesktop ? 'desktop' : 'game');
+  _updateDesktopIcon();
+  if (isDesktop) renderDesktopSidebar();
+}
+
+function _updateDesktopIcon() {
+  const isDesktop = document.body.classList.contains('desktop-mode');
+  const gameIcon = document.getElementById('desktop-icon-game');
+  const desktopIcon = document.getElementById('desktop-icon-desktop');
+  if (gameIcon) gameIcon.style.display = isDesktop ? 'none' : '';
+  if (desktopIcon) desktopIcon.style.display = isDesktop ? '' : 'none';
+}
+
+function _initDesktopMode() {
+  if (localStorage.getItem('tm-mode') === 'desktop') {
+    document.body.classList.add('desktop-mode');
+    _updateDesktopIcon();
+    renderDesktopSidebar();
+  }
+}
+
+function renderDesktopSidebar() {
+  const nav = document.getElementById('desktop-sidebar-nav');
+  if (!nav) return;
+
+  const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'dice';
+
+  function sidebarBtn(id, label) {
+    const isOn = (id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab))) ? ' on' : '';
+    return `<button class="sidebar-btn${isOn}" onclick="goTab('${id}')">${label}</button>`;
+  }
+
+  let h = '';
+  // Primary tabs
+  h += sidebarBtn('dice', 'Dice');
+  h += sidebarBtn('chars', 'Sheet');
+  h += sidebarBtn('status', 'Status');
+
+  // More grid sections
+  for (const section of MORE_SECTIONS) {
+    const sectionApps = MORE_APPS.filter(app => {
+      if (app.section !== section.id) return false;
+      if (app.stOnly && effectiveRole() !== 'st') return false;
+      if (app.condition && !_moreGridCondition(app)) return false;
+      return true;
+    });
+    if (!sectionApps.length) continue;
+
+    h += `<div class="sidebar-section-label">${section.label}</div>`;
+    for (const app of sectionApps) {
+      h += sidebarBtn(app.id, app.label);
+    }
+  }
+
+  nav.innerHTML = h;
+
+  // Mirror user info to desktop sidebar
+  const userEl = document.getElementById('sidebar-user');
+  const desktopUserEl = document.getElementById('desktop-sidebar-user');
+  if (userEl && desktopUserEl) desktopUserEl.innerHTML = userEl.innerHTML;
 }
 
 // ── Theme toggle (nav-3-2) ────────────────────────────────────────────────────
