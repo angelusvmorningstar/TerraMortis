@@ -1,6 +1,6 @@
 # Story 3.2: Theme Toggle — Dark/Light with Persistent Preference
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
