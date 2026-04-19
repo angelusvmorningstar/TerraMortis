@@ -71,6 +71,8 @@ let feedCustomSkill = '';
 let feedCustomDisc = '';
 let feedRoteAction = false;
 let feedRoteSlot = 1;
+let feedRoteDisc = '';
+let feedRoteSpec = '';
 
 // Project tab state
 let activeProjectTab = 1;
@@ -265,6 +267,10 @@ function collectResponses() {
         responses['_feed_custom_disc'] = feedCustomDisc;
         responses['_feed_rote'] = feedRoteAction ? 'yes' : '';
         responses['_feed_rote_slot'] = feedRoteAction ? String(feedRoteSlot) : '';
+        const roteDiscEl = document.getElementById('dt-rote-disc');
+        feedRoteDisc = roteDiscEl ? roteDiscEl.value : feedRoteDisc;
+        responses['_rote_disc'] = feedRoteAction ? feedRoteDisc : '';
+        responses['_rote_spec'] = feedRoteAction ? feedRoteSpec : '';
         // Blood type checkboxes
         const bloodChecked = [];
         document.querySelectorAll('[data-blood-type]:checked').forEach(cb => bloodChecked.push(cb.value));
@@ -1339,13 +1345,15 @@ function renderForm(container) {
     // Rote feeding checkbox
     if (e.target.id === 'dt-feed-rote') {
       feedRoteAction = e.target.checked;
-      applyRoteToProjectSlot(container, null);
+      applyRoteToProjectSlot(container);
       return;
     }
-    if (e.target.id === 'dt-rote-slot-sel') {
-      const prev = feedRoteSlot;
-      feedRoteSlot = parseInt(e.target.value, 10) || 1;
-      applyRoteToProjectSlot(container, prev);
+    if (e.target.id === 'dt-rote-disc') {
+      feedRoteDisc = e.target.value;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
       return;
     }
     // Territory radio change — re-render to update vitae projection
@@ -1530,7 +1538,11 @@ function renderForm(container) {
     // Feeding spec chips
     const specChip = e.target.closest('[data-feed-spec]');
     if (specChip) {
-      feedSpecName = feedSpecName === specChip.dataset.feedSpec ? '' : specChip.dataset.feedSpec;
+      if (specChip.dataset.roteSpec !== undefined) {
+        feedRoteSpec = feedRoteSpec === specChip.dataset.feedSpec ? '' : specChip.dataset.feedSpec;
+      } else {
+        feedSpecName = feedSpecName === specChip.dataset.feedSpec ? '' : specChip.dataset.feedSpec;
+      }
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1812,19 +1824,19 @@ function openCastModal(slotId, container) {
 
 // ── Rote feeding → Project 1 ──
 
-function applyRoteToProjectSlot(container, prevSlot) {
+function applyRoteToProjectSlot(container) {
   const responses = collectResponses();
   if (feedRoteAction && feedMethodId) {
+    // Auto-find first available slot
+    feedRoteSlot = [1,2,3,4].find(n => {
+      const act = responses[`project_${n}_action`];
+      return !act || act === 'feed';
+    }) || 1;
     responses[`project_${feedRoteSlot}_action`] = 'feed';
+    responses['_feed_rote_slot'] = String(feedRoteSlot);
     activeProjectTab = feedRoteSlot;
-  }
-  // Clear the previous slot if it changed
-  if (prevSlot && prevSlot !== feedRoteSlot && responses[`project_${prevSlot}_action`] === 'feed') {
-    responses[`project_${prevSlot}_action`] = '';
-    responses[`project_${prevSlot}_description`] = '';
-  }
-  // If rote deactivated, clear the slot
-  if (!feedRoteAction) {
+  } else {
+    // Clear all feed slots
     for (let n = 1; n <= 4; n++) {
       if (responses[`project_${n}_action`] === 'feed') {
         responses[`project_${n}_action`] = '';
@@ -3683,31 +3695,75 @@ function renderQuestion(q, value) {
         // Restore rote state from saved responses
         const savedRote = responseDoc?.responses?.['_feed_rote'] === 'yes';
         if (savedRote && !feedRoteAction) feedRoteAction = true;
-        const savedRoteSlot = parseInt(responseDoc?.responses?.['_feed_rote_slot'] || '1', 10);
-        if (savedRoteSlot && savedRoteSlot !== feedRoteSlot) feedRoteSlot = savedRoteSlot;
+        feedRoteDisc = responseDoc?.responses?.['_rote_disc'] || feedRoteDisc;
+        feedRoteSpec = responseDoc?.responses?.['_rote_spec'] || feedRoteSpec;
 
         const saved = responseDoc?.responses || {};
+
+        // Auto-assign first available slot
+        const firstAvail = [1,2,3,4].find(n => {
+          const act = saved[`project_${n}_action`];
+          return !act || act === 'feed';
+        }) || 1;
+        if (feedRoteAction && feedRoteSlot !== firstAvail) feedRoteSlot = firstAvail;
+
         const roteDesc = saved[`project_${feedRoteSlot}_description`] || '';
 
         h += '<div class="dt-rote-toggle-wrap">';
         h += `<label class="dt-feed-rote-label"><input type="checkbox" id="dt-feed-rote"${feedRoteAction ? ' checked' : ''}> Commit a Project action for Rote quality on this hunt</label>`;
         if (feedRoteAction) {
           h += '<div class="dt-rote-slot-picker">';
-          h += '<div class="qf-field">';
-          h += '<label class="qf-label" for="dt-rote-slot-sel">Project slot to commit</label>';
-          h += '<select id="dt-rote-slot-sel" class="qf-select" style="width:auto">';
-          for (let n = 1; n <= 4; n++) {
-            const otherAction = saved[`project_${n}_action`];
-            const isOccupied = otherAction && otherAction !== 'feed' && n !== feedRoteSlot;
-            if (!isOccupied) {
-              h += `<option value="${n}"${feedRoteSlot === n ? ' selected' : ''}>Project ${n}</option>`;
+          h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt.</p>`;
+
+          // Pool breakdown (same method, separate disc/spec selection)
+          if (feedMethodId !== 'other') {
+            const m = FEED_METHODS.find(fm => fm.id === feedMethodId);
+            if (m) {
+              let bestA = '', bestAV = 0;
+              for (const a of m.attrs) { const av = c.attributes?.[a]; const v = av ? (av.dots||0)+(av.bonus||0) : 0; if (v>bestAV){bestAV=v;bestA=a;} }
+              let bestS = '', bestSV = 0, bestSpecs = [];
+              for (const s of m.skills) { const sv = c.skills?.[s]; const v = sv ? (sv.dots||0)+(sv.bonus||0) : 0; if (v>bestSV){bestSV=v;bestS=s;bestSpecs=sv?.specs||[];} }
+              const roteSpecBonus = feedRoteSpec ? (hasAoE(c, feedRoteSpec) ? 2 : 1) : 0;
+              const roteDiscVal = (feedRoteDisc && c.disciplines?.[feedRoteDisc]?.dots) ? c.disciplines[feedRoteDisc].dots : 0;
+              const fgMerit = (c.merits||[]).find(mr=>mr.name==='Feeding Grounds');
+              const fgVal = fgMerit ? (fgMerit.rating||0) : 0;
+              const roteTotal = bestAV + bestSV + roteDiscVal + roteSpecBonus + fgVal;
+              const availDiscs = m.discs.filter(d => c.disciplines?.[d]?.dots);
+
+              h += '<div class="dt-feed-pool">';
+              h += '<div class="dt-feed-breakdown">';
+              h += `<span class="dt-feed-bv">${bestAV}</span> ${esc(bestA)} + <span class="dt-feed-bv">${bestSV}</span> ${esc(bestS)}`;
+              if (roteDiscVal) h += ` + <span class="dt-feed-bv">${roteDiscVal}</span> ${esc(feedRoteDisc)}`;
+              if (roteSpecBonus) h += ` + <span class="dt-feed-bv">${roteSpecBonus}</span> ${esc(feedRoteSpec)}`;
+              if (fgVal) h += ` + <span class="dt-feed-bv">${fgVal}</span> Feeding Grounds`;
+              h += ` = <span class="dt-feed-total">${roteTotal} dice</span>`;
+              h += '</div>';
+              if (bestSpecs.length) {
+                h += '<div class="dt-feed-spec-row"><label class="dt-feed-disc-lbl">Specialisation:</label>';
+                for (const sp of bestSpecs) {
+                  const on = feedRoteSpec === sp ? ' dt-feed-spec-on' : '';
+                  h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}" data-rote-spec="1">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
+                }
+                h += '</div>';
+              }
+              if (availDiscs.length) {
+                h += '<div class="dt-feed-disc-row"><label class="dt-feed-disc-lbl">Discipline:</label>';
+                h += '<select class="qf-select dt-feed-disc-sel" id="dt-rote-disc">';
+                h += '<option value="">None</option>';
+                for (const d of availDiscs) {
+                  const dv = c.disciplines[d]?.dots || 0;
+                  h += `<option value="${esc(d)}"${feedRoteDisc===d?' selected':''}>${esc(d)} (${dv})</option>`;
+                }
+                h += '</select></div>';
+              }
+              h += '</div>';
             }
           }
-          h += '</select></div>';
+
           h += renderQuestion({
             key: 'rote-description', label: 'Describe your dedicated feeding effort',
             type: 'textarea', required: false,
-            desc: 'The pool and method above apply. Describe where, how, and any relevant context.',
+            desc: 'Describe where, how, and any relevant context for this dedicated hunt.',
           }, roteDesc);
           h += '</div>';
         }
