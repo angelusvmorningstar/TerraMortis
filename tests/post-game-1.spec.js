@@ -407,9 +407,9 @@ test('nav-1-3 — More tab renders app grid for ST', async ({ page }) => {
   await expect(page.locator('.more-app-icon[data-app="signin"]')).toBeVisible();
   await expect(page.locator('.more-app-icon[data-app="emergency"]')).toBeVisible();
 
-  // Player-only apps NOT visible for ST
-  await expect(page.locator('.more-app-icon[data-app="dt-submission"]')).toHaveCount(0);
-  await expect(page.locator('.more-app-icon[data-app="ordeals"]')).toHaveCount(0);
+  // Player-section apps ARE visible to ST (STs can access all features)
+  await expect(page.locator('.more-app-icon[data-app="dt-submission"]')).toBeVisible();
+  await expect(page.locator('.more-app-icon[data-app="ordeals"]')).toBeVisible();
 
   // Shared apps visible
   await expect(page.locator('.more-app-icon[data-app="rules"]')).toBeVisible();
