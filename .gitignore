@@ -44,3 +44,6 @@ Downtime Mammon.xlsx
 
 # ST operational files — not code
 st-working/
+
+# Atlas exports — source of truth is MongoDB, not git
+data copy/
