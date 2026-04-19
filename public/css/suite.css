@@ -264,7 +264,7 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 #t-territory button:active{background:var(--gold-a6);}
 #t-territory .btn-primary{background:var(--gold-a12);border-color:var(--bdr3);color:var(--gold);}
 #t-territory .btn-danger{border-color:var(--crim4-a40);color:var(--err2);}
-#t-territory .btn-sm{font-size:9px;padding:6px 12px;min-height:36px;}
+#t-territory .btn-sm{font-family:var(--fl);font-size:10px;font-weight:600;letter-spacing:.06em;padding:10px 14px;min-height:44px;}
 
 /* Toolbar */
 #t-territory .toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--bdr);}
@@ -361,7 +361,7 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 #t-territory .back-name{color:var(--txt);}
 #t-territory .back-right{display:flex;align-items:center;gap:6px;}
 #t-territory .back-amt{font-weight:600;color:var(--txt2);}
-#t-territory .back-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:18px;padding:4px 8px;min-height:36px;-webkit-tap-highlight-color:transparent;}
+#t-territory .back-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:20px;padding:8px 12px;min-height:44px;-webkit-tap-highlight-color:transparent;}
 #t-territory .back-del:active{color:var(--err2);}
 
 /* Ruler adjust */
@@ -1413,3 +1413,22 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .tk-item-expanded { border-color: var(--accent); }
 .tk-item-toggle:hover .tk-item-title { color: var(--accent); }
 .tk-edit-hint { font-family: var(--fl); font-size: 10px; letter-spacing: .04em; color: var(--accent); opacity: .6; }
+
+/* ── Tab display and padding baseline (css-4) ── */
+/* Tabs not otherwise specified: flex column, scrollable, 16px padding, 80px bottom */
+#t-status.active,#t-dt-report.active,#t-feeding.active,
+#t-dt-submission.active,#t-ordeals.active,#t-whos-who.active,
+#t-regency.active,#t-office.active,#t-map.active,
+#t-emergency.active,#t-archive.active {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+/* Padding wrapper for plain-content tabs */
+#t-status > *,#t-dt-report > *,#t-feeding > *,
+#t-ordeals > *,#t-whos-who > *,#t-regency > *,
+#t-office > *,#t-emergency > * {
+  padding: 0 0 80px;
+}
+/* Territory tracker needs internal padding not outer wrapper */
+#t-territory { padding: 0 0 80px; }
