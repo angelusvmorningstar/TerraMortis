@@ -1385,6 +1385,22 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
   .primer-content { padding: 16px; }
 }
 
+/* ── Emergency tab ── */
+.emg-wrap { padding: 16px; }
+.emg-list { display: flex; flex-direction: column; gap: 8px; }
+.emg-card { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.emg-card-medical { border-color: var(--err); background: var(--crim-a8); }
+.emg-player { font-family: var(--fl); font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--txt); margin-bottom: 4px; }
+.emg-row { display: flex; gap: 10px; align-items: baseline; }
+.emg-lbl { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--txt3); flex-shrink: 0; width: 56px; }
+.emg-val { font-family: var(--ft); font-size: 13px; color: var(--txt); }
+.emg-val a { color: var(--accent); text-decoration: none; }
+.emg-row-medical .emg-val { color: var(--err); font-weight: 600; }
+.emg-none { font-family: var(--ft); font-size: 12px; color: var(--txt3); font-style: italic; }
+@media (min-width: 600px) {
+  .emg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+}
+
 /* ── Archive tab (css-3) ── */
 #t-archive.active { display: flex; flex-direction: column; overflow-y: auto; }
 .archive-card { background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s, background .15s; }

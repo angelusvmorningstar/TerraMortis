@@ -47,6 +47,7 @@ import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool,
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initSignIn } from './game/signin-tab.js';
+import { renderEmergencyTab } from './game/emergency-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
 import { renderStoryTab } from './player/story-tab.js';
@@ -318,7 +319,11 @@ function goTab(t) {
   if (t === 'ordeals') {
     const el = document.getElementById('t-ordeals');
     const char = _activeMoreChar();
-    if (el && char) initOrdeals(char, suiteState.chars);
+    if (el && char) initOrdeals(char, suiteState.chars, el);
+  }
+  if (t === 'emergency') {
+    const el = document.getElementById('t-emergency');
+    if (el && !el.innerHTML.trim()) renderEmergencyTab(el);
   }
   if (t === 'dt-submission') {
     const el = document.getElementById('t-dt-submission');
