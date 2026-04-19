@@ -2,7 +2,7 @@
 id: nav.1
 epic: unified-nav-polish
 group: 0
-status: ready
+status: complete
 priority: prerequisite
 blocks: nav.2, nav.3
 ---
