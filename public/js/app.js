@@ -1186,18 +1186,21 @@ function renderDesktopSidebar() {
   const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'dice';
   const isActive = (id) => id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab));
 
-  // Primary tabs — full-width with SVG icons matching bottom nav
+  // Primary tabs — square tiles matching the section grid style
   const primaryTabs = [
     { id: 'dice',   label: 'Dice',   icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>' },
     { id: 'chars',  label: 'Sheet',  icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' },
     { id: 'status', label: 'Status', icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>' },
   ];
-  let h = '';
+  let h = '<div class="sidebar-app-grid sidebar-primary-grid">';
   for (const { id, label, icon } of primaryTabs) {
-    h += `<button class="sidebar-btn${isActive(id) ? ' on' : ''}" onclick="goTab('${id}')">`;
-    h += `<span class="sidebar-btn-icon">${icon}</span>${label}`;
+    const on = isActive(id) ? ' on' : '';
+    h += `<button class="sidebar-app-tile${on}" onclick="goTab('${id}')" title="${label}">`;
+    h += `<span class="sidebar-app-tile-icon">${icon}</span>`;
+    h += `<span class="sidebar-app-tile-label">${label}</span>`;
     h += `</button>`;
   }
+  h += '</div>';
 
   // Section app grids — 2-column icon grid matching More grid style
   for (const section of MORE_SECTIONS) {
