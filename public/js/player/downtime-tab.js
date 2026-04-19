@@ -5,7 +5,7 @@ import { esc } from '../data/helpers.js';
 import { renderDowntimeTab } from './downtime-form.js';
 import { renderOutcomeWithCards } from './story-tab.js';
 
-export async function initDowntimeTab(el, char) {
+export async function initDowntimeTab(el, char, territories = []) {
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
 
   let cycles = [], subs = [];
@@ -46,11 +46,12 @@ export async function initDowntimeTab(el, char) {
 
   if (activeCycle) {
     const cycleLabel = activeCycle.label || `Cycle ${String(activeCycle._id).slice(-4)}`;
-    if (!myActiveSub) {
-      if (window.innerWidth <= 600) {
+    const forceForm = location.hostname === 'localhost';
+    if (!myActiveSub || forceForm) {
+      if (!forceForm && window.innerWidth <= 600) {
         currentZone.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
       } else {
-        renderDowntimeTab(currentZone, char);
+        renderDowntimeTab(currentZone, char, territories, { singleColumn: true });
       }
     } else {
       currentZone.innerHTML = `<div class="dt-state-card">

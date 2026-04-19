@@ -312,7 +312,7 @@ function goTab(t) {
   if (t === 'downtime') {
     const el = document.getElementById('t-downtime');
     const char = _activeMoreChar();
-    if (el && char) initDowntimeTab(el, char);
+    if (el && char) initDowntimeTab(el, char, suiteState.territories || []);
     _markSubViewed();
   }
   if (t === 'status') {
@@ -1429,6 +1429,7 @@ function renderUserHeader() {
     ? discordAvatarUrl(null, null)
     : user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`
+      : (user._localTest || String(user.id).startsWith('local-')) ? discordAvatarUrl(null, null)
       : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
   userEl.innerHTML = `
     <div class="hdr-profile" id="hdr-profile" onclick="toggleProfileMenu()">

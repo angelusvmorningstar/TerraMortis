@@ -493,6 +493,10 @@ async function saveDraft() {
     if (statusEl) statusEl.textContent = 'No active cycle — contact your ST';
     return;
   }
+  if (currentCycle._id === 'dev-stub') {
+    if (statusEl) statusEl.textContent = '[Dev] Save skipped';
+    return;
+  }
   const responses = collectResponses();
 
   try {
@@ -644,7 +648,7 @@ function renderDowntimeResults(outcomeText, sub) {
   return h;
 }
 
-export async function renderDowntimeTab(targetEl, char, territories) {
+export async function renderDowntimeTab(targetEl, char, territories, options = {}) {
   currentChar = char;
   if (char) applyDerivedMerits(char);
   _territories = territories || [];
@@ -661,6 +665,11 @@ export async function renderDowntimeTab(targetEl, char, territories) {
       || sorted[0]
       || null;
   } catch { /* no cycles */ }
+
+  // Dev bypass: on localhost with no active cycle, stub one so the form renders for design iteration
+  if (!currentCycle && location.hostname === 'localhost') {
+    currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]' };
+  }
 
   // Load existing submission for this character + cycle
   priorPublishedLabel = null;
@@ -774,7 +783,21 @@ export async function renderDowntimeTab(targetEl, char, territories) {
     }
   }
 
-  // Set up two-pane layout
+  const devPreview = location.hostname === 'localhost';
+
+  if (options.singleColumn) {
+    // Game app context: render form directly, no split, no right-panel history
+    // (downtime-tab.js handles the history accordion separately)
+    if (!devPreview && (!currentCycle || currentCycle.status !== 'active')) {
+      targetEl.innerHTML = renderCycleGatePage();
+    } else {
+      targetEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
+      renderForm(document.getElementById('dt-container'));
+    }
+    return;
+  }
+
+  // Set up two-pane layout (player portal)
   targetEl.innerHTML = `
     <div class="dt-split">
       <div class="dt-split-left" id="dt-left-pane"></div>
@@ -785,7 +808,7 @@ export async function renderDowntimeTab(targetEl, char, territories) {
   const rightEl = document.getElementById('dt-right-pane');
 
   // Left: form or gate message
-  if (!currentCycle || currentCycle.status !== 'active') {
+  if (!devPreview && (!currentCycle || currentCycle.status !== 'active')) {
     leftEl.innerHTML = renderCycleGatePage();
   } else {
     leftEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
