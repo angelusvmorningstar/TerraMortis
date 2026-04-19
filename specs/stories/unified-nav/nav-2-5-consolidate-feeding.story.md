@@ -68,4 +68,7 @@ This story removes the legacy implementation and wires the canonical one into th
 
 ### Completion Notes List
 
+- Feeding CSS ported from player-layout.css to suite.css (178 lines) — basic layout restored
+- **Deferred:** Feeding UI still needs visual polish in the game app context (layout, spacing, mobile optimisation). Functional but not fully styled. Return to as a future UI story.
+
 ### File List
