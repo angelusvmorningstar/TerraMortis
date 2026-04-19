@@ -1517,8 +1517,8 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 
 /* ── Tab display and padding baseline (css-4) ── */
 /* Tabs not otherwise specified: flex column, scrollable, 16px padding, 80px bottom */
-#t-status.active,#t-dt-report.active,#t-feeding.active,
-#t-dt-submission.active,#t-ordeals.active,#t-whos-who.active,
+#t-status.active,#t-downtime.active,#t-feeding.active,
+#t-ordeals.active,#t-whos-who.active,
 #t-regency.active,#t-office.active,#t-map.active,
 #t-emergency.active,#t-archive.active {
   display: flex;
@@ -1526,7 +1526,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
   overflow-y: auto;
 }
 /* Padding wrapper for plain-content tabs */
-#t-status > *,#t-dt-report > *,#t-feeding > *,
+#t-status > *,#t-feeding > *,
 #t-ordeals > *,#t-whos-who > *,#t-regency > *,
 #t-office > *,#t-emergency > * {
   padding: 0 0 80px;
@@ -1534,8 +1534,8 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 /* Territory tracker needs internal padding not outer wrapper */
 #t-territory { padding: 0 0 80px; }
 
-/* ── DT Report (Story tab) CSS — mobile-first (css-5) ── */
-#t-dt-report.active { display: block; overflow-y: auto; padding: 16px 16px 80px; }
+/* ── Unified Downtime tab CSS ── */
+#t-downtime.active { display: block; overflow-y: auto; padding: 0 0 80px; }
 .story-split { display: flex; flex-direction: column; gap: 20px; }
 .story-left,.story-right { display: flex; flex-direction: column; gap: 16px; }
 .story-pane-title { font-family: var(--fl); font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--bdr); }
@@ -1605,16 +1605,16 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 
 /* ── DT Submission — dark theme override (css-audit follow-up) ── */
 /* .reading-pane in game app = dark theme, not parchment */
-#t-dt-submission .reading-pane,
+#t-downtime .reading-pane,
 #t-feeding .reading-pane {
   background: var(--bg);
   color: var(--txt);
 }
 
 /* Override parchment form elements → dark theme tokens */
-#t-dt-submission .qf-input,
-#t-dt-submission .qf-textarea,
-#t-dt-submission .qf-select,
+#t-downtime .qf-input,
+#t-downtime .qf-textarea,
+#t-downtime .qf-select,
 #t-feeding .qf-input,
 #t-feeding .qf-textarea,
 #t-feeding .qf-select {
@@ -1622,29 +1622,47 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
   color: var(--txt) !important;
   border: 1px solid var(--bdr2) !important;
 }
-#t-dt-submission .qf-input:focus,
-#t-dt-submission .qf-textarea:focus,
-#t-dt-submission .qf-select:focus {
+#t-downtime .qf-input:focus,
+#t-downtime .qf-textarea:focus,
+#t-downtime .qf-select:focus {
   border-color: var(--accent) !important;
   background: var(--surf2) !important;
 }
-#t-dt-submission .qf-section-title { color: var(--accent); font-family: var(--fl); }
-#t-dt-submission .qf-section-intro,
-#t-dt-submission .qf-label { color: var(--txt2); font-family: var(--ft); }
-#t-dt-submission .qf-section-body { background: transparent; }
-#t-dt-submission .qf-tag { background: var(--accent-a8); color: var(--accent); border-color: var(--accent-a25); }
-#t-dt-submission .qf-radio-label,
-#t-dt-submission .qf-checkbox-label { color: var(--txt); }
-#t-dt-submission .qf-radio-label:hover,
-#t-dt-submission .qf-checkbox-label:hover { background: var(--surf2); }
-#t-dt-submission .qf-btn-submit { background: var(--crim); color: var(--txt); border: 1px solid var(--crim-a70); }
-#t-dt-submission .qf-btn-save { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
-#t-dt-submission .qf-opener-label,
-#t-dt-submission .qf-section-title { color: var(--accent); }
+#t-downtime .qf-section-title { color: var(--accent); font-family: var(--fl); }
+#t-downtime .qf-section-intro,
+#t-downtime .qf-label { color: var(--txt2); font-family: var(--ft); }
+#t-downtime .qf-section-body { background: transparent; }
+#t-downtime .qf-tag { background: var(--accent-a8); color: var(--accent); border-color: var(--accent-a25); }
+#t-downtime .qf-radio-label,
+#t-downtime .qf-checkbox-label { color: var(--txt); }
+#t-downtime .qf-radio-label:hover,
+#t-downtime .qf-checkbox-label:hover { background: var(--surf2); }
+#t-downtime .qf-btn-submit { background: var(--crim); color: var(--txt); border: 1px solid var(--crim-a70); }
+#t-downtime .qf-btn-save { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
+#t-downtime .qf-opener-label,
+#t-downtime .qf-section-title { color: var(--accent); }
 /* Headings in DT submission form */
-#t-dt-submission h2,
-#t-dt-submission h3 { font-family: var(--fh); color: var(--accent); }
-#t-dt-submission p { font-family: var(--ft); color: var(--txt); line-height: 1.6; }
+#t-downtime h2,
+#t-downtime h3 { font-family: var(--fh); color: var(--accent); }
+#t-downtime p { font-family: var(--ft); color: var(--txt); line-height: 1.6; }
+
+/* ── Downtime tab zones ── */
+.dt-current-zone { padding: 16px 16px 0; }
+.dt-state-card { background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; padding: 20px; margin-bottom: 8px; }
+.dt-state-card--neutral { border-color: var(--bdr2); }
+.dt-state-title { font-family: var(--fl); font-size: 15px; color: var(--accent); margin: 0 0 6px; font-weight: 600; }
+.dt-state-body { font-family: var(--ft); font-size: 14px; color: var(--txt2); margin: 0; line-height: 1.6; }
+.dt-history-zone { border-top: 1px solid var(--bdr); margin-top: 24px; padding: 0 16px; }
+.dt-history-heading { font-family: var(--fl); font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--bdr); }
+.dt-history-row { border: 1px solid var(--bdr); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+.dt-history-summary { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; list-style: none; background: var(--surf); }
+.dt-history-summary::-webkit-details-marker { display: none; }
+.dt-history-summary::before { content: '▸'; font-size: 11px; color: var(--txt2); flex-shrink: 0; transition: transform .15s; }
+details[open] > .dt-history-summary::before { content: '▾'; }
+.dt-history-label { font-family: var(--fl); font-size: 13px; color: var(--txt); font-weight: 600; flex: 1; }
+.dt-history-date { font-family: var(--ft); font-size: 12px; color: var(--txt2); }
+.dt-history-status { font-family: var(--ft); font-size: 11px; color: var(--accent); background: var(--accent-a8); border: 1px solid var(--accent-a25); border-radius: 4px; padding: 2px 6px; }
+.dt-history-body { padding: 16px; border-top: 1px solid var(--bdr); }
 
 /* ── Desktop mode (nav-desktop-mode — revised) ── */
 
