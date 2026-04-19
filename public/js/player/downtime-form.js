@@ -1356,7 +1356,7 @@ function renderForm(container) {
       applyRoteToProjectSlot(container);
       return;
     }
-    if (e.target.id === 'dt-rote-disc' || e.target.id === 'dt-rote-custom-attr' || e.target.id === 'dt-rote-custom-skill') {
+    if (['dt-rote-disc', 'dt-rote-custom-attr', 'dt-rote-custom-skill'].includes(e.target.id)) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1495,24 +1495,14 @@ function renderForm(container) {
       scheduleSave();
       return;
     }
-    // Feeding method discipline change
-    const feedDiscSel = e.target.closest('#dt-feed-disc');
-    if (feedDiscSel) {
-      feedDiscName = feedDiscSel.value;
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      return;
-    }
-    // Feeding custom pool changes
-    const feedCustom = e.target.closest('#dt-feed-custom-attr, #dt-feed-custom-skill, #dt-feed-custom-disc');
-    if (feedCustom) {
-      const prevCustomSkill = feedCustomSkill;
-      feedCustomAttr = document.getElementById('dt-feed-custom-attr')?.value || '';
-      feedCustomSkill = document.getElementById('dt-feed-custom-skill')?.value || '';
-      feedCustomDisc = document.getElementById('dt-feed-custom-disc')?.value || '';
-      if (feedCustomSkill !== prevCustomSkill) feedSpecName = '';
+    // Main feed pool selector changes
+    const feedPoolSel = e.target.closest('#dt-feed-custom-attr, #dt-feed-custom-skill, #dt-feed-disc');
+    if (feedPoolSel) {
+      const prevSkill = feedCustomSkill;
+      feedCustomAttr = document.getElementById('dt-feed-custom-attr')?.value || feedCustomAttr;
+      feedCustomSkill = document.getElementById('dt-feed-custom-skill')?.value || feedCustomSkill;
+      feedDiscName = document.getElementById('dt-feed-disc')?.value || feedDiscName;
+      if (feedCustomSkill !== prevSkill) feedSpecName = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -1536,6 +1526,46 @@ function renderForm(container) {
       feedMethodId = feedCard.dataset.feedMethod;
       feedDiscName = ''; feedSpecName = '';
       feedCustomAttr = ''; feedCustomSkill = ''; feedCustomDisc = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Feed suggestion chips (quick-fill attr or skill)
+    const feedChipAttr = e.target.closest('[data-feed-chip-attr]');
+    if (feedChipAttr) {
+      feedCustomAttr = feedChipAttr.dataset.feedChipAttr;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    const feedChipSkill = e.target.closest('[data-feed-chip-skill]');
+    if (feedChipSkill) {
+      feedCustomSkill = feedChipSkill.dataset.feedChipSkill;
+      feedSpecName = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Rote suggestion chips
+    const roteChipAttr = e.target.closest('[data-rote-chip-attr]');
+    if (roteChipAttr) {
+      feedRoteCustomAttr = roteChipAttr.dataset.roteChipAttr;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    const roteChipSkill = e.target.closest('[data-rote-chip-skill]');
+    if (roteChipSkill) {
+      feedRoteCustomSkill = roteChipSkill.dataset.roteChipSkill;
+      feedRoteSpec = '';
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2963,6 +2993,95 @@ function renderMeritToggle(m, saved, formHtml) {
 }
 
 /** Render merit toggle radios with inline form sections. */
+// ── Unified feeding pool selector ──
+// scope: 'feed' (main) or 'rote' — determines element IDs and data attributes
+function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec, scope) {
+  const isOther = methodId === 'other';
+  const m = isOther ? null : FEED_METHODS.find(fm => fm.id === methodId);
+  const pfx = scope === 'rote' ? 'rote' : 'feed';
+
+  // All attrs/skills the char has dots in
+  const allAttrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots+(v.bonus||0))>0; });
+  const allSkills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots+(v.bonus||0))>0; });
+  const allDiscs = isOther
+    ? Object.entries(c.disciplines||{}).filter(([,v])=>(v?.dots||0)>0).map(([d])=>d)
+    : (m?.discs || []).filter(d => c.disciplines?.[d]?.dots);
+
+  // Calculate total from current selections
+  let total = 0;
+  if (selAttr) { const a = c.attributes?.[selAttr]; if (a) total += (a.dots||0)+(a.bonus||0); }
+  if (selSkill) { const s = c.skills?.[selSkill]; if (s) total += (s.dots||0)+(s.bonus||0); }
+  if (selDisc) total += c.disciplines?.[selDisc]?.dots || 0;
+  const fgVal = (c.merits||[]).find(mr=>mr.name==='Feeding Grounds')?.rating || 0;
+  total += fgVal;
+  const specBonus = selSpec ? (hasAoE(c, selSpec) ? 2 : 1) : 0;
+  total += specBonus;
+
+  let h = '<div class="dt-feed-pool">';
+
+  // ── Pool dropdowns ──
+  h += '<div class="dt-feed-custom-row">';
+  h += `<select class="qf-select" id="dt-${pfx}-custom-attr"><option value="">Attribute</option>`;
+  for (const a of allAttrs) {
+    const v = c.attributes[a]; const dots = (v.dots||0)+(v.bonus||0);
+    h += `<option value="${esc(a)}"${selAttr===a?' selected':''}>${esc(a)} (${dots})</option>`;
+  }
+  h += '</select>';
+  h += `<select class="qf-select" id="dt-${pfx}-custom-skill"><option value="">Skill</option>`;
+  for (const s of allSkills) {
+    const v = c.skills[s]; const dots = (v.dots||0)+(v.bonus||0);
+    h += `<option value="${esc(s)}"${selSkill===s?' selected':''}>${esc(s)} (${dots})</option>`;
+  }
+  h += '</select>';
+  if (allDiscs.length) {
+    h += `<select class="qf-select" id="dt-${pfx}-disc"><option value="">Discipline</option>`;
+    for (const d of allDiscs) {
+      const dv = c.disciplines[d]?.dots || 0;
+      h += `<option value="${esc(d)}"${selDisc===d?' selected':''}>${esc(d)} (${dv})</option>`;
+    }
+    h += '</select>';
+  }
+  if (total > 0) h += `<span class="dt-feed-total">= ${total} dice</span>`;
+  h += '</div>';
+
+  // ── Suggestion chips (non-Other only) ──
+  if (m && (m.attrs.length || m.skills.length)) {
+    h += '<div class="dt-feed-suggest">';
+    h += '<span class="dt-feed-suggest-lbl">Suggestions:</span>';
+    for (const a of m.attrs) {
+      const active = selAttr === a ? ' dt-feed-chip-on' : '';
+      h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)}</button>`;
+    }
+    h += '<span class="dt-feed-suggest-sep">/</span>';
+    for (const s of m.skills) {
+      const active = selSkill === s ? ' dt-feed-chip-on' : '';
+      h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)}</button>`;
+    }
+    h += '</div>';
+  }
+
+  // ── Spec chips (for selected skill) ──
+  const nativeSpecs = selSkill ? (c.skills?.[selSkill]?.specs || []) : [];
+  const isSpecsList = selSkill ? isSpecs(c).filter(({ spec }) => !nativeSpecs.includes(spec)) : [];
+  if (nativeSpecs.length || isSpecsList.length) {
+    h += '<div class="dt-feed-spec-row"><label class="dt-feed-disc-lbl">Specialisation:</label>';
+    for (const sp of nativeSpecs) {
+      const on = selSpec===sp?' dt-feed-spec-on':'';
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
+    }
+    for (const { spec: sp, fromSkill } of isSpecsList) {
+      const on = selSpec===sp?' dt-feed-spec-on':'';
+      h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}"${scope==='rote'?' data-rote-spec="1"':''}>${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
+    }
+    h += '</div>';
+  }
+
+  if (fgVal) h += `<div class="dt-feed-dim" style="font-size:12px;margin-top:4px">+${fgVal} Feeding Grounds included in total</div>`;
+
+  h += '</div>';
+  return h;
+}
+
 function renderSphereFields(n, prefix, fields, saved, charMerits) {
   let h = '';
 
@@ -3560,125 +3679,9 @@ function renderQuestion(q, value) {
       }
       h += '</div>';
 
-      // Pool breakdown for selected method
-      if (feedMethodId && feedMethodId !== 'other') {
-        const m = FEED_METHODS.find(fm => fm.id === feedMethodId);
-        if (m) {
-          // Best attr
-          let bestA = '', bestAV = 0;
-          for (const a of m.attrs) {
-            const av = c.attributes?.[a]; const v = av ? (av.dots || 0) + (av.bonus || 0) : 0;
-            if (v > bestAV) { bestAV = v; bestA = a; }
-          }
-          // Best skill + collect specs
-          let bestS = '', bestSV = 0, bestSpecs = [];
-          for (const s of m.skills) {
-            const sv = c.skills?.[s]; const v = sv ? (sv.dots || 0) + (sv.bonus || 0) : 0;
-            if (v > bestSV) { bestSV = v; bestS = s; bestSpecs = sv?.specs || []; }
-          }
-
-          // Spec bonus: +2 if Area of Expertise qualifier matches the selected spec
-          const specBonus = feedSpecName ? (hasAoE(c, feedSpecName) ? 2 : 1) : 0;
-
-          // Discipline selector
-          const availDiscs = m.discs.filter(d => c.disciplines?.[d]?.dots);
-          const discVal = (feedDiscName && c.disciplines?.[feedDiscName]?.dots) || 0;
-          const fgMerit = (c.merits || []).find(mr => mr.name === 'Feeding Grounds');
-          const fgVal = fgMerit ? (fgMerit.rating || 0) : 0;
-          const total = bestAV + bestSV + discVal + specBonus + fgVal;
-
-          h += '<div class="dt-feed-pool">';
-          h += '<div class="dt-feed-breakdown">';
-          h += `<span class="dt-feed-bv">${bestAV}</span> ${esc(bestA)}`;
-          h += ` + <span class="dt-feed-bv">${bestSV}</span> ${esc(bestS)}`;
-          if (bestSpecs.length) h += ` <span class="dt-feed-dim">[${esc(bestSpecs.join(', '))}]</span>`;
-          if (discVal) h += ` + <span class="dt-feed-bv">${discVal}</span> ${esc(feedDiscName)}`;
-          if (specBonus) h += ` + <span class="dt-feed-bv">${specBonus}</span> ${esc(feedSpecName)}`;
-          if (fgVal) h += ` + <span class="dt-feed-bv">${fgVal}</span> Feeding Grounds`;
-          h += ` = <span class="dt-feed-total">${total} dice</span>`;
-          h += '</div>';
-
-          // Specialisation chips (if best skill has specs)
-          if (bestSpecs.length) {
-            h += '<div class="dt-feed-spec-row">';
-            h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-            for (const sp of bestSpecs) {
-              const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
-              h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
-            }
-            h += '</div>';
-          }
-
-          // Discipline dropdown
-          if (availDiscs.length) {
-            h += '<div class="dt-feed-disc-row">';
-            h += '<label class="dt-feed-disc-lbl">Discipline:</label>';
-            h += '<select class="qf-select dt-feed-disc-sel" id="dt-feed-disc">';
-            h += '<option value="">None</option>';
-            for (const d of availDiscs) {
-              const dv = c.disciplines[d]?.dots || 0;
-              const sel = feedDiscName === d ? ' selected' : '';
-              h += `<option value="${esc(d)}"${sel}>${esc(d)} (${dv})</option>`;
-            }
-            h += '</select></div>';
-          }
-          h += '</div>';
-        }
-      }
-
-      // "Other" custom pool builder
-      if (feedMethodId === 'other') {
-        const attrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots + (v.bonus || 0)) > 0; });
-        const skills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots + (v.bonus || 0)) > 0; });
-        const discs = Object.entries(c.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
-
-        const customNativeSpecs = feedCustomSkill ? (c.skills?.[feedCustomSkill]?.specs || []) : [];
-        const customIsSpecs = isSpecs(c).filter(({ spec }) => !customNativeSpecs.includes(spec));
-        const customSpecs = [...customNativeSpecs, ...customIsSpecs.map(({ spec }) => spec)];
-        const customSpecBonus = feedSpecName ? (hasAoE(c, feedSpecName) ? 2 : 1) : 0;
-
-        let customTotal = 0;
-        if (feedCustomAttr) { const a = c.attributes?.[feedCustomAttr]; if (a) customTotal += (a.dots || 0) + (a.bonus || 0); }
-        if (feedCustomSkill) { const s = c.skills?.[feedCustomSkill]; if (s) customTotal += (s.dots || 0) + (s.bonus || 0); }
-        if (feedCustomDisc) customTotal += c.disciplines?.[feedCustomDisc]?.dots || 0;
-        customTotal += customSpecBonus;
-
-        h += '<div class="dt-feed-custom">';
-        h += '<p class="qf-desc">Custom feeding method — subject to ST approval.</p>';
-        h += '<div class="dt-feed-custom-row">';
-        h += '<select class="qf-select" id="dt-feed-custom-attr"><option value="">Attribute</option>';
-        for (const a of attrs) {
-          const v = c.attributes[a]; const dots = (v.dots || 0) + (v.bonus || 0);
-          h += `<option value="${esc(a)}"${feedCustomAttr === a ? ' selected' : ''}>${esc(a)} (${dots})</option>`;
-        }
-        h += '</select>';
-        h += '<select class="qf-select" id="dt-feed-custom-skill"><option value="">Skill</option>';
-        for (const s of skills) {
-          const v = c.skills[s]; const dots = (v.dots || 0) + (v.bonus || 0);
-          h += `<option value="${esc(s)}"${feedCustomSkill === s ? ' selected' : ''}>${esc(s)} (${dots})</option>`;
-        }
-        h += '</select>';
-        h += '<select class="qf-select" id="dt-feed-custom-disc"><option value="">Discipline</option>';
-        for (const [d, v] of discs) {
-          h += `<option value="${esc(d)}"${feedCustomDisc === d ? ' selected' : ''}>${esc(d)} (${v})</option>`;
-        }
-        h += '</select>';
-        if (customTotal) h += `<span class="dt-feed-total">= ${customTotal} dice</span>`;
-        h += '</div>';
-        if (customNativeSpecs.length || customIsSpecs.length) {
-          h += '<div class="dt-feed-spec-row">';
-          h += '<label class="dt-feed-disc-lbl">Specialisation:</label>';
-          for (const sp of customNativeSpecs) {
-            const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
-            h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
-          }
-          for (const { spec: sp, fromSkill } of customIsSpecs) {
-            const on = feedSpecName === sp ? ' dt-feed-spec-on' : '';
-            h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}">${esc(sp)} (${esc(fromSkill)}) <span class="dt-feed-spec-bonus">+${hasAoE(c, sp) ? 2 : 1}</span></button>`;
-          }
-          h += '</div>';
-        }
-        h += '</div>';
+      // ── Unified pool builder (all methods) ──
+      if (feedMethodId) {
+        h += renderFeedPoolSelector(c, feedMethodId, feedCustomAttr, feedCustomSkill, feedDiscName, feedSpecName, 'feed');
       }
 
       // Blood type selection (always shown)
@@ -3724,63 +3727,8 @@ function renderQuestion(q, value) {
           h += '<div class="dt-rote-slot-picker">';
           h += `<p class="qf-desc" style="margin:0 0 8px">Commits <strong>Project ${feedRoteSlot}</strong> to this hunt.</p>`;
 
-          // Pool breakdown
-          h += '<div class="dt-feed-pool">';
-          if (feedMethodId === 'other') {
-            // Free selectors for custom method
-            const allAttrs = ALL_ATTRS.filter(a => { const v = c.attributes?.[a]; return v && (v.dots+(v.bonus||0))>0; });
-            const allSkills = ALL_SKILLS.filter(s => { const v = c.skills?.[s]; return v && (v.dots+(v.bonus||0))>0; });
-            const allDiscs = Object.entries(c.disciplines||{}).filter(([,v])=>(v?.dots||0)>0);
-            let roteTotal = 0;
-            if (feedRoteCustomAttr) { const a=c.attributes?.[feedRoteCustomAttr]; if(a) roteTotal+=(a.dots||0)+(a.bonus||0); }
-            if (feedRoteCustomSkill) { const s=c.skills?.[feedRoteCustomSkill]; if(s) roteTotal+=(s.dots||0)+(s.bonus||0); }
-            if (feedRoteDisc) roteTotal += c.disciplines?.[feedRoteDisc]?.dots || 0;
-            h += '<div class="dt-feed-custom-row">';
-            h += '<select class="qf-select" id="dt-rote-custom-attr"><option value="">Attribute</option>';
-            for (const a of allAttrs) { const v=c.attributes[a]; const dots=(v.dots||0)+(v.bonus||0); h+=`<option value="${esc(a)}"${feedRoteCustomAttr===a?' selected':''}>${esc(a)} (${dots})</option>`; }
-            h += '</select>';
-            h += '<select class="qf-select" id="dt-rote-custom-skill"><option value="">Skill</option>';
-            for (const s of allSkills) { const v=c.skills[s]; const dots=(v.dots||0)+(v.bonus||0); h+=`<option value="${esc(s)}"${feedRoteCustomSkill===s?' selected':''}>${esc(s)} (${dots})</option>`; }
-            h += '</select>';
-            h += '<select class="qf-select" id="dt-rote-disc"><option value="">Discipline</option>';
-            for (const [d,v] of allDiscs) { h+=`<option value="${esc(d)}"${feedRoteDisc===d?' selected':''}>${esc(d)} (${v.dots})</option>`; }
-            h += '</select>';
-            if (roteTotal) h += `<span class="dt-feed-total">= ${roteTotal} dice</span>`;
-            h += '</div>';
-          } else {
-            const m = FEED_METHODS.find(fm => fm.id === feedMethodId);
-            if (m) {
-              let bestA='',bestAV=0; for(const a of m.attrs){const av=c.attributes?.[a];const v=av?(av.dots||0)+(av.bonus||0):0;if(v>bestAV){bestAV=v;bestA=a;}}
-              let bestS='',bestSV=0,bestSpecs=[]; for(const s of m.skills){const sv=c.skills?.[s];const v=sv?(sv.dots||0)+(sv.bonus||0):0;if(v>bestSV){bestSV=v;bestS=s;bestSpecs=sv?.specs||[];}}
-              const roteSpecBonus = feedRoteSpec ? (hasAoE(c,feedRoteSpec)?2:1) : 0;
-              const roteDiscVal = (feedRoteDisc&&c.disciplines?.[feedRoteDisc]?.dots) ? c.disciplines[feedRoteDisc].dots : 0;
-              const fgVal = (c.merits||[]).find(mr=>mr.name==='Feeding Grounds')?.rating || 0;
-              const roteTotal = bestAV+bestSV+roteDiscVal+roteSpecBonus+fgVal;
-              const availDiscs = m.discs.filter(d=>c.disciplines?.[d]?.dots);
-              h += '<div class="dt-feed-breakdown">';
-              h += `<span class="dt-feed-bv">${bestAV}</span> ${esc(bestA)} + <span class="dt-feed-bv">${bestSV}</span> ${esc(bestS)}`;
-              if (roteDiscVal) h += ` + <span class="dt-feed-bv">${roteDiscVal}</span> ${esc(feedRoteDisc)}`;
-              if (roteSpecBonus) h += ` + <span class="dt-feed-bv">${roteSpecBonus}</span> ${esc(feedRoteSpec)}`;
-              if (fgVal) h += ` + <span class="dt-feed-bv">${fgVal}</span> Feeding Grounds`;
-              h += ` = <span class="dt-feed-total">${roteTotal} dice</span>`;
-              h += '</div>';
-              if (bestSpecs.length) {
-                h += '<div class="dt-feed-spec-row"><label class="dt-feed-disc-lbl">Specialisation:</label>';
-                for (const sp of bestSpecs) {
-                  const on = feedRoteSpec===sp?' dt-feed-spec-on':'';
-                  h += `<button type="button" class="dt-feed-spec-chip${on}" data-feed-spec="${esc(sp)}" data-rote-spec="1">${esc(sp)} <span class="dt-feed-spec-bonus">+${hasAoE(c,sp)?2:1}</span></button>`;
-                }
-                h += '</div>';
-              }
-              if (availDiscs.length) {
-                h += '<div class="dt-feed-disc-row"><label class="dt-feed-disc-lbl">Discipline:</label>';
-                h += '<select class="qf-select dt-feed-disc-sel" id="dt-rote-disc"><option value="">None</option>';
-                for (const d of availDiscs) { const dv=c.disciplines[d]?.dots||0; h+=`<option value="${esc(d)}"${feedRoteDisc===d?' selected':''}>${esc(d)} (${dv})</option>`; }
-                h += '</select></div>';
-              }
-            }
-          }
-          h += '</div>';
+          // Pool (same helper as main feed, separate state)
+          h += renderFeedPoolSelector(c, feedMethodId, feedRoteCustomAttr, feedRoteCustomSkill, feedRoteDisc, feedRoteSpec, 'rote');
 
           h += renderQuestion({
             key: 'rote-description', label: 'Describe your dedicated feeding effort',
