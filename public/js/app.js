@@ -1144,22 +1144,31 @@ function _syncSidebarActions() {
   if (!actionsEl) return;
   const isDesktop = document.body.classList.contains('desktop-mode');
   if (!isDesktop) { actionsEl.innerHTML = ''; return; }
-  // Clone the header nav buttons into the sidebar actions row
-  const themeBtn = document.getElementById('btn-theme-toggle');
-  const desktopBtn = document.getElementById('btn-desktop-toggle');
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+                 !document.documentElement.hasAttribute('data-theme');
+  const themeLabel = isDark ? 'Parchment' : 'Dark';
+  const themeSvg = isDark
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
   const adminLink = document.getElementById('nav-admin');
-  actionsEl.innerHTML = '';
-  if (themeBtn) actionsEl.appendChild(themeBtn.cloneNode(true));
-  if (desktopBtn) {
-    const clone = desktopBtn.cloneNode(true);
-    clone.id = 'btn-desktop-toggle-sidebar';
-    clone.setAttribute('onclick', 'toggleDesktopMode()');
-    actionsEl.appendChild(clone);
+  const showAdmin = adminLink && adminLink.style.display !== 'none';
+
+  let h = '<div class="sidebar-app-grid sidebar-action-grid">';
+  h += `<button class="sidebar-app-tile" onclick="toggleTheme()" title="${themeLabel} mode">`;
+  h += `<span class="sidebar-app-tile-icon">${themeSvg}</span>`;
+  h += `<span class="sidebar-app-tile-label">${themeLabel}</span></button>`;
+  h += `<button class="sidebar-app-tile" onclick="toggleDesktopMode()" title="Game mode">`;
+  h += `<span class="sidebar-app-tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>`;
+  h += `<span class="sidebar-app-tile-label">Game</span></button>`;
+  if (showAdmin) {
+    h += `<a class="sidebar-app-tile" href="/admin" title="ST Admin">`;
+    h += `<span class="sidebar-app-tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>`;
+    h += `<span class="sidebar-app-tile-label">Admin</span></a>`;
   }
-  if (adminLink && adminLink.style.display !== 'none') {
-    const clone = adminLink.cloneNode(true);
-    actionsEl.appendChild(clone);
-  }
+  h += '</div>';
+  actionsEl.innerHTML = h;
 }
 
 function _updateDesktopIcon() {
@@ -1244,6 +1253,7 @@ function toggleTheme() {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
   _updateThemeIcon();
+  _syncSidebarActions(); // update tile label/icon in desktop mode
 }
 
 function _updateThemeIcon() {
