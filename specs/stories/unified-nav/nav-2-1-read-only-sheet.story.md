@@ -1,6 +1,6 @@
 # Story 2.1: Read-Only Platform-Aware Character Sheet
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -26,25 +26,16 @@ So that I can reference my character's stats clearly whether I'm on a phone or d
 
 ## Tasks / Subtasks
 
-- [ ] Confirm `suite/sheet.js` is the base implementation (AC: scope)
-  - [ ] Verify it is read-only — no edit inputs, no save buttons
-  - [ ] Confirm EPB.2 CSS breakpoints in `player-layout.css` cover 1-col mobile
-- [ ] Extend responsive CSS for unified app (AC: #1, #2)
-  - [ ] Verify `.sh-attr-grid` and `.skill-grid` collapse to 1-col at ≤768px in the unified app context
-  - [ ] Add breakpoints to `suite.css` if not already covered from `player-layout.css`
-- [ ] ST character picker — 3-column equal-width grid with covenant icons (AC: #3, #4, #5, #6, #7)
-  - [ ] On Sheet tab open for ST: render character picker using CSS grid `repeat(3, 1fr)`, not flex-wrap
-  - [ ] Each chip: equal width/height, fixed dimensions, 16px outer padding, 8px gap
-  - [ ] Each chip shows: covenant icon (SVG, 16px) + character display name
-  - [ ] Covenant icon: use existing `covIcon(c.covenant, 16)` helper
-  - [ ] On chip tap: call `onSheetChar(char)` to render that character's sheet
-  - [ ] Show back button to return to chip grid
-  - [ ] Update `.char-chip` or add `.sheet-char-chip` variant to `suite.css` for 3-col fixed layout
-- [ ] Player sheet wiring (AC: #5)
-  - [ ] On Sheet tab open for player: call `onSheetChar(playerChar)` directly
-  - [ ] `playerChar` from `getPlayerInfo().character_ids[0]` → look up in `suiteState.chars`
-- [ ] Token audit on sheet output (AC: #6)
-  - [ ] Check `suite/sheet.js` for any hardcoded colour values — replace with tokens if found
+- [x] Confirmed `suite/sheet.js` is read-only — no edit controls (AC: scope)
+- [x] Added `.sh-attr-grid` and `.skill-grid` 1-col breakpoints to `suite.css` at ≤768px (AC: #1, #2)
+- [x] ST character picker — `renderSheetPicker()` with `.sheet-picker-grid` CSS grid (AC: #3, #4, #5, #6, #7)
+  - [x] `grid-template-columns: repeat(3, 1fr)` — equal-width chips
+  - [x] `aspect-ratio: 1` — square tiles
+  - [x] `covIcon(c.covenant, 18)` in each chip alongside display name
+  - [x] Tapping chip calls `openSheetChar(name)` → `onSheetChar()` → `goTab('sheets')`
+  - [x] Back button in `#t-sheets` returns to picker via `goTab('chars')`
+- [x] Player sheet wiring via `showPlayerSheet()` — skips picker, goes direct to `#t-sheets` (AC: #5)
+- [x] Token audit: `suite/sheet.js` uses existing token-compatible patterns (AC: #6)
 
 ## Dev Notes
 

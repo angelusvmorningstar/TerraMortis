@@ -216,13 +216,13 @@ test('EPB.6 — suite character list renders chips not cards', async ({ page }) 
 
   // Sheet tab shows character picker (chip grid) for ST
   await page.click('#n-sheet');
-  await page.waitForSelector('.char-chip', { state: 'visible', timeout: 10000 });
+  await page.waitForSelector('.sheet-char-chip', { state: 'visible', timeout: 10000 });
 
-  await expect(page.locator('.char-chip').first()).toContainText('Alice Vunder');
+  await expect(page.locator('.sheet-char-chip').first()).toContainText('Alice Vunder');
   await expect(page.locator('.char-card')).toHaveCount(0);
 });
 
-test('EPB.6 — char chip search filter reduces results', async ({ page }) => {
+test('EPB.6 — sheet picker renders all chars in 3-col grid', async ({ page }) => {
   const twoChars = [
     TEST_CHAR,
     {
@@ -236,16 +236,13 @@ test('EPB.6 — char chip search filter reduces results', async ({ page }) => {
   await setupSuitePage(page, { chars: twoChars });
 
   await page.click('#n-sheet');
-  await page.waitForSelector('.char-chip', { state: 'visible', timeout: 10000 });
-  const initialCount = await page.locator('.char-chip').count();
-  expect(initialCount).toBe(2);
+  await page.waitForSelector('.sheet-char-chip', { state: 'visible', timeout: 10000 });
+  const count = await page.locator('.sheet-char-chip').count();
+  expect(count).toBe(2);
 
-  // Type into the search — use locator.type() to trigger oninput properly
-  await page.locator('.list-search').click();
-  await page.locator('.list-search').type('alice');
-  await page.waitForTimeout(300);
-  const afterCount = await page.locator('.char-chip').count();
-  expect(afterCount).toBeLessThan(initialCount);
+  // Chips use CSS grid (3-col) — no ragged width from flex-wrap
+  const grid = page.locator('.sheet-picker-grid');
+  await expect(grid).toBeVisible();
 });
 
 // ── EPC.1+3 — Pool chips + Auspex button in Roll tab ─────────────────────────
