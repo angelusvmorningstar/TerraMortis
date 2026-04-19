@@ -52,12 +52,11 @@ import { renderEmergencyTab } from './game/emergency-tab.js';
 import { initCombatTab } from './game/combat-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
-import { renderStoryTab } from './player/story-tab.js';
+import { initDowntimeTab } from './player/downtime-tab.js';
 import { renderStatusTab } from './player/status-tab.js';
 import { renderPrimerTab } from './player/primer-tab.js';
 import { renderTicketsTab } from './player/tickets-tab.js';
 import { initOrdeals } from './player/ordeals-view.js';
-import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderOfficeTab } from './player/office-tab.js';
 import { renderCityTab } from './player/city-tab.js';
@@ -226,8 +225,8 @@ const NAV_ALIAS = {
   // Territory is now a More grid app (not primary nav)
   territory: 'more',
   // More grid apps → More button
-  'whos-who': 'more', 'dt-report': 'more', feeding: 'more', map: 'more',
-  primer: 'more', 'game-guide': 'more', rules: 'more', 'dt-submission': 'more',
+  'whos-who': 'more', downtime: 'more', feeding: 'more', map: 'more',
+  primer: 'more', 'game-guide': 'more', rules: 'more',
   ordeals: 'more', tickets: 'more', tracker: 'more', signin: 'more', emergency: 'more',
   regency: 'more', office: 'more', archive: 'more',
 };
@@ -310,11 +309,11 @@ function goTab(t) {
     const char = _activeMoreChar();
     if (el && char) initArchiveTab(el, char, (suiteState.chars || []).filter(c => c.retired));
   }
-  if (t === 'dt-report') {
-    const el = document.getElementById('t-dt-report');
+  if (t === 'downtime') {
+    const el = document.getElementById('t-downtime');
     const char = _activeMoreChar();
-    if (el && char) renderStoryTab(el, char);
-    _markSubViewed(); // clear unread badge
+    if (el && char) initDowntimeTab(el, char);
+    _markSubViewed();
   }
   if (t === 'status') {
     // Status tab is also the primary nav #3 — handled above; this covers More grid access
@@ -341,18 +340,6 @@ function goTab(t) {
   if (t === 'combat') {
     const el = document.getElementById('t-combat');
     if (el) initCombatTab(el);
-  }
-  if (t === 'dt-submission') {
-    const el = document.getElementById('t-dt-submission');
-    const char = _activeMoreChar();
-    if (el && char) {
-      // Desktop-optimised: show notice on narrow viewports
-      if (window.innerWidth <= 600) {
-        el.innerHTML = '<div class="dt-mobile-notice">This form works best on desktop. <a href="/player" class="dt-mobile-notice-link">Open Player Portal</a></div>';
-      } else {
-        renderDowntimeTab(el, char);
-      }
-    }
   }
   if (t === 'tickets') {
     const el = document.getElementById('t-tickets');
@@ -1038,18 +1025,17 @@ const MORE_APPS = [
   // ── Game section ──
   // Note: Status is a primary nav tab — not duplicated here
   { id: 'whos-who',     label: "Who's Who",   icon: _svg.whosWho,  section: 'game' },
-  { id: 'dt-report',    label: 'DT Report',   icon: _svg.dtReport, section: 'game',
+  { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
+  { id: 'map',          label: 'Map',         icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', section: 'game' },
+  { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
+  // ── Player section (player role only) ──
+  { id: 'downtime',      label: 'Downtime',    icon: _svg.dtSubmit, section: 'player',
     badge: () => {
       const sub = _lifecycleCache?.mySubmission;
       if (!sub?.published_outcome) return false;
       return String(sub._id) !== localStorage.getItem('tm-last-viewed-sub');
     }
   },
-  { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
-  { id: 'map',          label: 'Map',         icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', section: 'game' },
-  { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
-  // ── Player section (player role only) ──
-  { id: 'dt-submission', label: 'Submit DT',  icon: _svg.dtSubmit, section: 'player' },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
   { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', section: 'player' },
   // ── Lore section ──
@@ -1164,7 +1150,7 @@ function _markSubViewed() {
   if (mySubmission?._id) {
     localStorage.setItem('tm-last-viewed-sub', String(mySubmission._id));
     checkMoreBadge();
-    renderMoreGrid(); // refresh icon-level badge on DT Report
+    renderMoreGrid();
   }
 }
 
@@ -1411,7 +1397,7 @@ async function renderLifecycleCards() {
     if (daysLeft > 0 && daysLeft <= 7) {
       const urgency = daysLeft <= 3 ? ' lifecycle-card-urgent' : '';
       const deadlineStr = deadline.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-      h += `<button class="lifecycle-card${urgency}" onclick="goTab('dt-submission')">
+      h += `<button class="lifecycle-card${urgency}" onclick="goTab('downtime')">
         <span class="lifecycle-card-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
         <span class="lifecycle-card-text">
           <span class="lifecycle-card-title">Downtime due ${deadlineStr}</span>

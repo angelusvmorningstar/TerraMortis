@@ -158,7 +158,7 @@ function _normTitle(s) {
  * after their matching section heading. Unmatched cards and merit action
  * cards are appended at the bottom.
  */
-function renderOutcomeWithCards(sub) {
+export function renderOutcomeWithCards(sub) {
   const sections = parseOutcomeSections(sub.published_outcome);
 
   // Build project card lookup: normalisedTitle → { html, used }
