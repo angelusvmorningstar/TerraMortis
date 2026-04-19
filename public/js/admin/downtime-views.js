@@ -1011,8 +1011,8 @@ function renderPlayerResponses(s) {
   }
 
   // ── Court ──
-  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
-  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations' };
+  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'aspirations'];
+  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence', aspirations: 'Aspirations' };
   const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
   if (courtVals.length) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
@@ -2273,10 +2273,10 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
 
 // ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
 
-const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
+const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'aspirations'];
 const COURT_LABELS = {
   travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
-  correspondence: 'Dear X', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations',
+  correspondence: 'Dear X', aspirations: 'Aspirations',
 };
 
 function renderPreReadSection() {

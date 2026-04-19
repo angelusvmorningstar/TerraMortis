@@ -110,8 +110,11 @@ In `downtime-form.js` or `downtime-data.js` — wherever the contacts section la
 
 ## Dev Agent Record
 ### Agent Model Used
-_to be filled_
+claude-sonnet-4-6
 ### Completion Notes
-_to be filled_
+Shoutout picks replaced with checkbox grid against allCharacters (all non-self, non-retired). Attendees highlighted in gold. 3-pick limit enforced live via change handler. trust/harm removed from downtime-data.js, downtime-views.js (courtKeys, COURT_KEYS, COURT_LABELS). Contacts request label updated with new prompt text and placeholder.
 ### File List
-_to be filled_
+- public/js/player/downtime-data.js
+- public/js/player/downtime-form.js
+- public/js/admin/downtime-views.js
+- public/css/components.css

@@ -14,7 +14,7 @@
 
 | ID | Title | Status | Group |
 |----|-------|--------|-------|
-| dtfc.1 | Court section calibrations | ready-for-dev | A |
+| dtfc.1 | Court section calibrations | done | A |
 | dtfc.2 | Form section ordering | ready-for-dev | A |
 | dtfc.3 | Project and sphere field calibrations | ready-for-dev | A |
 

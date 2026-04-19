@@ -2722,10 +2722,30 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-vitae-over { color: var(--crim); font-weight: 700; }
 
 /* ── Shoutout picks ── */
-.dt-shoutout-picks {
+.dt-shoutout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px 12px;
+  margin-top: 4px;
+}
+.dt-shoutout-item {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.dt-shoutout-item:hover { background: var(--surf2); }
+.dt-shoutout-item input[type="checkbox"] { accent-color: var(--gold2); flex-shrink: 0; }
+.dt-shoutout-item input[disabled] + span { opacity: 0.45; }
+.dt-shoutout-att { color: var(--gold2); }
+.dt-shoutout-limit {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--txt2);
+  margin-top: 6px;
 }
 
 /* ── Feeding method selector ── */

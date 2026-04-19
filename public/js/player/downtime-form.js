@@ -248,10 +248,8 @@ function collectResponses() {
     for (const q of section.questions) {
       if (q.type === 'shoutout_picks') {
         const picks = [];
-        document.querySelectorAll('[data-shoutout-slot]').forEach(sel => {
-          picks.push(sel.value || '');
-        });
-        responses[q.key] = JSON.stringify(picks.filter(Boolean));
+        document.querySelectorAll('.dt-shoutout-cb:checked').forEach(cb => picks.push(cb.value));
+        responses[q.key] = JSON.stringify(picks);
         continue;
       }
       if (q.type === 'feeding_method') {
@@ -1336,18 +1334,28 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Shoutout picks — disable already-selected in other slots
-    const shoutoutSel = e.target.closest('[data-shoutout-slot]');
-    if (shoutoutSel) {
-      const selects = container.querySelectorAll('[data-shoutout-slot]');
-      const selected = new Set();
-      selects.forEach(s => { if (s.value) selected.add(s.value); });
-      selects.forEach(s => {
-        for (const opt of s.options) {
-          if (!opt.value) continue;
-          opt.disabled = opt.value !== s.value && selected.has(opt.value);
-        }
+    // Shoutout picks — enforce 3-selection limit on checkbox grid
+    const shoutoutCb = e.target.closest('.dt-shoutout-cb');
+    if (shoutoutCb) {
+      const allCbs = container.querySelectorAll('.dt-shoutout-cb');
+      const checkedCount = container.querySelectorAll('.dt-shoutout-cb:checked').length;
+      const atLimit = checkedCount >= 3;
+      allCbs.forEach(cb => {
+        if (!cb.checked) cb.disabled = atLimit;
       });
+      // Update limit hint
+      const limitMsg = container.querySelector('.dt-shoutout-limit');
+      if (atLimit && !limitMsg) {
+        const grid = container.querySelector('.dt-shoutout-grid');
+        if (grid) {
+          const msg = document.createElement('p');
+          msg.className = 'dt-shoutout-limit';
+          msg.textContent = '3 selections made \u2014 uncheck one to change.';
+          grid.insertAdjacentElement('afterend', msg);
+        }
+      } else if (!atLimit && limitMsg) {
+        limitMsg.remove();
+      }
       scheduleSave();
       return;
     }
@@ -2892,8 +2900,9 @@ function renderMeritToggles(saved) {
       h += `<input type="text" id="dt-contact_${n}_info" class="qf-input" value="${esc(savedInfo)}" placeholder="Context, leverage, or relevant details">`;
       h += '</div>';
       h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-contact_${n}_request">Request</label>`;
-      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="What do you want to know?">${esc(savedReq)}</textarea>`;
+      h += `<label class="qf-label" for="dt-contact_${n}_request">What specific information are you requesting?</label>`;
+      h += `<p class="qf-desc">Name a person, event, or piece of information your contact would plausibly know. Vague requests (\u201Canything useful about X\u201D) will be resolved at ST discretion.</p>`;
+      h += `<textarea id="dt-contact_${n}_request" class="qf-textarea" rows="3" placeholder="e.g. \u201CWhat does Lord Vance know about the missing shipment from March?\u201D">${esc(savedReq)}</textarea>`;
       h += '</div>';
       // Store merit label
       h += `<input type="hidden" id="dt-contact_${n}_merit" value="${esc(meritLabel(m))}">`;
@@ -3156,26 +3165,27 @@ function renderQuestion(q, value) {
       break;
 
     case 'shoutout_picks': {
-      // Parse saved value: JSON array of character IDs
       let picks = [];
       if (value) { try { picks = JSON.parse(value); } catch { /* ignore */ } }
-      // Ensure 3 slots
-      while (picks.length < 3) picks.push('');
+      const pickSet = new Set(picks.map(String));
+      const atLimit = pickSet.size >= 3;
 
-      h += '<div class="dt-shoutout-picks">';
-      for (let i = 0; i < 3; i++) {
-        // Build options excluding already-selected characters in other slots
-        const otherPicks = picks.filter((p, j) => j !== i && p);
-        h += `<select class="qf-select dt-shoutout-sel" data-shoutout-slot="${i}">`;
-        h += `<option value="">${i < 2 ? '\u2014 Select \u2014' : '\u2014 Optional \u2014'}</option>`;
-        for (const att of lastGameAttendees) {
-          const disabled = otherPicks.includes(att.id) ? ' disabled' : '';
-          const sel = picks[i] === att.id ? ' selected' : '';
-          h += `<option value="${esc(att.id)}"${sel}${disabled}>${esc(att.name)}</option>`;
-        }
-        h += '</select>';
+      h += '<div class="dt-shoutout-grid">';
+      for (const char of allCharacters) {
+        const isChecked = pickSet.has(String(char.id));
+        const isAtt = lastGameAttendees.some(a => String(a.id) === String(char.id));
+        const disabled = (!isChecked && atLimit) ? ' disabled' : '';
+        const checkedAttr = isChecked ? ' checked' : '';
+        const attClass = isAtt ? ' dt-shoutout-att' : '';
+        h += `<label class="dt-shoutout-item${attClass}">`;
+        h += `<input type="checkbox" class="dt-shoutout-cb" value="${esc(String(char.id))}"${checkedAttr}${disabled}>`;
+        h += `<span>${esc(char.name)}</span>`;
+        h += `</label>`;
       }
       h += '</div>';
+      if (atLimit) {
+        h += '<p class="dt-shoutout-limit">3 selections made &mdash; uncheck one to change.</p>';
+      }
       break;
     }
 

@@ -131,20 +131,6 @@ export const DOWNTIME_SECTIONS = [
         desc: 'Write a brief letter, message, or communiqué from your character to a contact, sire, childe, or associate not present at Court.\n\nExample: "Dear Magistrix, The colonials are more fractious than anticipated. The Invictus here lack a unifying voice. I have begun positioning accordingly — your investment is well placed. Yours in blood, V."',
       },
       {
-        key: 'trust',
-        label: 'Who does your character currently \'trust\' the most among the other PCs?',
-        type: 'textarea',
-        required: false,
-        desc: 'Briefly explain why. Trust is not the same as friendship — it may be pragmatic.',
-      },
-      {
-        key: 'harm',
-        label: 'Who is your character currently trying to actively harm or hamper among the other PCs?',
-        type: 'textarea',
-        required: false,
-        desc: 'Briefly explain the motive and method. This informs ST plot preparation.',
-      },
-      {
         key: 'aspirations',
         label: 'What are your current Short/Medium/Long term Aspirations?',
         type: 'textarea',
