@@ -58,6 +58,7 @@ import { initOrdeals } from './player/ordeals-view.js';
 import { renderDowntimeTab } from './player/downtime-form.js';
 import { renderRegencyTab } from './player/regency-tab.js';
 import { renderOfficeTab } from './player/office-tab.js';
+import { renderCityTab } from './player/city-tab.js';
 import { initArchiveTab } from './player/archive-tab.js';
 import { renderFeedingTab } from './player/feeding-tab.js';
 import { findRegentTerritory } from './data/helpers.js';
@@ -292,6 +293,10 @@ function goTab(t) {
     const char = _activeMoreChar();
     const terrs = suiteState.territories || [];
     if (el && char) renderRegencyTab(el, char, terrs);
+  }
+  if (t === 'whos-who') {
+    const el = document.getElementById('t-whos-who');
+    if (el && !el.innerHTML.trim()) renderCityTab(el, suiteState.territories || []);
   }
   if (t === 'office') {
     const el = document.getElementById('t-office');
