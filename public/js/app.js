@@ -225,7 +225,7 @@ const NAV_ALIAS = {
   'whos-who': 'more', 'dt-report': 'more', feeding: 'more', map: 'more',
   primer: 'more', 'game-guide': 'more', rules: 'more', 'dt-submission': 'more',
   ordeals: 'more', tickets: 'more', tracker: 'more', signin: 'more', emergency: 'more',
-  regency: 'more', office: 'more', archive: 'more', theme: 'more',
+  regency: 'more', office: 'more', archive: 'more',
 };
 
 function goTab(t) {
@@ -267,7 +267,6 @@ function goTab(t) {
       el.innerHTML = '<div class="city-map-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>';
     }
   }
-  if (t === 'theme') { toggleTheme(); return; } // toggles immediately, no tab switch
   if (t === 'feeding') {
     const el = document.getElementById('t-feeding');
     const char = _activeMoreChar();
@@ -898,6 +897,7 @@ async function boot() {
       goTab('dice');
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
+      _updateThemeIcon();     // set correct sun/moon on load
       return;
     }
   }
@@ -1022,7 +1022,6 @@ const MORE_APPS = [
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
   { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'game', condition: 'hasArchive' },
-  { id: 'theme',        label: 'Theme',       icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>', section: 'lore' },
 ];
 
 const MORE_SECTIONS = [
@@ -1137,8 +1136,16 @@ function toggleTheme() {
   } else {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
-  // Re-render More grid to update toggle button label
-  renderMoreGrid();
+  _updateThemeIcon();
+}
+
+function _updateThemeIcon() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+                 !document.documentElement.hasAttribute('data-theme');
+  const sunEl = document.getElementById('theme-icon-dark');
+  const moonEl = document.getElementById('theme-icon-parch');
+  if (sunEl) sunEl.style.display = isDark ? '' : 'none';
+  if (moonEl) moonEl.style.display = isDark ? 'none' : '';
 }
 
 // ── More grid helpers ─────────────────────────────────────────────────────────
