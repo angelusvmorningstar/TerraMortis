@@ -996,7 +996,13 @@ const MORE_APPS = [
   // ── Game section ──
   // Note: Status is a primary nav tab — not duplicated here
   { id: 'whos-who',     label: "Who's Who",   icon: _svg.whosWho,  section: 'game' },
-  { id: 'dt-report',    label: 'DT Report',   icon: _svg.dtReport, section: 'game' },
+  { id: 'dt-report',    label: 'DT Report',   icon: _svg.dtReport, section: 'game',
+    badge: () => {
+      const sub = _lifecycleCache?.mySubmission;
+      if (!sub?.published_outcome) return false;
+      return String(sub._id) !== localStorage.getItem('tm-last-viewed-sub');
+    }
+  },
   { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
   { id: 'map',          label: 'Map',         icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', section: 'game' },
   { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
@@ -1063,9 +1069,12 @@ function renderMoreGrid() {
   }
 
   function appIcon(app) {
+    const hasBadge = typeof app.badge === 'function' && app.badge();
+    const badgeDot = hasBadge ? '<span class="nav-badge visible"></span>' : '';
     return `<button class="more-app-icon" data-app="${app.id}" onclick="goTab('${app.id}')">` +
       `<span class="more-app-icon-svg">${app.icon}</span>` +
       `<span class="more-app-label">${app.label}</span>` +
+      badgeDot +
       '</button>';
   }
 
@@ -1113,6 +1122,7 @@ function _markSubViewed() {
   if (mySubmission?._id) {
     localStorage.setItem('tm-last-viewed-sub', String(mySubmission._id));
     checkMoreBadge();
+    renderMoreGrid(); // refresh icon-level badge on DT Report
   }
 }
 
