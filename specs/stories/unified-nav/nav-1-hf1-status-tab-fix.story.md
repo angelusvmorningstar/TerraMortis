@@ -1,6 +1,6 @@
 # Story nav-1-hf1: Fix Third Primary Tab — Status (not Map)
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -31,17 +31,16 @@ Map/Territory belongs in the More grid as its own app — not in the primary nav
 
 ## Tasks / Subtasks
 
-- [ ] Rename third nav button: `id="n-map"` → `id="n-status"`, `onclick="goTab('map')"` → `goTab('status')`, label "Map" → "Status" (AC: #5)
-- [ ] Update SVG icon on third button to a status/hierarchy icon (AC: #5)
-- [ ] Update `goTab()` so `t === 'status'` calls `renderSuiteStatusTab(document.getElementById('t-status'))` (AC: #2)
-  - [ ] Remove `if (t === 'map') mountTerr()` from the unified nav init block
-- [ ] Add Territory to More grid app registry in `MORE_APPS` (AC: #3)
-  - [ ] `{ id: 'territory', label: 'Territory', icon: <grid SVG>, stOnly: false, playerOnly: false }`
-  - [ ] Wire `goTab('territory')` to call `mountTerr()` — existing handler already does this
-- [ ] Ensure `#t-map` container rename is consistent — or reuse `#t-status` which already exists (AC: #1)
-- [ ] Update `NAV_ALIAS` — remove `territory: 'map'` entry, add any new aliases needed (AC: #3)
-- [ ] Fix Dice tab padding (AC: #4)
-  - [ ] Add `padding: 16px` to `#t-dice` in `suite.css` or ensure `.tab-wrap .tab` has consistent padding
+- [x] Rename third nav button: `id="n-map"` → `id="n-status"`, label "Map" → "Status", calls `goTab('status')` (AC: #5)
+- [x] Updated SVG icon to status/hierarchy layers icon (AC: #5)
+- [x] `goTab('status')` calls `renderSuiteStatusTab(document.getElementById('t-status'))` (AC: #2)
+  - [x] Removed `if (t === 'map') mountTerr()` — replaced with `if (t === 'territory') mountTerr()`
+- [x] Added Territory to `MORE_APPS` registry with grid SVG icon (AC: #3)
+- [x] Renamed `#t-map` → `#t-territory` in `index.html` so `goTab('territory')` activates it (AC: #3)
+- [x] Updated `NAV_ALIAS`: `territory → 'more'`, removed old `territory: 'map'` (AC: #3)
+- [x] Updated `TAB_SUBTITLES`: `map` → `status` + `territory` entries
+- [x] Updated `applyRoleRestrictions`: `n-map` → `n-status` in primary nav array (AC: #1)
+- [x] Fixed Dice tab padding: `#t-dice` gets same flex+padding rules as `#t-roll` (AC: #4)
 
 ## Dev Notes
 
@@ -58,6 +57,19 @@ Map/Territory belongs in the More grid as its own app — not in the primary nav
 
 ## Dev Agent Record
 ### Agent Model Used
+claude-sonnet-4-6
+
 ### Debug Log References
+- `#t-map` was the renamed `#t-territory` — renamed back to `#t-territory` so `goTab('territory')` resolves correctly
+- `renderSuiteStatusTab` already existed and `#t-status` container already existed — routing was the only fix
+- 24/24 tests pass
+
 ### Completion Notes List
+- Third primary tab: Map → Status. Correct per UX spec (Dice · Sheet · Status · More).
+- Territory moved to More grid, accessible via `goTab('territory')` from More grid icon.
+- Dice tab now has correct padding (was rendering against edges).
+
 ### File List
+- public/index.html
+- public/js/app.js
+- public/css/suite.css

@@ -189,10 +189,11 @@ const TAB_SUBTITLES = {
   territory: 'Territory',
   tracker: 'Live Tracker',
   rules: 'Rules Reference',
-  // Unified nav tab names (Story 1.4)
+  // Unified nav tab names
   dice: 'Dice',
   sheet: 'Sheet',
-  map: 'Map',
+  status: 'Status',
+  territory: 'Territory',
   more: 'More',
 };
 
@@ -205,9 +206,11 @@ const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
 const NAV_ALIAS = {
   // Legacy → unified primary nav
   chars: 'sheet', editor: 'sheet', edit: 'sheet', sheets: 'sheet',
-  territory: 'map', roll: 'dice',
+  roll: 'dice',
+  // Territory is now a More grid app (not primary nav)
+  territory: 'more',
   // More grid apps → More button
-  status: 'more', 'whos-who': 'more', 'dt-report': 'more', feeding: 'more',
+  'whos-who': 'more', 'dt-report': 'more', feeding: 'more',
   primer: 'more', 'game-guide': 'more', rules: 'more', 'dt-submission': 'more',
   ordeals: 'more', tracker: 'more', signin: 'more', emergency: 'more',
   regency: 'more', office: 'more',
@@ -241,10 +244,12 @@ function goTab(t) {
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
 
-  // ── Unified nav tab init (Story 1.2 + 1.3) ──────────────────────────────
+  // ── Unified nav tab init ──────────────────────────────────────────────────
   // t-dice was t-roll (renamed in HTML) — no extra init needed.
-  // t-map was t-territory (renamed in HTML) — mountTerr() writes to #terr-root inside it.
-  if (t === 'map') mountTerr();
+  // Status: third primary tab — court hierarchy and prestige display.
+  // Territory: accessible via More grid, not primary nav.
+  if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
+  if (t === 'territory') mountTerr();
   if (t === 'more') renderMoreGrid();
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
@@ -853,13 +858,13 @@ function applyRoleRestrictions() {
 
   // Unified 4-tab nav (Story 1.2) — all primary tabs always visible.
   // Role gating is handled by the More grid (Story 1.3), not the primary nav.
-  ['n-dice', 'n-sheet', 'n-map', 'n-more'].forEach(id => {
+  ['n-dice', 'n-sheet', 'n-status', 'n-more'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = '';
   });
 
   // Legacy nav buttons (hidden — superseded by 4-tab nav)
-  ['n-chars', 'n-territory', 'n-tracker', 'n-editor', 'n-status',
+  ['n-chars', 'n-territory', 'n-tracker', 'n-editor', 'n-map',
    'n-dt', 'n-rules', 'n-signin'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -938,6 +943,8 @@ const MORE_APPS = [
   // Conditional apps
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  stOnly: false, playerOnly: false, condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   stOnly: false, playerOnly: false, condition: 'hasOffice' },
+  // Territory — moved from primary nav to More grid (nav-1-hf1)
+  { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', stOnly: false, playerOnly: false },
 ];
 
 function _moreGridCondition(app) {
