@@ -1,6 +1,6 @@
 # Story 3.4: DT Report Icon Unread State
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
