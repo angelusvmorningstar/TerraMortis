@@ -217,7 +217,7 @@ const NAV_ALIAS = {
   // Territory is now a More grid app (not primary nav)
   territory: 'more',
   // More grid apps → More button
-  'whos-who': 'more', 'dt-report': 'more', feeding: 'more',
+  'whos-who': 'more', 'dt-report': 'more', feeding: 'more', map: 'more',
   primer: 'more', 'game-guide': 'more', rules: 'more', 'dt-submission': 'more',
   ordeals: 'more', tickets: 'more', tracker: 'more', signin: 'more', emergency: 'more',
   regency: 'more', office: 'more',
@@ -255,6 +255,12 @@ function goTab(t) {
   if (t === 'more') renderMoreGrid();
 
   // ── More grid apps — player portal tabs (nav-2-3) ────────────────────────
+  if (t === 'map') {
+    const el = document.getElementById('t-map');
+    if (el && !el.innerHTML.trim()) {
+      el.innerHTML = '<div class="city-map-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>';
+    }
+  }
   if (t === 'dt-report') {
     const el = document.getElementById('t-dt-report');
     const char = _activeMoreChar();
@@ -961,10 +967,11 @@ const _svg = {
 // Render order: game → player (if visible) → lore → st (if visible)
 const MORE_APPS = [
   // ── Game section ──
-  { id: 'status',        label: 'Status',     icon: _svg.status,   section: 'game' },
+  // Note: Status is a primary nav tab — not duplicated here
   { id: 'whos-who',     label: "Who's Who",   icon: _svg.whosWho,  section: 'game' },
   { id: 'dt-report',    label: 'DT Report',   icon: _svg.dtReport, section: 'game' },
   { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
+  { id: 'map',          label: 'Map',         icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', section: 'game' },
   { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
   // ── Player section (player role only) ──
   { id: 'dt-submission', label: 'Submit DT',  icon: _svg.dtSubmit, section: 'player' },
