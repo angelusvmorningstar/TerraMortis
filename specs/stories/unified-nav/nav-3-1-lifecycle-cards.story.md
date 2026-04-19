@@ -1,6 +1,6 @@
 # Story 3.1: Lifecycle-Aware Contextual Cards
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
