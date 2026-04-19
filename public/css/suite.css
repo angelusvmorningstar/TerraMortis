@@ -39,7 +39,7 @@ body{min-height:auto;}
 .tab-wrap{flex:1;overflow:hidden;position:relative;}
 .tab{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;overscroll-behavior:contain;}
 .tab.active{display:block;}
-#t-roll.active,#t-st.active{display:flex;}
+#t-dice.active,#t-roll.active,#t-st.active{display:flex;}
 
 /* ── BOTTOM NAV ── */
 #bnav{flex-shrink:0;display:flex;background:var(--surf2);border-top:1px solid var(--bdr);z-index:20;position:relative;}
@@ -56,8 +56,8 @@ body{min-height:auto;}
 /* ════════════════════════════════
    ROLL TAB
    ════════════════════════════════ */
-#t-roll{padding:20px 20px 80px;flex-direction:column;gap:18px;background:var(--bg);}
-#t-roll > *{width:100%;}
+#t-roll,#t-dice{padding:20px 20px 80px;flex-direction:column;gap:18px;background:var(--bg);}
+#t-roll > *,#t-dice > *{width:100%;}
 
 /* Shortcut row */
 .shortcut-row{display:flex;gap:8px;}
