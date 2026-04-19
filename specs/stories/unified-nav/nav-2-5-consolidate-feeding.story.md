@@ -1,6 +1,6 @@
 # Story 2.5: Consolidate Feeding — Single API-Backed Implementation + Always in More Grid
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
