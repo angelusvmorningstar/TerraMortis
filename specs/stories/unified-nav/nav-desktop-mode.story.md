@@ -81,25 +81,52 @@ This reuses `MORE_APPS` and `MORE_SECTIONS` data — no new navigation model.
 - The `#desktop-sidebar` renders on first toggle and re-renders on `goTab()` calls for active state
 - Desktop sidebar does NOT need to show More grid — it IS the full nav, inline
 
-### CSS Pattern
+### CSS Reference — use player.html sidebar patterns directly
+
+The player portal sidebar (`player-layout.css`) already implements the correct visual design. Port or reuse:
+
 ```css
+/* Sidebar structure */
 body.desktop-mode #app { max-width: none; flex-direction: row; height: 100dvh; }
 body.desktop-mode #bnav { display: none !important; }
 body.desktop-mode #desktop-sidebar { display: flex; }
-body.desktop-mode .tab-wrap { flex: 1; min-width: 0; overflow: hidden; }
+body.desktop-mode .tab-wrap { flex: 1; min-width: 0; overflow-y: auto; }
+
 #desktop-sidebar {
-  display: none; /* hidden in game mode */
-  width: 200px; flex-shrink: 0;
-  background: var(--surf2); border-right: 1px solid var(--bdr);
-  flex-direction: column; height: 100dvh;
-  overflow-y: auto; padding: 8px 0;
+  display: none; /* game mode */
+  width: clamp(180px, 16vw, 220px); flex-shrink: 0;
+  background: var(--surf); border-right: 1px solid var(--bdr);
+  flex-direction: column; height: 100dvh; overflow-y: auto;
+}
+
+/* Reuse existing sidebar-btn pattern from player-layout.css */
+#desktop-sidebar .sidebar-btn {
+  background: none; border: none;
+  border-left: 3px solid transparent;
+  color: var(--txt2); font-family: var(--fl); font-size: 13px;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 12px 20px; cursor: pointer; text-align: left;
+  transition: background .15s, color .15s, border-color .15s; width: 100%;
+}
+#desktop-sidebar .sidebar-btn:hover { background: var(--surf2); color: var(--txt); }
+#desktop-sidebar .sidebar-btn.on { color: var(--accent); border-left-color: var(--accent); background: var(--surf2); }
+
+/* Section labels between groups */
+#desktop-sidebar .sidebar-section-label {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--label-secondary); padding: 12px 20px 4px;
+  border-top: 1px solid var(--bdr); margin-top: 4px;
 }
 ```
 
+**Key calibration note:** The player.html sidebar uses `clamp(180px, 16vw, 220px)` width — match this exactly. The `.sidebar-btn.on` left-border active indicator is the canonical active state for this nav pattern.
+
 ### References
+- [Source: main:public/player.html] — sidebar HTML structure (reference)
+- [Source: main:public/css/player-layout.css#141] — .sidebar-btn canonical styles
 - [Source: public/js/app.js] — MORE_APPS, MORE_SECTIONS, appVisible(), goTab()
-- [Source: public/css/suite.css] — existing nav patterns
-- [Source: public/mockups/font-test.html] — sidebar nav patterns
+- [Source: public/css/suite.css] — port sidebar CSS here, not to player-layout.css
 
 ## Dev Agent Record
 ### Agent Model Used
