@@ -1159,19 +1159,15 @@ function renderDesktopSidebar() {
   if (!nav) return;
 
   const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'dice';
+  const isActive = (id) => id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab));
 
-  function sidebarBtn(id, label) {
-    const isOn = (id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab))) ? ' on' : '';
-    return `<button class="sidebar-btn${isOn}" onclick="goTab('${id}')">${label}</button>`;
+  // Primary tabs — full-width buttons with left-border active indicator
+  let h = '';
+  for (const [id, label] of [['dice','Dice'],['chars','Sheet'],['status','Status']]) {
+    h += `<button class="sidebar-btn${isActive(id) ? ' on' : ''}" onclick="goTab('${id}')">${label}</button>`;
   }
 
-  let h = '';
-  // Primary tabs
-  h += sidebarBtn('dice', 'Dice');
-  h += sidebarBtn('chars', 'Sheet');
-  h += sidebarBtn('status', 'Status');
-
-  // More grid sections
+  // Section app grids — 2-column icon grid matching More grid style
   for (const section of MORE_SECTIONS) {
     const sectionApps = MORE_APPS.filter(app => {
       if (app.section !== section.id) return false;
@@ -1182,14 +1178,20 @@ function renderDesktopSidebar() {
     if (!sectionApps.length) continue;
 
     h += `<div class="sidebar-section-label">${section.label}</div>`;
+    h += `<div class="sidebar-app-grid">`;
     for (const app of sectionApps) {
-      h += sidebarBtn(app.id, app.label);
+      const on = isActive(app.id) ? ' on' : '';
+      h += `<button class="sidebar-app-tile${on}" onclick="goTab('${app.id}')" title="${app.label}">`;
+      h += `<span class="sidebar-app-tile-icon">${app.icon}</span>`;
+      h += `<span class="sidebar-app-tile-label">${app.label}</span>`;
+      h += `</button>`;
     }
+    h += `</div>`;
   }
 
   nav.innerHTML = h;
 
-  // Mirror user info to desktop sidebar
+  // Mirror user info
   const userEl = document.getElementById('sidebar-user');
   const desktopUserEl = document.getElementById('desktop-sidebar-user');
   if (userEl && desktopUserEl) desktopUserEl.innerHTML = userEl.innerHTML;
