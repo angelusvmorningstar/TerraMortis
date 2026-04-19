@@ -7,11 +7,6 @@
  */
 
 // ══════════════════════════════════════════════
-//  DEV FIXTURE INTERCEPT (local dev only)
-// ══════════════════════════════════════════════
-import './dev-fixtures.js';
-
-// ══════════════════════════════════════════════
 //  EDITOR IMPORTS
 // ══════════════════════════════════════════════
 
@@ -906,6 +901,9 @@ async function boot() {
       loginScreen.style.display = 'none';
       app.style.display = '';
       applyRoleRestrictions();
+      if (localStorage.getItem('tm_auth_token') === 'local-test-token') {
+        await import('./dev-fixtures.js');
+      }
       await loadAllData();
       renderList();
       renderImportBanner();

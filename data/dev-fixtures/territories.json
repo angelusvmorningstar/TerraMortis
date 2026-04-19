@@ -1,29 +1,102 @@
 [
   {
-    "_id": "t00000000000000000000001",
-    "id": "academy",
-    "name": "The Academy",
-    "regent_id": "600000000000000000000002",
-    "ambience": "Curated",
-    "ambienceMod": 3,
-    "updated_at": "2026-04-01T00:00:00.000Z"
-  },
-  {
-    "_id": "t00000000000000000000002",
-    "id": "northshore",
-    "name": "The North Shore",
-    "regent_id": null,
-    "ambience": "Tended",
-    "ambienceMod": 2,
-    "updated_at": "2026-04-01T00:00:00.000Z"
-  },
-  {
-    "_id": "t00000000000000000000003",
-    "id": "dockyards",
-    "name": "The Dockyards",
-    "regent_id": null,
+    "_id": "69d5dc6a00815d47150397c6",
+    "id": "harbour",
+    "feeding_rights": [
+      "69d73ea49162ece35897a494",
+      "69d73ea49162ece35897a496",
+      "69d73ea49162ece35897a491",
+      "69d73ea49162ece35897a482",
+      "69d73ea49162ece35897a497",
+      "69d720427fdd1b1f9498b0d4",
+      "69d73ea49162ece35897a48d",
+      "69da21a09aa8d408d64748f6",
+      "69d73ea49162ece35897a499"
+    ],
+    "updated_at": "2026-04-18T03:36:36.036Z",
+    "lieutenant_id": null,
+    "regent_id": "69d73ea49162ece35897a494",
     "ambience": "Settled",
     "ambienceMod": 0,
-    "updated_at": "2026-04-01T00:00:00.000Z"
+    "name": "The Harbour"
+  },
+  {
+    "_id": "69d9e54b00815d471503bea6",
+    "id": "northshore",
+    "lieutenant_id": "69d73ea49162ece35897a482",
+    "name": "The North Shore",
+    "regent_id": "69d73ea49162ece35897a47c",
+    "updated_at": "2026-04-18T03:36:42.621Z",
+    "feeding_rights": [
+      "69d73ea49162ece35897a47c",
+      "69d73ea49162ece35897a482",
+      "69d73ea49162ece35897a47e",
+      "69d720427fdd1b1f9498b0d4",
+      "69d73ea49162ece35897a481",
+      "69d73ea49162ece35897a488",
+      "69d73ea49162ece35897a487"
+    ],
+    "ambience": "Curated",
+    "ambienceMod": 3
+  },
+  {
+    "_id": "69d9e54b00815d471503bea7",
+    "id": "academy",
+    "lieutenant_id": "69d73ea49162ece35897a48e",
+    "name": "The Academy",
+    "regent_id": "69d73ea49162ece35897a48c",
+    "updated_at": "2026-04-18T03:36:15.945Z",
+    "feeding_rights": [
+      "69d73ea49162ece35897a47d",
+      "69d73ea49162ece35897a484",
+      "69d73ea49162ece35897a492",
+      "69d73ea49162ece35897a485"
+    ],
+    "ambience": "Verdant",
+    "ambienceMod": 4
+  },
+  {
+    "_id": "69d9e54c00815d471503bea8",
+    "id": "secondcity",
+    "lieutenant_id": "69d73ea49162ece35897a485",
+    "name": "The Second City",
+    "regent_id": "69d73ea49162ece35897a495",
+    "updated_at": "2026-04-18T03:36:49.014Z",
+    "feeding_rights": [
+      "69d73ea49162ece35897a48e",
+      "69d73ea49162ece35897a487",
+      "69d73ea49162ece35897a488",
+      "69d73ea49162ece35897a480"
+    ],
+    "ambience": "Curated",
+    "ambienceMod": 3
+  },
+  {
+    "_id": "69d9e54c00815d471503bea9",
+    "id": "dockyards",
+    "lieutenant_id": "69d73ea49162ece35897a494",
+    "name": "The Dockyards",
+    "regent_id": "69d73ea49162ece35897a496",
+    "feeding_rights": [
+      "69d73ea49162ece35897a47f",
+      "69d73ea49162ece35897a482",
+      "69d73ea49162ece35897a483",
+      "69d73ea49162ece35897a486",
+      "69da21a09aa8d408d64748f6",
+      "69d73ea49162ece35897a48a",
+      "69d73ea49162ece35897a48d",
+      "69d73ea49162ece35897a491",
+      "69d73ea49162ece35897a490",
+      "69d73ea49162ece35897a493",
+      "69d73ea49162ece35897a494",
+      "69d73ea49162ece35897a496",
+      "69d73ea49162ece35897a497",
+      "69d73ea49162ece35897a498",
+      "69d73ea49162ece35897a499",
+      "69d73ea49162ece35897a49a"
+    ],
+    "updated_at": "2026-04-18T03:36:27.822Z",
+    "ambience": "Untended",
+    "ambienceMod": -2
   }
 ]
