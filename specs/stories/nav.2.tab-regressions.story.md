@@ -2,7 +2,7 @@
 id: nav.2
 epic: unified-nav-polish
 group: A
-status: blocked
+status: complete
 blocked-by: nav.1
 priority: high
 ---

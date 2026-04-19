@@ -2,7 +2,7 @@
 id: nav.10
 epic: unified-nav-polish
 group: E
-status: ready
+status: complete
 priority: low
 ---
 
