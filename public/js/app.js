@@ -1025,6 +1025,8 @@ const MORE_SECTIONS = [
 
 function _moreGridCondition(app) {
   if (!app.condition) return true;
+  // STs see all conditional apps — conditions only gate player view
+  if (getRole() === 'st') return true;
   const chars = suiteState.chars || [];
   const info = getPlayerInfo();
   const myChar = chars.find(c => info?.character_ids?.includes(c._id) || info?.character_ids?.includes(String(c._id)));
