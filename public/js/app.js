@@ -168,7 +168,7 @@ function openChar(idx) {
     suiteState.rollChar = c;
     renderCharPools(poolsEl, c, (p) => {
       loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
-      goTab('roll');
+      goTab('dice');
     });
   }
 
@@ -198,6 +198,11 @@ const TAB_SUBTITLES = {
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
 
+// Maps internal tab names to the visible unified nav button ID.
+// When a legacy tab name is activated, the correct new nav button is highlighted.
+const NAV_ALIAS = { chars: 'sheet', editor: 'sheet', edit: 'sheet',
+                    territory: 'map', sheets: 'sheet', roll: 'dice', signin: 'more' };
+
 function goTab(t) {
   // Hide all tabs
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -206,7 +211,9 @@ function goTab(t) {
   // Show target tab
   const tabEl = document.getElementById('t-' + t);
   if (tabEl) tabEl.classList.add('active');
-  const navEl = document.getElementById('n-' + t);
+  // Mark the nav button — use alias if the tab maps to a unified nav button
+  const navId = 'n-' + (NAV_ALIAS[t] || t);
+  const navEl = document.getElementById(navId);
   if (navEl) navEl.classList.add('on');
 
   // Update header subtitle
@@ -224,34 +231,9 @@ function goTab(t) {
   if (t === 'status') renderSuiteStatusTab(document.getElementById('t-status'));
   if (t === 'signin') initSignIn(document.getElementById('t-signin'), suiteState.chars);
 
-  // ── Unified nav tab aliases (Story 1.4) ──────────────────────────────────
-  // New tab names that Story 1.2 nav buttons will call.
-  // These forward to existing implementations until Epic 2 provides full content.
-  if (t === 'dice') {
-    // Dice tab — copy roll tab content into t-dice container
-    const rollEl = document.getElementById('t-roll');
-    const diceEl = document.getElementById('t-dice');
-    if (rollEl && diceEl && !diceEl.hasChildNodes()) {
-      diceEl.innerHTML = rollEl.innerHTML;
-    }
-  }
-  if (t === 'sheet') {
-    // Sheet tab — show character picker (ST) or own sheet (player)
-    const role = getRole();
-    if (role !== 'st') {
-      const info = getPlayerInfo();
-      const ids = info?.character_ids || [];
-      if (ids.length === 1) {
-        const idx = editorState.chars.findIndex(c => c._id === ids[0]);
-        if (idx >= 0) { openChar(idx); return; }
-      }
-      renderList(ids);
-    } else {
-      renderList();
-    }
-  }
-  // map → territory: Story 1.2 will add #terr-root to #t-map; for now delegate
-  // to the existing territory tab so content renders immediately on nav switch
+  // ── Unified nav tab init (Story 1.2) ─────────────────────────────────────
+  // t-dice was t-roll (renamed in HTML) — no extra init needed.
+  // t-map was t-territory (renamed in HTML) — mountTerr() writes to #terr-root inside it.
   if (t === 'map') mountTerr();
   if (t === 'chars') {
     // Players skip the list — go straight to their sheet
@@ -830,7 +812,7 @@ async function boot() {
       if (getRole() !== 'st' && editorState.chars.length > 0) {
         openChar(0);
       }
-      goTab('roll');
+      goTab('dice');
       return;
     }
   }
@@ -857,22 +839,18 @@ function applyRoleRestrictions() {
   const isST = role === 'st';
   const isRealST = getRole() === 'st';
 
-  // ST nav — Characters, Territory, Tracker, Sign-In
-  ['n-chars', 'n-territory', 'n-tracker', 'n-signin'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = isST ? '' : 'none';
-  });
-
-  // Player nav — Sheet, Submit DT
-  ['n-editor', 'n-dt'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = isST ? 'none' : '';
-  });
-
-  // Rules and Status — visible to all
-  ['n-rules', 'n-status'].forEach(id => {
+  // Unified 4-tab nav (Story 1.2) — all primary tabs always visible.
+  // Role gating is handled by the More grid (Story 1.3), not the primary nav.
+  ['n-dice', 'n-sheet', 'n-map', 'n-more'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = '';
+  });
+
+  // Legacy nav buttons (hidden — superseded by 4-tab nav)
+  ['n-chars', 'n-territory', 'n-tracker', 'n-editor', 'n-status',
+   'n-dt', 'n-rules', 'n-signin'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   });
 
   // Feeding test and Contested Roll — ST only
@@ -980,7 +958,7 @@ function _enterPlayerView() {
   }
   const idx = editorState.chars.findIndex(c => ids.includes(String(c._id)));
   if (idx >= 0) openChar(idx);
-  else goTab('roll');
+  else goTab('dice');
 }
 
 function _enterSTView() {

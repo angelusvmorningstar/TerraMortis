@@ -214,7 +214,8 @@ test('EPD.2 — attendance grid capitalises character names', async ({ page }) =
 test('EPB.6 — suite character list renders chips not cards', async ({ page }) => {
   await setupSuitePage(page);
 
-  await page.click('#n-chars');
+  // Sheet tab shows character picker (chip grid) for ST
+  await page.click('#n-sheet');
   await page.waitForSelector('.char-chip', { state: 'visible', timeout: 10000 });
 
   await expect(page.locator('.char-chip').first()).toContainText('Alice Vunder');
@@ -234,7 +235,7 @@ test('EPB.6 — char chip search filter reduces results', async ({ page }) => {
   ];
   await setupSuitePage(page, { chars: twoChars });
 
-  await page.click('#n-chars');
+  await page.click('#n-sheet');
   await page.waitForSelector('.char-chip', { state: 'visible', timeout: 10000 });
   const initialCount = await page.locator('.char-chip').count();
   expect(initialCount).toBe(2);
@@ -276,15 +277,19 @@ test('EPC.1 — pool chips render in roll tab after character selection', async 
 
 // ── EPC.4 — Sign-in tab ───────────────────────────────────────────────────────
 
-test('EPC.4 — sign-in nav button visible for ST', async ({ page }) => {
+test('EPC.4 — sign-in accessible via More tab for ST', async ({ page }) => {
   await setupSuitePage(page);
-  await expect(page.locator('#n-signin')).toBeVisible();
+  // Sign-in moved to More grid in nav-1-2 — More tab is always visible for ST
+  await expect(page.locator('#n-more')).toBeVisible();
+  // goTab('signin') still works directly
+  await page.evaluate(() => window.goTab('signin'));
+  await expect(page.locator('#t-signin')).toHaveClass(/active/, { timeout: 5000 });
 });
 
 test('EPC.4 — sign-in tab renders attendance list', async ({ page }) => {
   await setupSuitePage(page);
 
-  await page.click('#n-signin');
+  await page.evaluate(() => window.goTab('signin'));
   await page.waitForSelector('#t-signin.active', { timeout: 10000 });
   // Wait for API fetch + render
   await page.waitForSelector('.si-row, .si-empty, .si-loading', { timeout: 10000 });
