@@ -5,7 +5,7 @@
 import suiteState from '../suite/data.js';
 import { calcVitaeMax, calcWillpowerMax, calcHealth } from '../data/accessors.js';
 import { calcTotalInfluence } from '../editor/domain.js';
-import { displayName, esc } from '../data/helpers.js';
+import { esc } from '../data/helpers.js';
 
 const LOCAL_PREFIX = 'tm_tracker_local_';
 
@@ -284,11 +284,13 @@ function cardHtml(id, c, cs) {
 
   const dmgStr  = dmg > 0 ? `<span class="trk-hd-dmg">${dmg}dmg</span>` : '';
   const condStr = (cs.conditions || []).length > 0 ? `<span class="trk-hd-cond">${cs.conditions.length} cond</span>` : '';
+  const infMax = calcTotalInfluence(c);
   h += `<button class="trk-card-hd" onclick="trackerToggle('${id}')">`;
-  h += `<span class="trk-name">${esc(displayName(c))}</span>`;
+  h += `<span class="trk-name">${esc(c.moniker || c.name)}</span>`;
   h += `<span class="trk-hd-meta">`;
   h += `<span class="trk-hd-v">V ${cs.vitae}/${vpMax}</span>`;
   h += `<span class="trk-hd-w">WP ${cs.willpower}/${wpMax}</span>`;
+  if (infMax > 0) h += `<span class="trk-hd-inf">Inf ${cs.inf ?? infMax}/${infMax}</span>`;
   h += dmgStr + condStr;
   h += `</span>`;
   h += `<span class="trk-chev">${chevron}</span>`;
@@ -298,7 +300,6 @@ function cardHtml(id, c, cs) {
 
   h += counter('Vitae',     id, 'vitae',    cs.vitae,    vpMax, 'trk-row-v');
   h += counter('Willpower', id, 'willpower', cs.willpower, wpMax, 'trk-row-w');
-  const infMax = calcTotalInfluence(c);
   if (infMax > 0) h += counter('Influence', id, 'inf', cs.inf ?? infMax, infMax, 'trk-row-inf');
 
   h += `<div class="trk-row trk-row-hp">`;

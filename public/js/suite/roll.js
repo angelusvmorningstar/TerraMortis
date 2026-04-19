@@ -162,9 +162,10 @@ export function togSpec(badge) {
 
 export function setAgain(v) {
   state.AGAIN = v;
-  [8, 9, 10].forEach(n =>
-    document.getElementById('a' + n).classList.toggle('on', n === v)
-  );
+  [8, 9].forEach(n => {
+    const el = document.getElementById('a' + n);
+    if (el) el.classList.toggle('on', n === v);
+  });
 }
 
 export function togMod(m) {

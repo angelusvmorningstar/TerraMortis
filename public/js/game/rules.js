@@ -161,17 +161,12 @@ function matchesQuery(entry, q) {
   return hay.includes(q);
 }
 
-function renderContent() {
+function renderSections() {
   const q = _query.length >= 3 ? _query : '';
-
-  let h = `<div class="rl-search-wrap">
-    <input class="rl-search" id="rl-search" type="text" placeholder="Search rules\u2026" value="${esc(q)}" autocomplete="off">
-  </div>`;
-
+  let h = '';
   for (const sec of RULES) {
     const entries = q ? sec.entries.filter(e => matchesQuery(e, q)) : sec.entries;
     if (q && !entries.length) continue;
-
     const isOpen = q || _open.has(sec.id);
     h += `<div class="rl-section" id="rl-sec-${sec.id}">`;
     h += `<button class="rl-sec-hd" data-sec="${sec.id}">
@@ -198,29 +193,32 @@ function highlight(html, q) {
   return html.replace(re, '<mark class="rl-mark">$1</mark>');
 }
 
-function wireRules(root) {
-  root.querySelector('#rl-search')?.addEventListener('input', e => {
-    _query = e.target.value.trim().toLowerCase();
-    const content = root.querySelector('.rl-content');
-    if (content) content.innerHTML = renderContent();
-    wireRules(root);
-  });
-
+function wireSections(root) {
   root.querySelectorAll('[data-sec]').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.sec;
       if (_open.has(id)) _open.delete(id); else _open.add(id);
-      const content = root.querySelector('.rl-content');
-      if (content) content.innerHTML = renderContent();
-      wireRules(root);
+      const sections = root.querySelector('.rl-sections');
+      if (sections) sections.innerHTML = renderSections();
+      wireSections(root);
     });
   });
+}
+
+function wireRules(root) {
+  root.querySelector('#rl-search')?.addEventListener('input', e => {
+    _query = e.target.value.trim().toLowerCase();
+    const sections = root.querySelector('.rl-sections');
+    if (sections) sections.innerHTML = renderSections();
+    wireSections(root);
+  });
+  wireSections(root);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initRules(el) {
-  el.innerHTML = `<div class="rl-wrap"><div class="rl-content">${renderContent()}</div></div>`;
+  el.innerHTML = `<div class="rl-wrap"><div class="rl-search-wrap"><input class="rl-search" id="rl-search" type="text" placeholder="Search rules\u2026" autocomplete="off"></div><div class="rl-sections">${renderSections()}</div></div>`;
   wireRules(el);
 }
 
@@ -237,7 +235,7 @@ export function openRulesOverlay() {
         <button class="rules-panel-close" id="rules-close">\u2715 Close</button>
       </div>
       <div class="rules-panel-body">
-        <div class="rl-content">${renderContent()}</div>
+        <div class="rl-wrap"><div class="rl-search-wrap"><input class="rl-search" id="rl-search" type="text" placeholder="Search rules\u2026" autocomplete="off"></div><div class="rl-sections">${renderSections()}</div></div>
       </div>
     </div>`;
   document.body.appendChild(el);

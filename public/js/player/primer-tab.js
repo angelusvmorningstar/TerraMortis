@@ -36,11 +36,13 @@ export async function renderPrimerTab(el) {
     });
   });
 
+  const isMobile = window.innerWidth <= 768;
   let h = '<div class="primer-layout">';
 
-  // Sticky TOC
+  // Sticky TOC — collapsible on mobile via <details>
+  h += `<details class="primer-toc-details"${isMobile ? '' : ' open'}>`;
+  h += '<summary class="primer-toc-title">Contents</summary>';
   h += '<nav class="primer-toc" id="primer-toc">';
-  h += '<div class="primer-toc-title">Contents</div>';
   if (tocItems.length) {
     h += '<ul class="primer-toc-list">';
     for (const item of tocItems) {
@@ -51,6 +53,7 @@ export async function renderPrimerTab(el) {
     h += '</ul>';
   }
   h += '</nav>';
+  h += '</details>';
 
   // Content
   h += `<div class="primer-content reading-pane">${html}</div>`;

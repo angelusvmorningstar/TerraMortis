@@ -32,17 +32,14 @@ async function renderArchiveList() {
   } catch { /* non-fatal — show retired chars anyway */ }
 
   const dossiers  = docs.filter(d => d.type === 'dossier');
-  const downtime  = docs.filter(d => d.type === 'downtime_response')
-                        .sort((a, b) => (b.cycle ?? 0) - (a.cycle ?? 0));
   const histories = docs.filter(d => d.type === 'history_submission');
 
   let h = '';
 
   // ── Documents ──
-  if (docs.length) {
+  if (dossiers.length || histories.length) {
     h += '<div class="arc-docs">';
     if (dossiers.length)  h += renderDocGroup('Dossier', dossiers);
-    if (downtime.length)  h += renderDocGroup('Downtime Responses', downtime);
     if (histories.length) h += renderDocGroup('Character History', histories);
     h += '</div>';
   }

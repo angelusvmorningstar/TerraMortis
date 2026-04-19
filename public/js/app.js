@@ -265,7 +265,19 @@ function goTab(t) {
   if (t === 'map') {
     const el = document.getElementById('t-map');
     if (el && !el.innerHTML.trim()) {
-      el.innerHTML = '<div class="city-map-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>';
+      const terrs = (suiteState.territories || []).filter(t => t.regent_id);
+      const chars = suiteState.chars || [];
+      let regHtml = '';
+      if (terrs.length) {
+        regHtml = '<div class="map-regent-panel"><div class="map-regent-title">Regents</div><div class="map-regent-list">';
+        for (const tr of terrs.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))) {
+          const c = chars.find(ch => String(ch._id) === tr.regent_id);
+          const name = c ? (c.moniker || c.name) : '(vacant)';
+          regHtml += `<div class="map-regent-row"><span class="map-regent-terr">${tr.name || tr.id}</span><span class="map-regent-name">${name}</span></div>`;
+        }
+        regHtml += '</div></div>';
+      }
+      el.innerHTML = `<div class="map-tab-wrap"><div class="map-img-wrap"><img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map"></div>${regHtml}</div>`;
     }
   }
   if (t === 'feeding') {
@@ -1015,9 +1027,9 @@ const MORE_APPS = [
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
   { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', section: 'player' },
   // ── Lore section ──
-  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore' },
   { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore' },
   { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore' },
+  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore' },
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'signin',       label: 'Sign-In',     icon: _svg.signin,   section: 'st', stOnly: true },
@@ -1025,7 +1037,7 @@ const MORE_APPS = [
   // ── Conditional apps (section determined by context) ──
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
-  { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'game', condition: 'hasArchive' },
+  { id: 'archive',      label: 'Archive',     icon: '<svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>', section: 'player', condition: 'hasArchive' },
 ];
 
 const MORE_SECTIONS = [
