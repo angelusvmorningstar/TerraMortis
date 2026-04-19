@@ -2749,6 +2749,23 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-aspiration-type { width: 110px; flex-shrink: 0; }
 .dt-aspiration-text { flex: 1; }
 
+/* ── Feed pool suggestion chips ── */
+.dt-feed-suggest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.dt-feed-suggest-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--txt3); flex-shrink: 0; }
+.dt-feed-suggest-sep { color: var(--txt3); font-size: 12px; }
+.dt-feed-chip {
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  border: 1px solid rgba(139,0,0,.25);
+  background: var(--surf2);
+  color: var(--txt2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.dt-feed-chip:hover { background: var(--surf3); color: var(--txt1); }
+.dt-feed-chip-on { background: var(--crim); color: #fff; border-color: var(--crim); }
+
 /* ── Regency sub-field (inside Vamping) ── */
 .dt-regency-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surf3); }
 
