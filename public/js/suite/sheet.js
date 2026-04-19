@@ -427,9 +427,14 @@ export function renderSheet() {
       const tags = m._grant_sources || [];
       const grantTag = tags.length ? `<span class="gen-granted-tag-view">${tags.join(', ')}</span>` : '';
       const purch = (m.cp || 0) + (m.xp || 0);
-      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_pt || 0) + (m.free_sw || 0);
-      const label = (area ? m.name + ' (' + area + ghoul + ')' : m.name + ghoul) + (m.rating ? ' ' + dots(m.rating) : '');
-      html += renderMeritRow({ name: label, rating: 0 }, 'infl', i, dotsMixed(purch, bon) + grantTag);
+      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
+               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
+               + (m.free_pt || 0) + (m.free_sw || 0);
+      const dotH = (purch || bon)
+        ? dotsMixed(purch, bon)
+        : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
+      const label = area ? m.name + ' (' + area + ghoul + ')' : m.name + ghoul;
+      html += renderMeritRow({ name: label, rating: 0 }, 'infl', i, dotH + grantTag);
     });
 
     if (contactsMerits.length) {
@@ -576,16 +581,20 @@ export function renderSheet() {
     html += `<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">`;
     otherMerits.forEach((m, i) => {
       const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
-      const purch = (m.cp || 0) + (m.xp || 0);
-      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
-               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-               + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
-      const dotH = dotsMixed(purch, bon);
       if (m.granted_by) {
         const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
+        const purch = (m.cp || 0) + (m.xp || 0);
+        const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
+                 + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
+                 + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
+        const dotH = (purch || bon)
+          ? dotsMixed(purch, bon)
+          : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
         html += renderMeritRow({ name: m.name + qual, rating: 0 }, 'gmerit', i, dotH + `<span class="gen-granted-tag-view" title="Granted by ${m.granted_by}">${gb}</span>`);
       } else {
-        html += renderMeritRow({ name: m.name + qual + (m.rating ? ' ' + dots(m.rating) : ''), rating: 0 }, 'merit', i, dotH);
+        // Let renderMeritRow compute dots from the merit object — handles purch/bon split
+        // with fallback to m.rating when no sources tracked
+        html += renderMeritRow(Object.assign({}, m, { name: m.name + qual }), 'merit', i);
       }
     });
     html += `</div></div>`;
