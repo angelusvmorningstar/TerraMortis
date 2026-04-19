@@ -25,6 +25,7 @@ import {
 } from '../data/accessors.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
+import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
 
 // ── Sheet character selection ──
 
@@ -618,8 +619,32 @@ export function renderSheet() {
     html += `</div></div>`;
   }
 
+  // ── Equipment ──
+  const equipment = getEquipment(c);
+  if (equipment.length) {
+    const weapons = equipment.filter(e => e.type === 'weapon');
+    const armour  = equipment.filter(e => e.type === 'armour');
+    const effDef  = effectiveDefence(c);
+    html += `<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">`;
+    weapons.forEach(w => {
+      const poolStr = weaponPoolLabel(c, w);
+      html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(w.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${poolStr}</span></div></div></div></div>`;
+    });
+    armour.forEach(a => {
+      const arStr = `AR ${a.general_ar || 0}/${a.ballistic_ar || 0}`;
+      const defStr = a.mobility_penalty ? ` \u00B7 Def ${effDef} (\u2212${a.mobility_penalty})` : '';
+      html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(a.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${arStr}${defStr}</span></div></div></div></div>`;
+    });
+    html += `</div></div>`;
+  }
+
   html += `</div>`; // end sh-body
   el.innerHTML = html;
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── TRACKER TOGGLE ──
