@@ -1553,6 +1553,24 @@ function renderForm(container) {
       return;
     }
     // Rote suggestion chips
+    const feedChipDisc = e.target.closest('[data-feed-chip-disc]');
+    if (feedChipDisc) {
+      feedDiscName = feedChipDisc.dataset.feedChipDisc;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    const roteChipDisc = e.target.closest('[data-rote-chip-disc]');
+    if (roteChipDisc) {
+      feedRoteDisc = roteChipDisc.dataset.roteChipDisc;
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
     const roteChipAttr = e.target.closest('[data-rote-chip-attr]');
     if (roteChipAttr) {
       feedRoteCustomAttr = roteChipAttr.dataset.roteChipAttr;
@@ -3045,17 +3063,27 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   h += '</div>';
 
   // ── Suggestion chips (non-Other only) ──
-  if (m && (m.attrs.length || m.skills.length)) {
+  if (m && (m.attrs.length || m.skills.length || m.discs.length)) {
     h += '<div class="dt-feed-suggest">';
     h += '<span class="dt-feed-suggest-lbl">Suggestions:</span>';
     for (const a of m.attrs) {
+      const v = c.attributes?.[a]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
       const active = selAttr === a ? ' dt-feed-chip-on' : '';
-      h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)}</button>`;
+      h += `<button type="button" class="dt-feed-chip dt-feed-chip-attr${active}" data-${pfx}-chip-attr="${esc(a)}">${esc(a)} (${val})</button>`;
     }
     h += '<span class="dt-feed-suggest-sep">/</span>';
     for (const s of m.skills) {
+      const v = c.skills?.[s]; const val = v ? (v.dots||0)+(v.bonus||0) : 0;
       const active = selSkill === s ? ' dt-feed-chip-on' : '';
-      h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)}</button>`;
+      h += `<button type="button" class="dt-feed-chip dt-feed-chip-skill${active}" data-${pfx}-chip-skill="${esc(s)}">${esc(s)} (${val})</button>`;
+    }
+    if (m.discs.length) {
+      h += '<span class="dt-feed-suggest-sep">/</span>';
+      for (const d of m.discs) {
+        const val = c.disciplines?.[d]?.dots || 0;
+        const active = selDisc === d ? ' dt-feed-chip-on' : '';
+        h += `<button type="button" class="dt-feed-chip dt-feed-chip-disc${active}" data-${pfx}-chip-disc="${esc(d)}">${esc(d)} (${val})</button>`;
+      }
     }
     h += '</div>';
   }

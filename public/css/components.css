@@ -2765,6 +2765,9 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-feed-chip:hover { background: var(--surf3); color: var(--txt1); }
 .dt-feed-chip-on { background: var(--crim); color: #fff; border-color: var(--crim); }
+.dt-feed-chip-disc { border-color: rgba(139,0,0,.5); color: var(--crim); }
+.dt-feed-chip-disc:hover { background: rgba(139,0,0,.1); }
+.dt-feed-chip-disc.dt-feed-chip-on { background: var(--crim); color: #fff; }
 
 /* ── Regency sub-field (inside Vamping) ── */
 .dt-regency-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surf3); }
