@@ -107,8 +107,9 @@ if (gateValues.is_regent === 'yes') {
 
 ## Dev Agent Record
 ### Agent Model Used
-_to be filled_
+claude-sonnet-4-6
 ### Completion Notes
-_to be filled_
+Section order updated: court → blood_sorcery → territory → feeding → projects → merits → acquisitions → equipment → vamping → admin. Territory/feeding/regency added to loop skip list; blood_sorcery/territory/feeding rendered explicitly in game-logic order. Regency section kept in DOWNTIME_SECTIONS array for collectResponses; not rendered as standalone section. Regency sub-field injected into vamping render when is_regent === 'yes', collecting to existing #dt-regency_action id.
 ### File List
-_to be filled_
+- public/js/player/downtime-data.js
+- public/js/player/downtime-form.js

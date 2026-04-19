@@ -985,7 +985,7 @@ function renderForm(container) {
   h += '</div>';
   h += '</div>';
 
-  // Static sections: Court, Feeding, Regency Action (residency grid is in the Regency tab), Projects
+  // Static sections: Court only — territory/feeding/regency rendered explicitly below in game-logic order
   const feedingLocked = currentCycle?.feeding_rights_confirmed !== true;
   for (const section of DOWNTIME_SECTIONS) {
     if (section.key === 'projects') continue;
@@ -994,6 +994,9 @@ function renderForm(container) {
     if (section.key === 'equipment') continue;
     if (section.key === 'vamping') continue;
     if (section.key === 'admin') continue;
+    if (section.key === 'territory') continue;
+    if (section.key === 'feeding') continue;
+    if (section.key === 'regency') continue;
 
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
     const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
@@ -1001,25 +1004,43 @@ function renderForm(container) {
     h += `<div class="${sectionClass}" data-gate-section="${section.gate || ''}" data-section-key="${section.key}">`;
     h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
     h += '<div class="qf-section-body">';
+    if (section.intro) {
+      h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+    }
+    for (const q of section.questions) {
+      const val = saved[q.key] || '';
+      h += renderQuestion(q, val);
+    }
+    h += '</div></div>';
+  }
 
-    // Feeding and Territory sections are locked until all Regents confirm
-    if ((section.key === 'feeding' || section.key === 'territory') && feedingLocked) {
-      const pendingTerrs = _territories
-        .filter(t => t.regent_id)
-        .filter(t => !(currentCycle?.regent_confirmations || []).some(c => c.territory_id === t.id));
-      const pendingNames = pendingTerrs.map(t => esc(t.name || t.id)).join(', ');
+  // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
+  if (gateValues.has_sorcery === 'yes') {
+    h += renderSorcerySection(saved);
+  }
+
+  // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
+  const feedingPendingNames = (() => {
+    const pending = _territories
+      .filter(t => t.regent_id)
+      .filter(t => !(currentCycle?.regent_confirmations || []).some(c => c.territory_id === t.id));
+    return pending.map(t => esc(t.name || t.id)).join(', ');
+  })();
+
+  for (const key of ['territory', 'feeding']) {
+    const section = DOWNTIME_SECTIONS.find(s => s.key === key);
+    if (!section) continue;
+    h += `<div class="qf-section collapsed" data-gate-section="" data-section-key="${key}">`;
+    h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+    h += '<div class="qf-section-body">';
+    if (feedingLocked) {
       h += `<div class="dt-feeding-locked">`;
       h += `<p class="dt-feeding-locked-msg">Feeding rights are being confirmed by Regents &mdash; this section will unlock once all territories are confirmed. Check back soon.</p>`;
-      if (pendingNames) h += `<p class="dt-feeding-locked-pending">Awaiting: ${pendingNames}</p>`;
+      if (feedingPendingNames) h += `<p class="dt-feeding-locked-pending">Awaiting: ${feedingPendingNames}</p>`;
       h += `</div>`;
     } else {
-      if (section.intro) {
-        h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
-      }
-      for (const q of section.questions) {
-        const val = saved[q.key] || '';
-        h += renderQuestion(q, val);
-      }
+      if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+      for (const q of section.questions) h += renderQuestion(q, saved[q.key] || '');
     }
     h += '</div></div>';
   }
@@ -1029,11 +1050,6 @@ function renderForm(container) {
 
   // ── Dynamic merit sections ──
   h += renderMeritToggles(saved);
-
-  // ── Blood Sorcery (dynamic rite selector) ──
-  if (gateValues.has_sorcery === 'yes') {
-    h += renderSorcerySection(saved);
-  }
 
   // ── Acquisitions (custom render) ──
   h += renderAcquisitionsSection(saved);
@@ -1056,6 +1072,14 @@ function renderForm(container) {
     for (const q of section.questions) {
       const val = saved[q.key] || '';
       h += renderQuestion(q, val);
+    }
+    if (key === 'vamping' && gateValues.is_regent === 'yes') {
+      const terrName = findRegentTerritory(_territories, currentChar)?.territory || 'your territory';
+      h += `<div class="qf-field dt-regency-sub">`;
+      h += `<label class="qf-label">As Regent of ${esc(terrName)}: what do you want to make known about your domain this month?</label>`;
+      h += `<p class="qf-desc">Proclamations, policies, enforcement, or any public stance you wish to communicate to other Kindred about your territory.</p>`;
+      h += `<textarea id="dt-regency_action" class="qf-textarea" rows="4">${esc(saved['regency_action'] || '')}</textarea>`;
+      h += `</div>`;
     }
     h += '</div></div>';
   }
