@@ -315,12 +315,11 @@ function collectResponses() {
         continue;
       }
       if (q.type === 'territory_grid') {
-        // Collect feeding grid as JSON object
         const gridVals = {};
         for (const terr of FEEDING_TERRITORIES) {
           const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-          const checked = document.querySelector(`input[name="feed-${terrKey}"]:checked`);
-          gridVals[terrKey] = checked ? checked.value : 'none';
+          const el = document.getElementById(`feed-val-${terrKey}`);
+          gridVals[terrKey] = el ? el.value : 'none';
         }
         responses[q.key] = JSON.stringify(gridVals);
         continue;
@@ -1363,7 +1362,7 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Territory radio change — re-render to update vitae projection
+    // Territory radio change — re-render to update vitae projection (legacy path, kept for safety)
     if (e.target.closest('[data-feed-terr]')) {
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
@@ -1526,6 +1525,38 @@ function renderForm(container) {
       feedMethodId = feedCard.dataset.feedMethod;
       feedDiscName = ''; feedSpecName = '';
       feedCustomAttr = ''; feedCustomSkill = ''; feedCustomDisc = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      return;
+    }
+    // Single-select territory pills
+    const terrPill = e.target.closest('[data-terr-single][data-terr-val]');
+    if (terrPill) {
+      const fieldId = terrPill.dataset.terrSingle;
+      const val = terrPill.dataset.terrVal;
+      const hidden = document.getElementById(fieldId);
+      const currentVal = hidden ? hidden.value : '';
+      const newVal = currentVal === val ? '' : val; // toggle off if same
+      if (hidden) hidden.value = newVal;
+      // Update pill active states without full re-render
+      container.querySelectorAll(`[data-terr-single="${fieldId}"]`).forEach(p => {
+        p.classList.toggle('dt-terr-pill-on', p.dataset.terrVal === newVal);
+      });
+      scheduleSave();
+      updateSectionTicks(container);
+      return;
+    }
+    // Multi-select feeding territory pills
+    const feedTerrPill = e.target.closest('[data-feed-terr-key]');
+    if (feedTerrPill) {
+      const terrKey = feedTerrPill.dataset.feedTerrKey;
+      const statusVal = feedTerrPill.dataset.feedStatus;
+      const isActive = feedTerrPill.dataset.feedActive === '1';
+      const hidden = document.getElementById(`feed-val-${terrKey}`);
+      if (hidden) hidden.value = isActive ? 'none' : statusVal;
+      // Re-render to update pill appearance and vitae projection
       const responses = collectResponses();
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
@@ -2058,14 +2089,9 @@ function renderProjectSlots(saved) {
     if (fields.includes('territory')) {
       const savedTerr = saved[`project_${n}_territory`] || '';
       h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-project_${n}_territory">Territory</label>`;
-      h += `<select id="dt-project_${n}_territory" class="qf-select">`;
-      h += '<option value="">— No Territory —</option>';
-      for (const t of TERRITORY_DATA) {
-        const sel = savedTerr === t.id ? ' selected' : '';
-        h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
-      }
-      h += '</select></div>';
+      h += '<label class="qf-label">Territory</label>';
+      h += renderTerritoryPills(`dt-project_${n}_territory`, savedTerr);
+      h += '</div>';
     }
 
     // ── Target: character (attack) ──
@@ -2119,13 +2145,7 @@ function renderProjectSlots(saved) {
         }
         h += '</select>';
       } else if (savedType === 'territory') {
-        h += `<select id="dt-project_${n}_target_value" class="qf-select dt-flex-terr-sel">`;
-        h += '<option value="">— Select Territory —</option>';
-        for (const t of TERRITORY_DATA) {
-          const sel = t.id === savedVal ? ' selected' : '';
-          h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
-        }
-        h += '</select>';
+        h += renderTerritoryPills(`dt-project_${n}_target_value`, savedVal);
       } else if (savedType === 'other') {
         h += `<input type="text" id="dt-project_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
       }
@@ -3110,20 +3130,72 @@ function renderFeedPoolSelector(c, methodId, selAttr, selSkill, selDisc, selSpec
   return h;
 }
 
+// ── Territory pill switcher helpers ──
+
+/** Single-select territory pills. fieldId = the hidden input ID (same as old select ID). */
+function renderTerritoryPills(fieldId, savedVal) {
+  let h = `<div class="dt-terr-pills" data-terr-single="${fieldId}">`;
+  for (const t of TERRITORY_DATA) {
+    const active = savedVal === t.id ? ' dt-terr-pill-on' : '';
+    h += `<button type="button" class="dt-terr-pill${active}" data-terr-single="${fieldId}" data-terr-val="${esc(t.id)}">${esc(t.name)}</button>`;
+  }
+  h += '</div>';
+  h += `<input type="hidden" id="${fieldId}" value="${esc(savedVal || '')}">`;
+  return h;
+}
+
+/** Multi-select feeding territory pills (territory_grid). */
+function renderFeedingTerritoryPills(gridVals) {
+  let h = '<div class="dt-terr-pills dt-feed-terr-pills">';
+  for (const terr of FEEDING_TERRITORIES) {
+    const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    const isBarrens = terr.includes('Barrens');
+    const terrData = TERRITORY_DATA.find(t => t.name === terr);
+    const ambience = terrData ? terrData.ambience : '';
+
+    const hasFeedingRights = !isBarrens && (_territories || []).some(t =>
+      t.name === terr && Array.isArray(t.feeding_rights) &&
+      t.feeding_rights.some(id => String(id) === String(currentChar._id))
+    );
+
+    let savedVal = gridVals[terrKey] || 'none';
+    if (savedVal === 'resident') savedVal = 'feeding_rights';
+    if (savedVal === 'poacher') savedVal = 'poaching';
+    if (gridVals[terrKey] === undefined && !isBarrens) {
+      savedVal = hasFeedingRights ? 'feeding_rights' : 'none';
+    }
+
+    const isActive = savedVal !== 'none';
+    const statusVal = isBarrens ? (isActive ? 'barrens' : 'none')
+      : (hasFeedingRights ? 'feeding_rights' : 'poaching');
+    const statusLabel = isBarrens ? 'The Barrens'
+      : (hasFeedingRights ? 'Feeding Rights' : 'Poaching');
+
+    const activeClass = isActive
+      ? (isBarrens ? ' dt-terr-pill-barrens' : (hasFeedingRights ? ' dt-terr-pill-rights' : ' dt-terr-pill-poach'))
+      : '';
+
+    h += `<button type="button" class="dt-terr-pill${activeClass}"`;
+    h += ` data-feed-terr-key="${terrKey}" data-feed-status="${statusVal}" data-feed-active="${isActive ? '1' : '0'}">`;
+    h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
+    if (ambience && !isBarrens) h += `<span class="dt-terr-pill-amb">${esc(ambience)}</span>`;
+    if (isActive && !isBarrens) h += `<span class="dt-terr-pill-status">${statusLabel}</span>`;
+    h += '</button>';
+    h += `<input type="hidden" id="feed-val-${terrKey}" value="${savedVal}">`;
+  }
+  h += '</div>';
+  return h;
+}
+
 function renderSphereFields(n, prefix, fields, saved, charMerits) {
   let h = '';
 
   if (fields.includes('territory')) {
     const savedTerr = saved[`${prefix}_${n}_territory`] || '';
     h += '<div class="qf-field">';
-    h += `<label class="qf-label" for="dt-${prefix}_${n}_territory">Territory</label>`;
-    h += `<select id="dt-${prefix}_${n}_territory" class="qf-select">`;
-    h += '<option value="">— No Territory —</option>';
-    for (const t of TERRITORY_DATA) {
-      const sel = savedTerr === t.id ? ' selected' : '';
-      h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
-    }
-    h += '</select></div>';
+    h += '<label class="qf-label">Territory</label>';
+    h += renderTerritoryPills(`dt-${prefix}_${n}_territory`, savedTerr);
+    h += '</div>';
   }
 
   if (fields.includes('target_char')) {
@@ -3183,13 +3255,7 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
       }
       h += '</select>';
     } else if (savedType === 'territory') {
-      h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select dt-flex-terr-sel">`;
-      h += '<option value="">— Select Territory —</option>';
-      for (const t of TERRITORY_DATA) {
-        const sel = t.id === savedVal ? ' selected' : '';
-        h += `<option value="${esc(t.id)}"${sel}>${esc(t.name)}</option>`;
-      }
-      h += '</select>';
+      h += renderTerritoryPills(`dt-${prefix}_${n}_target_value`, savedVal);
     } else if (savedType === 'other') {
       h += `<input type="text" id="dt-${prefix}_${n}_target_value" class="qf-input" value="${esc(savedVal)}" placeholder="Describe what you are investigating">`;
     }
@@ -3982,52 +4048,9 @@ function renderQuestion(q, value) {
     case 'territory_grid': {
       let gridVals = {};
       if (value) { try { gridVals = JSON.parse(value); } catch { /* ignore */ } }
-
       h += '<p class="qf-desc">Ambience shown is current. Actual feeding ambience is calculated after Downtime processing and may shift based on how many Kindred feed in each territory.</p>';
-      h += `<div class="dt-feed-grid" id="dt-${q.key}">`;
-
-      for (const terr of FEEDING_TERRITORIES) {
-        const terrKey = terr.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        const isBarrens = terr.includes('Barrens');
-        const terrData = TERRITORY_DATA.find(t => t.name === terr);
-        const ambience = terrData ? terrData.ambience : '';
-
-        // Feeding rights: check _territories feeding_rights array
-        const hasFeedingRights = !isBarrens && (_territories || []).some(t =>
-          t.name === terr && Array.isArray(t.feeding_rights) &&
-          t.feeding_rights.some(id => String(id) === String(currentChar._id))
-        );
-
-        // Normalise saved value (legacy mapping)
-        let savedVal = gridVals[terrKey] || 'none';
-        if (savedVal === 'resident') savedVal = 'feeding_rights';
-        if (savedVal === 'poacher') savedVal = 'poaching';
-
-        // Default to primary option if no explicit save
-        if (gridVals[terrKey] === undefined && !isBarrens) {
-          savedVal = hasFeedingRights ? 'feeding_rights' : 'none';
-        }
-
-        const rowClass = hasFeedingRights ? 'dt-feed-grid-row dt-feed-rights' : 'dt-feed-grid-row';
-        h += `<div class="${rowClass}">`;
-        h += `<span class="dt-feed-grid-terr">${esc(terr)}`;
-        if (ambience) h += ` <span class="dt-feed-ambience">${esc(ambience)}</span>`;
-        h += '</span>';
-
-        if (isBarrens) {
-          h += '<span class="dt-feed-grid-options">';
-          h += `<label class="dt-feed-radio-label"><input type="radio" name="feed-${terrKey}" value="none"${savedVal === 'none' ? ' checked' : ''}> Not feeding here</label>`;
-          h += '</span>';
-        } else {
-          const opt1Val = hasFeedingRights ? 'feeding_rights' : 'poaching';
-          const opt1Label = hasFeedingRights ? 'Feeding Rights' : 'Poaching';
-          h += '<span class="dt-feed-grid-options">';
-          h += `<label class="dt-feed-radio-label dt-feed-primary"><input type="radio" name="feed-${terrKey}" value="${opt1Val}"${savedVal === opt1Val ? ' checked' : ''}> ${opt1Label}</label>`;
-          h += `<label class="dt-feed-radio-label"><input type="radio" name="feed-${terrKey}" value="none"${savedVal === 'none' ? ' checked' : ''}> Not feeding here</label>`;
-          h += '</span>';
-        }
-        h += '</div>';
-      }
+      h += `<div id="dt-${q.key}">`;
+      h += renderFeedingTerritoryPills(gridVals);
       h += '</div>';
       break;
     }
