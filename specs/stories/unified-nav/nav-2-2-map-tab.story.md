@@ -17,11 +17,11 @@ So that I can reference territory control and ambience during scenes.
 
 ## Tasks / Subtasks
 
-- [x] Wired Territory tab to `renderCityTab()` from `player/city-tab.js` — API-backed, not the localStorage bidding tracker (AC: #1, #2)
-- [x] `renderCityTab` fetches `GET /api/territories` and `GET /api/characters/public` on every open (AC: #4)
-- [x] Imported `renderCityTab` into `app.js` 
-- [x] City CSS classes ported from `player-layout.css` to `suite.css` (AC: #3)
-- [x] Responsive: `.city-split` stacks vertically at ≤768px (AC: #3)
+- [x] Territory tab wired to `mountTerr()` — the ST territory bidding tracker (correct per product intent)
+- [x] City CSS classes ported from `player-layout.css` to `suite.css` for future Map and Who's Who apps
+- [x] Responsive: `.city-split` stacks vertically at ≤768px
+
+**Scope note:** Map and Who's Who are separate More grid apps — not part of this story. Territory = bidding tracker only.
 
 ## Dev Notes
 
