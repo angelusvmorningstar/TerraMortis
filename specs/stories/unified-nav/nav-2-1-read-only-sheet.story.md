@@ -16,8 +16,11 @@ So that I can reference my character's stats clearly whether I'm on a phone or d
 
 1. **Given** a phone screen (≤768px) **When** the Sheet tab opens **Then** attributes and skills render in a single column, no horizontal scroll required
 2. **Given** a desktop screen (>1024px) **When** the Sheet tab opens **Then** wider layout renders with multiple columns where appropriate
-3. **Given** an ST user on Sheet tab **When** no character is selected **Then** the character picker (chip grid) is shown first
-4. **Given** an ST selects a character from the picker **When** the chip is tapped **Then** that character's sheet renders replacing the picker
+3. **Given** an ST user on Sheet tab **When** no character is selected **Then** the character picker is shown first as a regular 3-column grid of equal-width chips
+4. **Given** an ST selects a character chip **When** tapped **Then** that character's sheet renders replacing the picker
+5. **Given** the character picker renders **When** measured on a 390px phone **Then** chips are arranged in 3 equal columns with consistent padding (16px outer, 8px gap)
+6. **Given** each character chip **When** rendered **Then** it shows the covenant icon alongside the character name
+7. **Given** any chip in the grid **When** rendered **Then** all chips are the same width and height (not sized to content) — no ragged edges
 5. **Given** a player user on Sheet tab **When** the tab opens **Then** their own character sheet renders immediately — no picker
 6. **Given** any sheet renders **When** inspected **Then** all colours use CSS tokens only (`--accent`, `--label-secondary`, etc.) — no hardcoded values
 
@@ -29,10 +32,14 @@ So that I can reference my character's stats clearly whether I'm on a phone or d
 - [ ] Extend responsive CSS for unified app (AC: #1, #2)
   - [ ] Verify `.sh-attr-grid` and `.skill-grid` collapse to 1-col at ≤768px in the unified app context
   - [ ] Add breakpoints to `suite.css` if not already covered from `player-layout.css`
-- [ ] ST character picker wiring (AC: #3, #4)
-  - [ ] On Sheet tab open for ST: render character chip grid (`renderList()` or similar)
+- [ ] ST character picker — 3-column equal-width grid with covenant icons (AC: #3, #4, #5, #6, #7)
+  - [ ] On Sheet tab open for ST: render character picker using CSS grid `repeat(3, 1fr)`, not flex-wrap
+  - [ ] Each chip: equal width/height, fixed dimensions, 16px outer padding, 8px gap
+  - [ ] Each chip shows: covenant icon (SVG, 16px) + character display name
+  - [ ] Covenant icon: use existing `covIcon(c.covenant, 16)` helper
   - [ ] On chip tap: call `onSheetChar(char)` to render that character's sheet
   - [ ] Show back button to return to chip grid
+  - [ ] Update `.char-chip` or add `.sheet-char-chip` variant to `suite.css` for 3-col fixed layout
 - [ ] Player sheet wiring (AC: #5)
   - [ ] On Sheet tab open for player: call `onSheetChar(playerChar)` directly
   - [ ] `playerChar` from `getPlayerInfo().character_ids[0]` → look up in `suiteState.chars`
