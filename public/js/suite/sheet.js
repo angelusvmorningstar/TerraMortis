@@ -14,7 +14,7 @@ import { prereqLabel } from '../data/prereq.js';
 import {
   dots, dotsWithBonus, getAttrDots, getAttrBonus,
   skillDots, skillSpec,
-  meritBase, meritDotCount, meritSuffix, meritKey, meritLookup,
+  meritBase, meritDotCount, meritLookup,
   powersForDisc, otherPowers,
   toggleExp, toggleDisc, expRow
 } from './sheet-helpers.js';
@@ -37,7 +37,9 @@ export function onSheetChar(name) {
   }
   state.sheetChar = state.chars.find(c => c.name === name) || null;
   if (!state.sheetChar) return;
+  state.rollChar = state.sheetChar;
   document.getElementById('sh-empty').style.display = 'none';
+  document.getElementById('sh-content-suite').style.display = '';
   renderSheet();
 }
 
@@ -308,17 +310,22 @@ export function renderSheet() {
   html += `</div></div>`;
 
   // ── Powers -- four sections ──
+
+  function dotsMixed(purchased, bonus) {
+    if (!purchased && !bonus) return '';
+    return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
+  }
+
   if (c.disciplines && Object.keys(c.disciplines).length) {
 
-    function renderDiscRow(d, r, nameStyle) {
+    function renderDiscRow(d, r, nameClass) {
       const discPowers = powersForDisc(c.powers || [], d, r);
       const hasPowers = discPowers.length > 0;
       const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
       let drawerHtml = '';
       discPowers.forEach(p => {
-        const pname = p.name || '';
         drawerHtml += `<div class="disc-power">
-          <div class="disc-power-name">${pname}</div>
+          <div class="disc-power-name">${p.name || ''}</div>
           ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
           <div class="disc-power-effect">${p.effect || ''}</div>
         </div>`;
@@ -326,18 +333,12 @@ export function renderSheet() {
       if (d === 'Auspex' && r >= 1) {
         drawerHtml += `<button class="auspex-insight-btn" onclick="openPanel('auspex')">Auspex Insight \u203A</button>`;
       }
-      const nameTag = (nameStyle ? '<span class="disc-tap-name" style="' + nameStyle + '">' : '<span class="disc-tap-name">') + d + '</span>';
-      const dotsTag = r ? `<span class="disc-tap-dots">${dots(r)}</span>` : '';
+      const nCls = nameClass ? `trait-name ${nameClass}` : 'trait-name';
+      const dTag = r ? `<span class="trait-dots">${dots(r)}</span>` : '';
       const isExpandable = hasPowers || (d === 'Auspex' && r >= 1);
-      if (!isExpandable) {
-        return `<div class="disc-tap-row">
-          <div class="disc-tap-left">${nameTag}${dotsTag}</div>
-        </div>`;
-      }
-      return `<div class="disc-tap-row" id="disc-row-${id}" onclick="toggleDisc('${id}')">
-          <div class="disc-tap-left">${nameTag}${dotsTag}</div>
-          <span class="disc-tap-arr">\u203A</span>
-        </div>
+      const inner = `<div class="trait-row"><div class="trait-main"><span class="${nCls}">${d}</span><div class="trait-right">${dTag}${isExpandable ? '<span class="disc-tap-arr">\u203A</span>' : ''}</div></div></div>`;
+      if (!isExpandable) return `<div class="disc-tap-row">${inner}</div>`;
+      return `<div class="disc-tap-row" id="disc-row-${id}" onclick="toggleDisc('${id}')">${inner}</div>
         <div class="disc-drawer" id="disc-drawer-${id}">${drawerHtml}</div>`;
     }
 
@@ -358,18 +359,13 @@ export function renderSheet() {
     if (devotionPowers.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">`;
       devotionPowers.forEach((p, i) => {
-        const pname = p.name || '';
         const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">
-          <div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">${pname}</span></div>
-          <span class="disc-tap-arr">\u203A</span>
-        </div>
-        <div class="disc-drawer" id="disc-drawer-${gid}">
-          <div class="disc-power">
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+          <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
-          </div>
-        </div>`;
+          </div></div>`;
       });
       html += `</div></div>`;
     }
@@ -377,26 +373,40 @@ export function renderSheet() {
     // 3. Blood Sorcery (Cruac, Theban)
     if (ritualDiscs.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Blood Sorcery</div><div class="disc-list">`;
-      ritualDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r?.dots || 0, 'color:rgba(220,160,120,.9)'); });
+      ritualDiscs.forEach(([d, r]) => { html += renderDiscRow(d, r?.dots || 0, 'sorcery'); });
       html += `</div></div>`;
     }
 
-    // 4. Pacts (Oaths + Carthian Law)
-    const pacts = others.filter(p => p.category === 'pact' || p.category === 'rite');
+    // 4. Rites (Cruac / Theban — stored on c.powers)
+    const rites = others.filter(p => p.category === 'rite');
+    if (rites.length) {
+      html += `<div class="sh-sec"><div class="sh-sec-title">Rites</div><div class="disc-list">`;
+      rites.forEach((p, i) => {
+        const gid = 'rite' + c.name.replace(/[^a-z]/gi, '') + i;
+        const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
+        const tradSub = p.tradition ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition}</span></div>` : '';
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+          <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
+            ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
+            <div class="disc-power-effect">${p.effect || ''}</div>
+          </div></div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // 5. Pacts (Oaths of the Notary, Carthian Law)
+    const pacts = others.filter(p => p.category === 'pact');
     if (pacts.length) {
       html += `<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">`;
       pacts.forEach((p, i) => {
         const gid = 'pact' + c.name.replace(/[^a-z]/gi, '') + i;
-        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">
-          <div class="disc-tap-left"><span class="disc-tap-name" style="color:var(--txt2)">${p.name}</span></div>
-          <span class="disc-tap-arr">\u203A</span>
-        </div>
-        <div class="disc-drawer" id="disc-drawer-${gid}">
-          <div class="disc-power">
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
+          <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
             <div class="disc-power-effect">${p.effect || ''}</div>
-          </div>
-        </div>`;
+          </div></div>`;
       });
       html += `</div></div>`;
     }
@@ -408,9 +418,44 @@ export function renderSheet() {
     const _inflTip = influenceBreakdown(c).join('\n');
     const _inflTotal = calcTotalInfluence(c);
     html += `<div class="sh-sec"><div class="sh-sec-title" title="${_inflTip}">Influence Merits <span style="font-size:11px;color:var(--accent);letter-spacing:0">(${_inflTotal} inf)</span></div><div class="merit-list">`;
-    inflMerits.forEach((m, i) => {
-      html += renderMeritRow(m, 'infl', i);
+
+    const nonContacts = inflMerits.filter(m => m.name !== 'Contacts');
+    const contactsMerits = inflMerits.filter(m => m.name === 'Contacts');
+
+    nonContacts.forEach((m, i) => {
+      const area = (m.area || '').trim() || null;
+      const ghoul = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '';
+      const tags = m._grant_sources || [];
+      const grantTag = tags.length ? `<span class="gen-granted-tag-view">${tags.join(', ')}</span>` : '';
+      const purch = (m.cp || 0) + (m.xp || 0);
+      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
+               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
+               + (m.free_pt || 0) + (m.free_sw || 0);
+      const dotH = (purch || bon)
+        ? dotsMixed(purch, bon)
+        : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
+      const label = area ? m.name + ' (' + area + ghoul + ')' : m.name + ghoul;
+      html += renderMeritRow({ name: label, rating: 0 }, 'infl', i, dotH + grantTag);
     });
+
+    if (contactsMerits.length) {
+      let totalPurch = 0, totalRating = 0;
+      const allSpheres = [];
+      contactsMerits.forEach(m => {
+        totalPurch += (m.cp || 0) + (m.xp || 0);
+        totalRating += (m.rating || 0);
+        if (m.spheres && m.spheres.length) allSpheres.push(...m.spheres);
+        else if (m.area) allSpheres.push(m.area.trim());
+        else if (m.qualifier) allSpheres.push(...m.qualifier.split(/,\s*/).filter(Boolean));
+      });
+      totalRating = Math.min(5, totalRating);
+      const cPurch = Math.min(totalPurch, totalRating);
+      const cBon = Math.max(0, totalRating - cPurch);
+      const sp = [...new Set(allSpheres.filter(Boolean))].join(', ');
+      html += renderMeritRow({ name: 'Contacts' + (sp ? ' (' + sp + ')' : ''), rating: 0 }, 'infl', 'contacts', dotsMixed(cPurch, cBon));
+    }
+
+    html += `<div class="infl-total" title="${_inflTip}">Total Influence: <span class="inf-n">${_inflTotal}</span></div>`;
     html += `</div></div>`;
   }
 
@@ -421,12 +466,9 @@ export function renderSheet() {
     domMerits.forEach(m => {
       const hasPartners = (m.shared_with || []).length > 0;
       if (hasPartners) {
-        // Own dots from all purchase sources
         const own = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
                   + (m.free_pet || 0) + (m.free_vm || 0) + (m.free_lk || 0)
                   + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
-        // Partner contributions — try state.chars first, fall back to
-        // server-enriched _partner_dots (player portal ?mine=1 path)
         let partnerDots = 0;
         for (const pName of m.shared_with) {
           const p = (state.chars || []).find(ch => ch.name === pName);
@@ -439,10 +481,12 @@ export function renderSheet() {
         const total = Math.min(5, own + partnerDots);
         const ownCapped = Math.min(own, total);
         const hollow = Math.max(0, total - ownCapped);
-        const label = m.name + ' <span style="font-size:10px;color:var(--txt3)">Shared</span>';
-        html += `<div class="merit-plain"><span class="merit-name">${label}</span><span class="merit-dots">${dotsWithBonus(ownCapped, hollow)}</span></div>`;
+        const dotH = dotsMixed(ownCapped, hollow);
+        html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotH}<span class="trait-qual" style="font-size:10px">Shared</span></div></div></div></div>`;
       } else {
-        html += `<div class="merit-plain"><span class="merit-name">${m.name}</span><span class="merit-dots">${dots(m.rating || 0)}</span></div>`;
+        const purch = (m.cp || 0) + (m.xp || 0);
+        const bon = Math.max(0, (m.rating || 0) - purch);
+        html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotsMixed(purch, bon)}</div></div></div></div>`;
       }
     });
     html += `</div></div>`;
@@ -493,31 +537,13 @@ export function renderSheet() {
         }
         drawerHtml += '</div>';
       }
-      // Render as expandable row if we have drawer content, plain row otherwise
+      const qualSub = qualifier ? `<div class="trait-sub"><span class="trait-qual">${qualifier}</span></div>` : '';
+      const standInner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right"><span class="trait-dots">${dots(m.rating || 0)}</span>${drawerHtml ? '<span class="disc-tap-arr">\u203A</span>' : ''}</div></div>${qualSub}</div>`;
       if (drawerHtml) {
-        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="toggleDisc('${sid}')">
-          <div class="disc-tap-left">
-            <div style="display:flex;flex-direction:column;gap:2px;">
-              <span class="disc-tap-name">${m.name}</span>
-              ${qualifier ? `<span style="font-family:var(--fl);font-size:10px;color:var(--label-secondary);font-weight:400">${qualifier}</span>` : ''}
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="disc-tap-dots">${dots(m.rating || 0)}</span>
-            <span class="disc-tap-arr">\u203A</span>
-          </div>
-        </div>
-        <div class="disc-drawer" id="disc-drawer-${sid}">${drawerHtml}</div>`;
+        html += `<div class="disc-tap-row" id="disc-row-${sid}" onclick="toggleDisc('${sid}')">${standInner}</div>
+          <div class="disc-drawer" id="disc-drawer-${sid}">${drawerHtml}</div>`;
       } else {
-        html += `<div class="disc-tap-row" style="cursor:default">
-          <div class="disc-tap-left">
-            <div style="display:flex;flex-direction:column;gap:2px;">
-              <span class="disc-tap-name">${m.name}</span>
-              ${qualifier ? `<span style="font-family:var(--fl);font-size:10px;color:var(--label-secondary);font-weight:400">${qualifier}</span>` : ''}
-            </div>
-          </div>
-          <span class="disc-tap-dots">${dots(m.rating || 0)}</span>
-        </div>`;
+        html += `<div class="disc-tap-row" style="cursor:default">${standInner}</div>`;
       }
     });
     html += `</div></div>`;
@@ -527,36 +553,51 @@ export function renderSheet() {
   const otherMerits = generalMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const manMerits = manoeuvres(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-  function renderMeritRow(m, idPrefix, i) {
+  // renderMeritRow — trait-row structure; dotHtml optional override (pass pre-built dotsMixed string)
+  function renderMeritRow(m, idPrefix, i, dotHtml) {
     const base = meritBase(m);
-    const dcnt = meritDotCount(m);
-    const dotsStr = dcnt ? dots(dcnt) : '';
     const parenMatch = base.match(/^([^(]+?)\s*\((.+)\)$/);
     const mainName = parenMatch ? parenMatch[1].trim() : base;
     const subName = parenMatch ? parenMatch[2].trim() : null;
-    const nameHtml = subName
-      ? `<div class="merit-name">${mainName}</div><div class="merit-sub">${subName}</div>`
-      : `<div class="merit-name">${mainName}</div>`;
     const db = meritLookup(m);
-    const dotsTag = dotsStr ? `<span class="merit-dots">${dotsStr}</span>` : '';
-    if (db && db.desc) {
+    if (dotHtml === undefined) {
+      const purch = (m.cp || 0) + (m.xp || 0);
+      const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
+               + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
+               + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
+      const dcnt = meritDotCount(m);
+      dotHtml = (purch || bon) ? dotsMixed(purch, bon) : (dcnt ? `<span class="trait-dots">${dots(dcnt)}</span>` : '');
+    }
+    const hasDesc = db && db.desc;
+    const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${mainName}</span><div class="trait-right">${dotHtml}<span class="exp-arr${hasDesc ? '' : ' trait-arr-hidden'}">\u203A</span></div></div>${subName ? `<div class="trait-sub"><span class="trait-qual">${subName}</span></div>` : ''}</div>`;
+    if (hasDesc) {
       const id = idPrefix + i;
       const body = `<div>${db.desc}</div>${db.prereq ? `<div style="margin-top:5px;font-style:italic;color:var(--txt3)">Prerequisite: ${db.prereq}</div>` : ''}`;
-      return `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">
-        <div style="flex:1;min-width:0">${nameHtml}</div>
-        ${dotsTag}<span class="exp-arr">\u203A</span>
-      </div>
-      <div class="exp-body" id="exp-body-${id}">${body}</div>`;
-    } else {
-      return `<div class="merit-plain">
-        <div style="flex:1;min-width:0">${nameHtml}</div>${dotsTag}
-      </div>`;
+      return `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">${inner}</div><div class="exp-body" id="exp-body-${id}">${body}</div>`;
     }
+    return `<div class="merit-plain">${inner}</div>`;
   }
 
   if (otherMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Merits</div><div class="merit-list">`;
-    otherMerits.forEach((m, i) => { html += renderMeritRow(m, 'merit', i); });
+    otherMerits.forEach((m, i) => {
+      const qual = m.qualifier ? ' (' + m.qualifier + ')' : '';
+      if (m.granted_by) {
+        const gb = m.granted_by === 'Mystery Cult Initiation' ? 'MCI' : m.granted_by === 'Professional Training' ? 'PT' : m.granted_by;
+        const purch = (m.cp || 0) + (m.xp || 0);
+        const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
+                 + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
+                 + (m.free_pt || 0) + (m.free_sw || 0) + (m.free_mdb || 0);
+        const dotH = (purch || bon)
+          ? dotsMixed(purch, bon)
+          : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
+        html += renderMeritRow({ name: m.name + qual, rating: 0 }, 'gmerit', i, dotH + `<span class="gen-granted-tag-view" title="Granted by ${m.granted_by}">${gb}</span>`);
+      } else {
+        // Let renderMeritRow compute dots from the merit object — handles purch/bon split
+        // with fallback to m.rating when no sources tracked
+        html += renderMeritRow(Object.assign({}, m, { name: m.name + qual }), 'merit', i);
+      }
+    });
     html += `</div></div>`;
   }
 
@@ -570,19 +611,9 @@ export function renderSheet() {
       const rule = slug ? getRuleByKey(slug) : null;
       const db = rule ? { style: rule.parent, rank: rule.rank, effect: rule.description, prereq: rule.prereq ? prereqLabel(rule.prereq) : null } : null;
       const id = 'man' + i;
-      const body = db ? `<div class="man-exp-body">
-        <div class="man-style">${db.style} \u2014 Rank ${db.rank}</div>
-        <div>${db.effect || ''}</div>
-        ${db.prereq ? `<div class="man-prereq">Prerequisite: ${db.prereq}</div>` : ''}
-      </div>` : `<div>${manName || base}</div>`;
-      html += `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">
-        <div style="flex:1;min-width:0">
-          <div class="merit-name">${manName || base}</div>
-          <div class="merit-sub">${base} \u2014 Rank ${rank}</div>
-        </div>
-        <span class="exp-arr">\u203A</span>
-      </div>
-      <div class="exp-body" id="exp-body-${id}">${body}</div>`;
+      const body = db ? `<div class="man-exp-body"><div class="man-style">${db.style} \u2014 Rank ${db.rank}</div><div>${db.effect || ''}</div>${db.prereq ? `<div class="man-prereq">Prerequisite: ${db.prereq}</div>` : ''}</div>` : `<div>${manName || base}</div>`;
+      const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name">${manName || base}</span><div class="trait-right"><span class="exp-arr">\u203A</span></div></div><div class="trait-sub"><span class="trait-qual">${base} \u2014 Rank ${rank}</span></div></div>`;
+      html += `<div class="exp-row" id="exp-row-${id}" onclick="toggleExp('${id}')">${inner}</div><div class="exp-body" id="exp-body-${id}">${body}</div>`;
     });
     html += `</div></div>`;
   }

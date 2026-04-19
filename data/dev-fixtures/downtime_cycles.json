@@ -1,0 +1,71 @@
+[
+  {
+    "_id": "69d0a3c5052b57f6be774e69",
+    "label": "Downtime 2",
+    "game_number": 2,
+    "status": "closed",
+    "loaded_at": "2026-04-04T05:38:13.443Z",
+    "submission_count": 29,
+    "deadline_at": "2026-04-08T15:00:00.000Z",
+    "regency_character_id": null,
+    "regency_character_name": null,
+    "discipline_profile": {
+      "harbour": {
+        "Dominate": 1,
+        "Obfuscate": 1,
+        "Nightmare": 2,
+        "Vigour": 2
+      },
+      "northshore": {
+        "Auspex": 2,
+        "Obfuscate": 1,
+        "Majesty": 1
+      },
+      "secondcity": {
+        "Dominate": 1,
+        "Majesty": 2
+      },
+      "dockyards": {
+        "Obfuscate": 5,
+        "Celerity": 1
+      },
+      "academy": {
+        "Obfuscate": 2,
+        "Dominate": 2,
+        "Majesty": 1
+      }
+    },
+    "confirmed_ambience": {
+      "academy": {
+        "ambience": "Tended",
+        "ambienceMod": 2
+      },
+      "dockyards": {
+        "ambience": "Neglected",
+        "ambienceMod": -3
+      },
+      "harbour": {
+        "ambience": "Settled",
+        "ambienceMod": 0
+      },
+      "northshore": {
+        "ambience": "Curated",
+        "ambienceMod": 3
+      },
+      "secondcity": {
+        "ambience": "Curated",
+        "ambienceMod": 3
+      }
+    },
+    "closed_at": "2026-04-17T08:34:40.499Z",
+    "ambience_applied": true
+  },
+  {
+    "_id": "dev0000000000000000000dt3",
+    "label": "Downtime 3",
+    "game_number": 3,
+    "status": "open",
+    "loaded_at": "2026-04-19T00:00:00.000Z",
+    "deadline_at": "2026-05-03T15:00:00.000Z"
+  }
+]

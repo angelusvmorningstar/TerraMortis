@@ -19,7 +19,7 @@ export function dots(n) {
 export function dotsWithBonus(base, bonus) {
   const b = Math.max(0, base || 0), x = Math.max(0, bonus || 0);
   if (!x) return dots(b);
-  return '\u25CF'.repeat(b) + '<span style="color:rgba(220,200,150,.45);letter-spacing:2.5px">\u25CB'.repeat(x) + '</span>';
+  return '\u25CF'.repeat(b) + '<span class="dots-bonus">' + '\u25CB'.repeat(x) + '</span>';
 }
 
 export function getAttrDots(c, a) {

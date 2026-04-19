@@ -46,8 +46,8 @@ let currentChar     = null;
 let statusCache     = {}; // { questionnaire, history, rules, lore, covenant }
 let submissionsMap  = {}; // { [ordeal_type]: stripped submission doc }
 
-export async function initOrdeals(char, chars) {
-  const el = document.getElementById('tab-xplog');
+export async function initOrdeals(char, chars, containerEl) {
+  const el = containerEl || document.getElementById('tab-xplog');
   if (!el) return;
   currentChar = char;
 

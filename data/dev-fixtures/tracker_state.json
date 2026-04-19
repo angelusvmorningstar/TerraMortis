@@ -1,0 +1,8 @@
+[
+  { "char_id": "600000000000000000000001", "vitae": 8, "willpower": 5, "bashing": 0, "lethal": 0, "aggravated": 0, "influence": 6 },
+  { "char_id": "600000000000000000000002", "vitae": 9, "willpower": 6, "bashing": 0, "lethal": 0, "aggravated": 0, "influence": 3 },
+  { "char_id": "600000000000000000000003", "vitae": 5, "willpower": 4, "bashing": 2, "lethal": 0, "aggravated": 0, "influence": 3 },
+  { "char_id": "600000000000000000000004", "vitae": 7, "willpower": 5, "bashing": 0, "lethal": 0, "aggravated": 0, "influence": 4 },
+  { "char_id": "600000000000000000000005", "vitae": 4, "willpower": 5, "bashing": 0, "lethal": 1, "aggravated": 0, "influence": 1 },
+  { "char_id": "600000000000000000000006", "vitae": 6, "willpower": 4, "bashing": 0, "lethal": 0, "aggravated": 0, "influence": 3 }
+]
