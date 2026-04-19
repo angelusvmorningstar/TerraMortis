@@ -323,6 +323,12 @@ function goTab(t) {
     const el = document.getElementById('t-primer');
     if (el) renderPrimerTab(el);
   }
+  if (t === 'game-guide') {
+    const el = document.getElementById('t-game-guide');
+    if (el && !el.innerHTML.trim()) {
+      el.innerHTML = '<div style="padding:32px 20px;max-width:480px;margin:0 auto"><p class="sh-sec-title">Game Guide</p><p style="font-family:var(--ft);font-size:14px;color:var(--txt2);line-height:1.7;margin-top:12px">Content coming soon. Ask your Storyteller.</p></div>';
+    }
+  }
   if (t === 'ordeals') {
     const el = document.getElementById('t-ordeals');
     const char = _activeMoreChar();
