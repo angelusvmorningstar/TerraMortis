@@ -619,6 +619,23 @@ export function renderSheet() {
     html += `</div></div>`;
   }
 
+  // ── Active Conditions (from tracker_state) ──
+  const cs2 = trackerRead(String(c._id));
+  const activeConds = (cs2 && cs2.conditions) ? cs2.conditions : [];
+  if (activeConds.length) {
+    html += `<div class="sh-sec"><div class="sh-sec-title">Active Conditions</div><div class="cond-sheet-list">`;
+    activeConds.forEach(cond => {
+      const condName   = typeof cond === 'object' ? cond.name : cond;
+      const condEffect = typeof cond === 'object' ? cond.effect : '';
+      const condRes    = typeof cond === 'object' ? cond.resolution : '';
+      html += `<div class="cond-sheet-card"><div class="cond-sheet-name">${esc(condName)}</div>`;
+      if (condEffect) html += `<div class="cond-sheet-effect">${esc(condEffect)}</div>`;
+      if (condRes)    html += `<div class="cond-sheet-res"><span class="cond-sheet-res-lbl">Resolution:</span> ${esc(condRes)}</div>`;
+      html += `</div>`;
+    });
+    html += `</div></div>`;
+  }
+
   // ── Equipment ──
   const equipment = getEquipment(c);
   if (equipment.length) {

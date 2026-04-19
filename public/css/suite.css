@@ -548,15 +548,29 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .trk-agg  .trk-dmg-n{color:var(--err3-a9);}
 /* Conditions */
 .trk-conds{padding:8px 16px 10px;border-top:0.5px solid var(--bdr2);}
-.trk-cond-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.trk-cond-chips{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
 .trk-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 10px;background:var(--surf2);border:1px solid var(--bdr2);border-radius:10px;font-family:var(--fl);font-size:11px;color:var(--txt);}
 .trk-chip-rm{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:13px;line-height:1;padding:0;-webkit-tap-highlight-color:transparent;}
-.trk-cond-row{display:flex;gap:6px;}
-.trk-cond-in{flex:1;background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);font-family:var(--fl);font-size:12px;padding:7px 10px;outline:none;border-radius:4px;}
+.trk-cond-card{background:var(--surf2);border:1px solid var(--bdr2);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;}
+.trk-cond-card-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.trk-cond-name{font-family:var(--fl);font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--txt);text-transform:uppercase;}
+.trk-cond-effect{font-family:var(--ft);font-size:11px;color:var(--txt2);line-height:1.4;}
+.trk-cond-res{font-family:var(--ft);font-size:10px;color:var(--txt3);line-height:1.4;}
+.trk-cond-res-lbl{font-family:var(--fl);font-weight:700;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);}
+.trk-cond-row{display:flex;gap:6px;flex-wrap:wrap;}
+.trk-cond-sel{flex:1;min-width:140px;background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);font-family:var(--fl);font-size:12px;padding:7px 10px;outline:none;border-radius:4px;cursor:pointer;}
+.trk-cond-in{flex:1;min-width:80px;background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);font-family:var(--fl);font-size:12px;padding:7px 10px;outline:none;border-radius:4px;}
 .trk-cond-in::placeholder{color:var(--txt3);}
-.trk-cond-in:focus{border-color:var(--bdr2);}
+.trk-cond-in:focus,.trk-cond-sel:focus{border-color:var(--bdr2);}
 .trk-cond-add{padding:7px 12px;background:var(--surf2);border:1px solid var(--bdr2);color:var(--txt2);font-family:var(--fl);font-size:10px;letter-spacing:.08em;cursor:pointer;border-radius:4px;-webkit-tap-highlight-color:transparent;}
 .trk-cond-add:active{background:var(--surf3);}
+/* Condition cards on player sheet */
+.cond-sheet-list{display:flex;flex-direction:column;gap:6px;}
+.cond-sheet-card{background:var(--surf2);border:1px solid var(--bdr2);border-left:3px solid var(--err);border-radius:0 6px 6px 0;padding:8px 12px;display:flex;flex-direction:column;gap:3px;}
+.cond-sheet-name{font-family:var(--fl);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt);}
+.cond-sheet-effect{font-family:var(--ft);font-size:12px;color:var(--txt2);line-height:1.5;}
+.cond-sheet-res{font-family:var(--ft);font-size:11px;color:var(--txt3);line-height:1.4;}
+.cond-sheet-res-lbl{font-family:var(--fl);font-weight:700;font-size:9px;letter-spacing:.06em;text-transform:uppercase;}
 
 /* ── GAME APP STUBS ── */
 .ga-stub{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:60vh;padding:40px 24px;text-align:center;gap:12px;}

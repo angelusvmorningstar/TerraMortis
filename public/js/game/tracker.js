@@ -6,6 +6,8 @@ import suiteState from '../suite/data.js';
 import { calcVitaeMax, calcWillpowerMax, calcHealth } from '../data/accessors.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { esc } from '../data/helpers.js';
+import { CONDITIONS_DB } from '../data/conditions.js';
+import { getRole } from '../auth/discord.js';
 
 const LOCAL_PREFIX = 'tm_tracker_local_';
 
@@ -40,6 +42,7 @@ function persistedFields(cs) {
     lethal:     cs.lethal,
     aggravated: cs.aggravated,
     influence:  cs.inf,
+    conditions: cs.conditions || [],
   };
 }
 
@@ -85,7 +88,7 @@ async function ensureLoaded(c) {
       lethal:     remote.lethal     ?? 0,
       aggravated: remote.aggravated ?? 0,
       inf:        remote.influence  ?? calcTotalInfluence(c),
-      conditions: local.conditions  ?? [],
+      conditions: remote.conditions ?? local.conditions ?? [],
     };
     _confirmed.add(id);
     return _cache[id];
@@ -223,15 +226,23 @@ export async function trackerAdj(charId, field, delta) {
 }
 
 export function trackerAddCondition(charId) {
-  const input = document.getElementById('cond-in-' + charId);
-  const val   = input?.value.trim();
-  if (!val) return;
+  const selEl   = document.getElementById('cond-sel-' + charId);
+  const input   = document.getElementById('cond-in-'  + charId);
+  const selVal  = selEl?.value || '';
+  const freeVal = input?.value.trim() || '';
+  const condName = selVal || freeVal;
+  if (!condName) return;
   const c = (suiteState.chars || []).find(x => String(x._id) === charId);
   if (!c) return;
   const cs = fromCache(c);
-  cs.conditions = [...(cs.conditions || []), val];
-  saveLocal(charId, { conditions: cs.conditions });
-  input.value = '';
+  const dbEntry = CONDITIONS_DB.find(cd => cd.name === condName);
+  const entry = dbEntry
+    ? { name: dbEntry.name, effect: dbEntry.effect, resolution: dbEntry.resolution, applied_at: new Date().toISOString() }
+    : { name: condName, applied_at: new Date().toISOString() };
+  cs.conditions = [...(cs.conditions || []), entry];
+  if (_confirmed.has(charId)) saveToApi(charId, { conditions: cs.conditions });
+  if (selEl) selEl.value = '';
+  if (input) input.value = '';
   patchCard(charId, c, cs);
 }
 
@@ -240,7 +251,7 @@ export function trackerRemoveCond(charId, idx) {
   if (!c) return;
   const cs = fromCache(c);
   cs.conditions = (cs.conditions || []).filter((_, i) => i !== idx);
-  saveLocal(charId, { conditions: cs.conditions });
+  if (_confirmed.has(charId)) saveToApi(charId, { conditions: cs.conditions });
   patchCard(charId, c, cs);
 }
 
@@ -311,15 +322,32 @@ function cardHtml(id, c, cs) {
   h += `</div></div>`;
 
   const conds = cs.conditions || [];
+  const isST = getRole() === 'st';
   h += '<div class="trk-conds">';
   if (conds.length) {
     h += '<div class="trk-cond-chips">';
     conds.forEach((cond, i) => {
-      h += `<span class="trk-chip">${esc(cond)}<button class="trk-chip-rm" onclick="trackerRemoveCond('${id}',${i})">\xD7</button></span>`;
+      const condName = typeof cond === 'object' ? cond.name : cond;
+      const condEffect = typeof cond === 'object' ? cond.effect : '';
+      const condRes    = typeof cond === 'object' ? cond.resolution : '';
+      h += `<div class="trk-cond-card">`;
+      h += `<div class="trk-cond-card-hdr"><span class="trk-cond-name">${esc(condName)}</span>${isST ? `<button class="trk-chip-rm" onclick="trackerRemoveCond('${id}',${i})" title="Resolve">\xD7 Resolve</button>` : ''}</div>`;
+      if (condEffect) h += `<div class="trk-cond-effect">${esc(condEffect)}</div>`;
+      if (condRes)    h += `<div class="trk-cond-res"><span class="trk-cond-res-lbl">Resolution:</span> ${esc(condRes)}</div>`;
+      h += '</div>';
     });
     h += '</div>';
   }
-  h += `<div class="trk-cond-row"><input id="cond-in-${id}" class="trk-cond-in" type="text" placeholder="Add condition\u2026" onkeydown="if(event.key==='Enter')trackerAddCondition('${id}')"><button class="trk-cond-add" onclick="trackerAddCondition('${id}')">Add</button></div>`;
+  if (isST) {
+    const condOpts = CONDITIONS_DB.map(cd =>
+      `<option value="${esc(cd.name)}">${esc(cd.name)}</option>`
+    ).join('');
+    h += `<div class="trk-cond-row">`;
+    h += `<select id="cond-sel-${id}" class="trk-cond-sel"><option value="">— pick condition —</option>${condOpts}</select>`;
+    h += `<input id="cond-in-${id}" class="trk-cond-in" type="text" placeholder="or type custom\u2026">`;
+    h += `<button class="trk-cond-add" onclick="trackerAddCondition('${id}')">Add</button>`;
+    h += `</div>`;
+  }
   h += '</div>';
 
   h += '</div>';
