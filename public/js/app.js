@@ -1151,7 +1151,11 @@ function toggleDesktopMode() {
   localStorage.setItem('tm-mode', isDesktop ? 'desktop' : 'game');
   _updateDesktopIcon();
   _syncSidebarActions();
-  if (isDesktop) renderDesktopSidebar();
+  if (isDesktop) {
+    renderDesktopSidebar();
+    const onMore = document.getElementById('t-more')?.classList.contains('active');
+    if (onMore) goTab('dice');
+  }
 }
 
 function _syncSidebarActions() {
