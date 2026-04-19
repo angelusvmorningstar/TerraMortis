@@ -923,7 +923,7 @@ const MORE_APPS = [
   { id: 'whos-who',     label: "Who's Who",   icon: _svg.whosWho,  section: 'game' },
   { id: 'dt-report',    label: 'DT Report',   icon: _svg.dtReport, section: 'game' },
   { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
-  { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'game' },
+  { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
   // ── Player section (player role only) ──
   { id: 'dt-submission', label: 'Submit DT',  icon: _svg.dtSubmit, section: 'player', playerOnly: true },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player', playerOnly: true },
