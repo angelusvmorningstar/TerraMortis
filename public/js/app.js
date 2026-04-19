@@ -272,6 +272,7 @@ function goTab(t) {
     const el = document.getElementById('t-feeding');
     const char = _activeMoreChar();
     if (el && char) renderFeedingTab(el, char);
+    checkMoreBadge(); // re-check after visiting feeding (may have just rolled)
   }
   if (t === 'regency') {
     const el = document.getElementById('t-regency');
@@ -293,6 +294,7 @@ function goTab(t) {
     const el = document.getElementById('t-dt-report');
     const char = _activeMoreChar();
     if (el && char) renderStoryTab(el, char);
+    _markSubViewed(); // clear unread badge
   }
   if (t === 'status') {
     // Status tab is also the primary nav #3 — handled above; this covers More grid access
@@ -894,7 +896,8 @@ async function boot() {
         openChar(0);
       }
       goTab('dice');
-      renderLifecycleCards(); // non-blocking — shows cards when API responds
+      renderLifecycleCards(); // non-blocking
+      checkMoreBadge();       // non-blocking
       return;
     }
   }
@@ -1078,6 +1081,39 @@ function renderMoreGrid() {
   }
   h += '</div>';
   el.innerHTML = h;
+}
+
+// ── More tab badge (nav-3-3) ──────────────────────────────────────────────────
+
+async function checkMoreBadge() {
+  const badge = document.getElementById('more-badge');
+  if (!badge) return;
+
+  const { nextSession, activeCycle, mySubmission } = await _loadLifecycleData();
+  const today = new Date().toISOString().slice(0, 10);
+
+  let hasBadge = false;
+
+  // Feeding phase open and player hasn't rolled
+  if (nextSession?.session_date >= today && !mySubmission?.feeding_roll_player) {
+    hasBadge = true;
+  }
+
+  // Unread DT narrative — published outcome the player hasn't viewed
+  if (!hasBadge && mySubmission?.published_outcome) {
+    const lastViewed = localStorage.getItem('tm-last-viewed-sub');
+    if (String(mySubmission._id) !== lastViewed) hasBadge = true;
+  }
+
+  badge.classList.toggle('visible', hasBadge);
+}
+
+function _markSubViewed() {
+  const { mySubmission } = _lifecycleCache || {};
+  if (mySubmission?._id) {
+    localStorage.setItem('tm-last-viewed-sub', String(mySubmission._id));
+    checkMoreBadge();
+  }
 }
 
 // ── Theme toggle (nav-3-2) ────────────────────────────────────────────────────

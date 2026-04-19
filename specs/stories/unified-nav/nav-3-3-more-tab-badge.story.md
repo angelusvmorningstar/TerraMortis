@@ -1,6 +1,6 @@
 # Story 3.3: More Tab Badge — Unread/Pending Indicator
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
