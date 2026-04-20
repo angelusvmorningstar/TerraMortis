@@ -219,17 +219,62 @@ const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
 // Maps internal tab names to the visible unified nav button ID.
 // Legacy tabs and More grid apps all resolve to the correct primary nav button.
 const NAV_ALIAS = {
-  // Legacy → unified primary nav
+  // Editor sub-views all highlight the Sheet nav button
   chars: 'sheet', editor: 'sheet', edit: 'sheet', sheets: 'sheet',
   roll: 'dice',
-  // Territory is now a More grid app (not primary nav)
-  territory: 'more',
-  // More grid apps → More button
-  'whos-who': 'more', downtime: 'more', feeding: 'more', map: 'more',
-  primer: 'more', 'game-guide': 'more', rules: 'more',
-  ordeals: 'more', tickets: 'more', tracker: 'more', signin: 'more', emergency: 'more',
-  regency: 'more', office: 'more', archive: 'more',
+  // More grid still exists for desktop sidebar — alias for goTab compatibility
+  more: 'more',
 };
+
+// ── Scrollable bottom nav ───────────────────────────────────────────────────
+// Ordered list of all nav items. Role/condition gating mirrors MORE_APPS.
+const NAV_ITEMS = [
+  { id: 'dice',      label: 'Dice',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'dice' },
+  { id: 'sheet',     label: 'Sheet',     icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', goTab: 'chars' },
+  { id: 'status',    label: 'Status',    icon: _svg.status,   goTab: 'status' },
+  { id: 'whos-who',  label: "Who's Who", icon: _svg.whosWho,  goTab: 'whos-who' },
+  { id: 'feeding',   label: 'Feeding',   icon: _svg.feeding,  goTab: 'feeding' },
+  { id: 'downtime',  label: 'Downtime',  icon: _svg.dtSubmit, goTab: 'downtime' },
+  { id: 'map',       label: 'Map',       icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', goTab: 'map' },
+  { id: 'ordeals',   label: 'Ordeals',   icon: _svg.ordeals,  goTab: 'ordeals' },
+  { id: 'tickets',   label: 'Tickets',   icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', goTab: 'tickets' },
+  { id: 'primer',    label: 'Primer',    icon: _svg.primer,   goTab: 'primer' },
+  { id: 'game-guide',label: 'Guide',     icon: _svg.guide,    goTab: 'game-guide' },
+  { id: 'rules',     label: 'Rules',     icon: _svg.rules,    goTab: 'rules' },
+  // ST only
+  { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
+  { id: 'tracker',   label: 'Tracker',   icon: _svg.tracker,  goTab: 'tracker',   stOnly: true },
+  { id: 'combat',    label: 'Combat',    icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M3 14l7-7"/></svg>', goTab: 'combat', stOnly: true },
+  { id: 'signin',    label: 'Sign-In',   icon: _svg.signin,   goTab: 'signin',    stOnly: true },
+  { id: 'emergency', label: 'Emergency', icon: _svg.emergency,goTab: 'emergency', stOnly: true },
+  // Conditional
+  { id: 'regency',   label: 'Regency',   icon: _svg.regency,  goTab: 'regency',   condition: 'hasRegency' },
+  { id: 'office',    label: 'Office',    icon: _svg.office,   goTab: 'office',    condition: 'hasOffice' },
+];
+
+function renderBottomNav() {
+  const el = document.getElementById('bnav');
+  if (!el) return;
+  const role = effectiveRole();
+  const isST = role === 'st';
+
+  let h = '';
+  for (const item of NAV_ITEMS) {
+    if (item.stOnly && !isST) continue;
+    if (item.condition && !_moreGridCondition(item)) continue;
+    h += `<button class="nbtn" id="n-${item.id}" onclick="goTab('${item.goTab}')">${item.icon}<span>${item.label}</span></button>`;
+  }
+  el.innerHTML = h;
+
+  // Highlight the currently active tab
+  const active = document.querySelector('.tab.active');
+  if (active) {
+    const tabId = active.id.replace('t-', '');
+    const navId = 'n-' + (NAV_ALIAS[tabId] || tabId);
+    const navEl = document.getElementById(navId);
+    if (navEl) navEl.classList.add('on');
+  }
+}
 
 function goTab(t) {
   // Hide all tabs
@@ -242,7 +287,11 @@ function goTab(t) {
   // Mark the nav button — use alias if the tab maps to a unified nav button
   const navId = 'n-' + (NAV_ALIAS[t] || t);
   const navEl = document.getElementById(navId);
-  if (navEl) navEl.classList.add('on');
+  if (navEl) {
+    navEl.classList.add('on');
+    // Scroll the active button into view in the swipeable nav strip
+    navEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
 
   // Update header subtitle
   const subEl = document.getElementById('hdr-sub');
@@ -955,19 +1004,8 @@ function applyRoleRestrictions() {
   const isST = role === 'st';
   const isRealST = getRole() === 'st';
 
-  // Unified 4-tab nav (Story 1.2) — all primary tabs always visible.
-  // Role gating is handled by the More grid (Story 1.3), not the primary nav.
-  ['n-dice', 'n-sheet', 'n-status', 'n-more'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = '';
-  });
-
-  // Legacy nav buttons (hidden — superseded by 4-tab nav)
-  ['n-chars', 'n-territory', 'n-tracker', 'n-editor', 'n-map',
-   'n-dt', 'n-rules', 'n-signin'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
+  // Rebuild the scrollable bottom nav with role-appropriate items
+  renderBottomNav();
 
   // Contested Roll — ST only (Feeding is now in More grid)
   const btnContested = document.getElementById('btn-contested');

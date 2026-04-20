@@ -245,26 +245,8 @@
 
   </div><!-- /app-body -->
 
-  <!-- ═══ BOTTOM NAV — Unified 4-tab (Story 1.2) ═══ -->
-  <nav id="bnav">
-    <button class="nbtn on" id="n-dice" onclick="goTab('dice')">
-      <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>
-      Dice
-    </button>
-    <button class="nbtn" id="n-sheet" onclick="goTab('chars')">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Sheet
-    </button>
-    <button class="nbtn" id="n-status" onclick="goTab('status')">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      Status
-    </button>
-    <button class="nbtn" id="n-more" onclick="goTab('more')">
-      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
-      More
-      <span class="nav-badge" id="more-badge"></span>
-    </button>
-  </nav>
+  <!-- ═══ BOTTOM NAV — Scrollable swipeable strip ═══ -->
+  <nav id="bnav"></nav>
 </div>
 
 <!-- PICKER PANEL -->
