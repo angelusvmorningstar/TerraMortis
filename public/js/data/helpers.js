@@ -98,7 +98,7 @@ export function shDots(n) {
 
 export function shDotsWithBonus(base, bonus) {
   if (!bonus) return shDots(base);
-  return '\u25CF'.repeat(Math.max(0, base || 0)) + '<span class="dot-hollow"></span>'.repeat(Math.max(0, bonus || 0));
+  return '\u25CF'.repeat(Math.max(0, base || 0)) + '\u25CB'.repeat(Math.max(0, bonus || 0));
 }
 
 /** Card name: moniker || name, no honorific. Redacted in dev mode.
