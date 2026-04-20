@@ -51,6 +51,7 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 .nbtn{flex:0 0 68px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;gap:4px;background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);-webkit-tap-highlight-color:transparent;position:relative;z-index:21;scroll-snap-align:start;}
 .nbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
 .nbtn:hover{color:var(--txt2);}
+.nbtn-disabled{opacity:.3;cursor:default;pointer-events:none;}
 .nbtn.on{color:var(--accent);}
 .nbtn.on svg{stroke:var(--accent);}
 
@@ -1785,6 +1786,8 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 
 /* Desktop toggle button — hidden since desktop mode is now auto-detected via matchMedia */
 .desktop-toggle-btn { display: none !important; }
+.sidebar-settings { margin-top: auto; padding: 10px 14px; border-top: 1px solid var(--bdr); }
+.sidebar-settings-btn { width: 100%; }
 
 /* ── Personal status cards ── */
 .status-personal{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-bottom:1px solid var(--bdr);}
