@@ -309,6 +309,7 @@ function isSectionDone(stNarrative, sectionKey, sub) {
     case 'retainer_actions': return actionResponsesComplete(sub, ['retainer', 'staff']);
     case 'contact_requests':   return actionResponsesComplete(sub, ['contacts']);
     case 'misc_merit_actions': return actionResponsesComplete(sub, ['misc']);
+    case 'merit_summary':    return meritSummaryComplete(sub);
     default:
       return isSectionComplete(stNarrative, sectionKey);
   }
@@ -792,12 +793,9 @@ function getApplicableSections(char, sub) {
     return rev.pool_status !== 'skipped';
   });
 
-  if (hasCategory(['allies']))            sections.push({ key: 'allies_actions',     label: 'Allies Actions' });
-  if (hasCategory(['status']))            sections.push({ key: 'status_actions',     label: 'Status Actions' });
-  if (hasCategory(['retainer', 'staff'])) sections.push({ key: 'retainer_actions',  label: 'Retainer Actions' });
-  if (hasCategory(['contacts']))          sections.push({ key: 'contact_requests',   label: 'Contact Requests' });
-  if (hasCategory(['resources']))         sections.push({ key: 'resource_approvals',   label: 'Resources/Skill Acquisitions' });
-  if (hasCategory(['misc']))              sections.push({ key: 'misc_merit_actions',  label: 'Influence Actions' });
+  // All merit categories consolidated into a single summary ledger (Story 1.13)
+  const ALL_MERIT_CATS = ['allies', 'status', 'retainer', 'staff', 'contacts', 'resources', 'misc'];
+  if (hasCategory(ALL_MERIT_CATS)) sections.push({ key: 'merit_summary', label: 'Allies & Asset Summary' });
 
   if (getCSDots(char) > 0) {
     sections.push({ key: 'cacophony_savvy', label: 'Cacophony Savvy' });
@@ -1060,6 +1058,7 @@ function renderSection(section, char, sub, stNarrative) {
     case 'contact_requests':   return renderContactsSection(char, sub);
     case 'resource_approvals':  return renderResourcesSection(char, sub);
     case 'misc_merit_actions':  return renderMiscMeritSection(char, sub);
+    case 'merit_summary':       return renderMeritSummary(char, sub);
     default: return renderSectionScaffold(section.key, section.label, stNarrative);
   }
 }
@@ -1739,6 +1738,83 @@ function actionResponsesComplete(sub, categories) {
   if (!applicable.length) return true;
   const responses = sub?.st_narrative?.action_responses || [];
   return applicable.every(globalIdx => responses[globalIdx]?.status === 'complete');
+}
+
+function meritSummaryComplete(sub) {
+  const actions  = sub?.merit_actions || [];
+  const resolved = sub?.merit_actions_resolved || [];
+  const applicable = actions.filter((_, i) => (resolved[i]?.pool_status || '') !== 'skipped');
+  if (!applicable.length) return true;
+  return applicable.every((_, i) => !!(resolved[i]?.outcome_summary?.trim()));
+}
+
+const MERIT_CATEGORY_ORDER = ['allies', 'status', 'contacts', 'retainer', 'staff', 'resources', 'misc'];
+const MERIT_CATEGORY_LABELS = {
+  allies: 'Allies', status: 'Status', contacts: 'Contacts',
+  retainer: 'Retainers', staff: 'Staff', resources: 'Resources', misc: 'Influence',
+};
+
+function renderMeritSummary(char, sub) {
+  const actions  = sub?.merit_actions || [];
+  const resolved = sub?.merit_actions_resolved || [];
+  const complete = meritSummaryComplete(sub);
+  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  // Group non-skipped actions by category
+  const groups = {};
+  actions.forEach((a, i) => {
+    const rev = resolved[i] || {};
+    if (rev.pool_status === 'skipped') return;
+    const cat = deriveMeritCategory(a.merit_type);
+    if (!groups[cat]) groups[cat] = [];
+    const { label: meritLabel } = getMeritDetails(char, a);
+    groups[cat].push({
+      meritLabel: meritLabel || a.merit_type || 'Merit',
+      actionType: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '—',
+      outcome: rev.outcome_summary?.trim() || '',
+    });
+  });
+
+  let h = `<div class="dt-story-section" data-section="merit_summary">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Allies &amp; Asset Summary</span>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  const orderedCats = MERIT_CATEGORY_ORDER.filter(c => groups[c]);
+  if (!orderedCats.length) {
+    h += `<div class="dt-story-section-empty">No merit actions this cycle.</div>`;
+  } else {
+    for (const cat of orderedCats) {
+      h += `<div class="dt-merit-summary-group">`;
+      h += `<div class="dt-merit-summary-group-label">${MERIT_CATEGORY_LABELS[cat] || cat}</div>`;
+      h += `<div class="dt-merit-summary-rows">`;
+      for (const entry of groups[cat]) {
+        const missingClass = entry.outcome ? '' : ' dt-merit-summary-missing';
+        h += `<div class="dt-merit-summary-row${missingClass}">`;
+        h += `<span class="dt-merit-summary-merit">${esc(entry.meritLabel)}</span>`;
+        h += `<span class="dt-merit-summary-action">${esc(entry.actionType)}</span>`;
+        h += `<span class="dt-merit-summary-outcome">${entry.outcome ? esc(entry.outcome) : '— Outcome not yet recorded —'}</span>`;
+        h += `</div>`;
+      }
+      h += `</div></div>`;
+    }
+  }
+
+  h += `<div class="dt-story-section-actions">`;
+  if (complete) {
+    h += `<span class="dt-story-complete-badge">&#10003; All outcomes recorded</span>`;
+  } else {
+    const missing = actions.filter((_, i) => {
+      const rev = resolved[i] || {};
+      return rev.pool_status !== 'skipped' && !rev.outcome_summary?.trim();
+    }).length;
+    h += `<span class="dt-story-pending-note">${missing} outcome${missing !== 1 ? 's' : ''} still to record in DT Processing</span>`;
+  }
+  h += `</div>`;
+  h += `</div></div>`;
+  return h;
 }
 
 // ── A1: Cross-action derivation functions (Story 1.8) ─────────────────────────

@@ -6663,6 +6663,41 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   padding: 10px 14px;
 }
 
+/* ── Story 1.13: Merit Summary ledger ────────────────────────────── */
+.dt-merit-summary-group { margin-bottom: 12px; }
+.dt-merit-summary-group-label {
+  font-size: 11px;
+  font-family: var(--fl);
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 14px 4px;
+  border-bottom: 1px solid var(--bdr);
+  margin-bottom: 4px;
+}
+.dt-merit-summary-rows { padding: 0 14px; }
+.dt-merit-summary-row {
+  display: grid;
+  grid-template-columns: 160px 110px 1fr;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--surf3);
+  font-size: 12px;
+  align-items: baseline;
+}
+.dt-merit-summary-row:last-child { border-bottom: none; }
+.dt-merit-summary-merit { color: var(--txt1); font-weight: 500; }
+.dt-merit-summary-action { color: var(--txt3); font-family: var(--fl); }
+.dt-merit-summary-outcome { color: var(--txt1); }
+.dt-merit-summary-missing .dt-merit-summary-outcome { color: var(--txt3); font-style: italic; }
+.dt-story-section-actions {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: var(--fl);
+}
+.dt-story-complete-badge { color: var(--result-succ); }
+.dt-story-pending-note { color: var(--txt3); font-style: italic; }
+
 /* Sign-off panel */
 .dt-story-sign-off {
   align-items: center;
