@@ -31,18 +31,22 @@ import adminMigrationsRouter from './routes/admin-migrations.js';
 
 const app = express();
 
-// CORS — allow multiple origins from comma-separated config
+// CORS v3 manual middleware — NO cors package
 const allowedOrigins = config.CORS_ORIGIN.split(',').map(o => o.trim());
-app.use(cors({
-  origin(origin, callback) {
-    // Allow requests with no origin (curl, server-to-server)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (allowedOrigins.includes(origin) || config.NODE_ENV !== 'production')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
   }
-}));
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
 
 app.use(express.json({ limit: '1mb' }));
 

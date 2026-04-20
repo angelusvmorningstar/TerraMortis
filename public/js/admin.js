@@ -151,7 +151,7 @@ function renderSidebarUser() {
     : user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
       : user.id
-        ? `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`
+        ? `https://cdn.discordapp.com/embed/avatars/${(/^\d+$/.test(user.id) ? (BigInt(user.id) >> 22n) % 6n : 0n)}.png`
         : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
   const playerLink = info?.is_dual_role
