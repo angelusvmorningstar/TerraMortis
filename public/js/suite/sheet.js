@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════
 
 import state from './data.js';
-import { displayName, getWillpower, redactPlayer } from '../data/helpers.js';
+import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   RITUAL_DISCS, CORE_DISCS,
@@ -21,7 +21,8 @@ import {
 
 import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
-  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft
+  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft,
+  getSkillObj
 } from '../data/accessors.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
@@ -303,15 +304,22 @@ export function renderSheet() {
       html += `<div class="attr-row-item"><span class="attr-name">${a}</span><span class="attr-dots">${dotsWithBonus(base, bonus)}</span></div>`;
     });
     html += `</div>`;
-    // Skills block
+    // Skills block — matches desktop view: PT/MCI bonus dots shown hollow,
+    // 9-Again labelled with source (PT/OHM), specs formatted with AoE highlight
     html += `<div class="skill-col-block"><div class="attr-group-hd">${cat.label} Skills</div>`;
     cat.skills.forEach(s => {
-      const sk = c.skills ? c.skills[s] : null;
-      const d = skillDots(sk), sp = skillSpec(sk);
-      const bn = sk ? (sk.bonus || 0) : 0;
-      const na = sk && sk.nine_again;
-      const hasDots = d > 0 || bn > 0;
-      const dotStr = hasDots ? dotsWithBonus(d, bn) : '\u2013';
+      const sk = getSkillObj(c, s);
+      const d = sk.dots, bn = sk.bonus;
+      const sp = (sk.specs || []).length ? formatSpecs(c, sk.specs) : '';
+      const na = sk.nine_again;
+      const ptNa = c._pt_nine_again_skills?.has(s);
+      const ohmNa = c._ohm_nine_again_skills?.has(s);
+      const ptBn = c._pt_dot4_bonus_skills?.has(s) ? 1 : 0;
+      const mciBn = c._mci_dot3_skills?.has(s) ? 1 : 0;
+      const totalBn = bn + ptBn + mciBn;
+      const hasDots = d > 0 || totalBn > 0;
+      const dotStr = hasDots ? shDotsWithBonus(d, totalBn) : '\u2013';
+      const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
         <div class="skill-name-wrap">
           <span class="skill-name">${s}</span>
@@ -319,7 +327,7 @@ export function renderSheet() {
         </div>
         <div class="skill-dots-wrap">
           <span class="${hasDots ? 'skill-dots' : 'skill-zero'}">${dotStr}</span>
-          ${na ? `<span class="skill-na">9-Again</span>` : ''}
+          ${naLabel ? `<span class="skill-na${ptNa || ohmNa ? ' pt-na' : ''}">${naLabel}</span>` : ''}
         </div>
       </div>`;
     });
