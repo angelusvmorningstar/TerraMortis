@@ -95,38 +95,7 @@ export function renderSheet() {
     ${c.concept ? `<div class="sh-char-concept" style="margin-top:4px">${c.concept}</div>` : ''}
   </div>`;
 
-  // Faction display — Covenant first, then Clan
-  infoHtml += `<div class="sh-faction-display">`;
-  if (c.covenant) {
-    infoHtml += `<div class="sh-faction-row">
-      ${covSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${covSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
-      <div class="sh-faction-info">
-        <span class="sh-faction-name">${c.covenant}</span>
-        <span class="sh-faction-type">Covenant</span>
-        ${st.covenant ? `<span class="sh-faction-dots">${dots(st.covenant)}</span>` : ''}
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.covenant || 0}</span></div>
-        <div class="sh-status-lbl">Cov.</div>
-      </div>
-    </div>`;
-  }
-  if (c.clan) {
-    infoHtml += `<div class="sh-faction-row">
-      ${clanSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${clanSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
-      <div class="sh-faction-info">
-        <span class="sh-faction-name">${c.clan}</span>
-        ${bl ? `<span class="sh-faction-bloodline-sub">${bl}</span>` : ''}
-        <span class="sh-faction-type">Clan</span>
-        ${st.clan ? `<span class="sh-faction-dots">${dots(st.clan)}</span>` : ''}
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.clan || 0}</span></div>
-        <div class="sh-status-lbl">Clan</div>
-      </div>
-    </div>`;
-  }
-  infoHtml += `</div>`; // end sh-faction-display
+  // Faction display moved to Status tab (personal status cards)
 
   // Meta rows: mask, dirge, curse/bane, touchstones, embrace, apparent age, features
   infoHtml += `<div class="sh-char-meta">`;
@@ -181,28 +150,7 @@ export function renderSheet() {
   infoHtml += `</div>`; // end sh-char-meta
   infoHtml += `</div>`; // end sh-char-hdr
 
-  // ── COVENANT STRIP ──
-  const covStandings = c.covenant_standings || {};
-  const COV_SHORT = {
-    'Carthian Movement': 'Carthian',
-    'Circle of the Crone': 'Crone',
-    'Invictus': 'Invictus',
-    'Lancea et Sanctum': 'Lance',
-  };
-  const ownLabel = COV_SHORT[c.covenant] || null;
-  const covSEntries = Object.entries(covStandings)
-    .filter(([label, v]) => v !== undefined && label !== ownLabel);
-  if (covSEntries.length) {
-    infoHtml += `<div class="cov-strip">`;
-    covSEntries.forEach(([label, status]) => {
-      const active = status > 0;
-      infoHtml += `<div class="cov-strip-cell">
-        <span class="cov-strip-name${active ? ' active' : ''}">${label}</span>
-        <span class="cov-strip-dot${active ? ' active' : ''}">${active ? '\u25CB' : '\u2013'}</span>
-      </div>`;
-    });
-    infoHtml += `</div>`;
-  }
+  // Covenant strip moved to Status tab
 
   // ── STATS STRIP ──
   html += `<div class="sh-stats-strip">
