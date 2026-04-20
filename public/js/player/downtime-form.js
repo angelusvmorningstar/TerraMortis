@@ -103,19 +103,6 @@ const ACTION_FIELDS = {
   'maintenance': ['description'],
 };
 
-// Which fields each sphere action type shows (no dice pools)
-// Default primary pool suggestions per action type.
-// Applied only when both attr and skill are unset (first selection).
-const ACTION_POOL_DEFAULTS = {
-  'investigate':        { attr: 'Intelligence', skill: 'Investigation' },
-  'attack':             { attr: 'Strength',     skill: 'Brawl' },
-  'patrol_scout':       { attr: 'Wits',         skill: 'Stealth' },
-  'hide_protect':       { attr: 'Dexterity',    skill: 'Stealth' },
-  'ambience_increase':  { attr: 'Presence',     skill: 'Socialise' },
-  'ambience_decrease':  { attr: 'Manipulation', skill: 'Subterfuge' },
-  'support':            { attr: 'Presence',     skill: 'Empathy' },
-};
-
 const SPHERE_ACTION_FIELDS = {
   '': [],
   'ambience_increase': ['territory', 'outcome'],
@@ -3266,7 +3253,7 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-sphere_${n}_action">Action Type</label>`;
       h += `<select id="dt-sphere_${n}_action" class="qf-select" data-sphere-action="${n}">`;
-      for (const opt of SPHERE_ACTIONS) {
+      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'grow')) {
         const sel = actionVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }

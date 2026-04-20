@@ -16,7 +16,7 @@
 |----|-------|--------|-------|
 | dtfc.1 | Court section calibrations | done | A |
 | dtfc.2 | Form section ordering | done | A |
-| dtfc.3 | Project and sphere field calibrations | ready-for-dev | A |
+| dtfc.3 | Project and sphere field calibrations | done | A |
 
 ### Wave 2 — Structure Changes (ship with ST panel updates)
 
