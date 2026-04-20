@@ -187,6 +187,13 @@ From `specs/architecture-st-admin.md` and `specs/architecture-player-access.md`:
 
 ## Epic List — Active
 
+### Epic FIN: Finance & Coordinator Access — READY FOR DEV
+Replaces the Google Sheet as SSOT for game finances. Introduces `coordinator` role for Lyn (door check-in, payment recording, finance summary). No ST storytelling access.
+**Stories:** fin.1 Coordinator role, fin.2 Finance schema, fin.3 Check-in tab (game app), fin.4 Finance tab (game app)
+**Epic file:** `specs/epic-finance-coordinator.md`
+
+---
+
 ### Epic DTFC: Downtime Form Calibration — IN PROGRESS (Wave 1 ready-for-dev)
 Post-launch design review identified 21 calibration tasks. Fixes UX gaps, enforces mechanical correctness in feeding/XP spend, restructures project/sphere actions with smart targeting, updates ST panel for breaking key format changes.
 **Stories:** dtfc.1 Court calibrations, dtfc.2 Section ordering, dtfc.3 Project/sphere fields, dtfc.4 Aspirations structured *(Wave 2)*, dtfc.5 Territory feeding rights *(Wave 2)*, dtfc.6 Feeding pool + vitae projection *(Wave 2)*, dtfc.7 Rote project commitment *(Wave 2)*, dtfc.8 XP spend structured *(Wave 2)*, dtfc.9–11 Deferred (NPC system, collaborative projects, equipment tab)
