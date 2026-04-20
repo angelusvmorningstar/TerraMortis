@@ -22,11 +22,11 @@
 
 | ID | Title | Status | Group |
 |----|-------|--------|-------|
-| dtfc.4 | Aspirations: structured slots | ready-for-dev | B |
-| dtfc.5 | Territory grid: feeding rights model | ready-for-dev | B |
-| dtfc.6 | Feeding: pool auto-load + vitae projection | ready-for-dev | B |
-| dtfc.7 | Rote: project commitment UI | ready-for-dev | B |
-| dtfc.8 | XP spend: structured dot purchase + admin carry-forward | ready-for-dev | B |
+| dtfc.4 | Aspirations: structured slots | done | B |
+| dtfc.5 | Territory grid: feeding rights model | done | B |
+| dtfc.6 | Feeding: pool auto-load + vitae projection | done | B |
+| dtfc.7 | Rote: project commitment UI | done | B |
+| dtfc.8 | XP spend: structured dot purchase + admin carry-forward | done | B |
 
 ### Wave 1 — Addendum (post-review additions, no ST panel changes)
 
