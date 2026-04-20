@@ -501,7 +501,7 @@ function collectResponses() {
     resourcesRating ? `Resources ${resourcesRating}` : '',
     acqMeritKeys.length ? `Merits: ${acqMeritKeys.join(', ')}` : '',
     responses['acq_description'],
-    responses['acq_availability'] ? `Availability: ${responses['acq_availability']}/5` : '',
+    responses['acq_availability'] ? `Availability: ${responses['acq_availability'] === 'unknown' ? 'Unknown' : responses['acq_availability'] + '/5'}` : '',
   ].filter(Boolean).join('\n');
 
   // Skill acquisition fields
@@ -1169,6 +1169,23 @@ function renderForm(container) {
       return;
     }
     // Availability dot selectors (resources + skill acquisition)
+    const acqUnknown = e.target.closest('[data-acq-unknown]') || e.target.closest('[data-skill-acq-unknown]');
+    if (acqUnknown) {
+      const isSkill = !!acqUnknown.dataset.skillAcqUnknown;
+      const input = document.getElementById(isSkill ? 'dt-skill_acq_availability' : 'dt-acq_availability');
+      if (input) input.value = 'unknown';
+      const row = acqUnknown.closest(isSkill ? '[data-skill-acq-avail]' : '[data-acq-avail]');
+      if (row) {
+        const dotAttr = isSkill ? 'data-skill-acq-dot' : 'data-acq-dot';
+        row.querySelectorAll(`[${dotAttr}]`).forEach(d => d.classList.remove('dt-acq-dot-filled'));
+        acqUnknown.classList.add('dt-acq-dot-filled');
+        const lbl = row.querySelector('.dt-acq-avail-label');
+        if (lbl) lbl.textContent = '';
+      }
+      scheduleSave();
+      updateSectionTicks(container);
+      return;
+    }
     const acqDot = e.target.closest('[data-acq-dot]') || e.target.closest('[data-skill-acq-dot]');
     if (acqDot) {
       const isSkill = !!acqDot.dataset.skillAcqDot;
@@ -1181,6 +1198,7 @@ function renderForm(container) {
         row.querySelectorAll(`[${dotAttr}]`).forEach(d => {
           d.classList.toggle('dt-acq-dot-filled', parseInt(d.getAttribute(dotAttr), 10) <= val);
         });
+        row.querySelectorAll('[data-acq-unknown],[data-skill-acq-unknown]').forEach(u => u.classList.remove('dt-acq-dot-filled'));
         const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
         let lbl = row.querySelector('.dt-acq-avail-label');
         if (!lbl) { lbl = document.createElement('span'); lbl.className = 'dt-acq-avail-label'; row.appendChild(lbl); }
@@ -2680,21 +2698,24 @@ function renderAcquisitionsSection(saved) {
     desc: 'What are you attempting to acquire? Include context and purpose.',
   }, saved['acq_description'] || '');
 
-  // Availability (dot selector 1-5)
-  const savedAvail = parseInt(saved['acq_availability'], 10) || 0;
+  // Availability (dot selector 1-5 + Unknown)
+  const savedAvailRaw = saved['acq_availability'];
+  const savedAvail = savedAvailRaw === 'unknown' ? 'unknown' : (parseInt(savedAvailRaw, 10) || 0);
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Availability</label>';
   h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
   h += '<div class="dt-acq-avail-row" data-acq-avail>';
   for (let d = 1; d <= 5; d++) {
-    const filled = d <= savedAvail ? ' dt-acq-dot-filled' : '';
+    const filled = typeof savedAvail === 'number' && d <= savedAvail ? ' dt-acq-dot-filled' : '';
     h += `<span class="dt-acq-dot${filled}" data-acq-dot="${d}">\u25CF</span>`;
   }
+  h += `<span class="dt-acq-unknown${savedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-acq-unknown>Unknown</span>`;
   if (savedAvail) {
     const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    h += `<span class="dt-acq-avail-label">${labels[savedAvail] || ''}</span>`;
+    const lbl = savedAvail === 'unknown' ? '' : (labels[savedAvail] || '');
+    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
   }
-  h += `<input type="hidden" id="dt-acq_availability" value="${savedAvail || ''}">`;
+  h += `<input type="hidden" id="dt-acq_availability" value="${esc(String(savedAvail || ''))}">`;
   h += '</div></div>';
 
   h += '</div>'; // acq-card
@@ -2794,21 +2815,24 @@ function renderAcquisitionsSection(saved) {
   }
   h += '</div></div>';
 
-  // Availability (dot selector 1-5)
-  const skSavedAvail = parseInt(saved['skill_acq_availability'], 10) || 0;
+  // Availability (dot selector 1-5 + Unknown)
+  const skSavedAvailRaw = saved['skill_acq_availability'];
+  const skSavedAvail = skSavedAvailRaw === 'unknown' ? 'unknown' : (parseInt(skSavedAvailRaw, 10) || 0);
   h += '<div class="qf-field">';
   h += '<label class="qf-label">Availability</label>';
   h += '<p class="qf-desc">How rare is this item? Click to set (1 = common, 5 = unique).</p>';
   h += '<div class="dt-acq-avail-row" data-skill-acq-avail>';
   for (let d = 1; d <= 5; d++) {
-    const filled = d <= skSavedAvail ? ' dt-acq-dot-filled' : '';
+    const filled = typeof skSavedAvail === 'number' && d <= skSavedAvail ? ' dt-acq-dot-filled' : '';
     h += `<span class="dt-acq-dot${filled}" data-skill-acq-dot="${d}">\u25CF</span>`;
   }
+  h += `<span class="dt-acq-unknown${skSavedAvail === 'unknown' ? ' dt-acq-dot-filled' : ''}" data-skill-acq-unknown>Unknown</span>`;
   if (skSavedAvail) {
     const labels = ['', 'Common', 'Uncommon', 'Rare', 'Very Rare', 'Unique'];
-    h += `<span class="dt-acq-avail-label">${labels[skSavedAvail] || ''}</span>`;
+    const lbl = skSavedAvail === 'unknown' ? '' : (labels[skSavedAvail] || '');
+    if (lbl) h += `<span class="dt-acq-avail-label">${lbl}</span>`;
   }
-  h += `<input type="hidden" id="dt-skill_acq_availability" value="${skSavedAvail || ''}">`;
+  h += `<input type="hidden" id="dt-skill_acq_availability" value="${esc(String(skSavedAvail || ''))}">`;
   h += '</div></div>';
 
   h += '</div>';

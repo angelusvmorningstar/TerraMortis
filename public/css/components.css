@@ -2180,6 +2180,17 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-acq-dot:hover { color: var(--gold1, #C9A84C); }
 .dt-acq-dot-filled { color: var(--accent); }
+.dt-acq-unknown {
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--txt3);
+  border: 1px solid var(--surf3);
+  border-radius: 3px;
+  padding: 1px 6px;
+  transition: color .15s, border-color .15s;
+}
+.dt-acq-unknown:hover { color: var(--gold1); border-color: var(--gold1); }
+.dt-acq-unknown.dt-acq-dot-filled { color: var(--accent); border-color: var(--accent); }
 .dt-acq-avail-label {
   margin-left: 8px;
   font-size: 13px;
