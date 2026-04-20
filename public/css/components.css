@@ -1107,9 +1107,19 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .reading-pane p {
   font-family: 'Libre Baskerville', Georgia, serif;
-  font-size: 15px;
+  font-size: var(--reading-font-size, 15px);
   line-height: 1.75;
   margin: 0 0 0.9em;
+}
+.reading-pane ul,
+.reading-pane ol {
+  font-size: var(--reading-font-size, 15px);
+}
+.reading-pane blockquote {
+  font-size: var(--reading-font-size, 15px);
+}
+.reading-pane table td {
+  font-size: var(--reading-font-size, 15px);
 }
 
 .reading-pane strong {
