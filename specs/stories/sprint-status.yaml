@@ -351,7 +351,7 @@ development_status:
 
   epic-feat: backlog
 
-  feat-1-remove-resolved-tickets: ready-for-dev  # confirmed outstanding — tickets tab still shows resolved items
+  feat-1-remove-resolved-tickets: done
   feat-2-non-vampire-territories: backlog
   feat-3-duplicate-character-hard-delete: backlog
   feat-4-st-plot-npc-tracker: backlog
