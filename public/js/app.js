@@ -1163,8 +1163,11 @@ function toggleDesktopMode() {
   _syncSidebarActions();
   if (isDesktop) {
     renderDesktopSidebar();
+    _initSidebarCollapse();
     const onMore = document.getElementById('t-more')?.classList.contains('active');
     if (onMore) goTab('dice');
+  } else {
+    document.body.classList.remove('sidebar-collapsed');
   }
 }
 
@@ -1204,7 +1207,30 @@ function _initDesktopMode() {
     _updateDesktopIcon();
     _syncSidebarActions();
     renderDesktopSidebar();
+    _initSidebarCollapse();
   }
+}
+
+function _initSidebarCollapse() {
+  const collapsed = localStorage.getItem('tm-sidebar-collapsed') === 'true';
+  if (collapsed) {
+    document.body.classList.add('sidebar-collapsed');
+    _updateCollapseIcon(true);
+  }
+}
+
+function toggleSidebarCollapse() {
+  if (!document.body.classList.contains('desktop-mode')) return;
+  const collapsed = document.body.classList.toggle('sidebar-collapsed');
+  localStorage.setItem('tm-sidebar-collapsed', collapsed ? 'true' : 'false');
+  _updateCollapseIcon(collapsed);
+}
+
+function _updateCollapseIcon(collapsed) {
+  const collapseIcon = document.getElementById('sb-collapse-btn')?.querySelector('.sb-icon-collapse');
+  const expandIcon   = document.getElementById('sb-collapse-btn')?.querySelector('.sb-icon-expand');
+  if (collapseIcon) collapseIcon.style.display = collapsed ? 'none' : '';
+  if (expandIcon)   expandIcon.style.display   = collapsed ? '' : 'none';
 }
 
 function renderDesktopSidebar() {

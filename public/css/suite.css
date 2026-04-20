@@ -1698,8 +1698,32 @@ body.desktop-mode .tab-wrap > .tab.active {
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
+  transition: width 0.2s ease;
 }
 body.desktop-mode #desktop-sidebar { display: flex; }
+
+/* Collapsed sidebar — icons-only strip */
+body.desktop-mode.sidebar-collapsed #desktop-sidebar { width: 56px; overflow: hidden; }
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-title,
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-sub,
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-actions,
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-section-label,
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-app-tile-label,
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-user { display: none; }
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-app-grid {
+  grid-template-columns: 1fr;
+  padding: 4px 8px 8px;
+  gap: 4px;
+}
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-app-tile {
+  aspect-ratio: 1;
+  padding: 8px;
+}
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-header {
+  justify-content: center;
+  padding: 12px 8px;
+}
+body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-content: center; }
 
 /* Sidebar header */
 #desktop-sidebar .sidebar-header {
@@ -1774,3 +1798,13 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 /* Desktop toggle button */
 .desktop-toggle-btn { padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; }
 .desktop-toggle-btn svg { display: block; }
+
+/* Sidebar collapse button */
+.sidebar-collapse-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--txt3); padding: 4px 6px; border-radius: 4px;
+  transition: color .15s, background .15s;
+  margin-top: 8px;
+}
+.sidebar-collapse-btn:hover { color: var(--txt); background: var(--surf2); }
