@@ -13,13 +13,13 @@ import { prereqLabel } from '../data/prereq.js';
 // ── Dot display ──
 
 export function dots(n) {
-  return '\u25CF'.repeat(Math.max(0, n || 0));
+  return '<span class="pointed"></span>'.repeat(Math.max(0, n || 0));
 }
 
 export function dotsWithBonus(base, bonus) {
   const b = Math.max(0, base || 0), x = Math.max(0, bonus || 0);
   if (!x) return dots(b);
-  return '\u25CF'.repeat(b) + '<span class="dots-bonus">' + '\u25CB'.repeat(x) + '</span>';
+  return '<span class="pointed"></span>'.repeat(b) + '<span class="dots-bonus">' + '<span class="pointed hollow"></span>'.repeat(x) + '</span>';
 }
 
 export function getAttrDots(c, a) {

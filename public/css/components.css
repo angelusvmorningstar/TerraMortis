@@ -48,8 +48,12 @@
 .dot{width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;user-select:none;-webkit-tap-highlight-color:transparent;transition:opacity .1s;}
 .dot.filled{color:var(--accent);}
 .dot.bonus{color:var(--accent2);}
-/* CSS-rendered hollow dot — matches filled ● size on all platforms including iOS Safari */
+/* CSS-rendered hollow dot (legacy — use .pointed/.pointed.hollow instead) */
 .dot-hollow{display:inline-block;width:.65em;height:.65em;border:1.5px solid currentColor;border-radius:50%;vertical-align:middle;margin-bottom:.1em;}
+/* Uniform CSS dots — identical on all platforms including iOS Safari.
+   Replaces Unicode ●/○ which render at different sizes per platform. */
+.pointed{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;margin:0 1px;vertical-align:middle;}
+.pointed.hollow{background:transparent;border:1.5px solid currentColor;width:7px;height:7px;}
 .dot.empty{color:var(--accent-a25);}
 .dot:hover{opacity:1;}
 
