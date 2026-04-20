@@ -204,11 +204,9 @@ function renderXPBreakdown(char) {
 function renderOrdealsList(el, char) {
   const cOrdeals = normaliseCharOrdeals(char);
 
-  // Two-pane: left = ordeals, right = XP breakdown
-  let h = `<div class="tab-split">`;
+  // Single-column: ordeals first, XP breakdown below
+  let h = `<div class="ordeal-col">`;
 
-  // Left: ordeal cards
-  h += `<div class="tab-split-left" id="ordeals-left-pane">`;
   h += '<div class="ordeals-container" id="ordeals-list">';
   h += '<div class="ordeals-section">';
   h += '<h3 class="ordeals-heading">Ordeals</h3>';
@@ -222,15 +220,11 @@ function renderOrdealsList(el, char) {
     h += ordealCard(def, getOrdealStatus(def, cOrdeals));
   }
   h += '</div>';
-  h += '</div>';
-  h += '</div>'; // left pane
+  h += '</div>'; // ordeals-container
 
-  // Right: XP breakdown
-  h += `<div class="tab-split-right" id="ordeals-right-pane">`;
   h += renderXPBreakdown(char);
-  h += '</div>'; // right pane
 
-  h += '</div>'; // tab-split
+  h += '</div>'; // ordeal-col
 
   el.innerHTML = h;
 

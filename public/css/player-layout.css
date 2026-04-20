@@ -582,6 +582,12 @@ body {
 
 /* ── Ordeals ── */
 
+.ordeal-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .ordeals-container {
   display: flex;
   flex-direction: column;
@@ -1267,29 +1273,17 @@ body {
 /* Downtime form component CSS moved to components.css */
 /* ── City tab ── */
 
-.city-split {
-  display: flex;
-  gap: 0;
-  align-items: flex-start;
-  min-height: 100%;
-}
-
-.city-left {
-  flex: 1;
-  min-width: 0;
-  border-right: 1px solid var(--bdr);
-  display: flex;
-  flex-direction: column;
-}
-
-.city-right {
-  flex: 1;
-  min-width: 0;
-  padding: 16px;
+.city-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow-y: auto;
+  padding: 16px;
+}
+
+.city-whos-who {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .city-panel {
