@@ -93,12 +93,12 @@ export function covIcon(cov, sz) {
 }
 
 export function shDots(n) {
-  return '\u25CF'.repeat(Math.max(0, n || 0));
+  return '<span class="pointed"></span>'.repeat(Math.max(0, n || 0));
 }
 
 export function shDotsWithBonus(base, bonus) {
   if (!bonus) return shDots(base);
-  return '\u25CF'.repeat(Math.max(0, base || 0)) + '\u25CB'.repeat(Math.max(0, bonus || 0));
+  return '<span class="pointed"></span>'.repeat(Math.max(0, base || 0)) + '<span class="pointed hollow"></span>'.repeat(Math.max(0, bonus || 0));
 }
 
 /** Card name: moniker || name, no honorific. Redacted in dev mode.
