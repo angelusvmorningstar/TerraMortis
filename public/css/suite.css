@@ -105,11 +105,11 @@ body{min-height:auto;}
 /* Again + modifiers */
 .arow{display:flex;gap:6px;}
 .abtn{flex:1;height:48px;border-radius:6px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);font-family:var(--fl);font-size:13px;letter-spacing:.04em;cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.abtn.on{border-color:var(--bdr2);color:var(--gold);background:var(--gold-a7);}
+.abtn.on{border-color:var(--gold);color:var(--bg);background:var(--gold);font-weight:700;}
 .mrow{display:flex;gap:6px;}
 .mchip{flex:1;height:48px;border-radius:6px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt2);font-family:var(--fl);font-size:13px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
-.mchip.on{border-color:var(--crim-a55);color:var(--gold2);background:var(--crim-a15);}
-.mchip.wp-chip.on{border-color:var(--green-dk-bdr);color:var(--green2);background:var(--green-a15);}
+.mchip.on{border-color:var(--crim);color:#fff;background:var(--crim);font-weight:700;}
+.mchip.wp-chip.on{border-color:var(--green2);color:var(--bg);background:var(--green2);font-weight:700;}
 
 /* Roll button */
 #roll-btn{min-height:58px;padding:18px 16px;border-radius:8px;background:var(--crim);border:1px solid var(--crim-a70);color:var(--txt);font-family:var(--fl);font-size:13px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
