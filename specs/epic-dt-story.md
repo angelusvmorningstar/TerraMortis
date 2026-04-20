@@ -43,7 +43,7 @@ The player-facing downtime report has six sections in this order:
 
 ## Stories — Active
 
-### Story 1.1: DT Story Tab Shell
+### Story 1.1: DT Story Tab Shell — DONE
 
 **As an** ST working through a downtime cycle,
 **I want** a dedicated DT Story tab with a character navigation rail and section scaffold,
@@ -61,7 +61,7 @@ Key tasks:
 - Confirm PATCH endpoint supports dot-notation nested field updates; implement read-merge-write if not
 - CSS block in admin-layout.css: dt-story-* prefix
 
-### Story 1.2: Prompt Generator — Projects
+### Story 1.2: Prompt Generator — Projects — DONE
 
 **As an** ST drafting a narrative response for a project action,
 **I want** a Copy Context button that assembles a tailored prompt capturing the project's roll result, desired outcome, and house style rules,
@@ -76,7 +76,7 @@ Key tasks:
 - No Roll Needed actions: full context, no roll result line
 - Skipped actions: no context button rendered
 
-### Story 1.7: Cacophony Savvy Section
+### Story 1.7: Cacophony Savvy Section — DONE
 
 **As an** ST writing the Cacophony Savvy intelligence for a character with that merit,
 **I want** N context slots (one per CS dot) that surface noisy public-facing actions from across the cycle,
@@ -97,7 +97,7 @@ Key tasks:
 - Section suppressed entirely if character has no Cacophony Savvy merit
 - Output feeds into Rumours section of player report (section 6)
 
-### Story 1.8: Action Data Completeness
+### Story 1.8: Action Data Completeness — DONE
 
 **As an** ST resolving merit actions in DT Processing,
 **I want** cross-action marker fields on resolved actions and automatic matrix interpretation notes,
@@ -111,7 +111,7 @@ Key tasks:
 - Auto-note on matrix interpretation: when an action is marked complete in DT Processing, record what the MERIT_MATRIX / INVESTIGATION_MATRIX says that success count means as a stored note (or generate it on-the-fly in DT Story)
 - Document the chosen approach so DT Story prompt generators can consume it correctly
 
-### Story 1.9: Validation Button Consistency
+### Story 1.9: Validation Button Consistency — DONE
 
 **As an** ST reviewing merit actions in DT Processing,
 **I want** consistent status buttons (Pending / Approved / No Roll Needed / Skip) across all action types,
@@ -213,7 +213,7 @@ Key tasks:
 - Privacy scrub: strip all ST-only fields before delivery (coordinate with DTP-1)
 - Sections with no content (not yet written) show "Your ST is still working on this" placeholder rather than empty sections
 
-### Story 1.15: Resident/Poacher Mismatch Flag
+### Story 1.15: Resident/Poacher Mismatch Flag — DONE
 
 **As an** ST processing feeding actions,
 **I want** a visual flag when a character's self-declared feeding territory status conflicts with the Regent's residency grants,
