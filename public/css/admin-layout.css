@@ -4980,6 +4980,26 @@ body {
   font-weight: 600;
 }
 
+.proc-outcome-summary-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--accent);
+  color: var(--txt1);
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--ft);
+  margin-top: 6px;
+}
+.proc-outcome-summary-input:focus { border-color: var(--accent); outline: none; }
+.proc-outcome-summary-input::placeholder { color: var(--txt3); font-style: italic; }
+
+.proc-compact-notes-panel {
+  margin-top: 4px;
+}
+
 /* ── ST Response section (feature.66) ─────────────────────────── */
 .proc-st-response-section {
   margin-bottom: 12px;

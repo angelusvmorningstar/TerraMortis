@@ -4259,6 +4259,16 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Outcome summary input (compact merit panel) ──
+  container.querySelectorAll('.proc-outcome-summary-input').forEach(inp => {
+    inp.addEventListener('blur', async () => {
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { outcome_summary: inp.value.trim() });
+    });
+  });
+
   // ── Travel discretion buttons ──
   container.querySelectorAll('.proc-travel-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
@@ -5006,8 +5016,9 @@ function _renderCompactMeritPanel(entry, rev) {
   const isAuto     = mode === 'auto';
   const isBlocked  = mode === 'blocked';
   const autoSucc   = isAuto && dots != null ? dots : null;
-  const outcome    = rev.merit_outcome || '';
-
+  const outcome        = rev.merit_outcome    || '';
+  const outcomeSummary = rev.outcome_summary  || '';
+  const thread         = rev.notes_thread     || [];
 
   let h = `<div class="proc-feed-right proc-compact-merit-panel" data-proc-key="${esc(key)}">`;
 
@@ -5042,8 +5053,32 @@ function _renderCompactMeritPanel(entry, rev) {
       h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
     }
     h += `</div>`;
+    h += `<input type="text" class="proc-outcome-summary-input" data-proc-key="${esc(key)}" value="${esc(outcomeSummary)}" placeholder="One-line outcome summary (shown to player)...">`;
     h += `</div>`;
   }
+
+  // ── ST Notes (compact) ──
+  h += `<div class="proc-feed-mod-panel proc-compact-notes-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">ST Notes <span class="proc-label-sub">— visible to Claude</span></div>`;
+  if (thread.length) {
+    h += `<div class="proc-notes-thread">`;
+    for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
+      const note = thread[noteIdx];
+      const time = note.created_at
+        ? new Date(note.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '';
+      h += `<div class="proc-note-entry">`;
+      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  \u00B7  ' + esc(time) : ''}<button class="proc-note-delete-btn" data-proc-key="${esc(key)}" data-note-idx="${noteIdx}" title="Delete note">\u00D7</button></div>`;
+      h += `<div class="proc-note-text">${esc(note.text)}</div>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+  h += `<div class="proc-note-add">`;
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(key)}" placeholder="Add ST note..." rows="2"></textarea>`;
+  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(key)}">Add Note</button>`;
+  h += `</div>`;
+  h += `</div>`;
 
   h += `</div>`; // proc-compact-merit-panel
   return h;
