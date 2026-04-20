@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY, covIcon, displayName, sortName, redactPlayer, discordAvatarUrl } from './data/helpers.js';
+import { CLAN_ICON_KEY, covIcon, displayName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
