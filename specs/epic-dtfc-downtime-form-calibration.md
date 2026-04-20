@@ -28,6 +28,14 @@
 | dtfc.7 | Rote: project commitment UI | ready-for-dev | B |
 | dtfc.8 | XP spend: structured dot purchase + admin carry-forward | ready-for-dev | B |
 
+### Wave 1 — Addendum (post-review additions, no ST panel changes)
+
+| ID | Title | Status | Group |
+|----|-------|--------|-------|
+| dtfc.12 | Remove Feed from project action dropdown | done | A |
+| dtfc.13 | Merit section headers — Allies, Retainers clarity | done | A |
+| dtfc.14 | Form buttons — centre layout + context-aware labels | done | A |
+
 ### Wave 3 — Deferred (blocked on new infrastructure)
 
 | ID | Title | Status | Blocker |

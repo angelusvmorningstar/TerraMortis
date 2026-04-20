@@ -1117,9 +1117,10 @@ function renderForm(container) {
   }
 
   // Actions
+  const submitLabel = responseDoc?.status === 'submitted' ? 'Update Submission' : 'Submit Downtime';
   h += '<div class="qf-actions">';
   h += '<button class="qf-btn qf-btn-save" id="dt-btn-save">Save Draft</button>';
-  h += '<button class="qf-btn qf-btn-submit" id="dt-btn-submit">Submit Downtime</button>';
+  h += `<button class="qf-btn qf-btn-submit" id="dt-btn-submit">${esc(submitLabel)}</button>`;
   h += '</div>';
 
   // Capture expanded sections before re-render
@@ -3213,7 +3214,7 @@ function renderMeritToggles(saved) {
   if (hasSpheres) {
     const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
     h += '<div class="qf-section collapsed" data-section-key="spheres">';
-    h += '<h4 class="qf-section-title">Spheres of Influence<span class="qf-section-tick">✔</span></h4>';
+    h += '<h4 class="qf-section-title">Allies: Spheres of Influence<span class="qf-section-tick">✔</span></h4>';
     h += '<div class="qf-section-body">';
     h += '<p class="qf-section-intro">Your character has the following Allies merits. Use the tabs to configure up to 5 sphere actions this Downtime.</p>';
 
