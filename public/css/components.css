@@ -3407,6 +3407,21 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   margin: 6px 0 0;
 }
 
+/* ── Story 1.14: Six-section report additions ────────────────────── */
+.story-moment-divider {
+  border: none;
+  border-top: 1px solid var(--bdr);
+  margin: 12px 0;
+}
+.story-rumours-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--txt2);
+  line-height: 1.6;
+}
+.story-rumours-list li { margin-bottom: 4px; }
+
 /* ── DTP-4: Merit summary ledger (player-facing) ─────────────────── */
 .merit-summary-section {
   margin-top: 16px;
