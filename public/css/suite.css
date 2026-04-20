@@ -1808,3 +1808,74 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   margin-top: 8px;
 }
 .sidebar-collapse-btn:hover { color: var(--txt); background: var(--surf2); }
+
+/* ── Player challenge modals (feat-22) ── */
+
+.ch-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.ch-modal {
+  background: var(--surf); border: 1px solid var(--bdr); border-radius: 10px;
+  width: 100%; max-width: 420px; padding: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.ch-modal-hdr {
+  font-family: var(--fh); font-size: 16px; color: var(--accent);
+  letter-spacing: .04em; border-bottom: 1px solid var(--bdr); padding-bottom: 10px;
+}
+.ch-modal-body { display: flex; flex-direction: column; gap: 10px; }
+.ch-desc { font-size: 14px; color: var(--txt); margin: 0; line-height: 1.5; }
+.ch-power { font-family: var(--fl); color: var(--accent); font-size: 13px; }
+.ch-pools { display: flex; flex-direction: column; gap: 6px; }
+.ch-pool-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+.ch-pool-lbl { color: var(--txt3); }
+.ch-pool-val { font-family: var(--fl); font-size: 16px; color: var(--txt); font-weight: 700; }
+.ch-modal-actions { display: flex; gap: 8px; }
+.ch-btn {
+  flex: 1; padding: 10px 14px; border: none; border-radius: 6px;
+  font-family: var(--fl); font-size: 12px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
+  transition: background .15s;
+}
+.ch-btn:disabled { opacity: .5; cursor: default; }
+.ch-btn-accept { background: var(--accent); color: var(--bg); }
+.ch-btn-accept:hover:not(:disabled) { background: var(--gold2, #E0C47A); }
+.ch-btn-decline { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
+.ch-btn-decline:hover:not(:disabled) { background: var(--surf3); }
+.ch-btn-close { width: 100%; margin-top: 4px; background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
+
+/* Result display */
+.ch-result { display: flex; flex-direction: column; gap: 8px; }
+.ch-dice-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.ch-dice-lbl { color: var(--txt3); min-width: 80px; font-size: 11px; }
+.ch-suc { font-family: var(--fl); font-size: 11px; color: var(--txt2); margin-left: auto; }
+.ch-outcome { font-family: var(--fh); font-size: 15px; text-align: center; padding: 8px; border-radius: 6px; letter-spacing: .08em; }
+.ch-win { background: var(--accent-a8); color: var(--accent); }
+.ch-draw { background: var(--surf2); color: var(--txt2); }
+.ch-error { font-size: 12px; color: var(--crim); }
+
+/* Initiation modal fields */
+.ch-field { display: flex; flex-direction: column; gap: 4px; }
+.ch-label { font-family: var(--fl); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--txt3); }
+.ch-optional { font-weight: 400; opacity: .6; }
+.ch-select, .ch-input {
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 5px;
+  color: var(--txt); font-size: 13px; padding: 7px 10px;
+  font-family: var(--body, inherit);
+}
+.ch-select:focus, .ch-input:focus { outline: none; border-color: var(--accent); }
+.ch-pool-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ch-type-note { font-size: 11px; color: var(--txt3); font-style: italic; }
+
+/* Sent toast */
+.ch-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px;
+  padding: 8px 16px; font-size: 13px; color: var(--txt2);
+  z-index: 1300; pointer-events: none;
+  animation: ch-fade 2.5s ease forwards;
+}
+@keyframes ch-fade { 0%,70%{ opacity:1 } 100%{ opacity:0 } }

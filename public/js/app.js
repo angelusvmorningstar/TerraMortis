@@ -45,6 +45,8 @@ import {
 import { xpLeft } from './editor/xp.js';
 import { renderCharPools } from './game/char-pools.js';
 import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool, crRoll } from './game/contested-roll.js';
+import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
+import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
 import { initSignIn } from './game/signin-tab.js';
@@ -232,6 +234,13 @@ const NAV_ALIAS = {
 };
 
 function goTab(t) {
+  // Challenge tile opens modal rather than navigating to a tab
+  if (t === 'challenge') {
+    const activeChar = editorState.chars.find(c => c === editorState.chars[editorState.editIdx]) || editorState.chars[0];
+    if (activeChar) openChallengeModal(activeChar);
+    return;
+  }
+
   // Hide all tabs
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nbtn').forEach(el => el.classList.remove('on'));
@@ -927,6 +936,7 @@ async function boot() {
       checkMoreBadge();       // non-blocking
       _updateThemeIcon();     // set correct sun/moon on load
       _initDesktopMode();     // restore desktop mode if saved
+      if (getRole() !== 'st') startChallengePoller(); // player-only polling
       return;
     }
   }
@@ -1038,6 +1048,7 @@ const MORE_APPS = [
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
   { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', section: 'player' },
+  { id: 'challenge',    label: 'Challenge',   icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'player', playerOnly: true },
   // ── Lore section ──
   { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore' },
   { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore' },
@@ -1061,6 +1072,7 @@ const MORE_SECTIONS = [
 ];
 
 function _moreGridCondition(app) {
+  if (app.playerOnly && getRole() === 'st') return false;
   if (!app.condition) return true;
   // STs see all conditional apps — conditions only gate player view
   if (getRole() === 'st') return true;
@@ -1254,6 +1266,7 @@ function renderDesktopSidebar() {
     const sectionApps = MORE_APPS.filter(app => {
       if (app.section !== section.id) return false;
       if (app.stOnly && effectiveRole() !== 'st') return false;
+      if (app.playerOnly && effectiveRole() === 'st') return false;
       if (app.condition && !_moreGridCondition(app)) return false;
       return true;
     });

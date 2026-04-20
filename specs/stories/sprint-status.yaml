@@ -374,7 +374,7 @@ development_status:
   feat-20-ordeals-tab-css-halfframes: review
 
   feat-21-desktop-sidebar-collapse: review
-  feat-22-player-roll-notification: ready-for-dev    # Player-to-player contested roll challenge workflow with polling notifications
+  feat-22-player-roll-notification: review
 
   epic-feat-retrospective: optional
 

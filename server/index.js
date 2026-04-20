@@ -24,6 +24,7 @@ import archiveDocumentsRouter from './routes/archive-documents.js';
 import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
+import contestedRollsRouter from './routes/contested-rolls.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
 // specs/guidance/pdf-target/PRIOR-ART.md for the post-mortem on why the
@@ -76,6 +77,7 @@ app.use('/api/attendance', requireAuth, attendanceRouter);
 app.use('/api/archive_documents', requireAuth, archiveDocumentsRouter);
 app.use('/api/tickets', requireAuth, ticketsRouter);
 app.use('/api/rules', requireAuth, rulesRouter);
+app.use('/api/contested_roll_requests', requireAuth, contestedRollsRouter);
 
 // /api/pdf removed — PDF generation moved client-side to public/js/print/.
 // Stale browsers calling the old endpoint get a 410 Gone with a refresh hint.
