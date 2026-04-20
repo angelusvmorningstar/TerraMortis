@@ -126,7 +126,7 @@ Key tasks:
 - Checklist state (allies/contacts section) must handle no_roll + skipped consistently
 - Verify skip status is included in DONE_STATUSES for phase progress counting
 
-### Story 1.10: Home Territory Field
+### Story 1.10: Home Territory Field — DONE
 
 **As an** ST processing a downtime,
 **I want** each character to have an explicit home territory field,
@@ -139,7 +139,7 @@ Key tasks:
 - Field is optional; if unset, Home Report section is suppressed for that character
 - Expose `home_territory` in the DT Story character context so prompt generators can read it
 
-### Story 1.11: Personal Story Section — Player Form (NPC Stub)
+### Story 1.11: Personal Story Section — Player Form (NPC Stub) — DONE
 
 **As a** player filling out my downtime,
 **I want** to choose a personal interaction with an NPC from my character's world,
@@ -158,7 +158,7 @@ Key tasks:
 - `collect_responses` handles both stub-picked and free-text NPC paths
 - Note: `npcs` stub on character is a placeholder — full NPC Register epic will replace this with proper collections and admin UI. Code interacts with this interface; the backing store changes later.
 
-### Story 1.12: Home Report Section — DT Story
+### Story 1.12: Home Report Section — DT Story — DONE
 
 **As an** ST writing the Home Report for a character,
 **I want** a section that surfaces what's happening near the character's home territory,

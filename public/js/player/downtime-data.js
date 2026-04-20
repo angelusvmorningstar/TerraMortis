@@ -139,7 +139,16 @@ export const DOWNTIME_SECTIONS = [
     ],
   },
 
-  // 2. Blood Sorcery — auto-gated by disciplines, rendered dynamically; declared before Feeding
+  // 2. Personal Story — always shown; player selects an NPC to interact with
+  {
+    key: 'personal_story',
+    title: 'Personal Story: Off-Screen Life',
+    gate: null,
+    intro: null,
+    questions: [], // rendered dynamically by downtime-form.js
+  },
+
+  // 3. Blood Sorcery — auto-gated by disciplines, rendered dynamically; declared before Feeding
   //    so players know which rites affect their hunt pool before committing to a method
   {
     key: 'blood_sorcery',
