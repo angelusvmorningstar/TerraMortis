@@ -126,7 +126,7 @@ Key tasks:
 - Checklist state (allies/contacts section) must handle no_roll + skipped consistently
 - Verify skip status is included in DONE_STATUSES for phase progress counting
 
-### Story 1.10: Home Territory Field
+### Story 1.10: Home Territory Field — DONE
 
 **As an** ST processing a downtime,
 **I want** each character to have an explicit home territory field,

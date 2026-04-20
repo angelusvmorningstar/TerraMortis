@@ -75,6 +75,7 @@ export const characterSchema = {
     dirge:       { type: ['string', 'null'] },
     court_title:    { type: ['string', 'null'] },
     court_category: { type: ['string', 'null'], enum: ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer', '', null] },
+    home_territory: { type: ['string', 'null'] },
 
     // regent_territory / regent_lieutenant removed — regent status is
     // now derived from the territories collection (regent_id field).
