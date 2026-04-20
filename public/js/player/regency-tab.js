@@ -2,13 +2,17 @@
  * Regency tab — standalone territory management for regents.
  * Feeding rights are stored on the territory document (territories collection)
  * as `feeding_rights: string[]` — same source as the ST City tab.
+ *
+ * Regent (slot 1) and Lieutenant (slot 2) are implicit — they are displayed
+ * as locked header rows and are NOT included in the feeding_rights dropdowns
+ * or the feeding_rights array sent to the API.
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName, findRegentTerritory } from '../data/helpers.js';
 import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
 
-const FEEDING_SLOTS = 10; // editable feeding right slots (excludes Regent + Lieutenant header rows)
+const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
 
 let currentChar = null;
 let _territories = [];
@@ -59,8 +63,23 @@ function render(container) {
   const terr = TERRITORY_DATA.find(t => t.name === terrName);
   const ambience = terr ? terr.ambience : 'Unknown';
   const regentName = displayName(currentChar);
-  const feedingRights = _terrDoc()?.feeding_rights || [];
+  const regentId = String(currentChar._id);
+  const rawFeedingRights = _terrDoc()?.feeding_rights || [];
   const terrId = ri?.territoryId || '';
+
+  // Regent is always slot 1; lieutenant is slot 2 if present
+  const ltId = ri?.lieutenantId || '';
+  const ltChar = ltId ? allCharNames.find(c => String(c._id) === ltId) : null;
+  const ltName = ltChar ? displayName(ltChar) : (ltId ? ltId : '— None —');
+  const loopStart = ltId ? 3 : 2; // feeding right dropdowns begin at this position
+
+  // Strip regent and lieutenant IDs from saved array (handles legacy data that included them)
+  const additionalRights = rawFeedingRights.filter(
+    id => id !== regentId && (!ltId || id !== ltId)
+  );
+
+  // Render slots from loopStart; show any existing over-cap entries too
+  const loopEnd = Math.max(cap, loopStart + additionalRights.length - 1);
 
   // Confirmation state for active cycle
   const cycleConfirmed = _activeCycle?.feeding_rights_confirmed === true;
@@ -82,36 +101,32 @@ function render(container) {
   h += `<p class="regency-meta">Ambience: ${esc(ambience)} — Feeding rights cap: ${cap}</p>`;
   h += `<p class="regency-desc">Grant feeding rights for your territory. Slots beyond the cap are highlighted as over-capacity.</p>`;
 
-  // Header rows — Regent (locked) and Lieutenant (locked)
   h += '<div class="dt-residency-grid">';
 
-  // Regent row
+  // Slot 1 — Regent (locked, implicit)
   h += '<div class="dt-residency-row">';
   h += '<span class="dt-residency-label">Regent</span>';
   h += `<span class="dt-residency-locked">${esc(regentName)}</span>`;
   h += '</div>';
 
-  // Lieutenant row
-  const ltId = ri?.lieutenantId || '';
-  const ltChar = ltId ? allCharNames.find(c => String(c._id) === ltId) : null;
-  const ltName = ltChar ? displayName(ltChar) : (ltId ? ltId : '— None —');
-  h += '<div class="dt-residency-row">';
-  h += '<span class="dt-residency-label">Lieutenant</span>';
-  h += `<span class="dt-residency-locked">${esc(ltName)}</span>`;
-  h += '</div>';
+  // Slot 2 — Lieutenant (locked, implicit; hidden if none)
+  if (ltId) {
+    h += '<div class="dt-residency-row">';
+    h += '<span class="dt-residency-label">Lieutenant</span>';
+    h += `<span class="dt-residency-locked">${esc(ltName)}</span>`;
+    h += '</div>';
+  }
 
-  // Feeding right slots
-  for (let i = 1; i <= FEEDING_SLOTS; i++) {
-    const overCap = i + 2 > cap; // slots 1-2 are regent+lieutenant, feeding starts at position 3
+  // Additional feeding right slots — start at loopStart (3 with lt, 2 without)
+  for (let i = loopStart; i <= loopEnd; i++) {
+    const overCap = i > cap;
     const rowClass = overCap ? 'dt-residency-row dt-over-cap' : 'dt-residency-row';
-    const savedVal = feedingRights[i - 1] || '';
-    // Lock this slot if it was previously confirmed
+    const savedVal = additionalRights[i - loopStart] || '';
     const isConfirmedSlot = confirmedRights.includes(savedVal) && savedVal;
 
     h += `<div class="${rowClass}">`;
     h += `<span class="dt-residency-label">Feeding Right ${i}</span>`;
     if (isConfirmedSlot) {
-      // Confirmed slot — show locked display
       const confirmedChar = allCharNames.find(c => String(c._id) === savedVal);
       const confirmedName = confirmedChar ? displayName(confirmedChar) : savedVal;
       h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}" disabled>`;
@@ -130,6 +145,7 @@ function render(container) {
     if (overCap) h += '<span class="dt-over-cap-warn">Over capacity</span>';
     h += '</div>';
   }
+
   h += '</div>';
 
   // Action buttons
@@ -179,10 +195,15 @@ async function saveRegency() {
     return;
   }
 
+  const ltId = ri?.lieutenantId || '';
+  const loopStart = ltId ? 3 : 2;
+
+  // Collect only the additional feeding right slots (regent + lieutenant are implicit)
   const feedingRights = [];
-  for (let i = 1; i <= FEEDING_SLOTS; i++) {
+  for (let i = loopStart; i <= MAX_FEEDING_POSITION; i++) {
     const el = document.getElementById(`reg-slot-${i}`);
-    if (el?.value) feedingRights.push(el.value);
+    if (!el) break; // stop when we reach slots that weren't rendered
+    if (el.value) feedingRights.push(el.value);
   }
 
   try {
@@ -210,11 +231,15 @@ async function confirmFeeding(container) {
     return;
   }
 
-  // Collect current feeding rights (non-empty slots only)
+  const ltId = ri?.lieutenantId || '';
+  const loopStart = ltId ? 3 : 2;
+
+  // Collect current additional feeding right slots only
   const rights = [];
-  for (let i = 1; i <= FEEDING_SLOTS; i++) {
+  for (let i = loopStart; i <= MAX_FEEDING_POSITION; i++) {
     const el = document.getElementById(`reg-slot-${i}`);
-    if (el?.value) rights.push(el.value);
+    if (!el) break;
+    if (el.value) rights.push(el.value);
   }
 
   const btn = container.querySelector('#reg-confirm');
@@ -226,7 +251,6 @@ async function confirmFeeding(container) {
       territory_id: ri.territoryId,
       rights,
     });
-    // Update local cycle state and re-render
     _activeCycle = updated;
     render(container);
   } catch (err) {
@@ -237,10 +261,14 @@ async function confirmFeeding(container) {
 
 /** Get the current feeding rights list (for downtime submission). */
 export function getResidencyList() {
+  const ri = _regInfo();
+  const ltId = ri?.lieutenantId || '';
+  const loopStart = ltId ? 3 : 2;
   const list = [];
-  for (let i = 1; i <= FEEDING_SLOTS; i++) {
+  for (let i = loopStart; i <= MAX_FEEDING_POSITION; i++) {
     const el = document.getElementById(`reg-slot-${i}`);
-    list.push(el?.value || '');
+    if (!el) break;
+    list.push(el.value || '');
   }
   return list;
 }

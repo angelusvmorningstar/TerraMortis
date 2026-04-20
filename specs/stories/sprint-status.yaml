@@ -370,8 +370,8 @@ development_status:
   feat-17-rules-city-status-territory: done  # Add City Status and Territory sections to the rules quick reference in the game app
   fix-44-attache-invested-gate: done  # Invested bonus dots allocatable to Attaché; INV box appears only after first dot purchased
   feat-18-whos-who-map-regents-cleanup: done   # Who's Who tab: removed map + regents, collapsed to single-column layout
-  feat-19-regency-regent-lieutenant-dedup: backlog  # Regency view: regent + lieutenant duplicated in feeding rights slots 1+2; should be implicit, not selectable dropdowns
-  feat-20-ordeals-tab-css-halfframes: backlog     # Ordeals tab has no CSS applied and still renders half-frames; needs styling pass
+  feat-19-regency-regent-lieutenant-dedup: review
+  feat-20-ordeals-tab-css-halfframes: ready-for-dev
 
   epic-feat-retrospective: optional
 
