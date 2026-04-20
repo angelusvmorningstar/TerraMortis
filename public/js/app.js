@@ -78,7 +78,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
-import { apiGet } from './data/api.js';
+import { apiGet, apiPost } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
@@ -246,10 +246,9 @@ const NAV_ITEMS = [
   { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime' },
   { id: 'map',       label: 'Map',       icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', goTab: 'map' },
   { id: 'ordeals',   label: 'Ordeals',   icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
-  { id: 'tickets',   label: 'Tickets',   icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', goTab: 'tickets' },
-  { id: 'primer',    label: 'Primer',    icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', goTab: 'primer' },
-  { id: 'game-guide',label: 'Guide',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', goTab: 'game-guide', disabled: true },
-  { id: 'rules',     label: 'Rules',     icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M13 8h4M13 12h4M13 16h4"/></svg>', goTab: 'rules' },
+  { id: 'primer',    label: 'Primer',    icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', goTab: 'primer', guide: true },
+  { id: 'game-guide',label: 'Guide',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', goTab: 'game-guide', disabled: true, guide: true },
+  { id: 'rules',     label: 'Rules',     icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M13 8h4M13 12h4M13 16h4"/></svg>', goTab: 'rules', guide: true },
   // ST only
   { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
   { id: 'tracker',   label: 'Tracker',   icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', goTab: 'tracker', stOnly: true },
@@ -269,10 +268,12 @@ function renderBottomNav() {
   const role = effectiveRole();
   const isST = role === 'st';
 
+  const showGuides = localStorage.getItem('tm-show-guides') === '1';
   let h = '';
   for (const item of NAV_ITEMS) {
     if (item.stOnly && !isST) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
+    if (item.guide && !showGuides) continue;
     const dis = item.disabled ? ' nbtn-disabled' : '';
     const click = item.disabled ? '' : ` onclick="goTab('${item.goTab}')"`;
     h += `<button class="nbtn${dis}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
@@ -1215,12 +1216,34 @@ function renderSettingsTab() {
   h += '</div>';
   h += '</div>';
 
+  // Show Guides toggle
+  const showGuides = localStorage.getItem('tm-show-guides') === '1';
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Navigation</div>';
+  h += '<label class="settings-checkbox-row">';
+  h += `<input type="checkbox" id="settings-show-guides"${showGuides ? ' checked' : ''}>`;
+  h += '<span>Show Primer, Guide &amp; Rules tabs</span>';
+  h += '</label>';
+  h += '</div>';
+
   // ST Admin link
   if (getRole() === 'st') {
     h += '<div class="settings-section">';
     h += '<a href="/admin" class="settings-btn">ST Admin Panel</a>';
     h += '</div>';
   }
+
+  // Submit a Ticket
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Submit a Ticket</div>';
+  h += '<div class="settings-ticket-form">';
+  h += '<select class="settings-input" id="stk-type"><option value="bug">Bug Report</option><option value="feature">Feature Request</option><option value="question">Question</option><option value="sheet">Sheet Issue</option><option value="other">Other</option></select>';
+  h += '<input class="settings-input" id="stk-title" type="text" placeholder="Short summary" maxlength="200">';
+  h += '<textarea class="settings-input" id="stk-body" rows="4" placeholder="Describe the issue or request..."></textarea>';
+  h += '<div id="stk-status" style="display:none"></div>';
+  h += '<button class="settings-btn" id="stk-submit">Submit Ticket</button>';
+  h += '</div>';
+  h += '</div>';
 
   h += '</div>';
   el.innerHTML = h;
@@ -1246,6 +1269,31 @@ function renderSettingsTab() {
       _applyReadingFontSize(btn.dataset.fontsize);
       renderSettingsTab();
     });
+  });
+
+  // Wire show guides toggle
+  el.querySelector('#settings-show-guides')?.addEventListener('change', e => {
+    localStorage.setItem('tm-show-guides', e.target.checked ? '1' : '0');
+    renderBottomNav();
+    if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
+  });
+
+  // Wire ticket submit
+  el.querySelector('#stk-submit')?.addEventListener('click', async () => {
+    const type  = el.querySelector('#stk-type')?.value || 'other';
+    const title = el.querySelector('#stk-title')?.value?.trim();
+    const body  = el.querySelector('#stk-body')?.value?.trim();
+    const statusEl = el.querySelector('#stk-status');
+    if (!title) { statusEl.textContent = 'Title is required.'; statusEl.style.display = ''; statusEl.style.color = 'var(--crim)'; return; }
+    statusEl.textContent = 'Submitting\u2026'; statusEl.style.display = ''; statusEl.style.color = 'var(--txt3)';
+    try {
+      await apiPost('/api/tickets', { type, title, body: body || '' });
+      statusEl.textContent = 'Ticket submitted!'; statusEl.style.color = 'var(--green2)';
+      el.querySelector('#stk-title').value = '';
+      el.querySelector('#stk-body').value = '';
+    } catch (err) {
+      statusEl.textContent = 'Failed: ' + (err.message || 'unknown error'); statusEl.style.color = 'var(--crim)';
+    }
   });
 }
 
