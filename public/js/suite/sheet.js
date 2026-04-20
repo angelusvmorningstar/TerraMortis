@@ -50,7 +50,17 @@ export function renderSheet() {
   state.openExpId = null;
   const c = state.sheetChar;
   const el = document.getElementById('sh-content-suite');
-  if (!c) { el.innerHTML = ''; return; }
+  // Split-tab containers (phone UX — Stats / Skills / Powers)
+  const statsEl  = document.getElementById('stats-content');
+  const skillsEl = document.getElementById('skills-content');
+  const powersEl = document.getElementById('powers-content');
+  if (!c) {
+    if (el) el.innerHTML = '';
+    if (statsEl)  statsEl.innerHTML = '';
+    if (skillsEl) skillsEl.innerHTML = '';
+    if (powersEl) powersEl.innerHTML = '';
+    return;
+  }
 
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '';
   const st = c.status || {};
@@ -260,6 +270,10 @@ export function renderSheet() {
     ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled') + infBreakdown : ''}
   </div>`;
 
+  // ── Split point: stats content ends here ──
+  const statsHtml = html;
+  html = '';
+
   // ── BODY ──
   html += `<div class="sh-body">`;
 
@@ -269,7 +283,7 @@ export function renderSheet() {
     { label: 'Physical', attrs: ['Strength', 'Dexterity', 'Stamina'] },
     { label: 'Social',   attrs: ['Presence', 'Manipulation', 'Composure'] },
   ];
-  html += `<div class="sh-sec"><div class="sh-sec-title">Attributes</div><div class="attr-grid">`;
+  html += `<div class="sh-sec"><div class="sh-sec-title">Attributes</div><div class="attr-grid" id="attr-carousel">`;
   ATTR_COLS.forEach(col => {
     html += `<div class="attr-cell"><div class="attr-group-hd">${col.label}</div>`;
     col.attrs.forEach(a => {
@@ -278,7 +292,7 @@ export function renderSheet() {
     });
     html += `</div>`;
   });
-  html += `</div></div>`;
+  html += `</div><div class="attr-carousel-dots">${ATTR_COLS.map((_, i) => `<span class="attr-carousel-dot${i === 0 ? ' active' : ''}"></span>`).join('')}</div></div>`;
 
   // Skills (3-col, all 24)
   const SKILL_COLS = [
@@ -309,6 +323,10 @@ export function renderSheet() {
     });
   }
   html += `</div></div>`;
+
+  // ── Split point: skills content ends here ──
+  const skillsHtml = html;
+  html = '';
 
   // ── Powers -- four sections ──
 
@@ -656,7 +674,31 @@ export function renderSheet() {
   }
 
   html += `</div>`; // end sh-body
-  el.innerHTML = html;
+  const powersHtml = html;
+
+  // Render to full sheet container (desktop / legacy) and split-tab containers (phone)
+  if (el) el.innerHTML = statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
+  if (statsEl)  statsEl.innerHTML  = statsHtml;
+  if (skillsEl) skillsEl.innerHTML = skillsHtml;
+  if (powersEl) powersEl.innerHTML = powersHtml;
+
+  // Wire attribute carousel dot indicator
+  _wireAttrCarousel(skillsEl || el);
+}
+
+function _wireAttrCarousel(container) {
+  if (!container) return;
+  const grid = container.querySelector('#attr-carousel');
+  const dots = container.querySelectorAll('.attr-carousel-dot');
+  if (!grid || !dots.length) return;
+  const cells = grid.querySelectorAll('.attr-cell');
+  if (!cells.length) return;
+  grid.addEventListener('scroll', () => {
+    const scrollLeft = grid.scrollLeft;
+    const cellWidth = cells[0].offsetWidth;
+    const idx = Math.round(scrollLeft / cellWidth);
+    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+  }, { passive: true });
 }
 
 function esc(s) {

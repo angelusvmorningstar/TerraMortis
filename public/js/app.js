@@ -207,6 +207,9 @@ const TAB_SUBTITLES = {
   // Unified nav tab names
   dice: 'Dice',
   sheet: 'Sheet',
+  stats: 'Stats',
+  skills: 'Skills',
+  powers: 'Powers',
   status: 'Status',
   territory: 'Territory',
   more: 'More',
@@ -220,8 +223,8 @@ const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
 // Maps internal tab names to the visible unified nav button ID.
 // Legacy tabs and More grid apps all resolve to the correct primary nav button.
 const NAV_ALIAS = {
-  // Editor sub-views all highlight the Sheet nav button
-  chars: 'sheet', editor: 'sheet', edit: 'sheet', sheets: 'sheet',
+  // Editor sub-views highlight the Stats nav button (primary sheet view)
+  chars: 'stats', editor: 'stats', edit: 'stats', sheets: 'stats', sheet: 'stats',
   roll: 'dice',
   // More grid still exists for desktop sidebar — alias for goTab compatibility
   more: 'more',
@@ -231,9 +234,10 @@ const NAV_ALIAS = {
 // Ordered list of all nav items. Role/condition gating mirrors MORE_APPS.
 // Icons are inlined (not referencing _svg) to avoid declaration-order issues.
 const NAV_ITEMS = [
-  // Dice hidden — will become a modal triggered from sheet sections
-  // { id: 'dice',      label: 'Dice',      icon: '...', goTab: 'dice' },
-  { id: 'sheet',     label: 'Sheet',     icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', goTab: 'chars' },
+  // Sheet split into Stats / Skills / Powers for phone UX
+  { id: 'stats',     label: 'Stats',     icon: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>', goTab: 'stats' },
+  { id: 'skills',    label: 'Skills',    icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', goTab: 'skills' },
+  { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
   { id: 'status',    label: 'Status',    icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>', goTab: 'status' },
   { id: 'whos-who',  label: "Who's Who", icon: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>', goTab: 'whos-who' },
   { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>', goTab: 'feeding' },
@@ -982,7 +986,7 @@ async function boot() {
         openChar(0);
         pickChar(editorState.chars[0]);
       }
-      goTab('chars');
+      goTab('stats');
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       _updateThemeIcon();     // set correct sun/moon on load

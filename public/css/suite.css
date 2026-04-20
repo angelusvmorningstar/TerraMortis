@@ -199,9 +199,16 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .sh-meta-val{font-family:var(--fl);font-size:11px;font-variant:small-caps;font-weight:600;color:var(--label-secondary);flex:1;}
 
 /* Suite-specific attribute/skill class names (without sh- prefix) */
-.attr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.attr-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;padding-bottom:8px;}
+.attr-grid::-webkit-scrollbar{display:none;}
 /* Override components.css .attr-cell which targets admin single-row layout */
-.attr-cell{display:flex;flex-direction:column;gap:0;align-items:stretch;justify-content:flex-start;}
+.attr-cell{flex:0 0 85%;scroll-snap-align:center;display:flex;flex-direction:column;gap:0;align-items:stretch;justify-content:flex-start;padding:0 8px;}
+.attr-cell:first-child{padding-left:0;}
+.attr-cell:last-child{padding-right:0;}
+/* Carousel hint: scroll indicator dots */
+.attr-carousel-dots{display:flex;justify-content:center;gap:6px;margin-top:4px;}
+.attr-carousel-dot{width:8px;height:8px;border-radius:50%;background:var(--bdr2);transition:background .2s;}
+.attr-carousel-dot.active{background:var(--accent);}
 .attr-row-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-bottom:.5px solid var(--bdr);}
 .attr-row-item:last-child{border-bottom:none;}
 .attr-name{font-family:var(--fl);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--label-secondary);}
@@ -1777,6 +1784,9 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 /* Desktop toggle button */
 .desktop-toggle-btn { padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; }
 .desktop-toggle-btn svg { display: block; }
+
+/* ── Split sheet tabs ── */
+#stats-content, #skills-content, #powers-content { padding: 12px 14px; }
 
 /* ── Settings tab ── */
 .settings-wrap { padding: 20px 16px; max-width: 480px; }
