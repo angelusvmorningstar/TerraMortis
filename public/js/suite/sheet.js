@@ -344,7 +344,10 @@ export function renderSheet() {
 
   function dotsMixed(purchased, bonus) {
     if (!purchased && !bonus) return '';
-    return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
+    return '<span class="trait-dots">'
+      + '<span class="pointed"></span>'.repeat(purchased)
+      + '<span class="pointed hollow"></span>'.repeat(bonus)
+      + '</span>';
   }
 
   if (c.disciplines && Object.keys(c.disciplines).length) {
@@ -526,7 +529,8 @@ export function renderSheet() {
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (stndMerits.length) {
-    const tierDotStr = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
+    const _pd = '<span class="pointed"></span>';
+    const tierDotStr = [_pd, _pd.repeat(2), _pd.repeat(3), _pd.repeat(4), _pd.repeat(5)];
     html += `<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="stand-list">`;
     stndMerits.forEach((m, mi) => {
       const sid = 'smt' + mi;
