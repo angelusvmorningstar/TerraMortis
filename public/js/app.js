@@ -918,9 +918,11 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
-      // Auto-open character for players so Sheet/Downtime tabs work immediately
+      // Auto-open character for players so Sheet/Downtime tabs work immediately,
+      // and pre-fill the dice tab so the roller is ready without a manual pick.
       if (getRole() !== 'st' && editorState.chars.length > 0) {
         openChar(0);
+        pickChar(editorState.chars[0]);
       }
       goTab('dice');
       renderLifecycleCards(); // non-blocking
