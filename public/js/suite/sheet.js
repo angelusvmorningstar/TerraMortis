@@ -277,33 +277,35 @@ export function renderSheet() {
   // ── BODY ──
   html += `<div class="sh-body">`;
 
-  // Attributes (3-column: Mental | Physical | Social)
-  const ATTR_COLS = [
-    { label: 'Mental',   attrs: ['Intelligence', 'Wits', 'Resolve'] },
-    { label: 'Physical', attrs: ['Strength', 'Dexterity', 'Stamina'] },
-    { label: 'Social',   attrs: ['Presence', 'Manipulation', 'Composure'] },
+  // Attributes + Skills combined carousel (Mental / Physical / Social)
+  const CATEGORIES = [
+    { label: 'Mental',   attrs: ['Intelligence', 'Wits', 'Resolve'],
+      skills: ['Academics', 'Computer', 'Crafts', 'Investigation', 'Medicine', 'Occult', 'Politics', 'Science'] },
+    { label: 'Physical', attrs: ['Strength', 'Dexterity', 'Stamina'],
+      skills: ['Athletics', 'Brawl', 'Drive', 'Firearms', 'Larceny', 'Stealth', 'Survival', 'Weaponry'] },
+    { label: 'Social',   attrs: ['Presence', 'Manipulation', 'Composure'],
+      skills: ['Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Streetwise', 'Subterfuge'] },
   ];
-  html += `<div class="sh-sec"><div class="sh-sec-title">Attributes</div><div class="attr-grid" id="attr-carousel">`;
-  ATTR_COLS.forEach(col => {
-    html += `<div class="attr-cell"><div class="attr-group-hd">${col.label}</div>`;
-    col.attrs.forEach(a => {
+
+  html += `<div class="sh-sec">`;
+  // Badge indicators above carousel
+  html += `<div class="attr-carousel-badges">${CATEGORIES.map((cat, i) =>
+    `<span class="attr-carousel-badge${i === 0 ? ' active' : ''}" data-carousel-idx="${i}">${cat.label}</span>`
+  ).join('')}</div>`;
+  // Carousel container
+  html += `<div class="attr-skills-carousel" id="attr-carousel">`;
+  CATEGORIES.forEach(cat => {
+    html += `<div class="attr-skills-card">`;
+    // Attributes block
+    html += `<div class="attr-cell"><div class="attr-group-hd">${cat.label} Attributes</div>`;
+    cat.attrs.forEach(a => {
       const base = getAttrDots(c, a), bonus = getAttrBonus(c, a);
       html += `<div class="attr-row-item"><span class="attr-name">${a}</span><span class="attr-dots">${dotsWithBonus(base, bonus)}</span></div>`;
     });
     html += `</div>`;
-  });
-  html += `</div><div class="attr-carousel-dots">${ATTR_COLS.map((_, i) => `<span class="attr-carousel-dot${i === 0 ? ' active' : ''}"></span>`).join('')}</div></div>`;
-
-  // Skills (3-col, all 24)
-  const SKILL_COLS = [
-    ['Academics', 'Computer', 'Crafts', 'Investigation', 'Medicine', 'Occult', 'Politics', 'Science'],
-    ['Athletics', 'Brawl', 'Drive', 'Firearms', 'Larceny', 'Stealth', 'Survival', 'Weaponry'],
-    ['Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Streetwise', 'Subterfuge'],
-  ];
-  html += `<div class="sh-sec"><div class="sh-sec-title">Skills</div><div class="skills-3col">`;
-  for (let ri = 0; ri < 8; ri++) {
-    SKILL_COLS.forEach(col => {
-      const s = col[ri];
+    // Skills block
+    html += `<div class="skill-col-block"><div class="attr-group-hd">${cat.label} Skills</div>`;
+    cat.skills.forEach(s => {
       const sk = c.skills ? c.skills[s] : null;
       const d = skillDots(sk), sp = skillSpec(sk);
       const bn = sk ? (sk.bonus || 0) : 0;
@@ -321,7 +323,9 @@ export function renderSheet() {
         </div>
       </div>`;
     });
-  }
+    html += `</div>`;
+    html += `</div>`; // end card
+  });
   html += `</div></div>`;
 
   // ── Split point: skills content ends here ──
@@ -682,23 +686,32 @@ export function renderSheet() {
   if (skillsEl) skillsEl.innerHTML = skillsHtml;
   if (powersEl) powersEl.innerHTML = powersHtml;
 
-  // Wire attribute carousel dot indicator
+  // Wire attribute+skills carousel indicators
   _wireAttrCarousel(skillsEl || el);
 }
 
 function _wireAttrCarousel(container) {
   if (!container) return;
-  const grid = container.querySelector('#attr-carousel');
-  const dots = container.querySelectorAll('.attr-carousel-dot');
-  if (!grid || !dots.length) return;
-  const cells = grid.querySelectorAll('.attr-cell');
-  if (!cells.length) return;
-  grid.addEventListener('scroll', () => {
-    const scrollLeft = grid.scrollLeft;
-    const cellWidth = cells[0].offsetWidth;
-    const idx = Math.round(scrollLeft / cellWidth);
-    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+  const carousel = container.querySelector('#attr-carousel');
+  const badges = container.querySelectorAll('.attr-carousel-badge');
+  if (!carousel || !badges.length) return;
+  const cards = carousel.querySelectorAll('.attr-skills-card');
+  if (!cards.length) return;
+
+  // Update badges on scroll
+  carousel.addEventListener('scroll', () => {
+    const scrollLeft = carousel.scrollLeft;
+    const cardWidth = cards[0].offsetWidth;
+    const idx = Math.round(scrollLeft / cardWidth);
+    badges.forEach((b, i) => b.classList.toggle('active', i === idx));
   }, { passive: true });
+
+  // Tap badge to scroll to that card
+  badges.forEach((badge, i) => {
+    badge.addEventListener('click', () => {
+      cards[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+  });
 }
 
 function esc(s) {
