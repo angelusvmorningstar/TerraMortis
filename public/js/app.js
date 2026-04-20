@@ -12,7 +12,7 @@
 
 import editorState from './data/state.js';
 import { ICONS } from './data/icons.js';
-import { CLAN_ICON_KEY, covIcon, displayName, sortName, redactPlayer, discordAvatarUrl } from './data/helpers.js';
+import { CLAN_ICON_KEY, covIcon, displayName, sortName, redactPlayer, discordAvatarUrl, esc } from './data/helpers.js';
 import { renderList, filterList, setListLimit } from './editor/list.js';
 import { renderSheet as editorRenderSheet, toggleExp as editorToggleExp, toggleDisc as editorToggleDisc } from './editor/sheet.js';
 import { loadDB, saveDB, saveAll, syncToSuite, downloadCSV, registerCallbacks as registerExportCallbacks } from './editor/export.js';
@@ -78,7 +78,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
-import { apiGet } from './data/api.js';
+import { apiGet, apiPost } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
@@ -182,7 +182,7 @@ function openChar(idx) {
   if (poolsEl) {
     suiteState.rollChar = c;
     renderCharPools(poolsEl, c, (p) => {
-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
       goTab('dice');
     });
   }
@@ -207,9 +207,14 @@ const TAB_SUBTITLES = {
   // Unified nav tab names
   dice: 'Dice',
   sheet: 'Sheet',
+  stats: 'Stats',
+  skills: 'Skills',
+  powers: 'Powers',
+  info: 'Misc',
   status: 'Status',
   territory: 'Territory',
   more: 'More',
+  settings: 'Settings',
 };
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
@@ -219,17 +224,71 @@ const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
 // Maps internal tab names to the visible unified nav button ID.
 // Legacy tabs and More grid apps all resolve to the correct primary nav button.
 const NAV_ALIAS = {
-  // Legacy → unified primary nav
-  chars: 'sheet', editor: 'sheet', edit: 'sheet', sheets: 'sheet',
+  // Editor sub-views highlight the Stats nav button (primary sheet view)
+  chars: 'stats', editor: 'stats', edit: 'stats', sheets: 'stats', sheet: 'stats',
   roll: 'dice',
-  // Territory is now a More grid app (not primary nav)
-  territory: 'more',
-  // More grid apps → More button
-  'whos-who': 'more', downtime: 'more', feeding: 'more', map: 'more',
-  primer: 'more', 'game-guide': 'more', rules: 'more',
-  ordeals: 'more', tickets: 'more', tracker: 'more', signin: 'more', emergency: 'more',
-  regency: 'more', office: 'more', archive: 'more',
+  // More grid still exists for desktop sidebar — alias for goTab compatibility
+  more: 'more',
 };
+
+// ── Scrollable bottom nav ───────────────────────────────────────────────────
+// Ordered list of all nav items. Role/condition gating mirrors MORE_APPS.
+// Icons are inlined (not referencing _svg) to avoid declaration-order issues.
+const NAV_ITEMS = [
+  // Sheet split into Stats / Skills / Powers for phone UX
+  { id: 'stats',     label: 'Stats',     icon: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>', goTab: 'stats' },
+  { id: 'skills',    label: 'Skills',    icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', goTab: 'skills' },
+  { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
+  { id: 'status',    label: 'Status',    icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>', goTab: 'status' },
+  { id: 'misc',      label: 'Misc',      icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', goTab: 'info' },
+  { id: 'whos-who',  label: "Who's Who", icon: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>', goTab: 'whos-who' },
+  { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>', goTab: 'feeding' },
+  { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime' },
+  { id: 'map',       label: 'Map',       icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', goTab: 'map' },
+  { id: 'ordeals',   label: 'Ordeals',   icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
+  { id: 'primer',    label: 'Primer',    icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', goTab: 'primer', guide: true },
+  { id: 'game-guide',label: 'Guide',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', goTab: 'game-guide', disabled: true, guide: true },
+  { id: 'rules',     label: 'Rules',     icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M13 8h4M13 12h4M13 16h4"/></svg>', goTab: 'rules', guide: true },
+  // ST only
+  { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
+  { id: 'tracker',   label: 'Tracker',   icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', goTab: 'tracker', stOnly: true },
+  { id: 'combat',    label: 'Combat',    icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M3 14l7-7"/></svg>', goTab: 'combat', stOnly: true },
+  { id: 'signin',    label: 'Sign-In',   icon: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>', goTab: 'signin', stOnly: true },
+  { id: 'emergency', label: 'Emergency', icon: '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.89 12 19.79 19.79 0 0 1 1.84 3.4 2 2 0 0 1 3.81 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>', goTab: 'emergency', stOnly: true },
+  // Conditional
+  { id: 'regency',   label: 'Regency',   icon: '<svg viewBox="0 0 24 24"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z"/><line x1="2" y1="20" x2="22" y2="20"/></svg>', goTab: 'regency', condition: 'hasRegency' },
+  { id: 'office',    label: 'Office',    icon: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', goTab: 'office', condition: 'hasOffice' },
+  // Settings (always last)
+  { id: 'settings',  label: 'Settings',  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', goTab: 'settings' },
+];
+
+function renderBottomNav() {
+  const el = document.getElementById('bnav');
+  if (!el) return;
+  const role = effectiveRole();
+  const isST = role === 'st';
+
+  const showGuides = localStorage.getItem('tm-show-guides') === '1';
+  let h = '';
+  for (const item of NAV_ITEMS) {
+    if (item.stOnly && !isST) continue;
+    if (item.condition && !_moreGridCondition(item)) continue;
+    if (item.guide && !showGuides) continue;
+    const dis = item.disabled ? ' nbtn-disabled' : '';
+    const click = item.disabled ? '' : ` onclick="goTab('${item.goTab}')"`;
+    h += `<button class="nbtn${dis}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
+  }
+  el.innerHTML = h;
+
+  // Highlight the currently active tab
+  const active = document.querySelector('.tab.active');
+  if (active) {
+    const tabId = active.id.replace('t-', '');
+    const navId = 'n-' + (NAV_ALIAS[tabId] || tabId);
+    const navEl = document.getElementById(navId);
+    if (navEl) navEl.classList.add('on');
+  }
+}
 
 function goTab(t) {
   // Hide all tabs
@@ -242,7 +301,11 @@ function goTab(t) {
   // Mark the nav button — use alias if the tab maps to a unified nav button
   const navId = 'n-' + (NAV_ALIAS[t] || t);
   const navEl = document.getElementById(navId);
-  if (navEl) navEl.classList.add('on');
+  if (navEl) {
+    navEl.classList.add('on');
+    // Scroll the active button into view in the swipeable nav strip
+    navEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
 
   // Update header subtitle
   const subEl = document.getElementById('hdr-sub');
@@ -263,6 +326,7 @@ function goTab(t) {
   if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
   if (t === 'dice') { _clearLifecycleCache(); renderLifecycleCards(); }
   if (t === 'more') renderMoreGrid();
+  if (t === 'settings') renderSettingsTab();
 
   // ── More grid apps — player portal tabs (nav-2-3) ────────────────────────
   if (t === 'map') {
@@ -390,7 +454,7 @@ async function loadAllData() {
   }
 
   // 1b. Load game session XP (attendance-based) — same as admin/player portal
-  await loadGameXP(editorState.chars).catch(() => {});
+  await loadGameXP(editorState.chars, getRole() === 'st').catch(() => {});
 
   // 1c. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
   editorState.chars.forEach(c => applyDerivedMerits(c));
@@ -671,6 +735,9 @@ function pickChar(c) {
   const lblEl = document.getElementById('sc-char-lbl');
   if (lblEl) lblEl.textContent = '';
   if (valEl) valEl.textContent = (c.moniker || c.name).split(' ')[0];
+  // Update header character name
+  const hdrName = document.getElementById('hdr-char-name');
+  if (hdrName) hdrName.textContent = displayName(c);
   const scChar = document.getElementById('sc-char');
   if (scChar) scChar.classList.add('loaded');
   const discLbl = document.getElementById('sc-disc-lbl');
@@ -695,7 +762,7 @@ function pickChar(c) {
   const rollPoolsEl = document.getElementById('roll-char-pools');
   if (rollPoolsEl) {
     renderCharPools(rollPoolsEl, c, (p) => {
-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
     });
     rollPoolsEl.style.display = '';
   }
@@ -918,11 +985,13 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
-      // Auto-open character for players so Sheet/Downtime tabs work immediately
+      // Auto-open character for players so Sheet/Downtime tabs work immediately,
+      // and pre-fill the dice tab so the roller is ready without a manual pick.
       if (getRole() !== 'st' && editorState.chars.length > 0) {
         openChar(0);
+        pickChar(editorState.chars[0]);
       }
-      goTab('dice');
+      goTab('stats');
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       _updateThemeIcon();     // set correct sun/moon on load
@@ -953,19 +1022,8 @@ function applyRoleRestrictions() {
   const isST = role === 'st';
   const isRealST = getRole() === 'st';
 
-  // Unified 4-tab nav (Story 1.2) — all primary tabs always visible.
-  // Role gating is handled by the More grid (Story 1.3), not the primary nav.
-  ['n-dice', 'n-sheet', 'n-status', 'n-more'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = '';
-  });
-
-  // Legacy nav buttons (hidden — superseded by 4-tab nav)
-  ['n-chars', 'n-territory', 'n-tracker', 'n-editor', 'n-map',
-   'n-dt', 'n-rules', 'n-signin'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
+  // Rebuild the scrollable bottom nav with role-appropriate items
+  renderBottomNav();
 
   // Contested Roll — ST only (Feeding is now in More grid)
   const btnContested = document.getElementById('btn-contested');
@@ -1080,6 +1138,163 @@ function _moreGridCondition(app) {
     return !!(myChar && myChar._has_archive);
   }
   return true;
+}
+
+// ── Settings tab ────────────────────────────────────────────────────────────
+
+const FONT_SIZE_KEY = 'tm-reading-font-size';
+const FONT_SIZES = [
+  { value: '13px', label: 'Small' },
+  { value: '15px', label: 'Default' },
+  { value: '17px', label: 'Large' },
+  { value: '19px', label: 'X-Large' },
+];
+
+function _getReadingFontSize() {
+  return localStorage.getItem(FONT_SIZE_KEY) || '15px';
+}
+
+function _applyReadingFontSize(size) {
+  localStorage.setItem(FONT_SIZE_KEY, size);
+  document.documentElement.style.setProperty('--reading-font-size', size);
+}
+
+// Apply saved font size on load
+(function() {
+  const saved = _getReadingFontSize();
+  if (saved !== '15px') document.documentElement.style.setProperty('--reading-font-size', saved);
+})();
+
+function renderSettingsTab() {
+  const el = document.getElementById('t-settings');
+  if (!el) return;
+  const user = getUser();
+  const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const currentFontSize = _getReadingFontSize();
+
+  const avatarUrl = user?.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
+    : user?.id
+      ? `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`
+      : '';
+
+  let h = '<div class="settings-wrap">';
+  h += '<h3 class="settings-title">Settings</h3>';
+
+  // Profile
+  if (user) {
+    h += '<div class="settings-section">';
+    h += '<div class="settings-section-label">Profile</div>';
+    h += '<div class="settings-profile">';
+    if (avatarUrl) h += `<img class="settings-avatar" src="${avatarUrl}" alt="">`;
+    h += `<div class="settings-profile-info">`;
+    h += `<span class="settings-name">${esc(user.global_name || user.username)}</span>`;
+    h += `<span class="settings-role">${user.role === 'st' ? 'Storyteller' : 'Player'}</span>`;
+    h += `</div>`;
+    h += '</div>';
+    h += `<button class="settings-btn settings-logout" onclick="logout()">Log Out</button>`;
+    h += '</div>';
+  }
+
+  // Theme
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Theme</div>';
+  h += '<div class="settings-toggle-row">';
+  h += `<button class="settings-toggle-btn${currentTheme === 'light' ? ' on' : ''}" data-theme="light">Light</button>`;
+  h += `<button class="settings-toggle-btn${currentTheme === 'dark' ? ' on' : ''}" data-theme="dark">Dark</button>`;
+  h += '</div>';
+  h += '</div>';
+
+  // Reading font size
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Reading Font Size</div>';
+  h += '<div class="settings-section-hint">Applies to Primer, Game Guide, and Rules tabs.</div>';
+  h += '<div class="settings-toggle-row">';
+  for (const fs of FONT_SIZES) {
+    h += `<button class="settings-toggle-btn${currentFontSize === fs.value ? ' on' : ''}" data-fontsize="${fs.value}">${fs.label}</button>`;
+  }
+  h += '</div>';
+  h += '</div>';
+
+  // Show Guides toggle
+  const showGuides = localStorage.getItem('tm-show-guides') === '1';
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Navigation</div>';
+  h += '<label class="settings-checkbox-row">';
+  h += `<input type="checkbox" id="settings-show-guides"${showGuides ? ' checked' : ''}>`;
+  h += '<span>Show Primer, Guide &amp; Rules tabs</span>';
+  h += '</label>';
+  h += '</div>';
+
+  // ST Admin link
+  if (getRole() === 'st') {
+    h += '<div class="settings-section">';
+    h += '<a href="/admin" class="settings-btn">ST Admin Panel</a>';
+    h += '</div>';
+  }
+
+  // Submit a Ticket
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Submit a Ticket</div>';
+  h += '<div class="settings-ticket-form">';
+  h += '<select class="settings-input" id="stk-type"><option value="bug">Bug Report</option><option value="feature">Feature Request</option><option value="question">Question</option><option value="sheet">Sheet Issue</option><option value="other">Other</option></select>';
+  h += '<input class="settings-input" id="stk-title" type="text" placeholder="Short summary" maxlength="200">';
+  h += '<textarea class="settings-input" id="stk-body" rows="4" placeholder="Describe the issue or request..."></textarea>';
+  h += '<div id="stk-status" style="display:none"></div>';
+  h += '<button class="settings-btn" id="stk-submit">Submit Ticket</button>';
+  h += '</div>';
+  h += '</div>';
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  // Wire theme toggles
+  el.querySelectorAll('[data-theme]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = btn.dataset.theme;
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('tm-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('tm-theme', 'light');
+      }
+      renderSettingsTab();
+    });
+  });
+
+  // Wire font size toggles
+  el.querySelectorAll('[data-fontsize]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _applyReadingFontSize(btn.dataset.fontsize);
+      renderSettingsTab();
+    });
+  });
+
+  // Wire show guides toggle
+  el.querySelector('#settings-show-guides')?.addEventListener('change', e => {
+    localStorage.setItem('tm-show-guides', e.target.checked ? '1' : '0');
+    renderBottomNav();
+    if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
+  });
+
+  // Wire ticket submit
+  el.querySelector('#stk-submit')?.addEventListener('click', async () => {
+    const type  = el.querySelector('#stk-type')?.value || 'other';
+    const title = el.querySelector('#stk-title')?.value?.trim();
+    const body  = el.querySelector('#stk-body')?.value?.trim();
+    const statusEl = el.querySelector('#stk-status');
+    if (!title) { statusEl.textContent = 'Title is required.'; statusEl.style.display = ''; statusEl.style.color = 'var(--crim)'; return; }
+    statusEl.textContent = 'Submitting\u2026'; statusEl.style.display = ''; statusEl.style.color = 'var(--txt3)';
+    try {
+      await apiPost('/api/tickets', { type, title, body: body || '' });
+      statusEl.textContent = 'Ticket submitted!'; statusEl.style.color = 'var(--green2)';
+      el.querySelector('#stk-title').value = '';
+      el.querySelector('#stk-body').value = '';
+    } catch (err) {
+      statusEl.textContent = 'Failed: ' + (err.message || 'unknown error'); statusEl.style.color = 'var(--crim)';
+    }
+  });
 }
 
 function renderMoreGrid() {
@@ -1198,13 +1413,29 @@ function _updateDesktopIcon() {
   if (desktopIcon) desktopIcon.style.display = isDesktop ? '' : 'none';
 }
 
+const DESKTOP_MQ = window.matchMedia('(min-width: 900px)');
+
 function _initDesktopMode() {
-  if (localStorage.getItem('tm-mode') === 'desktop') {
-    document.body.classList.add('desktop-mode');
-    _updateDesktopIcon();
-    _syncSidebarActions();
+  // Auto-detect: wide viewport → desktop mode, narrow → game mode.
+  // matchMedia listener keeps it in sync on resize / rotation.
+  _applyDesktopMode(DESKTOP_MQ.matches);
+  DESKTOP_MQ.addEventListener('change', e => _applyDesktopMode(e.matches));
+}
+
+function _applyDesktopMode(isDesktop) {
+  document.body.classList.toggle('desktop-mode', isDesktop);
+  _updateDesktopIcon();
+  _syncSidebarActions();
+  if (isDesktop) {
     renderDesktopSidebar();
+    // Show header nav controls in desktop mode
+    const hdrNav = document.getElementById('hdr-nav');
+    if (hdrNav) hdrNav.style.display = '';
+  } else {
+    const hdrNav = document.getElementById('hdr-nav');
+    if (hdrNav) hdrNav.style.display = 'none';
   }
+  renderBottomNav();
 }
 
 function renderDesktopSidebar() {
@@ -1252,6 +1483,12 @@ function renderDesktopSidebar() {
     }
     h += `</div>`;
   }
+
+  // Settings button at the bottom of the sidebar
+  const settingsOn = isActive('settings') ? ' on' : '';
+  h += `<div class="sidebar-settings"><button class="sidebar-app-tile sidebar-settings-btn${settingsOn}" onclick="goTab('settings')" title="Settings">`;
+  h += `<span class="sidebar-app-tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>`;
+  h += `<span class="sidebar-app-tile-label">Settings</span></button></div>`;
 
   nav.innerHTML = h;
 
@@ -1412,35 +1649,17 @@ async function renderLifecycleCards() {
   el.style.display = h ? '' : 'none';
 }
 
-/** Show logged-in user in header with avatar dropdown for logout. */
+/** Show logged-in user in header (desktop mode only — mobile uses Settings tab). */
 function renderUserHeader() {
   const user = getUser();
   if (!user) return;
-  const hdr = document.getElementById('hdr');
-  if (!hdr) return;
-  let userEl = document.getElementById('hdr-user');
-  if (!userEl) {
-    userEl = document.createElement('div');
-    userEl.id = 'hdr-user';
-    hdr.appendChild(userEl);
+
+  // Desktop sidebar shows profile; mobile header is kept clean (logo + char name only).
+  // The hdr-nav is hidden on mobile via CSS but visible in desktop mode.
+  const hdrNav = document.getElementById('hdr-nav');
+  if (hdrNav && document.body.classList.contains('desktop-mode')) {
+    hdrNav.style.display = '';
   }
-  const name = user.global_name || user.username;
-  const avatarUrl = user.role === 'dev'
-    ? discordAvatarUrl(null, null)
-    : user.avatar
-      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`
-      : (user._localTest || String(user.id).startsWith('local-')) ? discordAvatarUrl(null, null)
-      : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
-  userEl.innerHTML = `
-    <div class="hdr-profile" id="hdr-profile" onclick="toggleProfileMenu()">
-      <img src="${avatarUrl}" class="hdr-avatar" alt="">
-      <span class="hdr-name">${name}</span>
-      <span class="hdr-caret">&#9662;</span>
-    </div>
-    <div class="hdr-profile-menu" id="hdr-profile-menu" style="display:none">
-      <button onclick="logout()" class="hdr-menu-item">Log out</button>
-    </div>
-  `;
 
   // Show toggle for STs, restore saved label
   const toggleBtn = document.getElementById('btn-view-toggle');
