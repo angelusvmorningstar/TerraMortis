@@ -4,7 +4,7 @@
  *
  * Auto-detected sections:
  *  - Court: from game_sessions attendance
- *  - Regency: from regent_territory, with residency grid
+ *  - Regency action: inlined in Vamping section for Regents
  *  - Spheres/Contacts/Retainers: from character merits
  *  - Blood Sorcery: from disciplines (Cruac/Theban)
  */
@@ -12,7 +12,7 @@
 import { apiGet, apiPost, apiPut } from '../data/api.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
-import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, AMBIENCE_CAP, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
+import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
 import { ALL_ATTRS, ALL_SKILLS, CLAN_DISCS, BLOODLINE_DISCS, CORE_DISCS } from '../data/constants.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { calcVitaeMax } from '../data/accessors.js';
@@ -46,11 +46,6 @@ let priorPublishedLabel = null; // label of most recent published cycle other th
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
 
-// All active characters (lightweight: _id, name, moniker, honorific) for regency dropdowns
-let allCharNames = [];
-
-// Persisted residency list from territory_residency collection
-let persistedResidency = [];
 
 // Characters who attended last game (for shoutout picks)
 let lastGameAttendees = [];
@@ -60,7 +55,6 @@ let allCharacters = [];
 // Map of territory name → Set of resident character IDs (for feeding grid indicators)
 let residencyByTerritory = {};
 
-const RESIDENCY_SLOTS = 10;
 
 // Feeding method state (for feeding_method widget)
 let feedMethodId = '';
@@ -107,19 +101,6 @@ const ACTION_FIELDS = {
   'support': ['title', 'pools', 'outcome', 'cast', 'description'],
   'misc': ['title', 'pools', 'outcome', 'cast', 'description'],
   'maintenance': ['description'],
-};
-
-// Which fields each sphere action type shows (no dice pools)
-// Default primary pool suggestions per action type.
-// Applied only when both attr and skill are unset (first selection).
-const ACTION_POOL_DEFAULTS = {
-  'investigate':        { attr: 'Intelligence', skill: 'Investigation' },
-  'attack':             { attr: 'Strength',     skill: 'Brawl' },
-  'patrol_scout':       { attr: 'Wits',         skill: 'Stealth' },
-  'hide_protect':       { attr: 'Dexterity',    skill: 'Stealth' },
-  'ambience_increase':  { attr: 'Presence',     skill: 'Socialise' },
-  'ambience_decrease':  { attr: 'Manipulation', skill: 'Subterfuge' },
-  'support':            { attr: 'Presence',     skill: 'Empathy' },
 };
 
 const SPHERE_ACTION_FIELDS = {
@@ -225,13 +206,6 @@ function getInfluenceBudget() {
 }
 
 /** Get the feeding cap for the regent's territory based on its ambience. */
-function getRegentCap() {
-  const terrName = findRegentTerritory(_territories, currentChar)?.territory;
-  const terr = TERRITORY_DATA.find(t => t.name === terrName);
-  if (!terr) return 6; // sensible default
-  return AMBIENCE_CAP[terr.ambience] || 6;
-}
-
 function collectResponses() {
   const responses = {};
 
@@ -384,8 +358,15 @@ function collectResponses() {
     // Target pickers (attack, hide_protect, investigate)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
-    const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
-    responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    // target_char uses checkbox grid; others use hidden input or select
+    const targetCharCbs = document.querySelectorAll(`.dt-target-char-cb[data-target-slot="${n}"]:checked`);
+    if (targetCharCbs.length) {
+      const ids = []; targetCharCbs.forEach(cb => ids.push(cb.value));
+      responses[`project_${n}_target_value`] = JSON.stringify(ids);
+    } else {
+      const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
+      responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    }
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
@@ -431,12 +412,20 @@ function collectResponses() {
   // Sphere action fields (tabbed — up to 5 slots)
   const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
   for (let n = 1; n <= maxSpheres; n++) {
-    for (const suffix of ['action', 'outcome', 'description', 'territory', 'target_value', 'block_merit', 'project_support', 'investigate_lead']) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
     }
     const flexRadio = document.querySelector(`input[name="dt-sphere_${n}_target_type"]:checked`);
     responses[`sphere_${n}_target_type`] = flexRadio ? flexRadio.value : '';
+    const sphTargetCbs = document.querySelectorAll(`.dt-target-char-sphere-cb[data-target-slot="sphere_${n}"]:checked`);
+    if (sphTargetCbs.length) {
+      const ids = []; sphTargetCbs.forEach(cb => ids.push(cb.value));
+      responses[`sphere_${n}_target_value`] = JSON.stringify(ids);
+    } else {
+      const el = document.getElementById(`dt-sphere_${n}_target_value`);
+      if (el) responses[`sphere_${n}_target_value`] = el.value;
+    }
     // Merit label for this slot
     const m = detectedMerits.spheres[n - 1];
     if (m) responses[`sphere_${n}_merit`] = meritLabel(m);
@@ -450,9 +439,17 @@ function collectResponses() {
   // Status action fields
   const maxStatus = Math.min(detectedMerits.status.length, 5);
   for (let n = 1; n <= maxStatus; n++) {
-    for (const suffix of ['action', 'outcome', 'description', 'territory', 'target_value', 'investigate_lead']) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'investigate_lead']) {
       const el = document.getElementById(`dt-status_${n}_${suffix}`);
       if (el) responses[`status_${n}_${suffix}`] = el.value;
+    }
+    const stTargetCbs = document.querySelectorAll(`.dt-target-char-sphere-cb[data-target-slot="status_${n}"]:checked`);
+    if (stTargetCbs.length) {
+      const ids = []; stTargetCbs.forEach(cb => ids.push(cb.value));
+      responses[`status_${n}_target_value`] = JSON.stringify(ids);
+    } else {
+      const el = document.getElementById(`dt-status_${n}_target_value`);
+      if (el) responses[`status_${n}_target_value`] = el.value;
     }
     const flexRadio = document.querySelector(`input[name="dt-status_${n}_target_type"]:checked`);
     responses[`status_${n}_target_type`] = flexRadio ? flexRadio.value : '';
@@ -653,21 +650,6 @@ function showToast(message, type) {
   }, 4000);
 }
 
-/** Persist residency list to territory_residency collection for cross-cycle continuity. */
-async function saveResidency(responses) {
-  const residents = [];
-  for (let i = 1; i <= RESIDENCY_SLOTS; i++) {
-    residents.push(responses[`residency_${i}`] || '');
-  }
-  try {
-    await apiPut('/api/territory-residency', {
-      territory: findRegentTerritory(_territories, currentChar)?.territory,
-      residents,
-    });
-    persistedResidency = residents;
-  } catch { /* non-critical — submission still saved */ }
-}
-
 // ── Story 1.10: Player-facing results view ────────────────────────────────────
 
 /**
@@ -786,17 +768,6 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   // Auto-detect regent status from character data
   gateValues.is_regent = findRegentTerritory(_territories, currentChar)?.territory ? 'yes' : 'no';
-
-  // Load character name list and persisted residency for regency dropdowns
-  if (gateValues.is_regent === 'yes') {
-    try {
-      allCharNames = await apiGet('/api/characters/names');
-    } catch { allCharNames = []; }
-    try {
-      const res = await apiGet(`/api/territory-residency?territory=${encodeURIComponent(findRegentTerritory(_territories, currentChar)?.territory)}`);
-      persistedResidency = res.residents || [];
-    } catch { persistedResidency = []; }
-  }
 
   // Load all territory residency lists (for feeding grid indicators)
   try {
@@ -1508,11 +1479,6 @@ function renderForm(container) {
       renderForm(container);
       return;
     }
-    // Residency dropdown — enforce no duplicates
-    const residencySelect = e.target.closest('[data-residency-slot]');
-    if (residencySelect) {
-      updateResidencyOptions(container);
-    }
     scheduleSave();
     updateSectionTicks(container);
   });
@@ -2094,18 +2060,26 @@ function renderProjectSlots(saved) {
       h += '</div>';
     }
 
-    // ── Target: character (attack) ──
+    // ── Target: character (attack) — checkbox grid ──
     if (fields.includes('target_char')) {
-      const savedVal = saved[`project_${n}_target_value`] || '';
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-project_${n}_target_value">Target Character <span class="qf-req">*</span></label>`;
-      h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
-      h += '<option value="">— Select Target —</option>';
-      for (const c of allCharacters) {
-        const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+      let targetPicks = [];
+      try { targetPicks = JSON.parse(saved[`project_${n}_target_value`] || '[]'); } catch {
+        // legacy single ID
+        if (saved[`project_${n}_target_value`]) targetPicks = [saved[`project_${n}_target_value`]];
       }
-      h += '</select></div>';
+      const targetSet = new Set(targetPicks.map(String));
+      h += '<div class="qf-field">';
+      h += '<label class="qf-label">Target Character(s)</label>';
+      h += `<div class="dt-shoutout-grid">`;
+      for (const c of allCharacters) {
+        const isChecked = targetSet.has(String(c.id));
+        const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
+        h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
+        h += `<input type="checkbox" class="dt-target-char-cb" data-target-slot="${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
+        h += `<span>${esc(c.name)}</span>`;
+        h += '</label>';
+      }
+      h += '</div></div>';
     }
 
     // ── Target: own merit (hide_protect) ──
@@ -2881,104 +2855,6 @@ function renderEquipmentRow(n, saved) {
   return h;
 }
 
-// ── Regency grid ──
-
-function renderRegencySection(saved) {
-  const regencySection = DOWNTIME_SECTIONS.find(s => s.key === 'regency');
-  const cap = getRegentCap();
-  const terrName = findRegentTerritory(_territories, currentChar)?.territory;
-  const terr = TERRITORY_DATA.find(t => t.name === terrName);
-  const ambience = terr ? terr.ambience : 'Unknown';
-  const regentName = displayName(currentChar);
-
-  let h = '';
-  h += '<div class="qf-section collapsed" data-section-key="regency">';
-  h += `<h4 class="qf-section-title">Regency: The Hand that Feeds<span class="qf-section-tick">✔</span></h4>`;
-  h += '<div class="qf-section-body">';
-  h += `<p class="qf-section-intro">${esc(terrName)} — Ambience: ${esc(ambience)} — Feeding cap: ${cap}</p>`;
-  h += `<p class="qf-section-intro">Assign feeding residents for your territory. Slots beyond the feeding cap are highlighted as over-capacity.</p>`;
-
-  h += '<div class="dt-residency-grid">';
-  for (let i = 1; i <= RESIDENCY_SLOTS; i++) {
-    const overCap = i > cap;
-    const rowClass = overCap ? 'dt-residency-row dt-over-cap' : 'dt-residency-row';
-    // Prefer saved submission value, fall back to persisted residency from last cycle
-    const savedVal = saved[`residency_${i}`] || persistedResidency[i - 1] || '';
-
-    // Row 1: always the regent (locked)
-    // Row 2: labelled "Second" (selectable)
-    let label;
-    let locked = false;
-    let value = savedVal;
-
-    if (i === 1) {
-      label = 'Regent';
-      locked = true;
-      value = currentChar._id;
-    } else if (i === 2) {
-      label = 'Second';
-    } else {
-      label = `Resident ${i}`;
-    }
-
-    h += `<div class="${rowClass}">`;
-    h += `<span class="dt-residency-label">${label}</span>`;
-
-    if (locked) {
-      h += `<span class="dt-residency-locked">${esc(regentName)}</span>`;
-      h += `<input type="hidden" id="dt-residency_${i}" value="${esc(value)}">`;
-    } else {
-      h += `<select id="dt-residency_${i}" class="qf-select dt-residency-select" data-residency-slot="${i}">`;
-      h += `<option value="">— None —</option>`;
-      for (const c of allCharNames) {
-        const cName = displayName(c);
-        const sel = value === c._id ? ' selected' : '';
-        h += `<option value="${esc(c._id)}"${sel}>${esc(cName)}</option>`;
-      }
-      h += '</select>';
-    }
-
-    if (overCap) {
-      h += '<span class="dt-over-cap-warn">Over capacity</span>';
-    }
-    h += '</div>';
-  }
-  h += '</div>';
-
-  // Regency action question (from static section)
-  if (regencySection) {
-    for (const q of regencySection.questions) {
-      const val = saved[q.key] || '';
-      h += renderQuestion(q, val);
-    }
-  }
-
-  h += '</div>'; // section-body
-  h += '</div>'; // section
-  return h;
-}
-
-/** Disable already-selected characters in other residency dropdowns. */
-function updateResidencyOptions(container) {
-  const selects = container.querySelectorAll('[data-residency-slot]');
-  // Gather all currently selected values
-  const selected = new Set();
-  // Always include the regent (slot 1)
-  selected.add(currentChar._id);
-  selects.forEach(sel => {
-    if (sel.value) selected.add(sel.value);
-  });
-
-  // Disable options that are already chosen in another slot
-  selects.forEach(sel => {
-    const myVal = sel.value;
-    for (const opt of sel.options) {
-      if (!opt.value) continue; // skip "— None —"
-      opt.disabled = opt.value !== myVal && selected.has(opt.value);
-    }
-  });
-}
-
 /** Recalculate and display the dice pool total for a given pool prefix. */
 function updatePoolTotal(prefix) {
   const attrEl = document.getElementById(`dt-${prefix}_attr`);
@@ -3178,7 +3054,11 @@ function renderFeedingTerritoryPills(gridVals) {
     h += `<button type="button" class="dt-terr-pill${activeClass}"`;
     h += ` data-feed-terr-key="${terrKey}" data-feed-status="${statusVal}" data-feed-active="${isActive ? '1' : '0'}">`;
     h += `<span class="dt-terr-pill-name">${esc(isBarrens ? 'The Barrens' : terr)}</span>`;
-    if (ambience && !isBarrens) h += `<span class="dt-terr-pill-amb">${esc(ambience)}</span>`;
+    if (ambience && !isBarrens) {
+      const mod = terrData?.ambienceMod;
+      const modStr = mod !== undefined ? ` (${mod >= 0 ? '+' : ''}${mod})` : '';
+      h += `<span class="dt-terr-pill-amb">${esc(ambience)}${modStr}</span>`;
+    }
     if (isActive && !isBarrens) h += `<span class="dt-terr-pill-status">${statusLabel}</span>`;
     h += '</button>';
     h += `<input type="hidden" id="feed-val-${terrKey}" value="${savedVal}">`;
@@ -3199,16 +3079,23 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
   }
 
   if (fields.includes('target_char')) {
-    const savedVal = saved[`${prefix}_${n}_target_value`] || '';
-    h += '<div class="qf-field">';
-    h += `<label class="qf-label" for="dt-${prefix}_${n}_target_value">Target Character</label>`;
-    h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select">`;
-    h += '<option value="">— Select Target —</option>';
-    for (const c of allCharacters) {
-      const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-      h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+    let targetPicks = [];
+    try { targetPicks = JSON.parse(saved[`${prefix}_${n}_target_value`] || '[]'); } catch {
+      if (saved[`${prefix}_${n}_target_value`]) targetPicks = [saved[`${prefix}_${n}_target_value`]];
     }
-    h += '</select></div>';
+    const targetSet = new Set(targetPicks.map(String));
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Target Character(s)</label>';
+    h += `<div class="dt-shoutout-grid">`;
+    for (const c of allCharacters) {
+      const isChecked = targetSet.has(String(c.id));
+      const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
+      h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
+      h += `<input type="checkbox" class="dt-target-char-sphere-cb" data-target-slot="${prefix}_${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
+      h += `<span>${esc(c.name)}</span>`;
+      h += '</label>';
+    }
+    h += '</div></div>';
   }
 
   if (fields.includes('block_merit')) {
@@ -3328,7 +3215,7 @@ function renderMeritToggles(saved) {
     h += '<div class="qf-section collapsed" data-section-key="spheres">';
     h += '<h4 class="qf-section-title">Spheres of Influence<span class="qf-section-tick">✔</span></h4>';
     h += '<div class="qf-section-body">';
-    h += '<p class="qf-section-intro">Your character has the following Allies and Status merits. Use the tabs to configure up to 5 sphere actions this Downtime.</p>';
+    h += '<p class="qf-section-intro">Your character has the following Allies merits. Use the tabs to configure up to 5 sphere actions this Downtime.</p>';
 
     // ── Tab bar ──
     h += '<div class="dt-proj-tabs">';
@@ -3366,7 +3253,7 @@ function renderMeritToggles(saved) {
       h += '<div class="qf-field">';
       h += `<label class="qf-label" for="dt-sphere_${n}_action">Action Type</label>`;
       h += `<select id="dt-sphere_${n}_action" class="qf-select" data-sphere-action="${n}">`;
-      for (const opt of SPHERE_ACTIONS) {
+      for (const opt of SPHERE_ACTIONS.filter(o => o.value !== 'grow')) {
         const sel = actionVal === opt.value ? ' selected' : '';
         h += `<option value="${esc(opt.value)}"${sel}>${esc(opt.label)}</option>`;
       }

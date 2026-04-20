@@ -2755,6 +2755,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
+  justify-content: center;
 }
 .dt-terr-pill {
   display: inline-flex;
