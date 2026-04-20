@@ -9,7 +9,7 @@
 
 These stories are blocked on infrastructure that doesn't yet exist. Defined in `specs/epic-dtfc-downtime-form-calibration.md`.
 
-- **dtfc.9 — NPC Story Moment**: Replace the "correspondence" field with a structured NPC story moment (Correspondence / Interaction / Observation). Requires a new NPC data model — a collection of NPCs connected to each character (correspondents + touchstones). This collection and its management UI do not exist.
+- ~~**dtfc.9 — NPC Story Moment**~~ — **UNSHELVED**: Now has a full design. Implemented as DT Story 1.11 (Personal Story player form with NPC stub) + 1.14 (six-section report delivery). The NPC stub (`character.npcs[]`) is a placeholder interface; the full NPC Register is a separate future epic. See `specs/epic-dt-story.md` stories 1.11 and 1.14.
 - **dtfc.10 — Collaborative Projects**: Allow a lead player to tag collaborators on a project. Tagged players receive an invitation in their DT form; accepting commits one of their project slots with the same title/target but their own pool. Requires an invitation mechanism — either a `downtime_invitations` collection or a new field on submissions. Needs architectural design before implementation.
 - **dtfc.11 — Equipment Tab in player.html**: Equipment section removed from the DT form (can be done in Wave 2). New Equipment tab in `player.html` is separate scope — needs its own design and story.
 
