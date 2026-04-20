@@ -153,12 +153,64 @@ function _normTitle(s) {
   return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+// ── Six-section report wrapper ────────────────────────────────────
+
+function _storyNarrSection(label, text) {
+  if (!text?.trim()) return '';
+  let h = '<div class="story-section">';
+  h += `<h4 class="story-section-head">${esc(label)}</h4>`;
+  const paras = text.trim().split(/\n{2,}/).filter(Boolean);
+  h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  h += '</div>';
+  return h;
+}
+
+function renderStoryMoment(sub) {
+  // Prefer new personal_story, fall back to legacy letter_from_home + touchstone
+  const psText = sub.st_narrative?.personal_story?.response;
+  if (psText) return _storyNarrSection('Story Moment', psText);
+
+  const letter    = sub.st_narrative?.letter_from_home?.response;
+  const touchstone = sub.st_narrative?.touchstone?.response;
+  if (!letter && !touchstone) return '';
+  let h = '<div class="story-section">';
+  h += `<h4 class="story-section-head">Story Moment</h4>`;
+  if (touchstone) {
+    const paras = touchstone.trim().split(/\n{2,}/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  }
+  if (letter) {
+    if (touchstone) h += '<hr class="story-moment-divider">';
+    const paras = letter.trim().split(/\n{2,}/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  }
+  h += '</div>';
+  return h;
+}
+
+function renderHomeReportSection(sub) {
+  return _storyNarrSection('Home Report', sub.st_narrative?.home_report?.response);
+}
+
+function renderRumoursSection(sub) {
+  const slots = sub.st_narrative?.cacophony_savvy || [];
+  const rumours = sub.st_narrative?.rumours || [];
+  const all = [...slots.map(s => s?.response).filter(Boolean), ...rumours.map(r => r?.text || r).filter(Boolean)];
+  if (!all.length) return '';
+  let h = '<div class="story-section story-section-rumours">';
+  h += `<h4 class="story-section-head">Rumours</h4>`;
+  h += '<ul class="story-rumours-list">';
+  for (const r of all) h += `<li>${esc(String(r).trim())}</li>`;
+  h += '</ul></div>';
+  return h;
+}
+
 /**
  * Render the published narrative with project cards injected immediately
  * after their matching section heading. Unmatched cards and merit action
  * cards are appended at the bottom.
  */
-function renderOutcomeWithCards(sub) {
+export function renderOutcomeWithCards(sub) {
   const sections = parseOutcomeSections(sub.published_outcome);
 
   // Build project card lookup: normalisedTitle → { html, used }
@@ -215,8 +267,10 @@ function renderOutcomeWithCards(sub) {
     unmatched.push(_normTitle(title));
   }
 
-  // Render sections, injecting matched cards inline
+  // ── Sections 1-2: Story Moment + Home Report (above main narrative) ──
   let h = '<div class="story-narrative">';
+  h += renderStoryMoment(sub);
+  h += renderHomeReportSection(sub);
   for (const sec of sections) {
     if (sec.heading) {
       const isMech = sec.heading === 'Mechanical Outcomes';
@@ -252,13 +306,87 @@ function renderOutcomeWithCards(sub) {
     }
   }
 
-  // Merit action cards always at the bottom
-  h += renderMeritActionCards(sub);
+  // Section 5: Allies & Asset Summary
+  h += renderMeritSummarySection(sub);
+
+  // Section 6: Rumours
+  h += renderRumoursSection(sub);
 
   return h;
 }
 
-// ── Merit action cards ────────────────────────────────────────────
+// ── Merit action summary / cards ─────────────────────────────────
+
+function _deriveMeritCat(meritTypeStr) {
+  const s = (meritTypeStr || '').toLowerCase();
+  if (/allies/.test(s))    return 'allies';
+  if (/status/.test(s))    return 'status';
+  if (/retainer/.test(s))  return 'retainer';
+  if (/contacts?/.test(s)) return 'contacts';
+  if (/resources?/.test(s)) return 'resources';
+  return 'misc';
+}
+
+const _MERIT_CAT_ORDER  = ['allies', 'status', 'contacts', 'retainer', 'resources', 'misc'];
+const _MERIT_CAT_LABELS = {
+  allies: 'Allies', status: 'Status', contacts: 'Contacts',
+  retainer: 'Retainers', resources: 'Resources', misc: 'Influence',
+};
+
+/**
+ * Renders merit action outcomes. If outcome_summary strings are present
+ * (set during DT Processing), renders a grouped ledger. Otherwise falls
+ * back to the legacy card-per-action rendering for older submissions.
+ */
+function renderMeritSummarySection(sub) {
+  const actions  = buildPlayerMeritActions(sub);
+  const resolved = sub.merit_actions_resolved || [];
+
+  const hasOutcomeSummaries = resolved.some(rev => rev?.outcome_summary?.trim());
+
+  if (!hasOutcomeSummaries) {
+    return renderMeritActionCards(sub);
+  }
+
+  // Group by category — only show entries with a recorded outcome
+  const groups = {};
+  actions.forEach((a, i) => {
+    const rev = resolved[i] || {};
+    if (rev.pool_status === 'skipped') return;
+    const summary = rev.outcome_summary?.trim();
+    if (!summary) return;
+    const cat = _deriveMeritCat(a.merit_type);
+    if (!groups[cat]) groups[cat] = [];
+    const meritLabel = (a.merit_type || '').replace(/\s*[●○\u25cf\u25cb]+\s*/gi, ' ').replace(/\s+/g, ' ').trim();
+    groups[cat].push({
+      meritLabel,
+      actionLabel: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '',
+      summary,
+    });
+  });
+
+  const orderedCats = _MERIT_CAT_ORDER.filter(c => groups[c]);
+  if (!orderedCats.length) return '';
+
+  let h = '<div class="merit-summary-section">';
+  h += '<h4 class="story-section-head merit-summary-head">Allies &amp; Asset Summary</h4>';
+  for (const cat of orderedCats) {
+    h += `<div class="merit-summary-group">`;
+    h += `<div class="merit-summary-cat-label">${_MERIT_CAT_LABELS[cat] || cat}</div>`;
+    for (const entry of groups[cat]) {
+      h += `<div class="merit-summary-row">`;
+      h += `<span class="merit-summary-merit">${esc(entry.meritLabel)}</span>`;
+      if (entry.actionLabel) h += `<span class="merit-summary-action-type">${esc(entry.actionLabel)}</span>`;
+      h += `<span class="merit-summary-text">${esc(entry.summary)}</span>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+// ── Merit action cards (legacy — used as fallback when outcome_summary absent) ─
 
 /**
  * Reconstructs the ordered list of merit actions from the submission's

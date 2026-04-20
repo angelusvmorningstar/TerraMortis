@@ -146,6 +146,10 @@ body {
   #sidebar { position: fixed; z-index: 1050; height: 100vh; }
   .sb-collapsed #sidebar { width: 0; }
   #admin-app:not(.sb-collapsed) .sb-open-btn { display: none; }
+  /* Larger tap targets on tablet/mobile */
+  .sb-close-btn { width: 44px; height: 44px; font-size: 20px; top: 16px; right: 8px; }
+  .sb-link-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .sidebar-btn { min-height: 44px; }
 }
 
 /* ── Content area ── */
@@ -2483,8 +2487,9 @@ body {
 #dice-engine .mchip.on { border-color: var(--crim-a55); color: var(--accent); background: var(--crim-a15); }
 
 /* Roll button */
-.de-roll-btn { height: 50px; border-radius: 8px; background: var(--crim); border: 1px solid var(--crim-a70); color: var(--txt); font-family: var(--fl); font-size: 13px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
+.de-roll-btn { height: 50px; min-height: 48px; min-width: 120px; border-radius: 8px; background: var(--crim); border: 1px solid var(--crim-a70); color: var(--txt); font-family: var(--fl); font-size: 15px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
 .de-roll-btn:hover { background: var(--crim2); }
+@media (max-width: 768px) { .de-roll-btn { width: 100%; font-size: 15px; } }
 
 /* Result area */
 .de-res-area { border: 1px solid var(--bdr); border-radius: 8px; background: var(--surf-a6); }
@@ -4376,6 +4381,26 @@ body {
   min-width: 220px;
 }
 
+.proc-add-st-section #proc-add-st-form {
+  display: none;
+  padding: 10px 14px;
+  background: var(--surf1);
+  border-top: 1px solid var(--bdr);
+  flex-direction: column;
+  gap: 8px;
+}
+.proc-add-st-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.proc-add-st-sorcery,
+.proc-add-st-general {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .proc-delete-st-action {
   color: var(--crim);
   border-color: var(--crim);
@@ -4796,6 +4821,35 @@ body {
 .proc-feedback-section .proc-detail-label {
   margin-bottom: 4px;
 }
+.proc-player-note-section {
+  background: var(--surf2);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+.proc-player-note-section .proc-detail-label {
+  margin-bottom: 4px;
+}
+.proc-label-sub {
+  font-size: 11px;
+  color: var(--txt3);
+  font-weight: normal;
+  font-family: var(--ft);
+}
+
+/* ── Story 1.15: resident/poacher mismatch flag ─────────────────── */
+.proc-mismatch-flag {
+  margin-top: 6px;
+  padding: 5px 10px;
+  background: rgba(139, 0, 0, 0.12);
+  border: 1px solid var(--crim);
+  border-left: 3px solid var(--crim);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--crim);
+  font-family: var(--fl);
+}
 
 /* ── DTX-1: cross-reference callout ────────────────────────────── */
 .proc-xref-callout {
@@ -4957,6 +5011,26 @@ body {
   color: var(--bg);
   border-color: var(--gold2);
   font-weight: 600;
+}
+
+.proc-outcome-summary-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--accent);
+  color: var(--txt1);
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--ft);
+  margin-top: 6px;
+}
+.proc-outcome-summary-input:focus { border-color: var(--accent); outline: none; }
+.proc-outcome-summary-input::placeholder { color: var(--txt3); font-style: italic; }
+
+.proc-compact-notes-panel {
+  margin-top: 4px;
 }
 
 /* ── ST Response section (feature.66) ─────────────────────────── */
@@ -6589,6 +6663,41 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   padding: 10px 14px;
 }
 
+/* ── Story 1.13: Merit Summary ledger ────────────────────────────── */
+.dt-merit-summary-group { margin-bottom: 12px; }
+.dt-merit-summary-group-label {
+  font-size: 11px;
+  font-family: var(--fl);
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 14px 4px;
+  border-bottom: 1px solid var(--bdr);
+  margin-bottom: 4px;
+}
+.dt-merit-summary-rows { padding: 0 14px; }
+.dt-merit-summary-row {
+  display: grid;
+  grid-template-columns: 160px 110px 1fr;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--surf3);
+  font-size: 12px;
+  align-items: baseline;
+}
+.dt-merit-summary-row:last-child { border-bottom: none; }
+.dt-merit-summary-merit { color: var(--txt1); font-weight: 500; }
+.dt-merit-summary-action { color: var(--txt3); font-family: var(--fl); }
+.dt-merit-summary-outcome { color: var(--txt1); }
+.dt-merit-summary-missing .dt-merit-summary-outcome { color: var(--txt3); font-style: italic; }
+.dt-story-section-actions {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: var(--fl);
+}
+.dt-story-complete-badge { color: var(--result-succ); }
+.dt-story-pending-note { color: var(--txt3); font-style: italic; }
+
 /* Sign-off panel */
 .dt-story-sign-off {
   align-items: center;
@@ -7208,4 +7317,15 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   background: var(--crim);
   color: #fff;
 }
+
+/* ── Emergency contact modal ── */
+.ec-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ec-modal-box { max-width: 420px; width: 100%; }
+.ec-modal-body { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.ec-row { display: flex; gap: 10px; align-items: baseline; }
+.ec-lbl { font-family: var(--fl); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--label-secondary); flex-shrink: 0; width: 60px; }
+.ec-val { font-family: var(--ft); font-size: 14px; color: var(--txt); }
+.ec-val a { color: var(--accent); text-decoration: none; }
+.ec-empty { font-family: var(--ft); font-size: 13px; color: var(--txt3); font-style: italic; }
+.ec-close-btn { margin-top: 4px; }
 

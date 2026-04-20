@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Single-Column Sheet Mockup — Terra Mortis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=Lato:wght@300;400;600;700;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/theme.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--ft);
+  font-size: 14px;
+  min-height: 100dvh;
+}
+
+/* ── Mockup bar ── */
+.mock-bar {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px;
+  background: var(--surf3);
+  border-bottom: 2px solid var(--gold2);
+  font-family: var(--fl); font-size: 11px; color: var(--txt3);
+}
+.mock-bar strong { color: var(--accent); letter-spacing: .08em; }
+.mock-bar span { margin-left: auto; font-size: 10px; }
+
+/* ── Single-column sheet ── */
+.sheet-col1 {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--bg);
+  border-left: 1px solid var(--bdr);
+  border-right: 1px solid var(--bdr);
+  min-height: 100dvh;
+}
+
+/* ── Character header ── */
+.sh-header {
+  background: var(--surf);
+  border-bottom: 1px solid var(--bdr2);
+  padding: 14px 14px 12px;
+}
+.char-name {
+  font-family: var(--fh);
+  font-size: 22px; font-weight: 900;
+  color: var(--accent); letter-spacing: .04em;
+  line-height: 1.15; margin-bottom: 3px;
+}
+.char-player {
+  font-family: var(--fl); font-size: 11px; font-weight: 700;
+  color: var(--label-secondary); letter-spacing: .03em;
+  margin-bottom: 10px;
+}
+.char-concept {
+  font-family: var(--fl); font-size: 11px;
+  color: var(--label-secondary); margin-bottom: 12px;
+}
+
+/* Faction rows */
+.faction-display { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.faction-display-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px;
+}
+.faction-icon-slot {
+  width: 32px; height: 32px;
+  background-color: var(--accent);
+  border-radius: 3px; opacity: .80; flex-shrink: 0;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+.faction-display-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.faction-display-name {
+  font-family: var(--fl); font-size: 13px; font-variant: small-caps;
+  font-weight: 700; color: var(--accent); letter-spacing: .04em; line-height: 1;
+}
+.faction-display-sub {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--label-tertiary);
+}
+.faction-display-qualifier {
+  font-family: var(--fl); font-size: 10px; font-weight: 400;
+  color: var(--label-secondary); margin-top: 1px;
+}
+.faction-dots {
+  font-family: var(--fl); font-size: 12px; color: var(--accent);
+  letter-spacing: 2px; line-height: 1; margin-top: 2px;
+}
+/* Diamond status badge */
+.faction-gem { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
+.faction-gem-shape {
+  width: 36px; height: 36px;
+  background: var(--crim);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  display: flex; align-items: center; justify-content: center;
+}
+.faction-gem-n { font-family: var(--fh); font-size: 13px; font-weight: 700; color: #fff; line-height: 1; }
+.faction-gem-lbl {
+  font-family: var(--fl); font-size: 8px; font-weight: 700;
+  letter-spacing: .10em; text-transform: uppercase; color: var(--accent);
+}
+
+/* Sheet meta rows */
+.sheet-meta-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.sheet-meta-row {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 5px 10px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px;
+}
+.sheet-meta-lbl {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--label-tertiary); min-width: 80px; flex-shrink: 0;
+}
+.sheet-meta-val {
+  font-family: var(--fl); font-size: 11px; font-variant: small-caps;
+  font-weight: 600; color: var(--label-secondary); flex: 1;
+}
+.sheet-meta-val.accent { color: var(--accent); }
+.sh-meta-pair { display: flex; gap: 6px; }
+.sh-meta-pair .sheet-meta-row { flex: 1; }
+
+/* ── Stat bar ── */
+.stat-bar {
+  display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+  padding: 10px 8px;
+  background: var(--surf2); border-bottom: 1px solid var(--bdr2);
+}
+.stat-gem { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.stat-shape {
+  width: 38px; height: 38px;
+  background: var(--crim);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  display: flex; align-items: center; justify-content: center; opacity: .9;
+}
+.stat-n { font-family: var(--fh); font-size: 14px; font-weight: 700; color: #fff; line-height: 1; }
+.stat-lbl {
+  font-family: var(--fl); font-size: 8px; font-weight: 700;
+  letter-spacing: .10em; text-transform: uppercase; color: var(--accent);
+}
+
+/* ── Track zone ── */
+.sh-track-zone {
+  padding: 12px 14px 14px;
+  background: var(--surf);
+  border-bottom: 1px solid var(--bdr2);
+}
+.sh-track-zone-title {
+  font-family: var(--fl); font-size: 9px; font-weight: 900;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--txt3); margin-bottom: 10px;
+}
+.sh-tracker-row { display: flex; align-items: center; margin-bottom: 9px; }
+.sh-tracker-row:last-child { margin-bottom: 0; }
+.sh-tracker-lbl {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--label-secondary); width: 80px; flex-shrink: 0; margin-right: 10px;
+}
+.sh-tracker-boxes { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.tbox {
+  width: 26px; height: 24px;
+  border-radius: 3px; border: 1px solid rgba(201,169,98,.22);
+  background: transparent; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .1s, border-color .1s;
+}
+.tbox:hover { border-color: rgba(201,169,98,.5); }
+.tbox.vitae-filled { background: rgba(139,0,0,.85); border-color: rgba(180,80,80,.9); }
+.tbox.wp-filled    { background: var(--gold2); border-color: var(--gold2); }
+.tbox.inf-filled   { background: rgba(70,110,155,.85); border-color: rgba(100,150,200,.9); }
+.sh-tracker-num {
+  font-family: var(--fl); font-size: 11px; font-weight: 600;
+  color: var(--txt3); min-width: 34px; margin-left: 10px; text-align: right;
+}
+
+/* ── Sheet body ── */
+.sh-body { padding: 0 14px 32px; }
+
+/* ── Section title ── */
+.section-title {
+  font-family: var(--fl); font-size: 11px; font-weight: 900;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--bdr);
+  margin-top: 20px; margin-bottom: 10px;
+}
+
+/* ── Attributes ── */
+.attr-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.attr-group { display: flex; flex-direction: column; }
+.attr-group-title {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--txt3); text-align: center; margin-bottom: 8px;
+}
+.attr-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; border-bottom: .5px solid var(--bdr);
+}
+.attr-row:last-child { border-bottom: none; }
+.attr-name {
+  font-family: var(--fl); font-size: 11px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--label-secondary);
+}
+.attr-dots { font-family: var(--fl); color: var(--accent); font-size: 14px; letter-spacing: 2px; line-height: 1; }
+
+/* ── Skills ── */
+.skill-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+.skill-group { display: flex; flex-direction: column; gap: 3px; }
+.skill-group-title {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--txt3); text-align: center; margin-bottom: 5px;
+}
+.skill-row {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 4px 2px;
+  border-bottom: .5px solid var(--bdr);
+}
+.skill-row:last-child { border-bottom: none; }
+.skill-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.skill-name {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--label-secondary); flex: 1;
+}
+.skill-dots { font-family: var(--fl); color: var(--accent); font-size: 14px; letter-spacing: 2px; white-space: nowrap; }
+.skill-sub { display: flex; align-items: center; gap: 6px; }
+.skill-sub .chip { margin-left: auto; }
+.qualifier {
+  font-family: var(--fl); font-size: 10px; font-weight: 400;
+  color: var(--label-secondary); flex: 1; min-width: 0;
+}
+
+/* ── Chip (9-Again, specialisation tags) ── */
+.chip {
+  font-family: var(--fl); font-size: 10px; font-variant: small-caps; font-weight: 600;
+  letter-spacing: .03em;
+  border: 1px solid var(--accent-a40); border-radius: 3px;
+  padding: 1px 6px; color: var(--accent); background: var(--accent-a8);
+  flex-shrink: 0; white-space: nowrap;
+}
+
+/* ── Disciplines ── */
+.disc-list { display: flex; flex-direction: column; gap: 3px; }
+.disc-tap-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 12px; min-height: 48px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px;
+  cursor: pointer; user-select: none;
+}
+.disc-tap-row.open {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  border-bottom-color: transparent; margin-bottom: 0;
+}
+.disc-tap-left { display: flex; align-items: center; gap: 8px; }
+.disc-tap-name {
+  font-family: var(--fl); font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--label-secondary);
+}
+.disc-clan-tag {
+  font-family: var(--fl); font-size: 11px; font-variant: small-caps;
+  font-weight: 600; letter-spacing: .04em; color: var(--label-tertiary);
+}
+.disc-tap-dots { font-family: var(--fl); font-size: 14px; color: var(--accent); letter-spacing: 2px; white-space: nowrap; }
+.disc-tap-arr { font-size: 11px; color: var(--label-tertiary); transition: transform .15s; }
+.disc-tap-row.open .disc-tap-arr { transform: rotate(90deg); }
+.disc-drawer {
+  display: none;
+  background: var(--surf3); border: 1px solid var(--bdr);
+  border-top: none; border-radius: 0 0 6px 6px;
+  margin-bottom: 6px; overflow: hidden;
+}
+.disc-drawer.visible { display: block; }
+.disc-power { padding: 9px 12px; border-bottom: .5px solid var(--bdr); }
+.disc-power:last-child { border-bottom: none; }
+.disc-power-name {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; font-variant: small-caps;
+  color: var(--accent); letter-spacing: .03em; margin-bottom: 3px;
+}
+.disc-power-stats {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  color: var(--label-secondary); margin-bottom: 5px; line-height: 1.5;
+}
+.disc-power-effect {
+  font-family: var(--ft); font-size: 11px; color: var(--label-secondary); line-height: 1.55;
+}
+
+/* ── Manoeuvres ── */
+.man-style-card {
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px;
+  padding: 9px 12px; margin-bottom: 3px;
+}
+.man-style-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.man-style-name {
+  font-family: var(--fl); font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--label-secondary);
+}
+.man-style-dots { font-family: var(--fl); font-size: 14px; color: var(--accent); letter-spacing: 2px; white-space: nowrap; }
+.man-style-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.man-list { display: flex; flex-direction: column; gap: 3px; margin-top: 3px; }
+.man-tap-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 12px; min-height: 40px;
+  background: var(--surf3); border: 1px solid var(--bdr); border-radius: 5px;
+  cursor: pointer; user-select: none;
+}
+.man-tap-row.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+.man-tap-left { display: flex; align-items: center; gap: 8px; }
+.man-tap-name {
+  font-family: var(--fl); font-size: 11px; font-weight: 700; font-variant: small-caps;
+  color: var(--accent); letter-spacing: .03em;
+}
+.man-tap-rank { font-family: var(--fl); font-size: 12px; color: var(--accent); letter-spacing: 2px; white-space: nowrap; }
+.man-tap-arr { font-size: 11px; color: var(--label-tertiary); transition: transform .15s; }
+.man-tap-row.open .man-tap-arr { transform: rotate(90deg); }
+.man-drawer {
+  display: none;
+  background: var(--surf3); border: 1px solid var(--bdr);
+  border-top: none; border-radius: 0 0 5px 5px;
+  padding: 8px 12px; margin-bottom: 3px;
+}
+.man-drawer.visible { display: block; }
+.man-effect { font-family: var(--fl); font-size: 11px; color: var(--label-secondary); line-height: 1.55; }
+
+/* ── Pacts ── */
+.pact-qualifier {
+  font-family: var(--fl); font-size: 10px; font-weight: 400;
+  color: var(--label-secondary); margin-top: 3px;
+}
+
+/* ── Banes ── */
+.bane-effect { padding: 9px 12px; }
+.bane-effect-text { font-family: var(--ft); font-size: 11px; color: var(--label-secondary); line-height: 1.6; }
+
+/* ── Standing merits ── */
+.smt-list { display: flex; flex-direction: column; gap: 3px; }
+.smt-tap-row {
+  display: flex; flex-direction: column;
+  padding: 10px 12px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px;
+  cursor: pointer; user-select: none;
+}
+.smt-tap-row.open {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+.smt-tap-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.smt-tap-name {
+  font-family: var(--fl); font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--label-secondary);
+}
+.smt-tap-qualifier {
+  font-family: var(--fl); font-size: 10px; font-weight: 400;
+  color: var(--label-secondary); margin-top: 3px;
+}
+.smt-tap-right { display: flex; align-items: center; gap: 8px; }
+.smt-tap-dots { font-family: var(--fl); font-size: 14px; color: var(--accent); letter-spacing: 2px; white-space: nowrap; }
+.smt-tap-arr { font-size: 11px; color: var(--label-tertiary); transition: transform .15s; }
+.smt-tap-row.open .smt-tap-arr { transform: rotate(90deg); }
+.smt-drawer {
+  display: none;
+  background: var(--surf3); border: 1px solid var(--bdr);
+  border-top: none; border-radius: 0 0 6px 6px;
+  margin-bottom: 6px; overflow: hidden;
+}
+.smt-drawer.visible { display: block; }
+.smt-asset-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 12px 6px; }
+.smt-asset-lbl {
+  font-family: var(--fl); font-size: 10px; font-weight: 700;
+  color: var(--label-secondary); white-space: nowrap;
+}
+.smt-tier-list { display: flex; flex-direction: column; padding: 6px 0; }
+.smt-tier-row {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 3px 12px; border-bottom: .5px solid var(--bdr);
+}
+.smt-tier-row:last-child { border-bottom: none; }
+.smt-tier-dots {
+  font-family: var(--fl); font-size: 12px; color: var(--accent);
+  letter-spacing: 2px; min-width: 62px; flex-shrink: 0;
+}
+.smt-tier-text {
+  font-family: var(--fl); font-size: 11px; color: var(--label-secondary); line-height: 1.5;
+}
+
+/* ── Merits ── */
+.merit-list { display: flex; flex-direction: column; gap: 4px; }
+.merit-row {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 6px 10px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px;
+}
+.merit-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.merit-name {
+  font-family: var(--fl); font-size: 11px; font-weight: 600; font-variant: small-caps;
+  color: var(--label-secondary); letter-spacing: .03em; flex: 1;
+}
+.merit-dots { font-family: var(--fl); color: var(--accent); font-size: 14px; letter-spacing: 2px; white-space: nowrap; }
+.merit-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.merit-chip {
+  font-family: var(--fl); font-size: 10px; font-variant: small-caps; font-weight: 600;
+  color: var(--label-secondary);
+  background: var(--surf3); border: 1px solid var(--bdr); border-radius: 10px;
+  padding: 1px 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <strong>MOCKUP</strong> — Single-Column Player Sheet
+  <span>Illustrative data only &nbsp;·&nbsp; <em>Refresh to reset tracks</em></span>
+</div>
+
+<div class="sheet-col1">
+
+  <!-- ── CHARACTER HEADER ── -->
+  <div class="sh-header">
+    <div class="char-name">Lord Victor Ashworth</div>
+    <div class="char-player">James M. &nbsp;·&nbsp; he/him</div>
+    <div class="char-concept">Manipulative Corporate Predator</div>
+
+    <!-- Faction display — Covenant first -->
+    <div class="faction-display">
+      <div class="faction-display-row">
+        <div class="faction-icon-slot" style="-webkit-mask-image:url('icons/invictus.svg');mask-image:url('icons/invictus.svg');"></div>
+        <div class="faction-display-info">
+          <span class="faction-display-name">Invictus</span>
+          <span class="faction-display-sub">Covenant</span>
+          <span class="faction-dots">●●●</span>
+        </div>
+        <div class="faction-gem">
+          <div class="faction-gem-shape"><span class="faction-gem-n">3</span></div>
+          <span class="faction-gem-lbl">Cov.</span>
+        </div>
+      </div>
+      <div class="faction-display-row">
+        <div class="faction-icon-slot" style="-webkit-mask-image:url('icons/ventrue.svg');mask-image:url('icons/ventrue.svg');"></div>
+        <div class="faction-display-info">
+          <span class="faction-display-name">Ventrue</span>
+          <span class="faction-display-sub">Clan</span>
+          <span class="faction-dots">●●●</span>
+        </div>
+        <div class="faction-gem">
+          <div class="faction-gem-shape"><span class="faction-gem-n">3</span></div>
+          <span class="faction-gem-lbl">Clan</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bio metadata -->
+    <div class="sheet-meta-rows">
+      <div class="sh-meta-pair">
+        <div class="sheet-meta-row">
+          <span class="sheet-meta-lbl">Mask</span>
+          <span class="sheet-meta-val accent">Architect</span>
+        </div>
+        <div class="sheet-meta-row">
+          <span class="sheet-meta-lbl">Dirge</span>
+          <span class="sheet-meta-val accent">Devil</span>
+        </div>
+      </div>
+      <div class="sheet-meta-row">
+        <span class="sheet-meta-lbl">Touchstones</span>
+        <span class="sheet-meta-val">Eleanor Voss &nbsp;·&nbsp; The Ashworth Foundation</span>
+      </div>
+      <div class="smt-tap-row" onclick="toggleDisc(this)" style="border-radius:4px;">
+        <div class="smt-tap-head">
+          <span class="smt-tap-name">Bane</span>
+          <span class="smt-tap-arr">›</span>
+        </div>
+        <div class="smt-tap-qualifier">Ventrue — Preferred Prey</div>
+      </div>
+      <div class="smt-drawer" style="border-radius:0 0 4px 4px;">
+        <div class="smt-tier-list" style="padding:8px 0;">
+          <div class="smt-tier-row" style="border:none;">
+            <span class="bane-effect-text">The Ventrue may only feed from a specific type of prey. Feeding from any other source provides no Vitae. Preferred prey: <em>financial elite</em>.</span>
+          </div>
+        </div>
+      </div>
+      <div class="sh-meta-pair">
+        <div class="sheet-meta-row">
+          <span class="sheet-meta-lbl">Embrace</span>
+          <span class="sheet-meta-val">14 February 1923</span>
+        </div>
+        <div class="sheet-meta-row">
+          <span class="sheet-meta-lbl">App. Age</span>
+          <span class="sheet-meta-val">Mid-Thirties</span>
+        </div>
+      </div>
+      <div class="sheet-meta-row">
+        <span class="sheet-meta-lbl">Features</span>
+        <span class="sheet-meta-val">Sharply dressed; cold grey eyes; silver streaks at the temples</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STAT BAR ── -->
+  <div class="stat-bar">
+    <div class="stat-gem">
+      <div class="stat-shape"><span class="stat-n">3</span></div>
+      <span class="stat-lbl">BP</span>
+    </div>
+    <div class="stat-gem">
+      <div class="stat-shape"><span class="stat-n">6</span></div>
+      <span class="stat-lbl">Humanity</span>
+    </div>
+    <div class="stat-gem">
+      <div class="stat-shape"><span class="stat-n">6</span></div>
+      <span class="stat-lbl">Health</span>
+    </div>
+    <div class="stat-gem">
+      <div class="stat-shape"><span class="stat-n">6</span></div>
+      <span class="stat-lbl">Willpower</span>
+    </div>
+    <div class="stat-gem">
+      <div class="stat-shape"><span class="stat-n">5</span></div>
+      <span class="stat-lbl">Size</span>
+    </div>
+    <div class="stat-gem">
+      <div class="stat-shape"><span class="stat-n">7</span></div>
+      <span class="stat-lbl">Speed</span>
+    </div>
+    <div class="stat-gem">
+      <div class="stat-shape"><span class="stat-n">2</span></div>
+      <span class="stat-lbl">Defence</span>
+    </div>
+  </div>
+
+  <!-- ── TRACKS ── -->
+  <div class="sh-track-zone">
+    <div class="sh-track-zone-title">Tracks</div>
+    <div class="sh-tracker-row">
+      <div class="sh-tracker-lbl">Vitae</div>
+      <div class="sh-tracker-boxes" id="tb-vitae"></div>
+      <div class="sh-tracker-num" id="tn-vitae">8/12</div>
+    </div>
+    <div class="sh-tracker-row">
+      <div class="sh-tracker-lbl">Willpower</div>
+      <div class="sh-tracker-boxes" id="tb-wp"></div>
+      <div class="sh-tracker-num" id="tn-wp">4/6</div>
+    </div>
+    <div class="sh-tracker-row">
+      <div class="sh-tracker-lbl">Influence</div>
+      <div class="sh-tracker-boxes" id="tb-inf"></div>
+      <div class="sh-tracker-num" id="tn-inf">3/5</div>
+    </div>
+  </div>
+
+  <!-- ── SHEET BODY ── -->
+  <div class="sh-body">
+
+    <!-- ATTRIBUTES -->
+    <div class="section-title">Attributes</div>
+    <div class="attr-3col">
+      <div class="attr-group">
+        <div class="attr-group-title">Mental</div>
+        <div class="attr-row"><span class="attr-name">Intelligence</span><span class="attr-dots">●●●</span></div>
+        <div class="attr-row"><span class="attr-name">Wits</span><span class="attr-dots">●●</span></div>
+        <div class="attr-row"><span class="attr-name">Resolve</span><span class="attr-dots">●●●</span></div>
+      </div>
+      <div class="attr-group">
+        <div class="attr-group-title">Physical</div>
+        <div class="attr-row"><span class="attr-name">Strength</span><span class="attr-dots">●</span></div>
+        <div class="attr-row"><span class="attr-name">Dexterity</span><span class="attr-dots">●●</span></div>
+        <div class="attr-row"><span class="attr-name">Stamina</span><span class="attr-dots">●●</span></div>
+      </div>
+      <div class="attr-group">
+        <div class="attr-group-title">Social</div>
+        <div class="attr-row"><span class="attr-name">Presence</span><span class="attr-dots">●●●●○</span></div>
+        <div class="attr-row"><span class="attr-name">Manipulation</span><span class="attr-dots">●●●●</span></div>
+        <div class="attr-row"><span class="attr-name">Composure</span><span class="attr-dots">●●●</span></div>
+      </div>
+    </div>
+
+    <!-- SKILLS -->
+    <div class="section-title">Skills</div>
+    <div class="skill-3col">
+      <div class="skill-group">
+        <div class="skill-group-title">Mental</div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Academics</span><span class="skill-dots">●●●</span></div>
+        </div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Investigation</span><span class="skill-dots">●</span></div>
+        </div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Politics</span><span class="skill-dots">●●</span></div>
+          <div class="skill-sub"><span class="qualifier">Finance, Law</span></div>
+        </div>
+      </div>
+      <div class="skill-group">
+        <div class="skill-group-title">Physical</div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Drive</span><span class="skill-dots">●</span></div>
+        </div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Stealth</span><span class="skill-dots">●</span></div>
+        </div>
+      </div>
+      <div class="skill-group">
+        <div class="skill-group-title">Social</div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Empathy</span><span class="skill-dots">●●</span></div>
+        </div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Persuasion</span><span class="skill-dots">●●●●</span></div>
+          <div class="skill-sub"><span class="chip">9-Again</span></div>
+        </div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Socialise</span><span class="skill-dots">●●●</span></div>
+          <div class="skill-sub"><span class="qualifier">High Society</span><span class="chip">9-Again</span></div>
+        </div>
+        <div class="skill-row">
+          <div class="skill-head"><span class="skill-name">Subterfuge</span><span class="skill-dots">●●●</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANOEUVRES -->
+    <div class="section-title">Manoeuvres</div>
+
+    <div class="man-style-card">
+      <div class="man-style-head">
+        <span class="man-style-name">Aggressive Striking</span>
+        <span class="man-style-dots">●●●</span>
+      </div>
+      <div class="man-style-tags">
+        <span class="chip">Aggressive</span>
+        <span class="chip">Armed</span>
+        <span class="chip">Unarmed</span>
+      </div>
+    </div>
+
+    <div class="man-list">
+      <div class="man-tap-row open" onclick="toggleDisc(this)">
+        <div class="man-tap-left">
+          <span class="man-tap-name">Knockout Blow</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="man-tap-rank">●</span>
+          <span class="man-tap-arr">›</span>
+        </div>
+      </div>
+      <div class="disc-drawer visible">
+        <div class="man-effect">Spend 1 Willpower before rolling. If the attack deals at least one point of bashing damage, the target is also knocked unconscious for a number of turns equal to the successes rolled.</div>
+      </div>
+
+      <div class="man-tap-row" onclick="toggleDisc(this)">
+        <div class="man-tap-left">
+          <span class="man-tap-name">Combination Blows</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="man-tap-rank">●●</span>
+          <span class="man-tap-arr">›</span>
+        </div>
+      </div>
+      <div class="disc-drawer">
+        <div class="man-effect">Make two attacks as a single action. The second attack is at -1 die. Both attacks must target the same opponent.</div>
+      </div>
+
+      <div class="man-tap-row" onclick="toggleDisc(this)">
+        <div class="man-tap-left">
+          <span class="man-tap-name">Haymaker</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="man-tap-rank">●●●</span>
+          <span class="man-tap-arr">›</span>
+        </div>
+      </div>
+      <div class="disc-drawer">
+        <div class="man-effect">Sacrifice Defence for the turn. If the attack succeeds, add the character's Strength dots again as bonus damage.</div>
+      </div>
+    </div>
+
+    <!-- DISCIPLINES -->
+    <div class="section-title">Disciplines</div>
+    <div class="disc-list">
+
+      <!-- Dominate — expanded -->
+      <div class="disc-tap-row open" onclick="toggleDisc(this)">
+        <div class="disc-tap-left">
+          <span class="disc-tap-name">Dominate</span>
+          <span class="disc-clan-tag">Clan</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="disc-tap-dots">●●●●</span>
+          <span class="disc-tap-arr">›</span>
+        </div>
+      </div>
+      <div class="disc-drawer visible">
+        <div class="disc-power">
+          <div class="disc-power-name">● Command</div>
+          <div class="disc-power-stats">Cost: 1 Vitae · Pool: Presence + Persuasion · Action: Instant</div>
+          <div class="disc-power-effect">Issue a single verbal command the subject must obey immediately. Commands cannot force self-harm.</div>
+        </div>
+        <div class="disc-power">
+          <div class="disc-power-name">●● Mesmerise</div>
+          <div class="disc-power-stats">Cost: 1 Vitae · Pool: Presence + Persuasion · Action: Instant</div>
+          <div class="disc-power-effect">Trap the subject's mind in a reverie, rendering them catatonic until the vampire speaks again.</div>
+        </div>
+        <div class="disc-power">
+          <div class="disc-power-name">●●● The Forgetful Mind</div>
+          <div class="disc-power-stats">Cost: 1 Vitae · Pool: Intelligence + Persuasion · Action: Extended</div>
+          <div class="disc-power-effect">Rewrite or excise specific memories. Each roll covers roughly one scene of memory.</div>
+        </div>
+        <div class="disc-power">
+          <div class="disc-power-name">●●●● Conditioning</div>
+          <div class="disc-power-stats">Cost: Ongoing · Pool: Presence + Persuasion · Action: Extended</div>
+          <div class="disc-power-effect">Break down a subject's will over time, creating total susceptibility to Dominate commands.</div>
+        </div>
+      </div>
+
+      <!-- Resilience — collapsed -->
+      <div class="disc-tap-row" onclick="toggleDisc(this)">
+        <div class="disc-tap-left">
+          <span class="disc-tap-name">Resilience</span>
+          <span class="disc-clan-tag">Clan</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="disc-tap-dots">●●</span>
+          <span class="disc-tap-arr">›</span>
+        </div>
+      </div>
+      <div class="disc-drawer">
+        <div class="disc-power">
+          <div class="disc-power-name">● Toughness</div>
+          <div class="disc-power-stats">Cost: — · Passive</div>
+          <div class="disc-power-effect">Add Resilience dots to Stamina for damage-resistance purposes.</div>
+        </div>
+        <div class="disc-power">
+          <div class="disc-power-name">●● Endurance</div>
+          <div class="disc-power-stats">Cost: — · Passive</div>
+          <div class="disc-power-effect">Halve the duration of Tilts that affect Stamina or physical health.</div>
+        </div>
+      </div>
+
+      <!-- Majesty — collapsed, out-of-clan -->
+      <div class="disc-tap-row" onclick="toggleDisc(this)">
+        <div class="disc-tap-left">
+          <span class="disc-tap-name">Majesty</span>
+          <span class="disc-clan-tag">Out-of-clan</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="disc-tap-dots">●●●</span>
+          <span class="disc-tap-arr">›</span>
+        </div>
+      </div>
+      <div class="disc-drawer">
+        <div class="disc-power">
+          <div class="disc-power-name">● Awe</div>
+          <div class="disc-power-stats">Cost: 1 Vitae · Pool: Presence + Socialise · Action: Instant</div>
+          <div class="disc-power-effect">All who witness the vampire feel an overwhelming sense of admiration and deference.</div>
+        </div>
+        <div class="disc-power">
+          <div class="disc-power-name">●● Revelation</div>
+          <div class="disc-power-stats">Cost: 1 Vitae · Pool: Presence + Empathy · Action: Instant</div>
+          <div class="disc-power-effect">The subject is compelled to speak honestly, unable to lie for the scene.</div>
+        </div>
+        <div class="disc-power">
+          <div class="disc-power-name">●●● Entrancement</div>
+          <div class="disc-power-stats">Cost: 1 Vitae · Pool: Presence + Socialise · Action: Instant</div>
+          <div class="disc-power-effect">A subject becomes a devoted follower, treating the vampire as their most trusted companion.</div>
+        </div>
+      </div>
+
+    </div><!-- /disc-list -->
+
+    <!-- PACTS -->
+    <div class="section-title">Pacts</div>
+    <div class="disc-list">
+
+      <div class="disc-tap-row" onclick="toggleDisc(this)">
+        <div class="disc-tap-left">
+          <span class="disc-tap-name">Invictus Oath of Fealty</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="disc-tap-dots">●●●</span>
+          <span class="disc-tap-arr">›</span>
+        </div>
+      </div>
+      <div class="disc-drawer">
+        <div class="disc-power">
+          <div class="disc-power-stats">Sworn to: Lord Harlan Ashford</div>
+          <div class="disc-power-effect">The Oath of Fealty binds the sworn to their liege. Breaking the oath costs the swearer two dots of Invictus Status and inflicts a breaking point at Humanity 6.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- STANDING MERITS -->
+    <div class="section-title">Standing Merits</div>
+    <div class="smt-list">
+
+      <!-- MCI — expanded -->
+      <div class="smt-tap-row open" onclick="toggleDisc(this)">
+        <div class="smt-tap-head">
+          <span class="smt-tap-name">Mystery Cult Initiation</span>
+          <div class="smt-tap-right">
+            <span class="smt-tap-dots">●●●●●</span>
+            <span class="smt-tap-arr">›</span>
+          </div>
+        </div>
+        <div class="smt-tap-qualifier">The Cobalt Conclave</div>
+      </div>
+      <div class="smt-drawer visible">
+        <div class="smt-tier-list">
+          <div class="smt-tier-row"><span class="smt-tier-dots">●</span><span class="smt-tier-text">1 merit dot</span></div>
+          <div class="smt-tier-row"><span class="smt-tier-dots">●●</span><span class="smt-tier-text">1 merit dot</span></div>
+          <div class="smt-tier-row"><span class="smt-tier-dots">●●●</span><span class="smt-tier-text">2 merit dots</span></div>
+          <div class="smt-tier-row"><span class="smt-tier-dots">●●●●</span><span class="smt-tier-text">3 merit dots</span></div>
+          <div class="smt-tier-row"><span class="smt-tier-dots">●●●●●</span><span class="smt-tier-text">3 merit dots</span></div>
+        </div>
+      </div>
+
+      <!-- PT — collapsed -->
+      <div class="smt-tap-row" onclick="toggleDisc(this)">
+        <div class="smt-tap-head">
+          <span class="smt-tap-name">Professional Training</span>
+          <div class="smt-tap-right">
+            <span class="smt-tap-dots">●●●●</span>
+            <span class="smt-tap-arr">›</span>
+          </div>
+        </div>
+        <div class="smt-tap-qualifier">Mnemosyne of St. Martin</div>
+      </div>
+      <div class="smt-drawer">
+        <div class="smt-asset-row">
+          <span class="smt-asset-lbl">Asset Skills (9-Again):</span>
+          <span class="chip">Expression</span>
+          <span class="chip">Occult</span>
+          <span class="chip">Weaponry</span>
+        </div>
+        <div class="smt-tier-list">
+          <div class="smt-tier-row"><span class="smt-tier-dots">●</span><span class="smt-tier-text">2 dots of Contacts</span></div>
+          <div class="smt-tier-row"><span class="smt-tier-dots">●●</span><span class="smt-tier-text">2 Asset Skills</span></div>
+          <div class="smt-tier-row"><span class="smt-tier-dots">●●●</span><span class="smt-tier-text">3rd Asset Skill, +2 Specialisations on Asset Skills</span></div>
+          <div class="smt-tier-row"><span class="smt-tier-dots">●●●●</span><span class="smt-tier-text">+1 dot in Occult</span></div>
+        </div>
+      </div>
+
+    </div><!-- /smt-list -->
+
+    <!-- INFLUENCE MERITS -->
+    <div class="section-title">Influence</div>
+    <div class="merit-list">
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Allies</span>
+          <span class="merit-dots">●●●</span>
+        </div>
+        <div class="skill-sub"><span class="qualifier">Finance</span></div>
+      </div>
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Status</span>
+          <span class="merit-dots">●●●</span>
+        </div>
+        <div class="skill-sub"><span class="qualifier">Invictus</span></div>
+      </div>
+      <div class="merit-row">
+        <div class="merit-head"><span class="merit-name">Contacts</span></div>
+        <div class="merit-chips">
+          <span class="merit-chip">Finance</span>
+          <span class="merit-chip">Legal</span>
+          <span class="merit-chip">Media</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOMAIN MERITS -->
+    <div class="section-title">Domain</div>
+    <div class="merit-list">
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Safe Place</span>
+          <span class="merit-dots">●●●</span>
+        </div>
+        <div class="skill-sub"><span class="qualifier">The Ashworth Estate</span></div>
+      </div>
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Herd</span>
+          <span class="merit-dots">●●</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GENERAL MERITS -->
+    <div class="section-title">Merits</div>
+    <div class="merit-list">
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Resources</span>
+          <span class="merit-dots">●●●●</span>
+        </div>
+      </div>
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Retainer</span>
+          <span class="merit-dots">●●</span>
+        </div>
+        <div class="skill-sub"><span class="qualifier">Charlotte</span></div>
+      </div>
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Mystery Cult Initiation</span>
+          <span class="merit-dots">●●●</span>
+        </div>
+        <div class="skill-sub"><span class="qualifier">The Cobalt Conclave</span></div>
+      </div>
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Iron Stamina</span>
+          <span class="merit-dots">●●</span>
+        </div>
+      </div>
+      <div class="merit-row">
+        <div class="merit-head">
+          <span class="merit-name">Striking Looks</span>
+          <span class="merit-dots">●●</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sh-body -->
+</div><!-- /sheet-col1 -->
+
+<script>
+// ── Tracks ────────────────────────────────────────────────────────────────────
+const TRACKS = [
+  { type: 'vitae', max: 12, current: 8, cls: 'vitae-filled' },
+  { type: 'wp',    max: 6,  current: 4, cls: 'wp-filled'    },
+  { type: 'inf',   max: 5,  current: 3, cls: 'inf-filled'   },
+];
+TRACKS.forEach(({ type, max, current, cls }) => {
+  const box = document.getElementById(`tb-${type}`);
+  const num = document.getElementById(`tn-${type}`);
+  let filled = current;
+  function render() {
+    box.innerHTML = '';
+    for (let i = 0; i < max; i++) {
+      const b = document.createElement('div');
+      b.className = 'tbox' + (i < filled ? ' ' + cls : '');
+      b.dataset.idx = i;
+      box.appendChild(b);
+    }
+    num.textContent = `${filled}/${max}`;
+  }
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.tbox');
+    if (!b) return;
+    const idx = Number(b.dataset.idx);
+    filled = idx < filled ? idx : idx + 1;
+    render();
+  });
+  render();
+});
+
+// ── Discipline toggle ─────────────────────────────────────────────────────────
+function toggleDisc(row) {
+  const drawer = row.nextElementSibling;
+  if (!drawer) return;
+  const open = row.classList.toggle('open');
+  drawer.classList.toggle('visible', open);
+}
+</script>
+</body>
+</html>

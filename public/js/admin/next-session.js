@@ -36,12 +36,16 @@ function buildPanel() {
       <span>Game Number</span>
       <input type="number" id="ns-game-number" min="1" style="width:5rem;">
     </label>
+    <label class="dt-deadline-edit" style="grid-column:1/-1;">
+      <span>Downtime Deadline (shown on website)</span>
+      <input type="text" id="ns-deadline" placeholder="e.g. Friday 1 May 2026 at 11:59 PM" style="width:100%;">
+    </label>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;">
     <button class="dt-btn" id="ns-save">Save</button>
     <span id="ns-saved" style="font-size:.8rem;color:var(--muted);display:none;">Saved.</span>
   </div>
-  <p style="margin:.75rem 0 0;font-size:.75rem;color:var(--muted);">Downtime deadline is set via the active cycle in the Downtime tab.</p>
+  <p style="margin:.75rem 0 0;font-size:.75rem;color:var(--muted);">If deadline is blank, the website falls back to the active downtime cycle deadline.</p>
 </div>`;
 }
 
@@ -54,6 +58,7 @@ async function loadNext() {
       document.getElementById('ns-date').value        = session.session_date || '';
       document.getElementById('ns-time').value        = session.doors_open || '';
       document.getElementById('ns-game-number').value = session.game_number != null ? session.game_number : '';
+      document.getElementById('ns-deadline').value    = session.downtime_deadline || '';
       status.textContent = session.game_number != null
         ? `Loaded: Game ${session.game_number}`
         : `Loaded: ${session.session_date}`;
@@ -71,10 +76,12 @@ async function saveNext() {
   if (!date) { alert('Session date is required.'); return; }
 
   const gameNum = document.getElementById('ns-game-number').value;
+  const deadline = document.getElementById('ns-deadline').value.trim();
   const body = {
-    session_date: date,
-    doors_open:   document.getElementById('ns-time').value || undefined,
-    game_number:  gameNum ? parseInt(gameNum, 10) : undefined,
+    session_date:      date,
+    doors_open:        document.getElementById('ns-time').value || undefined,
+    game_number:       gameNum ? parseInt(gameNum, 10) : undefined,
+    downtime_deadline: deadline || undefined,
   };
 
   try {

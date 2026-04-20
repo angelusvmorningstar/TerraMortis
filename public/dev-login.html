@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TM Suite — Dev Login</title>
+<style>
+  body { background: #0D0B09; color: #E8E0D0; font-family: 'Courier New', monospace;
+         display: flex; flex-direction: column; align-items: center; justify-content: center;
+         min-height: 100vh; margin: 0; gap: 16px; }
+  h1 { font-family: Georgia, serif; color: #E0C47A; letter-spacing: .06em; margin: 0; }
+  p { color: #8A7A6A; font-size: 13px; text-align: center; max-width: 400px; margin: 0; }
+  .btn { background: #8B0000; color: #E8E0D0; border: none; border-radius: 6px;
+         padding: 12px 24px; font-size: 14px; font-family: inherit; cursor: pointer;
+         letter-spacing: .08em; text-transform: uppercase; }
+  .btn:hover { background: #A81010; }
+  select { background: #161210; color: #E8E0D0; border: 1px solid rgba(201,169,98,.35);
+           border-radius: 5px; padding: 8px 12px; font-size: 13px; font-family: inherit;
+           cursor: pointer; min-width: 200px; }
+  label { color: #C4B49A; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .field { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .warn { color: #d4a832; font-size: 11px; background: rgba(212,168,50,.08);
+          border: 1px solid rgba(212,168,50,.25); border-radius: 4px; padding: 8px 14px;
+          text-align: center; max-width: 400px; }
+</style>
+</head>
+<body>
+<h1>Terra Mortis</h1>
+<p>Local dev login — bypasses Discord OAuth using the server's test token bypass.</p>
+<p class="warn">⚠ Only works locally with the API server running on port 3000.<br>Do not deploy this file to production.</p>
+
+<div class="field">
+  <label>Login as</label>
+  <select id="role-sel">
+    <option value="st">Storyteller (full access)</option>
+    <option value="player">Player (restricted)</option>
+  </select>
+</div>
+
+<div class="field">
+  <label>Go to</label>
+  <select id="dest-sel">
+    <option value="/">Game App (index.html)</option>
+    <option value="/admin">Admin Portal (admin.html)</option>
+    <option value="/player">Player Portal (player.html)</option>
+  </select>
+</div>
+
+<button class="btn" onclick="devLogin()">Enter as Dev</button>
+
+<script>
+function devLogin() {
+  const role = document.getElementById('role-sel').value;
+  const dest = document.getElementById('dest-sel').value;
+
+  localStorage.setItem('tm_auth_token', 'local-test-token');
+  localStorage.setItem('tm_auth_expires', String(Date.now() + 36000000)); // 10 hours
+  localStorage.setItem('tm_auth_user', JSON.stringify({
+    id: 'local-test-' + role,
+    username: 'local_' + role,
+    global_name: role === 'st' ? 'Dev ST' : 'Dev Player',
+    avatar: null,
+    role: role,
+    player_id: role === 'st' ? null : 'p-dev-001',
+    character_ids: role === 'st' ? [] : ['600000000000000000000006'],
+    is_dual_role: false,
+  }));
+
+  window.location.href = dest;
+}
+</script>
+</body>
+</html>

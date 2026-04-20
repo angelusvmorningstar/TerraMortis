@@ -9,6 +9,12 @@
   status = 200
   force = true
 
+# Block dev-login in production — only meaningful locally
+[[redirects]]
+  from = "/dev-login"
+  to = "/dev-login.html"
+  status = 404
+
 # Named entry points — serve the correct HTML for each app
 [[redirects]]
   from = "/admin"

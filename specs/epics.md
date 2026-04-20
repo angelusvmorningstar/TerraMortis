@@ -169,6 +169,36 @@ From `specs/architecture-st-admin.md` and `specs/architecture-player-access.md`:
 | FR-DP-03 | Data Portability | DP-2 | Done |
 | FR-DP-04 | Data Portability | DP-2 | Done |
 | FR-DP-05 | Data Portability | DP-3 | Done |
+| FR-DTFC-01 | DTFC | dtfc.1 | Ready |
+| FR-DTFC-02 | DTFC | dtfc.1 | Ready |
+| FR-DTFC-03 | DTFC | dtfc.1 | Ready |
+| FR-DTFC-04 | DTFC | dtfc.2 | Ready |
+| FR-DTFC-05 | DTFC | dtfc.3 | Ready |
+| FR-DTFC-06 | DTFC | dtfc.4 | Ready |
+| FR-DTFC-07 | DTFC | dtfc.5 | Ready |
+| FR-DTFC-08 | DTFC | dtfc.6 | Ready |
+| FR-DTFC-09 | DTFC | dtfc.7 | Ready |
+| FR-DTFC-10 | DTFC | dtfc.8 | Ready |
+| FR-DTFC-11 | DTFC | dtfc.9 | Blocked |
+| FR-DTFC-12 | DTFC | dtfc.10 | Blocked |
+| FR-DTFC-13 | DTFC | dtfc.11 | Deferred |
+
+---
+
+## Epic List — Active
+
+### Epic FIN: Finance & Coordinator Access — READY FOR DEV
+Replaces the Google Sheet as SSOT for game finances. Introduces `coordinator` role for Lyn (door check-in, payment recording, finance summary). No ST storytelling access.
+**Stories:** fin.1 Coordinator role, fin.2 Finance schema, fin.3 Check-in tab (game app), fin.4 Finance tab (game app)
+**Epic file:** `specs/epic-finance-coordinator.md`
+
+---
+
+### Epic DTFC: Downtime Form Calibration — IN PROGRESS (Wave 1 ready-for-dev)
+Post-launch design review identified 21 calibration tasks. Fixes UX gaps, enforces mechanical correctness in feeding/XP spend, restructures project/sphere actions with smart targeting, updates ST panel for breaking key format changes.
+**Stories:** dtfc.1 Court calibrations, dtfc.2 Section ordering, dtfc.3 Project/sphere fields, dtfc.4 Aspirations structured *(Wave 2)*, dtfc.5 Territory feeding rights *(Wave 2)*, dtfc.6 Feeding pool + vitae projection *(Wave 2)*, dtfc.7 Rote project commitment *(Wave 2)*, dtfc.8 XP spend structured *(Wave 2)*, dtfc.9–11 Deferred (NPC system, collaborative projects, equipment tab)
+**Breaking changes:** dtfc.4 and dtfc.5 must ship with paired `downtime-views.js` updates.
+**Epic file:** `specs/epic-dtfc-downtime-form-calibration.md`
 
 ---
 

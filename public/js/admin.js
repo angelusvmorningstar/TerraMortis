@@ -151,7 +151,7 @@ function renderSidebarUser() {
     : user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
       : user.id
-        ? `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`
+        ? `https://cdn.discordapp.com/embed/avatars/${(/^\d+$/.test(user.id) ? (BigInt(user.id) >> 22n) % 6n : 0n)}.png`
         : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
   const playerLink = info?.is_dual_role
@@ -182,7 +182,7 @@ function switchDomain(domain) {
   if (btn) btn.classList.add('on');
 
   if (domain === 'players') initPlayersView(chars);
-  if (domain === 'engine') { initNextSession(); initDiceEngine(chars); initFeedingEngine(chars); initSessionTracker(chars); initSessionLog(); }
+  if (domain === 'engine') { /* Engine tab removed — dice, feeding, session tracker were Engine-only tools */ }
   if (domain === 'city') initCityView();
   if (domain === 'spheres') initSpheresView();
   if (domain === 'downtime') {
@@ -200,7 +200,7 @@ function switchDomain(domain) {
       renderCityOverview();
     }
   }
-  if (domain === 'attendance') initAttendance(chars);
+  if (domain === 'attendance') { initNextSession(); initAttendance(chars); }
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);
   if (domain === 'documents') initPrimerAdmin(document.getElementById('documents-content'));
@@ -270,6 +270,13 @@ document.addEventListener('click', e => {
   document.getElementById('sb-open').addEventListener('click', () => {
     appEl.classList.remove('sb-collapsed');
     localStorage.setItem(SB_KEY, '0');
+  });
+  // Click outside sidebar to close on tablet/mobile
+  document.getElementById('content')?.addEventListener('click', () => {
+    if (window.innerWidth <= 1024 && !appEl.classList.contains('sb-collapsed')) {
+      appEl.classList.add('sb-collapsed');
+      localStorage.setItem(SB_KEY, '1');
+    }
   });
 }
 
@@ -475,37 +482,22 @@ function renderCharGrid() {
   const retired = sorted.filter(c => c.retired);
 
   function charCard(c) {
-    const bp = c.blood_potency || 1;
-    const hum = c.humanity != null ? c.humanity : '?';
-    const title = (c.court_category || c.court_title) ? `<span class="cc-tag title">${esc(c.court_category || c.court_title)}</span>` : '';
-    const ci = covIcon(c.covenant, 28) + clanIcon(c.clan, 28);
     charAlerts(c); // runs applyDerivedMerits so xp/audit work correctly
-    const xpL = xpLeft(c);
     const audit = auditCharacter(c);
     const auditBadges = _auditBadges(audit);
 
     const ordeals = c.ordeals || [];
     const ordDone = ordeals.filter(o => o.complete).length;
     const ordTotal = ordeals.length;
+    const ordChip = ordTotal > 0
+      ? `<span class="cc-ordeals cc-tag" onclick="event.stopPropagation(); window._openOrdealsModal('${c._id}')" title="Manage ordeals">Ord ${ordDone}/${ordTotal}</span>`
+      : '';
 
     const unlinked = !linkedCharIds.has(String(c._id));
     return `<div class="char-card${c.retired ? ' retired' : ''}${unlinked ? ' unlinked' : ''}" data-id="${c._id}">
       <div class="cc-top">
-        <div style="display:flex;gap:4px;flex-shrink:0">${ci}</div>
-        <div class="cc-identity"><span class="cc-name">${esc(cardName(c))}</span><br><span class="cc-player">${esc(redactPlayer(c.player || ''))}</span></div>
-        ${auditBadges}
-      </div>
-      <div class="cc-mid">
-        <span class="cc-tag cov">${covIcon(c.covenant, 14)} ${esc(shortCov(c.covenant))}</span>
-        <span class="cc-tag clan">${clanIcon(c.clan, 14)} ${esc(c.clan || '?')}</span>
-        ${c.bloodline ? `<span class="cc-tag">${esc(c.bloodline)}</span>` : ''}
-        ${title}
-      </div>
-      <div class="cc-bot">
-        <span>BP <span class="val">${bp}</span></span>
-        <span>Hum <span class="val">${hum}</span></span>
-        <span>XP <span class="val">${xpL}/${xpEarned(c)}</span></span>
-        <span class="cc-ordeals" onclick="event.stopPropagation(); window._openOrdealsModal('${c._id}')" title="Manage ordeals">Ord <span class="val">${ordDone}/${ordTotal}</span></span>
+        <span class="cc-name">${esc(cardName(c))}</span>
+        <div class="cc-card-right">${auditBadges}${ordChip}</div>
       </div>
     </div>`;
   }
@@ -546,6 +538,7 @@ function openCharDetail(c) {
       <span class="cd-player">${esc(redactPlayer(c.player || ''))}</span>
       <div class="cd-header-actions">
         <span class="cd-dirty-badge" id="cd-dirty-badge" style="display:none">Unsaved</span>
+        <button class="dt-btn" id="cd-emergency">Emergency</button>
         <button class="dt-btn" id="cd-edit-toggle">Edit</button>
         <button class="dt-btn" id="cd-print">PDF</button>
         <button class="dt-btn" id="cd-export-json">JSON</button>
@@ -563,6 +556,7 @@ function openCharDetail(c) {
   renderSheet(c);
 
   document.getElementById('cd-close').addEventListener('click', closeCharDetail);
+  document.getElementById('cd-emergency').addEventListener('click', () => showEmergencyContact(c));
   document.getElementById('cd-print').addEventListener('click', () => printPDF());
   document.getElementById('cd-export-json').addEventListener('click', () => exportJSON());
   document.getElementById('cd-edit-toggle').addEventListener('click', async () => {
@@ -626,6 +620,44 @@ async function toggleRetire() {
     btn.textContent = newState ? 'Retire' : 'Unretire';
     console.error('Retire failed:', err.message);
   }
+}
+
+async function showEmergencyContact(c) {
+  let name = '', mobile = '', medical = '';
+  try {
+    const players = await apiGet('/api/players');
+    const p = players.find(pl => pl.display_name === c.player || pl.character_ids?.some(id => String(id) === String(c._id)));
+    if (p) {
+      name    = p.emergency_contact_name   || '';
+      mobile  = p.emergency_contact_mobile || '';
+      medical = p.medical_info             || '';
+    }
+  } catch { /* show empty rather than error */ }
+
+  const existing = document.getElementById('ec-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'ec-modal';
+  modal.className = 'ec-modal-overlay';
+  modal.innerHTML = `<div class="ec-modal-box panel">
+    <div class="panel-label">Emergency Contact — ${esc(displayName(c))}</div>
+    <div class="ec-modal-body">
+      ${name   ? `<div class="ec-row"><span class="ec-lbl">Contact</span><span class="ec-val">${esc(name)}</span></div>` : ''}
+      ${mobile ? `<div class="ec-row"><span class="ec-lbl">Mobile</span><span class="ec-val"><a href="tel:${esc(mobile)}">${esc(mobile)}</a></span></div>` : ''}
+      ${medical ? `<div class="ec-row"><span class="ec-lbl">Medical</span><span class="ec-val">${esc(medical)}</span></div>` : ''}
+      ${!name && !mobile && !medical ? '<p class="ec-empty">No emergency contact recorded for this player.</p>' : ''}
+    </div>
+    <button class="btn-sm ec-close-btn" id="ec-close">Close</button>
+  </div>`;
+  document.body.appendChild(modal);
+
+  const close = () => modal.remove();
+  document.getElementById('ec-close').addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function onEsc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+  });
 }
 
 function closeCharDetail() {

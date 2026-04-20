@@ -1433,6 +1433,43 @@ export function shRenderManoeuvres(c, editMode) {
   return h;
 }
 
+// ── Equipment renderer (nav.10) ───────────────────────────────────────────────
+export function shRenderEquipment(c, editMode) {
+  const equip = c.equipment || [];
+  if (!editMode && !equip.length) return '';
+  const SKILLS = ['Brawl', 'Weaponry', 'Firearms'];
+  const TYPES  = ['weapon', 'armour'];
+  let h = '<div class="sh-sec"><div class="sh-sec-title">Equipment</div><div class="merit-list">';
+  if (editMode) {
+    equip.forEach((e, i) => {
+      const isWeapon = e.type === 'weapon';
+      const skillOpts = SKILLS.map(s => `<option${e.attack_skill === s ? ' selected' : ''}>${s}</option>`).join('');
+      const dmgOpts = ['B','L','A'].map(d => `<option${e.damage_type === d ? ' selected' : ''}>${d}</option>`).join('');
+      h += `<div class="equip-edit-row">`;
+      h += `<select class="gen-qual-input" style="width:70px" onchange="shEditEquip(${i},'type',this.value)"><option${e.type==='weapon'?' selected':''}>weapon</option><option${e.type==='armour'?' selected':''}>armour</option></select>`;
+      h += `<input class="sh-edit-input" value="${esc(e.name||'')}" placeholder="Name" onchange="shEditEquip(${i},'name',this.value)" style="flex:1">`;
+      if (isWeapon) {
+        h += `<select class="gen-qual-input" style="width:80px" onchange="shEditEquip(${i},'attack_skill',this.value)">${skillOpts}</select>`;
+        h += `<input class="attr-bd-input" type="number" value="${e.damage_rating||0}" title="Dmg bonus" onchange="shEditEquip(${i},'damage_rating',+this.value)" style="width:40px">`;
+        h += `<select class="gen-qual-input" style="width:40px" onchange="shEditEquip(${i},'damage_type',this.value)">${dmgOpts}</select>`;
+      } else {
+        h += `<input class="attr-bd-input" type="number" value="${e.general_ar||0}" title="General AR" onchange="shEditEquip(${i},'general_ar',+this.value)" style="width:40px">`;
+        h += `<input class="attr-bd-input" type="number" value="${e.ballistic_ar||0}" title="Ballistic AR" onchange="shEditEquip(${i},'ballistic_ar',+this.value)" style="width:40px">`;
+        h += `<input class="attr-bd-input" type="number" value="${e.mobility_penalty||0}" title="Mobility penalty" onchange="shEditEquip(${i},'mobility_penalty',+this.value)" style="width:40px">`;
+      }
+      h += `<button class="dev-rm-btn" onclick="shRemoveEquip(${i})" title="Remove">&times;</button>`;
+      h += `</div>`;
+    });
+    h += `<div class="dev-add-row"><button class="dev-add-btn" onclick="shAddEquip('weapon')">+ Weapon</button><button class="dev-add-btn" onclick="shAddEquip('armour')" style="margin-left:4px">+ Armour</button></div>`;
+  } else {
+    equip.forEach(e => {
+      h += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${esc(e.name)}</span><div class="trait-right"><span class="trait-qual" style="font-size:10px">${e.type === 'weapon' ? `${e.attack_skill||''} +${e.damage_rating||0}${e.damage_type||'L'}` : `AR ${e.general_ar||0}/${e.ballistic_ar||0}`}</span></div></div></div></div>`;
+    });
+  }
+  h += '</div></div>';
+  return h;
+}
+
 export function shRenderMeritRow(m, idPrefix, i, dotHtml, chipHtml) {
   const b2 = meritBase(m), dc = meritDotCount(m), ds = dc ? shDots(dc) : '', pm = b2.match(/^([^(]+?)\s*\((.+)\)$/), mn = pm ? pm[1].trim() : b2, sn = pm ? pm[2].trim() : null;
   const db = meritLookup(m), dt = dotHtml !== undefined ? dotHtml : (ds ? '<span class="trait-dots">' + ds + '</span>' : '');
@@ -1557,11 +1594,11 @@ export function renderSheet(c, target = null) {
   if (isDesktop) {
     h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + '</div>';
     h += '</div>'; // end sh-dcol-left
-    h += '<div class="sh-dcol sh-dcol-mid"><div class="sh-body">' + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + '</div></div>';
+    h += '<div class="sh-dcol sh-dcol-mid"><div class="sh-body">' + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + '</div></div>';
     h += '<div class="sh-dcol sh-dcol-right"><div class="sh-body">' + shRenderDisciplines(c, editMode) + '</div></div>';
     h += '</div>'; // end sh-desktop
   } else {
-    h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + shRenderDisciplines(c, editMode) + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + '</div>';
+    h += '<div class="sh-body">' + shRenderAttributes(c, editMode) + shRenderSkills(c, editMode) + shRenderDisciplines(c, editMode) + shRenderGeneralMerits(c, editMode) + shRenderInfluenceMerits(c, editMode) + shRenderDomainMerits(c, editMode) + shRenderStandingMerits(c, editMode) + shRenderManoeuvres(c, editMode) + shRenderEquipment(c, editMode) + '</div>';
   }
   const _scrollEl = el.closest('.sh-wrap') || el.parentElement || document.documentElement, _scrollTop = _scrollEl.scrollTop;
   el.innerHTML = h; _scrollEl.scrollTop = _scrollTop;

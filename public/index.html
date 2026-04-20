@@ -44,10 +44,31 @@
     <div id="pool-banner"></div>
     <div class="hdr-nav" id="hdr-nav">
       <button id="btn-view-toggle" class="app-nav-btn view-toggle-btn" onclick="toggleViewMode()" style="display:none">Player View</button>
-      <a href="/player" id="nav-player" class="app-nav-btn">Player</a>
+      <button id="btn-theme-toggle" class="app-nav-btn theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">
+        <svg id="theme-icon-dark" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg id="theme-icon-parch" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button id="btn-desktop-toggle" class="app-nav-btn desktop-toggle-btn" onclick="toggleDesktopMode()" title="Toggle desktop mode">
+        <svg id="desktop-icon-game" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <svg id="desktop-icon-desktop" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      </button>
       <a href="/admin" id="nav-admin" class="app-nav-btn" style="display:none">ST Admin</a>
     </div>
   </div>
+
+  <!-- app-body: sidebar + content row (header stays above both) -->
+  <div id="app-body">
+
+    <!-- Desktop mode sidebar (hidden in game mode) -->
+    <div id="desktop-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Terra Mortis</div>
+        <div class="sidebar-sub">Game App</div>
+        <div class="sidebar-actions" id="desktop-sidebar-actions"></div>
+      </div>
+      <div id="desktop-sidebar-nav" class="sidebar-nav"></div>
+      <div class="sidebar-user" id="desktop-sidebar-user"></div>
+    </div>
 
   <div class="tab-wrap">
 
@@ -104,7 +125,8 @@
     </div>
 
     <!-- ═══ ROLL TAB ═══ -->
-    <div id="t-roll" class="tab active">
+    <div id="t-dice" class="tab active">
+      <div id="lifecycle-cards" style="display:none"></div>
       <div class="shortcut-row">
         <button class="sc-btn" id="sc-char" onclick="openPanel('char')">
           <span class="sc-label" id="sc-char-lbl">Character</span>
@@ -117,7 +139,11 @@
         <button class="sc-btn" id="sc-common" onclick="openPanel('common')">
           <span class="sc-label">Common</span>
         </button>
+        <button class="sc-btn sc-btn-auspex" id="sc-auspex" onclick="openPanel('auspex')" style="display:none">
+          <span class="sc-label">Auspex</span>
+        </button>
       </div>
+      <div id="roll-char-pools" style="display:none"></div>
       <div>
         <div class="slabel">Dice pool</div>
         <div class="crow">
@@ -145,9 +171,8 @@
       <div>
         <div class="slabel">Again rule</div>
         <div class="arow">
-          <button class="abtn" id="a8" onclick="setAgain(8)">8-again</button>
-          <button class="abtn" id="a9" onclick="setAgain(9)">9-again</button>
-          <button class="abtn on" id="a10" onclick="setAgain(10)">10-again</button>
+          <button class="abtn" id="a8" onclick="setAgain(8)">8-AGAIN</button>
+          <button class="abtn" id="a9" onclick="setAgain(9)">9-AGAIN</button>
         </div>
       </div>
       <div class="mrow">
@@ -168,49 +193,7 @@
         </div>
         <div class="hlist" id="hlist"><div class="hempty">No rolls yet</div></div>
       </div>
-      <!-- Feeding test (ST only) -->
-      <div class="feed-section" id="feed-section" style="display:none">
-        <button class="feed-toggle" onclick="feedToggle()">
-          <span class="feed-toggle-label">Feeding Test</span>
-          <span id="feed-chev">&#9662;</span>
-        </button>
-        <div id="feed-panel" class="feed-panel" style="display:none">
-          <div class="feed-row">
-            <div class="sel-wrap sel-wrap-flex">
-              <select class="sh-char-sel" id="feed-terr" onchange="feedBuildPool()">
-                <option value="">&#8212; Territory (optional) &#8212;</option>
-              </select>
-              <div class="sel-arr">&#9662;</div>
-            </div>
-          </div>
-          <div class="feed-methods" id="feed-methods"></div>
-          <div id="feed-pool-section" style="display:none">
-            <div class="feed-pool-box">
-              <div class="feed-pool-breakdown" id="feed-breakdown"></div>
-              <div class="feed-pool-total">
-                <span class="feed-pool-n" id="feed-pool-n">0</span>
-                <span class="feed-pool-lbl">dice</span>
-              </div>
-            </div>
-            <div class="feed-disc-row">
-              <span class="feed-disc-lbl">+ Discipline</span>
-              <div class="sel-wrap sel-wrap-flex">
-                <select class="sh-char-sel" id="feed-disc" onchange="feedBuildPool()">
-                  <option value="">None</option>
-                </select>
-                <div class="sel-arr">&#9662;</div>
-              </div>
-            </div>
-            <button class="feed-roll-btn" onclick="feedRoll()">Roll Feeding</button>
-          </div>
-          <div id="feed-result-section" style="display:none">
-            <div class="feed-result-box" id="feed-result-box"></div>
-            <div class="feed-vessel-row" id="feed-vessel-row"></div>
-            <div class="feed-push-row" id="feed-push-row"></div>
-            <button class="feed-reset-btn" onclick="feedReset()">New Roll</button>
-          </div>
-        </div>
-      </div>
+      <!-- Feeding moved to More grid → Feeding app (nav-2-5) -->
     </div>
 
     <!-- ═══ TERRITORY TAB ═══ -->
@@ -236,29 +219,38 @@
     <!-- ═══ STATUS TAB ═══ -->
     <div id="t-status" class="tab"></div>
 
+    <!-- ═══ SIGN-IN TAB (ST only) ═══ -->
+    <div id="t-signin" class="tab"></div>
+
+    <!-- ═══ MORE TAB — app grid launcher (Story 1.3) ═══ -->
+    <div id="t-more" class="tab"></div>
+
+    <!-- ═══ MORE GRID APP CONTAINERS (Story 1.3) — content wired in Epic 2 ═══ -->
+    <div id="t-map" class="tab"></div>
+    <div id="t-whos-who" class="tab"></div>
+    <div id="t-downtime" class="tab"></div>
+    <div id="t-feeding" class="tab"></div>
+    <div id="t-primer" class="tab"></div>
+    <div id="t-game-guide" class="tab"></div>
+    <div id="t-ordeals" class="tab"></div>
+    <div id="t-tickets" class="tab"></div>
+    <div id="t-emergency" class="tab"></div>
+    <div id="t-combat" class="tab"></div>
+    <div id="t-regency" class="tab"></div>
+    <div id="t-office" class="tab"></div>
+    <div id="t-archive" class="tab"></div>
+
   </div><!-- /tab-wrap -->
 
-  <!-- ═══ BOTTOM NAV ═══ -->
+  </div><!-- /app-body -->
+
+  <!-- ═══ BOTTOM NAV — Unified 4-tab (Story 1.2) ═══ -->
   <nav id="bnav">
-    <button class="nbtn on" id="n-roll" onclick="goTab('roll')">
+    <button class="nbtn on" id="n-dice" onclick="goTab('dice')">
       <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>
-      Roll
+      Dice
     </button>
-    <!-- ST nav -->
-    <button class="nbtn" id="n-chars" onclick="goTab('chars')">
-      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05C16.19 13.89 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-      Characters
-    </button>
-    <button class="nbtn" id="n-territory" onclick="goTab('territory')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-      Territory
-    </button>
-    <button class="nbtn" id="n-tracker" onclick="goTab('tracker')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-      Tracker
-    </button>
-    <!-- Player nav (hidden until applyRoleRestrictions runs) -->
-    <button class="nbtn" id="n-editor" onclick="setSheetView('sheet');goTab('editor')" style="display:none">
+    <button class="nbtn" id="n-sheet" onclick="goTab('chars')">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Sheet
     </button>
@@ -266,13 +258,10 @@
       <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
       Status
     </button>
-    <button class="nbtn" id="n-dt" onclick="playerGoDowntime()" style="display:none">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Downtime
-    </button>
-    <button class="nbtn" id="n-rules" onclick="goTab('rules')">
-      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      Rules
+    <button class="nbtn" id="n-more" onclick="goTab('more')">
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
+      More
+      <span class="nav-badge" id="more-badge"></span>
     </button>
   </nav>
 </div>

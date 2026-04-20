@@ -344,6 +344,8 @@ export const downtimeSubmissionSchema = {
       additionalProperties: true,
       properties: {
         locked:             { type: 'boolean' },
+        personal_story:     { type: 'object', additionalProperties: true },
+        home_report:        { type: 'object', additionalProperties: true },
         letter_from_home:   { type: 'object', additionalProperties: true },
         touchstone:         { type: 'object', additionalProperties: true },
         feeding_validation: { type: 'object', additionalProperties: true },

@@ -1011,15 +1011,25 @@ function renderPlayerResponses(s) {
   }
 
   // ── Court ──
-  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
-  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations' };
+  const courtKeys = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
+  const courtLabels = { travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout', correspondence: 'Correspondence' };
   const courtVals = courtKeys.filter(k => r[k] && r[k].trim());
-  if (courtVals.length) {
+  const aspLines = [1,2,3].map(n => {
+    const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
+    return (t && v) ? `${t}: ${v}` : null;
+  }).filter(Boolean);
+  const hasCourtContent = courtVals.length || aspLines.length || r['aspirations'];
+  if (hasCourtContent) {
     h += '<div class="dt-resp-section"><div class="dt-resp-section-title">Court</div>';
     for (const k of courtVals) {
       let val = r[k];
       if (k === 'rp_shoutout') { try { val = JSON.parse(val).filter(Boolean).map(id => { const ch = characters.find(c => String(c._id) === String(id)); return ch ? (ch.moniker || ch.name) : id; }).join(', '); } catch { /* ignore */ } }
       h += row(courtLabels[k] || k, val);
+    }
+    if (aspLines.length) {
+      h += row('Aspirations', aspLines.join('\n'));
+    } else if (r['aspirations']) {
+      h += row('Aspirations', r['aspirations']);
     }
     h += '</div>';
   }
@@ -1031,6 +1041,10 @@ function renderPlayerResponses(s) {
     if (!action) continue;
     const actionLabel = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     let desc = r[`project_${n}_description`] || r[`project_${n}_xp_trait`] || '';
+    if (action === 'xp_spend') {
+      const cat = r[`project_${n}_xp_category`]; const item = r[`project_${n}_xp_item`];
+      if (cat && item) desc = `${cat}: ${item}`;
+    }
     projRows.push(`${n}. ${actionLabel}${desc ? ': ' + desc : ''}`);
   }
   if (projRows.length) {
@@ -1470,7 +1484,8 @@ function buildProcessingQueue(subs) {
       const feedRote        = resp['_feed_rote'] === 'yes' || sub.st_review?.feeding_rote || false;
       let   feedTerrs   = {};
       try { feedTerrs = JSON.parse(resp['feeding_territories'] || '{}'); } catch { feedTerrs = {}; }
-      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'resident')
+      const primaryTerr = Object.keys(feedTerrs).find(k => feedTerrs[k] === 'feeding_rights' || feedTerrs[k] === 'resident')
+                       || Object.keys(feedTerrs).find(k => feedTerrs[k] === 'poaching' || feedTerrs[k] === 'poacher')
                        || Object.keys(feedTerrs).find(k => feedTerrs[k] && feedTerrs[k] !== 'none')
                        || '';
       const truncDesc = feedDesc.length > 40 ? feedDesc.slice(0, 40) + '\u2026' : feedDesc;
@@ -2273,17 +2288,18 @@ function buildAmbienceData(terrs, passedFeedCounts = null) {
 
 // ── Pre-read Panel (Epic 1 — Story 1.1 + 1.2) ────────────────────────────────
 
-const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence', 'trust', 'harm', 'aspirations'];
+const COURT_KEYS = ['travel', 'game_recount', 'rp_shoutout', 'correspondence'];
 const COURT_LABELS = {
   travel: 'Travel', game_recount: 'Game Recount', rp_shoutout: 'Shoutout',
-  correspondence: 'Dear X', trust: 'Trust', harm: 'Harm', aspirations: 'Aspirations',
+  correspondence: 'Dear X',
 };
 
 function renderPreReadSection() {
   const readable = submissions
     .filter(s => {
       const r = s.responses || {};
-      return COURT_KEYS.some(k => r[k]?.trim?.()) || r.vamping?.trim?.() || r.lore_request?.trim?.();
+      const hasAsp = [1,2,3].some(n => r[`aspiration_${n}_text`]?.trim?.()) || r.aspirations?.trim?.();
+      return COURT_KEYS.some(k => r[k]?.trim?.()) || hasAsp || r.vamping?.trim?.() || r.lore_request?.trim?.();
     })
     .sort((a, b) => (a.character_name || '').localeCompare(b.character_name || ''));
 
@@ -2315,7 +2331,11 @@ function renderPreReadSection() {
 
         // Court section
         const courtVals = COURT_KEYS.filter(k => r[k]?.trim?.());
-        if (courtVals.length) {
+        const preReadAspLines = [1,2,3].map(n => {
+          const t = r[`aspiration_${n}_type`]; const v = r[`aspiration_${n}_text`];
+          return (t && v) ? `${t}: ${v}` : null;
+        }).filter(Boolean);
+        if (courtVals.length || preReadAspLines.length || r.aspirations) {
           h += `<div class="dt-resp-section">`;
           h += `<div class="dt-resp-section-title">Court</div>`;
           for (const k of courtVals) {
@@ -2333,6 +2353,11 @@ function renderPreReadSection() {
             h += `<span class="dt-resp-label">${esc(COURT_LABELS[k] || k)}</span>`;
             h += `<span class="dt-resp-val">${esc(val)}</span>`;
             h += `</div>`;
+          }
+          if (preReadAspLines.length) {
+            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${preReadAspLines.map(esc).join('<br>')}</span></div>`;
+          } else if (r.aspirations) {
+            h += `<div class="dt-resp-row"><span class="dt-resp-label">Aspirations</span><span class="dt-resp-val">${esc(r.aspirations)}</span></div>`;
           }
           h += `</div>`;
         }
@@ -2591,7 +2616,26 @@ function renderXpReviewStep() {
   if (isExpanded) {
     for (const s of xpSubs) {
       let rows = [];
-      try { rows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item); } catch { /* ignore */ }
+      // New format: project_N_xp_category/item
+      for (let n = 1; n <= 4; n++) {
+        if (s.responses?.[`project_${n}_action`] !== 'xp_spend') continue;
+        const cat  = s.responses?.[`project_${n}_xp_category`] || '';
+        const item = s.responses?.[`project_${n}_xp_item`] || '';
+        if (cat && item) {
+          const costMap = { attribute: 4, skill: 2, discipline: 3, rite: 4, devotion: 2 };
+          const cost = costMap[cat] || 1;
+          rows.push({ category: cat, item, cost, dotsBuying: 1, _proj: n });
+        } else {
+          // Legacy free-text fallback
+          const legacy = s.responses?.[`project_${n}_xp_trait`] || s.responses?.[`project_${n}_xp`];
+          if (legacy) rows.push({ category: 'xp_spend', item: legacy, cost: null, _proj: n });
+        }
+      }
+      // Also include admin xp_grid rows (free merits)
+      try {
+        const adminRows = JSON.parse(s.responses?.xp_spend || '[]').filter(r => r.category || r.item);
+        rows = rows.concat(adminRows);
+      } catch { /* ignore */ }
       if (!rows.length) continue;
 
       const { char, charName } = resolveSubChar(s);
@@ -2965,6 +3009,9 @@ function renderProcessingMode(container) {
 
   // XP Review — Step 10
   h += renderXpReviewStep();
+
+  // Add ST Action form
+  h += _renderAddStActionForm(submissions);
 
   // Deleted Actions recovery
   h += renderDeletedActionsSection(submissions);
@@ -4215,6 +4262,16 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Outcome summary input (compact merit panel) ──
+  container.querySelectorAll('.proc-outcome-summary-input').forEach(inp => {
+    inp.addEventListener('blur', async () => {
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { outcome_summary: inp.value.trim() });
+    });
+  });
+
   // ── Travel discretion buttons ──
   container.querySelectorAll('.proc-travel-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
@@ -4364,6 +4421,102 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Add ST Action form ──
+  container.querySelector('[data-toggle-add-st-form]')?.addEventListener('click', () => {
+    const form = container.querySelector('#proc-add-st-form');
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  });
+
+  const stTypeEl = container.querySelector('#proc-add-st-type');
+  const stSorcEl = container.querySelector('#proc-add-st-sorcery');
+  const stGenEl  = container.querySelector('#proc-add-st-general');
+  function _updateStActionFields() {
+    if (!stTypeEl || !stSorcEl || !stGenEl) return;
+    const isSorc = stTypeEl.value === 'sorcery';
+    stSorcEl.style.display = isSorc ? '' : 'none';
+    stGenEl.style.display  = isSorc ? 'none' : '';
+  }
+  stTypeEl?.addEventListener('change', _updateStActionFields);
+  _updateStActionFields();
+
+  container.querySelector('#proc-add-st-submit')?.addEventListener('click', async () => {
+    const subId    = container.querySelector('#proc-add-st-char')?.value;
+    const type     = container.querySelector('#proc-add-st-type')?.value;
+    const isSorc   = type === 'sorcery';
+    const tradition = isSorc ? (container.querySelector('#proc-add-st-tradition')?.value || '') : '';
+    const riteName  = isSorc ? (container.querySelector('#proc-add-st-rite')?.value || '') : '';
+    const label     = isSorc
+      ? (riteName || tradition || 'Sorcery')
+      : (container.querySelector('#proc-add-st-label')?.value?.trim() || type);
+    const desc = container.querySelector('#proc-add-st-desc')?.value?.trim() || '';
+
+    if (!subId) { alert('Select a character first.'); return; }
+    await addStAction(subId, { action_type: type, label, description: desc, tradition, rite_name: riteName });
+    const sub    = submissions.find(s => s._id === subId);
+    const newIdx = (sub?.st_actions || []).length - 1;
+    if (newIdx >= 0) procExpandedKeys.add(`${subId}:st:${newIdx}`);
+    renderProcessingMode(container);
+  });
+
+}
+
+function _renderAddStActionForm(subs) {
+  const activeSubs = subs.filter(s => s.status !== 'draft' || s.character_name);
+  let h = '<div class="proc-phase-section proc-add-st-section">';
+  h += '<div class="proc-phase-header" data-toggle-add-st-form>';
+  h += '<span class="proc-phase-label">+ Add ST Action</span>';
+  h += '</div>';
+  h += '<div class="proc-add-st-form" id="proc-add-st-form" style="display:none;">';
+  h += '<div class="proc-add-st-row">';
+  // Character selector
+  h += '<select class="qf-select proc-add-st-char" id="proc-add-st-char">';
+  h += '<option value="">— Character —</option>';
+  for (const s of activeSubs) {
+    h += `<option value="${esc(s._id)}">${esc(s.character_name || s._id)}</option>`;
+  }
+  h += '</select>';
+  // Action type selector
+  h += '<select class="qf-select proc-add-st-type" id="proc-add-st-type">';
+  for (const [val, label] of [
+    ['sorcery', 'Sorcery'], ['project', 'Project'], ['attack', 'Attack'],
+    ['investigate', 'Investigate'], ['patrol_scout', 'Patrol/Scout'],
+    ['support', 'Support'], ['misc', 'Misc'],
+  ]) {
+    h += `<option value="${val}">${label}</option>`;
+  }
+  h += '</select>';
+  h += '</div>';
+  // Sorcery fields (shown when type=sorcery)
+  h += '<div class="proc-add-st-sorcery" id="proc-add-st-sorcery">';
+  h += '<select class="qf-select proc-add-st-tradition" id="proc-add-st-tradition">';
+  h += '<option value="">— Tradition —</option>';
+  h += '<option value="Cruac">Cruac</option>';
+  h += '<option value="Theban">Theban Sorcery</option>';
+  h += '</select>';
+  const allRites = (_getRulesDB() || []).filter(r => r.category === 'rite');
+  const byTrad = {};
+  for (const r of allRites) { const t = r.parent || 'Unknown'; if (!byTrad[t]) byTrad[t] = []; byTrad[t].push(r); }
+  h += '<select class="qf-select proc-add-st-rite" id="proc-add-st-rite">';
+  h += '<option value="">— Rite —</option>';
+  for (const trad of ['Cruac', 'Theban']) {
+    if (!byTrad[trad]) continue;
+    const grp = byTrad[trad].slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+    h += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}">${esc(r.name)} (Lvl ${r.rank || '?'})</option>`).join('')}</optgroup>`;
+  }
+  h += '</select>';
+  h += '</div>';
+  // Label field (shown for non-sorcery)
+  h += '<div class="proc-add-st-general" id="proc-add-st-general" style="display:none;">';
+  h += '<input type="text" class="qf-input proc-add-st-label" id="proc-add-st-label" placeholder="Action label...">';
+  h += '</div>';
+  // Description (always shown)
+  h += '<textarea class="proc-note-textarea proc-add-st-desc" id="proc-add-st-desc" rows="2" placeholder="Description / notes (optional)..." style="margin-top:6px;"></textarea>';
+  h += '<div style="margin-top:6px;">';
+  h += '<button class="dt-btn" id="proc-add-st-submit">Add Action</button>';
+  h += '</div>';
+  h += '</div>';
+  h += '</div>';
+  return h;
 }
 
 /** Add an ST-created action to a submission's st_actions array. */
@@ -4962,8 +5115,9 @@ function _renderCompactMeritPanel(entry, rev) {
   const isAuto     = mode === 'auto';
   const isBlocked  = mode === 'blocked';
   const autoSucc   = isAuto && dots != null ? dots : null;
-  const outcome    = rev.merit_outcome || '';
-
+  const outcome        = rev.merit_outcome    || '';
+  const outcomeSummary = rev.outcome_summary  || '';
+  const thread         = rev.notes_thread     || [];
 
   let h = `<div class="proc-feed-right proc-compact-merit-panel" data-proc-key="${esc(key)}">`;
 
@@ -4998,8 +5152,32 @@ function _renderCompactMeritPanel(entry, rev) {
       h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
     }
     h += `</div>`;
+    h += `<input type="text" class="proc-outcome-summary-input" data-proc-key="${esc(key)}" value="${esc(outcomeSummary)}" placeholder="One-line outcome summary (shown to player)...">`;
     h += `</div>`;
   }
+
+  // ── ST Notes (compact) ──
+  h += `<div class="proc-feed-mod-panel proc-compact-notes-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">ST Notes <span class="proc-label-sub">— visible to Claude</span></div>`;
+  if (thread.length) {
+    h += `<div class="proc-notes-thread">`;
+    for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
+      const note = thread[noteIdx];
+      const time = note.created_at
+        ? new Date(note.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '';
+      h += `<div class="proc-note-entry">`;
+      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  \u00B7  ' + esc(time) : ''}<button class="proc-note-delete-btn" data-proc-key="${esc(key)}" data-note-idx="${noteIdx}" title="Delete note">\u00D7</button></div>`;
+      h += `<div class="proc-note-text">${esc(note.text)}</div>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+  h += `<div class="proc-note-add">`;
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(key)}" placeholder="Add ST note..." rows="2"></textarea>`;
+  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(key)}">Add Note</button>`;
+  h += `</div>`;
+  h += `</div>`;
 
   h += `</div>`; // proc-compact-merit-panel
   return h;
@@ -6213,6 +6391,33 @@ function renderActionPanel(entry, review) {
       const _nomText = _playerFeedTerrsText(feedSub);
       if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
     }
+    // ── Resident/poacher mismatch flag ──
+    {
+      const _charId = String(feedChar?._id || '');
+      let _feedGrid = {};
+      try { _feedGrid = JSON.parse(feedSub?.responses?.feeding_territories || '{}'); } catch { /* ignore */ }
+      const _terrDocs = cachedTerritories || [];
+      const _mismatches = [];
+      for (const [terrKey, val] of Object.entries(_feedGrid)) {
+        if (!val || val === 'none') continue;
+        // Resolve territory doc by slug key
+        const _td = _terrDocs.find(t =>
+          (t.id && t.id === terrKey) ||
+          (t.name && t.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') === terrKey)
+        );
+        if (!_td) continue;
+        const _hasRights = _charId && Array.isArray(_td.feeding_rights) &&
+          _td.feeding_rights.some(id => String(id) === _charId);
+        if (val === 'feeding_rights' && !_hasRights) {
+          _mismatches.push(`Claims feeding rights in ${_td.name} — not on Regent's list`);
+        } else if (val === 'poaching' && _hasRights) {
+          _mismatches.push(`Has feeding rights in ${_td.name} — declared as poaching`);
+        }
+      }
+      for (const _msg of _mismatches) {
+        h += `<div class="proc-mismatch-flag">\u26A0 ${esc(_msg)}</div>`;
+      }
+    }
     // Territory pills row — feeding multi-select
     {
       const _feedOvrArr = Array.isArray(feedSub?.st_review?.territory_overrides?.feeding)
@@ -6562,7 +6767,7 @@ function renderActionPanel(entry, review) {
 
   // ST Notes thread
   h += '<div class="proc-section proc-notes-panel proc-notes-primary">';
-  h += '<div class="proc-detail-label">ST Notes</div>';
+  h += '<div class="proc-detail-label">ST Notes <span class="proc-label-sub">— visible to Claude</span></div>';
   if (thread.length) {
     h += '<div class="proc-notes-thread">';
     for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
@@ -6578,7 +6783,7 @@ function renderActionPanel(entry, review) {
     h += '</div>';
   }
   h += '<div class="proc-note-add">';
-  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="2"></textarea>`;
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="3"></textarea>`;
   h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
   h += '</div>';
   h += '</div>';
@@ -6591,7 +6796,7 @@ function renderActionPanel(entry, review) {
 
   // Player Feedback (player_facing_note — included verbatim in published outcome)
   h += '<div class="proc-section proc-player-note-section">';
-  h += '<div class="proc-detail-label">Player Feedback</div>';
+  h += '<div class="proc-detail-label">Player Feedback <span class="proc-label-sub">— sent to player</span></div>';
   h += `<textarea class="proc-player-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Plain-language note included verbatim in player outcome...">${esc(playerFacingNote)}</textarea>`;
   h += '</div>';
 
@@ -7921,8 +8126,8 @@ function getPrimaryTerritory(sub) {
   if (!sub?.responses?.feeding_territories) return null;
   let grid;
   try { grid = JSON.parse(sub.responses.feeding_territories); } catch { return null; }
-  // Prefer resident, fall back to poacher
-  for (const status of ['resident', 'poacher']) {
+  // Prefer feeding_rights, fall back to poaching (include legacy values)
+  for (const status of ['feeding_rights', 'resident', 'poaching', 'poacher']) {
     for (const [key, val] of Object.entries(grid)) {
       if (val === status) {
         return FEEDING_TERRITORIES.find(t =>
@@ -8210,7 +8415,7 @@ function _buildMatrixTableHtml(chars, subByCharId, residentsByTerrKey) {
     h += '</tr>';
   }
   h += '</tbody></table>';
-  h += '<p class="dt-matrix-note">O = resident feeding. X = poaching (non-resident). Residents set via City tab.</p>';
+  h += '<p class="dt-matrix-note">O = feeding rights. X = poaching. Rights set via City tab.</p>';
   return h;
 }
 

@@ -50,7 +50,7 @@ All changes are additive rendering enhancements. No changes to the queue data mo
 
 ## Stories
 
-### DTX-1: Cross-Reference Callouts
+### DTX-1: Cross-Reference Callouts — DONE
 
 After `buildProcessingQueue()` returns the queue array (line ~1805 in `downtime-views.js`), build a derived cross-reference index and pass it into the rendering pipeline. Render inline callouts on expanded action rows when cross-references exist.
 
@@ -80,7 +80,7 @@ After `buildProcessingQueue()` returns the queue array (line ~1805 in `downtime-
 - Callout is read-only (no interactive elements)
 - E2E: 5 tests covering each cross-reference type and the no-callout baseline
 
-### DTX-2: Compact Panel for Binary Actions
+### DTX-2: Compact Panel for Binary Actions — DONE
 
 Merit, contact, and retainer actions currently render through the full `_renderMeritRightPanel` pipeline — pool panel, success modifier, rote toggles — most of which is irrelevant for auto-mode and fixed-effect actions. Introduce a compact right-panel path for these entries.
 
@@ -113,7 +113,7 @@ Merit, contact, and retainer actions currently render through the full `_renderM
 - Full-mode (investigate, patrol_scout, rumour, support, attack, hide_protect) is unchanged
 - E2E: 6 tests
 
-### DTX-3: Notes and Feedback Visual Hierarchy
+### DTX-3: Notes and Feedback Visual Hierarchy — DONE
 
 The ST notes thread and player feedback input are currently rendered with similar visual weight. ST notes are the primary analytical working document (feeds Claude context); player feedback is an outbound message. They need distinct visual treatment.
 

@@ -241,7 +241,7 @@ export async function suiteStatusAdjustCity(charId, delta) {
   _updateEditPopup(c);
 
   try {
-    await apiPut('/api/characters/' + charId, { 'status.city': newVal });
+    await apiPut('/api/characters/' + charId, { status: { ...(c.status || {}), city: newVal } });
   } catch (err) {
     c.status.city = oldVal;
     _updateEditPopup(c, 'Save failed');

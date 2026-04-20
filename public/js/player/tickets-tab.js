@@ -84,7 +84,7 @@ export async function renderTicketsTab(containerEl) {
       return;
     }
 
-    listEl.innerHTML = `<div class="tk-list">` + allTickets.map(t => {
+    listEl.innerHTML = `<div class="tk-list">` + allTickets.filter(t => t.status !== 'closed').map(t => {
       const isExpanded  = String(t._id) === expandedId;
       const typeBadge   = buildBadge(`tk-badge-${t.type}`,   TYPE_LABELS[t.type]   || esc(t.type));
       const statusBadge = buildBadge(`tk-badge-${t.status}`, STATUS_LABELS[t.status] || esc(t.status));

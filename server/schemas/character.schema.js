@@ -75,6 +75,25 @@ export const characterSchema = {
     dirge:       { type: ['string', 'null'] },
     court_title:    { type: ['string', 'null'] },
     court_category: { type: ['string', 'null'], enum: ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer', '', null] },
+    home_territory: { type: ['string', 'null'] },
+
+    // NPC stub register — placeholder until full NPC Register epic
+    npcs: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id:               { type: 'string' },
+          name:             { type: 'string' },
+          relationship_type: { type: 'string' },
+          available:        { type: 'boolean' },
+          touchstone_eligible: { type: 'boolean' },
+          location_context: { type: ['string', 'null'] },
+          interaction_type: { type: 'string', enum: ['in_person', 'correspondence', 'other'] },
+          interaction_history: { type: 'array' },
+        },
+      },
+    },
 
     // regent_territory / regent_lieutenant removed — regent status is
     // now derived from the territories collection (regent_id field).
@@ -249,6 +268,30 @@ export const characterSchema = {
           xp:       { type: 'number' }
         },
         additionalProperties: true
+      }
+    },
+
+    // ── Influence balance (monthly income accumulator) ────────
+    influence_balance: { type: 'number', minimum: 0 },
+
+    // ── Equipment ─────────────────────────────────────────────
+    equipment: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          type:             { type: 'string', enum: ['weapon', 'armour'] },
+          name:             { type: 'string' },
+          damage_rating:    { type: 'number' },
+          damage_type:      { type: 'string', enum: ['B', 'L', 'A'] },
+          attack_skill:     { type: 'string', enum: ['Brawl', 'Weaponry', 'Firearms'] },
+          general_ar:       { type: 'number' },
+          ballistic_ar:     { type: 'number' },
+          mobility_penalty: { type: 'number' },
+          tags:             { type: 'array', items: { type: 'string' } },
+          notes:            { type: 'string' }
+        },
+        additionalProperties: false
       }
     },
 

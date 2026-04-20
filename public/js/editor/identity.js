@@ -85,6 +85,15 @@ export function renderIdentityTab(c) {
           <label class="form-label">Court Epithet</label>
           <input class="form-input" value="${esc(c.court_title || '')}" onchange="updField('court_title',this.value||null)" placeholder="e.g. Premier, Harpy, Protector">
         </div>
+        <div class="form-row">
+          <label class="form-label">Home Territory</label>
+          <select class="form-select" onchange="updField('home_territory',this.value||null)">
+            <option value=""${!c.home_territory ? ' selected' : ''}>(not set)</option>
+            ${['The Academy','The Harbour','The Dockyards','The Second City','The North Shore','Outside the City / Barrens'].map(t =>
+              `<option${c.home_territory === t ? ' selected' : ''}>${esc(t)}</option>`
+            ).join('')}
+          </select>
+        </div>
       </div>
     </div>
     <div class="form-section">

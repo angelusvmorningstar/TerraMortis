@@ -1,0 +1,5339 @@
+[
+  {
+    "_id": "69d4e1d6277e2b2144b61614",
+    "key": "acute-senses",
+    "name": "Acute Senses",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Add Blood Potency to sensory rolls; exceptional successes may cause Obsession.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616bf",
+    "key": "air-of-menace",
+    "name": "Air of Menace",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "+2 to menace; others spend Willpower to pick fights. Social manoeuvring harder.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Intimidation",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61615",
+    "key": "alley-cat",
+    "name": "Alley Cat",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Reduces threshold for exceptional success when prowling city streets.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Athletics",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Stealth",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Streetwise",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61616",
+    "key": "allies",
+    "name": "Allies",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Influence in a sphere. Call favours up to rating per chapter. Generates 1 influence at 3 dots, 2 at 5.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61617",
+    "key": "altar",
+    "name": "Altar",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Contributors can teamwork Cruac rituals at an attuned altar, even without Cruac, at increased time cost.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Crone",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61618",
+    "key": "alternate-identity",
+    "name": "Alternate Identity",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Maintain one or more false identities.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61619",
+    "key": "ambidextrous",
+    "name": "Ambidextrous",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Ignore penalties for using off-hand.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6161a",
+    "key": "anointed",
+    "name": "Anointed",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Ordained priest; once per session roll Presence + Expression to preach Raptured Condition.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Lance",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6161b",
+    "key": "anonymity",
+    "name": "Anonymity",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Harder to identify or find due to obscurity.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6161c",
+    "key": "area-of-expertise",
+    "name": "Area of Expertise",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Raise one Specialty's die bonus to +2.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Resolve",
+          "dots": 2
+        },
+        {
+          "type": "has_specialisation"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6161d",
+    "key": "army-of-one",
+    "name": "Army Of One",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Roll Presence + Politics + Carthian Status to summon Carthian backup (1 per point per story).",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "merit",
+      "name": "Carthian Status"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6161e",
+    "key": "atrocious",
+    "name": "Atrocious",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "8-Again on monstrous Beast, lose 10-Again on seductive/competitive Beast.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": "Cutthroat, Enticing",
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6161f",
+    "key": "attach",
+    "name": "Attaché",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Retainers gain access to Invictus Status points distributed among Contacts, Resources, Safe Place.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Invictus",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61620",
+    "key": "barfly",
+    "name": "Barfly",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Skilled at making connections in nightlife and bars.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Socialise",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61621",
+    "key": "beloved",
+    "name": "Beloved",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Deep bond with a living Touchstone; +1 to resist detachment after spending time.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61622",
+    "key": "bloodhound",
+    "name": "Bloodhound",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Smell blood as if tasting it with Kindred Senses.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Wits",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c0",
+    "key": "body-as-weapon",
+    "name": "Body As Weapon",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "+1 bashing on unarmed strikes.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Stamina",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Brawl",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61623",
+    "key": "breaking-the-chains",
+    "name": "Breaking The Chains",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Break blood bonds through collective Carthian feeding.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61624",
+    "key": "cacophony-savvy",
+    "name": "Cacophony Savvy",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Knowledge of the Cacophony network grants information access.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "City",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61625",
+    "key": "call-the-beast",
+    "name": "Call The Beast",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      4,
+      4
+    ],
+    "description": "Use Animalism on revenants; contested by Resolve + Vitae.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "humanity",
+      "max": 4
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61626",
+    "key": "carthian-pull",
+    "name": "Carthian Pull",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Recognised for your influence in Carthian politics.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61627",
+    "key": "casual-user",
+    "name": "Casual User",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gain Carthian Status 1 benefits; once per story call a small favour.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "not_status",
+      "qualifier": "Carthian"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61628",
+    "key": "cease-fire",
+    "name": "Cease Fire",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      5,
+      5
+    ],
+    "description": "Force Willpower cost on all Discipline use in domain.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 5
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61629",
+    "key": "cheap-shot",
+    "name": "Cheap Shot",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Dirty fighting and deception.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "merit",
+          "name": "Street Fighting",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Subterfuge",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6162a",
+    "key": "choke-hold",
+    "name": "Choke Hold",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Grappling to unconsciousness.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Brawl",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6162b",
+    "key": "chorister",
+    "name": "Chorister",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gain Crone Status 1 benefits; once per story call a small favour.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "not_status",
+      "qualifier": "Crone"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6162c",
+    "key": "claws-of-the-unholy",
+    "name": "Claws Of The Unholy",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "In frenzy, Protean claws become +2 Aggravated (first success 2 Agg, subsequent 1 Bashing). Only ignores mundane armour.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "discipline",
+      "name": "Protean",
+      "dots": 4
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6162d",
+    "key": "clipping",
+    "name": "Clipping",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      4,
+      4
+    ],
+    "description": "Ignore Wits damage when ramming.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6162e",
+    "key": "close-family",
+    "name": "Close Family",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Blood sympathy stronger: +1 and 8-Again.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6162f",
+    "key": "closed-book",
+    "name": "Closed Book",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Hard to read, resistant to prying eyes.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Manipulation",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Resolve",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61630",
+    "key": "coda-against-sorcery",
+    "name": "Coda Against Sorcery",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Penalise sorcery used against you.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c1",
+    "key": "cohesive-unit",
+    "name": "Cohesive Unit",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "+2 teamwork. (••) bonus dice per scene. (•••) rerolls.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Presence",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61631",
+    "key": "common-sense",
+    "name": "Common Sense",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Once per session, ask the Storyteller for advice when stuck.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61632",
+    "key": "contacts",
+    "name": "Contacts",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Network of informants and professionals.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61633",
+    "key": "court-jester",
+    "name": "Court Jester",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Reputation punishes official censure, stripping a point of City Status from opponents.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Politics",
+          "dots": 2
+        },
+        {
+          "type": "status",
+          "qualifier": "City",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c2",
+    "key": "covert-operative",
+    "name": "Covert Operative",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Ambushes deny 10-Again to detect and grant +3 Initiative first turn.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Dexterity",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Stealth",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61634",
+    "key": "crowdsourcing",
+    "name": "Crowdsourcing",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Spend Willpower and roll Manipulation + Academics to shift Social Merit points between Invictus.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "merit",
+          "name": "Contacts"
+        },
+        {
+          "type": "merit",
+          "name": "Resources",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61635",
+    "key": "cutthroat",
+    "name": "Cutthroat",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "8-Again on competitive Beast, lose 10-Again on monstrous/seductive Beast.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": "Atrocious, Enticing",
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61636",
+    "key": "danger-sense",
+    "name": "Danger Sense",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "+2 to notice ambushes or avoid surprise.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c3",
+    "key": "defender",
+    "name": "Defender",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Bonus Willpower for protecting loved ones; losing them causes crisis.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61637",
+    "key": "defensive-combat",
+    "name": "Defensive Combat",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Use Brawl or Weaponry instead of Athletics when calculating Defence.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "any": [
+        {
+          "type": "skill",
+          "name": "Brawl",
+          "dots": 1
+        },
+        {
+          "type": "skill",
+          "name": "Weaponry",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61638",
+    "key": "defensive-driving",
+    "name": "Defensive Driving",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Subtract Drive from vehicle attacks.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61639",
+    "key": "demolisher",
+    "name": "Demolisher",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Can smash through barriers more effectively.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "any": [
+        {
+          "type": "attribute",
+          "name": "Strength",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Intelligence",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6163a",
+    "key": "devotion-experimenter",
+    "name": "Devotion Experimenter",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Reroll nines with Devotions; learn/teach them at an XP discount.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Science",
+          "dots": 2
+        },
+        {
+          "type": "status",
+          "qualifier": "Carthian",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6163b",
+    "key": "direction-sense",
+    "name": "Direction Sense",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Always know which way is north; strong innate sense of direction.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6163c",
+    "key": "distinguished-palate",
+    "name": "Distinguished Palate",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Taste of Blood always exceptional; lose first Vitae if vessel lacks your delicacy.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6163d",
+    "key": "double-jointed",
+    "name": "Double Jointed",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Flexible body grants +2 to escape restraints or contort.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Dexterity",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6163e",
+    "key": "dream-visions",
+    "name": "Dream Visions",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Once nightly, roll BP for prophetic dream answering a question.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "clan",
+      "name": "Mekhet"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6163f",
+    "key": "drift",
+    "name": "Drift",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "No roll for high-speed turns.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61640",
+    "key": "dynasty-membership",
+    "name": "Dynasty Membership",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "ST-granted dynasty membership. New Kid applies to any Kindred Status. Exemplar removed.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Clan",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61641",
+    "key": "eidetic-memory",
+    "name": "Eidetic Memory",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Recall precise details of past events.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c4",
+    "key": "empath",
+    "name": "Empath",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Wits + Empathy vs Manipulation + Subterfuge for mental state insight; can open Doors or ease breaking points.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Empathy",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61642",
+    "key": "empower-judiciary",
+    "name": "Empower Judiciary",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Grant legal authority to designated Kindred.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61643",
+    "key": "encyclopaedic-knowledge",
+    "name": "Encyclopaedic Knowledge",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Broad general knowledge on many subjects.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61644",
+    "key": "enticing",
+    "name": "Enticing",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "8-Again on seductive Beast, lose 10-Again on monstrous/competitive Beast.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": "Atrocious, Cutthroat",
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c5",
+    "key": "esoteric-armoury",
+    "name": "Esoteric Armoury",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Enough esoterica to supply the banes of ephemeral entities with a Rank up to your rating in this Merit.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61645",
+    "key": "establish-precedent",
+    "name": "Establish Precedent",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Lock legal rulings with supernatural enforcement.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 4
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61646",
+    "key": "eye-for-the-strange",
+    "name": "Eye For The Strange",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Intuition for the supernatural and occult.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Resolve",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Occult",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61647",
+    "key": "faith-militant",
+    "name": "Faith Militant",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "May draw upon Herd as Resources.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61648",
+    "key": "fame",
+    "name": "Fame",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Recognised in mortal society; adds dice to relevant social rolls.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61649",
+    "key": "feeding-grounds",
+    "name": "Feeding Grounds",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Add dots to hunting rolls, starting Vitae, and predatory aura on territory. Allows Disciplines up to rating without risking dramatic failure on hunting rolls.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6164a",
+    "key": "fighting-finesse",
+    "name": "Fighting Finesse",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Use Dexterity instead of Strength for fighting with this skill.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Dexterity",
+          "dots": 3
+        },
+        {
+          "type": "specialisation",
+          "name": "Brawl or Weaponry"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c6",
+    "key": "finger-on-the-pulse",
+    "name": "Finger On The Pulse",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "You are immersed in the Cacophony, and do not suffer the drawback of Cacophony Savvy.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6164b",
+    "key": "fixer",
+    "name": "Fixer",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Arrange illegal services and contacts.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 3
+        },
+        {
+          "type": "merit",
+          "name": "Contacts",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6164c",
+    "key": "fleet-of-foot",
+    "name": "Fleet Of Foot",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "+1 Speed per point.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Athletics",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6164d",
+    "key": "flock",
+    "name": "Flock",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Inspire Herd; gain Willpower and extra Herd points equal to Flock points.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "merit",
+      "name": "Herd"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6164e",
+    "key": "friends-in-high-places",
+    "name": "Friends In High Places",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Once per chapter, use Invictus Status as Mortal Status in areas you don't possess. Other Invictus may be informed.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Invictus",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6164f",
+    "key": "fucking-thief",
+    "name": "Fucking Thief",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Steal flawed knowledge of a one-point covenant-restricted advantage.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Subterfuge",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61650",
+    "key": "giant",
+    "name": "Giant",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Character is exceptionally tall/large; +1 Size.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61651",
+    "key": "good-time-management",
+    "name": "Good Time Management",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gain an extra die on extended actions with clear planning.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "any": [
+        {
+          "type": "skill",
+          "name": "Academics",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Science",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61652",
+    "key": "haven",
+    "name": "Haven",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Secure residence; may combine with Safe Place.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "merit",
+      "name": "Safe Place",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61653",
+    "key": "heart-of-stone",
+    "name": "Heart Of Stone",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Replace Touchstones with attachment to place or institution.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "merit",
+      "name": "Feeding Grounds"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61654",
+    "key": "herd",
+    "name": "Herd",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Provides one-for-one Vitae at start of game, no roll needed.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61655",
+    "key": "hobbyist-clique",
+    "name": "Hobbyist Clique",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Group of fellow hobbyists; bonus when leveraging them.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61656",
+    "key": "honey-trap",
+    "name": "Honey Trap",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Drinking your blood restores Willpower and advances Vinculum.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c7",
+    "key": "honey-with-vinegar",
+    "name": "Honey With Vinegar",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "You earn influence from Allies, Contacts, and wide Mortal Status one step lower than normal. 1 point of influence at 2 dots or 4 dots respectively.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61657",
+    "key": "i-know-a-guy",
+    "name": "I Know A Guy",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Minor connections within the Carthians.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61658",
+    "key": "independent-study",
+    "name": "Independent Study",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Gain Ordo Status 1 benefits; once per story call a small favour.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "not_status",
+      "qualifier": "Ordo"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61659",
+    "key": "indomitable",
+    "name": "Indomitable",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "+2 to resist coercion or intimidation.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Resolve",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6165a",
+    "key": "information-network",
+    "name": "Information Network",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Use your Contacts as Skill Specialties.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "status",
+          "qualifier": "Invictus",
+          "dots": 2
+        },
+        {
+          "type": "merit",
+          "name": "Contacts"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6165b",
+    "key": "inspiring",
+    "name": "Inspiring",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Boost allies' rolls with stirring words or presence.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Presence",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6165c",
+    "key": "interdisciplinary-specialty",
+    "name": "Interdisciplinary Specialty",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Apply Specialty across multiple Skills.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "specialised_skill",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6165d",
+    "key": "invested",
+    "name": "Invested",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Distribute Invictus Status points into free Herd, Mentor, Resources, Retainer.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Invictus",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6165e",
+    "key": "iron-skin",
+    "name": "Iron Skin",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      2,
+      4
+    ],
+    "description": "Body conditioning against harm.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "any": [
+            {
+              "type": "merit",
+              "name": "Martial Arts",
+              "dots": 2
+            },
+            {
+              "type": "merit",
+              "name": "Street Fighting",
+              "dots": 2
+            }
+          ]
+        },
+        {
+          "type": "attribute",
+          "name": "Stamina",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6165f",
+    "key": "iron-stamina",
+    "name": "Iron Stamina",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Ignore penalties from fatigue and wounds.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "any": [
+        {
+          "type": "attribute",
+          "name": "Stamina",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Resolve",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61660",
+    "key": "iron-will",
+    "name": "Iron Will",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "+2 to resist coercion or intimidation. Does not apply to supernatural influence.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Resolve",
+      "dots": 4
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61661",
+    "key": "jack-booted-thug",
+    "name": "Jack-booted Thug",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Spend Willpower and roll Presence + Intimidation + City Status to shut people down with menace.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Intimidation",
+          "dots": 3
+        },
+        {
+          "type": "status",
+          "qualifier": "Carthian",
+          "dots": 2
+        },
+        {
+          "type": "status",
+          "qualifier": "City"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61662",
+    "key": "kindred-status",
+    "name": "Kindred Status",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      10
+    ],
+    "description": "General Kindred standing, tracked across City, Clan, and Covenant.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61663",
+    "key": "kiss-of-the-succubus",
+    "name": "Kiss Of The Succubus",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Feeding that causes Swooning also inflicts Addicted.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "clan",
+      "name": "Daeva"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61664",
+    "key": "laity",
+    "name": "Laity",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Gain Lancea Status 1 benefits; once per story call a small favour.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "not_status",
+      "qualifier": "Sanctified"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61665",
+    "key": "language",
+    "name": "Language",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gain fluency in an additional language.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61666",
+    "key": "lex-terrae",
+    "name": "Lex Terrae",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Punish poachers in feeding grounds",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "status",
+          "qualifier": "Carthian",
+          "dots": 2
+        },
+        {
+          "type": "merit",
+          "name": "Feeding Ground",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61667",
+    "key": "library",
+    "name": "Library",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Access to research resources, adds dice to rolls.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61668",
+    "key": "lingering-dreams",
+    "name": "Lingering Dreams",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Subjects share your prophetic dreams, inflicting Swooning.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "merit",
+      "name": "Dream Visions"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c8",
+    "key": "loaded-for-bear",
+    "name": "Loaded For Bear",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gain extra reloads on weapons, including single shot weapons.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Athletics",
+          "dots": 1
+        },
+        {
+          "type": "skill",
+          "name": "Survival",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61669",
+    "key": "lorekeeper",
+    "name": "Lorekeeper",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Lorehouse draws occultists; convert Library points into Retainer and Herd.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Lance",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6166a",
+    "key": "major-domo",
+    "name": "Major Domo",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Operate an Elysium; +2 to social rolls when hospitality is secure.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6166b",
+    "key": "mandate-from-the-masses",
+    "name": "Mandate From The Masses",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      5,
+      5
+    ],
+    "description": "Collectively drain enemy's Blood Potency",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 5
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6166c",
+    "key": "mandragora-garden",
+    "name": "Mandragora Garden",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "An attuned ritual garden. Shareable domain merit. Contributors can use it as a fixed location for Crúac rituals; grants bonuses to ritual rolls equal to rating.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "merit",
+          "name": "Safe Place",
+          "qualifier": "same level"
+        },
+        {
+          "type": "discipline",
+          "name": "Crúac",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6166d",
+    "key": "married-by-blood",
+    "name": "Married By Blood",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Bond with Kindred Touchstone; pool Haven/Retainers, share Status loss.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6166e",
+    "key": "meditative-mind",
+    "name": "Meditative Mind",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      4
+    ],
+    "description": "Can enter deep meditation quickly; regain Willpower faster.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6166f",
+    "key": "mentor",
+    "name": "Mentor",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Guidance from a mentor; use costs a downtime action. Generates 1 influence at 3 dots, 2 at 5.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61670",
+    "key": "moderator",
+    "name": "Moderator",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Use Invictus network admin access as temporary Allies, Contacts, or Library.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Computer",
+          "dots": 3
+        },
+        {
+          "type": "status",
+          "qualifier": "Invictus",
+          "dots": 2
+        },
+        {
+          "type": "merit",
+          "name": "Contacts"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61671",
+    "key": "mortal-status",
+    "name": "Mortal Status",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Standing in a sphere. Adds dots to Social rolls within that group. Generates 1 influence at 3 dots, 2 at 5.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61672",
+    "key": "mother-goddess-altar",
+    "name": "Mother-goddess' Altar",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Lead Crúac rituals at an Altar at full speed.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "blood_potency",
+          "dots": 5
+        },
+        {
+          "type": "merit",
+          "name": "Altar"
+        },
+        {
+          "type": "status",
+          "qualifier": "Crone",
+          "dots": 5
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61673",
+    "key": "multilingual",
+    "name": "Multilingual",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Speak multiple languages fluently.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61674",
+    "key": "mystery-cult-initiation",
+    "name": "Mystery Cult Initiation",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Membership in a cult; benefits depend on level.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": "standing",
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61675",
+    "key": "night-doctor-surgery",
+    "name": "Night Doctor Surgery",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Access to illicit Carthian surgical services.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61676",
+    "key": "noblesse-oblige",
+    "name": "Noblesse Oblige",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Use your City Status as a Touchstone.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "City",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61677",
+    "key": "notary",
+    "name": "Notary",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Authority to officiate Oaths; immune to Status in social rolls",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Invictus",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61678",
+    "key": "oath-of-abstinence",
+    "name": "Oath Of Abstinence",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      5,
+      5
+    ],
+    "description": "No need to feed while maintaining oath",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61679",
+    "key": "oath-of-action",
+    "name": "Oath Of Action",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      4,
+      4
+    ],
+    "description": "Gain Discipline from liege for difficult task",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6167a",
+    "key": "oath-of-fealty",
+    "name": "Oath Of Fealty",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Once per week, create Vitae equal to Invictus Status",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "dots": 1,
+      "qualifier": "Invictus"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6167b",
+    "key": "oath-of-matrimony",
+    "name": "Oath Of Matrimony",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      5,
+      5
+    ],
+    "description": "Share capabilities with bonded partner",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "text",
+      "name": "One partner must be Invictus"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6167c",
+    "key": "oath-of-office",
+    "name": "Oath Of Office",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Role becomes additional Mask; substitute Status for WP",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "any": [
+        {
+          "type": "status",
+          "qualifier": "City",
+          "dots": 3
+        },
+        {
+          "type": "status",
+          "qualifier": "Invictus",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6167d",
+    "key": "oath-of-penance",
+    "name": "Oath Of Penance",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Transfer 1/10 Vitae to liege; immune to their Disciplines",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6167e",
+    "key": "oath-of-serfdom",
+    "name": "Oath Of Serfdom",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Territory agreement; gain physical Discipline",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6167f",
+    "key": "oath-of-the-handshake-deal",
+    "name": "Oath Of The Handshake Deal",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Binding service with collateral penalty",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "text",
+      "name": "One must be Invictus"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61680",
+    "key": "oath-of-the-hard-motherfucker",
+    "name": "Oath Of The Hard Motherfucker",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Complete Oath by bringing a Carthian to torpor or Final Death, or assaulting a past violator of this Oath. Grants: first dot of Invictus Status, 1 free dot each of Allies, Contacts, and Resources (all pertaining to the new role), plus 9-again on two chosen Skills. The new Invictus is the vassal and must purchase the Merit; their new coterie is the liege. Betrayal strips the Merit and all associated advantages.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "not_status",
+      "qualifier": "Invictus"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61681",
+    "key": "oath-of-the-model-prisoner",
+    "name": "Oath Of The Model Prisoner",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Protection while imprisoned",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61682",
+    "key": "oath-of-the-refugee",
+    "name": "Oath Of The Refugee",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Renounce citizenship; harder to pursue",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61683",
+    "key": "oath-of-the-righteous-kill",
+    "name": "Oath Of The Righteous Kill",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Take on others' detachment burden",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Empathy",
+          "dots": 3
+        },
+        {
+          "type": "status",
+          "qualifier": "Invictus",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61684",
+    "key": "oath-of-the-safe-word",
+    "name": "Oath Of The Safe Word",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Both characters must enter willingly and purchase this Merit. Each offers one Social Merit they possess; the partner receives access to it (original retains use; mark both copies as half-dots, exempt from Sanctity of Merits). Both may access the other's Willpower pool as an extension of their own. Either may end the agreement at any time: the other loses Defence and all actions for 1 turn; the initiating character may extend this by spending Willpower (1 turn per point spent). One instance per character at a time.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61685",
+    "key": "oath-of-the-scapegoat",
+    "name": "Oath Of The Scapegoat",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Member of the Order of Sir Martin; administered upon Nosferatu bloodline induction. Serves as Kindred Status for the Order at 1:1 (replaces Invictus Status; Sanctity of Merit applies to loss). Per dot: penalty on Invictus social actions where Covenant Status applies (excluding Internal Affairs office); equal bonus to remain unnoticed (including Obfuscate powers and Devotions), half that bonus rounded down for others. Each dot grants 2 free dots of Physical Fighting Styles. Duration: indefinite.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "bloodline",
+      "name": "Order of Sir Martin"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61686",
+    "key": "oath-of-the-true-knight",
+    "name": "Oath Of The True Knight",
+    "category": "merit",
+    "parent": "Invictus Oath",
+    "rank": null,
+    "rating_range": [
+      4,
+      4
+    ],
+    "description": "Defend Invictus while neutral; Status as armour",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Invictus",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616c9",
+    "key": "object-fetishism",
+    "name": "Object Fetishism",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Obsess over a possession for a Specialty. Regain Willpower each session; Willpower on that Specialty exaggerates success and failure.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61687",
+    "key": "one-foot-in-the-door",
+    "name": "One Foot In The Door",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gain Invictus Status 1 benefits; once per story call a small favour.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "not_status",
+      "qualifier": "Invictus"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61688",
+    "key": "opening-the-void",
+    "name": "Opening The Void",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Summons shadow-beast entities as servants",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "discipline",
+      "name": "Crúac",
+      "dots": 1
+    },
+    "exclusive": "Other Crúac Styles",
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61689",
+    "key": "pack-alpha",
+    "name": "Pack Alpha",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gangrel mark a pack; teamwork rolls gain 8-Again, but failure risks Willpower.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "clan",
+      "name": "Gangrel"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6168a",
+    "key": "patient",
+    "name": "Patient",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "+2 to extended actions requiring patience.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616ca",
+    "key": "peacemaker",
+    "name": "Peacemaker",
+    "category": "merit",
+    "parent": null,
+    "rank": null,
+    "rating_range": [
+      2,
+      3
+    ],
+    "description": "Spend Willpower to negotiate peace via Social Manoeuvring. (•••) can talk down supernatural rages.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Empathy",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616cb",
+    "key": "picket-line",
+    "name": "Picket Line",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Each chapter, you have a pool of dots equal to their Contacts (max 5), which can be applied to Allies separately or as one amount, to raise their effective level when taking the Social Merit Blocking action.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6168b",
+    "key": "plausible-deniability",
+    "name": "Plausible Deniability",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      4,
+      4
+    ],
+    "description": "Evade supernatural guilt detection",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6168c",
+    "key": "prestigious-sire",
+    "name": "Prestigious Sire",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Use your sire's vampiric Status in place of your own in Social actions.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Invictus",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6168d",
+    "key": "primal-creation",
+    "name": "Primal Creation",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Stimulates growth and fertility; can force cloning",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "discipline",
+      "name": "Crúac",
+      "dots": 1
+    },
+    "exclusive": "Other Crúac Styles",
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6168e",
+    "key": "professional-training",
+    "name": "Professional Training",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Structured professional background grants Skill and asset benefits.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": "standing",
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616cc",
+    "key": "punch-drunk",
+    "name": "Punch Drunk",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Spend Willpower to preserve your last Health point, upgrading preexisting damage instead.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "willpower",
+      "dots": 6
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6168f",
+    "key": "pusher",
+    "name": "Pusher",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "+2 to persuade others into bad ideas or vices.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Persuasion",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61690",
+    "key": "quick-draw",
+    "name": "Quick Draw",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Draw or ready weapon as reflexive action.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 3
+        },
+        {
+          "type": "has_specialisation"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61691",
+    "key": "receptive-mind",
+    "name": "Receptive Mind",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Add extra target per point when using Lay Open the Mind.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "merit",
+          "name": "Blood Potency 5",
+          "dots": 1
+        },
+        {
+          "type": "discipline",
+          "name": "Auspex",
+          "dots": 4
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61692",
+    "key": "relentless",
+    "name": "Relentless",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Push past limits; +2 to rolls when enduring hardship.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Athletics",
+          "dots": 2
+        },
+        {
+          "type": "attribute",
+          "name": "Stamina",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61693",
+    "key": "resources",
+    "name": "Resources",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Wealth and disposable income.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61694",
+    "key": "retainer",
+    "name": "Retainer",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Loyal assistant or follower.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61695",
+    "key": "revenant-impostor",
+    "name": "Revenant Impostor",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "May replace Alternate Identity; masquerade as revenant.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Manipulation",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Subterfuge",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61696",
+    "key": "right-of-return",
+    "name": "Right Of Return",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Hold multiple covenant statuses",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "status",
+          "qualifier": "Carthian",
+          "dots": 2
+        },
+        {
+          "type": "status",
+          "qualifier": "City",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61697",
+    "key": "safe-place",
+    "name": "Safe Place",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Secure, defensible location.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61698",
+    "key": "sanctuary",
+    "name": "Sanctuary",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Authority to shelter one Kindred criminal per point; they act as Retainers if fed.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "status",
+          "qualifier": "Lance",
+          "dots": 2
+        },
+        {
+          "type": "status",
+          "qualifier": "City",
+          "dots": 3
+        },
+        {
+          "type": "merit",
+          "name": "Safe Place",
+          "qualifier": "equal or greater"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b61699",
+    "key": "savior-of-the-lost",
+    "name": "Savior Of The Lost",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Replace Humanity cost to uplift revenants with detachment roll (spend WP point).",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6169a",
+    "key": "secret-society-junkie",
+    "name": "Secret Society Junkie",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Status or Mystery Cult points in human societies also count as Herd.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "any": [
+        {
+          "type": "status",
+          "dots": 2,
+          "qualifier": "Crone"
+        },
+        {
+          "type": "status",
+          "dots": 2,
+          "qualifier": "Invictus"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6169b",
+    "key": "sell-out",
+    "name": "Sell Out",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Manipulate titles to gain benefits of one point of Status in each covenant; may count as Carthian.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Politics",
+          "dots": 3
+        },
+        {
+          "type": "status",
+          "qualifier": "Carthian",
+          "dots": 4
+        },
+        {
+          "type": "status",
+          "qualifier": "City",
+          "dots": 4
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6169c",
+    "key": "shiv",
+    "name": "Shiv",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      2
+    ],
+    "description": "Concealed weapon expertise",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "merit",
+          "name": "Street Fighting",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Weaponry",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6169d",
+    "key": "sleight-of-hand",
+    "name": "Sleight Of Hand",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "+2 to conceal or manipulate small objects.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "skill",
+      "name": "Larceny",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6169e",
+    "key": "small-unit-tactics",
+    "name": "Small Unit Tactics",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Coordinate allies in combat for bonuses.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Presence",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b6169f",
+    "key": "smooth-criminal",
+    "name": "Smooth Criminal",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Once per story, roll Manipulation + Subterfuge to end allegations against you or fellow Carthian.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Politics",
+          "dots": 1
+        },
+        {
+          "type": "skill",
+          "name": "Streetwise",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Subterfuge",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a0",
+    "key": "social-engineering",
+    "name": "Social Engineering",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      4,
+      4
+    ],
+    "description": "Spend Willpower + roll Manipulation + Investigation to find weaknesses/openings.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Manipulation",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Investigation",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Subterfuge",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a1",
+    "key": "sorcerous-eunuch",
+    "name": "Sorcerous Eunuch",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Sorcery scoured from you; penalize sorcerous effects with Resolve; can't learn blood sorcery.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Resolve",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a2",
+    "key": "speaker-for-the-silent",
+    "name": "Speaker For The Silent",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Channel the will of a torpid elder; can sever with Willpower.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "status",
+          "qualifier": "Invictus",
+          "dots": 1
+        },
+        {
+          "type": "merit",
+          "name": "Dynasty Membership",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a3",
+    "key": "special-treat",
+    "name": "Special Treat",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Keep ghoul with addictive blood; costs extra Vitae upkeep.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a4",
+    "key": "speed-demon",
+    "name": "Speed Demon",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "+10 Speed per success instead of +5",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a5",
+    "key": "staff",
+    "name": "Staff",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Crew of workers with one auto-success on chosen Skill. Generates 1 influence at 3 dots, 2 at 5.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a6",
+    "key": "stigmata",
+    "name": "Stigmata",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Weekly or by WP bleed Vitae equal to points; Vitae inspires spiritually, fuels Theban Sorcery, and Willpower.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "status",
+          "qualifier": "Lance",
+          "dots": 1
+        },
+        {
+          "type": "text",
+          "name": "Humanity 3 + Merit rating"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a7",
+    "key": "strength-of-resolution",
+    "name": "Strength Of Resolution",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Resist coercion to break laws",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a8",
+    "key": "striking-looks",
+    "name": "Striking Looks",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      2
+    ],
+    "description": "Exceptional appearance grants bonuses (or penalties).",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616cd",
+    "key": "support-network",
+    "name": "Support Network",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Spend Willpower on supportive ties to add dots to breaking point rolls.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "text",
+      "name": "Appropriate Social Merit"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616ce",
+    "key": "survivalist",
+    "name": "Survivalist",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Resist Extreme Cold/Heat for Stamina hours.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Survival",
+          "dots": 3
+        },
+        {
+          "type": "merit",
+          "name": "Iron Stamina",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616a9",
+    "key": "swarm-form",
+    "name": "Swarm Form",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "With Protean, turn into a swarm; attacks ignore Defense, deal lethal.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "discipline",
+      "name": "Protean",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616aa",
+    "key": "sympathetic",
+    "name": "Sympathetic",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "People find it easy to confide in you; +2 to Empathy.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616ab",
+    "key": "table-turner",
+    "name": "Table Turner",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Reverse power dynamics in tense social encounters.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Composure",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Manipulation",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616ac",
+    "key": "taste",
+    "name": "Taste",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Recognized aesthetic or creative sense.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Crafts",
+          "dots": 2
+        },
+        {
+          "type": "specialisation",
+          "name": "Crafts or Expression"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616ad",
+    "key": "tech-savvy",
+    "name": "Tech-savvy",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Access devices of Availability +2; assign points among equipment bonus, Structure, Durability.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "skill",
+          "name": "Computer",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Crafts",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Science",
+          "dots": 1
+        },
+        {
+          "type": "merit",
+          "name": "Resources"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616ae",
+    "key": "the-mother-daughter-bond",
+    "name": "The Mother-daughter Bond",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "When purchasing Mentor, take additional dots in a chosen Crúac Style (Unbridled Chaos, Primal Creation, or Opening the Void) equal to Mentor rating. If Mentor exceeds Crúac, Style dots are added as Crúac is gained. If you already have the Style, XP is refunded.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Crone",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616af",
+    "key": "three-heads-of-kerberos",
+    "name": "Three Heads Of Kerberos",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Choose one Aspect (Monstrous, Competitive, or Seductive) when purchasing. May be taken up to three times, each for a different Aspect. Honing (•): Add Merit dots to lash out with the chosen Aspect. Internalizing (••): Voluntarily take the Aspect's Condition (Bestial / Competitive / Wanton) to resolve it for Beats. Cowing (•••): When successfully applying Predatory Aura, forego the normal Condition and apply a variant Subservient Condition fitting the Aspect instead. Striking (••••): Spend 1 WP to lash out reflexively while simultaneously affecting the victim with another action. The Fires of Hell (•••••): When lashing out, choose additional victims equal to Blood Potency — each must fight-or-flight against your successes.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "bloodline",
+      "name": "Kerberos"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b0",
+    "key": "tolerance-for-biology",
+    "name": "Tolerance For Biology",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Comfortable with unsettling biological details.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "attribute",
+      "name": "Resolve",
+      "dots": 3
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b1",
+    "key": "toss-that-shit-right-back",
+    "name": "Toss That Shit Right Back",
+    "category": "merit",
+    "parent": "Physical",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "When you dodge a thrown attack, catch it and immediately throw it back.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Dexterity",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Athletics",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b2",
+    "key": "touchstone",
+    "name": "Touchstone",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Gain an extra Touchstone per point; each ties to a Humanity step.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b3",
+    "key": "trained-observer",
+    "name": "Trained Observer",
+    "category": "merit",
+    "parent": "Mental",
+    "rank": null,
+    "rating_range": [
+      1,
+      3
+    ],
+    "description": "Perception rolls gain 9-again at one dot, 8-again at three dots.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "any": [
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 3
+        },
+        {
+          "type": "attribute",
+          "name": "Composure",
+          "dots": 3
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b4",
+    "key": "travel-agent",
+    "name": "Travel Agent",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Name a host in a new domain; gain temp Allies/Contacts equal to half points; harder to intercept travel.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "status",
+          "qualifier": "Invictus",
+          "dots": 2
+        },
+        {
+          "type": "merit",
+          "name": "Contacts"
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616cf",
+    "key": "trigger-discipline",
+    "name": "Trigger Discipline",
+    "category": "merit",
+    "parent": "Style",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Increase a firearm's effective capacity, or allow an additional long burst at high capacity.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Wits",
+          "dots": 2
+        },
+        {
+          "type": "skill",
+          "name": "Firearms",
+          "dots": 2
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b5",
+    "key": "true-fiend",
+    "name": "True Fiend",
+    "category": "merit",
+    "parent": "Social",
+    "rank": null,
+    "rating_range": [
+      3,
+      3
+    ],
+    "description": "Terrifying presence; +3 to Intimidation.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b6",
+    "key": "unassuming-guise",
+    "name": "Unassuming Guise",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "+3 to appear unremarkable or human.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b7",
+    "key": "unbridled-chaos",
+    "name": "Unbridled Chaos",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      5
+    ],
+    "description": "Warps reality; alters Structure/Durability and weather",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "discipline",
+      "name": "Crúac",
+      "dots": 1
+    },
+    "exclusive": "Other Crúac Styles",
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b8",
+    "key": "undead-menses",
+    "name": "Undead Menses",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Produce blood that boosts Crúac rituals or weakens resistance to Disciplines.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Lance",
+      "dots": 1
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616b9",
+    "key": "unsettling-gaze",
+    "name": "Unsettling Gaze",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Exceptional success with monstrous Beast inflicts breaking point on victim.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "clan",
+      "name": "Nosferatu"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616ba",
+    "key": "viral-mythology",
+    "name": "Viral Mythology",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Show of divine glory inflicts awe; Herd and Allies Merits double yield.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "all": [
+        {
+          "type": "attribute",
+          "name": "Presence",
+          "dots": 3
+        },
+        {
+          "type": "skill",
+          "name": "Expression",
+          "dots": 3
+        },
+        {
+          "type": "discipline",
+          "name": "Crúac",
+          "dots": 1
+        }
+      ]
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616bb",
+    "key": "weaponise-dissent",
+    "name": "Weaponise Dissent",
+    "category": "merit",
+    "parent": "Carthian Law",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "City Status holders take extra damage",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Carthian",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616bc",
+    "key": "what-youve-done-for-her-lately",
+    "name": "What You've Done For Her Lately",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Once per story, Crúac rite boosts effective Crone Status for the scene.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "discipline",
+      "name": "Crúac",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616bd",
+    "key": "where-the-bodies-are-buried",
+    "name": "Where The Bodies Are Buried",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Once per story per point, your notes can dig up dirt on a vampire you know.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "status",
+      "qualifier": "Invictus",
+      "dots": 2
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616d0",
+    "key": "whipping-boy",
+    "name": "Whipping Boy",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      1,
+      1
+    ],
+    "description": "Gain an additional Dirge: The Whipping Boy. Regain a point of Willpower when serving another vampire earns ostracism, ridicule, or distrust. Regain all spent Willpower on a breaking point suffered in service.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": {
+      "type": "bloodline",
+      "name": "Norvegi"
+    },
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  },
+  {
+    "_id": "69d4e1d6277e2b2144b616be",
+    "key": "wicked-jaws",
+    "name": "Wicked Jaws",
+    "category": "merit",
+    "parent": "Kindred",
+    "rank": null,
+    "rating_range": [
+      2,
+      2
+    ],
+    "description": "Violent bite deals 2L or +1L if other bonuses apply.",
+    "pool": null,
+    "resistance": null,
+    "cost": null,
+    "action": null,
+    "duration": null,
+    "prereq": null,
+    "exclusive": null,
+    "xp_fixed": null,
+    "special": null,
+    "bloodline": null
+  }
+]

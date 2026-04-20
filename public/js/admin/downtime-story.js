@@ -299,6 +299,8 @@ function isSectionDone(stNarrative, sectionKey, sub) {
     }
     case 'territory_reports':
       return territoryReportsComplete(sub);
+    case 'home_report':
+      return isSectionComplete(stNarrative, 'home_report');
     case 'project_responses':
       return projectResponsesComplete(sub);
     case 'resource_approvals':  return actionResponsesComplete(sub, ['resources']);
@@ -309,6 +311,7 @@ function isSectionDone(stNarrative, sectionKey, sub) {
     case 'retainer_actions': return actionResponsesComplete(sub, ['retainer', 'staff']);
     case 'contact_requests':   return actionResponsesComplete(sub, ['contacts']);
     case 'misc_merit_actions': return actionResponsesComplete(sub, ['misc']);
+    case 'merit_summary':    return meritSummaryComplete(sub);
     default:
       return isSectionComplete(stNarrative, sectionKey);
   }
@@ -779,7 +782,7 @@ function getApplicableSections(char, sub) {
     { key: 'feeding_validation', label: 'Feeding' },
   ];
 
-  sections.push({ key: 'territory_reports', label: 'Territory Report' });
+  if (char?.home_territory) sections.push({ key: 'home_report', label: 'Home Report' });
 
   if (sub?.projects_resolved?.length) {
     sections.push({ key: 'project_responses', label: 'Project Reports' });
@@ -792,12 +795,9 @@ function getApplicableSections(char, sub) {
     return rev.pool_status !== 'skipped';
   });
 
-  if (hasCategory(['allies']))            sections.push({ key: 'allies_actions',     label: 'Allies Actions' });
-  if (hasCategory(['status']))            sections.push({ key: 'status_actions',     label: 'Status Actions' });
-  if (hasCategory(['retainer', 'staff'])) sections.push({ key: 'retainer_actions',  label: 'Retainer Actions' });
-  if (hasCategory(['contacts']))          sections.push({ key: 'contact_requests',   label: 'Contact Requests' });
-  if (hasCategory(['resources']))         sections.push({ key: 'resource_approvals',   label: 'Resources/Skill Acquisitions' });
-  if (hasCategory(['misc']))              sections.push({ key: 'misc_merit_actions',  label: 'Influence Actions' });
+  // All merit categories consolidated into a single summary ledger (Story 1.13)
+  const ALL_MERIT_CATS = ['allies', 'status', 'retainer', 'staff', 'contacts', 'resources', 'misc'];
+  if (hasCategory(ALL_MERIT_CATS)) sections.push({ key: 'merit_summary', label: 'Allies & Asset Summary' });
 
   if (getCSDots(char) > 0) {
     sections.push({ key: 'cacophony_savvy', label: 'Cacophony Savvy' });
@@ -1053,6 +1053,7 @@ function renderSection(section, char, sub, stNarrative) {
     case 'touchstone':         return renderTouchstone(char, sub, stNarrative);
     case 'project_responses':  return renderProjectSection(char, sub);
     case 'territory_reports':  return renderTerritoryReports(char, sub, stNarrative, _allSubmissions, _allCharacters);
+    case 'home_report':        return renderHomeReport(char, sub, stNarrative, _allSubmissions);
     case 'cacophony_savvy':    return renderCacophonySavvy(char, sub, stNarrative, _allSubmissions);
     case 'allies_actions':     return renderAlliesSection(char, sub);
     case 'status_actions':     return renderStatusSection(char, sub);
@@ -1060,6 +1061,7 @@ function renderSection(section, char, sub, stNarrative) {
     case 'contact_requests':   return renderContactsSection(char, sub);
     case 'resource_approvals':  return renderResourcesSection(char, sub);
     case 'misc_merit_actions':  return renderMiscMeritSection(char, sub);
+    case 'merit_summary':       return renderMeritSummary(char, sub);
     default: return renderSectionScaffold(section.key, section.label, stNarrative);
   }
 }
@@ -1741,6 +1743,83 @@ function actionResponsesComplete(sub, categories) {
   return applicable.every(globalIdx => responses[globalIdx]?.status === 'complete');
 }
 
+function meritSummaryComplete(sub) {
+  const actions  = sub?.merit_actions || [];
+  const resolved = sub?.merit_actions_resolved || [];
+  const applicable = actions.filter((_, i) => (resolved[i]?.pool_status || '') !== 'skipped');
+  if (!applicable.length) return true;
+  return applicable.every((_, i) => !!(resolved[i]?.outcome_summary?.trim()));
+}
+
+const MERIT_CATEGORY_ORDER = ['allies', 'status', 'contacts', 'retainer', 'staff', 'resources', 'misc'];
+const MERIT_CATEGORY_LABELS = {
+  allies: 'Allies', status: 'Status', contacts: 'Contacts',
+  retainer: 'Retainers', staff: 'Staff', resources: 'Resources', misc: 'Influence',
+};
+
+function renderMeritSummary(char, sub) {
+  const actions  = sub?.merit_actions || [];
+  const resolved = sub?.merit_actions_resolved || [];
+  const complete = meritSummaryComplete(sub);
+  const dotClass = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+
+  // Group non-skipped actions by category
+  const groups = {};
+  actions.forEach((a, i) => {
+    const rev = resolved[i] || {};
+    if (rev.pool_status === 'skipped') return;
+    const cat = deriveMeritCategory(a.merit_type);
+    if (!groups[cat]) groups[cat] = [];
+    const { label: meritLabel } = getMeritDetails(char, a);
+    groups[cat].push({
+      meritLabel: meritLabel || a.merit_type || 'Merit',
+      actionType: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '—',
+      outcome: rev.outcome_summary?.trim() || '',
+    });
+  });
+
+  let h = `<div class="dt-story-section" data-section="merit_summary">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Allies &amp; Asset Summary</span>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div>`;
+  h += `<div class="dt-story-section-body">`;
+
+  const orderedCats = MERIT_CATEGORY_ORDER.filter(c => groups[c]);
+  if (!orderedCats.length) {
+    h += `<div class="dt-story-section-empty">No merit actions this cycle.</div>`;
+  } else {
+    for (const cat of orderedCats) {
+      h += `<div class="dt-merit-summary-group">`;
+      h += `<div class="dt-merit-summary-group-label">${MERIT_CATEGORY_LABELS[cat] || cat}</div>`;
+      h += `<div class="dt-merit-summary-rows">`;
+      for (const entry of groups[cat]) {
+        const missingClass = entry.outcome ? '' : ' dt-merit-summary-missing';
+        h += `<div class="dt-merit-summary-row${missingClass}">`;
+        h += `<span class="dt-merit-summary-merit">${esc(entry.meritLabel)}</span>`;
+        h += `<span class="dt-merit-summary-action">${esc(entry.actionType)}</span>`;
+        h += `<span class="dt-merit-summary-outcome">${entry.outcome ? esc(entry.outcome) : '— Outcome not yet recorded —'}</span>`;
+        h += `</div>`;
+      }
+      h += `</div></div>`;
+    }
+  }
+
+  h += `<div class="dt-story-section-actions">`;
+  if (complete) {
+    h += `<span class="dt-story-complete-badge">&#10003; All outcomes recorded</span>`;
+  } else {
+    const missing = actions.filter((_, i) => {
+      const rev = resolved[i] || {};
+      return rev.pool_status !== 'skipped' && !rev.outcome_summary?.trim();
+    }).length;
+    h += `<span class="dt-story-pending-note">${missing} outcome${missing !== 1 ? 's' : ''} still to record in DT Processing</span>`;
+  }
+  h += `</div>`;
+  h += `</div></div>`;
+  return h;
+}
+
 // ── A1: Cross-action derivation functions (Story 1.8) ─────────────────────────
 // These are pure derivation functions — no new schema fields. Wired into buildActionContext.
 // NOTE: The "Supported" chip is not implemented — support_target_char does not exist as a
@@ -2395,6 +2474,118 @@ function territoryReportsComplete(sub) {
 }
 
 // ── Territory Report section ──────────────────────────────────────────────────
+
+/**
+ * Scans allSubmissions for public-facing activity in the given territory name.
+ * Returns an array of { charName, actionType, detail } objects.
+ * Excludes hidden actions (hide_protect with successes > 0) and skipped.
+ */
+function _homeTerrActivity(territoryName, thisSub, allSubmissions) {
+  const terrId = resolveTerrId(territoryName);
+  const events = [];
+
+  for (const s of allSubmissions) {
+    if (String(s._id) === String(thisSub._id)) continue;
+    const char = _allCharacters.find(c => String(c._id) === String(s.character_id));
+    const charName = char ? displayName(char) : (s.character_name || 'Unknown');
+    const resolved = s.projects_resolved || [];
+
+    resolved.forEach((rev, pIdx) => {
+      if (!rev || rev.pool_status === 'skipped') return;
+      const slot = pIdx + 1;
+      const rawTerr = s.responses?.[`project_${slot}_territory`] || '';
+      if (resolveTerrId(rawTerr) !== terrId) return;
+      // Exclude hidden actions that succeeded
+      if (rev.action_type === 'hide_protect' && (rev.roll?.successes ?? 0) > 0) return;
+      events.push({
+        charName,
+        actionType: ACTION_TYPE_LABELS[rev.action_type] || rev.action_type || 'Action',
+        detail: s.responses?.[`project_${slot}_outcome`] || '',
+      });
+    });
+  }
+  return events;
+}
+
+export function buildHomeReportContext(char, sub, allSubmissions) {
+  const territory = char?.home_territory || '';
+  if (!territory) return '';
+
+  const charName  = displayName(char);
+  const activity  = _homeTerrActivity(territory, sub, allSubmissions);
+
+  let ctx = `Home Report — ${charName}\n`;
+  ctx += `Home territory: ${territory}\n\n`;
+  ctx += `Context: This is where ${charName} lives day-to-day. They notice things around home — not because they're actively investigating, but because they're present. Write a short ambient paragraph (1–3 sentences) about what they experience in their neighbourhood this month.\n\n`;
+
+  if (activity.length) {
+    ctx += `Activity in ${territory} this cycle:\n`;
+    for (const e of activity) {
+      ctx += `  - ${e.charName}: ${e.actionType}${e.detail ? ` — ${e.detail}` : ''}\n`;
+    }
+    ctx += '\n';
+  } else {
+    ctx += `No notable activity recorded in ${territory} this cycle. This may be a quiet month.\n\n`;
+  }
+
+  ctx += `Style: Second person, present tense. No mechanical terms. British English. No em-dashes. ~50–100 words.`;
+  return ctx;
+}
+
+function renderHomeReport(char, sub, stNarrative, allSubmissions) {
+  const territory = char?.home_territory || '';
+  const complete  = isSectionComplete(stNarrative, 'home_report');
+  const dotClass  = complete ? 'dt-story-dot-complete' : 'dt-story-dot-pending';
+  const savedTxt  = stNarrative?.home_report?.response || '';
+  const isRevision = stNarrative?.home_report?.status === 'needs_revision';
+  const revNote    = stNarrative?.home_report?.revision_note || '';
+  const ctxCollapsed = savedTxt ? ' collapsed' : '';
+
+  const activity = _homeTerrActivity(territory, sub, allSubmissions);
+
+  let h = `<div class="dt-story-section${complete ? ' complete' : ''}" data-section="home_report">`;
+  h += `<div class="dt-story-section-header">`;
+  h += `<span class="dt-story-section-label">Home Report</span>`;
+  h += `<div class="dt-story-section-header-actions">`;
+  h += `<button class="dt-story-copy-ctx-btn">Copy Context</button>`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span>`;
+  h += `</div></div>`;
+
+  h += `<div class="dt-story-section-body">`;
+  h += `<div class="dt-story-context-block${ctxCollapsed}">`;
+  h += `<div class="dt-story-note-author">Home territory: <strong>${esc(territory)}</strong></div>`;
+
+  if (activity.length) {
+    h += `<div class="dt-story-terr-own-actions"><span class="dt-story-note-author">Activity near home this cycle:</span><ul class="dt-story-terr-list">`;
+    for (const e of activity) {
+      h += `<li><strong>${esc(e.charName)}</strong> — ${esc(e.actionType)}${e.detail ? `: ${esc(e.detail)}` : ''}</li>`;
+    }
+    h += `</ul></div>`;
+  } else {
+    h += `<div class="dt-story-section-empty">No notable activity recorded in ${esc(territory)} this cycle — quiet month near home.</div>`;
+  }
+
+  h += `<a class="dt-story-context-toggle" role="button">${savedTxt ? 'Show context' : 'Hide context'}</a>`;
+  h += `</div>`; // context-block
+
+  h += `<textarea class="dt-story-response-ta" placeholder="Write the home report\u2026">${savedTxt}</textarea>`;
+
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-save-draft-btn">Save Draft</button>`;
+  h += `<button class="dt-story-revision-note-btn${isRevision ? ' active' : ''}">Needs Revision</button>`;
+  h += `<button class="dt-story-mark-complete-btn">`;
+  h += `<span class="dt-story-completion-dot ${dotClass}"></span> Mark Complete`;
+  h += `</button></div>`;
+
+  h += `<div class="dt-story-revision-area${isRevision || revNote ? '' : ' hidden'}">`;
+  h += `<textarea class="dt-story-revision-ta" rows="2" placeholder="Revision note\u2026">${revNote}</textarea>`;
+  h += `<div class="dt-story-card-actions">`;
+  h += `<button class="dt-story-revision-save-btn">Save Revision Note</button>`;
+  h += `</div></div>`;
+
+  h += `</div></div>`;
+  return h;
+}
 
 function renderTerritoryReports(char, sub, stNarrative, allSubmissions, allChars) {
   const feedTerrs = _feedTerrEntries(sub);
@@ -3475,10 +3666,48 @@ async function handleCacophonySave(btn, status) {
 }
 
 // Populate after all handlers are defined
+async function handleHomeReportSave(btn, status) {
+  const section = btn.closest('.dt-story-section[data-section="home_report"]');
+  if (!section || !_currentSub) return;
+
+  const ta      = section.querySelector('.dt-story-response-ta');
+  const text    = ta?.value || '';
+  const revTa   = section.querySelector('.dt-story-revision-ta');
+  const revNote = revTa?.value || '';
+  const user    = getUser();
+  const author  = user?.global_name || user?.username || 'ST';
+
+  btn.disabled = true;
+  btn.textContent = 'Saving\u2026';
+  try {
+    await saveNarrativeField(_currentSub._id, {
+      'st_narrative.home_report': { response: text, author, status, revision_note: revNote },
+    });
+    if (!_currentSub.st_narrative) _currentSub.st_narrative = {};
+    _currentSub.st_narrative.home_report = { response: text, author, status, revision_note: revNote };
+    _refreshProgressTracker();
+    btn.textContent = 'Saved';
+    btn.disabled = false;
+    await new Promise(r => setTimeout(r, 900));
+    const char   = getCharForSub(_currentSub);
+    const newHtml = renderHomeReport(char, _currentSub, _currentSub.st_narrative, _allSubmissions);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = newHtml;
+    section.replaceWith(tmp.firstElementChild);
+    const rail = document.getElementById('dt-story-nav-rail');
+    if (rail) rail.innerHTML = renderNavRail();
+  } catch (err) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+    console.error('handleHomeReportSave', err);
+  }
+}
+
 Object.assign(SECTION_SAVE_HANDLERS, {
   project_responses: handleProjectSave,
   letter_from_home:  handleLetterSave,
   touchstone:        handleTouchstoneSave,
   territory_reports: handleTerritorySave,
   cacophony_savvy:   handleCacophonySave,
+  home_report:       handleHomeReportSave,
 });

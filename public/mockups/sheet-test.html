@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sheet Test — Terra Mortis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@400;600;700;900&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<!-- Live CSS files — edit these and refresh to see changes immediately -->
+<link rel="stylesheet" href="../css/theme.css">
+<link rel="stylesheet" href="../css/components.css">
+<link rel="stylesheet" href="../css/admin-layout.css">
+<style>
+  /* ── Test toolbar (not part of live app) ── */
+  .test-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--surf2);
+    border-bottom: 1px solid var(--bdr);
+    font-family: var(--fl, 'Lato', sans-serif);
+    font-size: 11px;
+  }
+  .test-toolbar label {
+    color: var(--txt3);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .test-toolbar select {
+    background: var(--surf);
+    border: 1px solid var(--bdr2);
+    border-radius: 4px;
+    color: var(--txt);
+    font-family: var(--fl, 'Lato', sans-serif);
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+    flex: 1;
+    max-width: 280px;
+  }
+  .test-toolbar button {
+    background: none;
+    border: 1px solid var(--bdr2);
+    border-radius: 4px;
+    color: var(--label-secondary);
+    font-family: var(--fl, 'Lato', sans-serif);
+    font-size: 11px;
+    font-variant: small-caps;
+    font-weight: 600;
+    letter-spacing: .06em;
+    padding: 4px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .test-toolbar button:hover {
+    background: var(--surf3);
+    color: var(--txt);
+  }
+  .test-toolbar .test-badge {
+    margin-left: auto;
+    color: var(--txt3);
+    font-size: 10px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+  /* Sheet wrapper — mirrors admin char-detail context */
+  .test-sheet-wrap {
+    padding: 20px 24px;
+  }
+  #sh-content {
+    max-width: 1400px;
+  }
+</style>
+</head>
+<body>
+
+<div class="test-toolbar">
+  <label>Character</label>
+  <select id="char-select"></select>
+  <button id="btn-view" class="active">View</button>
+  <button id="btn-edit">Edit</button>
+  <span style="width:1px;height:16px;background:var(--bdr);flex-shrink:0"></span>
+  <button id="theme-btn">Mode</button>
+  <span class="test-badge">Design Test — live CSS, static data</span>
+</div>
+
+<div class="test-sheet-wrap">
+  <!-- cd-sheet class enables the 3-column desktop layout in admin-layout.css -->
+  <div id="sh-content" class="cd-sheet"></div>
+</div>
+
+<script type="module">
+  import { renderSheet, toggleExp, toggleDisc } from '../js/editor/sheet.js';
+  import state from '../js/data/state.js';
+  import { findRegentTerritory, sortName } from '../js/data/helpers.js';
+  import { loadGameXP } from '../js/data/game-xp.js';
+  import { loadRulesFromApi } from '../js/data/loader.js';
+
+  // ── Expose globals needed by onclick handlers in the rendered sheet ──
+  window.toggleExp = toggleExp;
+  window.toggleDisc = toggleDisc;
+
+  // Stub out edit-mode globals so view-mode onclick handlers don't throw
+  const _noop = () => {};
+  window.shEdit = _noop;
+  window.shEditSpec = _noop;
+  window.shEditBaneName = _noop;
+  window.shEditBaneEffect = _noop;
+  window.shAddBane = _noop;
+  window.shRemoveBane = _noop;
+  window.shAddTouchstone = _noop;
+  window.shRemoveTouchstone = _noop;
+  window.shEditTouchstone = _noop;
+  window.shCovStandingUp = _noop;
+  window.shCovStandingDown = _noop;
+  window.shEditPact = _noop;
+  window.renderSheet = (c) => renderSheet(c);
+
+  // ── Load static data ──
+  const [chars, territories] = await Promise.all([
+    fetch('./data/chars.json').then(r => r.json()),
+    fetch('./data/territories.json').then(r => r.json()).catch(() => []),
+  ]);
+
+  // Attach regent territory info to each character
+  chars.forEach(c => findRegentTerritory(territories, c));
+
+  // Seed rules from localStorage cache (populated when you log into the live app)
+  // Falls back to empty — sheet renders without merit descriptions / prereq checks
+  await loadRulesFromApi().catch(() => {});
+
+  // Attempt to attach game XP (requires Render API — will silently fail offline)
+  await loadGameXP(chars).catch(() => {});
+
+  // Set global state
+  state.chars = chars;
+  state.editMode = false;
+  state.editIdx = 0;
+
+  // ── Populate character selector ──
+  const sel = document.getElementById('char-select');
+  const byName = (a, b) => sortName(a).localeCompare(sortName(b));
+  const active = chars.filter(c => !c.retired).sort(byName);
+  const retired = chars.filter(c => c.retired).sort(byName);
+
+  const addGroup = (label, list) => {
+    if (!list.length) return;
+    const grp = document.createElement('optgroup');
+    grp.label = label;
+    list.forEach(c => {
+      const idx = chars.indexOf(c);
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = c.moniker || c.name;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  };
+
+  addGroup('Active', active);
+  addGroup('Retired', retired);
+
+  // ── Render selected character ──
+  const render = (idx) => {
+    state.editIdx = idx;
+    renderSheet(chars[idx]);
+  };
+
+  render(chars.indexOf(active[0] || chars[0]));
+
+  sel.addEventListener('change', () => render(+sel.value));
+
+  // ── View / Edit toggle ──
+  const btnView = document.getElementById('btn-view');
+  const btnEdit = document.getElementById('btn-edit');
+
+  btnView.addEventListener('click', () => {
+    state.editMode = false;
+    render(state.editIdx);
+  });
+  btnEdit.addEventListener('click', () => {
+    state.editMode = true;
+    render(state.editIdx);
+  });
+
+  // ── Theme toggle ──
+  const themeBtn = document.getElementById('theme-btn');
+  const updateTheme = () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    themeBtn.textContent = dark ? '☀ Light Mode' : '☾ Dark Mode';
+  };
+  const saved = localStorage.getItem('tm-theme');
+  if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  updateTheme();
+  themeBtn.addEventListener('click', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (dark) { document.documentElement.removeAttribute('data-theme'); localStorage.removeItem('tm-theme'); }
+    else { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('tm-theme', 'dark'); }
+    updateTheme();
+  });
+</script>
+
+</body>
+</html>

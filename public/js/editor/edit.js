@@ -761,3 +761,35 @@ export function shEditMeritPt(realIdx, field, val) {
   _markDirty();
   _renderSheet(c);
 }
+
+
+// ── Equipment (nav.10) ────────────────────────────────────────────────────────
+export function shAddEquip(type) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.equipment) c.equipment = [];
+  if (type === 'weapon') {
+    c.equipment.push({ type: 'weapon', name: '', damage_rating: 0, damage_type: 'L', attack_skill: 'Weaponry' });
+  } else {
+    c.equipment.push({ type: 'armour', name: '', general_ar: 0, ballistic_ar: 0, mobility_penalty: 0 });
+  }
+  _markDirty();
+  _renderSheet(c);
+}
+
+export function shEditEquip(i, field, val) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.equipment || !c.equipment[i]) return;
+  c.equipment[i][field] = val;
+  _markDirty();
+}
+
+export function shRemoveEquip(i) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c.equipment) return;
+  c.equipment.splice(i, 1);
+  _markDirty();
+  _renderSheet(c);
+}
