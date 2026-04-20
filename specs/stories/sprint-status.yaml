@@ -371,7 +371,7 @@ development_status:
   fix-44-attache-invested-gate: done  # Invested bonus dots allocatable to Attaché; INV box appears only after first dot purchased
   feat-18-whos-who-map-regents-cleanup: done   # Who's Who tab: removed map + regents, collapsed to single-column layout
   feat-19-regency-regent-lieutenant-dedup: review
-  feat-20-ordeals-tab-css-halfframes: ready-for-dev
+  feat-20-ordeals-tab-css-halfframes: review
 
   epic-feat-retrospective: optional
 
