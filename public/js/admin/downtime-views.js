@@ -3010,6 +3010,9 @@ function renderProcessingMode(container) {
   // XP Review — Step 10
   h += renderXpReviewStep();
 
+  // Add ST Action form
+  h += _renderAddStActionForm(submissions);
+
   // Deleted Actions recovery
   h += renderDeletedActionsSection(submissions);
 
@@ -4259,6 +4262,16 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Outcome summary input (compact merit panel) ──
+  container.querySelectorAll('.proc-outcome-summary-input').forEach(inp => {
+    inp.addEventListener('blur', async () => {
+      const key   = inp.dataset.procKey;
+      const entry = _getQueueEntry(key);
+      if (!entry) return;
+      await saveEntryReview(entry, { outcome_summary: inp.value.trim() });
+    });
+  });
+
   // ── Travel discretion buttons ──
   container.querySelectorAll('.proc-travel-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
@@ -4408,6 +4421,102 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Add ST Action form ──
+  container.querySelector('[data-toggle-add-st-form]')?.addEventListener('click', () => {
+    const form = container.querySelector('#proc-add-st-form');
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  });
+
+  const stTypeEl = container.querySelector('#proc-add-st-type');
+  const stSorcEl = container.querySelector('#proc-add-st-sorcery');
+  const stGenEl  = container.querySelector('#proc-add-st-general');
+  function _updateStActionFields() {
+    if (!stTypeEl || !stSorcEl || !stGenEl) return;
+    const isSorc = stTypeEl.value === 'sorcery';
+    stSorcEl.style.display = isSorc ? '' : 'none';
+    stGenEl.style.display  = isSorc ? 'none' : '';
+  }
+  stTypeEl?.addEventListener('change', _updateStActionFields);
+  _updateStActionFields();
+
+  container.querySelector('#proc-add-st-submit')?.addEventListener('click', async () => {
+    const subId    = container.querySelector('#proc-add-st-char')?.value;
+    const type     = container.querySelector('#proc-add-st-type')?.value;
+    const isSorc   = type === 'sorcery';
+    const tradition = isSorc ? (container.querySelector('#proc-add-st-tradition')?.value || '') : '';
+    const riteName  = isSorc ? (container.querySelector('#proc-add-st-rite')?.value || '') : '';
+    const label     = isSorc
+      ? (riteName || tradition || 'Sorcery')
+      : (container.querySelector('#proc-add-st-label')?.value?.trim() || type);
+    const desc = container.querySelector('#proc-add-st-desc')?.value?.trim() || '';
+
+    if (!subId) { alert('Select a character first.'); return; }
+    await addStAction(subId, { action_type: type, label, description: desc, tradition, rite_name: riteName });
+    const sub    = submissions.find(s => s._id === subId);
+    const newIdx = (sub?.st_actions || []).length - 1;
+    if (newIdx >= 0) procExpandedKeys.add(`${subId}:st:${newIdx}`);
+    renderProcessingMode(container);
+  });
+
+}
+
+function _renderAddStActionForm(subs) {
+  const activeSubs = subs.filter(s => s.status !== 'draft' || s.character_name);
+  let h = '<div class="proc-phase-section proc-add-st-section">';
+  h += '<div class="proc-phase-header" data-toggle-add-st-form>';
+  h += '<span class="proc-phase-label">+ Add ST Action</span>';
+  h += '</div>';
+  h += '<div class="proc-add-st-form" id="proc-add-st-form" style="display:none;">';
+  h += '<div class="proc-add-st-row">';
+  // Character selector
+  h += '<select class="qf-select proc-add-st-char" id="proc-add-st-char">';
+  h += '<option value="">— Character —</option>';
+  for (const s of activeSubs) {
+    h += `<option value="${esc(s._id)}">${esc(s.character_name || s._id)}</option>`;
+  }
+  h += '</select>';
+  // Action type selector
+  h += '<select class="qf-select proc-add-st-type" id="proc-add-st-type">';
+  for (const [val, label] of [
+    ['sorcery', 'Sorcery'], ['project', 'Project'], ['attack', 'Attack'],
+    ['investigate', 'Investigate'], ['patrol_scout', 'Patrol/Scout'],
+    ['support', 'Support'], ['misc', 'Misc'],
+  ]) {
+    h += `<option value="${val}">${label}</option>`;
+  }
+  h += '</select>';
+  h += '</div>';
+  // Sorcery fields (shown when type=sorcery)
+  h += '<div class="proc-add-st-sorcery" id="proc-add-st-sorcery">';
+  h += '<select class="qf-select proc-add-st-tradition" id="proc-add-st-tradition">';
+  h += '<option value="">— Tradition —</option>';
+  h += '<option value="Cruac">Cruac</option>';
+  h += '<option value="Theban">Theban Sorcery</option>';
+  h += '</select>';
+  const allRites = (_getRulesDB() || []).filter(r => r.category === 'rite');
+  const byTrad = {};
+  for (const r of allRites) { const t = r.parent || 'Unknown'; if (!byTrad[t]) byTrad[t] = []; byTrad[t].push(r); }
+  h += '<select class="qf-select proc-add-st-rite" id="proc-add-st-rite">';
+  h += '<option value="">— Rite —</option>';
+  for (const trad of ['Cruac', 'Theban']) {
+    if (!byTrad[trad]) continue;
+    const grp = byTrad[trad].slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+    h += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}">${esc(r.name)} (Lvl ${r.rank || '?'})</option>`).join('')}</optgroup>`;
+  }
+  h += '</select>';
+  h += '</div>';
+  // Label field (shown for non-sorcery)
+  h += '<div class="proc-add-st-general" id="proc-add-st-general" style="display:none;">';
+  h += '<input type="text" class="qf-input proc-add-st-label" id="proc-add-st-label" placeholder="Action label...">';
+  h += '</div>';
+  // Description (always shown)
+  h += '<textarea class="proc-note-textarea proc-add-st-desc" id="proc-add-st-desc" rows="2" placeholder="Description / notes (optional)..." style="margin-top:6px;"></textarea>';
+  h += '<div style="margin-top:6px;">';
+  h += '<button class="dt-btn" id="proc-add-st-submit">Add Action</button>';
+  h += '</div>';
+  h += '</div>';
+  h += '</div>';
+  return h;
 }
 
 /** Add an ST-created action to a submission's st_actions array. */
@@ -5006,8 +5115,9 @@ function _renderCompactMeritPanel(entry, rev) {
   const isAuto     = mode === 'auto';
   const isBlocked  = mode === 'blocked';
   const autoSucc   = isAuto && dots != null ? dots : null;
-  const outcome    = rev.merit_outcome || '';
-
+  const outcome        = rev.merit_outcome    || '';
+  const outcomeSummary = rev.outcome_summary  || '';
+  const thread         = rev.notes_thread     || [];
 
   let h = `<div class="proc-feed-right proc-compact-merit-panel" data-proc-key="${esc(key)}">`;
 
@@ -5042,8 +5152,32 @@ function _renderCompactMeritPanel(entry, rev) {
       h += `<button class="proc-merit-outcome-btn${outcome === val ? ' active' : ''}" data-proc-key="${esc(key)}" data-outcome="${val}">${label}</button>`;
     }
     h += `</div>`;
+    h += `<input type="text" class="proc-outcome-summary-input" data-proc-key="${esc(key)}" value="${esc(outcomeSummary)}" placeholder="One-line outcome summary (shown to player)...">`;
     h += `</div>`;
   }
+
+  // ── ST Notes (compact) ──
+  h += `<div class="proc-feed-mod-panel proc-compact-notes-panel" data-proc-key="${esc(key)}">`;
+  h += `<div class="proc-mod-panel-title">ST Notes <span class="proc-label-sub">— visible to Claude</span></div>`;
+  if (thread.length) {
+    h += `<div class="proc-notes-thread">`;
+    for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
+      const note = thread[noteIdx];
+      const time = note.created_at
+        ? new Date(note.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '';
+      h += `<div class="proc-note-entry">`;
+      h += `<div class="proc-note-meta">${esc(note.author_name)}${time ? '  \u00B7  ' + esc(time) : ''}<button class="proc-note-delete-btn" data-proc-key="${esc(key)}" data-note-idx="${noteIdx}" title="Delete note">\u00D7</button></div>`;
+      h += `<div class="proc-note-text">${esc(note.text)}</div>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+  h += `<div class="proc-note-add">`;
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(key)}" placeholder="Add ST note..." rows="2"></textarea>`;
+  h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(key)}">Add Note</button>`;
+  h += `</div>`;
+  h += `</div>`;
 
   h += `</div>`; // proc-compact-merit-panel
   return h;
@@ -6256,6 +6390,33 @@ function renderActionPanel(entry, review) {
     {
       const _nomText = _playerFeedTerrsText(feedSub);
       if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
+    }
+    // ── Resident/poacher mismatch flag ──
+    {
+      const _charId = String(feedChar?._id || '');
+      let _feedGrid = {};
+      try { _feedGrid = JSON.parse(feedSub?.responses?.feeding_territories || '{}'); } catch { /* ignore */ }
+      const _terrDocs = cachedTerritories || [];
+      const _mismatches = [];
+      for (const [terrKey, val] of Object.entries(_feedGrid)) {
+        if (!val || val === 'none') continue;
+        // Resolve territory doc by slug key
+        const _td = _terrDocs.find(t =>
+          (t.id && t.id === terrKey) ||
+          (t.name && t.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') === terrKey)
+        );
+        if (!_td) continue;
+        const _hasRights = _charId && Array.isArray(_td.feeding_rights) &&
+          _td.feeding_rights.some(id => String(id) === _charId);
+        if (val === 'feeding_rights' && !_hasRights) {
+          _mismatches.push(`Claims feeding rights in ${_td.name} — not on Regent's list`);
+        } else if (val === 'poaching' && _hasRights) {
+          _mismatches.push(`Has feeding rights in ${_td.name} — declared as poaching`);
+        }
+      }
+      for (const _msg of _mismatches) {
+        h += `<div class="proc-mismatch-flag">\u26A0 ${esc(_msg)}</div>`;
+      }
     }
     // Territory pills row — feeding multi-select
     {

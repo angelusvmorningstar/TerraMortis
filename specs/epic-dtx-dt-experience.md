@@ -80,7 +80,7 @@ After `buildProcessingQueue()` returns the queue array (line ~1805 in `downtime-
 - Callout is read-only (no interactive elements)
 - E2E: 5 tests covering each cross-reference type and the no-callout baseline
 
-### DTX-2: Compact Panel for Binary Actions
+### DTX-2: Compact Panel for Binary Actions — DONE
 
 Merit, contact, and retainer actions currently render through the full `_renderMeritRightPanel` pipeline — pool panel, success modifier, rote toggles — most of which is irrelevant for auto-mode and fixed-effect actions. Introduce a compact right-panel path for these entries.
 

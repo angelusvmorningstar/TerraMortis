@@ -4381,6 +4381,26 @@ body {
   min-width: 220px;
 }
 
+.proc-add-st-section #proc-add-st-form {
+  display: none;
+  padding: 10px 14px;
+  background: var(--surf1);
+  border-top: 1px solid var(--bdr);
+  flex-direction: column;
+  gap: 8px;
+}
+.proc-add-st-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.proc-add-st-sorcery,
+.proc-add-st-general {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .proc-delete-st-action {
   color: var(--crim);
   border-color: var(--crim);
@@ -4818,6 +4838,19 @@ body {
   font-family: var(--ft);
 }
 
+/* ── Story 1.15: resident/poacher mismatch flag ─────────────────── */
+.proc-mismatch-flag {
+  margin-top: 6px;
+  padding: 5px 10px;
+  background: rgba(139, 0, 0, 0.12);
+  border: 1px solid var(--crim);
+  border-left: 3px solid var(--crim);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--crim);
+  font-family: var(--fl);
+}
+
 /* ── DTX-1: cross-reference callout ────────────────────────────── */
 .proc-xref-callout {
   margin-top: 8px;
@@ -4978,6 +5011,26 @@ body {
   color: var(--bg);
   border-color: var(--gold2);
   font-weight: 600;
+}
+
+.proc-outcome-summary-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surf2);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--accent);
+  color: var(--txt1);
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--ft);
+  margin-top: 6px;
+}
+.proc-outcome-summary-input:focus { border-color: var(--accent); outline: none; }
+.proc-outcome-summary-input::placeholder { color: var(--txt3); font-style: italic; }
+
+.proc-compact-notes-panel {
+  margin-top: 4px;
 }
 
 /* ── ST Response section (feature.66) ─────────────────────────── */
