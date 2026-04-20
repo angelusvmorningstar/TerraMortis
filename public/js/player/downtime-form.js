@@ -3370,7 +3370,7 @@ function renderMeritToggles(saved) {
     h += '<div class="qf-section collapsed" data-section-key="spheres">';
     h += '<h4 class="qf-section-title">Spheres of Influence<span class="qf-section-tick">✔</span></h4>';
     h += '<div class="qf-section-body">';
-    h += '<p class="qf-section-intro">Your character has the following Allies and Status merits. Use the tabs to configure up to 5 sphere actions this Downtime.</p>';
+    h += '<p class="qf-section-intro">Your character has the following Allies merits. Use the tabs to configure up to 5 sphere actions this Downtime.</p>';
 
     // ── Tab bar ──
     h += '<div class="dt-proj-tabs">';
