@@ -32,7 +32,7 @@
 # - DT Fixes: new epic — bugs, quick features, feeding panel parity, DT Story pill fix
 
 generated: 2026-04-15
-last_updated: 2026-04-18 (feat.16 ST city status edit done; feat.17 rules city/territory done; fix.44 Attaché Invested gate done)
+last_updated: 2026-04-20 (sprint plan refresh — added DTFC, DTG, unified-nav, FIN epics; dt-story 1.11/1.14/1.15; 3 new bug backlog items)
 project: TM Suite
 project_key: NOKEY
 tracking_system: file-system
@@ -136,6 +136,9 @@ development_status:
   1-8-action-data-completeness: done
   1-9-validation-button-consistency: done
   1-10-pill-selector-sort-honorifics: done
+  1-11-personal-story-npc-stub: done
+  1-14-dt-report-publishing: done
+  1-15-home-territory-field: done
 
   epic-dt-story-retrospective: optional
 
@@ -348,7 +351,7 @@ development_status:
 
   epic-feat: backlog
 
-  feat-1-remove-resolved-tickets: backlog
+  feat-1-remove-resolved-tickets: done
   feat-2-non-vampire-territories: backlog
   feat-3-duplicate-character-hard-delete: backlog
   feat-4-st-plot-npc-tracker: backlog
@@ -366,6 +369,9 @@ development_status:
   feat-16-st-city-status-edit: done  # ST can adjust inherent status.city via +/- controls on city chips in game app status tab
   feat-17-rules-city-status-territory: done  # Add City Status and Territory sections to the rules quick reference in the game app
   fix-44-attache-invested-gate: done  # Invested bonus dots allocatable to Attaché; INV box appears only after first dot purchased
+  feat-18-whos-who-map-regents-cleanup: done   # Who's Who tab: removed map + regents, collapsed to single-column layout
+  feat-19-regency-regent-lieutenant-dedup: review
+  feat-20-ordeals-tab-css-halfframes: review
 
   epic-feat-retrospective: optional
 
@@ -386,3 +392,107 @@ development_status:
   lst-6-st-player-view-toggle: done
 
   epic-lst-retrospective: optional
+
+  # ============================================================
+  # EPIC DTFC: DOWNTIME FORM CALIBRATION — DONE
+  # ============================================================
+  # Wave 1 (court, ordering, project/sphere) + Wave 2 (aspirations, feeding, vitae, rote, XP)
+  # Wave 3 (dtfc.9–11: NPC system, collaborative projects, equipment) deferred
+  # Epic file: specs/epic-dtfc-downtime-form-calibration.md
+
+  epic-dtfc: done
+
+  dtfc-1-court-section-calibrations: done
+  dtfc-2-form-section-ordering: done
+  dtfc-3-project-sphere-calibrations: done
+  dtfc-4-aspirations-structured-slots: done
+  dtfc-5-territory-grid-feeding-rights: done
+  dtfc-6-feeding-pool-vitae-projection: done
+  dtfc-7-rote-project-commitment: done
+  dtfc-8-xp-spend-structured: done
+  dtfc-12-remove-feed-project-action: done
+  dtfc-13-merit-section-headers: done
+  dtfc-14-form-buttons-layout: done
+  dtfc-9-npc-story-moment: backlog       # deferred — NPC system architecture needed
+  dtfc-10-collaborative-projects: backlog  # deferred — architecture needed
+  dtfc-11-equipment-tab: backlog          # deferred
+
+  epic-dtfc-retrospective: optional
+
+  # ============================================================
+  # EPIC DTG: DOWNTIME GAME APP — DONE
+  # ============================================================
+  # Downtime form in game app: CSS extraction, territories pipeline, E2E verify, dev fixes
+  # Epic file: specs/epic-dtg-downtime-game-app.md
+
+  epic-dtg: done
+
+  dtg-1-downtime-form-css-integration: done
+  dtg-2-downtime-territories-pipeline: done
+  dtg-3-downtime-form-end-to-end-verification: done
+  dtg-4-downtime-game-app-dev-fixes: done
+
+  epic-dtg-retrospective: optional
+
+  # ============================================================
+  # EPIC UNIFIED NAV: UNIFIED APP NAVIGATION — DONE
+  # ============================================================
+  # Auth unification, 4-tab layout, More grid, content migration, contextual cards, theme toggle
+  # Epic file: specs/epic-unified-nav.md
+
+  epic-unified-nav: done
+
+  nav-1-1-unify-auth-routing-theme: done
+  nav-1-2-four-tab-nav: done
+  nav-1-3-more-grid-launcher: done
+  nav-1-4-carry-forward-content: done
+  nav-2-1-read-only-sheet: done
+  nav-2-2-map-tab: done
+  nav-2-3-migrate-core-tabs: done
+  nav-2-4-conditional-tabs: done
+  nav-2-5-consolidate-feeding: done
+  nav-3-1-lifecycle-cards: done
+  nav-3-2-theme-toggle: done
+  nav-3-3-more-tab-badge: done
+  nav-3-4-dt-report-unread: done
+  nav-desktop-mode: done
+
+  epic-unified-nav-retrospective: optional
+
+  # ============================================================
+  # EPIC UNIFIED NAV POLISH — DONE
+  # ============================================================
+  # Regressions, blank tabs, CSS/layout, logic polish, game guide, combat tool, conditions
+  # Epic file: specs/epic-unified-nav-polish.md
+
+  epic-unified-nav-polish: done
+
+  nav-1-dev-data-fixture: done
+  nav-2-tab-regressions: done
+  nav-3-blank-tabs: done
+  nav-4-css-layout-fixes: done
+  nav-5-logic-polish: done
+  nav-6-contested-roll-design: done
+  nav-7-downtime-merge-design: done
+  nav-8-game-guide-scope: done
+  nav-9-combat-st-tool: done
+  nav-10-equipment: done
+  nav-11-conditions: done
+
+  epic-unified-nav-polish-retrospective: optional
+
+  # ============================================================
+  # EPIC FIN: FINANCE & COORDINATOR ACCESS — READY FOR DEV
+  # ============================================================
+  # Coordinator role for Lyn; door check-in + payment recording; finance summary
+  # Epic file: specs/epic-finance-coordinator.md
+  # Story files written; no implementation yet
+
+  epic-fin: in-progress
+
+  fin-1-coordinator-role: ready-for-dev
+  fin-2-finance-schema: ready-for-dev
+  fin-3-checkin-tab: ready-for-dev
+  fin-4-finance-tab: ready-for-dev
+
+  epic-fin-retrospective: optional

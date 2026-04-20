@@ -297,7 +297,7 @@ function goTab(t) {
   }
   if (t === 'whos-who') {
     const el = document.getElementById('t-whos-who');
-    if (el && !el.innerHTML.trim()) renderCityTab(el, suiteState.territories || []);
+    if (el && !el.innerHTML.trim()) renderCityTab(el);
   }
   if (t === 'office') {
     const el = document.getElementById('t-office');
