@@ -1652,6 +1652,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .qf-actions {
   display: flex;
+  justify-content: center;
   gap: 12px;
   padding: 16px 0;
 }

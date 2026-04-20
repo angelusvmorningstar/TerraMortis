@@ -12,7 +12,6 @@ const PROJECT_ACTIONS = [
   { value: 'ambience_increase', label: 'Ambience Change (Increase): Make a Territory delicious' },
   { value: 'ambience_decrease', label: 'Ambience Change (Decrease): Make Territory not delicious' },
   { value: 'attack', label: 'Attack: Attempt to destroy merits, holdings, projects, or NPCs' },
-  { value: 'feed', label: 'Feed: Dedicate extra time to feeding' },
   { value: 'hide_protect', label: 'Hide/Protect: Attempt to secure actions, merits, holdings, or projects' },
   { value: 'investigate', label: 'Investigate: Begin or further an investigation' },
   { value: 'patrol_scout', label: 'Patrol/Scout: Attempt to monitor a given Territory or area' },
