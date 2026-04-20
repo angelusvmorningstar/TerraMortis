@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Terra Mortis</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3A0000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@400;600;700;900&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
@@ -35,20 +40,18 @@
 
 <div id="app" style="display:none">
 
-  <!-- ══ HEADER ══ -->
+  <!-- ══ HEADER — compact: logo + character name + pool banner ══ -->
   <div id="hdr">
-    <div>
-      <div class="hdr-title">Terra Mortis</div>
-      <div class="hdr-sub" id="hdr-sub">Characters</div>
+    <div class="hdr-brand">
+      <img class="hdr-icon" src="assets/icon-192.png" alt="Terra Mortis" width="28" height="28">
+      <span class="hdr-char-name" id="hdr-char-name"></span>
     </div>
-    <div id="pool-banner"></div>
-    <div class="hdr-nav" id="hdr-nav">
+    <div id="pool-banner" style="display:none"></div>
+    <!-- Hidden controls: kept in DOM for desktop mode / JS references but not shown on mobile -->
+    <div id="hdr-nav" style="display:none">
       <button id="btn-view-toggle" class="app-nav-btn view-toggle-btn" onclick="toggleViewMode()" style="display:none">Player View</button>
-      <button id="btn-theme-toggle" class="app-nav-btn theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">
-        <svg id="theme-icon-dark" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        <svg id="theme-icon-parch" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      </button>
-      <button id="btn-desktop-toggle" class="app-nav-btn desktop-toggle-btn" onclick="toggleDesktopMode()" title="Toggle desktop mode">
+      <button id="btn-theme-toggle" class="app-nav-btn theme-toggle-btn" onclick="toggleTheme()"></button>
+      <button id="btn-desktop-toggle" class="app-nav-btn desktop-toggle-btn" onclick="toggleDesktopMode()">
         <svg id="desktop-icon-game" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         <svg id="desktop-icon-desktop" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
       </button>
@@ -96,7 +99,6 @@
     <!-- ═══ EDITOR SHEET TAB ═══ -->
     <div id="t-editor" class="tab">
       <div class="sheet-topbar">
-        <button onclick="goTab('chars')">&larr; Back</button>
         <div class="svt-toggle">
           <button class="svt-btn on" id="svt-sheet" onclick="setSheetView('sheet')">Sheet</button>
           <button class="svt-btn" id="svt-dt" onclick="setSheetView('dt')">DT Report</button>
@@ -129,7 +131,7 @@
     </div>
 
     <!-- ═══ ROLL TAB ═══ -->
-    <div id="t-dice" class="tab active">
+    <div id="t-dice" class="tab">
       <div id="lifecycle-cards" style="display:none"></div>
       <div class="shortcut-row">
         <button class="sc-btn" id="sc-char" onclick="openPanel('char')">
@@ -207,9 +209,6 @@
 
     <!-- ═══ SHEETS TAB (ST opens a character sheet) ═══ -->
     <div id="t-sheets" class="tab">
-      <div class="sheet-topbar">
-        <button onclick="goTab('chars')">&larr; Back</button>
-      </div>
       <div id="sh-empty" class="dtl-empty">No character selected</div>
       <div id="sh-content-suite" style="display:none"></div>
     </div>
@@ -242,32 +241,19 @@
     <div id="t-combat" class="tab"></div>
     <div id="t-regency" class="tab"></div>
     <div id="t-office" class="tab"></div>
+    <div id="t-stats" class="tab active"><div id="stats-content"></div></div>
+    <div id="t-skills" class="tab"><div id="skills-content"></div></div>
+    <div id="t-powers" class="tab"><div id="powers-content"></div></div>
+    <div id="t-info" class="tab"><div id="info-content"></div></div>
     <div id="t-archive" class="tab"></div>
+    <div id="t-settings" class="tab"></div>
 
   </div><!-- /tab-wrap -->
 
   </div><!-- /app-body -->
 
-  <!-- ═══ BOTTOM NAV — Unified 4-tab (Story 1.2) ═══ -->
-  <nav id="bnav">
-    <button class="nbtn on" id="n-dice" onclick="goTab('dice')">
-      <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>
-      Dice
-    </button>
-    <button class="nbtn" id="n-sheet" onclick="goTab('chars')">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Sheet
-    </button>
-    <button class="nbtn" id="n-status" onclick="goTab('status')">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      Status
-    </button>
-    <button class="nbtn" id="n-more" onclick="goTab('more')">
-      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
-      More
-      <span class="nav-badge" id="more-badge"></span>
-    </button>
-  </nav>
+  <!-- ═══ BOTTOM NAV — Scrollable swipeable strip ═══ -->
+  <nav id="bnav"></nav>
 </div>
 
 <!-- PICKER PANEL -->
@@ -288,6 +274,7 @@
 
 <div id="toast"></div>
 
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=20260420h"></script>
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
 </html>

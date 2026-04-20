@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════
 
 import state from './data.js';
-import { displayName, getWillpower, redactPlayer } from '../data/helpers.js';
+import { displayName, getWillpower, redactPlayer, shDotsWithBonus, formatSpecs, hasAoE } from '../data/helpers.js';
 import {
   ICONS, COV_ICON_MAP, CITY_SVG, OTHER_SVG, BP_SVG, HUM_SVG, STAT_SVG,
   RITUAL_DISCS, CORE_DISCS,
@@ -21,7 +21,8 @@ import {
 
 import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
-  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft
+  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft,
+  getSkillObj
 } from '../data/accessors.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
@@ -50,7 +51,19 @@ export function renderSheet() {
   state.openExpId = null;
   const c = state.sheetChar;
   const el = document.getElementById('sh-content-suite');
-  if (!c) { el.innerHTML = ''; return; }
+  // Split-tab containers (phone UX — Stats / Skills / Powers)
+  const statsEl  = document.getElementById('stats-content');
+  const skillsEl = document.getElementById('skills-content');
+  const powersEl = document.getElementById('powers-content');
+  const infoEl   = document.getElementById('info-content');
+  if (!c) {
+    if (el) el.innerHTML = '';
+    if (statsEl)  statsEl.innerHTML = '';
+    if (skillsEl) skillsEl.innerHTML = '';
+    if (powersEl) powersEl.innerHTML = '';
+    if (infoEl)   infoEl.innerHTML = '';
+    return;
+  }
 
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '';
   const st = c.status || {};
@@ -67,12 +80,13 @@ export function renderSheet() {
   const regularBanes = allBanes.filter((_, i) => i !== curseIdx);
 
   let html = '';
+  let infoHtml = '';
 
-  // ── HEADER ──
-  html += `<div class="sh-char-hdr">`;
+  // ── INFO (character identity, meta, covenant strip) ──
+  infoHtml += `<div class="sh-char-hdr">`;
 
   // Name row
-  html += `<div class="sh-namerow">
+  infoHtml += `<div class="sh-namerow">
     <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
       <span class="sh-char-player">${redactPlayer(c.player || '')}${c.pronouns ? ' \u00B7 ' + c.pronouns : ''}</span>
@@ -81,58 +95,27 @@ export function renderSheet() {
     ${c.concept ? `<div class="sh-char-concept" style="margin-top:4px">${c.concept}</div>` : ''}
   </div>`;
 
-  // Faction display — Covenant first, then Clan
-  html += `<div class="sh-faction-display">`;
-  if (c.covenant) {
-    html += `<div class="sh-faction-row">
-      ${covSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${covSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
-      <div class="sh-faction-info">
-        <span class="sh-faction-name">${c.covenant}</span>
-        <span class="sh-faction-type">Covenant</span>
-        ${st.covenant ? `<span class="sh-faction-dots">${dots(st.covenant)}</span>` : ''}
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.covenant || 0}</span></div>
-        <div class="sh-status-lbl">Cov.</div>
-      </div>
-    </div>`;
-  }
-  if (c.clan) {
-    html += `<div class="sh-faction-row">
-      ${clanSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${clanSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
-      <div class="sh-faction-info">
-        <span class="sh-faction-name">${c.clan}</span>
-        ${bl ? `<span class="sh-faction-bloodline-sub">${bl}</span>` : ''}
-        <span class="sh-faction-type">Clan</span>
-        ${st.clan ? `<span class="sh-faction-dots">${dots(st.clan)}</span>` : ''}
-      </div>
-      <div class="sh-stat-pip">
-        <div class="sh-status-shape">${OTHER_SVG}<span class="sh-status-n">${st.clan || 0}</span></div>
-        <div class="sh-status-lbl">Clan</div>
-      </div>
-    </div>`;
-  }
-  html += `</div>`; // end sh-faction-display
+  // Faction display moved to Status tab (personal status cards)
 
   // Meta rows: mask, dirge, curse/bane, touchstones, embrace, apparent age, features
-  html += `<div class="sh-char-meta">`;
+  infoHtml += `<div class="sh-char-meta">`;
 
   // Mask
   if (c.mask) {
     const body = (wp.mask_1wp ? `<div><span class="exp-wp-lbl">1 WP</span> ${wp.mask_1wp}</div>` : '') +
                  (wp.mask_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.mask_all}</div>` : '');
-    html += expRow('mask', 'Mask', c.mask, body);
+    infoHtml += expRow('mask', 'Mask', c.mask, body);
   }
   // Dirge
   if (c.dirge) {
     const body = (wp.dirge_1wp ? `<div><span class="exp-wp-lbl">1 WP</span> ${wp.dirge_1wp}</div>` : '') +
                  (wp.dirge_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.dirge_all}</div>` : '');
-    html += expRow('dirge', 'Dirge', c.dirge, body);
+    infoHtml += expRow('dirge', 'Dirge', c.dirge, body);
   }
   // Curse + Banes
-  if (curse) html += expRow('curse', 'Curse', curse.name, `<div>${curse.effect || ''}</div>`);
+  if (curse) infoHtml += expRow('curse', 'Curse', curse.name, `<div>${curse.effect || ''}</div>`);
   regularBanes.forEach((b, i) => {
-    html += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
+    infoHtml += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
   // Touchstones
   const ts = c.touchstones || [];
@@ -145,50 +128,29 @@ export function renderSheet() {
         <span class="exp-ts-name">${t.name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
-    html += expRow('touchstones', 'Touchstones', '', tsBody);
+    infoHtml += expRow('touchstones', 'Touchstones', '', tsBody);
   }
   // Embrace + Apparent Age
   if (c.date_of_embrace || c.apparent_age) {
-    html += `<div class="sh-meta-pair">`;
+    infoHtml += `<div class="sh-meta-pair">`;
     if (c.date_of_embrace) {
       const dedDisp = new Date(c.date_of_embrace + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Embrace</span><span class="sh-meta-val">${dedDisp}</span></div>`;
+      infoHtml += `<div class="sh-meta-row"><span class="sh-meta-lbl">Embrace</span><span class="sh-meta-val">${dedDisp}</span></div>`;
     }
     if (c.apparent_age) {
-      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">App. Age</span><span class="sh-meta-val">${c.apparent_age}</span></div>`;
+      infoHtml += `<div class="sh-meta-row"><span class="sh-meta-lbl">App. Age</span><span class="sh-meta-val">${c.apparent_age}</span></div>`;
     }
-    html += `</div>`;
+    infoHtml += `</div>`;
   }
   // Features
   if (c.features) {
-    html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Features</span><span class="sh-meta-val">${c.features}</span></div>`;
+    infoHtml += `<div class="sh-meta-row"><span class="sh-meta-lbl">Features</span><span class="sh-meta-val">${c.features}</span></div>`;
   }
 
-  html += `</div>`; // end sh-char-meta
-  html += `</div>`; // end sh-char-hdr
+  infoHtml += `</div>`; // end sh-char-meta
+  infoHtml += `</div>`; // end sh-char-hdr
 
-  // ── COVENANT STRIP ──
-  const covStandings = c.covenant_standings || {};
-  const COV_SHORT = {
-    'Carthian Movement': 'Carthian',
-    'Circle of the Crone': 'Crone',
-    'Invictus': 'Invictus',
-    'Lancea et Sanctum': 'Lance',
-  };
-  const ownLabel = COV_SHORT[c.covenant] || null;
-  const covSEntries = Object.entries(covStandings)
-    .filter(([label, v]) => v !== undefined && label !== ownLabel);
-  if (covSEntries.length) {
-    html += `<div class="cov-strip">`;
-    covSEntries.forEach(([label, status]) => {
-      const active = status > 0;
-      html += `<div class="cov-strip-cell">
-        <span class="cov-strip-name${active ? ' active' : ''}">${label}</span>
-        <span class="cov-strip-dot${active ? ' active' : ''}">${active ? '\u25CB' : '\u2013'}</span>
-      </div>`;
-    });
-    html += `</div>`;
-  }
+  // Covenant strip moved to Status tab
 
   // ── STATS STRIP ──
   html += `<div class="sh-stats-strip">
@@ -260,42 +222,55 @@ export function renderSheet() {
     ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled') + infBreakdown : ''}
   </div>`;
 
+  // ── Split point: stats content ends here ──
+  const statsHtml = html;
+  html = '';
+
   // ── BODY ──
   html += `<div class="sh-body">`;
 
-  // Attributes (3-column: Mental | Physical | Social)
-  const ATTR_COLS = [
-    { label: 'Mental',   attrs: ['Intelligence', 'Wits', 'Resolve'] },
-    { label: 'Physical', attrs: ['Strength', 'Dexterity', 'Stamina'] },
-    { label: 'Social',   attrs: ['Presence', 'Manipulation', 'Composure'] },
+  // Attributes + Skills combined carousel (Mental / Physical / Social)
+  const CATEGORIES = [
+    { label: 'Mental',   attrs: ['Intelligence', 'Wits', 'Resolve'],
+      skills: ['Academics', 'Computer', 'Crafts', 'Investigation', 'Medicine', 'Occult', 'Politics', 'Science'] },
+    { label: 'Physical', attrs: ['Strength', 'Dexterity', 'Stamina'],
+      skills: ['Athletics', 'Brawl', 'Drive', 'Firearms', 'Larceny', 'Stealth', 'Survival', 'Weaponry'] },
+    { label: 'Social',   attrs: ['Presence', 'Manipulation', 'Composure'],
+      skills: ['Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Streetwise', 'Subterfuge'] },
   ];
-  html += `<div class="sh-sec"><div class="sh-sec-title">Attributes</div><div class="attr-grid">`;
-  ATTR_COLS.forEach(col => {
-    html += `<div class="attr-cell"><div class="attr-group-hd">${col.label}</div>`;
-    col.attrs.forEach(a => {
+
+  html += `<div class="sh-sec">`;
+  // Badge indicators above carousel
+  html += `<div class="attr-carousel-badges">${CATEGORIES.map((cat, i) =>
+    `<span class="attr-carousel-badge${i === 0 ? ' active' : ''}" data-carousel-idx="${i}">${cat.label}</span>`
+  ).join('')}</div>`;
+  // Carousel container
+  html += `<div class="attr-skills-carousel" id="attr-carousel">`;
+  CATEGORIES.forEach(cat => {
+    html += `<div class="attr-skills-card">`;
+    // Attributes block
+    html += `<div class="attr-cell"><div class="attr-group-hd">${cat.label} Attributes</div>`;
+    cat.attrs.forEach(a => {
       const base = getAttrDots(c, a), bonus = getAttrBonus(c, a);
       html += `<div class="attr-row-item"><span class="attr-name">${a}</span><span class="attr-dots">${dotsWithBonus(base, bonus)}</span></div>`;
     });
     html += `</div>`;
-  });
-  html += `</div></div>`;
-
-  // Skills (3-col, all 24)
-  const SKILL_COLS = [
-    ['Academics', 'Computer', 'Crafts', 'Investigation', 'Medicine', 'Occult', 'Politics', 'Science'],
-    ['Athletics', 'Brawl', 'Drive', 'Firearms', 'Larceny', 'Stealth', 'Survival', 'Weaponry'],
-    ['Animal Ken', 'Empathy', 'Expression', 'Intimidation', 'Persuasion', 'Socialise', 'Streetwise', 'Subterfuge'],
-  ];
-  html += `<div class="sh-sec"><div class="sh-sec-title">Skills</div><div class="skills-3col">`;
-  for (let ri = 0; ri < 8; ri++) {
-    SKILL_COLS.forEach(col => {
-      const s = col[ri];
-      const sk = c.skills ? c.skills[s] : null;
-      const d = skillDots(sk), sp = skillSpec(sk);
-      const bn = sk ? (sk.bonus || 0) : 0;
-      const na = sk && sk.nine_again;
-      const hasDots = d > 0 || bn > 0;
-      const dotStr = hasDots ? dotsWithBonus(d, bn) : '\u2013';
+    // Skills block — matches desktop view: PT/MCI bonus dots shown hollow,
+    // 9-Again labelled with source (PT/OHM), specs formatted with AoE highlight
+    html += `<div class="skill-col-block"><div class="attr-group-hd">${cat.label} Skills</div>`;
+    cat.skills.forEach(s => {
+      const sk = getSkillObj(c, s);
+      const d = sk.dots, bn = sk.bonus;
+      const sp = (sk.specs || []).length ? formatSpecs(c, sk.specs) : '';
+      const na = sk.nine_again;
+      const ptNa = c._pt_nine_again_skills?.has(s);
+      const ohmNa = c._ohm_nine_again_skills?.has(s);
+      const ptBn = c._pt_dot4_bonus_skills?.has(s) ? 1 : 0;
+      const mciBn = c._mci_dot3_skills?.has(s) ? 1 : 0;
+      const totalBn = bn + ptBn + mciBn;
+      const hasDots = d > 0 || totalBn > 0;
+      const dotStr = hasDots ? shDotsWithBonus(d, totalBn) : '\u2013';
+      const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
         <div class="skill-name-wrap">
           <span class="skill-name">${s}</span>
@@ -303,18 +278,27 @@ export function renderSheet() {
         </div>
         <div class="skill-dots-wrap">
           <span class="${hasDots ? 'skill-dots' : 'skill-zero'}">${dotStr}</span>
-          ${na ? `<span class="skill-na">9-Again</span>` : ''}
+          ${naLabel ? `<span class="skill-na${ptNa || ohmNa ? ' pt-na' : ''}">${naLabel}</span>` : ''}
         </div>
       </div>`;
     });
-  }
+    html += `</div>`;
+    html += `</div>`; // end card
+  });
   html += `</div></div>`;
+
+  // ── Split point: skills content ends here ──
+  const skillsHtml = html;
+  html = '';
 
   // ── Powers -- four sections ──
 
   function dotsMixed(purchased, bonus) {
     if (!purchased && !bonus) return '';
-    return '<span class="trait-dots">' + '\u25CF'.repeat(purchased) + '\u25CB'.repeat(bonus) + '</span>';
+    return '<span class="trait-dots">'
+      + '<span class="pointed"></span>'.repeat(purchased)
+      + '<span class="pointed hollow"></span>'.repeat(bonus)
+      + '</span>';
   }
 
   if (c.disciplines && Object.keys(c.disciplines).length) {
@@ -496,7 +480,8 @@ export function renderSheet() {
   // ── Standing Merits ──
   const stndMerits = standingMerits(c).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (stndMerits.length) {
-    const tierDotStr = ['\u25CF', '\u25CF\u25CF', '\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF', '\u25CF\u25CF\u25CF\u25CF\u25CF'];
+    const _pd = '<span class="pointed"></span>';
+    const tierDotStr = [_pd, _pd.repeat(2), _pd.repeat(3), _pd.repeat(4), _pd.repeat(5)];
     html += `<div class="sh-sec"><div class="sh-sec-title">Standing Merits</div><div class="stand-list">`;
     stndMerits.forEach((m, mi) => {
       const sid = 'smt' + mi;
@@ -656,7 +641,41 @@ export function renderSheet() {
   }
 
   html += `</div>`; // end sh-body
-  el.innerHTML = html;
+  const powersHtml = html;
+
+  // Render to full sheet container (desktop / legacy) and split-tab containers (phone)
+  if (el) el.innerHTML = infoHtml + statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
+  if (statsEl)  statsEl.innerHTML  = statsHtml;
+  if (skillsEl) skillsEl.innerHTML = skillsHtml;
+  if (powersEl) powersEl.innerHTML = powersHtml;
+  if (infoEl)   infoEl.innerHTML   = infoHtml;
+
+  // Wire attribute+skills carousel indicators
+  _wireAttrCarousel(skillsEl || el);
+}
+
+function _wireAttrCarousel(container) {
+  if (!container) return;
+  const carousel = container.querySelector('#attr-carousel');
+  const badges = container.querySelectorAll('.attr-carousel-badge');
+  if (!carousel || !badges.length) return;
+  const cards = carousel.querySelectorAll('.attr-skills-card');
+  if (!cards.length) return;
+
+  // Update badges on scroll
+  carousel.addEventListener('scroll', () => {
+    const scrollLeft = carousel.scrollLeft;
+    const cardWidth = cards[0].offsetWidth;
+    const idx = Math.round(scrollLeft / cardWidth);
+    badges.forEach((b, i) => b.classList.toggle('active', i === idx));
+  }, { passive: true });
+
+  // Tap badge to scroll to that card
+  badges.forEach((badge, i) => {
+    badge.addEventListener('click', () => {
+      cards[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+  });
 }
 
 function esc(s) {

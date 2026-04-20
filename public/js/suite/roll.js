@@ -49,7 +49,6 @@ export function loadPool(total, name, pi) {
   document.getElementById('sc-disc-val').textContent = name;
   document.getElementById('sc-disc').classList.add('loaded');
   closePanel();
-  toast('Loaded: ' + name + ' (' + total + ' dice)');
 }
 
 // ── EFFECTIVE POOL ──

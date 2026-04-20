@@ -14,7 +14,7 @@ import { apiGet, apiPut } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
-import suiteState from './data.js';
+import suiteState, { CITY_SVG } from './data.js';
 import { getRole } from '../auth/discord.js';
 
 // ── Module-level state ───────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ function avatarUrl(c) {
 // ── Dot helpers ──────────────────────────────────────────────────────────────
 function statusDots(n, max = 5) {
   const v = Math.max(0, Math.min(max, n | 0));
-  return '\u25CF'.repeat(v) + '\u25CB'.repeat(max - v);
+  return '<span class="pointed"></span>'.repeat(v) + '<span class="pointed hollow"></span>'.repeat(max - v);
 }
 
 // ── Chip renderers ───────────────────────────────────────────────────────────
@@ -271,7 +271,39 @@ export async function renderSuiteStatusTab(el) {
   const activeId   = activeChar ? String(activeChar._id) : '';
   const isST       = getRole() === 'st';
 
-  let h = renderCitySection(chars, activeId, isST);
+  // ── Personal status cards (player's own city/covenant/clan) ──
+  let h = '';
+  if (activeChar) {
+    const st = activeChar.status || {};
+    const cityV = calcCityStatus(activeChar);
+    const covV = (st.covenant || 0) - (activeChar._ots_covenant_bonus || 0);
+    const clanV = st.clan || 0;
+    const appellation = CITY_STATUS_APPELLATIONS[cityV] || '';
+    h += `<div class="status-personal">`;
+    h += `<div class="status-personal-card">`;
+    h += `<div class="status-personal-icon">${CITY_SVG}</div>`;
+    h += `<div class="status-personal-info"><span class="status-personal-label">City</span>`;
+    h += `<span class="status-personal-dots">${statusDots(cityV, 10)}</span>`;
+    if (appellation) h += `<span class="status-personal-appellation">${esc(appellation)}</span>`;
+    h += `</div><span class="status-personal-val">${cityV}</span></div>`;
+    if (activeChar.covenant) {
+      h += `<div class="status-personal-card">`;
+      h += `<div class="status-personal-icon">${covIcon(activeChar.covenant, 20)}</div>`;
+      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(activeChar.covenant)}</span>`;
+      h += `<span class="status-personal-dots">${statusDots(covV, 5)}</span>`;
+      h += `</div><span class="status-personal-val">${covV}</span></div>`;
+    }
+    if (activeChar.clan) {
+      h += `<div class="status-personal-card">`;
+      h += `<div class="status-personal-icon">${clanIcon(activeChar.clan, 20)}</div>`;
+      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(activeChar.clan)}</span>`;
+      h += `<span class="status-personal-dots">${statusDots(clanV, 5)}</span>`;
+      h += `</div><span class="status-personal-val">${clanV}</span></div>`;
+    }
+    h += `</div>`;
+  }
+
+  h += renderCitySection(chars, activeId, isST);
 
   if (isST) {
     // All covenants, then all clans — each full-width, stacked

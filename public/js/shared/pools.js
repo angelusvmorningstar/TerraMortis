@@ -1,7 +1,7 @@
 /* Shared pool string parser — resolves discipline keys to dice pools */
 
 import { RITUAL_DISCS } from '../suite/data.js';
-import { getAttrEffective, skTotal } from '../data/accessors.js';
+import { getAttrEffective, skTotal, skNineAgain } from '../data/accessors.js';
 import { SKILLS_MENTAL } from '../data/constants.js';
 import { getRuleByKey } from '../data/loader.js';
 
@@ -44,6 +44,7 @@ export function getPool(char, raw) {
       attr: p.attr, attrV,
       skill: p.skill, skillV, unskilled,
       discName: p.disc, discV,
+      nineAgain: p.skill ? skNineAgain(char, p.skill) : false,
       resistance: rule.resistance || null,
       cost: rule.cost || null,
       action: rule.action || null,

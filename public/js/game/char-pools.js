@@ -130,9 +130,10 @@ export function renderCharPools(el, char, onTap) {
     const pi = getPool(char, pw.name);
     if (!pi || pi.noRoll || pi.total === undefined) continue;
     const idx = _pools.length;
-    _pools.push({ total: pi.total, label: pw.name, attr: pi.attr, attrV: pi.attrV, skill: pi.skill, skillV: pi.skillV, resistance: pi.resistance || null, pi });
+    const discNa = pi.nineAgain || (pi.skill && skNineAgain(char, pi.skill));
+    _pools.push({ total: pi.total, label: pw.name, attr: pi.attr, attrV: pi.attrV, skill: pi.skill, skillV: pi.skillV, nineAgain: !!discNa, resistance: pi.resistance || null, pi });
     const sub = ab(pi.attr) + '+' + ab(pi.skill) + (pi.resistance ? ' vs ' + pi.resistance : '');
-    discHtml += poolBtn(pw.name, pi.total, sub, idx);
+    discHtml += poolBtn(pw.name, pi.total, sub, idx, discNa);
   }
   if (discHtml) {
     h += '<div class="gcp-section-hd">Discipline Pools</div>';
