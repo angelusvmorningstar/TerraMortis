@@ -1,6 +1,17 @@
 [build]
   publish = "public"
 
+# Short cache for JS/CSS so deploys take effect quickly
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
+
 # Proxy API requests to the Render-hosted Express server.
 # Update the 'to' URL when the Render service is deployed.
 [[redirects]]
