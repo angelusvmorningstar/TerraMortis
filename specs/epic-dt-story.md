@@ -176,7 +176,7 @@ Key tasks:
 - `saveNarrativeField` patches `st_narrative.home_report`
 - If nothing notable happened near home territory: prompt notes "quiet month near home"
 
-### Story 1.13: Merit Summary — DT Story
+### Story 1.13: Merit Summary — DT Story — DONE
 
 **As an** ST finalising a character's downtime output,
 **I want** a read-only Merit & Asset Summary section that aggregates all merit action outcome summaries,
