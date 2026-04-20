@@ -252,13 +252,84 @@ export function renderOutcomeWithCards(sub) {
     }
   }
 
-  // Merit action cards always at the bottom
-  h += renderMeritActionCards(sub);
+  // Merit action summary — ledger if outcome_summary present, cards as fallback
+  h += renderMeritSummarySection(sub);
 
   return h;
 }
 
-// ── Merit action cards ────────────────────────────────────────────
+// ── Merit action summary / cards ─────────────────────────────────
+
+function _deriveMeritCat(meritTypeStr) {
+  const s = (meritTypeStr || '').toLowerCase();
+  if (/allies/.test(s))    return 'allies';
+  if (/status/.test(s))    return 'status';
+  if (/retainer/.test(s))  return 'retainer';
+  if (/contacts?/.test(s)) return 'contacts';
+  if (/resources?/.test(s)) return 'resources';
+  return 'misc';
+}
+
+const _MERIT_CAT_ORDER  = ['allies', 'status', 'contacts', 'retainer', 'resources', 'misc'];
+const _MERIT_CAT_LABELS = {
+  allies: 'Allies', status: 'Status', contacts: 'Contacts',
+  retainer: 'Retainers', resources: 'Resources', misc: 'Influence',
+};
+
+/**
+ * Renders merit action outcomes. If outcome_summary strings are present
+ * (set during DT Processing), renders a grouped ledger. Otherwise falls
+ * back to the legacy card-per-action rendering for older submissions.
+ */
+function renderMeritSummarySection(sub) {
+  const actions  = buildPlayerMeritActions(sub);
+  const resolved = sub.merit_actions_resolved || [];
+
+  const hasOutcomeSummaries = resolved.some(rev => rev?.outcome_summary?.trim());
+
+  if (!hasOutcomeSummaries) {
+    return renderMeritActionCards(sub);
+  }
+
+  // Group by category — only show entries with a recorded outcome
+  const groups = {};
+  actions.forEach((a, i) => {
+    const rev = resolved[i] || {};
+    if (rev.pool_status === 'skipped') return;
+    const summary = rev.outcome_summary?.trim();
+    if (!summary) return;
+    const cat = _deriveMeritCat(a.merit_type);
+    if (!groups[cat]) groups[cat] = [];
+    const meritLabel = (a.merit_type || '').replace(/\s*[●○\u25cf\u25cb]+\s*/gi, ' ').replace(/\s+/g, ' ').trim();
+    groups[cat].push({
+      meritLabel,
+      actionLabel: ACTION_TYPE_LABELS[a.action_type] || a.action_type || '',
+      summary,
+    });
+  });
+
+  const orderedCats = _MERIT_CAT_ORDER.filter(c => groups[c]);
+  if (!orderedCats.length) return '';
+
+  let h = '<div class="merit-summary-section">';
+  h += '<h4 class="story-section-head merit-summary-head">Allies &amp; Asset Summary</h4>';
+  for (const cat of orderedCats) {
+    h += `<div class="merit-summary-group">`;
+    h += `<div class="merit-summary-cat-label">${_MERIT_CAT_LABELS[cat] || cat}</div>`;
+    for (const entry of groups[cat]) {
+      h += `<div class="merit-summary-row">`;
+      h += `<span class="merit-summary-merit">${esc(entry.meritLabel)}</span>`;
+      if (entry.actionLabel) h += `<span class="merit-summary-action-type">${esc(entry.actionLabel)}</span>`;
+      h += `<span class="merit-summary-text">${esc(entry.summary)}</span>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+// ── Merit action cards (legacy — used as fallback when outcome_summary absent) ─
 
 /**
  * Reconstructs the ordered list of merit actions from the submission's
