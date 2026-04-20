@@ -55,11 +55,13 @@ export function renderSheet() {
   const statsEl  = document.getElementById('stats-content');
   const skillsEl = document.getElementById('skills-content');
   const powersEl = document.getElementById('powers-content');
+  const infoEl   = document.getElementById('info-content');
   if (!c) {
     if (el) el.innerHTML = '';
     if (statsEl)  statsEl.innerHTML = '';
     if (skillsEl) skillsEl.innerHTML = '';
     if (powersEl) powersEl.innerHTML = '';
+    if (infoEl)   infoEl.innerHTML = '';
     return;
   }
 
@@ -78,12 +80,13 @@ export function renderSheet() {
   const regularBanes = allBanes.filter((_, i) => i !== curseIdx);
 
   let html = '';
+  let infoHtml = '';
 
-  // ── HEADER ──
-  html += `<div class="sh-char-hdr">`;
+  // ── INFO (character identity, meta, covenant strip) ──
+  infoHtml += `<div class="sh-char-hdr">`;
 
   // Name row
-  html += `<div class="sh-namerow">
+  infoHtml += `<div class="sh-namerow">
     <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
       <span class="sh-char-player">${redactPlayer(c.player || '')}${c.pronouns ? ' \u00B7 ' + c.pronouns : ''}</span>
@@ -93,9 +96,9 @@ export function renderSheet() {
   </div>`;
 
   // Faction display — Covenant first, then Clan
-  html += `<div class="sh-faction-display">`;
+  infoHtml += `<div class="sh-faction-display">`;
   if (c.covenant) {
-    html += `<div class="sh-faction-row">
+    infoHtml += `<div class="sh-faction-row">
       ${covSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${covSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
       <div class="sh-faction-info">
         <span class="sh-faction-name">${c.covenant}</span>
@@ -109,7 +112,7 @@ export function renderSheet() {
     </div>`;
   }
   if (c.clan) {
-    html += `<div class="sh-faction-row">
+    infoHtml += `<div class="sh-faction-row">
       ${clanSvg ? `<div class="sh-faction-icon-sm" style="color:var(--accent)">${clanSvg}</div>` : `<div class="sh-faction-icon-sm"></div>`}
       <div class="sh-faction-info">
         <span class="sh-faction-name">${c.clan}</span>
@@ -123,27 +126,27 @@ export function renderSheet() {
       </div>
     </div>`;
   }
-  html += `</div>`; // end sh-faction-display
+  infoHtml += `</div>`; // end sh-faction-display
 
   // Meta rows: mask, dirge, curse/bane, touchstones, embrace, apparent age, features
-  html += `<div class="sh-char-meta">`;
+  infoHtml += `<div class="sh-char-meta">`;
 
   // Mask
   if (c.mask) {
     const body = (wp.mask_1wp ? `<div><span class="exp-wp-lbl">1 WP</span> ${wp.mask_1wp}</div>` : '') +
                  (wp.mask_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.mask_all}</div>` : '');
-    html += expRow('mask', 'Mask', c.mask, body);
+    infoHtml += expRow('mask', 'Mask', c.mask, body);
   }
   // Dirge
   if (c.dirge) {
     const body = (wp.dirge_1wp ? `<div><span class="exp-wp-lbl">1 WP</span> ${wp.dirge_1wp}</div>` : '') +
                  (wp.dirge_all ? `<div style="margin-top:5px"><span class="exp-wp-lbl">All WP</span> ${wp.dirge_all}</div>` : '');
-    html += expRow('dirge', 'Dirge', c.dirge, body);
+    infoHtml += expRow('dirge', 'Dirge', c.dirge, body);
   }
   // Curse + Banes
-  if (curse) html += expRow('curse', 'Curse', curse.name, `<div>${curse.effect || ''}</div>`);
+  if (curse) infoHtml += expRow('curse', 'Curse', curse.name, `<div>${curse.effect || ''}</div>`);
   regularBanes.forEach((b, i) => {
-    html += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
+    infoHtml += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
   // Touchstones
   const ts = c.touchstones || [];
@@ -156,27 +159,27 @@ export function renderSheet() {
         <span class="exp-ts-name">${t.name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
-    html += expRow('touchstones', 'Touchstones', '', tsBody);
+    infoHtml += expRow('touchstones', 'Touchstones', '', tsBody);
   }
   // Embrace + Apparent Age
   if (c.date_of_embrace || c.apparent_age) {
-    html += `<div class="sh-meta-pair">`;
+    infoHtml += `<div class="sh-meta-pair">`;
     if (c.date_of_embrace) {
       const dedDisp = new Date(c.date_of_embrace + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Embrace</span><span class="sh-meta-val">${dedDisp}</span></div>`;
+      infoHtml += `<div class="sh-meta-row"><span class="sh-meta-lbl">Embrace</span><span class="sh-meta-val">${dedDisp}</span></div>`;
     }
     if (c.apparent_age) {
-      html += `<div class="sh-meta-row"><span class="sh-meta-lbl">App. Age</span><span class="sh-meta-val">${c.apparent_age}</span></div>`;
+      infoHtml += `<div class="sh-meta-row"><span class="sh-meta-lbl">App. Age</span><span class="sh-meta-val">${c.apparent_age}</span></div>`;
     }
-    html += `</div>`;
+    infoHtml += `</div>`;
   }
   // Features
   if (c.features) {
-    html += `<div class="sh-meta-row"><span class="sh-meta-lbl">Features</span><span class="sh-meta-val">${c.features}</span></div>`;
+    infoHtml += `<div class="sh-meta-row"><span class="sh-meta-lbl">Features</span><span class="sh-meta-val">${c.features}</span></div>`;
   }
 
-  html += `</div>`; // end sh-char-meta
-  html += `</div>`; // end sh-char-hdr
+  infoHtml += `</div>`; // end sh-char-meta
+  infoHtml += `</div>`; // end sh-char-hdr
 
   // ── COVENANT STRIP ──
   const covStandings = c.covenant_standings || {};
@@ -190,15 +193,15 @@ export function renderSheet() {
   const covSEntries = Object.entries(covStandings)
     .filter(([label, v]) => v !== undefined && label !== ownLabel);
   if (covSEntries.length) {
-    html += `<div class="cov-strip">`;
+    infoHtml += `<div class="cov-strip">`;
     covSEntries.forEach(([label, status]) => {
       const active = status > 0;
-      html += `<div class="cov-strip-cell">
+      infoHtml += `<div class="cov-strip-cell">
         <span class="cov-strip-name${active ? ' active' : ''}">${label}</span>
         <span class="cov-strip-dot${active ? ' active' : ''}">${active ? '\u25CB' : '\u2013'}</span>
       </div>`;
     });
-    html += `</div>`;
+    infoHtml += `</div>`;
   }
 
   // ── STATS STRIP ──
@@ -693,10 +696,11 @@ export function renderSheet() {
   const powersHtml = html;
 
   // Render to full sheet container (desktop / legacy) and split-tab containers (phone)
-  if (el) el.innerHTML = statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
+  if (el) el.innerHTML = infoHtml + statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
   if (statsEl)  statsEl.innerHTML  = statsHtml;
   if (skillsEl) skillsEl.innerHTML = skillsHtml;
   if (powersEl) powersEl.innerHTML = powersHtml;
+  if (infoEl)   infoEl.innerHTML   = infoHtml;
 
   // Wire attribute+skills carousel indicators
   _wireAttrCarousel(skillsEl || el);
