@@ -158,7 +158,7 @@ Key tasks:
 - `collect_responses` handles both stub-picked and free-text NPC paths
 - Note: `npcs` stub on character is a placeholder — full NPC Register epic will replace this with proper collections and admin UI. Code interacts with this interface; the backing store changes later.
 
-### Story 1.12: Home Report Section — DT Story
+### Story 1.12: Home Report Section — DT Story — DONE
 
 **As an** ST writing the Home Report for a character,
 **I want** a section that surfaces what's happening near the character's home territory,
