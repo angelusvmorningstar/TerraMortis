@@ -6606,7 +6606,7 @@ function renderActionPanel(entry, review) {
 
   // ST Notes thread
   h += '<div class="proc-section proc-notes-panel proc-notes-primary">';
-  h += '<div class="proc-detail-label">ST Notes</div>';
+  h += '<div class="proc-detail-label">ST Notes <span class="proc-label-sub">— visible to Claude</span></div>';
   if (thread.length) {
     h += '<div class="proc-notes-thread">';
     for (let noteIdx = 0; noteIdx < thread.length; noteIdx++) {
@@ -6622,7 +6622,7 @@ function renderActionPanel(entry, review) {
     h += '</div>';
   }
   h += '<div class="proc-note-add">';
-  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="2"></textarea>`;
+  h += `<textarea class="proc-note-textarea" data-proc-key="${esc(entry.key)}" placeholder="Add ST note..." rows="3"></textarea>`;
   h += `<button class="dt-btn proc-add-note-btn" data-proc-key="${esc(entry.key)}">Add Note</button>`;
   h += '</div>';
   h += '</div>';
@@ -6635,7 +6635,7 @@ function renderActionPanel(entry, review) {
 
   // Player Feedback (player_facing_note — included verbatim in published outcome)
   h += '<div class="proc-section proc-player-note-section">';
-  h += '<div class="proc-detail-label">Player Feedback</div>';
+  h += '<div class="proc-detail-label">Player Feedback <span class="proc-label-sub">— sent to player</span></div>';
   h += `<textarea class="proc-player-note-input" data-proc-key="${esc(entry.key)}" rows="2" placeholder="Plain-language note included verbatim in player outcome...">${esc(playerFacingNote)}</textarea>`;
   h += '</div>';
 

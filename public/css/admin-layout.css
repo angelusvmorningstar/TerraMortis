@@ -4801,6 +4801,22 @@ body {
 .proc-feedback-section .proc-detail-label {
   margin-bottom: 4px;
 }
+.proc-player-note-section {
+  background: var(--surf2);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+.proc-player-note-section .proc-detail-label {
+  margin-bottom: 4px;
+}
+.proc-label-sub {
+  font-size: 11px;
+  color: var(--txt3);
+  font-weight: normal;
+  font-family: var(--ft);
+}
 
 /* ── DTX-1: cross-reference callout ────────────────────────────── */
 .proc-xref-callout {
