@@ -440,7 +440,7 @@ async function loadAllData() {
   }
 
   // 1b. Load game session XP (attendance-based) — same as admin/player portal
-  await loadGameXP(editorState.chars).catch(() => {});
+  await loadGameXP(editorState.chars, getRole() === 'st').catch(() => {});
 
   // 1c. Compute derived bonus fields (PT/MCI/OHM grants, 9-Again, etc.)
   editorState.chars.forEach(c => applyDerivedMerits(c));
