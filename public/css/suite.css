@@ -1823,6 +1823,11 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
 .settings-logout { border-color: var(--crim-a55); color: var(--crim); }
 .settings-logout:hover { background: var(--crim-a15); }
+.settings-checkbox-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--txt); cursor: pointer; }
+.settings-checkbox-row input { accent-color: var(--accent); width: 18px; height: 18px; }
+.settings-input { display: block; width: 100%; padding: 8px 10px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; box-sizing: border-box; margin-bottom: 8px; }
+.settings-input:focus { outline: none; border-color: var(--accent); }
+.settings-ticket-form { display: flex; flex-direction: column; }
 
 /* ── Reading font size (tunable via Settings) ── */
 :root { --reading-font-size: 15px; }
