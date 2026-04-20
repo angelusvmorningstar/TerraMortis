@@ -309,6 +309,16 @@ function collectResponses() {
     }
   }
 
+  // Personal story fields
+  const psNpcId   = document.getElementById('dt-personal_story_npc_id');
+  const psNpcName = document.getElementById('dt-personal_story_npc_name');
+  const psNote    = document.getElementById('dt-personal_story_note');
+  const psDir     = document.querySelector('input[name="personal_story_direction"]:checked');
+  responses['personal_story_npc_id']   = psNpcId   ? psNpcId.value   : '';
+  responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
+  responses['personal_story_note']     = psNote    ? psNote.value    : '';
+  responses['personal_story_direction'] = psDir    ? psDir.value     : 'continue';
+
   // Aspiration structured slots
   for (let n = 1; n <= 3; n++) {
     const typeEl = document.getElementById(`dt-aspiration_${n}_type`);
@@ -1024,6 +1034,7 @@ function renderForm(container) {
     if (section.key === 'territory') continue;
     if (section.key === 'feeding') continue;
     if (section.key === 'regency') continue;
+    if (section.key === 'personal_story') continue; // rendered explicitly below
 
     const isGated = section.gate && gateValues[section.gate] !== 'yes';
     const sectionClass = isGated ? 'qf-section dt-gated-hidden' : 'qf-section collapsed';
@@ -1040,6 +1051,9 @@ function renderForm(container) {
     }
     h += '</div></div>';
   }
+
+  // ── Personal Story — NPC interaction ──
+  h += renderPersonalStorySection(saved);
 
   // ── Blood Sorcery before Territory/Feeding — rites can affect hunt pool ──
   if (gateValues.has_sorcery === 'yes') {
@@ -1339,6 +1353,17 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
+    // Personal story free-text NPC name — sync to hidden fields and deselect cards
+    if (e.target.id === 'dt-personal_story_npc_name_free') {
+      const val    = e.target.value.trim();
+      const idEl   = document.getElementById('dt-personal_story_npc_id');
+      const nameEl = document.getElementById('dt-personal_story_npc_name');
+      if (idEl)   idEl.value   = val ? '__new__' : '';
+      if (nameEl) nameEl.value = val;
+      if (val) container.querySelectorAll('[data-npc-pick]').forEach(c => c.classList.remove('dt-npc-card-selected'));
+      scheduleSave();
+      return;
+    }
     // Rote feeding checkbox
     if (e.target.id === 'dt-feed-rote') {
       feedRoteAction = e.target.checked;
@@ -1514,6 +1539,25 @@ function renderForm(container) {
       if (responseDoc) responseDoc.responses = responses;
       else responseDoc = { responses };
       renderForm(container);
+      return;
+    }
+    // NPC card selection
+    const npcCard = e.target.closest('[data-npc-pick]');
+    if (npcCard) {
+      const id   = npcCard.dataset.npcPick;
+      const name = npcCard.dataset.npcName || '';
+      const idEl   = document.getElementById('dt-personal_story_npc_id');
+      const nameEl = document.getElementById('dt-personal_story_npc_name');
+      if (idEl)   idEl.value   = id;
+      if (nameEl) nameEl.value = name;
+      container.querySelectorAll('[data-npc-pick]').forEach(c =>
+        c.classList.toggle('dt-npc-card-selected', c.dataset.npcPick === id)
+      );
+      // Clear free-text field when a card is picked
+      const freeEl = document.getElementById('dt-personal_story_npc_name_free');
+      if (freeEl) freeEl.value = '';
+      scheduleSave();
+      updateSectionTicks(container);
       return;
     }
     // Single-select territory pills
@@ -2540,6 +2584,77 @@ function getRowCost(row) {
 }
 
 // ── Blood Sorcery ──
+
+function renderPersonalStorySection(saved) {
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
+  if (!section) return '';
+
+  const availableNpcs = (currentChar?.npcs || []).filter(n => n.available !== false);
+  const savedNpcId    = saved['personal_story_npc_id']    || '';
+  const savedNpcName  = saved['personal_story_npc_name']  || '';
+  const savedNote     = saved['personal_story_note']       || '';
+  const savedDir      = saved['personal_story_direction']  || 'continue';
+
+  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
+  h += '<p class="qf-section-intro">Who does your character spend time with this month? Choose someone from your life, or introduce someone new.</p>';
+
+  if (availableNpcs.length) {
+    // NPC card picker
+    h += '<div class="dt-npc-cards">';
+    for (const npc of availableNpcs) {
+      const isSelected = savedNpcId === npc.id;
+      h += `<div class="dt-npc-card${isSelected ? ' dt-npc-card-selected' : ''}" data-npc-pick="${esc(npc.id)}" data-npc-name="${esc(npc.name)}">`;
+      h += `<div class="dt-npc-card-name">${esc(npc.name)}</div>`;
+      if (npc.relationship_type) h += `<div class="dt-npc-card-rel">${esc(npc.relationship_type)}</div>`;
+      if (npc.location_context)  h += `<div class="dt-npc-card-loc">${esc(npc.location_context)}</div>`;
+      h += '</div>';
+    }
+    h += '</div>';
+    h += `<input type="hidden" id="dt-personal_story_npc_id" value="${esc(savedNpcId)}">`;
+    h += `<input type="hidden" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}">`;
+    h += '<div class="dt-npc-propose">';
+    h += '<label class="qf-label">Or introduce someone new:</label>';
+    h += `<input type="text" class="qf-input dt-npc-freetext" id="dt-personal_story_npc_name_free" value="${esc(savedNpcId === '__new__' ? savedNpcName : '')}" placeholder="Name and brief description\u2026">`;
+    h += '</div>';
+  } else {
+    // Free-text fallback — no NPCs registered yet
+    h += `<input type="hidden" id="dt-personal_story_npc_id" value="__new__">`;
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Who do you want your character to spend time with?</label>';
+    h += '<p class="qf-desc">Describe them briefly — name, relationship, context. Your ST will use this to seed their character register.</p>';
+    h += `<input type="text" class="qf-input" id="dt-personal_story_npc_name" value="${esc(savedNpcName)}" placeholder="e.g. Marcus, my character\u2019s younger brother\u2026">`;
+    h += '</div>';
+  }
+
+  // Interaction note
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += '<label class="qf-label">What kind of moment do you want?</label>';
+  h += '<p class="qf-desc">What are you hoping for from this interaction — a quiet scene, a difficult conversation, a letter, something unexpected? The more you share, the better the story.</p>';
+  h += `<textarea id="dt-personal_story_note" class="qf-textarea" rows="3" placeholder="Optional\u2014 any direction, tone, or story beats you\u2019d like\u2026">${esc(savedNote)}</textarea>`;
+  h += '</div>';
+
+  // Story direction
+  h += '<div class="qf-field" style="margin-top:8px;">';
+  h += '<label class="qf-label">Story direction</label>';
+  h += '<div class="dt-npc-direction">';
+  for (const [val, label, desc] of [
+    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
+    ['redirect', 'I\'d like to redirect', 'I want to adjust the story — see note above'],
+  ]) {
+    const checked = savedDir === val ? ' checked' : '';
+    h += `<label class="dt-npc-dir-option">`;
+    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
+    h += `<span class="dt-npc-dir-label">${label}</span>`;
+    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
+    h += `</label>`;
+  }
+  h += '</div></div>';
+
+  h += '</div></div>';
+  return h;
+}
 
 function renderSorcerySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'blood_sorcery');

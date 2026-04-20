@@ -77,6 +77,24 @@ export const characterSchema = {
     court_category: { type: ['string', 'null'], enum: ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer', '', null] },
     home_territory: { type: ['string', 'null'] },
 
+    // NPC stub register — placeholder until full NPC Register epic
+    npcs: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id:               { type: 'string' },
+          name:             { type: 'string' },
+          relationship_type: { type: 'string' },
+          available:        { type: 'boolean' },
+          touchstone_eligible: { type: 'boolean' },
+          location_context: { type: ['string', 'null'] },
+          interaction_type: { type: 'string', enum: ['in_person', 'correspondence', 'other'] },
+          interaction_history: { type: 'array' },
+        },
+      },
+    },
+
     // regent_territory / regent_lieutenant removed — regent status is
     // now derived from the territories collection (regent_id field).
 

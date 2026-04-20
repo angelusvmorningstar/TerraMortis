@@ -139,7 +139,7 @@ Key tasks:
 - Field is optional; if unset, Home Report section is suppressed for that character
 - Expose `home_territory` in the DT Story character context so prompt generators can read it
 
-### Story 1.11: Personal Story Section — Player Form (NPC Stub)
+### Story 1.11: Personal Story Section — Player Form (NPC Stub) — DONE
 
 **As a** player filling out my downtime,
 **I want** to choose a personal interaction with an NPC from my character's world,

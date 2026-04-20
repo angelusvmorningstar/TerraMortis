@@ -2748,6 +2748,48 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-shoutout-item input[type="checkbox"] { accent-color: var(--gold2); flex-shrink: 0; }
 .dt-shoutout-item input[disabled] + span { opacity: 0.45; }
 .dt-shoutout-att { color: var(--gold2); }
+
+/* ── Personal Story — NPC picker ─────────────────────────────── */
+.dt-npc-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dt-npc-card {
+  border: 1px solid var(--bdr);
+  border-radius: 5px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: var(--surf2);
+  min-width: 120px;
+  transition: border-color .15s, background .15s;
+}
+.dt-npc-card:hover { border-color: var(--gold2); background: var(--surf1); }
+.dt-npc-card-selected { border-color: var(--gold2); background: var(--gold-a12); }
+.dt-npc-card-name { font-weight: 600; font-size: 13px; color: var(--txt1); }
+.dt-npc-card-rel  { font-size: 11px; color: var(--txt3); margin-top: 2px; font-family: var(--fl); }
+.dt-npc-card-loc  { font-size: 11px; color: var(--txt3); font-style: italic; }
+.dt-npc-propose   { margin-top: 8px; }
+.dt-npc-direction {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.dt-npc-dir-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--bdr);
+  background: var(--surf2);
+}
+.dt-npc-dir-option:has(input:checked) { border-color: var(--gold2); background: var(--gold-a8); }
+.dt-npc-dir-label { font-size: 13px; color: var(--txt1); font-weight: 500; min-width: 180px; }
+.dt-npc-dir-desc  { font-size: 12px; color: var(--txt3); font-family: var(--fl); }
 .dt-shoutout-limit {
   font-size: 12px;
   font-style: italic;
