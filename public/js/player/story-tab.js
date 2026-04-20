@@ -153,6 +153,58 @@ function _normTitle(s) {
   return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+// ── Six-section report wrapper ────────────────────────────────────
+
+function _storyNarrSection(label, text) {
+  if (!text?.trim()) return '';
+  let h = '<div class="story-section">';
+  h += `<h4 class="story-section-head">${esc(label)}</h4>`;
+  const paras = text.trim().split(/\n{2,}/).filter(Boolean);
+  h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  h += '</div>';
+  return h;
+}
+
+function renderStoryMoment(sub) {
+  // Prefer new personal_story, fall back to legacy letter_from_home + touchstone
+  const psText = sub.st_narrative?.personal_story?.response;
+  if (psText) return _storyNarrSection('Story Moment', psText);
+
+  const letter    = sub.st_narrative?.letter_from_home?.response;
+  const touchstone = sub.st_narrative?.touchstone?.response;
+  if (!letter && !touchstone) return '';
+  let h = '<div class="story-section">';
+  h += `<h4 class="story-section-head">Story Moment</h4>`;
+  if (touchstone) {
+    const paras = touchstone.trim().split(/\n{2,}/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  }
+  if (letter) {
+    if (touchstone) h += '<hr class="story-moment-divider">';
+    const paras = letter.trim().split(/\n{2,}/).filter(Boolean);
+    h += paras.map(p => `<p>${esc(p.replace(/\n/g, ' '))}</p>`).join('');
+  }
+  h += '</div>';
+  return h;
+}
+
+function renderHomeReportSection(sub) {
+  return _storyNarrSection('Home Report', sub.st_narrative?.home_report?.response);
+}
+
+function renderRumoursSection(sub) {
+  const slots = sub.st_narrative?.cacophony_savvy || [];
+  const rumours = sub.st_narrative?.rumours || [];
+  const all = [...slots.map(s => s?.response).filter(Boolean), ...rumours.map(r => r?.text || r).filter(Boolean)];
+  if (!all.length) return '';
+  let h = '<div class="story-section story-section-rumours">';
+  h += `<h4 class="story-section-head">Rumours</h4>`;
+  h += '<ul class="story-rumours-list">';
+  for (const r of all) h += `<li>${esc(String(r).trim())}</li>`;
+  h += '</ul></div>';
+  return h;
+}
+
 /**
  * Render the published narrative with project cards injected immediately
  * after their matching section heading. Unmatched cards and merit action
@@ -215,8 +267,10 @@ export function renderOutcomeWithCards(sub) {
     unmatched.push(_normTitle(title));
   }
 
-  // Render sections, injecting matched cards inline
+  // ── Sections 1-2: Story Moment + Home Report (above main narrative) ──
   let h = '<div class="story-narrative">';
+  h += renderStoryMoment(sub);
+  h += renderHomeReportSection(sub);
   for (const sec of sections) {
     if (sec.heading) {
       const isMech = sec.heading === 'Mechanical Outcomes';
@@ -252,8 +306,11 @@ export function renderOutcomeWithCards(sub) {
     }
   }
 
-  // Merit action summary — ledger if outcome_summary present, cards as fallback
+  // Section 5: Allies & Asset Summary
   h += renderMeritSummarySection(sub);
+
+  // Section 6: Rumours
+  h += renderRumoursSection(sub);
 
   return h;
 }

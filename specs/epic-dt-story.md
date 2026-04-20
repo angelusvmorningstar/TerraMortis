@@ -194,7 +194,7 @@ Key tasks:
 - No textarea, no prompt generator — this is a read-only assembly of data already entered during processing
 - `saveNarrativeField` patches `st_narrative.merit_summary_complete` (boolean flag only)
 
-### Story 1.14: Player Report — Six-Section Delivery
+### Story 1.14: Player Report — Six-Section Delivery — DONE
 
 **As a** player receiving my downtime results,
 **I want** a structured report with my Story Moment, Home Report, Feeding, Projects, Merit Summary, and Rumours,
