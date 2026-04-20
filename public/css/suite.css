@@ -33,8 +33,9 @@ body{min-height:auto;}
 .hdr-profile-menu{position:absolute;top:100%;right:0;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:4px;z-index:200;min-width:100px;}
 .hdr-menu-item{display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--txt2);font-size:13px;font-family:var(--fl);text-align:left;cursor:pointer;border-radius:4px;}
 .hdr-menu-item:hover{background:var(--surf3);color:var(--txt);}
-.view-toggle-btn{background:var(--surf2);border:1px solid var(--bdr);color:var(--txt2);}
+.view-toggle-btn{background:var(--surf2);border:1px solid var(--bdr);color:var(--txt2);display:none !important;}
 .view-toggle-btn.view-toggle-active{background:var(--gold-a15);border-color:var(--gold2);color:var(--gold2);}
+body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 #pool-banner{display:none;max-width:52%;background:var(--crim-a22);border:1px solid var(--crim-a45);border-radius:20px;padding:4px 10px;font-family:var(--fl);font-size:11px;letter-spacing:.04em;color:var(--gold2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #pool-banner.on{display:block;}
 
