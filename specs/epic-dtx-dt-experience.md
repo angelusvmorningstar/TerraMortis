@@ -113,7 +113,7 @@ Merit, contact, and retainer actions currently render through the full `_renderM
 - Full-mode (investigate, patrol_scout, rumour, support, attack, hide_protect) is unchanged
 - E2E: 6 tests
 
-### DTX-3: Notes and Feedback Visual Hierarchy
+### DTX-3: Notes and Feedback Visual Hierarchy — DONE
 
 The ST notes thread and player feedback input are currently rendered with similar visual weight. ST notes are the primary analytical working document (feeds Claude context); player feedback is an outbound message. They need distinct visual treatment.
 
