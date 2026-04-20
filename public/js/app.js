@@ -182,7 +182,7 @@ function openChar(idx) {
   if (poolsEl) {
     suiteState.rollChar = c;
     renderCharPools(poolsEl, c, (p) => {
-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
       goTab('dice');
     });
   }
@@ -695,7 +695,7 @@ function pickChar(c) {
   const rollPoolsEl = document.getElementById('roll-char-pools');
   if (rollPoolsEl) {
     renderCharPools(rollPoolsEl, c, (p) => {
-      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, resistance: p.resistance });
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
     });
     rollPoolsEl.style.display = '';
   }
