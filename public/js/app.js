@@ -1363,13 +1363,29 @@ function _updateDesktopIcon() {
   if (desktopIcon) desktopIcon.style.display = isDesktop ? '' : 'none';
 }
 
+const DESKTOP_MQ = window.matchMedia('(min-width: 900px)');
+
 function _initDesktopMode() {
-  if (localStorage.getItem('tm-mode') === 'desktop') {
-    document.body.classList.add('desktop-mode');
-    _updateDesktopIcon();
-    _syncSidebarActions();
+  // Auto-detect: wide viewport → desktop mode, narrow → game mode.
+  // matchMedia listener keeps it in sync on resize / rotation.
+  _applyDesktopMode(DESKTOP_MQ.matches);
+  DESKTOP_MQ.addEventListener('change', e => _applyDesktopMode(e.matches));
+}
+
+function _applyDesktopMode(isDesktop) {
+  document.body.classList.toggle('desktop-mode', isDesktop);
+  _updateDesktopIcon();
+  _syncSidebarActions();
+  if (isDesktop) {
     renderDesktopSidebar();
+    // Show header nav controls in desktop mode
+    const hdrNav = document.getElementById('hdr-nav');
+    if (hdrNav) hdrNav.style.display = '';
+  } else {
+    const hdrNav = document.getElementById('hdr-nav');
+    if (hdrNav) hdrNav.style.display = 'none';
   }
+  renderBottomNav();
 }
 
 function renderDesktopSidebar() {
