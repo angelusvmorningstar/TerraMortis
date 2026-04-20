@@ -351,15 +351,81 @@ async function handleRulesCSVImport(file) {
       const key = (row.key || '').trim();
       if (!key) { rejected++; errors.push({ row: i + 2, error: 'Missing key' }); continue; }
 
-      const rankRaw = (row.rank || '').trim();
-      const rank = rankRaw !== '' ? parseInt(rankRaw, 10) : null;
-
       const body = {};
-      if (row.name        !== undefined) body.name         = row.name.trim()         || null;
-      if (row.parent      !== undefined) body.parent       = row.parent.trim()       || null;
+
+      // Simple nullable string fields
+      if (row.name         !== undefined) body.name         = row.name.trim()         || null;
+      if (row.parent       !== undefined) body.parent       = row.parent.trim()       || null;
       if (row.sub_category !== undefined) body.sub_category = row.sub_category.trim() || null;
-      if (row.description !== undefined) body.description  = row.description.trim()  || '';
-      body.rank = (rankRaw !== '' && !isNaN(rank)) ? rank : null;
+      if (row.description  !== undefined) body.description  = row.description.trim()  || '';
+      if (row.resistance   !== undefined) body.resistance   = row.resistance.trim()   || null;
+      if (row.cost         !== undefined) body.cost         = row.cost.trim()         || null;
+      if (row.action       !== undefined) body.action       = row.action.trim()       || null;
+      if (row.duration     !== undefined) body.duration     = row.duration.trim()     || null;
+      if (row.exclusive    !== undefined) body.exclusive    = row.exclusive.trim()    || null;
+      if (row.bloodline    !== undefined) body.bloodline    = row.bloodline.trim()    || null;
+
+      // Integer fields
+      let badInt = null;
+      if (row.rank !== undefined) {
+        const s = row.rank.trim();
+        if (s === '') body.rank = null;
+        else {
+          const n = parseInt(s, 10);
+          if (isNaN(n)) badInt = `Invalid rank: ${s}`;
+          else body.rank = n;
+        }
+      }
+      if (!badInt && row.xp_fixed !== undefined) {
+        const s = row.xp_fixed.trim();
+        if (s === '') body.xp_fixed = null;
+        else {
+          const n = parseInt(s, 10);
+          if (isNaN(n)) badInt = `Invalid xp_fixed: ${s}`;
+          else body.xp_fixed = n;
+        }
+      }
+      if (badInt) { rejected++; errors.push({ row: i + 2, error: badInt }); continue; }
+
+      // rating_range — rebuild if either column is present
+      if (row.rating_min !== undefined || row.rating_max !== undefined) {
+        const mn = (row.rating_min || '').trim();
+        const mx = (row.rating_max || '').trim();
+        if (mn === '' && mx === '') body.rating_range = null;
+        else {
+          const n1 = parseInt(mn, 10);
+          const n2 = parseInt(mx, 10);
+          if (isNaN(n1) || isNaN(n2)) {
+            rejected++;
+            errors.push({ row: i + 2, error: `Invalid rating_range: [${mn}, ${mx}]` });
+            continue;
+          }
+          body.rating_range = [n1, n2];
+        }
+      }
+
+      // pool — rebuild if any of the three pool_* columns is present
+      if (row.pool_attr !== undefined || row.pool_skill !== undefined || row.pool_disc !== undefined) {
+        const attr  = (row.pool_attr  || '').trim();
+        const skill = (row.pool_skill || '').trim();
+        const disc  = (row.pool_disc  || '').trim();
+        if (!attr && !skill && !disc) body.pool = null;
+        else body.pool = { attr: attr || null, skill: skill || null, disc: disc || null };
+      }
+
+      // prereq — JSON-encoded because the tree is recursive
+      if (row.prereq_json !== undefined) {
+        const s = row.prereq_json.trim();
+        if (s === '') body.prereq = null;
+        else {
+          try { body.prereq = JSON.parse(s); }
+          catch (e) {
+            rejected++;
+            errors.push({ row: i + 2, error: `Invalid prereq_json: ${e.message}` });
+            continue;
+          }
+        }
+      }
 
       try {
         try {
@@ -726,12 +792,34 @@ function ordealResponsesToRows(docs) {
 // ── Rules (Purchasable Powers) ────────────────────────────────────────────────
 
 function rulesHeaders() {
-  return ['key', 'name', 'category', 'sub_category', 'parent', 'rank', 'description'];
+  return [
+    'key', 'name', 'category', 'sub_category', 'parent', 'rank',
+    'rating_min', 'rating_max',
+    'pool_attr', 'pool_skill', 'pool_disc',
+    'resistance', 'cost', 'action', 'duration',
+    'prereq_json', 'exclusive', 'xp_fixed', 'bloodline',
+    'description',
+  ];
 }
 function rulesToRows(docs) {
-  return docs.map(d => [d.key || '', d.name || '', d.category || '',
-    d.sub_category || '', d.parent || '',
-    d.rank != null ? d.rank : '', d.description || '']);
+  return docs.map(d => {
+    const rr = Array.isArray(d.rating_range) ? d.rating_range : [];
+    const p  = (d.pool && typeof d.pool === 'object') ? d.pool : {};
+    return [
+      d.key || '', d.name || '', d.category || '',
+      d.sub_category || '', d.parent || '',
+      d.rank != null ? d.rank : '',
+      rr[0] != null ? rr[0] : '',
+      rr[1] != null ? rr[1] : '',
+      p.attr || '', p.skill || '', p.disc || '',
+      d.resistance || '', d.cost || '', d.action || '', d.duration || '',
+      d.prereq != null ? JSON.stringify(d.prereq) : '',
+      d.exclusive || '',
+      d.xp_fixed != null ? d.xp_fixed : '',
+      d.bloodline || '',
+      d.description || '',
+    ];
+  });
 }
 
 // ── Excel Import ──────────────────────────────────────────────────────────────
