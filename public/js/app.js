@@ -210,6 +210,7 @@ const TAB_SUBTITLES = {
   status: 'Status',
   territory: 'Territory',
   more: 'More',
+  settings: 'Settings',
 };
 
 const EDITOR_TABS = new Set(['chars', 'editor', 'edit']);
@@ -251,6 +252,8 @@ const NAV_ITEMS = [
   // Conditional
   { id: 'regency',   label: 'Regency',   icon: '<svg viewBox="0 0 24 24"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z"/><line x1="2" y1="20" x2="22" y2="20"/></svg>', goTab: 'regency', condition: 'hasRegency' },
   { id: 'office',    label: 'Office',    icon: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', goTab: 'office', condition: 'hasOffice' },
+  // Settings (always last)
+  { id: 'settings',  label: 'Settings',  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', goTab: 'settings' },
 ];
 
 function renderBottomNav() {
@@ -313,6 +316,7 @@ function goTab(t) {
   if (document.body.classList.contains('desktop-mode')) renderDesktopSidebar();
   if (t === 'dice') { _clearLifecycleCache(); renderLifecycleCards(); }
   if (t === 'more') renderMoreGrid();
+  if (t === 'settings') renderSettingsTab();
 
   // ── More grid apps — player portal tabs (nav-2-3) ────────────────────────
   if (t === 'map') {
@@ -721,6 +725,9 @@ function pickChar(c) {
   const lblEl = document.getElementById('sc-char-lbl');
   if (lblEl) lblEl.textContent = '';
   if (valEl) valEl.textContent = (c.moniker || c.name).split(' ')[0];
+  // Update header character name
+  const hdrName = document.getElementById('hdr-char-name');
+  if (hdrName) hdrName.textContent = displayName(c);
   const scChar = document.getElementById('sc-char');
   if (scChar) scChar.classList.add('loaded');
   const discLbl = document.getElementById('sc-disc-lbl');
@@ -1123,6 +1130,116 @@ function _moreGridCondition(app) {
   return true;
 }
 
+// ── Settings tab ────────────────────────────────────────────────────────────
+
+const FONT_SIZE_KEY = 'tm-reading-font-size';
+const FONT_SIZES = [
+  { value: '13px', label: 'Small' },
+  { value: '15px', label: 'Default' },
+  { value: '17px', label: 'Large' },
+  { value: '19px', label: 'X-Large' },
+];
+
+function _getReadingFontSize() {
+  return localStorage.getItem(FONT_SIZE_KEY) || '15px';
+}
+
+function _applyReadingFontSize(size) {
+  localStorage.setItem(FONT_SIZE_KEY, size);
+  document.documentElement.style.setProperty('--reading-font-size', size);
+}
+
+// Apply saved font size on load
+(function() {
+  const saved = _getReadingFontSize();
+  if (saved !== '15px') document.documentElement.style.setProperty('--reading-font-size', saved);
+})();
+
+function renderSettingsTab() {
+  const el = document.getElementById('t-settings');
+  if (!el) return;
+  const user = getUser();
+  const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const currentFontSize = _getReadingFontSize();
+
+  const avatarUrl = user?.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
+    : user?.id
+      ? `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`
+      : '';
+
+  let h = '<div class="settings-wrap">';
+  h += '<h3 class="settings-title">Settings</h3>';
+
+  // Profile
+  if (user) {
+    h += '<div class="settings-section">';
+    h += '<div class="settings-section-label">Profile</div>';
+    h += '<div class="settings-profile">';
+    if (avatarUrl) h += `<img class="settings-avatar" src="${avatarUrl}" alt="">`;
+    h += `<div class="settings-profile-info">`;
+    h += `<span class="settings-name">${esc(user.global_name || user.username)}</span>`;
+    h += `<span class="settings-role">${user.role === 'st' ? 'Storyteller' : 'Player'}</span>`;
+    h += `</div>`;
+    h += '</div>';
+    h += `<button class="settings-btn settings-logout" onclick="logout()">Log Out</button>`;
+    h += '</div>';
+  }
+
+  // Theme
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Theme</div>';
+  h += '<div class="settings-toggle-row">';
+  h += `<button class="settings-toggle-btn${currentTheme === 'light' ? ' on' : ''}" data-theme="light">Light</button>`;
+  h += `<button class="settings-toggle-btn${currentTheme === 'dark' ? ' on' : ''}" data-theme="dark">Dark</button>`;
+  h += '</div>';
+  h += '</div>';
+
+  // Reading font size
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Reading Font Size</div>';
+  h += '<div class="settings-section-hint">Applies to Primer, Game Guide, and Rules tabs.</div>';
+  h += '<div class="settings-toggle-row">';
+  for (const fs of FONT_SIZES) {
+    h += `<button class="settings-toggle-btn${currentFontSize === fs.value ? ' on' : ''}" data-fontsize="${fs.value}">${fs.label}</button>`;
+  }
+  h += '</div>';
+  h += '</div>';
+
+  // ST Admin link
+  if (getRole() === 'st') {
+    h += '<div class="settings-section">';
+    h += '<a href="/admin" class="settings-btn">ST Admin Panel</a>';
+    h += '</div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
+
+  // Wire theme toggles
+  el.querySelectorAll('[data-theme]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = btn.dataset.theme;
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('tm-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('tm-theme', 'light');
+      }
+      renderSettingsTab();
+    });
+  });
+
+  // Wire font size toggles
+  el.querySelectorAll('[data-fontsize]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _applyReadingFontSize(btn.dataset.fontsize);
+      renderSettingsTab();
+    });
+  });
+}
+
 function renderMoreGrid() {
   const el = document.getElementById('t-more');
   if (!el) return;
@@ -1453,35 +1570,17 @@ async function renderLifecycleCards() {
   el.style.display = h ? '' : 'none';
 }
 
-/** Show logged-in user in header with avatar dropdown for logout. */
+/** Show logged-in user in header (desktop mode only — mobile uses Settings tab). */
 function renderUserHeader() {
   const user = getUser();
   if (!user) return;
-  const hdr = document.getElementById('hdr');
-  if (!hdr) return;
-  let userEl = document.getElementById('hdr-user');
-  if (!userEl) {
-    userEl = document.createElement('div');
-    userEl.id = 'hdr-user';
-    hdr.appendChild(userEl);
+
+  // Desktop sidebar shows profile; mobile header is kept clean (logo + char name only).
+  // The hdr-nav is hidden on mobile via CSS but visible in desktop mode.
+  const hdrNav = document.getElementById('hdr-nav');
+  if (hdrNav && document.body.classList.contains('desktop-mode')) {
+    hdrNav.style.display = '';
   }
-  const name = user.global_name || user.username;
-  const avatarUrl = user.role === 'dev'
-    ? discordAvatarUrl(null, null)
-    : user.avatar
-      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`
-      : (user._localTest || String(user.id).startsWith('local-')) ? discordAvatarUrl(null, null)
-      : `https://cdn.discordapp.com/embed/avatars/${(BigInt(user.id) >> 22n) % 6n}.png`;
-  userEl.innerHTML = `
-    <div class="hdr-profile" id="hdr-profile" onclick="toggleProfileMenu()">
-      <img src="${avatarUrl}" class="hdr-avatar" alt="">
-      <span class="hdr-name">${name}</span>
-      <span class="hdr-caret">&#9662;</span>
-    </div>
-    <div class="hdr-profile-menu" id="hdr-profile-menu" style="display:none">
-      <button onclick="logout()" class="hdr-menu-item">Log out</button>
-    </div>
-  `;
 
   // Show toggle for STs, restore saved label
   const toggleBtn = document.getElementById('btn-view-toggle');
