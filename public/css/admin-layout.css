@@ -4381,6 +4381,26 @@ body {
   min-width: 220px;
 }
 
+.proc-add-st-section #proc-add-st-form {
+  display: none;
+  padding: 10px 14px;
+  background: var(--surf1);
+  border-top: 1px solid var(--bdr);
+  flex-direction: column;
+  gap: 8px;
+}
+.proc-add-st-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.proc-add-st-sorcery,
+.proc-add-st-general {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .proc-delete-st-action {
   color: var(--crim);
   border-color: var(--crim);

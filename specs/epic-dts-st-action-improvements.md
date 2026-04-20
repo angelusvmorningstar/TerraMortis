@@ -51,7 +51,7 @@ The duplicate action inherits tradition + rite (if set), targets, and notes from
 
 ## Stories
 
-### DTS-1: ST-Created Sorcery — Full Panel Rendering
+### DTS-1: ST-Created Sorcery — Full Panel Rendering — DONE
 
 Extend `isSorcery` to include ST-created sorcery actions. Update the Add ST Action form sorcery branch to capture tradition + rite. Store `tradition` + `rite_name` on the `st_actions[idx]` object and populate into queue entries.
 

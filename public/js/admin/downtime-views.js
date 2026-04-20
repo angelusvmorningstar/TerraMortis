@@ -3010,6 +3010,9 @@ function renderProcessingMode(container) {
   // XP Review — Step 10
   h += renderXpReviewStep();
 
+  // Add ST Action form
+  h += _renderAddStActionForm(submissions);
+
   // Deleted Actions recovery
   h += renderDeletedActionsSection(submissions);
 
@@ -4418,6 +4421,102 @@ function renderProcessingMode(container) {
     });
   });
 
+  // ── Add ST Action form ──
+  container.querySelector('[data-toggle-add-st-form]')?.addEventListener('click', () => {
+    const form = container.querySelector('#proc-add-st-form');
+    if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  });
+
+  const stTypeEl = container.querySelector('#proc-add-st-type');
+  const stSorcEl = container.querySelector('#proc-add-st-sorcery');
+  const stGenEl  = container.querySelector('#proc-add-st-general');
+  function _updateStActionFields() {
+    if (!stTypeEl || !stSorcEl || !stGenEl) return;
+    const isSorc = stTypeEl.value === 'sorcery';
+    stSorcEl.style.display = isSorc ? '' : 'none';
+    stGenEl.style.display  = isSorc ? 'none' : '';
+  }
+  stTypeEl?.addEventListener('change', _updateStActionFields);
+  _updateStActionFields();
+
+  container.querySelector('#proc-add-st-submit')?.addEventListener('click', async () => {
+    const subId    = container.querySelector('#proc-add-st-char')?.value;
+    const type     = container.querySelector('#proc-add-st-type')?.value;
+    const isSorc   = type === 'sorcery';
+    const tradition = isSorc ? (container.querySelector('#proc-add-st-tradition')?.value || '') : '';
+    const riteName  = isSorc ? (container.querySelector('#proc-add-st-rite')?.value || '') : '';
+    const label     = isSorc
+      ? (riteName || tradition || 'Sorcery')
+      : (container.querySelector('#proc-add-st-label')?.value?.trim() || type);
+    const desc = container.querySelector('#proc-add-st-desc')?.value?.trim() || '';
+
+    if (!subId) { alert('Select a character first.'); return; }
+    await addStAction(subId, { action_type: type, label, description: desc, tradition, rite_name: riteName });
+    const sub    = submissions.find(s => s._id === subId);
+    const newIdx = (sub?.st_actions || []).length - 1;
+    if (newIdx >= 0) procExpandedKeys.add(`${subId}:st:${newIdx}`);
+    renderProcessingMode(container);
+  });
+
+}
+
+function _renderAddStActionForm(subs) {
+  const activeSubs = subs.filter(s => s.status !== 'draft' || s.character_name);
+  let h = '<div class="proc-phase-section proc-add-st-section">';
+  h += '<div class="proc-phase-header" data-toggle-add-st-form>';
+  h += '<span class="proc-phase-label">+ Add ST Action</span>';
+  h += '</div>';
+  h += '<div class="proc-add-st-form" id="proc-add-st-form" style="display:none;">';
+  h += '<div class="proc-add-st-row">';
+  // Character selector
+  h += '<select class="qf-select proc-add-st-char" id="proc-add-st-char">';
+  h += '<option value="">— Character —</option>';
+  for (const s of activeSubs) {
+    h += `<option value="${esc(s._id)}">${esc(s.character_name || s._id)}</option>`;
+  }
+  h += '</select>';
+  // Action type selector
+  h += '<select class="qf-select proc-add-st-type" id="proc-add-st-type">';
+  for (const [val, label] of [
+    ['sorcery', 'Sorcery'], ['project', 'Project'], ['attack', 'Attack'],
+    ['investigate', 'Investigate'], ['patrol_scout', 'Patrol/Scout'],
+    ['support', 'Support'], ['misc', 'Misc'],
+  ]) {
+    h += `<option value="${val}">${label}</option>`;
+  }
+  h += '</select>';
+  h += '</div>';
+  // Sorcery fields (shown when type=sorcery)
+  h += '<div class="proc-add-st-sorcery" id="proc-add-st-sorcery">';
+  h += '<select class="qf-select proc-add-st-tradition" id="proc-add-st-tradition">';
+  h += '<option value="">— Tradition —</option>';
+  h += '<option value="Cruac">Cruac</option>';
+  h += '<option value="Theban">Theban Sorcery</option>';
+  h += '</select>';
+  const allRites = (_getRulesDB() || []).filter(r => r.category === 'rite');
+  const byTrad = {};
+  for (const r of allRites) { const t = r.parent || 'Unknown'; if (!byTrad[t]) byTrad[t] = []; byTrad[t].push(r); }
+  h += '<select class="qf-select proc-add-st-rite" id="proc-add-st-rite">';
+  h += '<option value="">— Rite —</option>';
+  for (const trad of ['Cruac', 'Theban']) {
+    if (!byTrad[trad]) continue;
+    const grp = byTrad[trad].slice().sort((a, b) => (a.rank || 0) - (b.rank || 0) || a.name.localeCompare(b.name));
+    h += `<optgroup label="${esc(trad)}">${grp.map(r => `<option value="${esc(r.name)}">${esc(r.name)} (Lvl ${r.rank || '?'})</option>`).join('')}</optgroup>`;
+  }
+  h += '</select>';
+  h += '</div>';
+  // Label field (shown for non-sorcery)
+  h += '<div class="proc-add-st-general" id="proc-add-st-general" style="display:none;">';
+  h += '<input type="text" class="qf-input proc-add-st-label" id="proc-add-st-label" placeholder="Action label...">';
+  h += '</div>';
+  // Description (always shown)
+  h += '<textarea class="proc-note-textarea proc-add-st-desc" id="proc-add-st-desc" rows="2" placeholder="Description / notes (optional)..." style="margin-top:6px;"></textarea>';
+  h += '<div style="margin-top:6px;">';
+  h += '<button class="dt-btn" id="proc-add-st-submit">Add Action</button>';
+  h += '</div>';
+  h += '</div>';
+  h += '</div>';
+  return h;
 }
 
 /** Add an ST-created action to a submission's st_actions array. */
