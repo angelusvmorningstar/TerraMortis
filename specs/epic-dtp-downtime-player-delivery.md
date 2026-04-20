@@ -23,7 +23,7 @@ The ST team processes and narrates downtimes in the admin app. When the Push Cyc
 | DTP-1 | Privacy scrub — projects_resolved       | ready-for-dev |
 | DTP-2 | Per-action project result cards         | ready-for-dev |
 | DTP-3 | Feeding tab — validated delivery        | ready-for-dev |
-| DTP-4 | Merit summary delivery                  | ready-for-dev |
+| DTP-4 | Merit summary delivery                  | done |
 
 ## DTP-4: Merit Summary Delivery
 
