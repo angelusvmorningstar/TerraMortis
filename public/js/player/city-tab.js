@@ -1,14 +1,14 @@
-/* City tab — two-panel layout.
- * Left:  Court office holders → Map → Regents
- * Right: Who's Who by covenant (alphabetical)
+/* City tab — single-column layout.
+ * Top:    Court office holders
+ * Below:  Who's Who by covenant (alphabetical)
+ * Map and Regents live in the Map tab.
  */
 
 import { apiGet } from '../data/api.js';
 import { esc, displayName, sortName, redactPlayer } from '../data/helpers.js';
 import { clanIcon, covIcon } from '../data/helpers.js';
-import { TERRITORY_DATA } from './downtime-data.js';
 
-export async function renderCityTab(el, territories) {
+export async function renderCityTab(el) {
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
 
   let chars = [];
@@ -19,10 +19,6 @@ export async function renderCityTab(el, territories) {
     return;
   }
 
-  // Load territories if not passed (standalone call or legacy)
-  let terrs = territories || [];
-  if (!terrs.length) { try { terrs = await apiGet('/api/territories'); } catch { terrs = []; } }
-
   const CATEGORY_ORDER = ['Head of State', 'Primogen', 'Administrator', 'Socialite', 'Enforcer'];
   const courtHolders = chars.filter(c => CATEGORY_ORDER.includes(c.court_category))
     .sort((a, b) => {
@@ -30,15 +26,6 @@ export async function renderCityTab(el, territories) {
       const bi = CATEGORY_ORDER.indexOf(b.court_category);
       return ai - bi || sortName(a).localeCompare(sortName(b));
     });
-  // Derive regents from territory documents (single source of truth)
-  const regents = terrs
-    .filter(t => t.regent_id)
-    .map(t => {
-      const c = chars.find(ch => String(ch._id) === t.regent_id);
-      const tdEntry = TERRITORY_DATA.find(td => td.id === t.id);
-      return { territory: tdEntry?.name || t.name || t.id, char: c };
-    })
-    .sort((a, b) => a.territory.localeCompare(b.territory));
 
   // Who's Who — grouped by covenant, alphabetical covenant order
   const covGroups = new Map();
@@ -49,12 +36,9 @@ export async function renderCityTab(el, territories) {
   }
   const sortedCovs = [...covGroups.keys()].sort((a, b) => a.localeCompare(b));
 
-  let h = '<div class="city-split">';
+  let h = '<div class="city-col">';
 
-  // ── Left pane ──────────────────────────────────────────────────────────────
-  h += '<div class="city-left">';
-
-  // Court office holders
+  // ── Court ──────────────────────────────────────────────────────────────────
   h += '<div class="city-panel">';
   h += '<div class="city-panel-title">Court</div>';
   if (courtHolders.length) {
@@ -71,32 +55,8 @@ export async function renderCityTab(el, territories) {
   }
   h += '</div>';
 
-  // Map
-  h += '<div class="city-map-wrap">';
-  h += '<img class="city-map" src="/assets/Terra Mortis Map.png" alt="Terra Mortis City Map">';
-  h += '</div>';
-
-  // Regents
-  h += '<div class="city-panel">';
-  h += '<div class="city-panel-title">Regents</div>';
-  if (regents.length) {
-    h += '<div class="city-regent-list">';
-    for (const r of regents) {
-      h += '<div class="city-regent-row">';
-      h += `<span class="city-regent-territory">${esc(r.territory)}</span>`;
-      h += `<span class="city-regent-name">${r.char ? esc(displayName(r.char)) : '<span class="city-placeholder">(vacant)</span>'}</span>`;
-      h += '</div>';
-    }
-    h += '</div>';
-  } else {
-    h += '<p class="placeholder-msg city-placeholder">No regents assigned yet.</p>';
-  }
-  h += '</div>';
-
-  h += '</div>'; // city-left
-
-  // ── Right pane — Who's Who ─────────────────────────────────────────────────
-  h += '<div class="city-right">';
+  // ── Who's Who ──────────────────────────────────────────────────────────────
+  h += '<div class="city-whos-who">';
   h += '<div class="city-panel-title">Who\'s Who</div>';
 
   for (const cov of sortedCovs) {
@@ -119,8 +79,8 @@ export async function renderCityTab(el, territories) {
     h += '</div>';
   }
 
-  h += '</div>'; // city-right
+  h += '</div>'; // city-whos-who
 
-  h += '</div>'; // city-split
+  h += '</div>'; // city-col
   el.innerHTML = h;
 }
