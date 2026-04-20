@@ -6391,6 +6391,33 @@ function renderActionPanel(entry, review) {
       const _nomText = _playerFeedTerrsText(feedSub);
       if (_nomText) h += `<div class="proc-proj-field"><span class="proc-feed-lbl">Territories</span> ${esc(_nomText)}</div>`;
     }
+    // ── Resident/poacher mismatch flag ──
+    {
+      const _charId = String(feedChar?._id || '');
+      let _feedGrid = {};
+      try { _feedGrid = JSON.parse(feedSub?.responses?.feeding_territories || '{}'); } catch { /* ignore */ }
+      const _terrDocs = cachedTerritories || [];
+      const _mismatches = [];
+      for (const [terrKey, val] of Object.entries(_feedGrid)) {
+        if (!val || val === 'none') continue;
+        // Resolve territory doc by slug key
+        const _td = _terrDocs.find(t =>
+          (t.id && t.id === terrKey) ||
+          (t.name && t.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') === terrKey)
+        );
+        if (!_td) continue;
+        const _hasRights = _charId && Array.isArray(_td.feeding_rights) &&
+          _td.feeding_rights.some(id => String(id) === _charId);
+        if (val === 'feeding_rights' && !_hasRights) {
+          _mismatches.push(`Claims feeding rights in ${_td.name} — not on Regent's list`);
+        } else if (val === 'poaching' && _hasRights) {
+          _mismatches.push(`Has feeding rights in ${_td.name} — declared as poaching`);
+        }
+      }
+      for (const _msg of _mismatches) {
+        h += `<div class="proc-mismatch-flag">\u26A0 ${esc(_msg)}</div>`;
+      }
+    }
     // Territory pills row — feeding multi-select
     {
       const _feedOvrArr = Array.isArray(feedSub?.st_review?.territory_overrides?.feeding)

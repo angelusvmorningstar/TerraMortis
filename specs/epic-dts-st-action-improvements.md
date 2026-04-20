@@ -55,7 +55,7 @@ The duplicate action inherits tradition + rite (if set), targets, and notes from
 
 Extend `isSorcery` to include ST-created sorcery actions. Update the Add ST Action form sorcery branch to capture tradition + rite. Store `tradition` + `rite_name` on the `st_actions[idx]` object and populate into queue entries.
 
-### DTS-2: Duplicate Action
+### DTS-2: Duplicate Action — DONE
 
 Add a "Duplicate" button to sorcery action row headers. Creates a new ST sorcery action pre-populated from the source entry's tradition, rite, targets, and notes. The duplicate renders with the full panel (DTS-1 prerequisite).
 

@@ -4838,6 +4838,19 @@ body {
   font-family: var(--ft);
 }
 
+/* ── Story 1.15: resident/poacher mismatch flag ─────────────────── */
+.proc-mismatch-flag {
+  margin-top: 6px;
+  padding: 5px 10px;
+  background: rgba(139, 0, 0, 0.12);
+  border: 1px solid var(--crim);
+  border-left: 3px solid var(--crim);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--crim);
+  font-family: var(--fl);
+}
+
 /* ── DTX-1: cross-reference callout ────────────────────────────── */
 .proc-xref-callout {
   margin-top: 8px;
