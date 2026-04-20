@@ -20,7 +20,7 @@ body{min-height:auto;}
 #hdr{flex-shrink:0;background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:20;position:relative;}
 .hdr-brand{display:flex;align-items:center;gap:10px;min-width:0;}
 .hdr-icon{width:28px;height:28px;border-radius:4px;flex-shrink:0;}
-.hdr-char-name{font-family:var(--fh);font-size:16px;color:var(--gold2);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hdr-char-name{font-family:var(--fh);font-size:clamp(16px, 5vw, 28px);color:var(--gold2);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
 .hdr-nav{display:flex;gap:8px;align-items:center;}
 .theme-toggle-btn{padding:6px 10px;display:inline-flex;align-items:center;justify-content:center;}
 .theme-toggle-btn svg{display:block;}
