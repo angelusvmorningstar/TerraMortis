@@ -384,8 +384,15 @@ function collectResponses() {
     // Target pickers (attack, hide_protect, investigate)
     const targetTypeRadio = document.querySelector(`input[name="dt-project_${n}_target_type"]:checked`);
     responses[`project_${n}_target_type`] = targetTypeRadio ? targetTypeRadio.value : '';
-    const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
-    responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    // target_char uses checkbox grid; others use hidden input or select
+    const targetCharCbs = document.querySelectorAll(`.dt-target-char-cb[data-target-slot="${n}"]:checked`);
+    if (targetCharCbs.length) {
+      const ids = []; targetCharCbs.forEach(cb => ids.push(cb.value));
+      responses[`project_${n}_target_value`] = JSON.stringify(ids);
+    } else {
+      const targetValueEl = document.getElementById(`dt-project_${n}_target_value`);
+      responses[`project_${n}_target_value`] = targetValueEl ? targetValueEl.value : '';
+    }
     const leadEl = document.getElementById(`dt-project_${n}_investigate_lead`);
     responses[`project_${n}_investigate_lead`] = leadEl ? leadEl.value : '';
 
@@ -431,12 +438,20 @@ function collectResponses() {
   // Sphere action fields (tabbed — up to 5 slots)
   const maxSpheres = Math.min(detectedMerits.spheres.length, 5);
   for (let n = 1; n <= maxSpheres; n++) {
-    for (const suffix of ['action', 'outcome', 'description', 'territory', 'target_value', 'block_merit', 'project_support', 'investigate_lead']) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'block_merit', 'project_support', 'investigate_lead']) {
       const el = document.getElementById(`dt-sphere_${n}_${suffix}`);
       if (el) responses[`sphere_${n}_${suffix}`] = el.value;
     }
     const flexRadio = document.querySelector(`input[name="dt-sphere_${n}_target_type"]:checked`);
     responses[`sphere_${n}_target_type`] = flexRadio ? flexRadio.value : '';
+    const sphTargetCbs = document.querySelectorAll(`.dt-target-char-sphere-cb[data-target-slot="sphere_${n}"]:checked`);
+    if (sphTargetCbs.length) {
+      const ids = []; sphTargetCbs.forEach(cb => ids.push(cb.value));
+      responses[`sphere_${n}_target_value`] = JSON.stringify(ids);
+    } else {
+      const el = document.getElementById(`dt-sphere_${n}_target_value`);
+      if (el) responses[`sphere_${n}_target_value`] = el.value;
+    }
     // Merit label for this slot
     const m = detectedMerits.spheres[n - 1];
     if (m) responses[`sphere_${n}_merit`] = meritLabel(m);
@@ -450,9 +465,17 @@ function collectResponses() {
   // Status action fields
   const maxStatus = Math.min(detectedMerits.status.length, 5);
   for (let n = 1; n <= maxStatus; n++) {
-    for (const suffix of ['action', 'outcome', 'description', 'territory', 'target_value', 'investigate_lead']) {
+    for (const suffix of ['action', 'outcome', 'description', 'territory', 'investigate_lead']) {
       const el = document.getElementById(`dt-status_${n}_${suffix}`);
       if (el) responses[`status_${n}_${suffix}`] = el.value;
+    }
+    const stTargetCbs = document.querySelectorAll(`.dt-target-char-sphere-cb[data-target-slot="status_${n}"]:checked`);
+    if (stTargetCbs.length) {
+      const ids = []; stTargetCbs.forEach(cb => ids.push(cb.value));
+      responses[`status_${n}_target_value`] = JSON.stringify(ids);
+    } else {
+      const el = document.getElementById(`dt-status_${n}_target_value`);
+      if (el) responses[`status_${n}_target_value`] = el.value;
     }
     const flexRadio = document.querySelector(`input[name="dt-status_${n}_target_type"]:checked`);
     responses[`status_${n}_target_type`] = flexRadio ? flexRadio.value : '';
@@ -2094,18 +2117,26 @@ function renderProjectSlots(saved) {
       h += '</div>';
     }
 
-    // ── Target: character (attack) ──
+    // ── Target: character (attack) — checkbox grid ──
     if (fields.includes('target_char')) {
-      const savedVal = saved[`project_${n}_target_value`] || '';
-      h += '<div class="qf-field">';
-      h += `<label class="qf-label" for="dt-project_${n}_target_value">Target Character <span class="qf-req">*</span></label>`;
-      h += `<select id="dt-project_${n}_target_value" class="qf-select">`;
-      h += '<option value="">— Select Target —</option>';
-      for (const c of allCharacters) {
-        const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-        h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+      let targetPicks = [];
+      try { targetPicks = JSON.parse(saved[`project_${n}_target_value`] || '[]'); } catch {
+        // legacy single ID
+        if (saved[`project_${n}_target_value`]) targetPicks = [saved[`project_${n}_target_value`]];
       }
-      h += '</select></div>';
+      const targetSet = new Set(targetPicks.map(String));
+      h += '<div class="qf-field">';
+      h += '<label class="qf-label">Target Character(s)</label>';
+      h += `<div class="dt-shoutout-grid">`;
+      for (const c of allCharacters) {
+        const isChecked = targetSet.has(String(c.id));
+        const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
+        h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
+        h += `<input type="checkbox" class="dt-target-char-cb" data-target-slot="${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
+        h += `<span>${esc(c.name)}</span>`;
+        h += '</label>';
+      }
+      h += '</div></div>';
     }
 
     // ── Target: own merit (hide_protect) ──
@@ -3203,16 +3234,23 @@ function renderSphereFields(n, prefix, fields, saved, charMerits) {
   }
 
   if (fields.includes('target_char')) {
-    const savedVal = saved[`${prefix}_${n}_target_value`] || '';
-    h += '<div class="qf-field">';
-    h += `<label class="qf-label" for="dt-${prefix}_${n}_target_value">Target Character</label>`;
-    h += `<select id="dt-${prefix}_${n}_target_value" class="qf-select">`;
-    h += '<option value="">— Select Target —</option>';
-    for (const c of allCharacters) {
-      const sel = String(c.id) === String(savedVal) ? ' selected' : '';
-      h += `<option value="${esc(String(c.id))}"${sel}>${esc(c.name)}</option>`;
+    let targetPicks = [];
+    try { targetPicks = JSON.parse(saved[`${prefix}_${n}_target_value`] || '[]'); } catch {
+      if (saved[`${prefix}_${n}_target_value`]) targetPicks = [saved[`${prefix}_${n}_target_value`]];
     }
-    h += '</select></div>';
+    const targetSet = new Set(targetPicks.map(String));
+    h += '<div class="qf-field">';
+    h += '<label class="qf-label">Target Character(s)</label>';
+    h += `<div class="dt-shoutout-grid">`;
+    for (const c of allCharacters) {
+      const isChecked = targetSet.has(String(c.id));
+      const isAtt = lastGameAttendees.some(a => String(a.id) === String(c.id));
+      h += `<label class="dt-shoutout-item${isAtt ? ' dt-shoutout-att' : ''}">`;
+      h += `<input type="checkbox" class="dt-target-char-sphere-cb" data-target-slot="${prefix}_${n}" value="${esc(String(c.id))}"${isChecked ? ' checked' : ''}>`;
+      h += `<span>${esc(c.name)}</span>`;
+      h += '</label>';
+    }
+    h += '</div></div>';
   }
 
   if (fields.includes('block_merit')) {
