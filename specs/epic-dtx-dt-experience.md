@@ -50,7 +50,7 @@ All changes are additive rendering enhancements. No changes to the queue data mo
 
 ## Stories
 
-### DTX-1: Cross-Reference Callouts
+### DTX-1: Cross-Reference Callouts — DONE
 
 After `buildProcessingQueue()` returns the queue array (line ~1805 in `downtime-views.js`), build a derived cross-reference index and pass it into the rendering pipeline. Render inline callouts on expanded action rows when cross-references exist.
 
