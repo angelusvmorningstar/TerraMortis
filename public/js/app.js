@@ -171,9 +171,13 @@ function openChar(idx) {
   const ck = CLAN_ICON_KEY[c.clan];
   if (ck && hdrIcon) { hdrIcon.src = ICONS[ck]; hdrIcon.style.display = 'inline'; }
   else if (hdrIcon) { hdrIcon.style.display = 'none'; }
-  renderIdentityTab(c);
-  renderAttrsTab(c);
-  editorRenderSheet(c);         // keep — editor/attrs tabs still use this
+  // Editor sheet creates duplicate element IDs that break toggleDisc/toggleExp
+  // in the split tabs. Only render for STs who use the editor tab.
+  if (getRole() === 'st') {
+    renderIdentityTab(c);
+    renderAttrsTab(c);
+    editorRenderSheet(c);
+  }
   suiteState.sheetChar = c;
   document.getElementById('sh-empty').style.display = 'none';
   document.getElementById('sh-content-suite').style.display = '';
