@@ -63,7 +63,8 @@ function renderCityChip(c, isMe, isST) {
 function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false, isCityST = false) {
   // Skip empty tiers — don't show "Vacant" rows
   if (!chars.length) return '';
-  let h = `<div class="status-bracket status-bracket-fixed">`;
+  const hasMe = chars.some(c => String(c._id) === activeId);
+  let h = `<div class="status-bracket status-bracket-fixed${hasMe ? ' status-bracket-me' : ''}">`;
   h += `<div class="status-bracket-head">`;
   h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
   h += `<span class="status-bracket-val">${val}</span>`;
