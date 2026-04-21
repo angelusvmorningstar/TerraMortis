@@ -770,6 +770,34 @@ SPEC = [
         "target_successes": "", "resistance": "",
         "text_file": "Lancea Sanctum Theban.txt", "lines": [1997, 2056],
     },
+    # ── VtR 1e Core — rites not present in 2e ───────────────────
+    # Most VtR core rites already ingested as "VtR 2e Core" in prior
+    # batch. Only adding rites from the 1e PDF that don't already
+    # appear in the JSON/CSV.
+    {
+        "name_pdf": "Pangs of Proserpine",
+        "csv_match": None,
+        "parent": "Cruac", "rank": 1,
+        "book": "VtR 1e Core", "page": "143",
+        "target_successes": "", "resistance": "Contested by: Composure + Blood Potency",
+        "text_file": "VtR 1e Rites.txt", "lines": [64, 92],
+    },
+    {
+        "name_pdf": "The Hydra's Vitae",
+        "csv_match": None,
+        "parent": "Cruac", "rank": 2,
+        "book": "VtR 1e Core", "page": "143",
+        "target_successes": "", "resistance": "",
+        "text_file": "VtR 1e Rites.txt", "lines": [187, 231],
+    },
+    {
+        "name_pdf": "Wrathful Judgement",
+        "csv_match": None,
+        "parent": "Theban", "rank": 5,
+        "book": "VtR 1e Core", "page": "148",
+        "target_successes": "", "resistance": "Contested by: Stamina",
+        "text_file": "VtR 1e Rites.txt", "lines": [994, 1035],
+    },
 ]
 
 
