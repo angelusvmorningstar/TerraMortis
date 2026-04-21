@@ -1905,13 +1905,23 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .status-personal-dots{font-size:0;line-height:0;display:flex;gap:1px;align-items:center;}
 .status-personal-dots .pointed{width:6px;height:6px;}
 .status-personal-dots .pointed.hollow{width:5px;height:5px;}
-.status-personal-appellation{font-family:var(--fl);font-size:10px;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;}
-.status-personal-val{font-family:var(--fh);font-size:18px;color:var(--accent);flex-shrink:0;min-width:24px;text-align:center;}
-.status-personal-minor{opacity:.7;}
-.status-personal-minor .status-personal-val{font-size:14px;}
-/* Status carousel inherits attr-skills-carousel; add padding to match skills tab */
+/* ── Compact status summary row ── */
+.status-summary{display:flex;justify-content:center;gap:16px;padding:10px 14px;}
+.status-summary-pip{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.status-summary-shape{position:relative;width:36px;height:36px;color:var(--accent);display:flex;align-items:center;justify-content:center;}
+.status-summary-shape svg{width:100%;height:100%;stroke:currentColor;fill:currentColor;}
+.status-summary-n{position:absolute;font-family:var(--fh);font-size:14px;font-weight:700;color:var(--bg);text-shadow:0 0 3px var(--accent);}
+.status-summary-lbl{font-family:var(--fl);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);text-align:center;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.status-summary-other{text-align:center;font-size:11px;color:var(--txt3);padding:0 14px 6px;}
+.status-summary-other b{color:var(--accent);font-weight:700;}
+/* Status carousel spacing */
 #status-carousel{padding:0 14px;}
 #status-carousel .attr-skills-card{padding:0 8px;}
+.status-carousel-badge{margin-bottom:0;}
+#t-status .attr-carousel-badges{margin:4px 0 2px;}
+/* Section titles larger when caps line hidden (player view) */
+.status-section-title{font-size:15px;}
+.status-col-head{font-size:15px;}
 
 /* ── Ordeal cards (ported from player-layout.css) ── */
 .ordeal-card{display:flex;flex-direction:column;padding:12px 14px;background:var(--surf);border:1px solid var(--bdr);border-radius:6px;transition:border-color .2s;}
