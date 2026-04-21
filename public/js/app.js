@@ -1408,15 +1408,8 @@ function _syncSidebarActions() {
   if (!actionsEl) return;
   const isDesktop = document.body.classList.contains('desktop-mode');
   if (!isDesktop) { actionsEl.innerHTML = ''; return; }
-  actionsEl.innerHTML = '';
-  // Collapse toggle
-  const collapseBtn = document.createElement('button');
-  collapseBtn.className = 'sidebar-collapse-btn';
-  collapseBtn.title = 'Collapse sidebar';
-  collapseBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>';
-  collapseBtn.addEventListener('click', toggleSidebarCollapse);
-  actionsEl.appendChild(collapseBtn);
-  // Admin link
+  // Collapse button and admin link are rendered by renderDesktopSidebar — no duplication here
+  actionsEl.innerHTML = '<button class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></button>';
   const adminLink = document.getElementById('nav-admin');
   if (adminLink && adminLink.style.display !== 'none') {
     actionsEl.appendChild(adminLink.cloneNode(true));
@@ -1501,15 +1494,18 @@ function renderDesktopSidebar() {
       if (app.section !== section.id) return false;
       if (app.stOnly && effectiveRole() !== 'st') return false;
       if (app.playerOnly && effectiveRole() === 'st') return false;
+      if (app.guide && !showGuides) return false;
       if (app.condition && !_moreGridCondition(app)) return false;
       return true;
     });
-    if (!sectionApps.length) continue;
+    // Skip section entirely if no visible apps (and no primary tabs to prepend)
+    const hasPrimary = section.id === 'game';
+    if (!sectionApps.length && !hasPrimary) continue;
 
     h += `<div class="sidebar-section-label">${section.label}</div>`;
     h += `<div class="sidebar-app-grid">`;
     // Prepend Dice/Sheet/Status to Game section
-    if (section.id === 'game') {
+    if (hasPrimary) {
       for (const { id, label, icon } of primaryTabs) {
         const on = isActive(id) ? ' on' : '';
         h += `<button class="sidebar-app-tile${on}" onclick="goTab('${id}')" title="${label}">`;
@@ -1517,7 +1513,6 @@ function renderDesktopSidebar() {
       }
     }
     for (const app of sectionApps) {
-      if (app.guide && !showGuides) continue;
       const on = isActive(app.id) ? ' on' : '';
       h += `<button class="sidebar-app-tile${on}" onclick="goTab('${app.id}')" title="${app.label}">`;
       h += `<span class="sidebar-app-tile-icon">${app.icon}</span>`;
