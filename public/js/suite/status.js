@@ -315,17 +315,18 @@ export async function renderSuiteStatusTab(el) {
     h += `</div>`;
   }
 
-  h += renderCitySection(chars, activeId, isST);
+  // Build the three hierarchy sections as separate cards for the carousel
+  const cityCard = renderCitySection(chars, activeId, isST);
+  let covCard = '', clanCard = '';
 
   if (isST) {
-    // All covenants, then all clans — each full-width, stacked
     const covenants = [...new Set(chars.map(c => c.covenant).filter(Boolean))].sort();
     for (const cov of covenants) {
       const rows = chars
         .filter(c => c.covenant === cov)
         .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-      h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
+      covCard += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
     const clans = [...new Set(chars.map(c => c.clan).filter(Boolean))].sort();
     for (const clan of clans) {
@@ -333,10 +334,9 @@ export async function renderSuiteStatusTab(el) {
         .filter(c => c.clan === clan)
         .map(c => ({ c, val: c.status?.clan || 0 }))
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-      h += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
+      clanCard += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
     }
   } else {
-    // Player: their covenant first, then their clan
     const covRows = activeChar
       ? chars.filter(c => c.covenant && c.covenant === activeChar.covenant)
             .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
@@ -347,13 +347,13 @@ export async function renderSuiteStatusTab(el) {
             .map(c => ({ c, val: c.status?.clan || 0 }))
             .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)))
       : [];
-    h += renderStatusSection(
+    covCard = renderStatusSection(
       activeChar?.covenant || 'No covenant',
       activeChar?.covenant ? covIcon(activeChar.covenant, 18) : '',
       covRows, activeId,
       activeChar?.covenant ? 'No other members in your covenant.' : 'No character selected.'
     );
-    h += renderStatusSection(
+    clanCard = renderStatusSection(
       activeChar?.clan || 'No clan',
       activeChar?.clan ? clanIcon(activeChar.clan, 18) : '',
       clanRows, activeId,
@@ -361,5 +361,33 @@ export async function renderSuiteStatusTab(el) {
     );
   }
 
+  // Swipeable carousel for City / Covenant / Clan tables
+  const labels = ['City', 'Covenant', 'Clan'];
+  h += `<div class="attr-carousel-badges">${labels.map((l, i) =>
+    `<span class="attr-carousel-badge status-carousel-badge${i === 0 ? ' active' : ''}" data-carousel-idx="${i}">${l}</span>`
+  ).join('')}</div>`;
+  h += `<div class="attr-skills-carousel" id="status-carousel">`;
+  h += `<div class="attr-skills-card">${cityCard}</div>`;
+  h += `<div class="attr-skills-card">${covCard}</div>`;
+  h += `<div class="attr-skills-card">${clanCard}</div>`;
+  h += `</div>`;
+
   el.innerHTML = h;
+
+  // Wire carousel badge indicators + tap-to-scroll
+  const carousel = el.querySelector('#status-carousel');
+  const badges = el.querySelectorAll('.status-carousel-badge');
+  const cards = carousel ? carousel.querySelectorAll('.attr-skills-card') : [];
+  if (carousel && badges.length && cards.length) {
+    carousel.addEventListener('scroll', () => {
+      const cardWidth = cards[0].offsetWidth;
+      const idx = Math.round(carousel.scrollLeft / cardWidth);
+      badges.forEach((b, i) => b.classList.toggle('active', i === idx));
+    }, { passive: true });
+    badges.forEach((badge, i) => {
+      badge.addEventListener('click', () => {
+        cards[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+    });
+  }
 }
