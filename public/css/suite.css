@@ -7,7 +7,7 @@
 /* Suite layout overrides (mobile-first, fixed viewport) */
 html,body{overflow:hidden;touch-action:manipulation;max-width:100vw;}
 body{min-height:auto;}
-#app{display:flex;flex-direction:column;height:100dvh;max-width:600px;width:100%;margin:0 auto;overflow:hidden;position:relative;}
+#app{display:flex;flex-direction:column;height:100dvh;max-width:900px;width:100%;margin:0 auto;overflow:hidden;position:relative;}
 
 /* ── LOGIN SCREEN ── */
 .login-box{text-align:center;max-width:360px;margin:auto;padding-top:30vh;}
@@ -46,7 +46,7 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 #t-dice.active,#t-roll.active,#t-st.active{display:flex;}
 
 /* ── BOTTOM NAV ── */
-#bnav{flex-shrink:0;display:flex;background:var(--surf2);border-top:1px solid var(--bdr);z-index:20;position:relative;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px;}
+#bnav{flex-shrink:0;display:flex;justify-content:center;background:var(--surf2);border-top:1px solid var(--bdr);z-index:20;position:relative;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px;}
 #bnav::-webkit-scrollbar{display:none;}
 .nbtn{flex:0 0 68px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 12px;gap:4px;background:none;border:none;cursor:pointer;font-family:var(--fl);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);-webkit-tap-highlight-color:transparent;position:relative;z-index:21;scroll-snap-align:start;}
 .nbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
