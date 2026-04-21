@@ -107,7 +107,7 @@ function toast(msg) { _toast(msg); }
 // ══════════════════════════════════════════════
 
 const VIEW_MODE_KEY = 'tm_view_mode';
-let _viewMode = localStorage.getItem(VIEW_MODE_KEY) || 'st';
+let _viewMode = sessionStorage.getItem(VIEW_MODE_KEY) || 'st';
 
 function effectiveRole() {
   return (getRole() === 'st' && _viewMode === 'player') ? 'player' : getRole();
@@ -1419,7 +1419,7 @@ function renderSettingsTab() {
   // Wire player mode toggle
   el.querySelector('#settings-player-mode')?.addEventListener('change', e => {
     _viewMode = e.target.checked ? 'player' : 'st';
-    localStorage.setItem(VIEW_MODE_KEY, _viewMode);
+    sessionStorage.setItem(VIEW_MODE_KEY, _viewMode);
     applyRoleRestrictions();
     if (e.target.checked) {
       _enterPlayerView();
@@ -1928,7 +1928,7 @@ function toggleProfileMenu() {
 
 function toggleViewMode() {
   _viewMode = _viewMode === 'st' ? 'player' : 'st';
-  localStorage.setItem(VIEW_MODE_KEY, _viewMode);
+  sessionStorage.setItem(VIEW_MODE_KEY, _viewMode);
   applyRoleRestrictions();
   if (_viewMode === 'player') {
     _enterPlayerView();
