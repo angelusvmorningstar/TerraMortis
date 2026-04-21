@@ -1100,11 +1100,11 @@ const MORE_APPS = [
     }
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
-  { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', section: 'player' },
-  // ── Lore section ──
-  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore' },
-  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore' },
-  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore' },
+  // Tickets removed — submit form is in Settings
+  // ── Lore section (gated by show_guides setting) ──
+  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore', guide: true },
+  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore', guide: true },
+  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore', guide: true },
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
@@ -1393,22 +1393,25 @@ function _syncSidebarActions() {
   if (!actionsEl) return;
   const isDesktop = document.body.classList.contains('desktop-mode');
   if (!isDesktop) { actionsEl.innerHTML = ''; return; }
-  // Clone the original header nav buttons into the sidebar actions row
-  const themeBtn = document.getElementById('btn-theme-toggle');
-  const desktopBtn = document.getElementById('btn-desktop-toggle');
-  const adminLink = document.getElementById('nav-admin');
   actionsEl.innerHTML = '';
-  if (themeBtn) actionsEl.appendChild(themeBtn.cloneNode(true));
-  if (desktopBtn) {
-    const clone = desktopBtn.cloneNode(true);
-    clone.id = 'btn-desktop-toggle-sidebar';
-    clone.setAttribute('onclick', 'toggleDesktopMode()');
-    actionsEl.appendChild(clone);
-  }
+  // Collapse toggle
+  const collapseBtn = document.createElement('button');
+  collapseBtn.className = 'sidebar-collapse-btn';
+  collapseBtn.title = 'Collapse sidebar';
+  collapseBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>';
+  collapseBtn.addEventListener('click', toggleSidebarCollapse);
+  actionsEl.appendChild(collapseBtn);
+  // Admin link
+  const adminLink = document.getElementById('nav-admin');
   if (adminLink && adminLink.style.display !== 'none') {
     actionsEl.appendChild(adminLink.cloneNode(true));
   }
 }
+
+function toggleSidebarCollapse() {
+  document.getElementById('desktop-sidebar')?.classList.toggle('collapsed');
+}
+window.toggleSidebarCollapse = toggleSidebarCollapse;
 
 function _updateDesktopIcon() {
   const isDesktop = document.body.classList.contains('desktop-mode');
@@ -1449,6 +1452,7 @@ function renderDesktopSidebar() {
 
   const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'dice';
   const isActive = (id) => id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab));
+  const showGuides = localStorage.getItem('tm-show-guides') === '1';
 
   // Primary tabs prepended to Game section — Dice/Sheet/Status are first game items
   const primaryTabs = [
@@ -1480,6 +1484,7 @@ function renderDesktopSidebar() {
       }
     }
     for (const app of sectionApps) {
+      if (app.guide && !showGuides) continue;
       const on = isActive(app.id) ? ' on' : '';
       h += `<button class="sidebar-app-tile${on}" onclick="goTab('${app.id}')" title="${app.label}">`;
       h += `<span class="sidebar-app-tile-icon">${app.icon}</span>`;
