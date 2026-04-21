@@ -131,6 +131,10 @@ export function serialiseForPrint(c, territories) {
     const naOHM = c._ohm_nine_again_skills?.has(s) || false;
     const nineAgain = naStored || naPT || naMCI || naOHM;
     if (!effective && !specs.length) continue;
+    const baseDots = skDots(c, s);
+    const bonus = skBonus(c, s);
+    const ptBonus = c._pt_dot4_bonus_skills?.has(s) && (baseDots + bonus) < 5 ? 1 : 0;
+    const mciBonus = c._mci_dot3_skills?.has(s) && (baseDots + bonus) < 5 ? 1 : 0;
     const sources = [];
     if (naStored) sources.push('stored');
     if (naPT) sources.push('PT');
