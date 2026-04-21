@@ -655,7 +655,7 @@ export function renderSheet() {
   // to avoid duplicate IDs that break toggleExp/toggleDisc.
   const isDesktop = document.body.classList.contains('desktop-mode');
   if (el && isDesktop) {
-    el.innerHTML = infoHtml + statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
+    el.innerHTML = infoHtml + statsHtml + skillsHtml + '<div class="sh-powers-grid">' + powersHtml + '</div>';
   } else if (el) {
     el.innerHTML = '';
   }
