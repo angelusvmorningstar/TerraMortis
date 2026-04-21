@@ -10,6 +10,18 @@ import { getAttrEffective, skTotal, skNineAgain, skSpecs, getSkillObj } from '..
 import { hasAoE } from '../data/helpers.js';
 import { SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL } from '../data/constants.js';
 import state from './data.js';   // only for reading rollChar / sheetChar
+import { getRole } from '../auth/discord.js';
+
+// ── Rules ordeal gate ──
+// Dice roller is gated behind the Rules Mastery ordeal for players.
+// STs always have access.
+export function canRollDice(char) {
+  if (getRole() === 'st' || getRole() === 'dev') return true;
+  if (!char) return false;
+  return (char.ordeals || []).some(o =>
+    (o.name || '').toLowerCase() === 'rules' && o.complete
+  );
+}
 
 // ── d10 icon — diamond/kite shape representing the pentagonal trapezohedron ──
 export const DICE_ICON_SVG = `<svg class="dice-roll-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L22 10 L12 22 L2 10 Z"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
@@ -169,6 +181,7 @@ function _effPool() {
 export function openDiceModal(type, name, char) {
   const c = char || state.rollChar || state.sheetChar;
   if (!c) return;
+  if (!canRollDice(c)) return;
 
   _ms = _freshState();
   _loadHist();
