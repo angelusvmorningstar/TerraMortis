@@ -21,9 +21,10 @@ import {
 
 import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
-  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft,
+  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   getSkillObj
 } from '../data/accessors.js';
+import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
@@ -90,7 +91,7 @@ export function renderSheet() {
     <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
       <span class="sh-char-player">${redactPlayer(c.player || '')}${c.pronouns ? ' \u00B7 ' + c.pronouns : ''}</span>
-      <span class="sh-xp-badge">XP ${xpLeft(c)}/${c.xp_total != null ? c.xp_total : '?'}</span>
+      <span class="sh-xp-badge">XP ${xpLeft(c)}/${xpEarned(c)}</span>
     </div>
     ${c.concept ? `<div class="sh-char-concept" style="margin-top:4px">${c.concept}</div>` : ''}
   </div>`;
@@ -643,12 +644,18 @@ export function renderSheet() {
   html += `</div>`; // end sh-body
   const powersHtml = html;
 
-  // Render to full sheet container (desktop / legacy) and split-tab containers (phone)
-  if (el) el.innerHTML = infoHtml + statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
-  if (statsEl)  statsEl.innerHTML  = statsHtml;
-  if (skillsEl) skillsEl.innerHTML = skillsHtml;
-  if (powersEl) powersEl.innerHTML = powersHtml;
-  if (infoEl)   infoEl.innerHTML   = infoHtml;
+  // Render to split-tab containers (phone + desktop unified).
+  // Only render to full-sheet container (#sh-content-suite) when split tabs
+  // are NOT present — avoids duplicate element IDs that break toggleExp/toggleDisc.
+  if (statsEl || skillsEl || powersEl || infoEl) {
+    if (statsEl)  statsEl.innerHTML  = statsHtml;
+    if (skillsEl) skillsEl.innerHTML = skillsHtml;
+    if (powersEl) powersEl.innerHTML = powersHtml;
+    if (infoEl)   infoEl.innerHTML   = infoHtml;
+    if (el) el.innerHTML = '';
+  } else if (el) {
+    el.innerHTML = infoHtml + statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
+  }
 
   // Wire attribute+skills carousel indicators
   _wireAttrCarousel(skillsEl || el);
