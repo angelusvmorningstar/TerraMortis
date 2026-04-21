@@ -101,7 +101,7 @@ function renderCitySection(chars, activeId, isST = false) {
   let h = `<div class="status-city-section">`;
   h += `<div class="status-section-head">`;
   h += `<span class="status-section-title">City Status</span>`;
-  h += `<span class="status-section-caps">1@10 · 2@9 · 2@8 · 3@7 · 3@6 · 4@5 · 4@4 · open</span>`;
+  if (isST) h += `<span class="status-section-caps">1@10 · 2@9 · 2@8 · 3@7 · 3@6 · 4@5 · 4@4 · open</span>`;
   h += `</div>`;
 
   h += `<div class="status-brackets">`;
@@ -138,7 +138,7 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
 
   let h = `<div class="status-col">`;
   h += `<div class="status-col-head">${headingIcon} <span>${esc(heading)}</span>`;
-  h += `<span class="status-section-caps">1@5 · 2@4 · open</span>`;
+  if (getRole() === 'st') h += `<span class="status-section-caps">1@5 · 2@4 · open</span>`;
   h += `</div>`;
 
   if (!rows.length) {
@@ -269,50 +269,35 @@ export async function renderSuiteStatusTab(el) {
   const activeId   = activeChar ? String(activeChar._id) : '';
   const isST       = getRole() === 'st';
 
-  // ── Personal status cards (player's own city/covenant/clan) ──
+  // ── Compact personal status row ──
   let h = '';
   if (activeChar) {
     const st = activeChar.status || {};
     const cityV = calcCityStatus(activeChar);
     const covV = (st.covenant || 0) - (activeChar._ots_covenant_bonus || 0);
     const clanV = st.clan || 0;
-    const appellation = CITY_STATUS_APPELLATIONS[cityV] || '';
-    h += `<div class="status-personal">`;
-    h += `<div class="status-personal-card">`;
-    h += `<div class="status-personal-icon">${CITY_SVG}</div>`;
-    h += `<div class="status-personal-info"><span class="status-personal-label">City</span>`;
-    h += `<span class="status-personal-dots">${statusDots(cityV, 10)}</span>`;
-    if (appellation) h += `<span class="status-personal-appellation">${esc(appellation)}</span>`;
-    h += `</div><span class="status-personal-val">${cityV}</span></div>`;
+    h += `<div class="status-summary">`;
+    h += `<div class="status-summary-pip"><div class="status-summary-shape">${CITY_SVG}<span class="status-summary-n">${cityV}</span></div><span class="status-summary-lbl">City</span></div>`;
     if (activeChar.covenant) {
-      h += `<div class="status-personal-card">`;
-      h += `<div class="status-personal-icon">${covIcon(activeChar.covenant, 20)}</div>`;
-      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(activeChar.covenant)}</span>`;
-      h += `<span class="status-personal-dots">${statusDots(covV, 5)}</span>`;
-      h += `</div><span class="status-personal-val">${covV}</span></div>`;
+      h += `<div class="status-summary-pip"><div class="status-summary-shape">${covIcon(activeChar.covenant, 20)}<span class="status-summary-n">${covV}</span></div><span class="status-summary-lbl">${esc(activeChar.covenant)}</span></div>`;
     }
     if (activeChar.clan) {
-      h += `<div class="status-personal-card">`;
-      h += `<div class="status-personal-icon">${clanIcon(activeChar.clan, 20)}</div>`;
-      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(activeChar.clan)}</span>`;
-      h += `<span class="status-personal-dots">${statusDots(clanV, 5)}</span>`;
-      h += `</div><span class="status-personal-val">${clanV}</span></div>`;
+      h += `<div class="status-summary-pip"><div class="status-summary-shape">${clanIcon(activeChar.clan, 20)}<span class="status-summary-n">${clanV}</span></div><span class="status-summary-lbl">${esc(activeChar.clan)}</span></div>`;
     }
-    // Other covenant standings
+    h += `</div>`;
+    // Other covenant standings — compact secondary line
     const COV_SHORT = {
       'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone',
       'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance',
     };
     const covStandings = activeChar.covenant_standings || {};
     const ownCovLabel = COV_SHORT[activeChar.covenant] || null;
-    for (const [label, val] of Object.entries(covStandings)) {
-      if (!val || label === ownCovLabel) continue;
-      h += `<div class="status-personal-card status-personal-minor">`;
-      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(label)}</span>`;
-      h += `<span class="status-personal-dots">${statusDots(val, 5)}</span>`;
-      h += `</div><span class="status-personal-val">${val}</span></div>`;
+    const otherCovs = Object.entries(covStandings).filter(([label, val]) => val && label !== ownCovLabel);
+    if (otherCovs.length) {
+      h += `<div class="status-summary-other">${otherCovs.map(([label, val]) =>
+        `<span class="status-summary-other-item">${esc(label)} <b>${val}</b></span>`
+      ).join(' \u00B7 ')}</div>`;
     }
-    h += `</div>`;
   }
 
   // Build the three hierarchy sections as separate cards for the carousel
