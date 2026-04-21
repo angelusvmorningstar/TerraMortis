@@ -1718,6 +1718,18 @@ body.desktop-mode .tab-wrap > .tab.active {
   transition: width 0.2s ease;
 }
 body.desktop-mode #desktop-sidebar { display: flex; }
+/* Collapsed sidebar: icons only */
+#desktop-sidebar.collapsed { width: 56px; }
+#desktop-sidebar.collapsed .sidebar-title,
+#desktop-sidebar.collapsed .sidebar-sub,
+#desktop-sidebar.collapsed .sidebar-section-label,
+#desktop-sidebar.collapsed .sidebar-app-tile-label,
+#desktop-sidebar.collapsed .sidebar-user { display: none; }
+#desktop-sidebar.collapsed .sidebar-header { padding: 12px 8px; }
+#desktop-sidebar.collapsed .sidebar-app-grid { grid-template-columns: 1fr; gap: 2px; padding: 2px 6px; }
+#desktop-sidebar.collapsed .sidebar-app-tile { width: 40px; height: 40px; padding: 0; justify-self: center; }
+#desktop-sidebar.collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+#desktop-sidebar.collapsed .sidebar-actions { justify-content: center; }
 
 /* Collapsed sidebar — icons-only strip */
 body.desktop-mode.sidebar-collapsed #desktop-sidebar { width: 56px; overflow: hidden; }
