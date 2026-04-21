@@ -14,7 +14,7 @@ import { apiGet, apiPut } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
-import suiteState, { CITY_SVG } from './data.js';
+import suiteState, { CITY_SVG, OTHER_SVG } from './data.js';
 import { getRole } from '../auth/discord.js';
 
 // ── Module-level state ───────────────────────────────────────────────────────
@@ -61,21 +61,20 @@ function renderCityChip(c, isMe, isST) {
 
 // ── Fixed-tier bracket row ────────────────────────────────────────────────────
 function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false, isCityST = false) {
-  let h = `<div class="status-bracket status-bracket-fixed">`;
+  // Skip empty tiers — don't show "Vacant" rows
+  if (!chars.length) return '';
+  const hasMe = chars.some(c => String(c._id) === activeId);
+  let h = `<div class="status-bracket status-bracket-fixed${hasMe ? ' status-bracket-me' : ''}">`;
   h += `<div class="status-bracket-head">`;
   h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
   h += `<span class="status-bracket-val">${val}</span>`;
   if (showAppellation) h += `<span class="status-bracket-appellation">${CITY_STATUS_APPELLATIONS[val] || ''}</span>`;
   h += `</div>`;
   h += `<div class="status-bracket-chips">`;
-  if (chars.length) {
-    for (const c of chars) {
-      h += isCityST
-        ? renderCityChip(c, String(c._id) === activeId, true)
-        : renderChip(c, String(c._id) === activeId);
-    }
-  } else {
-    h += `<span class="status-vacant-chip">Vacant</span>`;
+  for (const c of chars) {
+    h += isCityST
+      ? renderCityChip(c, String(c._id) === activeId, true)
+      : renderChip(c, String(c._id) === activeId);
   }
   h += `</div>`;
   h += `</div>`;
@@ -100,10 +99,9 @@ function renderCitySection(chars, activeId, isST = false) {
 
   const dotsFn = v => statusDots(v, 10);
 
-  let h = `<div class="status-city-section">`;
-  h += `<div class="status-section-head">`;
-  h += `<span class="status-section-title">City Status</span>`;
-  h += `<span class="status-section-caps">1@10 · 2@9 · 2@8 · 3@7 · 3@6 · 4@5 · 4@4 · open</span>`;
+  let h = `<div class="status-col">`;
+  h += `<div class="status-col-head"><span>City Status</span>`;
+  if (isST) h += `<span class="status-section-caps">1@10 · 2@9 · 2@8 · 3@7 · 3@6 · 4@5 · 4@4 · open</span>`;
   h += `</div>`;
 
   h += `<div class="status-brackets">`;
@@ -140,7 +138,7 @@ function renderStatusSection(heading, headingIcon, rows, activeId, placeholder) 
 
   let h = `<div class="status-col">`;
   h += `<div class="status-col-head">${headingIcon} <span>${esc(heading)}</span>`;
-  h += `<span class="status-section-caps">1@5 · 2@4 · open</span>`;
+  if (getRole() === 'st') h += `<span class="status-section-caps">1@5 · 2@4 · open</span>`;
   h += `</div>`;
 
   if (!rows.length) {
@@ -271,49 +269,49 @@ export async function renderSuiteStatusTab(el) {
   const activeId   = activeChar ? String(activeChar._id) : '';
   const isST       = getRole() === 'st';
 
-  // ── Personal status cards (player's own city/covenant/clan) ──
+  // ── Compact personal status row ──
   let h = '';
   if (activeChar) {
     const st = activeChar.status || {};
     const cityV = calcCityStatus(activeChar);
     const covV = (st.covenant || 0) - (activeChar._ots_covenant_bonus || 0);
     const clanV = st.clan || 0;
-    const appellation = CITY_STATUS_APPELLATIONS[cityV] || '';
-    h += `<div class="status-personal">`;
-    h += `<div class="status-personal-card">`;
-    h += `<div class="status-personal-icon">${CITY_SVG}</div>`;
-    h += `<div class="status-personal-info"><span class="status-personal-label">City</span>`;
-    h += `<span class="status-personal-dots">${statusDots(cityV, 10)}</span>`;
-    if (appellation) h += `<span class="status-personal-appellation">${esc(appellation)}</span>`;
-    h += `</div><span class="status-personal-val">${cityV}</span></div>`;
+    h += `<div class="status-summary">`;
+    h += `<div class="status-summary-pip"><div class="status-summary-shape">${CITY_SVG}<span class="status-summary-n">${cityV}</span></div><span class="status-summary-lbl">City</span></div>`;
     if (activeChar.covenant) {
-      h += `<div class="status-personal-card">`;
-      h += `<div class="status-personal-icon">${covIcon(activeChar.covenant, 20)}</div>`;
-      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(activeChar.covenant)}</span>`;
-      h += `<span class="status-personal-dots">${statusDots(covV, 5)}</span>`;
-      h += `</div><span class="status-personal-val">${covV}</span></div>`;
+      h += `<div class="status-summary-pip"><div class="status-summary-shape">${OTHER_SVG}<span class="status-summary-n">${covV}</span></div><span class="status-summary-lbl">${esc(activeChar.covenant)}</span></div>`;
     }
     if (activeChar.clan) {
-      h += `<div class="status-personal-card">`;
-      h += `<div class="status-personal-icon">${clanIcon(activeChar.clan, 20)}</div>`;
-      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(activeChar.clan)}</span>`;
-      h += `<span class="status-personal-dots">${statusDots(clanV, 5)}</span>`;
-      h += `</div><span class="status-personal-val">${clanV}</span></div>`;
+      h += `<div class="status-summary-pip"><div class="status-summary-shape">${OTHER_SVG}<span class="status-summary-n">${clanV}</span></div><span class="status-summary-lbl">${esc(activeChar.clan)}</span></div>`;
     }
     h += `</div>`;
+    // Other covenant standings — compact secondary line
+    const COV_SHORT = {
+      'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone',
+      'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance',
+    };
+    const covStandings = activeChar.covenant_standings || {};
+    const ownCovLabel = COV_SHORT[activeChar.covenant] || null;
+    const otherCovs = Object.entries(covStandings).filter(([label, val]) => val && label !== ownCovLabel);
+    if (otherCovs.length) {
+      h += `<div class="status-summary-other">${otherCovs.map(([label, val]) =>
+        `<span class="status-summary-other-item">${esc(label)} <b>${val}</b></span>`
+      ).join(' \u00B7 ')}</div>`;
+    }
   }
 
-  h += renderCitySection(chars, activeId, isST);
+  // Build the three hierarchy sections as separate cards for the carousel
+  const cityCard = renderCitySection(chars, activeId, isST);
+  let covCard = '', clanCard = '';
 
   if (isST) {
-    // All covenants, then all clans — each full-width, stacked
     const covenants = [...new Set(chars.map(c => c.covenant).filter(Boolean))].sort();
     for (const cov of covenants) {
       const rows = chars
         .filter(c => c.covenant === cov)
         .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-      h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
+      covCard += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
     const clans = [...new Set(chars.map(c => c.clan).filter(Boolean))].sort();
     for (const clan of clans) {
@@ -321,10 +319,9 @@ export async function renderSuiteStatusTab(el) {
         .filter(c => c.clan === clan)
         .map(c => ({ c, val: c.status?.clan || 0 }))
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
-      h += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
+      clanCard += renderStatusSection(clan, clanIcon(clan, 18), rows, activeId, '');
     }
   } else {
-    // Player: their covenant first, then their clan
     const covRows = activeChar
       ? chars.filter(c => c.covenant && c.covenant === activeChar.covenant)
             .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
@@ -335,13 +332,13 @@ export async function renderSuiteStatusTab(el) {
             .map(c => ({ c, val: c.status?.clan || 0 }))
             .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)))
       : [];
-    h += renderStatusSection(
+    covCard = renderStatusSection(
       activeChar?.covenant || 'No covenant',
       activeChar?.covenant ? covIcon(activeChar.covenant, 18) : '',
       covRows, activeId,
       activeChar?.covenant ? 'No other members in your covenant.' : 'No character selected.'
     );
-    h += renderStatusSection(
+    clanCard = renderStatusSection(
       activeChar?.clan || 'No clan',
       activeChar?.clan ? clanIcon(activeChar.clan, 18) : '',
       clanRows, activeId,
@@ -349,5 +346,33 @@ export async function renderSuiteStatusTab(el) {
     );
   }
 
+  // Swipeable carousel for City / Covenant / Clan tables
+  const labels = ['City', 'Covenant', 'Clan'];
+  h += `<div class="attr-carousel-badges">${labels.map((l, i) =>
+    `<span class="attr-carousel-badge status-carousel-badge${i === 0 ? ' active' : ''}" data-carousel-idx="${i}">${l}</span>`
+  ).join('')}</div>`;
+  h += `<div class="attr-skills-carousel" id="status-carousel">`;
+  h += `<div class="attr-skills-card">${cityCard}</div>`;
+  h += `<div class="attr-skills-card">${covCard}</div>`;
+  h += `<div class="attr-skills-card">${clanCard}</div>`;
+  h += `</div>`;
+
   el.innerHTML = h;
+
+  // Wire carousel badge indicators + tap-to-scroll
+  const carousel = el.querySelector('#status-carousel');
+  const badges = el.querySelectorAll('.status-carousel-badge');
+  const cards = carousel ? carousel.querySelectorAll('.attr-skills-card') : [];
+  if (carousel && badges.length && cards.length) {
+    carousel.addEventListener('scroll', () => {
+      const cardWidth = cards[0].offsetWidth;
+      const idx = Math.round(carousel.scrollLeft / cardWidth);
+      badges.forEach((b, i) => b.classList.toggle('active', i === idx));
+    }, { passive: true });
+    badges.forEach((badge, i) => {
+      badge.addEventListener('click', () => {
+        cards[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+    });
+  }
 }

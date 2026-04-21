@@ -49,21 +49,22 @@ import { startChallengePoller, stopChallengePoller } from './game/challenge-noti
 import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
+import { initWS } from './data/ws.js';
 import { initSignIn } from './game/signin-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
 import { initCombatTab } from './game/combat-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
-import { initDowntimeTab } from './player/downtime-tab.js';
-import { renderStatusTab } from './player/status-tab.js';
-import { renderPrimerTab } from './player/primer-tab.js';
-import { renderTicketsTab } from './player/tickets-tab.js';
-import { initOrdeals } from './player/ordeals-view.js';
-import { renderRegencyTab } from './player/regency-tab.js';
-import { renderOfficeTab } from './player/office-tab.js';
-import { renderCityTab } from './player/city-tab.js';
-import { initArchiveTab } from './player/archive-tab.js';
-import { renderFeedingTab } from './player/feeding-tab.js';
+import { initDowntimeTab, renderPastOutcomes } from './tabs/downtime-tab.js';
+import { renderStatusTab } from './tabs/status-tab.js';
+import { renderPrimerTab } from './tabs/primer-tab.js';
+import { renderTicketsTab } from './tabs/tickets-tab.js';
+import { initOrdeals } from './tabs/ordeals-view.js';
+import { renderRegencyTab } from './tabs/regency-tab.js';
+import { renderOfficeTab } from './tabs/office-tab.js';
+import { renderCityTab } from './tabs/city-tab.js';
+import { initArchiveTab } from './tabs/archive-tab.js';
+import { renderFeedingTab } from './tabs/feeding-tab.js';
 import { findRegentTerritory } from './data/helpers.js';
 import { printSheet, printPDF, exportJSON } from './editor/print.js';
 import { handleCallback, isLoggedIn, validateToken, login, logout, getUser, getRole, getPlayerInfo } from './auth/discord.js';
@@ -80,7 +81,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
-import { apiGet, apiPost } from './data/api.js';
+import { apiGet, apiPost, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
@@ -94,6 +95,7 @@ import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
 import { toast as _toast } from './suite/tracker.js';
 // suite/tracker-feed.js removed — feeding consolidated to More grid (nav-2-5)
 import { renderSuiteStatusTab, suiteStatusOpenEdit, suiteStatusCloseEdit, suiteStatusAdjustCity } from './suite/status.js';
+import { openDiceModal, closeDiceModal } from './suite/dice-modal.js';
 
 // ══════════════════════════════════════════════
 //  FORWARD WRAPPERS (suite)
@@ -106,10 +108,12 @@ function toast(msg) { _toast(msg); }
 // ══════════════════════════════════════════════
 
 const VIEW_MODE_KEY = 'tm_view_mode';
-let _viewMode = localStorage.getItem(VIEW_MODE_KEY) || 'st';
+let _viewMode = sessionStorage.getItem(VIEW_MODE_KEY) || 'st';
 
 function effectiveRole() {
-  return (getRole() === 'st' && _viewMode === 'player') ? 'player' : getRole();
+  const role = getRole();
+  if ((role === 'st' || role === 'dev') && _viewMode === 'player') return 'player';
+  return role;
 }
 
 // ══════════════════════════════════════════════
@@ -171,9 +175,13 @@ function openChar(idx) {
   const ck = CLAN_ICON_KEY[c.clan];
   if (ck && hdrIcon) { hdrIcon.src = ICONS[ck]; hdrIcon.style.display = 'inline'; }
   else if (hdrIcon) { hdrIcon.style.display = 'none'; }
-  renderIdentityTab(c);
-  renderAttrsTab(c);
-  editorRenderSheet(c);         // keep — editor/attrs tabs still use this
+  // Editor sheet creates duplicate element IDs that break toggleDisc/toggleExp
+  // in the split tabs. Only render for STs who use the editor tab.
+  if (getRole() === 'st') {
+    renderIdentityTab(c);
+    renderAttrsTab(c);
+    editorRenderSheet(c);
+  }
   suiteState.sheetChar = c;
   document.getElementById('sh-empty').style.display = 'none';
   document.getElementById('sh-content-suite').style.display = '';
@@ -243,10 +251,9 @@ const NAV_ITEMS = [
   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
   { id: 'status',    label: 'Status',    icon: '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>', goTab: 'status' },
   { id: 'misc',      label: 'Misc',      icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', goTab: 'info' },
-  { id: 'whos-who',  label: "Who's Who", icon: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>', goTab: 'whos-who' },
-  { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>', goTab: 'feeding' },
-  { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime' },
-  { id: 'map',       label: 'Map',       icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', goTab: 'map' },
+  { id: 'whos-who',  label: 'World',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', goTab: 'whos-who' },
+  { id: 'feeding',   label: 'Feeding',   icon: '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>', goTab: 'feeding' },
+  { id: 'downtime',  label: 'Downtime',  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>', goTab: 'downtime', seasonal: true },
   { id: 'ordeals',   label: 'Ordeals',   icon: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>', goTab: 'ordeals' },
   { id: 'primer',    label: 'Primer',    icon: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', goTab: 'primer', guide: true },
   { id: 'game-guide',label: 'Guide',     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', goTab: 'game-guide', disabled: true, guide: true },
@@ -276,6 +283,11 @@ function renderBottomNav() {
     if (item.stOnly && !isST) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
     if (item.guide && !showGuides) continue;
+    if (item.seasonal) {
+      // Seasonal items hidden by default, shown by _updateSeasonalNav after lifecycle loads
+      h += `<button class="nbtn nbtn-seasonal" id="n-${item.id}" onclick="goTab('${item.goTab}')" style="display:none">${item.icon}<span>${item.label}</span></button>`;
+      continue;
+    }
     const dis = item.disabled ? ' nbtn-disabled' : '';
     const click = item.disabled ? '' : ` onclick="goTab('${item.goTab}')"`;
     h += `<button class="nbtn${dis}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
@@ -370,7 +382,7 @@ function goTab(t) {
   }
   if (t === 'whos-who') {
     const el = document.getElementById('t-whos-who');
-    if (el && !el.innerHTML.trim()) renderCityTab(el);
+    if (el && !el.innerHTML.trim()) renderCityTab(el, suiteState.territories || []);
   }
   if (t === 'office') {
     const el = document.getElementById('t-office');
@@ -381,6 +393,11 @@ function goTab(t) {
     const el = document.getElementById('t-archive');
     const char = _activeMoreChar();
     if (el && char) initArchiveTab(el, char, (suiteState.chars || []).filter(c => c.retired));
+  }
+  if (t === 'info') {
+    const miscEl = document.getElementById('misc-past-outcomes');
+    const char = _activeMoreChar();
+    if (miscEl && char && !miscEl.innerHTML.trim()) renderPastOutcomes(miscEl, char);
   }
   if (t === 'downtime') {
     const el = document.getElementById('t-downtime');
@@ -447,8 +464,9 @@ function populateSuiteDropdowns(chars) {
 }
 
 async function loadAllData() {
-  // 0. Load rules data (purchasable powers) — non-blocking, cached
-  loadRulesFromApi().catch(() => {});
+  // 0. Load rules data (purchasable powers) — must complete before sheet renders
+  //    so discipline powers resolve from the rules cache
+  await loadRulesFromApi().catch(() => {});
 
   // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();
@@ -782,6 +800,89 @@ function pickChar(c) {
 }
 
 // ══════════════════════════════════════════════
+//  HEADER CHARACTER MENU
+// ══════════════════════════════════════════════
+
+function _visibleChars() {
+  const role = effectiveRole();
+  if (role === 'st') return editorState.chars.map((c, i) => ({ c, i }));
+  // Player / dev-in-player-mode: restrict to linked characters
+  const ids = getPlayerInfo()?.character_ids || [];
+  return editorState.chars
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => ids.includes(String(c._id)));
+}
+
+function _buildCharMenu() {
+  const wrap = document.getElementById('hdr-icon-wrap');
+  const menu = document.getElementById('hdr-char-menu');
+  if (!wrap || !menu) return;
+
+  const visible = _visibleChars();
+  // Only show menu when there are multiple characters to choose from
+  if (visible.length <= 1) {
+    wrap.classList.remove('has-menu');
+    wrap.onclick = null;
+    menu.style.display = 'none';
+    return;
+  }
+
+  wrap.classList.add('has-menu');
+  wrap.onclick = (e) => {
+    e.stopPropagation();
+    const showing = menu.style.display !== 'none';
+    menu.style.display = showing ? 'none' : '';
+    if (!showing) _renderCharMenuItems();
+  };
+}
+
+function _renderCharMenuItems() {
+  const menu = document.getElementById('hdr-char-menu');
+  if (!menu) return;
+  const visible = _visibleChars();
+  const activeId = String(suiteState.sheetChar?._id || '');
+  let h = '';
+  visible.forEach(({ c, i }) => {
+    const isActive = String(c._id) === activeId;
+    h += `<button class="hdr-char-menu-item${isActive ? ' active' : ''}" data-char-idx="${i}">`;
+    h += `<span class="hdr-menu-check">${isActive ? '\u2713' : ''}</span>`;
+    h += `<span>${esc(displayName(c))}</span>`;
+    h += `</button>`;
+  });
+  menu.innerHTML = h;
+
+  // Wire clicks
+  menu.querySelectorAll('[data-char-idx]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.charIdx, 10);
+      if (isNaN(idx) || !editorState.chars[idx]) return;
+      _switchChar(idx);
+      menu.style.display = 'none';
+    });
+  });
+}
+
+function _switchChar(idx) {
+  const c = editorState.chars[idx];
+  if (!c) return;
+  localStorage.setItem('tm_active_char', String(c._id));
+  openChar(idx);
+  pickChar(c);
+  // Clear MISC past outcomes so they reload for the new character
+  const miscEl = document.getElementById('misc-past-outcomes');
+  if (miscEl) miscEl.innerHTML = '';
+  suiteState.sheetChar = c;
+  suiteRenderSheet();
+}
+
+// Close character menu on outside click
+document.addEventListener('click', () => {
+  const menu = document.getElementById('hdr-char-menu');
+  if (menu) menu.style.display = 'none';
+});
+
+// ══════════════════════════════════════════════
 //  REGISTER CALLBACKS (editor — break circular deps)
 // ══════════════════════════════════════════════
 
@@ -908,6 +1009,10 @@ Object.assign(window, {
   loadPool,
   effPool,
 
+  // Dice roller modal
+  openDiceModal,
+  closeDiceModal,
+
   // Suite sheet tab
   onSheetChar,
   suiteRenderSheet,
@@ -994,18 +1099,43 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
+      _buildCharMenu();
+      // Desktop mode must be initialised before rendering so sheet.js
+      // knows whether to render into the full sheet or split tabs.
+      _initDesktopMode();
+      _updateThemeIcon();
+
       // Auto-open character for players so Sheet/Downtime tabs work immediately,
       // and pre-fill the dice tab so the roller is ready without a manual pick.
       if (getRole() !== 'st' && editorState.chars.length > 0) {
-        openChar(0);
-        pickChar(editorState.chars[0]);
+        // Restore saved character selection, or default to first
+        const savedCharId = localStorage.getItem('tm_active_char');
+        const savedIdx = savedCharId
+          ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
+          : -1;
+        const charIdx = savedIdx >= 0 ? savedIdx : 0;
+        openChar(charIdx);
+        pickChar(editorState.chars[charIdx]);
       }
-      goTab('stats');
+      // Desktop: STs land on character grid, players land on sheet.
+      // Phone: players land on stats (split tab view).
+      const isDesktop = DESKTOP_MQ.matches;
+      const isPlayer = getRole() !== 'st';
+      goTab(isDesktop ? (isPlayer ? 'sheets' : 'chars') : 'stats');
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
-      _updateThemeIcon();     // set correct sun/moon on load
-      _initDesktopMode();     // restore desktop mode if saved
       if (getRole() !== 'st') startChallengePoller(); // player-only polling
+
+      // Start WebSocket for live tracker sync
+      initWS({
+        onTrackerUpdate: (charId) => {
+          // Re-render tracker tab if visible
+          const trackerTab = document.getElementById('t-tracker');
+          if (trackerTab?.classList.contains('active')) initTracker(trackerTab);
+          // Re-render sheet tracker boxes if the updated char is the current sheet char
+          if (String(suiteState.sheetChar?._id) === charId) suiteRenderSheet();
+        },
+      });
       return;
     }
   }
@@ -1074,7 +1204,7 @@ const _svg = {
   status:   '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
   whosWho:  '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   dtReport: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
-  feeding:  '<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
+  feeding:  '<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
   primer:   '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
   guide:    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   rules:    '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><path d="M13 8h4M13 12h4M13 16h4"/></svg>',
@@ -1092,9 +1222,8 @@ const _svg = {
 const MORE_APPS = [
   // ── Game section ──
   // Note: Status is a primary nav tab — not duplicated here
-  { id: 'whos-who',     label: "Who's Who",   icon: _svg.whosWho,  section: 'game' },
+  { id: 'whos-who',     label: 'World',       icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', section: 'game' },
   { id: 'feeding',      label: 'Feeding',     icon: _svg.feeding,  section: 'game' },
-  { id: 'map',          label: 'Map',         icon: '<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>', section: 'game' },
   { id: 'territory',    label: 'Territory',   icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', section: 'st', stOnly: true },
   // ── Player section (player role only) ──
   { id: 'downtime',      label: 'Downtime',    icon: _svg.dtSubmit, section: 'player',
@@ -1105,12 +1234,12 @@ const MORE_APPS = [
     }
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
-  { id: 'tickets',      label: 'Tickets',     icon: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>', section: 'player' },
+  // Tickets removed — submit form is in Settings
   { id: 'challenge',    label: 'Challenge',   icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'player', playerOnly: true },
-  // ── Lore section ──
-  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore' },
-  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore' },
-  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore' },
+  // ── Lore section (gated by show_guides setting) ──
+  { id: 'primer',       label: 'Primer',      icon: _svg.primer,   section: 'lore', guide: true },
+  { id: 'game-guide',   label: 'Game Guide',  icon: _svg.guide,    section: 'lore', guide: true },
+  { id: 'rules',        label: 'Rules',       icon: _svg.rules,    section: 'lore', guide: true },
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
@@ -1208,6 +1337,32 @@ function renderSettingsTab() {
     h += '</div>';
   }
 
+  // Player Mode toggle (ST/dev only)
+  if (getRole() === 'st' || getRole() === 'dev') {
+    const isPlayerMode = _viewMode === 'player';
+    h += '<div class="settings-section">';
+    h += '<div class="settings-section-label">View Mode</div>';
+    h += '<label class="settings-checkbox-row">';
+    h += `<input type="checkbox" id="settings-player-mode"${isPlayerMode ? ' checked' : ''}>`;
+    h += '<span>Player Mode <span style="font-size:11px;color:var(--txt3)">\u2014 view as a player sees it</span></span>';
+    h += '</label>';
+    h += '</div>';
+  }
+
+  // Emergency Contact / Safety Info
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Safety &amp; Emergency Contact</div>';
+  h += '<div class="settings-section-hint">Only visible to Storytellers. Used for live game safety.</div>';
+  h += '<div class="settings-safety-form" id="settings-safety-form">';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-email">Email</label><input class="settings-input" id="saf-email" type="email" placeholder="your@email.com"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-mobile">Mobile</label><input class="settings-input" id="saf-mobile" type="tel" placeholder="+61 4xx xxx xxx"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-ec-name">Emergency Contact</label><input class="settings-input" id="saf-ec-name" type="text" placeholder="Name"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-ec-mobile">Emergency Mobile</label><input class="settings-input" id="saf-ec-mobile" type="tel" placeholder="+61 4xx xxx xxx"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-medical">Medical Info</label><textarea class="settings-input" id="saf-medical" rows="2" placeholder="Allergies, conditions, etc."></textarea></div>';
+  h += '<div class="settings-safety-actions"><button class="settings-btn" id="saf-save">Save</button><span class="settings-safety-status" id="saf-status"></span></div>';
+  h += '</div>';
+  h += '</div>';
+
   // Theme
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Theme</div>';
@@ -1283,6 +1438,23 @@ function renderSettingsTab() {
     });
   });
 
+  // Load and wire safety/emergency contact form
+  _loadSafetyForm(el);
+
+  // Wire player mode toggle
+  el.querySelector('#settings-player-mode')?.addEventListener('change', e => {
+    _viewMode = e.target.checked ? 'player' : 'st';
+    sessionStorage.setItem(VIEW_MODE_KEY, _viewMode);
+    applyRoleRestrictions();
+    _buildCharMenu();
+    if (e.target.checked) {
+      _enterPlayerView();
+    } else {
+      _enterSTView();
+    }
+    renderSettingsTab();
+  });
+
   // Wire show guides toggle
   el.querySelector('#settings-show-guides')?.addEventListener('change', e => {
     localStorage.setItem('tm-show-guides', e.target.checked ? '1' : '0');
@@ -1305,6 +1477,50 @@ function renderSettingsTab() {
       el.querySelector('#stk-body').value = '';
     } catch (err) {
       statusEl.textContent = 'Failed: ' + (err.message || 'unknown error'); statusEl.style.color = 'var(--crim)';
+    }
+  });
+}
+
+async function _loadSafetyForm(container) {
+  const emailEl   = container.querySelector('#saf-email');
+  const mobileEl  = container.querySelector('#saf-mobile');
+  const ecNameEl  = container.querySelector('#saf-ec-name');
+  const ecMobEl   = container.querySelector('#saf-ec-mobile');
+  const medEl     = container.querySelector('#saf-medical');
+  const saveBtn   = container.querySelector('#saf-save');
+  const statusEl  = container.querySelector('#saf-status');
+  if (!emailEl) return;
+
+  // Load current values
+  try {
+    const me = await apiGet('/api/players/me');
+    if (me) {
+      emailEl.value   = me.email || '';
+      mobileEl.value  = me.mobile || '';
+      ecNameEl.value  = me.emergency_contact_name || '';
+      ecMobEl.value   = me.emergency_contact_mobile || '';
+      medEl.value     = me.medical_info || '';
+    }
+  } catch { /* first time — fields stay empty */ }
+
+  // Save handler
+  saveBtn?.addEventListener('click', async () => {
+    statusEl.textContent = 'Saving\u2026';
+    statusEl.style.color = 'var(--txt3)';
+    try {
+      await apiPut('/api/players/me', {
+        email: emailEl.value.trim() || null,
+        mobile: mobileEl.value.trim() || null,
+        emergency_contact_name: ecNameEl.value.trim() || null,
+        emergency_contact_mobile: ecMobEl.value.trim() || null,
+        medical_info: medEl.value.trim() || null,
+      });
+      statusEl.textContent = 'Saved';
+      statusEl.style.color = 'var(--green2, #7EC8A0)';
+      setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    } catch (err) {
+      statusEl.textContent = 'Failed: ' + (err.message || 'unknown');
+      statusEl.style.color = 'var(--crim)';
     }
   });
 }
@@ -1403,18 +1619,10 @@ function _syncSidebarActions() {
   if (!actionsEl) return;
   const isDesktop = document.body.classList.contains('desktop-mode');
   if (!isDesktop) { actionsEl.innerHTML = ''; return; }
-  // Clone the original header nav buttons into the sidebar actions row
-  const themeBtn = document.getElementById('btn-theme-toggle');
-  const desktopBtn = document.getElementById('btn-desktop-toggle');
-  const adminLink = document.getElementById('nav-admin');
+  // Collapse button is hardcoded in index.html (#sb-collapse-btn) — don't create another.
+  // Only clone the admin link if visible.
   actionsEl.innerHTML = '';
-  if (themeBtn) actionsEl.appendChild(themeBtn.cloneNode(true));
-  if (desktopBtn) {
-    const clone = desktopBtn.cloneNode(true);
-    clone.id = 'btn-desktop-toggle-sidebar';
-    clone.setAttribute('onclick', 'toggleDesktopMode()');
-    actionsEl.appendChild(clone);
-  }
+  const adminLink = document.getElementById('nav-admin');
   if (adminLink && adminLink.style.display !== 'none') {
     actionsEl.appendChild(adminLink.cloneNode(true));
   }
@@ -1481,6 +1689,7 @@ function renderDesktopSidebar() {
 
   const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || 'dice';
   const isActive = (id) => id === currentTab || (id === 'chars' && ['chars','sheets','editor'].includes(currentTab));
+  const showGuides = localStorage.getItem('tm-show-guides') === '1';
 
   // Primary tabs prepended to Game section — Dice/Sheet/Status are first game items
   const primaryTabs = [
@@ -1497,15 +1706,18 @@ function renderDesktopSidebar() {
       if (app.section !== section.id) return false;
       if (app.stOnly && effectiveRole() !== 'st') return false;
       if (app.playerOnly && effectiveRole() === 'st') return false;
+      if (app.guide && !showGuides) return false;
       if (app.condition && !_moreGridCondition(app)) return false;
       return true;
     });
-    if (!sectionApps.length) continue;
+    // Skip section entirely if no visible apps (and no primary tabs to prepend)
+    const hasPrimary = section.id === 'game';
+    if (!sectionApps.length && !hasPrimary) continue;
 
     h += `<div class="sidebar-section-label">${section.label}</div>`;
     h += `<div class="sidebar-app-grid">`;
     // Prepend Dice/Sheet/Status to Game section
-    if (section.id === 'game') {
+    if (hasPrimary) {
       for (const { id, label, icon } of primaryTabs) {
         const on = isActive(id) ? ' on' : '';
         h += `<button class="sidebar-app-tile${on}" onclick="goTab('${id}')" title="${label}">`;
@@ -1522,13 +1734,24 @@ function renderDesktopSidebar() {
     h += `</div>`;
   }
 
-  // Settings button at the bottom of the sidebar
-  const settingsOn = isActive('settings') ? ' on' : '';
-  h += `<div class="sidebar-settings"><button class="sidebar-app-tile sidebar-settings-btn${settingsOn}" onclick="goTab('settings')" title="Settings">`;
-  h += `<span class="sidebar-app-tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>`;
-  h += `<span class="sidebar-app-tile-label">Settings</span></button></div>`;
-
   nav.innerHTML = h;
+
+  // ── Footer: Settings + ST Admin pinned to bottom ──
+  const footer = document.getElementById('desktop-sidebar-footer');
+  if (footer) {
+    let fh = '';
+    // ST Admin button — only for real STs (not player-view mode)
+    const isRealST = getRole() === 'st' || getRole() === 'dev';
+    if (isRealST) {
+      fh += `<a href="/admin" class="sidebar-st-btn" title="ST Admin">ST</a>`;
+    }
+    // Settings
+    const settingsOn = isActive('settings') ? ' on' : '';
+    fh += `<button class="sidebar-app-tile sidebar-settings-btn${settingsOn}" onclick="goTab('settings')" title="Settings">`;
+    fh += `<span class="sidebar-app-tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>`;
+    fh += `<span class="sidebar-app-tile-label">Settings</span></button>`;
+    footer.innerHTML = fh;
+  }
 
   // Mirror user info
   const userEl = document.getElementById('sidebar-user');
@@ -1685,6 +1908,16 @@ async function renderLifecycleCards() {
 
   el.innerHTML = h;
   el.style.display = h ? '' : 'none';
+
+  // Show/hide seasonal nav items based on active cycle
+  _updateSeasonalNav(activeCycle);
+}
+
+function _updateSeasonalNav(activeCycle) {
+  const btn = document.getElementById('n-downtime');
+  if (btn) {
+    btn.style.display = activeCycle ? '' : 'none';
+  }
 }
 
 /** Show logged-in user in header (desktop mode only — mobile uses Settings tab). */
@@ -1721,7 +1954,7 @@ function toggleProfileMenu() {
 
 function toggleViewMode() {
   _viewMode = _viewMode === 'st' ? 'player' : 'st';
-  localStorage.setItem(VIEW_MODE_KEY, _viewMode);
+  sessionStorage.setItem(VIEW_MODE_KEY, _viewMode);
   applyRoleRestrictions();
   if (_viewMode === 'player') {
     _enterPlayerView();
@@ -1756,6 +1989,7 @@ window.openRulesOverlay  = openRulesOverlay;
 window.closeRulesOverlay = closeRulesOverlay;
 window.toggleViewMode    = toggleViewMode;
 window.toggleProfileMenu = toggleProfileMenu;
+window.toggleSidebarCollapse = toggleSidebarCollapse;
 window.suiteStatusOpenEdit   = suiteStatusOpenEdit;
 window.suiteStatusCloseEdit  = suiteStatusCloseEdit;
 window.suiteStatusAdjustCity = suiteStatusAdjustCity;

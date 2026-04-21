@@ -21,12 +21,15 @@ import {
 
 import {
   influenceMerits, domainMerits, standingMerits, generalMerits, manoeuvres,
-  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax, xpLeft,
+  influenceTotal, calcSize, calcSpeed, calcDefence, calcHealth, calcWillpowerMax, calcVitaeMax,
   getSkillObj
 } from '../data/accessors.js';
+import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
+import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
+import { getPool } from '../shared/pools.js';
 
 // ── Sheet character selection ──
 
@@ -66,6 +69,7 @@ export function renderSheet() {
   }
 
   const bl = c.bloodline && c.bloodline !== '\u00AC' ? c.bloodline : '';
+  const _showDice = canRollDice(c);
   const st = c.status || {};
   const clanKey = (c.clan || '').toLowerCase().replace(/[^a-z]/g, '');
   const covKey = (c.covenant || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -90,7 +94,7 @@ export function renderSheet() {
     <div class="sh-char-name">${displayName(c)}</div>
     <div class="sh-player-row">
       <span class="sh-char-player">${redactPlayer(c.player || '')}${c.pronouns ? ' \u00B7 ' + c.pronouns : ''}</span>
-      <span class="sh-xp-badge">XP ${xpLeft(c)}/${c.xp_total != null ? c.xp_total : '?'}</span>
+      <span class="sh-xp-badge">XP ${xpLeft(c)}/${xpEarned(c)}</span>
     </div>
     ${c.concept ? `<div class="sh-char-concept" style="margin-top:4px">${c.concept}</div>` : ''}
   </div>`;
@@ -195,31 +199,36 @@ export function renderSheet() {
 
   const TRACKER_LABELS = { health: 'Health', vitae: 'Vitae', wp: 'Willpower', inf: 'Influence' };
 
-  function mkBoxRow(type, current, max, filledCls) {
+  function mkBoxRow(type, current, max, filledCls, infoHtml) {
     const disp = Math.min(max, 15);
     const boxes = Array.from({ length: disp }, (_, i) => {
       const filled = i < current;
       return `<div class="tbox${filled ? ' ' + filledCls : ''}" data-tracker="${type}" data-idx="${i}" data-max="${disp}" data-filled="${filledCls}"></div>`;
     }).join('');
+    const infoBtn = infoHtml
+      ? `<button class="sh-tracker-info-btn" data-info-type="${type}" title="Breakdown">?</button>`
+      : '';
+    const infoPopover = infoHtml
+      ? `<div class="sh-tracker-popover" id="popover-${type}" style="display:none">${infoHtml}</div>`
+      : '';
     return `<div class="sh-tracker-row">
       <div class="sh-tracker-lbl">${TRACKER_LABELS[type] || type}</div>
       <div class="sh-tracker-boxes" id="tb-${type}">${boxes}</div>
-      <div class="sh-tracker-num" id="tn-${type}">${current}/${max}</div>
+      <div class="sh-tracker-num" id="tn-${type}">${current}/${max}${infoBtn}</div>
+      ${infoPopover}
     </div>`;
   }
 
   const bdLines = influenceBreakdown(c);
-  const infBreakdown = bdLines.length
-    ? `<div class="sh-inf-breakdown">${bdLines.map(l =>
-        `<span class="sh-inf-merit">${l}</span>`
-      ).join('')}</div>`
+  const infPopoverHtml = bdLines.length
+    ? bdLines.map(l => `<span class="sh-inf-merit">${l}</span>`).join('')
     : '';
 
   html += `<div class="sh-tracker-block" id="tracker-block">
     ${mkBoxRow('health', tState.health, maxH, 'health-filled')}
     ${mkBoxRow('vitae', tState.vitae, maxV, 'vitae-filled')}
     ${mkBoxRow('wp', tState.wp, maxWP, 'wp-filled')}
-    ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled') + infBreakdown : ''}
+    ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled', infPopoverHtml) : ''}
   </div>`;
 
   // ── Split point: stats content ends here ──
@@ -271,6 +280,7 @@ export function renderSheet() {
       const hasDots = d > 0 || totalBn > 0;
       const dotStr = hasDots ? shDotsWithBonus(d, totalBn) : '\u2013';
       const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
+      const _diceBtn = (_showDice && hasDots) ? `<span class="skill-dice-btn" onclick="openDiceModal('skill','${s}')" title="Roll ${s}">${DICE_ICON_SVG}</span>` : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
         <div class="skill-name-wrap">
           <span class="skill-name">${s}</span>
@@ -280,6 +290,7 @@ export function renderSheet() {
           <span class="${hasDots ? 'skill-dots' : 'skill-zero'}">${dotStr}</span>
           ${naLabel ? `<span class="skill-na${ptNa || ohmNa ? ' pt-na' : ''}">${naLabel}</span>` : ''}
         </div>
+        ${_diceBtn}
       </div>`;
     });
     html += `</div>`;
@@ -309,8 +320,12 @@ export function renderSheet() {
       const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
       let drawerHtml = '';
       discPowers.forEach(p => {
+        const _pName = (p.name || '').replace(/'/g, "\\'");
+        const _pPool = p.name ? getPool(c, p.name) : null;
+        const _pHasRoll = _pPool && !_pPool.noRoll && _pPool.total !== undefined;
+        const _pDice = (_showDice && _pHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pName}')" title="Roll ${_pName}">${DICE_ICON_SVG}</span>` : '';
         drawerHtml += `<div class="disc-power">
-          <div class="disc-power-name">${p.name || ''}</div>
+          <div class="disc-power-name">${p.name || ''}${_pDice}</div>
           ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
           <div class="disc-power-effect">${p.effect || ''}</div>
         </div>`;
@@ -345,7 +360,11 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">`;
       devotionPowers.forEach((p, i) => {
         const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i;
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const _devName = (p.name || '').replace(/'/g, "\\'");
+        const _devPool = p.name ? getPool(c, p.name) : null;
+        const _devHasRoll = _devPool && !_devPool.noRoll && _devPool.total !== undefined;
+        const _devDice = (_showDice && _devHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span>${_devDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -368,9 +387,13 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Rites</div><div class="disc-list">`;
       rites.forEach((p, i) => {
         const gid = 'rite' + c.name.replace(/[^a-z]/gi, '') + i;
+        const _riteName = (p.name || '').replace(/'/g, "\\'");
+        const _ritePool = p.name ? getPool(c, p.name) : null;
+        const _riteHasRoll = _ritePool && !_ritePool.noRoll && _ritePool.total !== undefined;
+        const _riteDice = (_showDice && _riteHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_riteName}')" title="Roll ${_riteName}">${DICE_ICON_SVG}</span>` : '';
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
         const tradSub = p.tradition ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition}</span></div>` : '';
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_riteDice}<div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -386,7 +409,11 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">`;
       pacts.forEach((p, i) => {
         const gid = 'pact' + c.name.replace(/[^a-z]/gi, '') + i;
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const _pactName = (p.name || '').replace(/'/g, "\\'");
+        const _pactPool = p.name ? getPool(c, p.name) : null;
+        const _pactHasRoll = _pactPool && !_pactPool.noRoll && _pactPool.total !== undefined;
+        const _pactDice = (_showDice && _pactHasRoll) ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>` : '';
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_pactDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -643,12 +670,21 @@ export function renderSheet() {
   html += `</div>`; // end sh-body
   const powersHtml = html;
 
-  // Render to full sheet container (desktop / legacy) and split-tab containers (phone)
-  if (el) el.innerHTML = infoHtml + statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
-  if (statsEl)  statsEl.innerHTML  = statsHtml;
-  if (skillsEl) skillsEl.innerHTML = skillsHtml;
-  if (powersEl) powersEl.innerHTML = powersHtml;
-  if (infoEl)   infoEl.innerHTML   = infoHtml;
+  // Render to split-tab containers (phone + desktop unified).
+  // Desktop mode: render to the full-sheet container so the Sheet tab works.
+  // Mobile mode: render to split-tab containers only, clear the full sheet
+  // to avoid duplicate IDs that break toggleExp/toggleDisc.
+  const isDesktop = document.body.classList.contains('desktop-mode');
+  if (el && isDesktop) {
+    el.innerHTML = infoHtml + statsHtml + skillsHtml + '<div class="sh-powers-grid">' + powersHtml + '</div>';
+  } else if (el) {
+    el.innerHTML = '';
+  }
+  // Always populate split tabs (used on mobile; invisible on desktop)
+  if (statsEl)  statsEl.innerHTML  = isDesktop ? '' : statsHtml;
+  if (skillsEl) skillsEl.innerHTML = isDesktop ? '' : skillsHtml;
+  if (powersEl) powersEl.innerHTML = isDesktop ? '' : powersHtml;
+  if (infoEl)   infoEl.innerHTML   = isDesktop ? '' : infoHtml;
 
   // Wire attribute+skills carousel indicators
   _wireAttrCarousel(skillsEl || el);
@@ -682,6 +718,27 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── TRACKER INFO POPOVER ──
+// (?) button shows influence breakdown; click outside dismisses.
+document.addEventListener('click', function(e) {
+  const infoBtn = e.target.closest('.sh-tracker-info-btn');
+  if (infoBtn) {
+    e.stopPropagation();
+    const type = infoBtn.dataset.infoType;
+    const popover = document.getElementById('popover-' + type);
+    if (!popover) return;
+    const isVisible = popover.style.display !== 'none';
+    // Close all popovers first
+    document.querySelectorAll('.sh-tracker-popover').forEach(p => p.style.display = 'none');
+    if (!isVisible) popover.style.display = '';
+    return;
+  }
+  // Click outside closes all popovers
+  if (!e.target.closest('.sh-tracker-popover')) {
+    document.querySelectorAll('.sh-tracker-popover').forEach(p => p.style.display = 'none');
+  }
+});
 
 // ── TRACKER TOGGLE ──
 // Event delegation on tracker-block — writes through to the canonical tracker store.

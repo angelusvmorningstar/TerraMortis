@@ -737,17 +737,17 @@ function render() {
         h += `<div class="feed-st-row-lbl">Vitae Gained</div>`;
         h += `<div class="feed-st-row-ctrl">`;
         h += `<button class="feed-adj" id="feed-confirm-adj-down">\u2212</button>`;
-        h += `<span class="feed-confirm-val" id="feed-confirm-n">${stDefault}</span>`;
+        h += `<span class="feed-confirm-val" id="feed-confirm-n" data-vit-max="${vitaeMax}">${stDefault}</span>`;
         h += `<button class="feed-adj" id="feed-confirm-adj-up">+</button>`;
         h += `</div>`;
         h += `<div class="feed-st-row-max">/ ${vitaeMax}</div>`;
         h += `</div>`;
         // Influence row
         h += `<div class="feed-st-row">`;
-        h += `<div class="feed-st-row-lbl">Influence Spent</div>`;
+        h += `<div class="feed-st-row-lbl">Influence Remaining</div>`;
         h += `<div class="feed-st-row-ctrl">`;
         h += `<button class="feed-adj" id="feed-inf-adj-down">\u2212</button>`;
-        h += `<span class="feed-inf-val" id="feed-inf-spent">0</span>`;
+        h += `<span class="feed-inf-val" id="feed-inf-spent" data-inf-max="${infMax}">${infMax}</span>`;
         h += `<button class="feed-adj" id="feed-inf-adj-up">+</button>`;
         h += `</div>`;
         h += `<div class="feed-st-row-max">/ ${infMax}</div>`;
@@ -776,9 +776,6 @@ function render() {
   h += '</div>';
   container.innerHTML = h;
   wireEvents();
-  if (isST && feedingState === 'rolled' && currentChar) {
-    loadInfluenceSpend(String(currentChar._id));
-  }
 }
 
 function wireEvents() {
@@ -861,7 +858,9 @@ function wireEvents() {
   });
   container.querySelector('#feed-confirm-adj-up')?.addEventListener('click', () => {
     const el = container.querySelector('#feed-confirm-n');
-    if (el) el.textContent = (parseInt(el.textContent) || 0) + 1;
+    if (!el) return;
+    const max = parseInt(el.dataset.vitMax) || 0;
+    el.textContent = String(Math.min(max, (parseInt(el.textContent) || 0) + 1));
   });
   // ST confirm feed — influence stepper
   container.querySelector('#feed-inf-adj-down')?.addEventListener('click', () => {
@@ -870,7 +869,9 @@ function wireEvents() {
   });
   container.querySelector('#feed-inf-adj-up')?.addEventListener('click', () => {
     const el = container.querySelector('#feed-inf-spent');
-    if (el) el.textContent = String((parseInt(el.textContent) || 0) + 1);
+    if (!el) return;
+    const max = parseInt(el.dataset.infMax) || 0;
+    el.textContent = String(Math.min(max, (parseInt(el.textContent) || 0) + 1));
   });
   container.querySelector('#feed-confirm-btn')?.addEventListener('click', async () => {
     if (!currentChar) return;
@@ -881,15 +882,23 @@ function wireEvents() {
     if (btn) { btn.textContent = 'Saving\u2026'; btn.disabled = true; }
 
     const infEl = container.querySelector('#feed-inf-spent');
-    const infSpent = infEl ? (parseInt(infEl.textContent) || 0) : 0;
-
     const vitaeMax = calcVitaeMax(currentChar);
     const infMax   = calcTotalInfluence(currentChar);
-    const infAfter = Math.max(0, infMax - infSpent);
+    // Stepper value is the NEW remaining influence (starts at max, ticked down)
+    const infAfter = infEl ? Math.max(0, parseInt(infEl.textContent) || 0) : infMax;
+    const infSpent = infMax - infAfter;
 
     // Write vitae and influence to API — single source of truth for tracker state
     try {
-      await apiPut('/api/tracker_state/' + charId, { vitae: n, influence: infAfter });
+      await apiPut('/api/tracker_state/' + charId, { vitae: n });
+      // Also write to localStorage so game app tracker picks it up without tab navigation
+      try {
+        const key = 'tm_tracker_local_' + charId;
+        const loc = JSON.parse(localStorage.getItem(key) || '{}');
+        loc.vitae_confirmed = n;
+        loc.inf = infAfter;
+        localStorage.setItem(key, JSON.stringify(loc));
+      } catch { /* ignore */ }
       const record = { vitae: n, vitaeMax, infSpent, infAfter, infMax };
       _stConfirmed[charId] = record;
       render();

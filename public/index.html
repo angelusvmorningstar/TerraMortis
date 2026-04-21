@@ -43,7 +43,10 @@
   <!-- ══ HEADER — compact: logo + character name + pool banner ══ -->
   <div id="hdr">
     <div class="hdr-brand">
-      <img class="hdr-icon" src="assets/icon-192.png" alt="Terra Mortis" width="28" height="28">
+      <div class="hdr-icon-wrap" id="hdr-icon-wrap">
+        <img class="hdr-icon" src="assets/icon-192.png" alt="Terra Mortis" width="28" height="28">
+        <div class="hdr-char-menu" id="hdr-char-menu" style="display:none"></div>
+      </div>
       <span class="hdr-char-name" id="hdr-char-name"></span>
     </div>
     <div id="pool-banner" style="display:none"></div>
@@ -74,6 +77,7 @@
         </button>
       </div>
       <div id="desktop-sidebar-nav" class="sidebar-nav"></div>
+      <div class="sidebar-footer" id="desktop-sidebar-footer"></div>
       <div class="sidebar-user" id="desktop-sidebar-user"></div>
     </div>
 
@@ -244,7 +248,7 @@
     <div id="t-stats" class="tab active"><div id="stats-content"></div></div>
     <div id="t-skills" class="tab"><div id="skills-content"></div></div>
     <div id="t-powers" class="tab"><div id="powers-content"></div></div>
-    <div id="t-info" class="tab"><div id="info-content"></div></div>
+    <div id="t-info" class="tab"><div id="info-content"></div><div id="misc-past-outcomes"></div></div>
     <div id="t-archive" class="tab"></div>
     <div id="t-settings" class="tab"></div>
 
@@ -274,7 +278,7 @@
 
 <div id="toast"></div>
 
-<script type="module" src="js/app.js?v=20260420h"></script>
+<script type="module" src="js/app.js?v=20260421g"></script>
 <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
 </html>

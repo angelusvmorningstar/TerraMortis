@@ -107,14 +107,14 @@ async function boot() {
       const returnTo = localStorage.getItem('tm_auth_return');
       localStorage.removeItem('tm_auth_return');
       if (returnTo && returnTo !== '/admin' && returnTo !== '/admin.html') {
-        window.location.href = returnTo;
+        window.location.replace(returnTo);
         return;
       }
 
       // Player-only users get redirected to the player portal
       const info = getPlayerInfo();
       if (info && info.role === 'player') {
-        window.location.href = '/player';
+        window.location.replace('/player');
         return;
       }
 

@@ -2,7 +2,7 @@
 
 **Story ID:** feat.12b
 **Epic:** Feature Backlog / Live Session Toolkit
-**Status:** ready-for-dev
+**Status:** review
 **Date:** 2026-04-18
 **Continues:** feat.12 (partially implemented in-session on 2026-04-18)
 
@@ -346,6 +346,25 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None.
+
 ### Completion Notes List
 
+All 5 tasks implemented and shipped to main (2026-04-18, game day).
+
+**Post-story hotfixes also applied to main (same session):**
+- Influence stepper redesigned: starts at `infMax`, ST ticks DOWN to set remaining. Label changed to "Influence Remaining". `infSpent` is derived as `infMax - infAfter`.
+- Vitae `+` button capped at `vitaeMax` via `data-vit-max` attribute.
+- Influence `+` button capped at `infMax` via `data-inf-max` attribute.
+- `loadInfluenceSpend` call removed from render — it was overwriting the influence stepper span with DT spend data (or `0` on miss), resetting other characters' tracker influence to 0 when confirmed.
+- `loc.inf = infAfter` now always written on confirm (not conditional on infSpent > 0).
+
+**Constraint update:** `loadInfluenceSpend` must NOT be called at render time. The `#feed-inf-spent` span is the stepper value (remaining influence), not a display for DT data.
+
 ### File List
+
+| File | Change |
+|---|---|
+| `public/js/player/feeding-tab.js` | Two-row confirm panel; influence remaining stepper; vitae/influence caps; loadInfluenceSpend removed from render; confirm handler rewritten |
+| `public/js/game/tracker.js` | `ensureLoaded` prefers `local.vitae_confirmed`; `trackerAdj` clears it on manual vitae change |
+| `public/css/player-layout.css` | `.feed-st-row*` classes added |

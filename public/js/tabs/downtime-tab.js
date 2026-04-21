@@ -82,12 +82,36 @@ export async function initDowntimeTab(el, char, territories = []) {
   }
 
   el.appendChild(currentZone);
+}
 
-  // ── Zone 2: Past Outcomes accordion ─────────────────────────────
+/** Render past outcomes accordion into a target element. Standalone — can be
+ *  called independently of the downtime form tab. */
+export async function renderPastOutcomes(el, char) {
+  if (!el || !char) return;
+  el.innerHTML = '';
+
+  let cycles = [], subs = [];
+  try {
+    [cycles, subs] = await Promise.all([
+      apiGet('/api/downtime_cycles'),
+      apiGet('/api/downtime_submissions'),
+    ]);
+    subs.forEach(s => {
+      if (!s.published_outcome && s.st_review?.outcome_visibility === 'published') {
+        s.published_outcome = s.st_review.outcome_text;
+      }
+    });
+  } catch { return; }
+
+  const charId = String(char._id);
+  const cycleMap = {};
+  for (const c of cycles) cycleMap[String(c._id)] = c.label || `Cycle ${String(c._id).slice(-4)}`;
+
+  const publishedSubs = subs
+    .filter(s => String(s.character_id) === charId && s.published_outcome)
+    .sort((a, b) => (String(b._id) > String(a._id) ? 1 : -1));
+
   if (!publishedSubs.length) return;
-
-  const historyZone = document.createElement('div');
-  historyZone.className = 'dt-history-zone';
 
   let h = '<h3 class="dt-history-heading">Past Outcomes</h3>';
   for (const sub of publishedSubs) {
@@ -104,9 +128,7 @@ export async function initDowntimeTab(el, char, territories = []) {
     h += `</div>`;
     h += `</details>`;
   }
-
-  historyZone.innerHTML = h;
-  el.appendChild(historyZone);
+  el.innerHTML = h;
 }
 
 function _cycleDate(sub, cycles) {

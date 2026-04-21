@@ -8,7 +8,7 @@ import { apiGet, apiPut, apiPost } from '../data/api.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { displayName, displayNameRaw, sortName, clanIcon, covIcon } from '../data/helpers.js';
-import { AMBIENCE_MODS } from '../player/downtime-data.js';
+import { AMBIENCE_MODS } from '../tabs/downtime-data.js';
 import { invalidateCachedTerritories } from './downtime-views.js';
 
 const TERRITORIES = [

@@ -25,6 +25,7 @@ import ticketsRouter from './routes/tickets.js';
 import rulesRouter from './routes/rules.js';
 import adminMigrationsRouter from './routes/admin-migrations.js';
 import contestedRollsRouter from './routes/contested-rolls.js';
+import { attachWS } from './ws.js';
 // NOTE: The old /api/pdf route was removed. Character sheet PDFs are now
 // rendered client-side via public/js/print/. See
 // specs/guidance/pdf-target/PRIOR-ART.md for the post-mortem on why the
@@ -104,9 +105,12 @@ app.use('/api/admin', requireAuth, requireRole('st'), adminMigrationsRouter);
 // Start server first, then attempt DB connection
 // Server must be reachable even if MongoDB is unavailable
 async function start() {
-  app.listen(config.PORT, () => {
+  const server = app.listen(config.PORT, () => {
     console.log(`TM Suite API running on port ${config.PORT} (${config.NODE_ENV})`);
   });
+
+  // Attach WebSocket server for live tracker sync
+  attachWS(server);
 
   try {
     await connectDb();

@@ -701,7 +701,7 @@ export function shRenderInfluenceMerits(c, editMode) {
       const area = (m.area || '').trim() || null, gt = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '', tags = m._grant_sources || [], gb = tags.length ? (' <span class="gen-granted-tag-view">' + tags.join(', ') + '</span>') : '';
       const iRIdx = c.merits.indexOf(m);
       const iPurch = (m.cp || 0) + (m.xp || 0), iBon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0) + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0) + (m.free_pt || 0) + (m.free_sw || 0) + attacheBonusDots(c, area ? m.name + ' (' + area + ')' : m.name);
-      h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + (m.rating ? ' ' + shDots(m.rating) : '') + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
+      h += shRenderMeritRow((area ? m.name + ' (' + area + gt + ')' : m.name + gt) + gb, 'infl', idx, shDotsMixed(iPurch, iBon));
     });
     const ce = inflM.filter(m => m.name === 'Contacts');
     if (ce.length) {
@@ -1017,7 +1017,7 @@ export function shRenderGeneralMerits(c, editMode) {
         const grantTag = '<span class="gen-granted-tag-view" title="Granted by ' + esc(m.granted_by) + '">' + esc(gb) + '</span>';
         h += shRenderMeritRow(m.name + qual, 'gmerit', i, dotH, grantTag);
         if (pw) h += pw;
-      } else { h += shRenderMeritRow(m.name + qual + (m.rating ? ' ' + shDots(m.rating) : ''), 'merit', i, dotH); if (pw) h += pw; }
+      } else { h += shRenderMeritRow(m.name + qual, 'merit', i, dotH); if (pw) h += pw; }
     });
   }
   h += '</div></div>'; return h;
