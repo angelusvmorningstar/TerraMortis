@@ -74,7 +74,7 @@ export function login() {
     response_type: 'code',
     scope: SCOPES,
   });
-  window.location.href = `https://discord.com/oauth2/authorize?${params}`;
+  window.location.replace(`https://discord.com/oauth2/authorize?${params}`);
 }
 
 export function logout() {
