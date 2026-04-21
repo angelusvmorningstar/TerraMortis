@@ -1742,6 +1742,8 @@ body.desktop-mode #desktop-sidebar { display: flex; }
 #desktop-sidebar.collapsed .sidebar-app-tile { width: 40px; height: 40px; padding: 0; justify-self: center; }
 #desktop-sidebar.collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
 #desktop-sidebar.collapsed .sidebar-actions { justify-content: center; }
+#desktop-sidebar.collapsed .sidebar-footer { padding: 8px 6px; }
+#desktop-sidebar.collapsed .sidebar-st-btn { width: 36px; height: 36px; font-size: 11px; }
 
 /* Collapsed sidebar — icons-only strip */
 body.desktop-mode.sidebar-collapsed #desktop-sidebar { width: 56px; overflow: hidden; }
@@ -1834,14 +1836,31 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .sidebar-app-tile.on .sidebar-app-tile-label { color: var(--accent); }
 
 /* User area */
-#desktop-sidebar .sidebar-user { padding: 10px 14px; border-top: 1px solid var(--bdr); flex-shrink: 0; margin-top: auto; }
+#desktop-sidebar .sidebar-user { padding: 10px 14px; border-top: 1px solid var(--bdr); flex-shrink: 0; }
 
 /* Desktop toggle button — hidden since desktop mode is now auto-detected via matchMedia */
 .desktop-toggle-btn { display: none !important; }
-.sidebar-settings { margin-top: auto; padding: 8px 14px; border-top: 1px solid var(--bdr); display: flex; justify-content: center; }
+
+/* Sidebar footer — pinned to bottom */
+.sidebar-footer {
+  margin-top: auto; padding: 10px 14px; border-top: 1px solid var(--bdr);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  flex-shrink: 0;
+}
 .sidebar-settings-btn { width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .sidebar-settings-btn .sidebar-app-tile-icon { width: 22px; height: 22px; }
 .sidebar-settings-btn .sidebar-app-tile-label { display: none; }
+
+/* ST Admin button */
+.sidebar-st-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 8px;
+  background: var(--crim, #8B0000); color: #fff;
+  font-family: var(--hd); font-size: 13px; font-weight: 700;
+  letter-spacing: .5px; text-decoration: none;
+  border: none; cursor: pointer; transition: background .15s;
+}
+.sidebar-st-btn:hover { background: #A00000; }
 
 /* Sidebar collapse button */
 .sidebar-collapse-btn {

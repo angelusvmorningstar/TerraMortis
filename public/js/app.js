@@ -1026,7 +1026,11 @@ async function boot() {
         openChar(charIdx);
         pickChar(editorState.chars[charIdx]);
       }
-      goTab(DESKTOP_MQ.matches ? 'chars' : 'stats');
+      // Desktop: STs land on character grid, players land on sheet.
+      // Phone: players land on stats (split tab view).
+      const isDesktop = DESKTOP_MQ.matches;
+      const isPlayer = getRole() !== 'st';
+      goTab(isDesktop ? (isPlayer ? 'sheets' : 'chars') : 'stats');
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       _updateThemeIcon();     // set correct sun/moon on load
@@ -1580,13 +1584,24 @@ function renderDesktopSidebar() {
     h += `</div>`;
   }
 
-  // Settings button at the bottom of the sidebar
-  const settingsOn = isActive('settings') ? ' on' : '';
-  h += `<div class="sidebar-settings"><button class="sidebar-app-tile sidebar-settings-btn${settingsOn}" onclick="goTab('settings')" title="Settings">`;
-  h += `<span class="sidebar-app-tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>`;
-  h += `<span class="sidebar-app-tile-label">Settings</span></button></div>`;
-
   nav.innerHTML = h;
+
+  // ── Footer: Settings + ST Admin pinned to bottom ──
+  const footer = document.getElementById('desktop-sidebar-footer');
+  if (footer) {
+    let fh = '';
+    // ST Admin button — only for real STs (not player-view mode)
+    const isRealST = getRole() === 'st' || getRole() === 'dev';
+    if (isRealST) {
+      fh += `<a href="/admin" class="sidebar-st-btn" title="ST Admin">ST</a>`;
+    }
+    // Settings
+    const settingsOn = isActive('settings') ? ' on' : '';
+    fh += `<button class="sidebar-app-tile sidebar-settings-btn${settingsOn}" onclick="goTab('settings')" title="Settings">`;
+    fh += `<span class="sidebar-app-tile-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>`;
+    fh += `<span class="sidebar-app-tile-label">Settings</span></button>`;
+    footer.innerHTML = fh;
+  }
 
   // Mirror user info
   const userEl = document.getElementById('sidebar-user');
