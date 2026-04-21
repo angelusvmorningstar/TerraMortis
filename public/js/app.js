@@ -798,6 +798,78 @@ function pickChar(c) {
 }
 
 // ══════════════════════════════════════════════
+//  HEADER CHARACTER MENU
+// ══════════════════════════════════════════════
+
+function _buildCharMenu() {
+  const wrap = document.getElementById('hdr-icon-wrap');
+  const menu = document.getElementById('hdr-char-menu');
+  if (!wrap || !menu) return;
+
+  const chars = editorState.chars;
+  // Only show menu when there are multiple characters to choose from
+  if (chars.length <= 1) {
+    wrap.classList.remove('has-menu');
+    wrap.onclick = null;
+    menu.style.display = 'none';
+    return;
+  }
+
+  wrap.classList.add('has-menu');
+  wrap.onclick = (e) => {
+    e.stopPropagation();
+    const showing = menu.style.display !== 'none';
+    menu.style.display = showing ? 'none' : '';
+    if (!showing) _renderCharMenuItems();
+  };
+}
+
+function _renderCharMenuItems() {
+  const menu = document.getElementById('hdr-char-menu');
+  if (!menu) return;
+  const activeId = String(suiteState.sheetChar?._id || '');
+  let h = '';
+  editorState.chars.forEach((c, i) => {
+    const isActive = String(c._id) === activeId;
+    h += `<button class="hdr-char-menu-item${isActive ? ' active' : ''}" data-char-idx="${i}">`;
+    h += `<span class="hdr-menu-check">${isActive ? '\u2713' : ''}</span>`;
+    h += `<span>${esc(displayName(c))}</span>`;
+    h += `</button>`;
+  });
+  menu.innerHTML = h;
+
+  // Wire clicks
+  menu.querySelectorAll('[data-char-idx]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.charIdx, 10);
+      if (isNaN(idx) || !editorState.chars[idx]) return;
+      _switchChar(idx);
+      menu.style.display = 'none';
+    });
+  });
+}
+
+function _switchChar(idx) {
+  const c = editorState.chars[idx];
+  if (!c) return;
+  localStorage.setItem('tm_active_char', String(c._id));
+  openChar(idx);
+  pickChar(c);
+  // Clear MISC past outcomes so they reload for the new character
+  const miscEl = document.getElementById('misc-past-outcomes');
+  if (miscEl) miscEl.innerHTML = '';
+  suiteState.sheetChar = c;
+  suiteRenderSheet();
+}
+
+// Close character menu on outside click
+document.addEventListener('click', () => {
+  const menu = document.getElementById('hdr-char-menu');
+  if (menu) menu.style.display = 'none';
+});
+
+// ══════════════════════════════════════════════
 //  REGISTER CALLBACKS (editor — break circular deps)
 // ══════════════════════════════════════════════
 
@@ -1014,6 +1086,7 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
+      _buildCharMenu();
       // Desktop mode must be initialised before rendering so sheet.js
       // knows whether to render into the full sheet or split tabs.
       _initDesktopMode();
@@ -1255,20 +1328,6 @@ function renderSettingsTab() {
   h += '</div>';
   h += '</div>';
 
-  // Character selector (shown when player has multiple characters)
-  if (editorState.chars.length > 1) {
-    const activeId = String(suiteState.sheetChar?._id || '');
-    h += '<div class="settings-section">';
-    h += '<div class="settings-section-label">Active Character</div>';
-    h += '<select class="settings-input" id="settings-char-sel">';
-    editorState.chars.forEach((c, i) => {
-      const sel = String(c._id) === activeId ? ' selected' : '';
-      h += `<option value="${i}"${sel}>${esc(displayName(c))}</option>`;
-    });
-    h += '</select>';
-    h += '</div>';
-  }
-
   // Theme
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Theme</div>';
@@ -1342,28 +1401,6 @@ function renderSettingsTab() {
       _applyReadingFontSize(btn.dataset.fontsize);
       renderSettingsTab();
     });
-  });
-
-  // Wire character selector
-  el.querySelector('#settings-char-sel')?.addEventListener('change', e => {
-    const idx = parseInt(e.target.value, 10);
-    if (isNaN(idx) || !editorState.chars[idx]) return;
-    const c = editorState.chars[idx];
-    // Persist selection
-    localStorage.setItem('tm_active_char', String(c._id));
-    if (getRole() === 'st') {
-      openChar(idx);
-    } else {
-      openChar(idx);
-      pickChar(c);
-    }
-    // Clear MISC past outcomes so they reload for the new character
-    const miscEl = document.getElementById('misc-past-outcomes');
-    if (miscEl) miscEl.innerHTML = '';
-    // Re-render the suite sheet for the new character
-    suiteState.sheetChar = c;
-    suiteRenderSheet();
-    renderSettingsTab();
   });
 
   // Load and wire safety/emergency contact form
