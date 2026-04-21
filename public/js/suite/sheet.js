@@ -29,6 +29,7 @@ import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../g
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
 import { DICE_ICON_SVG } from './dice-modal.js';
+import { getPool } from '../shared/pools.js';
 
 // ── Sheet character selection ──
 
@@ -280,7 +281,6 @@ export function renderSheet() {
       const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
       const _diceBtn = hasDots ? `<span class="skill-dice-btn" onclick="openDiceModal('skill','${s}')" title="Roll ${s}">${DICE_ICON_SVG}</span>` : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
-        ${_diceBtn}
         <div class="skill-name-wrap">
           <span class="skill-name">${s}</span>
           ${sp ? `<span class="skill-spec">${sp}</span>` : ''}
@@ -289,6 +289,7 @@ export function renderSheet() {
           <span class="${hasDots ? 'skill-dots' : 'skill-zero'}">${dotStr}</span>
           ${naLabel ? `<span class="skill-na${ptNa || ohmNa ? ' pt-na' : ''}">${naLabel}</span>` : ''}
         </div>
+        ${_diceBtn}
       </div>`;
     });
     html += `</div>`;
@@ -319,9 +320,11 @@ export function renderSheet() {
       let drawerHtml = '';
       discPowers.forEach(p => {
         const _pName = (p.name || '').replace(/'/g, "\\'");
-        const _pDice = p.name ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pName}')" title="Roll ${_pName}">${DICE_ICON_SVG}</span>` : '';
+        const _pPool = p.name ? getPool(c, p.name) : null;
+        const _pHasRoll = _pPool && !_pPool.noRoll && _pPool.total !== undefined;
+        const _pDice = _pHasRoll ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pName}')" title="Roll ${_pName}">${DICE_ICON_SVG}</span>` : '';
         drawerHtml += `<div class="disc-power">
-          <div class="disc-power-name">${_pDice}${p.name || ''}</div>
+          <div class="disc-power-name">${p.name || ''}${_pDice}</div>
           ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
           <div class="disc-power-effect">${p.effect || ''}</div>
         </div>`;
@@ -357,8 +360,10 @@ export function renderSheet() {
       devotionPowers.forEach((p, i) => {
         const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i;
         const _devName = (p.name || '').replace(/'/g, "\\'");
-        const _devDice = p.name ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
-        const inner = `<div class="trait-row"><div class="trait-main">${_devDice}<span class="trait-name secondary">${p.name || ''}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const _devPool = p.name ? getPool(c, p.name) : null;
+        const _devHasRoll = _devPool && !_devPool.noRoll && _devPool.total !== undefined;
+        const _devDice = _devHasRoll ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span>${_devDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -382,10 +387,12 @@ export function renderSheet() {
       rites.forEach((p, i) => {
         const gid = 'rite' + c.name.replace(/[^a-z]/gi, '') + i;
         const _riteName = (p.name || '').replace(/'/g, "\\'");
-        const _riteDice = `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_riteName}')" title="Roll ${_riteName}">${DICE_ICON_SVG}</span>`;
+        const _ritePool = p.name ? getPool(c, p.name) : null;
+        const _riteHasRoll = _ritePool && !_ritePool.noRoll && _ritePool.total !== undefined;
+        const _riteDice = _riteHasRoll ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_riteName}')" title="Roll ${_riteName}">${DICE_ICON_SVG}</span>` : '';
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
         const tradSub = p.tradition ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition}</span></div>` : '';
-        const inner = `<div class="trait-row"><div class="trait-main">${_riteDice}<span class="trait-name secondary">${p.name}</span><div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_riteDice}<div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -402,8 +409,10 @@ export function renderSheet() {
       pacts.forEach((p, i) => {
         const gid = 'pact' + c.name.replace(/[^a-z]/gi, '') + i;
         const _pactName = (p.name || '').replace(/'/g, "\\'");
-        const _pactDice = `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>`;
-        const inner = `<div class="trait-row"><div class="trait-main">${_pactDice}<span class="trait-name secondary">${p.name}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const _pactPool = p.name ? getPool(c, p.name) : null;
+        const _pactHasRoll = _pactPool && !_pactPool.noRoll && _pactPool.total !== undefined;
+        const _pactDice = _pactHasRoll ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>` : '';
+        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span>${_pactDice}<div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}

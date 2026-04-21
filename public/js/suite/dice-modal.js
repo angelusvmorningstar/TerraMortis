@@ -11,8 +11,8 @@ import { hasAoE } from '../data/helpers.js';
 import { SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL } from '../data/constants.js';
 import state from './data.js';   // only for reading rollChar / sheetChar
 
-// ── Dice SVG icon (reusable inline) ──
-export const DICE_ICON_SVG = `<svg class="dice-roll-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/></svg>`;
+// ── d10 icon — diamond/kite shape representing the pentagonal trapezohedron ──
+export const DICE_ICON_SVG = `<svg class="dice-roll-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L22 10 L12 22 L2 10 Z"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
 
 // ── Default attribute for bare skill rolls ──
 // Each skill maps to the "most common" attribute used with it.

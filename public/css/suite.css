@@ -2060,7 +2060,8 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   flex-shrink: 0;
 }
 .skill-dice-btn:hover, .disc-power-dice:hover { background: var(--surf3); }
-.disc-power-name { display: flex; align-items: center; gap: 4px; }
+.disc-power-name { display: flex; align-items: center; gap: 6px; }
+.disc-power-name .disc-power-dice { margin-left: auto; }
 
 /* ── Overlay ── */
 #dice-modal-overlay {
