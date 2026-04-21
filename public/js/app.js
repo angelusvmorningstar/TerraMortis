@@ -1408,8 +1408,9 @@ function _syncSidebarActions() {
   if (!actionsEl) return;
   const isDesktop = document.body.classList.contains('desktop-mode');
   if (!isDesktop) { actionsEl.innerHTML = ''; return; }
-  // Collapse button and admin link are rendered by renderDesktopSidebar — no duplication here
-  actionsEl.innerHTML = '<button class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></button>';
+  // Collapse button is hardcoded in index.html (#sb-collapse-btn) — don't create another.
+  // Only clone the admin link if visible.
+  actionsEl.innerHTML = '';
   const adminLink = document.getElementById('nav-admin');
   if (adminLink && adminLink.style.display !== 'none') {
     actionsEl.appendChild(adminLink.cloneNode(true));
