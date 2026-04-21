@@ -834,6 +834,40 @@ SPEC = [
         "target_successes": "", "resistance": "",
         "text_file": "Danse Macabre Cruac.txt", "lines": [141, 164],
     },
+    # ── Night Horrors: Wicked Dead (Dampyr chapter) ─────────────
+    # Reproduction-themed rites; body text on disk, metadata here.
+    {
+        "name_pdf": "Cernunnos's Horn",
+        "csv_match": None,
+        "parent": "Cruac", "rank": 2,
+        "book": "Night Horrors: Wicked Dead", "page": "154",
+        "target_successes": "", "resistance": "",
+        "text_file": "Wicked Dead Rites.txt", "lines": [82, 90],
+    },
+    {
+        "name_pdf": "Fire the Cauldron",
+        "csv_match": None,
+        "parent": "Cruac", "rank": 3,
+        "book": "Night Horrors: Wicked Dead", "page": "155",
+        "target_successes": "", "resistance": "",
+        "text_file": "Wicked Dead Rites.txt", "lines": [93, 96],
+    },
+    {
+        "name_pdf": "Anoint the Spear",
+        "csv_match": "Anoint the Spear",
+        "parent": "Theban", "rank": 3,
+        "book": "Night Horrors: Wicked Dead", "page": "155",
+        "target_successes": "", "resistance": "",
+        "text_file": "Wicked Dead Rites.txt", "lines": [97, 106],
+    },
+    {
+        "name_pdf": "The Fruitful Womb",
+        "csv_match": None,
+        "parent": "Theban", "rank": 5,
+        "book": "Night Horrors: Wicked Dead", "page": "155",
+        "target_successes": "", "resistance": "",
+        "text_file": "Wicked Dead Rites.txt", "lines": [107, 118],
+    },
 ]
 
 

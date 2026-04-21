@@ -1434,5 +1434,53 @@
     "resistance": "",
     "sub_category": "",
     "description": "The Mother's Touch\n(Level-One Cruac Ritual)\nThe vampire expends two points of her own Vi-\ntae into a proper vessel (often an animal's bladder;\nthe vessel must be organic) and then mixes into the\nme-\nblood a series of reagents in small portion:\nclay;\ndicinal herbs, animal\nfur;\nanimal blood, the blood\nof\nand the tears\nhuman\nfrom\nhuman child,\nmother: The vampire then prays over the vessel for\none hour; and then consumes it: The blood, prior\nto\nconsumption, transubstantiates into the blood\nof the Crone: Once the vampire drinks this blood,\nshe begins to hear the occasional mad whispers\n(usually once per night) ofthe slumbering Mother:\nShe does not regain her two points of spent Vitae:"
+  },
+  {
+    "book": "Night Horrors: Wicked Dead",
+    "page": "154",
+    "parent": "Cruac",
+    "rank": 2,
+    "name_pdf": "Cernunnos's Horn",
+    "csv_match": null,
+    "target_successes": "",
+    "resistance": "",
+    "sub_category": "",
+    "description": "This ritual imbues a male caster or target with sexual po-\ntency and fertility until he next sleeps. He can participate \nin and enjoy sexual relations normally, and his fertility \nis supernaturally enhanced—all such unions will prove \nfertile (see above for the implications of this). It is little \nknown, but this ritual has an identical effect upon female \nvampires. The symbolism and ritual is so obviously male \nthat few realize this, but it imbues a female with the power \nto impregnate others."
+  },
+  {
+    "book": "Night Horrors: Wicked Dead",
+    "page": "155",
+    "parent": "Cruac",
+    "rank": 3,
+    "name_pdf": "Fire the Cauldron",
+    "csv_match": null,
+    "target_successes": "",
+    "resistance": "",
+    "sub_category": "",
+    "description": "This ritual prepares a vampire female to carry a child, and \nrenders her fertile until she next sleeps. She is fully able to \nconceive after relations with a mortal. See above for the \ndifficulties and special rules for a pregnant vampire."
+  },
+  {
+    "book": "Night Horrors: Wicked Dead",
+    "page": "155",
+    "parent": "Theban",
+    "rank": 3,
+    "name_pdf": "Anoint the Spear",
+    "csv_match": "Anoint the Spear",
+    "target_successes": "",
+    "resistance": "",
+    "sub_category": "",
+    "description": "This blasphemous ritual restores a male target’s member \nto full function and fertility until he has fathered one \nchild. The target can be any vampire the caster can see at \nthe time of the casting, and the target may be wholly un-\naware of the ritual. This is an uncommon ritual, and those \nof the faithful who know of its existence theorize it was \ncreated as a form of ironic punishment for dallying with \nmortals before the acts this ritual enables were proscribed \nas verboten. The magical “charge” imbued by this ritual \nremains until it is used, for years or decades even."
+  },
+  {
+    "book": "Night Horrors: Wicked Dead",
+    "page": "155",
+    "parent": "Theban",
+    "rank": 5,
+    "name_pdf": "The Fruitful Womb",
+    "csv_match": null,
+    "target_successes": "",
+    "resistance": "",
+    "sub_category": "",
+    "description": "A lengthy and intense ritual in which the subject’s body \nis used as an altar upon which animal sacrifices are \nmade, the corpses then burned. Prayer and the laying \non of hands follow. This ritual may target female mor-\ntals or vampires. Mortal subjects become pregnant with \nthe caster’s half-Damned child, but female vampires \nbecome pregnant with Dampyr of their own bloodline \nunless a ritual vessel filled with the Vitae of another \nclan is used in the ritual, a practice allowing the parent \nclan of the child to be chosen. This implies that the \npurpose of this ritual was to forge Dampyr to use as \nweapons against enemies of other clans."
   }
 ]
