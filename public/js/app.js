@@ -80,7 +80,7 @@ import {
   setImportCallbacks,
 } from './suite/import.js';
 import { loadCharsFromApi, sanitiseChar, loadRulesFromApi, getRulesByCategory } from './data/loader.js';
-import { apiGet, apiPost } from './data/api.js';
+import { apiGet, apiPost, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
@@ -1241,6 +1241,20 @@ function renderSettingsTab() {
     h += '</div>';
   }
 
+  // Emergency Contact / Safety Info
+  h += '<div class="settings-section">';
+  h += '<div class="settings-section-label">Safety &amp; Emergency Contact</div>';
+  h += '<div class="settings-section-hint">Only visible to Storytellers. Used for live game safety.</div>';
+  h += '<div class="settings-safety-form" id="settings-safety-form">';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-email">Email</label><input class="settings-input" id="saf-email" type="email" placeholder="your@email.com"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-mobile">Mobile</label><input class="settings-input" id="saf-mobile" type="tel" placeholder="+61 4xx xxx xxx"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-ec-name">Emergency Contact</label><input class="settings-input" id="saf-ec-name" type="text" placeholder="Name"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-ec-mobile">Emergency Mobile</label><input class="settings-input" id="saf-ec-mobile" type="tel" placeholder="+61 4xx xxx xxx"></div>';
+  h += '<div class="settings-safety-row"><label class="settings-safety-lbl" for="saf-medical">Medical Info</label><textarea class="settings-input" id="saf-medical" rows="2" placeholder="Allergies, conditions, etc."></textarea></div>';
+  h += '<div class="settings-safety-actions"><button class="settings-btn" id="saf-save">Save</button><span class="settings-safety-status" id="saf-status"></span></div>';
+  h += '</div>';
+  h += '</div>';
+
   // Character selector (shown when player has multiple characters)
   if (editorState.chars.length > 1) {
     const activeId = String(suiteState.sheetChar?._id || '');
@@ -1352,6 +1366,9 @@ function renderSettingsTab() {
     renderSettingsTab();
   });
 
+  // Load and wire safety/emergency contact form
+  _loadSafetyForm(el);
+
   // Wire show guides toggle
   el.querySelector('#settings-show-guides')?.addEventListener('change', e => {
     localStorage.setItem('tm-show-guides', e.target.checked ? '1' : '0');
@@ -1374,6 +1391,50 @@ function renderSettingsTab() {
       el.querySelector('#stk-body').value = '';
     } catch (err) {
       statusEl.textContent = 'Failed: ' + (err.message || 'unknown error'); statusEl.style.color = 'var(--crim)';
+    }
+  });
+}
+
+async function _loadSafetyForm(container) {
+  const emailEl   = container.querySelector('#saf-email');
+  const mobileEl  = container.querySelector('#saf-mobile');
+  const ecNameEl  = container.querySelector('#saf-ec-name');
+  const ecMobEl   = container.querySelector('#saf-ec-mobile');
+  const medEl     = container.querySelector('#saf-medical');
+  const saveBtn   = container.querySelector('#saf-save');
+  const statusEl  = container.querySelector('#saf-status');
+  if (!emailEl) return;
+
+  // Load current values
+  try {
+    const me = await apiGet('/api/players/me');
+    if (me) {
+      emailEl.value   = me.email || '';
+      mobileEl.value  = me.mobile || '';
+      ecNameEl.value  = me.emergency_contact_name || '';
+      ecMobEl.value   = me.emergency_contact_mobile || '';
+      medEl.value     = me.medical_info || '';
+    }
+  } catch { /* first time — fields stay empty */ }
+
+  // Save handler
+  saveBtn?.addEventListener('click', async () => {
+    statusEl.textContent = 'Saving\u2026';
+    statusEl.style.color = 'var(--txt3)';
+    try {
+      await apiPut('/api/players/me', {
+        email: emailEl.value.trim() || null,
+        mobile: mobileEl.value.trim() || null,
+        emergency_contact_name: ecNameEl.value.trim() || null,
+        emergency_contact_mobile: ecMobEl.value.trim() || null,
+        medical_info: medEl.value.trim() || null,
+      });
+      statusEl.textContent = 'Saved';
+      statusEl.style.color = 'var(--green2, #7EC8A0)';
+      setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    } catch (err) {
+      statusEl.textContent = 'Failed: ' + (err.message || 'unknown');
+      statusEl.style.color = 'var(--crim)';
     }
   });
 }

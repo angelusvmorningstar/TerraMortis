@@ -2055,6 +2055,20 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .settings-input:focus { outline: none; border-color: var(--accent); }
 .settings-ticket-form { display: flex; flex-direction: column; }
 
+/* Safety / Emergency Contact form */
+.settings-safety-form { display: flex; flex-direction: column; }
+.settings-safety-row { margin-bottom: 2px; }
+.settings-safety-lbl {
+  display: block; font-size: 11px; font-weight: 600; color: var(--txt3);
+  text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px;
+}
+.settings-safety-actions { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.settings-safety-status { font-size: 12px; }
+.settings-section-hint {
+  font-size: 11px; color: var(--txt3); font-style: italic;
+  margin-bottom: 8px; line-height: 1.4;
+}
+
 /* ── Reading font size (tunable via Settings) ── */
 :root { --reading-font-size: 15px; }
 
