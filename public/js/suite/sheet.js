@@ -196,31 +196,36 @@ export function renderSheet() {
 
   const TRACKER_LABELS = { health: 'Health', vitae: 'Vitae', wp: 'Willpower', inf: 'Influence' };
 
-  function mkBoxRow(type, current, max, filledCls) {
+  function mkBoxRow(type, current, max, filledCls, infoHtml) {
     const disp = Math.min(max, 15);
     const boxes = Array.from({ length: disp }, (_, i) => {
       const filled = i < current;
       return `<div class="tbox${filled ? ' ' + filledCls : ''}" data-tracker="${type}" data-idx="${i}" data-max="${disp}" data-filled="${filledCls}"></div>`;
     }).join('');
+    const infoBtn = infoHtml
+      ? `<button class="sh-tracker-info-btn" data-info-type="${type}" title="Breakdown">?</button>`
+      : '';
+    const infoPopover = infoHtml
+      ? `<div class="sh-tracker-popover" id="popover-${type}" style="display:none">${infoHtml}</div>`
+      : '';
     return `<div class="sh-tracker-row">
       <div class="sh-tracker-lbl">${TRACKER_LABELS[type] || type}</div>
       <div class="sh-tracker-boxes" id="tb-${type}">${boxes}</div>
-      <div class="sh-tracker-num" id="tn-${type}">${current}/${max}</div>
+      <div class="sh-tracker-num" id="tn-${type}">${current}/${max}${infoBtn}</div>
+      ${infoPopover}
     </div>`;
   }
 
   const bdLines = influenceBreakdown(c);
-  const infBreakdown = bdLines.length
-    ? `<div class="sh-inf-breakdown">${bdLines.map(l =>
-        `<span class="sh-inf-merit">${l}</span>`
-      ).join('')}</div>`
+  const infPopoverHtml = bdLines.length
+    ? bdLines.map(l => `<span class="sh-inf-merit">${l}</span>`).join('')
     : '';
 
   html += `<div class="sh-tracker-block" id="tracker-block">
     ${mkBoxRow('health', tState.health, maxH, 'health-filled')}
     ${mkBoxRow('vitae', tState.vitae, maxV, 'vitae-filled')}
     ${mkBoxRow('wp', tState.wp, maxWP, 'wp-filled')}
-    ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled') + infBreakdown : ''}
+    ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled', infPopoverHtml) : ''}
   </div>`;
 
   // ── Split point: stats content ends here ──
@@ -692,6 +697,27 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── TRACKER INFO POPOVER ──
+// (?) button shows influence breakdown; click outside dismisses.
+document.addEventListener('click', function(e) {
+  const infoBtn = e.target.closest('.sh-tracker-info-btn');
+  if (infoBtn) {
+    e.stopPropagation();
+    const type = infoBtn.dataset.infoType;
+    const popover = document.getElementById('popover-' + type);
+    if (!popover) return;
+    const isVisible = popover.style.display !== 'none';
+    // Close all popovers first
+    document.querySelectorAll('.sh-tracker-popover').forEach(p => p.style.display = 'none');
+    if (!isVisible) popover.style.display = '';
+    return;
+  }
+  // Click outside closes all popovers
+  if (!e.target.closest('.sh-tracker-popover')) {
+    document.querySelectorAll('.sh-tracker-popover').forEach(p => p.style.display = 'none');
+  }
+});
 
 // ── TRACKER TOGGLE ──
 // Event delegation on tracker-block — writes through to the canonical tracker store.
