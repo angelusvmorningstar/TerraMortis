@@ -83,30 +83,32 @@ export async function initDowntimeTab(el, char, territories = []) {
 
   el.appendChild(currentZone);
 
-  // ── Zone 2: Past Outcomes accordion ─────────────────────────────
-  if (!publishedSubs.length) return;
+  // ── Zone 2: Past Outcomes — rendered into MISC tab on phone ────
+  const miscOutcomes = document.getElementById('misc-past-outcomes');
+  const targetEl = miscOutcomes || el;
+  if (publishedSubs.length) {
+    const historyZone = document.createElement('div');
+    historyZone.className = 'dt-history-zone';
 
-  const historyZone = document.createElement('div');
-  historyZone.className = 'dt-history-zone';
+    let h = '<h3 class="dt-history-heading">Past Outcomes</h3>';
+    for (const sub of publishedSubs) {
+      const label = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
+      const dateStr = _cycleDate(sub, cycles);
+      h += `<details class="dt-history-row">`;
+      h += `<summary class="dt-history-summary">`;
+      h += `<span class="dt-history-label">${esc(label)}</span>`;
+      if (dateStr) h += `<span class="dt-history-date">${esc(dateStr)}</span>`;
+      h += `<span class="dt-history-status">Outcome published</span>`;
+      h += `</summary>`;
+      h += `<div class="dt-history-body">`;
+      h += renderOutcomeWithCards(sub);
+      h += `</div>`;
+      h += `</details>`;
+    }
 
-  let h = '<h3 class="dt-history-heading">Past Outcomes</h3>';
-  for (const sub of publishedSubs) {
-    const label = cycleMap[String(sub.cycle_id)] || 'Unknown Cycle';
-    const dateStr = _cycleDate(sub, cycles);
-    h += `<details class="dt-history-row">`;
-    h += `<summary class="dt-history-summary">`;
-    h += `<span class="dt-history-label">${esc(label)}</span>`;
-    if (dateStr) h += `<span class="dt-history-date">${esc(dateStr)}</span>`;
-    h += `<span class="dt-history-status">Outcome published</span>`;
-    h += `</summary>`;
-    h += `<div class="dt-history-body">`;
-    h += renderOutcomeWithCards(sub);
-    h += `</div>`;
-    h += `</details>`;
+    historyZone.innerHTML = h;
+    targetEl.appendChild(historyZone);
   }
-
-  historyZone.innerHTML = h;
-  el.appendChild(historyZone);
 }
 
 function _cycleDate(sub, cycles) {

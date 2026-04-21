@@ -53,6 +53,8 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 .nbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
 .nbtn:hover{color:var(--txt2);}
 .nbtn-disabled{opacity:.3;cursor:default;pointer-events:none;}
+.nbtn-seasonal{color:var(--crim);}.nbtn-seasonal svg{stroke:var(--crim);}
+.nbtn-seasonal.on{color:#fff;background:var(--crim);border-radius:6px;}.nbtn-seasonal.on svg{stroke:#fff;}
 .nbtn.on{color:var(--accent);}
 .nbtn.on svg{stroke:var(--accent);}
 
