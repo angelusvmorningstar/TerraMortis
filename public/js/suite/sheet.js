@@ -645,17 +645,20 @@ export function renderSheet() {
   const powersHtml = html;
 
   // Render to split-tab containers (phone + desktop unified).
-  // Only render to full-sheet container (#sh-content-suite) when split tabs
-  // are NOT present — avoids duplicate element IDs that break toggleExp/toggleDisc.
-  if (statsEl || skillsEl || powersEl || infoEl) {
-    if (statsEl)  statsEl.innerHTML  = statsHtml;
-    if (skillsEl) skillsEl.innerHTML = skillsHtml;
-    if (powersEl) powersEl.innerHTML = powersHtml;
-    if (infoEl)   infoEl.innerHTML   = infoHtml;
-    if (el) el.innerHTML = '';
-  } else if (el) {
+  // Desktop mode: render to the full-sheet container so the Sheet tab works.
+  // Mobile mode: render to split-tab containers only, clear the full sheet
+  // to avoid duplicate IDs that break toggleExp/toggleDisc.
+  const isDesktop = document.body.classList.contains('desktop-mode');
+  if (el && isDesktop) {
     el.innerHTML = infoHtml + statsHtml + '<div class="sh-body">' + skillsHtml + powersHtml + '</div>';
+  } else if (el) {
+    el.innerHTML = '';
   }
+  // Always populate split tabs (used on mobile; invisible on desktop)
+  if (statsEl)  statsEl.innerHTML  = isDesktop ? '' : statsHtml;
+  if (skillsEl) skillsEl.innerHTML = isDesktop ? '' : skillsHtml;
+  if (powersEl) powersEl.innerHTML = isDesktop ? '' : powersHtml;
+  if (infoEl)   infoEl.innerHTML   = isDesktop ? '' : infoHtml;
 
   // Wire attribute+skills carousel indicators
   _wireAttrCarousel(skillsEl || el);
