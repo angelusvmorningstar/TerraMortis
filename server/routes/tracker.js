@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getCollection } from '../db.js';
+import { broadcastTrackerUpdate } from '../ws.js';
 
 const router = Router();
 const col = () => getCollection('tracker_state');
@@ -28,6 +29,9 @@ router.put('/:character_id', async (req, res) => {
     { $set: { ...updates, character_id: raw } },
     { returnDocument: 'after', upsert: true }
   );
+
+  // Broadcast to all connected WebSocket clients
+  broadcastTrackerUpdate(raw, updates);
 
   res.json(result);
 });

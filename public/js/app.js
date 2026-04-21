@@ -49,6 +49,7 @@ import { startChallengePoller, stopChallengePoller } from './game/challenge-noti
 import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
 import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
+import { initWS } from './data/ws.js';
 import { initSignIn } from './game/signin-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
 import { initCombatTab } from './game/combat-tab.js';
@@ -1124,6 +1125,17 @@ async function boot() {
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       if (getRole() !== 'st') startChallengePoller(); // player-only polling
+
+      // Start WebSocket for live tracker sync
+      initWS({
+        onTrackerUpdate: (charId) => {
+          // Re-render tracker tab if visible
+          const trackerTab = document.getElementById('t-tracker');
+          if (trackerTab?.classList.contains('active')) initTracker(trackerTab);
+          // Re-render sheet tracker boxes if the updated char is the current sheet char
+          if (String(suiteState.sheetChar?._id) === charId) suiteRenderSheet();
+        },
+      });
       return;
     }
   }
