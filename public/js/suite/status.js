@@ -14,7 +14,7 @@ import { apiGet, apiPut } from '../data/api.js';
 import { esc, displayName, sortName, clanIcon, covIcon, redactPlayer, discordAvatarUrl, isRedactMode } from '../data/helpers.js';
 import { calcCityStatus } from '../data/accessors.js';
 import { CITY_STATUS_APPELLATIONS } from '../data/constants.js';
-import suiteState, { CITY_SVG } from './data.js';
+import suiteState, { CITY_SVG, OTHER_SVG } from './data.js';
 import { getRole } from '../auth/discord.js';
 
 // ── Module-level state ───────────────────────────────────────────────────────
@@ -280,10 +280,10 @@ export async function renderSuiteStatusTab(el) {
     h += `<div class="status-summary">`;
     h += `<div class="status-summary-pip"><div class="status-summary-shape">${CITY_SVG}<span class="status-summary-n">${cityV}</span></div><span class="status-summary-lbl">City</span></div>`;
     if (activeChar.covenant) {
-      h += `<div class="status-summary-pip"><div class="status-summary-shape">${covIcon(activeChar.covenant, 20)}<span class="status-summary-n">${covV}</span></div><span class="status-summary-lbl">${esc(activeChar.covenant)}</span></div>`;
+      h += `<div class="status-summary-pip"><div class="status-summary-shape">${OTHER_SVG}<span class="status-summary-n">${covV}</span></div><span class="status-summary-lbl">${esc(activeChar.covenant)}</span></div>`;
     }
     if (activeChar.clan) {
-      h += `<div class="status-summary-pip"><div class="status-summary-shape">${clanIcon(activeChar.clan, 20)}<span class="status-summary-n">${clanV}</span></div><span class="status-summary-lbl">${esc(activeChar.clan)}</span></div>`;
+      h += `<div class="status-summary-pip"><div class="status-summary-shape">${OTHER_SVG}<span class="status-summary-n">${clanV}</span></div><span class="status-summary-lbl">${esc(activeChar.clan)}</span></div>`;
     }
     h += `</div>`;
     // Other covenant standings — compact secondary line
