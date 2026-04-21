@@ -438,8 +438,9 @@ function populateSuiteDropdowns(chars) {
 }
 
 async function loadAllData() {
-  // 0. Load rules data (purchasable powers) — non-blocking, cached
-  loadRulesFromApi().catch(() => {});
+  // 0. Load rules data (purchasable powers) — must complete before sheet renders
+  //    so discipline powers resolve from the rules cache
+  await loadRulesFromApi().catch(() => {});
 
   // 1. Try API first — role-filtered server-side (player sees own, ST sees all)
   const apiChars = await loadCharsFromApi();
