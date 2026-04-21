@@ -110,7 +110,11 @@ const VIEW_MODE_KEY = 'tm_view_mode';
 let _viewMode = sessionStorage.getItem(VIEW_MODE_KEY) || 'st';
 
 function effectiveRole() {
-  return (getRole() === 'st' && _viewMode === 'player') ? 'player' : getRole();
+  const role = getRole();
+  if ((role === 'st' || role === 'dev') && _viewMode === 'player') return 'player';
+  // dev role has same privileges as st for UI purposes
+  if (role === 'dev') return 'st';
+  return role;
 }
 
 // ══════════════════════════════════════════════
@@ -1135,7 +1139,7 @@ function playerGoDowntime() {
 function applyRoleRestrictions() {
   const role = effectiveRole();
   const isST = role === 'st';
-  const isRealST = getRole() === 'st';
+  const isRealST = getRole() === 'st' || getRole() === 'dev';
 
   // Rebuild the scrollable bottom nav with role-appropriate items
   renderBottomNav();
