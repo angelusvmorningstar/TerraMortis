@@ -69,6 +69,8 @@ def main():
             row[IDX["book_source"]]      = e.get("book", "")
             row[IDX["page_number"]]      = str(e.get("page", ""))
             row[IDX["resistance"]]       = e.get("resistance", "")
+            if e.get("sub_category"):
+                row[IDX["sub_category"]] = e["sub_category"]
             # Pool/cost — apply tradition defaults if row is currently empty
             pool = POOLS.get(e.get("parent", ""), {})
             if pool and not row[IDX["pool_attr"]]:
@@ -98,6 +100,7 @@ def main():
             new[IDX["cost"]]       = pool.get("cost", "")
             new[IDX["action"]]     = "Ritual"
             new[IDX["resistance"]] = e.get("resistance", "")
+            new[IDX["sub_category"]] = e.get("sub_category", "")
             new[IDX["description"]] = e.get("description", "")
             new[IDX["book_source"]] = e.get("book", "")
             new[IDX["page_number"]] = str(e.get("page", ""))
