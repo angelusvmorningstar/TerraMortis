@@ -1312,6 +1312,18 @@ function renderSettingsTab() {
     h += '</div>';
   }
 
+  // Player Mode toggle (ST/dev only)
+  if (getRole() === 'st' || getRole() === 'dev') {
+    const isPlayerMode = _viewMode === 'player';
+    h += '<div class="settings-section">';
+    h += '<div class="settings-section-label">View Mode</div>';
+    h += '<label class="settings-checkbox-row">';
+    h += `<input type="checkbox" id="settings-player-mode"${isPlayerMode ? ' checked' : ''}>`;
+    h += '<span>Player Mode <span style="font-size:11px;color:var(--txt3)">\u2014 view as a player sees it</span></span>';
+    h += '</label>';
+    h += '</div>';
+  }
+
   // Emergency Contact / Safety Info
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Safety &amp; Emergency Contact</div>';
@@ -1403,6 +1415,19 @@ function renderSettingsTab() {
 
   // Load and wire safety/emergency contact form
   _loadSafetyForm(el);
+
+  // Wire player mode toggle
+  el.querySelector('#settings-player-mode')?.addEventListener('change', e => {
+    _viewMode = e.target.checked ? 'player' : 'st';
+    localStorage.setItem(VIEW_MODE_KEY, _viewMode);
+    applyRoleRestrictions();
+    if (e.target.checked) {
+      _enterPlayerView();
+    } else {
+      _enterSTView();
+    }
+    renderSettingsTab();
+  });
 
   // Wire show guides toggle
   el.querySelector('#settings-show-guides')?.addEventListener('change', e => {
