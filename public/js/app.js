@@ -112,8 +112,6 @@ let _viewMode = sessionStorage.getItem(VIEW_MODE_KEY) || 'st';
 function effectiveRole() {
   const role = getRole();
   if ((role === 'st' || role === 'dev') && _viewMode === 'player') return 'player';
-  // dev role has same privileges as st for UI purposes
-  if (role === 'dev') return 'st';
   return role;
 }
 
@@ -1139,7 +1137,7 @@ function playerGoDowntime() {
 function applyRoleRestrictions() {
   const role = effectiveRole();
   const isST = role === 'st';
-  const isRealST = getRole() === 'st' || getRole() === 'dev';
+  const isRealST = getRole() === 'st';
 
   // Rebuild the scrollable bottom nav with role-appropriate items
   renderBottomNav();

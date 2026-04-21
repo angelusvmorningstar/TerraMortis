@@ -18,6 +18,8 @@ export function isRedactMode() {
   if (getRole() !== 'dev') return false;
   // Don't redact on the player portal — dev users see their own characters there
   if (location.pathname.startsWith('/player')) return false;
+  // Don't redact when dev has Player Mode active
+  if (sessionStorage.getItem('tm_view_mode') === 'player') return false;
   return true;
 }
 
