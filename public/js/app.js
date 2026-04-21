@@ -54,7 +54,7 @@ import { renderEmergencyTab } from './game/emergency-tab.js';
 import { initCombatTab } from './game/combat-tab.js';
 import { initRules, openRulesOverlay, closeRulesOverlay } from './game/rules.js';
 // Player portal tabs — migrated to More grid (nav-2-3 + nav-2-4)
-import { initDowntimeTab } from './tabs/downtime-tab.js';
+import { initDowntimeTab, renderPastOutcomes } from './tabs/downtime-tab.js';
 import { renderStatusTab } from './tabs/status-tab.js';
 import { renderPrimerTab } from './tabs/primer-tab.js';
 import { renderTicketsTab } from './tabs/tickets-tab.js';
@@ -390,6 +390,11 @@ function goTab(t) {
     const el = document.getElementById('t-archive');
     const char = _activeMoreChar();
     if (el && char) initArchiveTab(el, char, (suiteState.chars || []).filter(c => c.retired));
+  }
+  if (t === 'info') {
+    const miscEl = document.getElementById('misc-past-outcomes');
+    const char = _activeMoreChar();
+    if (miscEl && char && !miscEl.innerHTML.trim()) renderPastOutcomes(miscEl, char);
   }
   if (t === 'downtime') {
     const el = document.getElementById('t-downtime');
