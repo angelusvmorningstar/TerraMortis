@@ -763,7 +763,6 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
   background: var(--surf);
   border: 1px solid var(--bdr);
   border-radius: 6px;
-  overflow: hidden;
   margin-bottom: 12px;
 }
 
