@@ -798,6 +798,33 @@ SPEC = [
         "target_successes": "", "resistance": "Contested by: Stamina",
         "text_file": "VtR 1e Rites.txt", "lines": [994, 1035],
     },
+    # ── Coterie Crúac (Circle of the Crone coteries chapter) ────
+    # Dot rating beside the cursive title: Blood Witness (•),
+    # Barrier of Blood (••), Flower of Demeter (•••).
+    {
+        "name_pdf": "Blood Witness",
+        "csv_match": "Blood Witness",
+        "parent": "Cruac", "rank": 1,
+        "book": "Circle of the Crone", "page": "84",
+        "target_successes": "", "resistance": "",
+        "text_file": "Coterie Cruac.txt", "lines": [74, 177],
+    },
+    {
+        "name_pdf": "Barrier of Blood",
+        "csv_match": "Barrier of Blood",
+        "parent": "Cruac", "rank": 2,
+        "book": "Circle of the Crone", "page": "84",
+        "target_successes": "", "resistance": "Contested by: Resolve + Composure",
+        "text_file": "Coterie Cruac.txt", "lines": [178, 219],
+    },
+    {
+        "name_pdf": "Flower of Demeter",
+        "csv_match": "Flower of Demeter",
+        "parent": "Cruac", "rank": 3,
+        "book": "Circle of the Crone", "page": "85",
+        "target_successes": "", "resistance": "",
+        "text_file": "Coterie Cruac.txt", "lines": [220, 325],
+    },
 ]
 
 
