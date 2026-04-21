@@ -1014,6 +1014,11 @@ async function boot() {
       renderList();
       renderImportBanner();
       renderUserHeader();
+      // Desktop mode must be initialised before rendering so sheet.js
+      // knows whether to render into the full sheet or split tabs.
+      _initDesktopMode();
+      _updateThemeIcon();
+
       // Auto-open character for players so Sheet/Downtime tabs work immediately,
       // and pre-fill the dice tab so the roller is ready without a manual pick.
       if (getRole() !== 'st' && editorState.chars.length > 0) {
@@ -1033,8 +1038,6 @@ async function boot() {
       goTab(isDesktop ? (isPlayer ? 'sheets' : 'chars') : 'stats');
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
-      _updateThemeIcon();     // set correct sun/moon on load
-      _initDesktopMode();     // restore desktop mode if saved
       if (getRole() !== 'st') startChallengePoller(); // player-only polling
       return;
     }
