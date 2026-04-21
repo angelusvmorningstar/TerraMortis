@@ -1223,6 +1223,20 @@ function renderSettingsTab() {
     h += '</div>';
   }
 
+  // Character selector (shown when player has multiple characters)
+  if (editorState.chars.length > 1) {
+    const activeId = String(suiteState.sheetChar?._id || '');
+    h += '<div class="settings-section">';
+    h += '<div class="settings-section-label">Active Character</div>';
+    h += '<select class="settings-input" id="settings-char-sel">';
+    editorState.chars.forEach((c, i) => {
+      const sel = String(c._id) === activeId ? ' selected' : '';
+      h += `<option value="${i}"${sel}>${esc(displayName(c))}</option>`;
+    });
+    h += '</select>';
+    h += '</div>';
+  }
+
   // Theme
   h += '<div class="settings-section">';
   h += '<div class="settings-section-label">Theme</div>';
@@ -1296,6 +1310,25 @@ function renderSettingsTab() {
       _applyReadingFontSize(btn.dataset.fontsize);
       renderSettingsTab();
     });
+  });
+
+  // Wire character selector
+  el.querySelector('#settings-char-sel')?.addEventListener('change', e => {
+    const idx = parseInt(e.target.value, 10);
+    if (isNaN(idx) || !editorState.chars[idx]) return;
+    if (getRole() === 'st') {
+      openChar(idx);
+    } else {
+      openChar(idx);
+      pickChar(editorState.chars[idx]);
+    }
+    // Clear MISC past outcomes so they reload for the new character
+    const miscEl = document.getElementById('misc-past-outcomes');
+    if (miscEl) miscEl.innerHTML = '';
+    // Re-render the suite sheet for the new character
+    suiteState.sheetChar = editorState.chars[idx];
+    suiteRenderSheet();
+    renderSettingsTab();
   });
 
   // Wire show guides toggle
