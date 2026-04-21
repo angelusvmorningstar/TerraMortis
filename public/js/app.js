@@ -1423,11 +1423,6 @@ function _syncSidebarActions() {
   }
 }
 
-function toggleSidebarCollapse() {
-  document.getElementById('desktop-sidebar')?.classList.toggle('collapsed');
-}
-window.toggleSidebarCollapse = toggleSidebarCollapse;
-
 function _updateDesktopIcon() {
   const isDesktop = document.body.classList.contains('desktop-mode');
   const gameIcon = document.getElementById('desktop-icon-game');
@@ -1766,6 +1761,7 @@ window.openRulesOverlay  = openRulesOverlay;
 window.closeRulesOverlay = closeRulesOverlay;
 window.toggleViewMode    = toggleViewMode;
 window.toggleProfileMenu = toggleProfileMenu;
+window.toggleSidebarCollapse = toggleSidebarCollapse;
 window.suiteStatusOpenEdit   = suiteStatusOpenEdit;
 window.suiteStatusCloseEdit  = suiteStatusCloseEdit;
 window.suiteStatusAdjustCity = suiteStatusAdjustCity;
