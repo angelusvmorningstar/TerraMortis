@@ -1012,8 +1012,14 @@ async function boot() {
       // Auto-open character for players so Sheet/Downtime tabs work immediately,
       // and pre-fill the dice tab so the roller is ready without a manual pick.
       if (getRole() !== 'st' && editorState.chars.length > 0) {
-        openChar(0);
-        pickChar(editorState.chars[0]);
+        // Restore saved character selection, or default to first
+        const savedCharId = localStorage.getItem('tm_active_char');
+        const savedIdx = savedCharId
+          ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
+          : -1;
+        const charIdx = savedIdx >= 0 ? savedIdx : 0;
+        openChar(charIdx);
+        pickChar(editorState.chars[charIdx]);
       }
       goTab(DESKTOP_MQ.matches ? 'chars' : 'stats');
       renderLifecycleCards(); // non-blocking
@@ -1316,17 +1322,20 @@ function renderSettingsTab() {
   el.querySelector('#settings-char-sel')?.addEventListener('change', e => {
     const idx = parseInt(e.target.value, 10);
     if (isNaN(idx) || !editorState.chars[idx]) return;
+    const c = editorState.chars[idx];
+    // Persist selection
+    localStorage.setItem('tm_active_char', String(c._id));
     if (getRole() === 'st') {
       openChar(idx);
     } else {
       openChar(idx);
-      pickChar(editorState.chars[idx]);
+      pickChar(c);
     }
     // Clear MISC past outcomes so they reload for the new character
     const miscEl = document.getElementById('misc-past-outcomes');
     if (miscEl) miscEl.innerHTML = '';
     // Re-render the suite sheet for the new character
-    suiteState.sheetChar = editorState.chars[idx];
+    suiteState.sheetChar = c;
     suiteRenderSheet();
     renderSettingsTab();
   });
