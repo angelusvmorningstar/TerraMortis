@@ -827,6 +827,10 @@ body.desktop-mode .attr-carousel-badges{display:none;}
   border-radius: 6px;
   overflow: hidden;
 }
+.status-bracket-me {
+  border-color: var(--accent);
+  background: var(--accent-a8);
+}
 
 .status-bracket-head {
   display: flex;
