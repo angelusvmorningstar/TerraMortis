@@ -825,6 +825,15 @@ SPEC = [
         "target_successes": "", "resistance": "",
         "text_file": "Coterie Cruac.txt", "lines": [220, 325],
     },
+    # ── Danse Macabre (The Mother's Army chapter) — Crúac ───────
+    {
+        "name_pdf": "The Mother's Touch",
+        "csv_match": None,
+        "parent": "Cruac", "rank": 1,
+        "book": "Danse Macabre", "page": "74",
+        "target_successes": "", "resistance": "",
+        "text_file": "Danse Macabre Cruac.txt", "lines": [141, 164],
+    },
 ]
 
 
