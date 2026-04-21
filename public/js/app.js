@@ -802,14 +802,24 @@ function pickChar(c) {
 //  HEADER CHARACTER MENU
 // ══════════════════════════════════════════════
 
+function _visibleChars() {
+  const role = effectiveRole();
+  if (role === 'st') return editorState.chars.map((c, i) => ({ c, i }));
+  // Player / dev-in-player-mode: restrict to linked characters
+  const ids = getPlayerInfo()?.character_ids || [];
+  return editorState.chars
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => ids.includes(String(c._id)));
+}
+
 function _buildCharMenu() {
   const wrap = document.getElementById('hdr-icon-wrap');
   const menu = document.getElementById('hdr-char-menu');
   if (!wrap || !menu) return;
 
-  const chars = editorState.chars;
+  const visible = _visibleChars();
   // Only show menu when there are multiple characters to choose from
-  if (chars.length <= 1) {
+  if (visible.length <= 1) {
     wrap.classList.remove('has-menu');
     wrap.onclick = null;
     menu.style.display = 'none';
@@ -828,9 +838,10 @@ function _buildCharMenu() {
 function _renderCharMenuItems() {
   const menu = document.getElementById('hdr-char-menu');
   if (!menu) return;
+  const visible = _visibleChars();
   const activeId = String(suiteState.sheetChar?._id || '');
   let h = '';
-  editorState.chars.forEach((c, i) => {
+  visible.forEach(({ c, i }) => {
     const isActive = String(c._id) === activeId;
     h += `<button class="hdr-char-menu-item${isActive ? ' active' : ''}" data-char-idx="${i}">`;
     h += `<span class="hdr-menu-check">${isActive ? '\u2713' : ''}</span>`;
@@ -1423,6 +1434,7 @@ function renderSettingsTab() {
     _viewMode = e.target.checked ? 'player' : 'st';
     sessionStorage.setItem(VIEW_MODE_KEY, _viewMode);
     applyRoleRestrictions();
+    _buildCharMenu();
     if (e.target.checked) {
       _enterPlayerView();
     } else {
