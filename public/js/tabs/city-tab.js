@@ -68,11 +68,13 @@ export async function renderCityTab(el) {
     h += '<div class="city-char-list">';
     for (const c of sorted) {
       h += '<div class="city-char-row">';
-      h += `<span class="city-char-name">${esc(displayName(c))}${c.player ? ` <span class="city-char-player">(${esc(redactPlayer(c.player))})</span>` : ''}</span>`;
-      h += '<span class="city-char-meta">';
-      if (c.clan) h += `${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span>`;
-      if (c.court_category) h += `<span class="city-char-position">${esc(c.court_category)}</span>`;
+      h += '<div class="city-char-top">';
+      h += `<span class="city-char-name">${esc(displayName(c))}`;
+      if (c.court_category) h += ` <span class="city-char-badge">${esc(c.court_category)}</span>`;
       h += '</span>';
+      if (c.clan) h += `<span class="city-char-clan">${clanIcon(c.clan, 12)}<span>${esc(c.clan)}</span></span>`;
+      h += '</div>';
+      if (c.player) h += `<div class="city-char-player">${esc(redactPlayer(c.player))}</div>`;
       h += '</div>';
     }
     h += '</div>';
