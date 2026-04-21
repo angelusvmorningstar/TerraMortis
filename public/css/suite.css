@@ -204,6 +204,10 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .attr-skills-carousel{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;}
 .attr-skills-carousel::-webkit-scrollbar{display:none;}
 .attr-skills-card{flex:0 0 88%;scroll-snap-align:center;display:flex;flex-direction:column;gap:12px;padding:0 8px;min-width:0;overflow-y:auto;}
+/* Desktop: revert carousel to 3-column grid */
+body.desktop-mode .attr-skills-carousel{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;overflow:visible;scroll-snap-type:none;}
+body.desktop-mode .attr-skills-card{flex:none;padding:0;overflow:visible;scroll-snap-align:unset;}
+body.desktop-mode .attr-carousel-badges{display:none;}
 .attr-skills-card:first-child{padding-left:0;}
 .attr-skills-card:last-child{padding-right:0;}
 /* Override components.css .attr-cell which targets admin single-row layout */
