@@ -99,9 +99,8 @@ function renderCitySection(chars, activeId, isST = false) {
 
   const dotsFn = v => statusDots(v, 10);
 
-  let h = `<div class="status-city-section">`;
-  h += `<div class="status-section-head">`;
-  h += `<span class="status-section-title">City Status</span>`;
+  let h = `<div class="status-col">`;
+  h += `<div class="status-col-head"><span>City Status</span>`;
   if (isST) h += `<span class="status-section-caps">1@10 · 2@9 · 2@8 · 3@7 · 3@6 · 4@5 · 4@4 · open</span>`;
   h += `</div>`;
 
