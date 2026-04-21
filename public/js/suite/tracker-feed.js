@@ -12,7 +12,7 @@ import { toast } from './tracker.js';
 import { trackerAdj } from '../game/tracker.js';
 import { getAttrEffective as getAttrVal, skDots, skSpecStr } from '../data/accessors.js';
 import { displayName } from '../data/helpers.js';
-import { FEED_METHODS, TERRITORY_DATA } from '../player/downtime-data.js';
+import { FEED_METHODS, TERRITORY_DATA } from '../tabs/downtime-data.js';
 
 let feedMethod = null;
 
