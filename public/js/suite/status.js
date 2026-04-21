@@ -61,6 +61,8 @@ function renderCityChip(c, isMe, isST) {
 
 // ── Fixed-tier bracket row ────────────────────────────────────────────────────
 function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false, isCityST = false) {
+  // Skip empty tiers — don't show "Vacant" rows
+  if (!chars.length) return '';
   let h = `<div class="status-bracket status-bracket-fixed">`;
   h += `<div class="status-bracket-head">`;
   h += `<span class="status-bracket-dots">${dotsFn(val)}</span>`;
@@ -68,14 +70,10 @@ function renderTierRow(val, chars, activeId, dotsFn, showAppellation = false, is
   if (showAppellation) h += `<span class="status-bracket-appellation">${CITY_STATUS_APPELLATIONS[val] || ''}</span>`;
   h += `</div>`;
   h += `<div class="status-bracket-chips">`;
-  if (chars.length) {
-    for (const c of chars) {
-      h += isCityST
-        ? renderCityChip(c, String(c._id) === activeId, true)
-        : renderChip(c, String(c._id) === activeId);
-    }
-  } else {
-    h += `<span class="status-vacant-chip">Vacant</span>`;
+  for (const c of chars) {
+    h += isCityST
+      ? renderCityChip(c, String(c._id) === activeId, true)
+      : renderChip(c, String(c._id) === activeId);
   }
   h += `</div>`;
   h += `</div>`;
@@ -299,6 +297,20 @@ export async function renderSuiteStatusTab(el) {
       h += `<div class="status-personal-info"><span class="status-personal-label">${esc(activeChar.clan)}</span>`;
       h += `<span class="status-personal-dots">${statusDots(clanV, 5)}</span>`;
       h += `</div><span class="status-personal-val">${clanV}</span></div>`;
+    }
+    // Other covenant standings
+    const COV_SHORT = {
+      'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone',
+      'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance',
+    };
+    const covStandings = activeChar.covenant_standings || {};
+    const ownCovLabel = COV_SHORT[activeChar.covenant] || null;
+    for (const [label, val] of Object.entries(covStandings)) {
+      if (!val || label === ownCovLabel) continue;
+      h += `<div class="status-personal-card status-personal-minor">`;
+      h += `<div class="status-personal-info"><span class="status-personal-label">${esc(label)}</span>`;
+      h += `<span class="status-personal-dots">${statusDots(val, 5)}</span>`;
+      h += `</div><span class="status-personal-val">${val}</span></div>`;
     }
     h += `</div>`;
   }

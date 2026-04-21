@@ -1000,7 +1000,7 @@ async function boot() {
         openChar(0);
         pickChar(editorState.chars[0]);
       }
-      goTab('stats');
+      goTab(DESKTOP_MQ.matches ? 'chars' : 'stats');
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       _updateThemeIcon();     // set correct sun/moon on load
