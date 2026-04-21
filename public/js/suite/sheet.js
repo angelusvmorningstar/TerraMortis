@@ -28,6 +28,7 @@ import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
 import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
+import { DICE_ICON_SVG } from './dice-modal.js';
 
 // ── Sheet character selection ──
 
@@ -277,7 +278,9 @@ export function renderSheet() {
       const hasDots = d > 0 || totalBn > 0;
       const dotStr = hasDots ? shDotsWithBonus(d, totalBn) : '\u2013';
       const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
+      const _diceBtn = hasDots ? `<span class="skill-dice-btn" onclick="openDiceModal('skill','${s}')" title="Roll ${s}">${DICE_ICON_SVG}</span>` : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
+        ${_diceBtn}
         <div class="skill-name-wrap">
           <span class="skill-name">${s}</span>
           ${sp ? `<span class="skill-spec">${sp}</span>` : ''}
@@ -315,8 +318,10 @@ export function renderSheet() {
       const id = 'disc-' + c.name.replace(/[^a-z]/gi, '') + d.replace(/[^a-z]/gi, '');
       let drawerHtml = '';
       discPowers.forEach(p => {
+        const _pName = (p.name || '').replace(/'/g, "\\'");
+        const _pDice = p.name ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pName}')" title="Roll ${_pName}">${DICE_ICON_SVG}</span>` : '';
         drawerHtml += `<div class="disc-power">
-          <div class="disc-power-name">${p.name || ''}</div>
+          <div class="disc-power-name">${_pDice}${p.name || ''}</div>
           ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
           <div class="disc-power-effect">${p.effect || ''}</div>
         </div>`;
@@ -351,7 +356,9 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Devotions</div><div class="disc-list">`;
       devotionPowers.forEach((p, i) => {
         const gid = 'dev' + c.name.replace(/[^a-z]/gi, '') + i;
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name || ''}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const _devName = (p.name || '').replace(/'/g, "\\'");
+        const _devDice = p.name ? `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_devName}')" title="Roll ${_devName}">${DICE_ICON_SVG}</span>` : '';
+        const inner = `<div class="trait-row"><div class="trait-main">${_devDice}<span class="trait-name secondary">${p.name || ''}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -374,9 +381,11 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Rites</div><div class="disc-list">`;
       rites.forEach((p, i) => {
         const gid = 'rite' + c.name.replace(/[^a-z]/gi, '') + i;
+        const _riteName = (p.name || '').replace(/'/g, "\\'");
+        const _riteDice = `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_riteName}')" title="Roll ${_riteName}">${DICE_ICON_SVG}</span>`;
         const levelDots = p.level ? `<span class="trait-dots">${dots(p.level)}</span>` : '';
         const tradSub = p.tradition ? `<div class="trait-sub"><span class="trait-qual dim">${p.tradition}</span></div>` : '';
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
+        const inner = `<div class="trait-row"><div class="trait-main">${_riteDice}<span class="trait-name secondary">${p.name}</span><div class="trait-right">${levelDots}<span class="disc-tap-arr">\u203A</span></div></div>${tradSub}</div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}
@@ -392,7 +401,9 @@ export function renderSheet() {
       html += `<div class="sh-sec"><div class="sh-sec-title">Pacts</div><div class="disc-list">`;
       pacts.forEach((p, i) => {
         const gid = 'pact' + c.name.replace(/[^a-z]/gi, '') + i;
-        const inner = `<div class="trait-row"><div class="trait-main"><span class="trait-name secondary">${p.name}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
+        const _pactName = (p.name || '').replace(/'/g, "\\'");
+        const _pactDice = `<span class="disc-power-dice" onclick="event.stopPropagation();openDiceModal('power','${_pactName}')" title="Roll ${_pactName}">${DICE_ICON_SVG}</span>`;
+        const inner = `<div class="trait-row"><div class="trait-main">${_pactDice}<span class="trait-name secondary">${p.name}</span><div class="trait-right"><span class="disc-tap-arr">\u203A</span></div></div></div>`;
         html += `<div class="disc-tap-row" id="disc-row-${gid}" onclick="toggleDisc('${gid}')">${inner}</div>
           <div class="disc-drawer" id="disc-drawer-${gid}"><div class="disc-power">
             ${p.stats ? `<div class="disc-power-stats">${p.stats}</div>` : ''}

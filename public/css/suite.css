@@ -2038,3 +2038,171 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 
 /* ── Reading font size (tunable via Settings) ── */
 :root { --reading-font-size: 15px; }
+
+/* ══════════════════════════════════════════════════════════════
+   Dice Roller Modal
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Inline dice icon (tappable, placed on skill rows & powers) ── */
+.dice-roll-icon {
+  width: 16px; height: 16px; cursor: pointer; opacity: 0.45;
+  vertical-align: middle; flex-shrink: 0; margin-right: 4px;
+  transition: opacity .15s;
+}
+.dice-roll-icon:hover, .dice-roll-icon:active { opacity: 1; }
+/* Desktop: slightly larger */
+@media (min-width: 900px) { .dice-roll-icon { width: 18px; height: 18px; } }
+
+/* ── Dice icon placement on sheet ── */
+.skill-dice-btn, .disc-power-dice {
+  display: inline-flex; align-items: center; cursor: pointer;
+  padding: 2px; border-radius: 3px; transition: background .15s;
+  flex-shrink: 0;
+}
+.skill-dice-btn:hover, .disc-power-dice:hover { background: var(--surf3); }
+.disc-power-name { display: flex; align-items: center; gap: 4px; }
+
+/* ── Overlay ── */
+#dice-modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,.65); justify-content: center; align-items: flex-end;
+  padding: 0;
+}
+#dice-modal-overlay.on { display: flex; }
+
+/* ── Modal box ── */
+.dm-box {
+  background: var(--surf); border-radius: 14px 14px 0 0;
+  width: 100%; max-width: 480px; max-height: 92vh;
+  overflow-y: auto; padding: 16px 16px 20px;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.5);
+  animation: dm-slide-up .2s ease-out;
+}
+@keyframes dm-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+@media (min-width: 900px) {
+  #dice-modal-overlay { align-items: center; }
+  .dm-box { border-radius: 12px; max-width: 420px; max-height: 85vh; }
+}
+
+/* ── Header ── */
+.dm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.dm-title {
+  font-family: var(--hd); font-size: 16px; font-weight: 600;
+  color: var(--accent); letter-spacing: .3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;
+}
+.dm-close {
+  background: none; border: none; color: var(--txt3); font-size: 22px;
+  cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.dm-close:hover { color: var(--txt); }
+
+/* ── Pool info line ── */
+.dm-pool-info {
+  font-size: 12px; color: var(--txt2); margin-bottom: 12px; line-height: 1.5;
+}
+.dm-info-neg { color: #E8A0A0; }
+.dm-info-dim { color: var(--txt3); }
+
+/* ── Controls ── */
+.dm-controls { margin-bottom: 10px; }
+.dm-row { display: flex; gap: 12px; margin-bottom: 8px; }
+.dm-ctrl { flex: 1; }
+.dm-lbl { font-size: 11px; color: var(--txt3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.dm-adj { display: flex; align-items: center; gap: 0; background: var(--surf2); border-radius: 6px; overflow: hidden; }
+.dm-adj-btn {
+  width: 36px; height: 36px; background: none; border: none;
+  color: var(--accent); font-size: 18px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.dm-adj-btn:active { background: var(--surf3); }
+.dm-adj-val {
+  flex: 1; text-align: center; font-size: 16px; font-weight: 700;
+  color: var(--txt); font-family: var(--ft);
+}
+.dm-adj-val.chance { color: #E8A0A0; font-size: 13px; }
+.dm-adj-val.pos { color: #7EC8A0; }
+.dm-adj-val.neg { color: #E8A0A0; }
+
+/* ── Effective pool ── */
+.dm-eff {
+  font-size: 13px; color: var(--txt2); text-align: center; margin-bottom: 8px;
+}
+.dm-eff b { color: var(--txt); }
+.dm-chance { color: #E8A0A0 !important; }
+
+/* ── Specialty badges ── */
+.dm-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; justify-content: center; }
+.dm-spec-badge {
+  font-size: 11px; padding: 3px 8px; border-radius: 4px;
+  background: var(--surf2); color: var(--txt2); cursor: pointer;
+  border: 1px solid var(--bdr); transition: all .15s;
+}
+.dm-spec-badge.on { background: var(--accent-a15, rgba(224,196,122,.15)); border-color: var(--accent); color: var(--accent); }
+.dm-spec-bonus { font-size: 10px; opacity: .7; }
+
+/* ── Again + modifier chips ── */
+.dm-again-row, .dm-mod-row { justify-content: center; }
+.dm-chip {
+  padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  background: var(--surf2); border: 1px solid var(--bdr); color: var(--txt2);
+  cursor: pointer; transition: all .15s; text-transform: uppercase; letter-spacing: .3px;
+}
+.dm-chip.on { background: var(--accent-a15, rgba(224,196,122,.15)); border-color: var(--accent); color: var(--accent); }
+.dm-chip.dm-wp.on { background: rgba(126,200,160,.15); border-color: #7EC8A0; color: #7EC8A0; }
+.dm-chip.dm-rote-eligible { border-color: rgba(158,122,224,.4); }
+
+/* ── Roll button ── */
+.dm-roll-btn {
+  display: block; width: 100%; padding: 12px; margin: 8px 0;
+  background: var(--crim, #8B0000); border: none; border-radius: 8px;
+  color: #fff; font-family: var(--hd); font-size: 15px; font-weight: 600;
+  letter-spacing: .5px; cursor: pointer; text-transform: uppercase;
+  transition: background .15s;
+}
+.dm-roll-btn:active { background: #6B0000; }
+
+/* ── Result ── */
+.dm-result {
+  display: none; text-align: center; margin-bottom: 6px; padding: 8px 0;
+}
+.dm-result.on { display: block; }
+.dm-rcnt {
+  font-size: 28px; font-weight: 900; font-family: var(--ft); margin-right: 8px;
+}
+.dm-rlbl { font-size: 14px; font-weight: 600; }
+.dm-rcnt.s, .dm-rlbl.s { color: #7EC8A0; }
+.dm-rcnt.e, .dm-rlbl.e { color: var(--accent); }
+.dm-rcnt.f, .dm-rlbl.f { color: #E8A0A0; }
+.dm-rcnt.d, .dm-rlbl.d { color: #E07070; }
+
+/* ── Dice area ── */
+.dm-dice-area {
+  min-height: 30px; margin-bottom: 10px; display: flex;
+  flex-wrap: wrap; gap: 5px; justify-content: center;
+}
+
+/* ── History ── */
+.dm-history { border-top: 1px solid var(--bdr); padding-top: 10px; margin-top: 6px; }
+.dm-hist-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.dm-hist-title { font-size: 12px; color: var(--txt3); text-transform: uppercase; letter-spacing: .5px; }
+.dm-hist-clr {
+  background: none; border: none; color: var(--txt3); font-size: 11px;
+  cursor: pointer; text-decoration: underline;
+}
+.dm-hist-list { max-height: 160px; overflow-y: auto; }
+.dm-hist-empty { font-size: 12px; color: var(--txt3); text-align: center; padding: 12px 0; }
+.dm-hist-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--surf2);
+}
+.dm-hist-name { color: var(--txt2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.dm-hist-res { font-weight: 600; white-space: nowrap; }
+.dm-hist-res.s { color: #7EC8A0; }
+.dm-hist-res.e { color: var(--accent); }
+.dm-hist-res.f { color: #E8A0A0; }
+.dm-hist-res.d { color: #E07070; }

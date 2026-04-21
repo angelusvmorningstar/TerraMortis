@@ -94,6 +94,7 @@ import { AUSPEX_QUESTIONS } from './data/auspex-insight.js';
 import { toast as _toast } from './suite/tracker.js';
 // suite/tracker-feed.js removed — feeding consolidated to More grid (nav-2-5)
 import { renderSuiteStatusTab, suiteStatusOpenEdit, suiteStatusCloseEdit, suiteStatusAdjustCity } from './suite/status.js';
+import { openDiceModal, closeDiceModal } from './suite/dice-modal.js';
 
 // ══════════════════════════════════════════════
 //  FORWARD WRAPPERS (suite)
@@ -922,6 +923,10 @@ Object.assign(window, {
   clrHist,
   loadPool,
   effPool,
+
+  // Dice roller modal
+  openDiceModal,
+  closeDiceModal,
 
   // Suite sheet tab
   onSheetChar,
