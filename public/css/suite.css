@@ -1909,6 +1909,9 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .status-personal-val{font-family:var(--fh);font-size:18px;color:var(--accent);flex-shrink:0;min-width:24px;text-align:center;}
 .status-personal-minor{opacity:.7;}
 .status-personal-minor .status-personal-val{font-size:14px;}
+/* Status carousel inherits attr-skills-carousel; add padding to match skills tab */
+#status-carousel{padding:0 14px;}
+#status-carousel .attr-skills-card{padding:0 8px;}
 
 /* ── Ordeal cards (ported from player-layout.css) ── */
 .ordeal-card{display:flex;flex-direction:column;padding:12px 14px;background:var(--surf);border:1px solid var(--bdr);border-radius:6px;transition:border-color .2s;}
