@@ -1154,15 +1154,19 @@ body.desktop-mode .sheet-picker-grid { grid-template-columns: repeat(6, 1fr); }
 .city-regent-row:last-child { border-bottom: none; }
 .city-regent-territory { color: var(--txt3); font-size: 12px; }
 .city-regent-name { color: var(--txt); text-align: right; }
-.city-cov-group { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }
+.city-cov-group { background: var(--surf); border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; margin: 0 10px 8px; }
 .city-cov-heading { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-family: var(--fl); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--bdr); background: var(--surf2); }
 .city-char-list { padding: 2px 0; }
-.city-char-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid var(--bdr); }
+.city-char-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 8px 12px; border-bottom: 1px solid var(--bdr); }
 .city-char-row:last-child { border-bottom: none; }
-.city-char-name { font-size: 13px; color: var(--txt); }
+.city-char-name { font-size: 13px; color: var(--txt); flex: 1; min-width: 0; }
 .city-char-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt3); }
-.city-char-position { font-family: var(--fl); font-size: 11px; color: var(--accent); letter-spacing: .04em; }
-.city-char-player { font-size: 11px; color: var(--txt3); font-style: italic; }
+.city-char-position { font-family: var(--fl); font-size: 10px; color: var(--accent); letter-spacing: .04em; }
+.city-char-player { font-size: 10px; color: var(--txt3); font-style: italic; width: 100%; }
+@media (max-width: 480px) {
+  .city-char-row { flex-direction: column; gap: 1px; }
+  .city-char-meta { flex-wrap: wrap; }
+}
 .city-placeholder { font-size: 12px; margin: 0; }
 @media (max-width: 768px) {
   .city-split { flex-direction: column; align-items: stretch; }
