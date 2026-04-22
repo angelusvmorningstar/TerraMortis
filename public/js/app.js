@@ -48,7 +48,7 @@ import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool,
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
-import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
+import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded, refreshTrackerCard } from './game/tracker.js';
 import { initWS } from './data/ws.js';
 import { initSignIn } from './game/signin-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
@@ -85,7 +85,7 @@ import { apiGet, apiPost, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
-import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
+import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
 import { getPool } from './shared/pools.js';
@@ -805,35 +805,63 @@ function pickChar(c) {
 
 function _visibleChars() {
   const role = effectiveRole();
-  if (role === 'st') return editorState.chars.map((c, i) => ({ c, i }));
-  // Player / dev-in-player-mode: restrict to linked characters
-  const ids = getPlayerInfo()?.character_ids || [];
-  return editorState.chars
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => ids.includes(String(c._id)));
+  let list;
+  if (role === 'st') {
+    list = editorState.chars.map((c, i) => ({ c, i }));
+  } else {
+    const ids = getPlayerInfo()?.character_ids || [];
+    list = editorState.chars
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => ids.includes(String(c._id)));
+  }
+  return list.sort((a, b) => sortName(a.c).localeCompare(sortName(b.c)));
 }
 
 function _buildCharMenu() {
   const wrap = document.getElementById('hdr-icon-wrap');
   const menu = document.getElementById('hdr-char-menu');
-  if (!wrap || !menu) return;
-
   const visible = _visibleChars();
-  // Only show menu when there are multiple characters to choose from
-  if (visible.length <= 1) {
-    wrap.classList.remove('has-menu');
-    wrap.onclick = null;
-    menu.style.display = 'none';
-    return;
+  const hasMultiple = visible.length > 1;
+
+  // Phone header icon dropdown
+  if (wrap && menu) {
+    if (!hasMultiple) {
+      wrap.classList.remove('has-menu');
+      wrap.onclick = null;
+      menu.style.display = 'none';
+    } else {
+      wrap.classList.add('has-menu');
+      wrap.onclick = (e) => {
+        e.stopPropagation();
+        const showing = menu.style.display !== 'none';
+        menu.style.display = showing ? 'none' : '';
+        if (!showing) _renderCharMenuItems();
+      };
+    }
   }
 
-  wrap.classList.add('has-menu');
-  wrap.onclick = (e) => {
-    e.stopPropagation();
-    const showing = menu.style.display !== 'none';
-    menu.style.display = showing ? 'none' : '';
-    if (!showing) _renderCharMenuItems();
-  };
+  // Desktop sidebar character selector
+  const sbSel = document.getElementById('sidebar-char-sel');
+  if (sbSel) {
+    if (!hasMultiple) {
+      sbSel.style.display = 'none';
+      sbSel.innerHTML = '';
+    } else {
+      sbSel.style.display = '';
+      const activeId = String(suiteState.sheetChar?._id || '');
+      let h = '<select id="sidebar-char-select">';
+      visible.forEach(({ c, i }) => {
+        const sel = String(c._id) === activeId ? ' selected' : '';
+        h += `<option value="${i}"${sel}>${esc(displayName(c))}</option>`;
+      });
+      h += '</select>';
+      sbSel.innerHTML = h;
+      sbSel.querySelector('#sidebar-char-select')?.addEventListener('change', e => {
+        const idx = parseInt(e.target.value, 10);
+        if (!isNaN(idx) && editorState.chars[idx]) _switchChar(idx);
+      });
+    }
+  }
 }
 
 function _renderCharMenuItems() {
@@ -863,17 +891,59 @@ function _renderCharMenuItems() {
   });
 }
 
-function _switchChar(idx) {
+async function _switchChar(idx) {
   const c = editorState.chars[idx];
   if (!c) return;
   localStorage.setItem('tm_active_char', String(c._id));
-  openChar(idx);
+
+  // Remember current tab so we stay on it
+  const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || null;
+
+  // Load tracker from API before rendering
+  await ensureTrackerLoaded(c);
+
+  // Update state without navigating
+  editorState.editIdx = idx;
+  suiteState.sheetChar = c;
+  suiteState.rollChar = c;
   pickChar(c);
+
+  // Editor sheet (STs only)
+  if (getRole() === 'st') {
+    renderIdentityTab(c);
+    renderAttrsTab(c);
+    editorRenderSheet(c);
+  }
+
+  // Suite sheet — renders into both desktop full sheet and phone split tabs
+  document.getElementById('sh-empty').style.display = 'none';
+  document.getElementById('sh-content-suite').style.display = '';
+  suiteRenderSheet();
+
+  // Pools panel
+  const poolsEl = document.getElementById('gcp-panel');
+  if (poolsEl) {
+    renderCharPools(poolsEl, c, (p) => {
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
+      goTab('dice');
+    });
+  }
+
   // Clear MISC past outcomes so they reload for the new character
   const miscEl = document.getElementById('misc-past-outcomes');
   if (miscEl) miscEl.innerHTML = '';
-  suiteState.sheetChar = c;
-  suiteRenderSheet();
+
+  // Update header name
+  const hdrName = document.getElementById('hdr-char-name');
+  if (hdrName) hdrName.textContent = displayName(c);
+
+  // Re-render status tab if currently active
+  if (currentTab === 'status') {
+    renderSuiteStatusTab(document.getElementById('t-status'));
+  }
+
+  // Stay on current tab — don't navigate away
+  if (currentTab) goTab(currentTab);
 }
 
 // Close character menu on outside click
@@ -1068,6 +1138,18 @@ Object.assign(window, {
 // ══════════════════════════════════════════════
 
 async function boot() {
+  // Suppress iOS PWA edge-swipe creating blank split-view windows.
+  // In standalone mode, touches starting within 20px of either edge are
+  // consumed so iOS doesn't interpret them as back/forward navigation.
+  if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+    document.addEventListener('touchstart', e => {
+      const x = e.touches[0]?.clientX;
+      if (x != null && (x < 20 || x > window.innerWidth - 20)) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
+
   const loginScreen = document.getElementById('login-screen');
   const app = document.getElementById('app');
   const errorEl = document.getElementById('login-error');
@@ -1105,23 +1187,30 @@ async function boot() {
       _initDesktopMode();
       _updateThemeIcon();
 
-      // Auto-open character for players so Sheet/Downtime tabs work immediately,
-      // and pre-fill the dice tab so the roller is ready without a manual pick.
-      if (getRole() !== 'st' && editorState.chars.length > 0) {
-        // Restore saved character selection, or default to first
+      // Auto-open a character so split tabs and dice roller are ready.
+      // Players: always (saved selection or first linked char).
+      // STs: only if they have a previously saved selection (don't randomly
+      // pick someone else's character for them).
+      const isDesktop = DESKTOP_MQ.matches;
+      const isST = getRole() === 'st';
+      if (editorState.chars.length > 0) {
         const savedCharId = localStorage.getItem('tm_active_char');
         const savedIdx = savedCharId
           ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
           : -1;
-        const charIdx = savedIdx >= 0 ? savedIdx : 0;
-        openChar(charIdx);
-        pickChar(editorState.chars[charIdx]);
+        const charIdx = !isST ? (savedIdx >= 0 ? savedIdx : 0) : savedIdx;
+        if (charIdx >= 0) {
+          await ensureTrackerLoaded(editorState.chars[charIdx]);
+          openChar(charIdx);
+          pickChar(editorState.chars[charIdx]);
+        }
       }
-      // Desktop: STs land on character grid, players land on sheet.
-      // Phone: players land on stats (split tab view).
-      const isDesktop = DESKTOP_MQ.matches;
-      const isPlayer = getRole() !== 'st';
-      goTab(isDesktop ? (isPlayer ? 'sheets' : 'chars') : 'stats');
+      // Desktop: STs → character grid, players → sheet.
+      // Phone: players → stats (split tab), STs → dice (works without a character).
+      const hasChar = !!suiteState.sheetChar;
+      goTab(isDesktop
+        ? (!isST && hasChar ? 'sheets' : 'chars')
+        : (hasChar ? 'stats' : 'dice'));
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       if (getRole() !== 'st') startChallengePoller(); // player-only polling
@@ -1129,11 +1218,10 @@ async function boot() {
       // Start WebSocket for live tracker sync
       initWS({
         onTrackerUpdate: (charId) => {
-          // Re-render tracker tab if visible
-          const trackerTab = document.getElementById('t-tracker');
-          if (trackerTab?.classList.contains('active')) initTracker(trackerTab);
-          // Re-render sheet tracker boxes if the updated char is the current sheet char
-          if (String(suiteState.sheetChar?._id) === charId) suiteRenderSheet();
+          // Patch just the affected tracker card (not full tab rebuild)
+          refreshTrackerCard(charId);
+          // Repaint sheet tracker boxes if this is the current sheet char
+          if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
         },
       });
       return;
@@ -1161,6 +1249,9 @@ function applyRoleRestrictions() {
   const role = effectiveRole();
   const isST = role === 'st';
   const isRealST = getRole() === 'st';
+
+  // Tracker boxes: interactive for STs, read-only for players
+  document.body.classList.toggle('tracker-readonly', !isST && getRole() !== 'dev');
 
   // Rebuild the scrollable bottom nav with role-appropriate items
   renderBottomNav();
@@ -1983,6 +2074,7 @@ function _enterSTView() {
 
 // Expose functions used in inline onclick handlers
 window.goTab  = goTab;
+window._getRole = getRole;
 window.logout = logout;
 window.playerGoDowntime  = playerGoDowntime;
 window.openRulesOverlay  = openRulesOverlay;

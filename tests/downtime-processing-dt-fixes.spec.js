@@ -25,7 +25,7 @@ const CHAR_PT4 = {
   clan: 'Daeva', covenant: 'Invictus', player: 'Test Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null,
   retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 3, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
@@ -47,7 +47,7 @@ const CHAR_RETIRED = {
   clan: 'Nosferatu', covenant: 'Unaligned', player: 'Old Player',
   blood_potency: 1, humanity: 5, humanity_base: 7, court_title: null,
   retired: true,
-  status: { city: 0, clan: 0, covenant: 0 },
+  status: { city: 0, clan: 0, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
@@ -62,7 +62,7 @@ const CHAR_NON_SUBMITTER = {
   clan: 'Mekhet', covenant: 'Carthian Movement', player: 'Other Player',
   blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null,
   retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 1, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
@@ -1123,7 +1123,7 @@ const CHAR_NON_SUBMITTER_FULL = {
   clan: 'Mekhet', covenant: 'Carthian Movement', player: 'Other Player',
   blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null,
   retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 1, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },

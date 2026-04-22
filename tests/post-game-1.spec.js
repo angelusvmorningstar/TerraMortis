@@ -29,7 +29,7 @@ const TEST_CHAR = {
   _id: 'char-001', name: 'Alice Vunder', moniker: null, honorific: null,
   clan: 'Mekhet', covenant: 'Circle of the Crone', player: 'Test Player',
   blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 2, clan: 1, covenant: 1 },
+  status: { city: 2, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 1, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
     Strength: { dots: 1, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
@@ -229,7 +229,7 @@ test('EPB.6 — sheet picker renders all chars in 3-col grid', async ({ page }) 
       _id: 'char-002', name: 'Bob Markov', moniker: null, honorific: null,
       clan: 'Gangrel', covenant: 'Unaligned', player: 'Test B',
       blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-      status: { city: 0, clan: 0, covenant: 0 },
+      status: { city: 0, clan: 0, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
       attributes: TEST_CHAR.attributes, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: [],
     },
   ];

@@ -167,10 +167,7 @@ function _getMeritRating(c, name) {
 
 function _getCovStatus(c, covShort) {
   const fullName = COV_SHORT[covShort.toLowerCase()] || covShort;
-  if ((c.covenant || '').toLowerCase() === fullName.toLowerCase()) return c.status?.covenant || 0;
-  const standings = c.covenant_standings || {};
-  const k = Object.keys(standings).find(k => k.toLowerCase() === covShort.toLowerCase() || standings[k] === covShort);
-  return k ? standings[k] : 0;
+  return c.status?.covenant?.[fullName] || 0;
 }
 
 /* ══════════════════════════════════════════════════════

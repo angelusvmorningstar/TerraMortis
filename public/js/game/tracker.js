@@ -8,6 +8,15 @@ import { calcTotalInfluence } from '../editor/domain.js';
 import { esc } from '../data/helpers.js';
 import { CONDITIONS_DB } from '../data/conditions.js';
 import { getRole } from '../auth/discord.js';
+import { markLocalWrite } from '../data/ws.js';
+
+const API_BASE = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('tm_auth_token');
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
 
 const LOCAL_PREFIX = 'tm_tracker_local_';
 
@@ -56,7 +65,7 @@ function saveLocal(charId, fields) {
 
 async function loadFromApi(charId) {
   try {
-    const res = await fetch(`/api/tracker_state/${charId}`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/api/tracker_state/${charId}`, { headers: authHeaders() });
     if (res.ok) return await res.json();
   } catch { /* network failure — fall through to null */ }
   return null;
@@ -65,15 +74,16 @@ async function loadFromApi(charId) {
 function saveToApi(charId, fields) {
   // Optimistic: update cache immediately, write in background
   _cache[charId] = { ...(_cache[charId] || {}), ...fields };
-  fetch(`/api/tracker_state/${charId}`, {
+  // Mark as local write so WS echo is suppressed
+  markLocalWrite(charId, fields);
+  fetch(`${API_BASE}/api/tracker_state/${charId}`, {
     method: 'PUT',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(fields),
   }).catch(() => { /* silent fail — cache remains valid */ });
 }
 
-async function ensureLoaded(c) {
+export async function ensureLoaded(c) {
   const id = String(c._id);
   if (_confirmed.has(id)) return _cache[id];
 
@@ -281,6 +291,14 @@ function patchCard(charId, c, cs) {
   const tmp = document.createElement('div');
   tmp.innerHTML = cardHtml(charId, c, cs);
   old.replaceWith(tmp.firstElementChild);
+}
+
+/** Refresh a single tracker card from current cache — for external callers (WS sync). */
+export function refreshTrackerCard(charId) {
+  const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+  if (!c) return;
+  const cs = fromCache(c);
+  patchCard(charId, c, cs);
 }
 
 function cardHtml(id, c, cs) {

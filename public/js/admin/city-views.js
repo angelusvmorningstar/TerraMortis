@@ -171,7 +171,7 @@ function getPrestigeData() {
   const covAscendancy = {};
   for (const c of active) {
     const cs = c.status?.clan || 0;
-    const cvs = c.status?.covenant || 0;
+    const cvs = c.status?.covenant?.[c.covenant] || 0;
     if (c.clan) clanEminence[c.clan] = (clanEminence[c.clan] || 0) + (c.status?.city || 0);
     if (c.covenant) covAscendancy[c.covenant] = (covAscendancy[c.covenant] || 0) + (c.status?.city || 0);
   }
@@ -179,7 +179,7 @@ function getPrestigeData() {
   return active.map(c => {
     const st = c.status || {};
     const clan = st.clan || 0;
-    const cov = st.covenant || 0;
+    const cov = st.covenant?.[c.covenant] || 0;
     const otsBonus = c._ots_covenant_bonus || 0;
     const effectiveCov = cov - otsBonus;
     const influence = calcTotalInfluence(c);

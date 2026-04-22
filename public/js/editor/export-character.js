@@ -98,7 +98,7 @@ export function serialiseForPrint(c, territories) {
     status: {
       city: calcCityStatus(c),
       clan: st.clan || 0,
-      covenant: Math.max(st.covenant || 0, c._ots_covenant_bonus || 0),
+      covenant: Math.max(st.covenant?.[c.covenant] || 0, c._ots_covenant_bonus || 0),
     },
     influence_total: calcTotalInfluence(c),
   };

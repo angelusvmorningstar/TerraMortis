@@ -94,8 +94,8 @@ app.get('/api/game_sessions/next', getNextSession);
 
 // Territories — GET open to all authenticated users; writes are ST-only (enforced in router)
 app.use('/api/territories', requireAuth, territoriesRouter);
-// ST-only routes — require both auth and ST role
-app.use('/api/tracker_state', requireAuth, requireRole('st'), trackerRouter);
+// Tracker — auth required; players can only read/write own characters (enforced in router)
+app.use('/api/tracker_state', requireAuth, trackerRouter);
 app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
 app.use('/api/game_sessions', requireAuth, requireRole('st'), gameSessionsRouter);
 app.use('/api/downtime_investigations', requireAuth, investigationsRouter);

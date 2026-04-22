@@ -259,7 +259,7 @@ export async function renderStatusTab(el, activeChar, isST = false) {
     for (const cov of covenants) {
       const rows = chars
         .filter(c => c.covenant === cov)
-        .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
+        .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
       h += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
@@ -273,7 +273,7 @@ export async function renderStatusTab(el, activeChar, isST = false) {
 
     const covRows = chars
       .filter(c => c.covenant && c.covenant === activeChar.covenant)
-      .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
+      .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
       .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
 
     h += `<div class="status-split">`;

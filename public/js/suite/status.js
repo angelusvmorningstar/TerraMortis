@@ -274,7 +274,7 @@ export async function renderSuiteStatusTab(el) {
   if (activeChar) {
     const st = activeChar.status || {};
     const cityV = calcCityStatus(activeChar);
-    const covV = (st.covenant || 0) - (activeChar._ots_covenant_bonus || 0);
+    const covV = (st.covenant?.[activeChar.covenant] || 0) - (activeChar._ots_covenant_bonus || 0);
     const clanV = st.clan || 0;
     h += `<div class="status-summary">`;
     h += `<div class="status-summary-pip"><div class="status-summary-shape">${CITY_SVG}<span class="status-summary-n">${cityV}</span></div><span class="status-summary-lbl">City</span></div>`;
@@ -288,11 +288,12 @@ export async function renderSuiteStatusTab(el) {
     // Other covenant standings — compact secondary line
     const COV_SHORT = {
       'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone',
-      'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance',
+      'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance', 'Ordo Dracul': 'Ordo',
     };
-    const covStandings = activeChar.covenant_standings || {};
-    const ownCovLabel = COV_SHORT[activeChar.covenant] || null;
-    const otherCovs = Object.entries(covStandings).filter(([label, val]) => val && label !== ownCovLabel);
+    const covObj = st.covenant || {};
+    const otherCovs = Object.entries(covObj)
+      .filter(([cov, val]) => val && cov !== activeChar.covenant)
+      .map(([cov, val]) => [COV_SHORT[cov] || cov, val]);
     if (otherCovs.length) {
       h += `<div class="status-summary-other">${otherCovs.map(([label, val]) =>
         `<span class="status-summary-other-item">${esc(label)} <b>${val}</b></span>`
@@ -309,7 +310,7 @@ export async function renderSuiteStatusTab(el) {
     for (const cov of covenants) {
       const rows = chars
         .filter(c => c.covenant === cov)
-        .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
+        .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
         .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)));
       covCard += renderStatusSection(cov, covIcon(cov, 18), rows, activeId, '');
     }
@@ -324,7 +325,7 @@ export async function renderSuiteStatusTab(el) {
   } else {
     const covRows = activeChar
       ? chars.filter(c => c.covenant && c.covenant === activeChar.covenant)
-            .map(c => ({ c, val: (c.status?.covenant || 0) - (c._ots_covenant_bonus || 0) }))
+            .map(c => ({ c, val: (c.status?.covenant?.[c.covenant] || 0) - (c._ots_covenant_bonus || 0) }))
             .sort((a, b) => b.val - a.val || sortName(a.c).localeCompare(sortName(b.c)))
       : [];
     const clanRows = activeChar

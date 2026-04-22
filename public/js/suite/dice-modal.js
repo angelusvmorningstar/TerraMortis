@@ -7,9 +7,30 @@
 import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { getPool } from '../shared/pools.js';
 import { getAttrEffective, skTotal, skNineAgain, skSpecs, getSkillObj } from '../data/accessors.js';
-import { hasAoE } from '../data/helpers.js';
-import { SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL } from '../data/constants.js';
+import { hasAoE, displayName } from '../data/helpers.js';
+import { parseResistance, getResistTokenVal } from '../shared/resist.js';
+import { SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, ALL_SKILLS } from '../data/constants.js';
 import state from './data.js';   // only for reading rollChar / sheetChar
+
+// Attribute groups by category
+const ATTRS_MENTAL   = ['Intelligence', 'Wits', 'Resolve'];
+const ATTRS_PHYSICAL = ['Strength', 'Dexterity', 'Stamina'];
+const ATTRS_SOCIAL   = ['Presence', 'Manipulation', 'Composure'];
+const ALL_ATTRS      = [...ATTRS_MENTAL, ...ATTRS_PHYSICAL, ...ATTRS_SOCIAL];
+
+function skillCategory(skill) {
+  if (SKILLS_MENTAL.includes(skill))   return 'Mental';
+  if (SKILLS_PHYSICAL.includes(skill)) return 'Physical';
+  if (SKILLS_SOCIAL.includes(skill))   return 'Social';
+  return 'Mental';
+}
+
+function skillsInCategory(cat) {
+  if (cat === 'Mental')   return SKILLS_MENTAL;
+  if (cat === 'Physical') return SKILLS_PHYSICAL;
+  if (cat === 'Social')   return SKILLS_SOCIAL;
+  return ALL_SKILLS;
+}
 import { getRole } from '../auth/discord.js';
 
 // ── Rules ordeal gate ──
@@ -23,8 +44,8 @@ export function canRollDice(char) {
   );
 }
 
-// ── d10 icon — diamond/kite shape representing the pentagonal trapezohedron ──
-export const DICE_ICON_SVG = `<svg class="dice-roll-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L22 10 L12 22 L2 10 Z"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+// ── d10 icon — PNG image, inverted in dark mode via CSS ──
+export const DICE_ICON_SVG = `<img class="dice-roll-icon" src="/assets/d10.png" alt="Roll" width="16" height="16">`;
 
 // ── Default attribute for bare skill rolls ──
 // Each skill maps to the "most common" attribute used with it.
@@ -50,12 +71,14 @@ function unskilledPenalty(skill) {
 
 // ── Modal state (independent of dice tab state) ──
 let _ms = _freshState();
+let _char = null;  // current character for skill pool recalculation
 let _histKey = 'tm_dice_modal_hist';
 let _hist = [];
 
 function _freshState() {
   return { ps: 5, mod: 0, again: 10, rote: false, na: false, wp: false,
-           pi: null, specBonuses: {}, lastResult: null };
+           pi: null, specBonuses: {}, lastResult: null,
+           resistMode: null, resistParsed: null, resistChar: null, resistVal: 0 };
 }
 
 // ── History persistence ──
@@ -101,6 +124,11 @@ function _ensureModal() {
         </div>
         <div class="dm-eff" id="dm-eff">Effective: <b>5 dice</b></div>
         <div class="dm-specs" id="dm-specs"></div>
+        <div class="dm-resist" id="dm-resist" style="display:none">
+          <div class="dm-lbl" id="dm-resist-lbl">Resistance</div>
+          <select class="dm-pool-sel" id="dm-resist-sel"><option value="">\u2014 select target \u2014</option></select>
+          <div class="dm-resist-line" id="dm-resist-line"></div>
+        </div>
         <div class="dm-row dm-again-row">
           <button class="dm-chip" id="dm-a8" data-act="again8">8-Again</button>
           <button class="dm-chip" id="dm-a9" data-act="again9">9-Again</button>
@@ -161,13 +189,90 @@ function _ensureModal() {
     _updUI();
   });
 
+  // Resistance target change
+  div.querySelector('#dm-resist-sel')?.addEventListener('change', e => {
+    const name = e.target.value;
+    _ms.resistChar = name ? (state.chars || []).find(c => c.name === name) || null : null;
+    _recalcResist();
+    _updUI();
+  });
+
   return div;
+}
+
+// ── Resistance handling ──
+
+function _showResistSection() {
+  const m = _modalEl;
+  if (!m) return;
+  const sec = m.querySelector('#dm-resist');
+  const pi = _ms.pi;
+  const r = pi?.resistance;
+  if (!r) { sec.style.display = 'none'; _ms.resistMode = null; _ms.resistParsed = null; return; }
+  const parsed = parseResistance(r);
+  if (!parsed) { sec.style.display = 'none'; return; }
+  _ms.resistMode = parsed.mode;
+  _ms.resistParsed = parsed;
+  sec.style.display = '';
+
+  const lbl = m.querySelector('#dm-resist-lbl');
+  if (lbl) lbl.textContent = parsed.mode === 'v' ? 'Contested \u2014 ' + r : 'Resistance \u2014 ' + r;
+
+  // Populate target selector
+  const sel = m.querySelector('#dm-resist-sel');
+  const curVal = sel.value;
+  sel.innerHTML = '<option value="">\u2014 select target \u2014</option>';
+  (state.chars || []).filter(c => !c.retired).sort((a, b) =>
+    (a.moniker || a.name).localeCompare(b.moniker || b.name)
+  ).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = displayName(c);
+    if (c.name === curVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  _recalcResist();
+}
+
+function _recalcResist() {
+  const m = _modalEl;
+  if (!m || !_ms.resistParsed || !_ms.resistChar) { _ms.resistVal = 0; return; }
+  const parts = _ms.resistParsed.tokens.map(t => ({ ...t, val: getResistTokenVal(_ms.resistChar, t) }));
+  _ms.resistVal = parts.reduce((s, t) => s + t.val, 0);
+  const line = m.querySelector('#dm-resist-line');
+  if (line) {
+    const breakdown = parts.map(t => `${t.label} <b>${t.val}</b>`).join(' + ');
+    const rName = displayName(_ms.resistChar).split(' ')[0];
+    if (_ms.resistMode === 'v') {
+      line.innerHTML = `${rName}: ${breakdown} = <span class="dm-resist-val">${_ms.resistVal} dice</span>`;
+    } else {
+      line.innerHTML = `${rName}: ${breakdown} = <span class="dm-resist-pen">\u2212${_ms.resistVal} from pool</span>`;
+    }
+  }
+}
+
+// ── Seed a skill pool from attribute + skill ──
+function _seedSkillPool(c, attr, skill) {
+  const attrV = getAttrEffective(c, attr);
+  const skillV = skTotal(c, skill);
+  const unskilled = skillV === 0 ? unskilledPenalty(skill) : 0;
+  const nineAgain = skNineAgain(c, skill);
+  const total = attrV + skillV + unskilled;
+
+  _ms.ps = Math.max(0, total);
+  _ms.mod = 0;
+  _ms.specBonuses = {};
+  _ms.pi = { attr, attrV, skill, skillV, unskilled: unskilled || null,
+             discName: null, discV: 0, nineAgain, resistance: null };
+  if (nineAgain) _ms.again = 9;
+  else if (_ms.again === 9) _ms.again = 10;
 }
 
 // ── Effective pool ──
 function _effPool() {
   const wpB = _ms.wp ? 3 : 0;
-  return Math.max(0, _ms.ps + _ms.mod + wpB);
+  const resistSub = _ms.resistMode === '-' ? _ms.resistVal : 0;
+  return Math.max(0, _ms.ps + _ms.mod + wpB - resistSub);
 }
 
 // ── Open modal ──
@@ -189,6 +294,8 @@ export function openDiceModal(type, name, char) {
   const modal = _ensureModal();
   const titleEl = modal.querySelector('#dm-title');
   const infoEl = modal.querySelector('#dm-pool-info');
+
+  _char = c;
 
   if (type === 'power') {
     // Discipline power, devotion, rite — use getPool
@@ -214,22 +321,51 @@ export function openDiceModal(type, name, char) {
       if (pi?.info?.c) infoEl.innerHTML += ' <span class="dm-info-dim">\u00B7 Cost: ' + pi.info.c + '</span>';
     }
   } else if (type === 'skill') {
-    // Bare skill roll — pick default attribute
+    // Bare skill roll — default attribute + skill selectors
     const attr = SKILL_DEFAULT_ATTR[name] || 'Intelligence';
-    const attrV = getAttrEffective(c, attr);
-    const skillV = skTotal(c, name);
-    const unskilled = skillV === 0 ? unskilledPenalty(name) : 0;
-    const nineAgain = skNineAgain(c, name);
-    const total = attrV + skillV + unskilled;
-
-    _ms.ps = Math.max(0, total);
-    _ms.pi = { attr, attrV, skill: name, skillV, unskilled: unskilled || null,
-               discName: null, discV: 0, nineAgain, resistance: null };
-    if (nineAgain) _ms.again = 9;
+    _ms.skillType = 'skill';
+    _seedSkillPool(c, attr, name);
     titleEl.textContent = name;
-    let info = attr + ' ' + attrV + ' + ' + name + ' ' + skillV;
-    if (unskilled) info += ' <span class="dm-info-neg">unskilled ' + unskilled + '</span>';
+
+    // Render attribute + skill dropdowns
+    const cat = skillCategory(name);
+    const catSkills = skillsInCategory(cat);
+    let info = '<div class="dm-pool-selectors">';
+    info += '<select class="dm-pool-sel" id="dm-attr-sel">';
+    ALL_ATTRS.forEach(a => {
+      const v = getAttrEffective(c, a);
+      info += `<option value="${a}"${a === attr ? ' selected' : ''}>${a} (${v})</option>`;
+    });
+    info += '</select>';
+    info += '<span class="dm-pool-plus">+</span>';
+    info += '<select class="dm-pool-sel" id="dm-skill-sel">';
+    catSkills.forEach(s => {
+      const v = skTotal(c, s);
+      info += `<option value="${s}"${s === name ? ' selected' : ''}>${s} (${v})</option>`;
+    });
+    info += '</select>';
+    info += '</div>';
     infoEl.innerHTML = info;
+
+    // Wire change handlers
+    infoEl.querySelector('#dm-attr-sel')?.addEventListener('change', e => {
+      _seedSkillPool(_char, e.target.value, _ms.pi.skill);
+      _updUI();
+    });
+    infoEl.querySelector('#dm-skill-sel')?.addEventListener('change', e => {
+      const newSkill = e.target.value;
+      _seedSkillPool(_char, _ms.pi.attr, newSkill);
+      titleEl.textContent = newSkill;
+      // Update attr dropdown values (attr dots may differ per context)
+      const attrSel = infoEl.querySelector('#dm-attr-sel');
+      if (attrSel) {
+        [...attrSel.options].forEach(opt => {
+          const v = getAttrEffective(_char, opt.value);
+          opt.textContent = opt.value + ' (' + v + ')';
+        });
+      }
+      _updUI();
+    });
   } else {
     // Custom / manual
     titleEl.textContent = name || 'Dice Roller';
@@ -311,6 +447,9 @@ function _updUI() {
     roteEl.title = '';
   }
 
+  // Resistance section
+  _showResistSection();
+
   // History
   _renderHist();
 }
@@ -354,28 +493,57 @@ function _doRoll() {
     if (_ms.rote && sB > sA) { wC = cB; wS = sB; lC = cA; lS = sA; }
     else { wC = cA; wS = sA; if (_ms.rote) { lC = cB; lS = sB; } }
 
-    const exc = wS >= 5;
-    const cls = wS === 0 ? 'f' : exc ? 'e' : 's';
-    const lbl = wS === 0 ? 'Failure' : exc ? 'Exceptional Success' : 'Success';
-    resultEl.innerHTML = `<span class="dm-rcnt ${cls}">${wS}</span><span class="dm-rlbl ${cls}">${lbl}</span>`;
-    resultEl.className = 'dm-result on';
+    // Contested roll (v mode with a selected target)
+    if (_ms.resistMode === 'v' && _ms.resistChar && _ms.resistVal > 0) {
+      const cR = rollPool(_ms.resistVal);
+      const sR = cntSuc(cR);
+      const net = wS - sR;
+      const won = net > 0;
+      const draw = net === 0;
+      const cls = won ? (net >= 5 ? 'e' : 's') : 'f';
+      const outcome = won ? (net >= 5 ? 'Exceptional Success' : 'Success') : draw ? 'Draw (Failure)' : 'Failure';
+      const rName = displayName(_ms.resistChar).split(' ')[0];
+      resultEl.innerHTML = `<span class="dm-rcnt ${cls}">${won ? net : wS}</span><span class="dm-rlbl ${cls}">${outcome}</span>`;
+      resultEl.className = 'dm-result on';
 
-    if (_ms.rote) {
       const wb = document.createElement('div');
       wb.className = 'rote-blk win';
-      wb.innerHTML = `<div class="rote-lbl">Roll 1 \u2014 ${wS} success${wS !== 1 ? 'es' : ''} (selected)</div>`;
+      wb.innerHTML = `<div class="rote-lbl">You \u2014 ${wS} success${wS !== 1 ? 'es' : ''}</div>`;
       wb.appendChild(_mkColsEl(wC, 0));
       diceEl.appendChild(wb);
-      const lb = document.createElement('div');
-      lb.className = 'rote-blk';
-      lb.innerHTML = `<div class="rote-lbl">Roll 2 \u2014 ${lS} success${lS !== 1 ? 'es' : ''}</div>`;
-      lb.appendChild(_mkColsEl(lC, wC.length + 2));
-      diceEl.appendChild(lb);
-    } else {
-      diceEl.appendChild(_mkColsEl(wC, 0));
-    }
 
-    _addHist(eff + 'd10', cls, lbl, wS);
+      const rb = document.createElement('div');
+      rb.className = 'rote-blk' + (won ? '' : ' win');
+      rb.innerHTML = `<div class="rote-lbl">${rName} \u2014 ${sR} success${sR !== 1 ? 'es' : ''}</div>`;
+      rb.appendChild(_mkColsEl(cR, wC.length + 2));
+      diceEl.appendChild(rb);
+
+      _addHist(eff + 'd10', cls, outcome, won ? net : wS);
+    } else {
+      // Standard (non-contested) roll
+      const exc = wS >= 5;
+      const cls = wS === 0 ? 'f' : exc ? 'e' : 's';
+      const lbl = wS === 0 ? 'Failure' : exc ? 'Exceptional Success' : 'Success';
+      resultEl.innerHTML = `<span class="dm-rcnt ${cls}">${wS}</span><span class="dm-rlbl ${cls}">${lbl}</span>`;
+      resultEl.className = 'dm-result on';
+
+      if (_ms.rote) {
+        const wb = document.createElement('div');
+        wb.className = 'rote-blk win';
+        wb.innerHTML = `<div class="rote-lbl">Roll 1 \u2014 ${wS} success${wS !== 1 ? 'es' : ''} (selected)</div>`;
+        wb.appendChild(_mkColsEl(wC, 0));
+        diceEl.appendChild(wb);
+        const lb = document.createElement('div');
+        lb.className = 'rote-blk';
+        lb.innerHTML = `<div class="rote-lbl">Roll 2 \u2014 ${lS} success${lS !== 1 ? 'es' : ''}</div>`;
+        lb.appendChild(_mkColsEl(lC, wC.length + 2));
+        diceEl.appendChild(lb);
+      } else {
+        diceEl.appendChild(_mkColsEl(wC, 0));
+      }
+
+      _addHist(eff + 'd10', cls, lbl, wS);
+    }
 
     // Auto-reset WP
     if (_ms.wp) { _ms.wp = false; _updUI(); }

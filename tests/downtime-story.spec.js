@@ -26,7 +26,7 @@ const CHAR_BRANDY = {
   clan: 'Daeva', covenant: 'Invictus', player: 'Test Player',
   blood_potency: 3, humanity: 6, humanity_base: 7, court_title: null,
   retired: false,
-  status: { city: 2, clan: 1, covenant: 2 },
+  status: { city: 2, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 2, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 3, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
@@ -48,7 +48,7 @@ const CHAR_ANICHKA = {
   clan: 'Nosferatu', covenant: 'Unaligned', player: 'Other Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null,
   retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 3, bonus: 0 },
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
@@ -68,7 +68,7 @@ const CHAR_CONRAD = {
   clan: 'Mekhet', covenant: 'Ordo Dracul', player: 'Third Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null,
   retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 1 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },

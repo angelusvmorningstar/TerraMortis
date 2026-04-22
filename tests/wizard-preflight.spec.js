@@ -33,7 +33,7 @@ function baseMocks(page, overrides = {}) {
         _id: 'char-001', name: 'Alice Test', moniker: null, honorific: null,
         clan: 'Daeva', covenant: 'Invictus', player: 'Test Player', blood_potency: 2,
         humanity: 6, humanity_base: 7, court_title: null, retired: false,
-        status: { city: 1, clan: 1, covenant: 1 },
+        status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
         attributes: {
           Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 },
           Stamina: { dots: 2, bonus: 0 }, Intelligence: { dots: 2, bonus: 0 },
@@ -200,8 +200,8 @@ test('wizard shows cancel button and it closes the overlay', async ({ page }) =>
 test('dismiss-all button appears with multiple blocking items and clears them', async ({ page }) => {
   const mocks = baseMocks(page, {
     characters: [
-      { _id: 'char-001', name: 'Alice', moniker: null, honorific: null, clan: 'Daeva', covenant: 'Invictus', player: 'P1', blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null, retired: false, status: { city: 1, clan: 1, covenant: 1 }, attributes: { Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 }, Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 }, Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 } }, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {}, influence_balance: 0 },
-      { _id: 'char-002', name: 'Bob', moniker: null, honorific: null, clan: 'Gangrel', covenant: 'Circle', player: 'P2', blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false, status: { city: 0, clan: 0, covenant: 0 }, attributes: { Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 }, Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 }, Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 } }, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {}, influence_balance: 0 },
+      { _id: 'char-001', name: 'Alice', moniker: null, honorific: null, clan: 'Daeva', covenant: 'Invictus', player: 'P1', blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null, retired: false, status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } }, attributes: { Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 }, Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 }, Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 } }, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {}, influence_balance: 0 },
+      { _id: 'char-002', name: 'Bob', moniker: null, honorific: null, clan: 'Gangrel', covenant: 'Circle', player: 'P2', blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false, status: { city: 0, clan: 0, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } }, attributes: { Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 }, Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 }, Presence: { dots: 2, bonus: 0 }, Manipulation: { dots: 2, bonus: 0 }, Composure: { dots: 2, bonus: 0 } }, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {}, influence_balance: 0 },
     ],
     submissions: [
       {

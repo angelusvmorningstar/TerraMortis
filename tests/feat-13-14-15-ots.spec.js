@@ -27,7 +27,7 @@ const INVICTUS_CHAR = {
   _id: 'char-inv-001', name: 'Charlie Invictus', moniker: null, honorific: null,
   clan: 'Ventrue', covenant: 'Invictus', player: 'Test Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 2, clan: 1, covenant: 3 },
+  status: { city: 2, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 3, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: BASE_ATTRS,
   skills: {}, disciplines: {}, ordeals: [],
   merits: [
@@ -43,7 +43,7 @@ const OTS_CHAR = {
   _id: 'char-ots-001', name: 'Charlie OTS', moniker: null, honorific: null,
   clan: 'Ventrue', covenant: 'Invictus', player: 'OTS Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 1, clan: 1, covenant: 3 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 3, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: BASE_ATTRS,
   skills: {}, disciplines: {}, ordeals: [],
   merits: [],
@@ -56,7 +56,7 @@ const PEER_CHAR = {
   _id: 'char-peer-001', name: 'Peer Invictus', moniker: null, honorific: null,
   clan: 'Ventrue', covenant: 'Invictus', player: 'Peer Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 1, clan: 1, covenant: 3 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 3, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: BASE_ATTRS,
   skills: {}, disciplines: {}, ordeals: [],
   merits: [], powers: [],
@@ -68,7 +68,7 @@ const REGENT_CHAR = {
   _id: 'char-reg-001', name: 'Regina Rack', moniker: null, honorific: null,
   clan: 'Daeva', covenant: 'Carthian Movement', player: 'Reg Player',
   blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 2, clan: 1, covenant: 1 },
+  status: { city: 2, clan: 1, covenant: { 'Carthian Movement': 1, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: BASE_ATTRS,
   skills: {}, disciplines: {}, ordeals: [],
   merits: [], powers: [],
@@ -324,8 +324,8 @@ test.describe('feat.14 — City status appellations', () => {
 
   test('city status brackets show rank labels (Acknowledged, Recognised, etc.)', async ({ page }) => {
     const chars = [
-      { ...INVICTUS_CHAR, _id: 'char-s1', name: 'High Status', status: { city: 5, clan: 1, covenant: 1 } },
-      { ...INVICTUS_CHAR, _id: 'char-s2', name: 'Low Status',  status: { city: 1, clan: 1, covenant: 1 } },
+      { ...INVICTUS_CHAR, _id: 'char-s1', name: 'High Status', status: { city: 5, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } } },
+      { ...INVICTUS_CHAR, _id: 'char-s2', name: 'Low Status',  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } } },
     ];
     const statusChars = makeStatusChars(chars);
     await setupSuite(page, chars, statusChars);
@@ -342,7 +342,7 @@ test.describe('feat.14 — City status appellations', () => {
 
   test('city status brackets show "Recognised" (British spelling) for rank 2', async ({ page }) => {
     const chars = [
-      { ...INVICTUS_CHAR, _id: 'char-r2', name: 'Rank Two', status: { city: 2, clan: 1, covenant: 1 } },
+      { ...INVICTUS_CHAR, _id: 'char-r2', name: 'Rank Two', status: { city: 2, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } } },
     ];
     const statusChars = makeStatusChars(chars);
     await setupSuite(page, chars, statusChars);
@@ -357,7 +357,7 @@ test.describe('feat.14 — City status appellations', () => {
 
   test('covenant status brackets do not show appellations', async ({ page }) => {
     const chars = [
-      { ...INVICTUS_CHAR, _id: 'char-cov1', name: 'Cov Status 3', status: { city: 1, clan: 1, covenant: 3 } },
+      { ...INVICTUS_CHAR, _id: 'char-cov1', name: 'Cov Status 3', status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 3, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } } },
     ];
     const statusChars = makeStatusChars(chars);
     await setupSuite(page, chars, statusChars);

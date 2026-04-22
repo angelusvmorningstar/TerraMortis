@@ -1747,6 +1747,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 4px 8px;
+  max-height: 50vh; overflow-y: auto; overscroll-behavior: contain;
 }
 
 .qf-char-inactive {
@@ -2737,6 +2738,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 6px 12px;
   margin-top: 4px;
+  max-height: 50vh; overflow-y: auto; overscroll-behavior: contain;
 }
 .dt-shoutout-item {
   display: flex;

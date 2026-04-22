@@ -247,8 +247,7 @@ export function investedUsed(c) {
 /** Effective Invictus covenant status — includes Oath of the Scapegoat floor. */
 export function effectiveInvictusStatus(c) {
   if (c.covenant !== 'Invictus') return 0;
-  const st = c.status || {};
-  return Math.max(st.covenant || 0, c._ots_covenant_bonus || 0);
+  return Math.max(c.status?.covenant?.['Invictus'] || 0, c._ots_covenant_bonus || 0);
 }
 
 /** Dots granted by an Attaché merit linked to the named target merit. */
@@ -289,7 +288,7 @@ export function calcTotalInfluence(c) {
   const hwv = hasHoneyWithVinegar(c);
   // Clan + Covenant status: 1 per dot each
   const st = c.status || {};
-  total += (st.clan || 0) + (st.covenant || 0);
+  total += (st.clan || 0) + (st.covenant?.[c.covenant] || 0);
   // Influence merits (Contacts excluded from per-entry calc)
   (c.merits || []).filter(m => m.category === 'influence').forEach(m => {
     total += calcMeritInfluence(m, hwv);
@@ -311,7 +310,8 @@ export function influenceBreakdown(c) {
   const st = c.status || {};
   const hwv = hasHoneyWithVinegar(c);
   if (st.clan) lines.push('Clan Status: ' + st.clan);
-  if (st.covenant) lines.push('Covenant Status: ' + st.covenant);
+  const _covVal = st.covenant?.[c.covenant] || 0;
+  if (_covVal) lines.push('Covenant Status: ' + _covVal);
   const inflM = (c.merits || []).filter(m => m.category === 'influence' && m.name !== 'Contacts');
   for (const m of inflM) {
     const inf = calcMeritInfluence(m, hwv);

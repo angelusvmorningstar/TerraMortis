@@ -26,10 +26,73 @@ import {
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
-import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
+import { calcTotalInfluence, influenceBreakdown, ssjHerdBonus, flockHerdBonus, attacheBonusDots } from '../editor/domain.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
+
+// ── Surgical tracker repaint (no full sheet rebuild) ──
+
+export function repaintSheetTrackers() {
+  const c = state.sheetChar;
+  if (!c) return;
+  const charId = String(c._id);
+  const cs = trackerRead(charId);
+  if (!cs) return;
+
+  const maxH  = calcHealth(c);
+  const maxV  = calcVitaeMax(c);
+  const maxWP = calcWillpowerMax(c);
+  const maxInf = calcTotalInfluence(c);
+
+  // Health — render with damage type marks
+  const agg = cs.aggravated ?? 0, leth = cs.lethal ?? 0, bash = cs.bashing ?? 0;
+  const healthBoxes = document.getElementById('tb-health');
+  const healthNum = document.getElementById('tn-health');
+  if (healthBoxes) {
+    const disp = Math.min(maxH, 15);
+    let hb = '';
+    for (let i = 0; i < disp; i++) {
+      let cls = 'tbox', mark = '';
+      if (i < agg)                    { cls += ' tbox-agg';     mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/><line x1="10" y1="2" x2="10" y2="18"/></svg>'; }
+      else if (i < agg + leth)        { cls += ' tbox-lethal';  mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/></svg>'; }
+      else if (i < agg + leth + bash) { cls += ' tbox-bashing'; mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg>'; }
+      else                            { cls += ' health-filled'; }
+      hb += `<div class="${cls}" data-tracker="health" data-idx="${i}" data-max="${disp}" data-filled="health-filled">${mark}</div>`;
+    }
+    healthBoxes.innerHTML = hb;
+  }
+  if (healthNum) {
+    const dmgTotal = agg + leth + bash;
+    const legend = dmgTotal > 0
+      ? ` <span class="sh-health-legend">${agg ? `<span class="sh-hl-agg">${agg}A</span>` : ''}${leth ? `<span class="sh-hl-let">${leth}L</span>` : ''}${bash ? `<span class="sh-hl-bash">${bash}B</span>` : ''}</span>`
+      : '';
+    healthNum.innerHTML = `${maxH - dmgTotal}/${maxH}${legend}`;
+  }
+
+  // Vitae, WP, Influence — simple filled/empty
+  const simple = {
+    vitae:  { cur: Math.max(0, Math.min(cs.vitae ?? maxV, maxV)),       max: maxV,   cls: 'vitae-filled' },
+    wp:     { cur: Math.max(0, Math.min(cs.willpower ?? maxWP, maxWP)), max: maxWP,  cls: 'wp-filled' },
+    inf:    { cur: Math.max(0, Math.min(cs.inf ?? maxInf, maxInf)),     max: maxInf, cls: 'inf-filled' },
+  };
+
+  for (const [type, { cur, max, cls }] of Object.entries(simple)) {
+    const boxesEl = document.getElementById('tb-' + type);
+    const numEl   = document.getElementById('tn-' + type);
+    if (boxesEl) {
+      const disp = Math.min(max, 15);
+      boxesEl.innerHTML = Array.from({ length: disp }, (_, i) =>
+        `<div class="tbox${i < cur ? ' ' + cls : ''}" data-tracker="${type}" data-idx="${i}" data-max="${disp}" data-filled="${cls}"></div>`
+      ).join('');
+    }
+    if (numEl) {
+      const infoBtn = numEl.querySelector('.sh-tracker-info-btn');
+      numEl.textContent = cur + '/' + max;
+      if (infoBtn) numEl.appendChild(infoBtn);
+    }
+  }
+}
 
 // ── Sheet character selection ──
 
@@ -199,6 +262,30 @@ export function renderSheet() {
 
   const TRACKER_LABELS = { health: 'Health', vitae: 'Vitae', wp: 'Willpower', inf: 'Influence' };
 
+  // Health box row — shows bashing (/), lethal (X), aggravated (X|) marks per VtR rules
+  function mkHealthRow(agg, leth, bash, max) {
+    const disp = Math.min(max, 15);
+    const healthy = Math.max(0, disp - agg - leth - bash);
+    let boxes = '';
+    for (let i = 0; i < disp; i++) {
+      let cls = 'tbox', mark = '';
+      if (i < agg)                    { cls += ' tbox-agg';     mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/><line x1="10" y1="2" x2="10" y2="18"/></svg>'; }
+      else if (i < agg + leth)        { cls += ' tbox-lethal';  mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/></svg>'; }
+      else if (i < agg + leth + bash) { cls += ' tbox-bashing'; mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg>'; }
+      else                            { cls += ' health-filled'; }
+      boxes += `<div class="${cls}" data-tracker="health" data-idx="${i}" data-max="${disp}" data-filled="health-filled">${mark}</div>`;
+    }
+    const dmgTotal = agg + leth + bash;
+    const legend = dmgTotal > 0
+      ? `<span class="sh-health-legend">${agg ? `<span class="sh-hl-agg">${agg}A</span>` : ''}${leth ? `<span class="sh-hl-let">${leth}L</span>` : ''}${bash ? `<span class="sh-hl-bash">${bash}B</span>` : ''}</span>`
+      : '';
+    return `<div class="sh-tracker-row">
+      <div class="sh-tracker-lbl">Health</div>
+      <div class="sh-tracker-boxes" id="tb-health">${boxes}</div>
+      <div class="sh-tracker-num" id="tn-health">${max - dmgTotal}/${max}${legend}</div>
+    </div>`;
+  }
+
   function mkBoxRow(type, current, max, filledCls, infoHtml) {
     const disp = Math.min(max, 15);
     const boxes = Array.from({ length: disp }, (_, i) => {
@@ -225,7 +312,7 @@ export function renderSheet() {
     : '';
 
   html += `<div class="sh-tracker-block" id="tracker-block">
-    ${mkBoxRow('health', tState.health, maxH, 'health-filled')}
+    ${mkHealthRow(cs.aggravated ?? 0, cs.lethal ?? 0, cs.bashing ?? 0, maxH)}
     ${mkBoxRow('vitae', tState.vitae, maxV, 'vitae-filled')}
     ${mkBoxRow('wp', tState.wp, maxWP, 'wp-filled')}
     ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled', infPopoverHtml) : ''}
@@ -439,10 +526,12 @@ export function renderSheet() {
       const ghoul = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '';
       const tags = m._grant_sources || [];
       const grantTag = tags.length ? `<span class="gen-granted-tag-view">${tags.join(', ')}</span>` : '';
+      const meritKey = area ? m.name + ' (' + area + ')' : m.name;
+      const attBonus = attacheBonusDots(c, meritKey);
       const purch = (m.cp || 0) + (m.xp || 0);
       const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
                + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-               + (m.free_pt || 0) + (m.free_sw || 0);
+               + (m.free_pt || 0) + (m.free_sw || 0) + attBonus;
       const dotH = (purch || bon)
         ? dotsMixed(purch, bon)
         : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
@@ -460,7 +549,8 @@ export function renderSheet() {
         else if (m.area) allSpheres.push(m.area.trim());
         else if (m.qualifier) allSpheres.push(...m.qualifier.split(/,\s*/).filter(Boolean));
       });
-      totalRating = Math.min(5, totalRating);
+      const cAttBonus = attacheBonusDots(c, 'Contacts' + (allSpheres.length ? ' (' + [...new Set(allSpheres.filter(Boolean))].join(', ') + ')' : ''));
+      totalRating = Math.min(5, totalRating) + cAttBonus;
       const cPurch = Math.min(totalPurch, totalRating);
       const cBon = Math.max(0, totalRating - cPurch);
       const sp = [...new Set(allSpheres.filter(Boolean))].join(', ');
@@ -476,11 +566,13 @@ export function renderSheet() {
   if (domMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">`;
     domMerits.forEach(m => {
+      const domKey = m.area ? m.name + ' (' + m.area + ')' : m.name;
+      const attBonus = attacheBonusDots(c, domKey);
       const hasPartners = (m.shared_with || []).length > 0;
       if (hasPartners) {
         const own = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
                   + (m.free_pet || 0) + (m.free_vm || 0) + (m.free_lk || 0)
-                  + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
+                  + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0) + attBonus;
         let partnerDots = 0;
         for (const pName of m.shared_with) {
           const p = (state.chars || []).find(ch => ch.name === pName);
@@ -497,7 +589,11 @@ export function renderSheet() {
         html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotH}<span class="trait-qual" style="font-size:10px">Shared</span></div></div></div></div>`;
       } else {
         const purch = (m.cp || 0) + (m.xp || 0);
-        const bon = Math.max(0, (m.rating || 0) - purch);
+        const ssjB = m.name === 'Herd' ? ssjHerdBonus(c) : 0;
+        const flockB = m.name === 'Herd' ? flockHerdBonus(c) : 0;
+        const derived = ssjB + flockB + attBonus;
+        const totalDots = purch + derived + Math.max(0, (m.rating || 0) - purch);
+        const bon = Math.max(0, totalDots - purch);
         html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotsMixed(purch, bon)}</div></div></div></div>`;
       }
     });
@@ -742,9 +838,12 @@ document.addEventListener('click', function(e) {
 
 // ── TRACKER TOGGLE ──
 // Event delegation on tracker-block — writes through to the canonical tracker store.
+// ST/dev only — players view tracker state but cannot adjust it.
 document.addEventListener('click', function(e) {
   const box = e.target.closest('[data-tracker]');
   if (!box) return;
+  const role = (window._getRole || (() => 'player'))();
+  if (role !== 'st' && role !== 'dev') return;
   const block = box.closest('#tracker-block');
   if (!block) return;
   if (!state.sheetChar) return;

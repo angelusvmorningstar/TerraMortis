@@ -6,9 +6,18 @@ import { broadcastTrackerUpdate } from '../ws.js';
 const router = Router();
 const col = () => getCollection('tracker_state');
 
+// Ownership check: players can only access their own characters
+function canAccess(req, charId) {
+  const role = req.user?.role;
+  if (role === 'st' || role === 'dev') return true;
+  const ids = (req.user?.character_ids || []).map(String);
+  return ids.includes(charId);
+}
+
 // GET /api/tracker_state/:character_id — get tracker for character
 router.get('/:character_id', async (req, res) => {
   const raw = req.params.character_id;
+  if (!canAccess(req, raw)) return res.status(403).json({ error: 'FORBIDDEN' });
   let filter;
   try { filter = { character_id: { $in: [new ObjectId(raw), raw] } }; }
   catch { filter = { character_id: raw }; }
@@ -20,6 +29,7 @@ router.get('/:character_id', async (req, res) => {
 // PUT /api/tracker_state/:character_id — upsert tracker for character
 router.put('/:character_id', async (req, res) => {
   const raw = req.params.character_id;
+  if (!canAccess(req, raw)) return res.status(403).json({ error: 'FORBIDDEN' });
   const { _id, ...updates } = req.body;
   let filter;
   try { filter = { character_id: { $in: [new ObjectId(raw), raw] } }; }

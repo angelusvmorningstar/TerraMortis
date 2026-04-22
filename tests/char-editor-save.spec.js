@@ -33,7 +33,7 @@ const TEST_CHAR = {
   humanity_base: 7,
   court_title: null,
   retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 1 } },
   attributes: {
     Intelligence: { dots: 3, bonus: 0 },
     Wits:         { dots: 2, bonus: 0 },

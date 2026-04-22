@@ -112,7 +112,7 @@ function renderPrestige() {
   const ranked = chars.map(c => {
     const st = c.status || {};
     const clan = st.clan || 0;
-    const cov = st.covenant || 0;
+    const cov = st.covenant?.[c.covenant] || 0;
     const otsBonus = c._ots_covenant_bonus || 0;
     const prestige = clan + cov - otsBonus;
     const influence = influenceTotal(c);

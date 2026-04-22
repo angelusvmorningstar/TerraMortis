@@ -119,7 +119,7 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
     mask: null, dirge: null, court_title: null, concept: null, pronouns: null,
     apparent_age: null, honorific: null, moniker: null, features: null, retired: false,
     blood_potency: 1, humanity: 7, humanity_base: 7,
-    status: { city: 0, clan: 0, covenant: 0 }, covenant_standings: {},
+    status: { city: 0, clan: 0, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
     attributes: {}, skills: {}, disciplines: {},
     merits: [], powers: [], fighting_styles: [], fighting_picks: [],
     touchstones: [], banes: [], ordeals: [],
@@ -163,15 +163,17 @@ function buildCharacter(charWs, dataWs, dataRow, existing, rulesMap) {
   const cityS = _numCell(83), clanS = _numCell(84), covS = _numCell(85);
   if (cityS) c.status.city = cityS;
   if (clanS) c.status.clan = clanS;
-  if (covS) c.status.covenant = covS;
+  if (covS && c.covenant) c.status.covenant[c.covenant] = covS;
 
-  if (!c.covenant_standings) c.covenant_standings = {};
+  // Cross-covenant standings from Excel pairs (cols 86-93)
+  const _COV_SHORT_FULL = { 'Carthian': 'Carthian Movement', 'Crone': 'Circle of the Crone', 'Invictus': 'Invictus', 'Lance': 'Lancea et Sanctum', 'Ordo': 'Ordo Dracul' };
   for (let i = 0; i < 4; i++) {
     const covName = _strCell(86 + i * 2);
     const covDots = _strCell(87 + i * 2);
     if (covName && covDots) {
       const dots = _dotCount(covDots);
-      if (dots > 0) c.covenant_standings[covName] = dots;
+      const fullName = _COV_SHORT_FULL[covName] || covName;
+      if (dots > 0 && fullName !== c.covenant) c.status.covenant[fullName] = dots;
     }
   }
 
