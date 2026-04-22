@@ -1409,31 +1409,32 @@ function renderPrepPanel(cycle) {
   const earlyPlayers = (players || []).filter(p => earlyIds.includes(String(p._id)));
   const otherPlayers = (players || []).filter(p => !earlyIds.includes(String(p._id)));
 
-  let earlyHtml = earlyPlayers.map(p =>
-    '<div class='dt-early-row'><span>' + esc(p.player_name || p.username || String(p._id)) + '</span>' +
-    '<button class='dt-btn dt-btn-sm dt-early-remove' data-player-id='' + String(p._id) + ''>Remove</button></div>'
+  const earlyHtml = earlyPlayers.map(p =>
+    `<div class="dt-early-row"><span>${esc(p.player_name || p.username || String(p._id))}</span>` +
+    `<button class="dt-btn dt-btn-sm dt-early-remove" data-player-id="${esc(String(p._id))}">Remove</button></div>`
   ).join('');
 
-  let addOpts = otherPlayers.map(p =>
-    '<option value='' + String(p._id) + ''>' + esc(p.player_name || p.username || String(p._id)) + '</option>'
+  const addOpts = otherPlayers.map(p =>
+    `<option value="${esc(String(p._id))}">${esc(p.player_name || p.username || String(p._id))}</option>`
   ).join('');
 
-  panel.innerHTML = '<div class='dt-prep-grid'>' +
-    '<div class='dt-prep-field'><label class='dt-lbl'>Auto-Open Date/Time</label>' +
-    '<input type='datetime-local' id='dt-auto-open-input' class='dt-deadline-input' value='' + esc(autoVal) + ''></div>' +
-    '<div class='dt-prep-field'><label class='dt-lbl'>Deadline Date/Time</label>' +
-    '<input type='datetime-local' id='dt-prep-deadline-input' class='dt-deadline-input' value='' + esc(deadlineVal) + ''></div>' +
-    '</div>' +
-    '<div class='dt-prep-early'>' +
-    '<div class='dt-prep-early-title'>Early Access Players</div>' +
-    (earlyHtml || '<p class='placeholder'>No early access granted.</p>') +
-    '<div class='dt-prep-add-row'>' +
-    '<select id='dt-early-add-sel'><option value=''>— Add player —</option>' + addOpts + '</select>' +
-    '<button class='dt-btn dt-btn-sm' id='dt-early-add-btn'>Add</button>' +
-    '</div></div>' +
-    '<div class='dt-prep-actions'>' +
-    '<button class='dt-btn' id='dt-open-game-phase'>Open City &amp; Feeding Phase →</button>' +
-    '</div>';
+  panel.innerHTML =
+    `<div class="dt-prep-grid">` +
+    `<div class="dt-prep-field"><label class="dt-lbl">Auto-Open Date/Time</label>` +
+    `<input type="datetime-local" id="dt-auto-open-input" class="dt-deadline-input" value="${esc(autoVal)}"></div>` +
+    `<div class="dt-prep-field"><label class="dt-lbl">Deadline Date/Time</label>` +
+    `<input type="datetime-local" id="dt-prep-deadline-input" class="dt-deadline-input" value="${esc(deadlineVal)}"></div>` +
+    `</div>` +
+    `<div class="dt-prep-early">` +
+    `<div class="dt-prep-early-title">Early Access Players</div>` +
+    (earlyHtml || `<p class="placeholder">No early access granted.</p>`) +
+    `<div class="dt-prep-add-row">` +
+    `<select id="dt-early-add-sel"><option value="">— Add player —</option>${addOpts}</select>` +
+    `<button class="dt-btn dt-btn-sm" id="dt-early-add-btn">Add</button>` +
+    `</div></div>` +
+    `<div class="dt-prep-actions">` +
+    `<button class="dt-btn" id="dt-open-game-phase">Open City &amp; Feeding Phase →</button>` +
+    `</div>`;
 
   document.getElementById('dt-auto-open-input')?.addEventListener('change', async e => {
     const val = e.target.value;

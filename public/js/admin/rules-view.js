@@ -180,9 +180,12 @@ function handleInput(e) {
   if (e.target.id !== 'rules-search') return;
   const inp = e.target;
   searchQuery = inp.value;
-  const pos = inp.selectionStart; // capture before debounce — inp is detached after render()
   clearTimeout(_debounceTimer);
   _debounceTimer = setTimeout(() => {
+    // Capture position here — inside the callback — so it reflects the current
+    // cursor state after all typing is done, not where it was 300ms ago.
+    const live = document.getElementById('rules-search');
+    const pos = live ? live.selectionStart : searchQuery.length;
     currentPage = 1;
     fetchAndRender().then(() => {
       const restored = document.getElementById('rules-search');
