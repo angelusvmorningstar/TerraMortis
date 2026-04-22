@@ -1129,26 +1129,30 @@ async function boot() {
       _initDesktopMode();
       _updateThemeIcon();
 
-      // Auto-open a character so split tabs (stats/skills/powers) and the
-      // dice roller are ready immediately. Applies to all roles on phone;
-      // players and STs alike need a sheetChar set for the sheet to render.
+      // Auto-open a character so split tabs and dice roller are ready.
+      // Players: always (saved selection or first linked char).
+      // STs: only if they have a previously saved selection (don't randomly
+      // pick someone else's character for them).
+      const isDesktop = DESKTOP_MQ.matches;
+      const isST = getRole() === 'st';
       if (editorState.chars.length > 0) {
         const savedCharId = localStorage.getItem('tm_active_char');
         const savedIdx = savedCharId
           ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
           : -1;
-        const charIdx = savedIdx >= 0 ? savedIdx : 0;
-        // Load tracker state from API before rendering sheet — prevents
-        // showing full defaults that snap to real values on first interaction
-        await ensureTrackerLoaded(editorState.chars[charIdx]);
-        openChar(charIdx);
-        pickChar(editorState.chars[charIdx]);
+        const charIdx = !isST ? (savedIdx >= 0 ? savedIdx : 0) : savedIdx;
+        if (charIdx >= 0) {
+          await ensureTrackerLoaded(editorState.chars[charIdx]);
+          openChar(charIdx);
+          pickChar(editorState.chars[charIdx]);
+        }
       }
-      // Desktop: STs land on character grid, players land on sheet.
-      // Phone: everyone lands on stats (split tab view).
-      const isDesktop = DESKTOP_MQ.matches;
-      const isPlayer = getRole() !== 'st';
-      goTab(isDesktop ? (isPlayer ? 'sheets' : 'chars') : 'stats');
+      // Desktop: STs → character grid, players → sheet.
+      // Phone: players → stats (split tab), STs → dice (works without a character).
+      const hasChar = !!suiteState.sheetChar;
+      goTab(isDesktop
+        ? (!isST && hasChar ? 'sheets' : 'chars')
+        : (hasChar ? 'stats' : 'dice'));
       renderLifecycleCards(); // non-blocking
       checkMoreBadge();       // non-blocking
       if (getRole() !== 'st') startChallengePoller(); // player-only polling
