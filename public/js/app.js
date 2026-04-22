@@ -891,17 +891,59 @@ function _renderCharMenuItems() {
   });
 }
 
-function _switchChar(idx) {
+async function _switchChar(idx) {
   const c = editorState.chars[idx];
   if (!c) return;
   localStorage.setItem('tm_active_char', String(c._id));
-  openChar(idx);
+
+  // Remember current tab so we stay on it
+  const currentTab = document.querySelector('.tab.active')?.id?.replace('t-', '') || null;
+
+  // Load tracker from API before rendering
+  await ensureTrackerLoaded(c);
+
+  // Update state without navigating
+  editorState.editIdx = idx;
+  suiteState.sheetChar = c;
+  suiteState.rollChar = c;
   pickChar(c);
+
+  // Editor sheet (STs only)
+  if (getRole() === 'st') {
+    renderIdentityTab(c);
+    renderAttrsTab(c);
+    editorRenderSheet(c);
+  }
+
+  // Suite sheet — renders into both desktop full sheet and phone split tabs
+  document.getElementById('sh-empty').style.display = 'none';
+  document.getElementById('sh-content-suite').style.display = '';
+  suiteRenderSheet();
+
+  // Pools panel
+  const poolsEl = document.getElementById('gcp-panel');
+  if (poolsEl) {
+    renderCharPools(poolsEl, c, (p) => {
+      loadPool(p.total, p.label, p.pi || { total: p.total, attr: p.attr, attrV: p.attrV, skill: p.skill, skillV: p.skillV, nineAgain: p.nineAgain, resistance: p.resistance });
+      goTab('dice');
+    });
+  }
+
   // Clear MISC past outcomes so they reload for the new character
   const miscEl = document.getElementById('misc-past-outcomes');
   if (miscEl) miscEl.innerHTML = '';
-  suiteState.sheetChar = c;
-  suiteRenderSheet();
+
+  // Update header name
+  const hdrName = document.getElementById('hdr-char-name');
+  if (hdrName) hdrName.textContent = displayName(c);
+
+  // Re-render status tab if currently active
+  if (currentTab === 'status') {
+    renderSuiteStatusTab(document.getElementById('t-status'));
+  }
+
+  // Stay on current tab — don't navigate away
+  if (currentTab) goTab(currentTab);
 }
 
 // Close character menu on outside click
