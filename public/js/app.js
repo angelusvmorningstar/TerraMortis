@@ -1238,6 +1238,9 @@ function applyRoleRestrictions() {
   const isST = role === 'st';
   const isRealST = getRole() === 'st';
 
+  // Tracker boxes: interactive for STs, read-only for players
+  document.body.classList.toggle('tracker-readonly', !isST && getRole() !== 'dev');
+
   // Rebuild the scrollable bottom nav with role-appropriate items
   renderBottomNav();
 
@@ -2059,6 +2062,7 @@ function _enterSTView() {
 
 // Expose functions used in inline onclick handlers
 window.goTab  = goTab;
+window._getRole = getRole;
 window.logout = logout;
 window.playerGoDowntime  = playerGoDowntime;
 window.openRulesOverlay  = openRulesOverlay;

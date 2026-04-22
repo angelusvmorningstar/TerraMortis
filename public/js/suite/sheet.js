@@ -781,9 +781,12 @@ document.addEventListener('click', function(e) {
 
 // ── TRACKER TOGGLE ──
 // Event delegation on tracker-block — writes through to the canonical tracker store.
+// ST/dev only — players view tracker state but cannot adjust it.
 document.addEventListener('click', function(e) {
   const box = e.target.closest('[data-tracker]');
   if (!box) return;
+  const role = (window._getRole || (() => 'player'))();
+  if (role !== 'st' && role !== 'dev') return;
   const block = box.closest('#tracker-block');
   if (!block) return;
   if (!state.sheetChar) return;
