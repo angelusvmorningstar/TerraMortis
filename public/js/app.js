@@ -805,12 +805,16 @@ function pickChar(c) {
 
 function _visibleChars() {
   const role = effectiveRole();
-  if (role === 'st') return editorState.chars.map((c, i) => ({ c, i }));
-  // Player / dev-in-player-mode: restrict to linked characters
-  const ids = getPlayerInfo()?.character_ids || [];
-  return editorState.chars
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => ids.includes(String(c._id)));
+  let list;
+  if (role === 'st') {
+    list = editorState.chars.map((c, i) => ({ c, i }));
+  } else {
+    const ids = getPlayerInfo()?.character_ids || [];
+    list = editorState.chars
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => ids.includes(String(c._id)));
+  }
+  return list.sort((a, b) => sortName(a.c).localeCompare(sortName(b.c)));
 }
 
 function _buildCharMenu() {
