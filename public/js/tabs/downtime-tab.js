@@ -29,14 +29,16 @@ export async function initDowntimeTab(el, char, territories = []) {
   const isST = isSTRole();
   const playerId = getUser()?.player_id ? String(getUser().player_id) : null;
 
-  // Find the most relevant cycle: active/open first, then prep
-  const activeCycle = cycles.find(c => c.status === 'open' || c.status === 'active') ||
-                      cycles.find(c => c.status === 'prep') || null;
+  // Find the most relevant non-closed cycle (priority: active > game > prep)
+  const LIVE_STATUSES = ['open', 'active', 'game', 'prep'];
+  const activeCycle = cycles
+    .filter(c => LIVE_STATUSES.includes(c.status))
+    .sort((a, b) => LIVE_STATUSES.indexOf(a.status) - LIVE_STATUSES.indexOf(b.status))[0] || null;
 
-  // Access gate: STs always pass; players need early access or auto_open_at reached
+  // Access gate: STs always pass; players need early access or auto_open_at reached or cycle is open
   const inEarlyAccess = playerId && (activeCycle?.early_access_player_ids || []).includes(playerId);
   const autoOpenPassed = activeCycle?.auto_open_at && new Date(activeCycle.auto_open_at) <= new Date();
-  const cycleIsOpen = activeCycle?.status === 'open' || activeCycle?.status === 'active';
+  const cycleIsOpen = ['open', 'active'].includes(activeCycle?.status);
   const canAccess = isST || inEarlyAccess || autoOpenPassed || cycleIsOpen;
   const mySubs = subs.filter(s => String(s.character_id) === charId);
   const myActiveSub = activeCycle
