@@ -1,8 +1,9 @@
 /* WebSocket client — reconnecting connection for live tracker sync.
  * Receives tracker_state updates broadcast by the server and patches
- * the local tracker cache + re-renders affected UI. */
+ * the local tracker cache + re-renders affected UI.
+ * Skips echoed-back changes that originated from this client. */
 
-import { trackerRead, trackerWriteField } from '../game/tracker.js';
+import { trackerRead } from '../game/tracker.js';
 import suiteState from '../suite/data.js';
 
 const WS_RECONNECT_BASE = 2000;   // initial reconnect delay
@@ -17,10 +18,32 @@ let _closed = false;
 // Callback for UI updates — set by initWS caller
 let _onTrackerUpdate = null;
 
+// Recent local writes — { charId+field → timestamp }. Used to suppress
+// WS echo of our own saves (avoids double-render on the originating client).
+const _recentWrites = new Map();
+const ECHO_WINDOW = 3000; // ms — ignore WS updates within this window of a local write
+
+/**
+ * Record a local tracker write so the WS handler can skip the echo.
+ * Called from tracker.js saveToApi().
+ */
+export function markLocalWrite(charId, fields) {
+  const now = Date.now();
+  for (const key of Object.keys(fields)) {
+    _recentWrites.set(charId + ':' + key, now);
+  }
+  // Prune old entries
+  if (_recentWrites.size > 100) {
+    for (const [k, ts] of _recentWrites) {
+      if (now - ts > ECHO_WINDOW) _recentWrites.delete(k);
+    }
+  }
+}
+
 /**
  * Start the WebSocket connection.
  * @param {object} opts
- * @param {function} [opts.onTrackerUpdate] — called with (characterId, fields) when a tracker update arrives
+ * @param {function} [opts.onTrackerUpdate] — called with (characterId, fields) for remote changes only
  */
 export function initWS(opts = {}) {
   _onTrackerUpdate = opts.onTrackerUpdate || null;
@@ -93,18 +116,24 @@ function _handleTrackerMsg(msg) {
   const char = (suiteState.chars || []).find(c => String(c._id) === characterId);
   if (!char) return;
 
-  // Patch local cache — use trackerWriteField for each changed field
-  // Map API field names to tracker cache field names
+  // Skip if all fields in this message were recently written locally (echo suppression)
+  const now = Date.now();
+  const allLocal = Object.keys(fields).every(key => {
+    const ts = _recentWrites.get(characterId + ':' + key);
+    return ts && (now - ts) < ECHO_WINDOW;
+  });
+  if (allLocal) return;
+
+  // Patch local cache directly (don't use trackerWriteField to avoid re-saving to API)
   const FIELD_MAP = { influence: 'inf' };
-  for (const [key, value] of Object.entries(fields)) {
-    const cacheKey = FIELD_MAP[key] || key;
-    // Write directly to cache without triggering another API save
-    const current = trackerRead(characterId);
-    if (current && current[cacheKey] !== value) {
+  const current = trackerRead(characterId);
+  if (current) {
+    for (const [key, value] of Object.entries(fields)) {
+      const cacheKey = FIELD_MAP[key] || key;
       current[cacheKey] = value;
     }
   }
 
-  // Notify the UI to re-render
+  // Notify the UI — this is a remote change, safe to re-render
   if (_onTrackerUpdate) _onTrackerUpdate(characterId, fields);
 }

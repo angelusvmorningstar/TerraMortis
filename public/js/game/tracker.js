@@ -8,6 +8,7 @@ import { calcTotalInfluence } from '../editor/domain.js';
 import { esc } from '../data/helpers.js';
 import { CONDITIONS_DB } from '../data/conditions.js';
 import { getRole } from '../auth/discord.js';
+import { markLocalWrite } from '../data/ws.js';
 
 const API_BASE = location.hostname === 'localhost' ? 'http://localhost:3000' : '';
 function authHeaders() {
@@ -73,6 +74,8 @@ async function loadFromApi(charId) {
 function saveToApi(charId, fields) {
   // Optimistic: update cache immediately, write in background
   _cache[charId] = { ...(_cache[charId] || {}), ...fields };
+  // Mark as local write so WS echo is suppressed
+  markLocalWrite(charId, fields);
   fetch(`${API_BASE}/api/tracker_state/${charId}`, {
     method: 'PUT',
     headers: authHeaders(),
@@ -288,6 +291,14 @@ function patchCard(charId, c, cs) {
   const tmp = document.createElement('div');
   tmp.innerHTML = cardHtml(charId, c, cs);
   old.replaceWith(tmp.firstElementChild);
+}
+
+/** Refresh a single tracker card from current cache — for external callers (WS sync). */
+export function refreshTrackerCard(charId) {
+  const c = (suiteState.chars || []).find(x => String(x._id) === charId);
+  if (!c) return;
+  const cs = fromCache(c);
+  patchCard(charId, c, cs);
 }
 
 function cardHtml(id, c, cs) {

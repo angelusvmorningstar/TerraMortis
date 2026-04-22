@@ -48,7 +48,7 @@ import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool,
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
-import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded } from './game/tracker.js';
+import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded, refreshTrackerCard } from './game/tracker.js';
 import { initWS } from './data/ws.js';
 import { initSignIn } from './game/signin-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
@@ -85,7 +85,7 @@ import { apiGet, apiPost, apiPut } from './data/api.js';
 import { loadGameXP } from './data/game-xp.js';
 import { applyDerivedMerits } from './editor/mci.js';
 import { loadPool, chgPool, chgMod, updPool, setAgain, togMod, togSpec, doRoll, clrHist, effPool } from './suite/roll.js';
-import { onSheetChar, renderSheet as suiteRenderSheet } from './suite/sheet.js';
+import { onSheetChar, renderSheet as suiteRenderSheet, repaintSheetTrackers } from './suite/sheet.js';
 import { toggleExp as suiteToggleExp, toggleDisc as suiteToggleDisc } from './suite/sheet-helpers.js';
 import { updResist, showResistSec } from './shared/resist.js';
 import { getPool } from './shared/pools.js';
@@ -1156,11 +1156,10 @@ async function boot() {
       // Start WebSocket for live tracker sync
       initWS({
         onTrackerUpdate: (charId) => {
-          // Re-render tracker tab if visible
-          const trackerTab = document.getElementById('t-tracker');
-          if (trackerTab?.classList.contains('active')) initTracker(trackerTab);
-          // Re-render sheet tracker boxes if the updated char is the current sheet char
-          if (String(suiteState.sheetChar?._id) === charId) suiteRenderSheet();
+          // Patch just the affected tracker card (not full tab rebuild)
+          refreshTrackerCard(charId);
+          // Repaint sheet tracker boxes if this is the current sheet char
+          if (String(suiteState.sheetChar?._id) === charId) repaintSheetTrackers();
         },
       });
       return;

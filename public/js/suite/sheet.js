@@ -31,6 +31,45 @@ import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipme
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
 
+// ── Surgical tracker repaint (no full sheet rebuild) ──
+
+export function repaintSheetTrackers() {
+  const c = state.sheetChar;
+  if (!c) return;
+  const charId = String(c._id);
+  const cs = trackerRead(charId);
+  if (!cs) return;
+
+  const maxH  = calcHealth(c);
+  const maxV  = calcVitaeMax(c);
+  const maxWP = calcWillpowerMax(c);
+  const maxInf = calcTotalInfluence(c);
+
+  const vals = {
+    health: { cur: Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0)), max: maxH, cls: 'health-filled' },
+    vitae:  { cur: Math.max(0, Math.min(cs.vitae ?? maxV, maxV)),     max: maxV,  cls: 'vitae-filled' },
+    wp:     { cur: Math.max(0, Math.min(cs.willpower ?? maxWP, maxWP)), max: maxWP, cls: 'wp-filled' },
+    inf:    { cur: Math.max(0, Math.min(cs.inf ?? maxInf, maxInf)),   max: maxInf, cls: 'inf-filled' },
+  };
+
+  for (const [type, { cur, max, cls }] of Object.entries(vals)) {
+    const boxesEl = document.getElementById('tb-' + type);
+    const numEl   = document.getElementById('tn-' + type);
+    if (boxesEl) {
+      const disp = Math.min(max, 15);
+      boxesEl.innerHTML = Array.from({ length: disp }, (_, i) =>
+        `<div class="tbox${i < cur ? ' ' + cls : ''}" data-tracker="${type}" data-idx="${i}" data-max="${disp}" data-filled="${cls}"></div>`
+      ).join('');
+    }
+    if (numEl) {
+      // Preserve the info button if present
+      const infoBtn = numEl.querySelector('.sh-tracker-info-btn');
+      numEl.textContent = cur + '/' + max;
+      if (infoBtn) numEl.appendChild(infoBtn);
+    }
+  }
+}
+
 // ── Sheet character selection ──
 
 export function onSheetChar(name) {
