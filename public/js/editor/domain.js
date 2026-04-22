@@ -310,7 +310,8 @@ export function influenceBreakdown(c) {
   const st = c.status || {};
   const hwv = hasHoneyWithVinegar(c);
   if (st.clan) lines.push('Clan Status: ' + st.clan);
-  if (st.covenant) lines.push('Covenant Status: ' + st.covenant);
+  const _covVal = st.covenant?.[c.covenant] || 0;
+  if (_covVal) lines.push('Covenant Status: ' + _covVal);
   const inflM = (c.merits || []).filter(m => m.category === 'influence' && m.name !== 'Contacts');
   for (const m of inflM) {
     const inf = calcMeritInfluence(m, hwv);
