@@ -1691,11 +1691,19 @@ function _markSubViewed() {
 
 // ── Desktop mode toggle (nav-desktop-mode) ───────────────────────────────────
 
+// True once the user has explicitly toggled mode this session — stops the
+// DESKTOP_MQ resize listener from clobbering their choice.
+let _userModeOverride = false;
+
 function toggleDesktopMode() {
+  _userModeOverride = true;
   const isDesktop = document.body.classList.toggle('desktop-mode');
   localStorage.setItem('tm-mode', isDesktop ? 'desktop' : 'game');
   _updateDesktopIcon();
   _syncSidebarActions();
+  // Show header controls in both modes so user can toggle back
+  const hdrNav = document.getElementById('hdr-nav');
+  if (hdrNav) hdrNav.style.display = '';
   if (isDesktop) {
     renderDesktopSidebar();
     _initSidebarCollapse();
@@ -1704,6 +1712,7 @@ function toggleDesktopMode() {
   } else {
     document.body.classList.remove('sidebar-collapsed');
   }
+  renderBottomNav();
 }
 
 function _syncSidebarActions() {
@@ -1722,24 +1731,30 @@ function _updateDesktopIcon() {
 const DESKTOP_MQ = window.matchMedia('(min-width: 900px)');
 
 function _initDesktopMode() {
-  // Auto-detect: wide viewport → desktop mode, narrow → game mode.
-  // matchMedia listener keeps it in sync on resize / rotation.
-  _applyDesktopMode(DESKTOP_MQ.matches);
-  DESKTOP_MQ.addEventListener('change', e => _applyDesktopMode(e.matches));
+  // Prefer an explicit localStorage choice (set by a previous user toggle),
+  // otherwise fall back to auto-detect via viewport width.
+  const stored = localStorage.getItem('tm-mode');
+  const initial = stored ? stored === 'desktop' : DESKTOP_MQ.matches;
+  if (stored) _userModeOverride = true; // honour stored choice across reloads
+  _applyDesktopMode(initial);
+  DESKTOP_MQ.addEventListener('change', e => {
+    // Don't clobber an explicit user toggle when the window is resized.
+    if (_userModeOverride) return;
+    _applyDesktopMode(e.matches);
+  });
 }
 
 function _applyDesktopMode(isDesktop) {
   document.body.classList.toggle('desktop-mode', isDesktop);
   _updateDesktopIcon();
   _syncSidebarActions();
+  // Show header controls (theme toggle, desktop toggle, ST admin) in BOTH modes
+  // so the user can switch back from phablet without being trapped.
+  const hdrNav = document.getElementById('hdr-nav');
+  if (hdrNav) hdrNav.style.display = '';
   if (isDesktop) {
     renderDesktopSidebar();
     _initSidebarCollapse();
-    const hdrNav = document.getElementById('hdr-nav');
-    if (hdrNav) hdrNav.style.display = '';
-  } else {
-    const hdrNav = document.getElementById('hdr-nav');
-    if (hdrNav) hdrNav.style.display = 'none';
   }
   renderBottomNav();
 }
