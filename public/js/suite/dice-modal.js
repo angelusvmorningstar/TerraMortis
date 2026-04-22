@@ -8,8 +8,28 @@ import { d10, mkDie, mkChain, rollPool, cntSuc } from '../shared/dice.js';
 import { getPool } from '../shared/pools.js';
 import { getAttrEffective, skTotal, skNineAgain, skSpecs, getSkillObj } from '../data/accessors.js';
 import { hasAoE } from '../data/helpers.js';
-import { SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL } from '../data/constants.js';
+import { SKILLS_MENTAL, SKILLS_PHYSICAL, SKILLS_SOCIAL, ALL_SKILLS } from '../data/constants.js';
 import state from './data.js';   // only for reading rollChar / sheetChar
+
+// Attribute groups by category
+const ATTRS_MENTAL   = ['Intelligence', 'Wits', 'Resolve'];
+const ATTRS_PHYSICAL = ['Strength', 'Dexterity', 'Stamina'];
+const ATTRS_SOCIAL   = ['Presence', 'Manipulation', 'Composure'];
+const ALL_ATTRS      = [...ATTRS_MENTAL, ...ATTRS_PHYSICAL, ...ATTRS_SOCIAL];
+
+function skillCategory(skill) {
+  if (SKILLS_MENTAL.includes(skill))   return 'Mental';
+  if (SKILLS_PHYSICAL.includes(skill)) return 'Physical';
+  if (SKILLS_SOCIAL.includes(skill))   return 'Social';
+  return 'Mental';
+}
+
+function skillsInCategory(cat) {
+  if (cat === 'Mental')   return SKILLS_MENTAL;
+  if (cat === 'Physical') return SKILLS_PHYSICAL;
+  if (cat === 'Social')   return SKILLS_SOCIAL;
+  return ALL_SKILLS;
+}
 import { getRole } from '../auth/discord.js';
 
 // ── Rules ordeal gate ──
@@ -50,6 +70,7 @@ function unskilledPenalty(skill) {
 
 // ── Modal state (independent of dice tab state) ──
 let _ms = _freshState();
+let _char = null;  // current character for skill pool recalculation
 let _histKey = 'tm_dice_modal_hist';
 let _hist = [];
 
@@ -164,6 +185,23 @@ function _ensureModal() {
   return div;
 }
 
+// ── Seed a skill pool from attribute + skill ──
+function _seedSkillPool(c, attr, skill) {
+  const attrV = getAttrEffective(c, attr);
+  const skillV = skTotal(c, skill);
+  const unskilled = skillV === 0 ? unskilledPenalty(skill) : 0;
+  const nineAgain = skNineAgain(c, skill);
+  const total = attrV + skillV + unskilled;
+
+  _ms.ps = Math.max(0, total);
+  _ms.mod = 0;
+  _ms.specBonuses = {};
+  _ms.pi = { attr, attrV, skill, skillV, unskilled: unskilled || null,
+             discName: null, discV: 0, nineAgain, resistance: null };
+  if (nineAgain) _ms.again = 9;
+  else if (_ms.again === 9) _ms.again = 10;
+}
+
 // ── Effective pool ──
 function _effPool() {
   const wpB = _ms.wp ? 3 : 0;
@@ -190,6 +228,8 @@ export function openDiceModal(type, name, char) {
   const titleEl = modal.querySelector('#dm-title');
   const infoEl = modal.querySelector('#dm-pool-info');
 
+  _char = c;
+
   if (type === 'power') {
     // Discipline power, devotion, rite — use getPool
     const pi = getPool(c, name);
@@ -214,22 +254,51 @@ export function openDiceModal(type, name, char) {
       if (pi?.info?.c) infoEl.innerHTML += ' <span class="dm-info-dim">\u00B7 Cost: ' + pi.info.c + '</span>';
     }
   } else if (type === 'skill') {
-    // Bare skill roll — pick default attribute
+    // Bare skill roll — default attribute + skill selectors
     const attr = SKILL_DEFAULT_ATTR[name] || 'Intelligence';
-    const attrV = getAttrEffective(c, attr);
-    const skillV = skTotal(c, name);
-    const unskilled = skillV === 0 ? unskilledPenalty(name) : 0;
-    const nineAgain = skNineAgain(c, name);
-    const total = attrV + skillV + unskilled;
-
-    _ms.ps = Math.max(0, total);
-    _ms.pi = { attr, attrV, skill: name, skillV, unskilled: unskilled || null,
-               discName: null, discV: 0, nineAgain, resistance: null };
-    if (nineAgain) _ms.again = 9;
+    _ms.skillType = 'skill';
+    _seedSkillPool(c, attr, name);
     titleEl.textContent = name;
-    let info = attr + ' ' + attrV + ' + ' + name + ' ' + skillV;
-    if (unskilled) info += ' <span class="dm-info-neg">unskilled ' + unskilled + '</span>';
+
+    // Render attribute + skill dropdowns
+    const cat = skillCategory(name);
+    const catSkills = skillsInCategory(cat);
+    let info = '<div class="dm-pool-selectors">';
+    info += '<select class="dm-pool-sel" id="dm-attr-sel">';
+    ALL_ATTRS.forEach(a => {
+      const v = getAttrEffective(c, a);
+      info += `<option value="${a}"${a === attr ? ' selected' : ''}>${a} (${v})</option>`;
+    });
+    info += '</select>';
+    info += '<span class="dm-pool-plus">+</span>';
+    info += '<select class="dm-pool-sel" id="dm-skill-sel">';
+    catSkills.forEach(s => {
+      const v = skTotal(c, s);
+      info += `<option value="${s}"${s === name ? ' selected' : ''}>${s} (${v})</option>`;
+    });
+    info += '</select>';
+    info += '</div>';
     infoEl.innerHTML = info;
+
+    // Wire change handlers
+    infoEl.querySelector('#dm-attr-sel')?.addEventListener('change', e => {
+      _seedSkillPool(_char, e.target.value, _ms.pi.skill);
+      _updUI();
+    });
+    infoEl.querySelector('#dm-skill-sel')?.addEventListener('change', e => {
+      const newSkill = e.target.value;
+      _seedSkillPool(_char, _ms.pi.attr, newSkill);
+      titleEl.textContent = newSkill;
+      // Update attr dropdown values (attr dots may differ per context)
+      const attrSel = infoEl.querySelector('#dm-attr-sel');
+      if (attrSel) {
+        [...attrSel.options].forEach(opt => {
+          const v = getAttrEffective(_char, opt.value);
+          opt.textContent = opt.value + ' (' + v + ')';
+        });
+      }
+      _updUI();
+    });
   } else {
     // Custom / manual
     titleEl.textContent = name || 'Dice Roller';

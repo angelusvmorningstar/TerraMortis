@@ -2247,6 +2247,15 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 .dm-info-neg { color: #E8A0A0; }
 .dm-info-dim { color: var(--txt3); }
+/* Attribute + Skill selectors in skill roll mode */
+.dm-pool-selectors { display: flex; align-items: center; gap: 6px; }
+.dm-pool-sel {
+  flex: 1; padding: 5px 8px; background: var(--surf2); border: 1px solid var(--bdr);
+  border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 12px;
+  cursor: pointer; min-width: 0;
+}
+.dm-pool-sel:focus { outline: none; border-color: var(--accent); }
+.dm-pool-plus { color: var(--txt3); font-size: 14px; font-weight: 700; flex-shrink: 0; }
 
 /* ── Controls ── */
 .dm-controls { margin-bottom: 10px; }
