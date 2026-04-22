@@ -1138,6 +1138,18 @@ Object.assign(window, {
 // ══════════════════════════════════════════════
 
 async function boot() {
+  // Suppress iOS PWA edge-swipe creating blank split-view windows.
+  // In standalone mode, touches starting within 20px of either edge are
+  // consumed so iOS doesn't interpret them as back/forward navigation.
+  if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+    document.addEventListener('touchstart', e => {
+      const x = e.touches[0]?.clientX;
+      if (x != null && (x < 20 || x > window.innerWidth - 20)) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
+
   const loginScreen = document.getElementById('login-screen');
   const app = document.getElementById('app');
   const errorEl = document.getElementById('login-error');
