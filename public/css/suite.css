@@ -24,6 +24,12 @@ body{min-height:auto;}
 .hdr-icon-wrap.has-menu{cursor:pointer;}
 .hdr-icon-wrap.has-menu .hdr-icon{transition:opacity .15s;}
 .hdr-icon-wrap.has-menu:hover .hdr-icon{opacity:.8;}
+/* Chevron badge — shows the icon is interactive */
+.hdr-icon-wrap.has-menu::after{
+  content:'';position:absolute;bottom:-2px;right:-2px;
+  width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:5px solid var(--accent);
+}
 .hdr-char-menu{
   position:absolute;top:100%;left:0;margin-top:6px;
   min-width:200px;max-width:280px;
@@ -1822,6 +1828,7 @@ body.desktop-mode.sidebar-collapsed #desktop-sidebar { width: 56px; overflow: hi
 body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-title,
 body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-sub,
 body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-actions,
+body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-char-sel,
 body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-section-label,
 body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-app-tile-label,
 body.desktop-mode.sidebar-collapsed #desktop-sidebar .sidebar-user { display: none; }
@@ -1848,6 +1855,17 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 #desktop-sidebar .sidebar-title { font-family: var(--fh); font-size: 15px; color: var(--accent); letter-spacing: .04em; }
 #desktop-sidebar .sidebar-sub { font-family: var(--fl); font-size: 10px; color: var(--txt3); text-transform: uppercase; letter-spacing: .14em; margin-top: 3px; }
+/* Sidebar character selector dropdown */
+.sidebar-char-sel {
+  margin-top: 10px;
+}
+.sidebar-char-sel select {
+  width: 100%; padding: 6px 8px;
+  background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px;
+  color: var(--txt); font-family: var(--ft); font-size: 12px;
+  cursor: pointer;
+}
+.sidebar-char-sel select:focus { outline: none; border-color: var(--accent); }
 /* Action buttons cloned into sidebar header */
 .sidebar-actions { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
 .sidebar-actions .app-nav-btn { font-size: 11px; padding: 5px 10px; }

@@ -816,24 +816,48 @@ function _visibleChars() {
 function _buildCharMenu() {
   const wrap = document.getElementById('hdr-icon-wrap');
   const menu = document.getElementById('hdr-char-menu');
-  if (!wrap || !menu) return;
-
   const visible = _visibleChars();
-  // Only show menu when there are multiple characters to choose from
-  if (visible.length <= 1) {
-    wrap.classList.remove('has-menu');
-    wrap.onclick = null;
-    menu.style.display = 'none';
-    return;
+  const hasMultiple = visible.length > 1;
+
+  // Phone header icon dropdown
+  if (wrap && menu) {
+    if (!hasMultiple) {
+      wrap.classList.remove('has-menu');
+      wrap.onclick = null;
+      menu.style.display = 'none';
+    } else {
+      wrap.classList.add('has-menu');
+      wrap.onclick = (e) => {
+        e.stopPropagation();
+        const showing = menu.style.display !== 'none';
+        menu.style.display = showing ? 'none' : '';
+        if (!showing) _renderCharMenuItems();
+      };
+    }
   }
 
-  wrap.classList.add('has-menu');
-  wrap.onclick = (e) => {
-    e.stopPropagation();
-    const showing = menu.style.display !== 'none';
-    menu.style.display = showing ? 'none' : '';
-    if (!showing) _renderCharMenuItems();
-  };
+  // Desktop sidebar character selector
+  const sbSel = document.getElementById('sidebar-char-sel');
+  if (sbSel) {
+    if (!hasMultiple) {
+      sbSel.style.display = 'none';
+      sbSel.innerHTML = '';
+    } else {
+      sbSel.style.display = '';
+      const activeId = String(suiteState.sheetChar?._id || '');
+      let h = '<select id="sidebar-char-select">';
+      visible.forEach(({ c, i }) => {
+        const sel = String(c._id) === activeId ? ' selected' : '';
+        h += `<option value="${i}"${sel}>${esc(displayName(c))}</option>`;
+      });
+      h += '</select>';
+      sbSel.innerHTML = h;
+      sbSel.querySelector('#sidebar-char-select')?.addEventListener('change', e => {
+        const idx = parseInt(e.target.value, 10);
+        if (!isNaN(idx) && editorState.chars[idx]) _switchChar(idx);
+      });
+    }
+  }
 }
 
 function _renderCharMenuItems() {
