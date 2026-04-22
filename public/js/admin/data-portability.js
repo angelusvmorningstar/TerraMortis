@@ -364,6 +364,8 @@ async function handleRulesCSVImport(file) {
       if (row.duration     !== undefined) body.duration     = row.duration.trim()     || null;
       if (row.exclusive    !== undefined) body.exclusive    = row.exclusive.trim()    || null;
       if (row.bloodline    !== undefined) body.bloodline    = row.bloodline.trim()    || null;
+      const offeringRaw = row.offering ?? row.Offering;
+      if (offeringRaw  !== undefined) body.offering     = offeringRaw.trim()       || null;
 
       // Integer fields
       let badInt = null;
@@ -798,7 +800,7 @@ function rulesHeaders() {
     'pool_attr', 'pool_skill', 'pool_disc',
     'resistance', 'cost', 'action', 'duration',
     'prereq_json', 'exclusive', 'xp_fixed', 'bloodline',
-    'description',
+    'description', 'offering',
   ];
 }
 function rulesToRows(docs) {
@@ -818,6 +820,7 @@ function rulesToRows(docs) {
       d.xp_fixed != null ? d.xp_fixed : '',
       d.bloodline || '',
       d.description || '',
+      d.offering || '',
     ];
   });
 }
