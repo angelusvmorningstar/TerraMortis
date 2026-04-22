@@ -2254,9 +2254,13 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   margin-bottom: 10px;
 }
 .dm-title {
-  font-family: var(--hd); font-size: 16px; font-weight: 600;
-  color: var(--accent); letter-spacing: .3px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 8px 10px;
+  background: var(--surf); border: 1px solid var(--bdr); border-radius: 4px;
+  font-family: var(--fl); font-size: 11px; font-weight: 400;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--txt2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .dm-close {
   background: none; border: none; color: var(--txt3); font-size: 22px;
