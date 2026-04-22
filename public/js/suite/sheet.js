@@ -26,7 +26,7 @@ import {
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
-import { calcTotalInfluence, influenceBreakdown, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
+import { calcTotalInfluence, influenceBreakdown, ssjHerdBonus, flockHerdBonus, attacheBonusDots } from '../editor/domain.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
@@ -526,10 +526,12 @@ export function renderSheet() {
       const ghoul = m.name === 'Retainer' && m.ghoul ? ' (ghoul)' : '';
       const tags = m._grant_sources || [];
       const grantTag = tags.length ? `<span class="gen-granted-tag-view">${tags.join(', ')}</span>` : '';
+      const meritKey = area ? m.name + ' (' + area + ')' : m.name;
+      const attBonus = attacheBonusDots(c, meritKey);
       const purch = (m.cp || 0) + (m.xp || 0);
       const bon = (m.free_mci || 0) + (m.free_vm || 0) + (m.free_ohm || 0) + (m.free_lk || 0)
                + (m.free_inv || 0) + (m.free_bloodline || 0) + (m.free_pet || 0)
-               + (m.free_pt || 0) + (m.free_sw || 0);
+               + (m.free_pt || 0) + (m.free_sw || 0) + attBonus;
       const dotH = (purch || bon)
         ? dotsMixed(purch, bon)
         : (m.rating ? `<span class="trait-dots">${dots(m.rating)}</span>` : '');
@@ -547,7 +549,8 @@ export function renderSheet() {
         else if (m.area) allSpheres.push(m.area.trim());
         else if (m.qualifier) allSpheres.push(...m.qualifier.split(/,\s*/).filter(Boolean));
       });
-      totalRating = Math.min(5, totalRating);
+      const cAttBonus = attacheBonusDots(c, 'Contacts' + (allSpheres.length ? ' (' + [...new Set(allSpheres.filter(Boolean))].join(', ') + ')' : ''));
+      totalRating = Math.min(5, totalRating) + cAttBonus;
       const cPurch = Math.min(totalPurch, totalRating);
       const cBon = Math.max(0, totalRating - cPurch);
       const sp = [...new Set(allSpheres.filter(Boolean))].join(', ');
@@ -563,11 +566,13 @@ export function renderSheet() {
   if (domMerits.length) {
     html += `<div class="sh-sec"><div class="sh-sec-title">Domain Merits</div><div class="merit-list">`;
     domMerits.forEach(m => {
+      const domKey = m.area ? m.name + ' (' + m.area + ')' : m.name;
+      const attBonus = attacheBonusDots(c, domKey);
       const hasPartners = (m.shared_with || []).length > 0;
       if (hasPartners) {
         const own = (m.cp || 0) + (m.free_mci || 0) + (m.free_bloodline || 0)
                   + (m.free_pet || 0) + (m.free_vm || 0) + (m.free_lk || 0)
-                  + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0);
+                  + (m.free_ohm || 0) + (m.free_inv || 0) + (m.xp || 0) + attBonus;
         let partnerDots = 0;
         for (const pName of m.shared_with) {
           const p = (state.chars || []).find(ch => ch.name === pName);
@@ -586,7 +591,7 @@ export function renderSheet() {
         const purch = (m.cp || 0) + (m.xp || 0);
         const ssjB = m.name === 'Herd' ? ssjHerdBonus(c) : 0;
         const flockB = m.name === 'Herd' ? flockHerdBonus(c) : 0;
-        const derived = ssjB + flockB;
+        const derived = ssjB + flockB + attBonus;
         const totalDots = purch + derived + Math.max(0, (m.rating || 0) - purch);
         const bon = Math.max(0, totalDots - purch);
         html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotsMixed(purch, bon)}</div></div></div></div>`;
