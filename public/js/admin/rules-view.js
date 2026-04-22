@@ -301,6 +301,7 @@ function renderModalContent(rule, isAdd) {
     h += '<div class="rules-modal-grid">';
     h += mf('Exclusive', 'text', 'exclusive', '');
     h += mf('Bloodline', 'text', 'bloodline', '');
+    h += mf('Cult', 'text', 'cult', '');
     h += '</div>';
     h += renderPrereqField(null);
   } else {
@@ -330,6 +331,7 @@ function renderModalContent(rule, isAdd) {
     h += '<div class="rules-modal-grid">';
     h += mf('Exclusive', 'text', 'exclusive', rule.exclusive || '');
     h += mf('Bloodline', 'text', 'bloodline', rule.bloodline || '');
+    h += mf('Cult', 'text', 'cult', rule.cult || '');
     h += '</div>';
     h += renderPrereqField(rule.prereq);
   }

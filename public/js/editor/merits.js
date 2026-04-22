@@ -413,9 +413,19 @@ export function otherPowers(c) {
   });
 }
 
+/** Returns a Set of cult names from a character's Mystery Cult Initiation merits. */
+function getCharCults(c) {
+  return new Set(
+    (c.merits || [])
+      .filter(m => m.name === 'Mystery Cult Initiation' && m.cult_name)
+      .map(m => m.cult_name)
+  );
+}
+
 /** Check whether a character meets a devotion's discipline prerequisites. */
 export function meetsDevPrereqs(c, dev) {
   if (dev.bl && (c.bloodline || '') !== dev.bl) return false;
+  if (dev.cult && !getCharCults(c).has(dev.cult)) return false;
   const discs = c.disciplines || {};
   if (!dev.p || !dev.p.length) return true;
   if (dev.or) {
@@ -428,6 +438,7 @@ export function meetsDevPrereqs(c, dev) {
 export function devPrereqStr(dev) {
   const parts = [];
   if (dev.bl) parts.push(dev.bl + ' only');
+  if (dev.cult) parts.push(dev.cult + ' members only');
   if (dev.p && dev.p.length) parts.push(dev.p.map(p => p.disc + ' ' + p.dots).join(dev.or ? ' or ' : ', '));
   return parts.join('; ') || 'None';
 }

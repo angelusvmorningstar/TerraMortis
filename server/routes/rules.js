@@ -72,6 +72,7 @@ const UPDATABLE_FIELDS = new Set([
   'pool', 'resistance', 'cost', 'action', 'duration',
   'prereq', 'exclusive', 'sub_category', 'xp_fixed', 'bloodline',
   'offering',
+  'cult',
 ]);
 
 // PUT /api/rules/:key — ST only, update existing power
