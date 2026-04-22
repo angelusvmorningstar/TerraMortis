@@ -33,9 +33,10 @@ body{min-height:auto;}
 .hdr-char-menu{
   position:absolute;top:100%;left:0;margin-top:6px;
   min-width:200px;max-width:280px;
+  max-height:70vh;overflow-y:auto;
   background:var(--surf);border:1px solid var(--bdr);border-radius:8px;
   box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:500;
-  padding:6px 0;overflow:hidden;
+  padding:6px 0;overscroll-behavior:contain;
 }
 .hdr-char-menu-item{
   display:flex;align-items:center;gap:8px;
