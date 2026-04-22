@@ -147,20 +147,15 @@ function renderCourt() {
 // ══════════════════════════════════════
 
 function renderAscendancy() {
-  if (!_latestSession) {
-    return '<h3 class="city-section-title">Eminence &amp; Ascendancy</h3><p class="placeholder">No session data available.</p>';
-  }
+  const active = chars.filter(c => !c.retired);
 
-  const attendedIds = new Set(
-    (_latestSession.attendance || [])
-      .filter(a => a.attended)
-      .map(a => String(a.character_id))
-  );
-  const attendedChars = chars.filter(c => !c.retired && attendedIds.has(String(c._id)));
+  if (!active.length) {
+    return '<h3 class="city-section-title">Eminence &amp; Ascendancy</h3><p class="placeholder">No characters.</p>';
+  }
 
   const eminenceMap = {};
   const ascendancyMap = {};
-  for (const c of attendedChars) {
+  for (const c of active) {
     const cs = c.status?.city || 0;
     if (c.clan)     eminenceMap[c.clan]       = (eminenceMap[c.clan]       || 0) + cs;
     if (c.covenant) ascendancyMap[c.covenant] = (ascendancyMap[c.covenant] || 0) + cs;
@@ -174,26 +169,16 @@ function renderAscendancy() {
   const eminence   = toSorted(eminenceMap);
   const ascendancy = toSorted(ascendancyMap);
 
-  const sessionLabel = esc(_latestSession.title || _latestSession.session_date || 'Latest Session');
-
-  let h = `<h3 class="city-section-title">Eminence &amp; Ascendancy <span class="city-game-tag">${sessionLabel}</span></h3>`;
+  let h = '<h3 class="city-section-title">Eminence &amp; Ascendancy</h3>';
   h += '<div class="asc-columns">';
   h += '<div class="asc-block"><div class="asc-label">Eminence (Clan)</div>';
-  if (eminence.length) {
-    for (const e of eminence) {
-      h += `<div class="asc-card">${clanIcon(e.name, 28)}<span class="asc-name">${esc(e.name)}</span><span class="asc-val">${e.val}</span></div>`;
-    }
-  } else {
-    h += '<p class="placeholder">No attendance data.</p>';
+  for (const e of eminence) {
+    h += `<div class="asc-card">${clanIcon(e.name, 28)}<span class="asc-name">${esc(e.name)}</span><span class="asc-val">${e.val}</span></div>`;
   }
   h += '</div>';
   h += '<div class="asc-block"><div class="asc-label">Ascendancy (Covenant)</div>';
-  if (ascendancy.length) {
-    for (const a of ascendancy) {
-      h += `<div class="asc-card">${covIcon(a.name, 28)}<span class="asc-name">${esc(a.name)}</span><span class="asc-val">${a.val}</span></div>`;
-    }
-  } else {
-    h += '<p class="placeholder">No attendance data.</p>';
+  for (const a of ascendancy) {
+    h += `<div class="asc-card">${covIcon(a.name, 28)}<span class="asc-name">${esc(a.name)}</span><span class="asc-val">${a.val}</span></div>`;
   }
   h += '</div></div>';
   return h;
