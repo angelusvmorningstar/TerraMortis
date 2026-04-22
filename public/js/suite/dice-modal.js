@@ -23,8 +23,8 @@ export function canRollDice(char) {
   );
 }
 
-// ── d10 icon — diamond/kite shape representing the pentagonal trapezohedron ──
-export const DICE_ICON_SVG = `<svg class="dice-roll-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L22 10 L12 22 L2 10 Z"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+// ── d10 icon — PNG image, inverted in dark mode via CSS ──
+export const DICE_ICON_SVG = `<img class="dice-roll-icon" src="/assets/d10.png" alt="Roll" width="16" height="16">`;
 
 // ── Default attribute for bare skill rolls ──
 // Each skill maps to the "most common" attribute used with it.

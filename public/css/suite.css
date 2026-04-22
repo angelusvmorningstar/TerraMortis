@@ -2182,10 +2182,11 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 
 /* ── Inline dice icon (tappable, placed on skill rows & powers) ── */
 .dice-roll-icon {
-  width: 16px; height: 16px; cursor: pointer; opacity: 0.45;
+  width: 16px; height: 16px; cursor: pointer; opacity: 0.5;
   vertical-align: middle; flex-shrink: 0; margin-right: 4px;
   transition: opacity .15s;
 }
+[data-theme="dark"] .dice-roll-icon { filter: invert(1); }
 .dice-roll-icon:hover, .dice-roll-icon:active { opacity: 1; }
 /* Desktop: slightly larger */
 @media (min-width: 900px) { .dice-roll-icon { width: 18px; height: 18px; } }
