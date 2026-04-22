@@ -102,15 +102,7 @@ export function renderCharPools(el, char, onTap) {
     const sub = ab(attr) + '+' + ab(sk) + (meritBonus ? '+' + meritLabel + '(' + meritBonus + ')' : '');
     skillHtml += poolBtn(sk, poolTotal, sub, idx, na, roteEligible);
   }
-  if (skillHtml) {
-    const sc = localStorage.getItem('tm_pool_collapsed_skills') === '1';
-    h += `<div class="gcp-section-hd gcp-section-toggle" data-section="skills">Skill Pools <span class="gcp-chevron${sc ? ' gcp-chevron-collapsed' : ''}">&#8964;</span></div>`;
-    h += `<div class="gcp-pool-grid${sc ? ' gcp-section-collapsed' : ''}">${skillHtml}</div>`;
-  }
-
   // ── Discipline power pools (rollable only) ──
-  // Derive from rules cache (same as the discipline selector panel in app.js).
-  // c.powers with category=discipline is stale legacy data — ignore it.
   const allRules = getRulesByCategory('discipline');
   const discEntries = Object.entries(char.disciplines || {}).filter(([, v]) => (v?.dots || 0) > 0);
   const derivedPowers = [];
@@ -122,7 +114,6 @@ export function renderCharPools(el, char, onTap) {
       ruledPowers.forEach(r => derivedPowers.push({ name: r.name, discipline: disc }));
     }
   }
-  // Also include devotions, rites, pacts (character-specific picks — NOT discipline powers)
   (char.powers || []).filter(p => p.category === 'devotion' || p.category === 'rite' || p.category === 'pact')
     .forEach(p => derivedPowers.push(p));
 
@@ -136,10 +127,21 @@ export function renderCharPools(el, char, onTap) {
     const sub = ab(pi.attr) + '+' + ab(pi.skill) + (pi.resistance ? ' vs ' + pi.resistance : '');
     discHtml += poolBtn(pw.name, pi.total, sub, idx, discNa);
   }
-  if (discHtml) {
-    const dc = localStorage.getItem('tm_pool_collapsed_discs') === '1';
-    h += `<div class="gcp-section-hd gcp-section-toggle" data-section="discs">Discipline Pools <span class="gcp-chevron${dc ? ' gcp-chevron-collapsed' : ''}">&#8964;</span></div>`;
-    h += `<div class="gcp-pool-grid${dc ? ' gcp-section-collapsed' : ''}">${discHtml}</div>`;
+
+  const hasPools = skillHtml || discHtml;
+  if (hasPools) {
+    const collapsed = localStorage.getItem('tm_pools_collapsed') === '1';
+    h += `<button class="gcp-collapse-btn">${collapsed ? '▸' : '▾'} Pools</button>`;
+    h += `<div class="gcp-pools-wrap${collapsed ? ' gcp-all-collapsed' : ''}">`;
+    if (skillHtml) {
+      h += '<div class="gcp-section-hd">Skill Pools</div>';
+      h += `<div class="gcp-pool-grid">${skillHtml}</div>`;
+    }
+    if (discHtml) {
+      h += '<div class="gcp-section-hd">Discipline Pools</div>';
+      h += `<div class="gcp-pool-grid">${discHtml}</div>`;
+    }
+    h += '</div>';
   }
 
   h += '</div>';
@@ -150,16 +152,12 @@ export function renderCharPools(el, char, onTap) {
     btn.addEventListener('click', () => onTap(_pools[idx]));
   });
 
-  el.querySelectorAll('.gcp-section-toggle').forEach(hd => {
-    hd.addEventListener('click', () => {
-      const section = hd.dataset.section;
-      const grid = hd.nextElementSibling;
-      const key = section === 'skills' ? 'tm_pool_collapsed_skills' : 'tm_pool_collapsed_discs';
-      const nowCollapsed = !grid.classList.contains('gcp-section-collapsed');
-      grid.classList.toggle('gcp-section-collapsed', nowCollapsed);
-      hd.querySelector('.gcp-chevron').classList.toggle('gcp-chevron-collapsed', nowCollapsed);
-      localStorage.setItem(key, nowCollapsed ? '1' : '0');
-    });
+  el.querySelector('.gcp-collapse-btn')?.addEventListener('click', () => {
+    const wrap = el.querySelector('.gcp-pools-wrap');
+    const nowCollapsed = !wrap.classList.contains('gcp-all-collapsed');
+    wrap.classList.toggle('gcp-all-collapsed', nowCollapsed);
+    el.querySelector('.gcp-collapse-btn').textContent = (nowCollapsed ? '▸' : '▾') + ' Pools';
+    localStorage.setItem('tm_pools_collapsed', nowCollapsed ? '1' : '0');
   });
 }
 
