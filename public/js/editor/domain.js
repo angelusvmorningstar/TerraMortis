@@ -288,7 +288,7 @@ export function calcTotalInfluence(c) {
   const hwv = hasHoneyWithVinegar(c);
   // Clan + Covenant status: 1 per dot each
   const st = c.status || {};
-  total += (st.clan || 0) + (st.covenant || 0);
+  total += (st.clan || 0) + (st.covenant?.[c.covenant] || 0);
   // Influence merits (Contacts excluded from per-entry calc)
   (c.merits || []).filter(m => m.category === 'influence').forEach(m => {
     total += calcMeritInfluence(m, hwv);

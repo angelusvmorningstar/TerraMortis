@@ -1578,7 +1578,7 @@ export function renderSheet(c, target = null) {
       + _statusPip(svg, sVal, sLbl)
       + '</div>';
   };
-  const _covBase = st.covenant || 0, _covOTSBonus = c._ots_covenant_bonus || 0, _covBonusDots = Math.max(0, _covOTSBonus - _covBase), _covEffective = Math.max(_covBase, _covOTSBonus);
+  const _covBase = st.covenant?.[c.covenant] || 0, _covOTSBonus = c._ots_covenant_bonus || 0, _covBonusDots = Math.max(0, _covOTSBonus - _covBase), _covEffective = Math.max(_covBase, _covOTSBonus);
   covRow(covIconHtml, '<select class="sh-edit-select" onchange="shEdit(\'covenant\',this.value);renderSheet(chars[editIdx])">' + COVENANTS.map(cv => '<option' + (c.covenant === cv ? ' selected' : '') + '>' + cv + '</option>').join('') + '</select>', '<div class="sh-faction-label">' + esc(c.covenant || '\u2014') + '</div>', 'Covenant', OTHER_SVG, _covEffective, 'Cov.', 'covenant', _covBase, _covBonusDots);
   if (editMode) {
     const cOpts = CLANS.map(cl => '<option' + (c.clan === cl ? ' selected' : '') + '>' + cl + '</option>').join(''), bls = (BLOODLINE_CLANS[c.clan] || []).slice().sort(), blO = bls.map(b => '<option' + (c.bloodline === b ? ' selected' : '') + '>' + b + '</option>').join('');

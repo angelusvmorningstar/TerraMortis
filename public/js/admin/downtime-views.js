@@ -631,7 +631,7 @@ export async function takeSnapshot(cycleId) {
     name: displayName(c),
     clan: c.clan || '',
     covenant: c.covenant || '',
-    prestige: (c.status?.clan || 0) + (c.status?.covenant || 0),
+    prestige: (c.status?.clan || 0) + (c.status?.covenant?.[c.covenant] || 0),
     influence: calcTotalInfluence(c),
   }));
 

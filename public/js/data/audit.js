@@ -205,7 +205,7 @@ export function auditCharacter(c) {
 
   // ── Attaché per-retainer pool validation ──
   if ((c.merits || []).some(m => m.name === 'Attach\u00e9')) {
-    const _attStatusDots = (c.status || {}).covenant || 0;
+    const _attStatusDots = (c.status || {}).covenant?.[c.covenant] || 0;
     const _attRetainers = (c.merits || []).filter(m => m.name === 'Retainer' && !m.granted_by && m.attache_key);
     for (const ret of _attRetainers) {
       const used = (c.merits || []).reduce((s, m) => s + (m.retainer_source === ret.attache_key ? (m.free_attache || 0) : 0), 0);
