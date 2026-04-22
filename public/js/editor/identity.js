@@ -157,7 +157,7 @@ export function renderIdentityTab(c) {
         </div>
         <div class="form-row">
           <label class="form-label">Covenant Status</label>
-          <input class="form-input" type="number" min="0" max="5" value="${c.status?.covenant || 0}" onchange="updStatus('covenant',+this.value)">
+          <input class="form-input" type="number" min="0" max="5" value="${c.status?.covenant?.[c.covenant] || 0}" onchange="updStatus('covenant',+this.value)">
         </div>
       </div>
     </div>
@@ -177,7 +177,16 @@ export function updField(key, val) {
 
 export function updStatus(key, val) {
   if (state.editIdx < 0) return;
-  if (!state.chars[state.editIdx].status) state.chars[state.editIdx].status = {};
-  state.chars[state.editIdx].status[key] = val;
+  const c = state.chars[state.editIdx];
+  if (!c.status) c.status = {};
+  if (key === 'covenant') {
+    // Write into the covenant object keyed by the character's own covenant
+    if (!c.status.covenant || typeof c.status.covenant !== 'object') {
+      c.status.covenant = { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 };
+    }
+    c.status.covenant[c.covenant] = val;
+  } else {
+    c.status[key] = val;
+  }
   _markDirty();
 }

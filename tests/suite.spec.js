@@ -48,9 +48,9 @@ async function loginAs(page, user, chars = []) {
 }
 
 const TEST_CHARS = [
-  { _id: 'char-001', name: 'Alice Vunder', moniker: null, honorific: null, clan: 'Mekhet', covenant: 'Circle of the Crone', player: 'Katherine H', blood_potency: 1, humanity: 6, court_title: null, regent_territory: 'The North Shore', regent_lieutenant: 'Keeper', retired: false, status: { city: 2, clan: 3, covenant: 2 }, attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [] },
-  { _id: 'char-002', name: 'Brandy LaRoux', moniker: null, honorific: null, clan: 'Gangrel', covenant: 'Circle of the Crone', player: 'Ashley K', blood_potency: 1, humanity: 5, court_title: 'Harpy', retired: false, status: { city: 1, clan: 2, covenant: 1 }, attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [] },
-  { _id: 'char-003', name: 'Eve Lockridge', moniker: null, honorific: null, clan: 'Daeva', covenant: 'Carthian Movement', player: 'Jamie', blood_potency: 1, humanity: 6, court_title: 'Premier', retired: false, status: { city: 3, clan: 1, covenant: 2 }, attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [] },
+  { _id: 'char-001', name: 'Alice Vunder', moniker: null, honorific: null, clan: 'Mekhet', covenant: 'Circle of the Crone', player: 'Katherine H', blood_potency: 1, humanity: 6, court_title: null, regent_territory: 'The North Shore', regent_lieutenant: 'Keeper', retired: false, status: { city: 2, clan: 3, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 2, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } }, attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [] },
+  { _id: 'char-002', name: 'Brandy LaRoux', moniker: null, honorific: null, clan: 'Gangrel', covenant: 'Circle of the Crone', player: 'Ashley K', blood_potency: 1, humanity: 5, court_title: 'Harpy', retired: false, status: { city: 1, clan: 2, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 1, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } }, attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [] },
+  { _id: 'char-003', name: 'Eve Lockridge', moniker: null, honorific: null, clan: 'Daeva', covenant: 'Carthian Movement', player: 'Jamie', blood_potency: 1, humanity: 6, court_title: 'Premier', retired: false, status: { city: 3, clan: 1, covenant: { 'Carthian Movement': 2, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } }, attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [] },
 ];
 
 // ══════════════════════════════════════

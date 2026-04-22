@@ -188,20 +188,14 @@ export function charToRow(c) {
   // Status — use calcCityStatus to include title bonus and regent ambience bonus
   row.push(calcCityStatus(c));
   row.push(c.status?.clan || 0);
-  row.push(Math.max(c.status?.covenant || 0, c._ots_covenant_bonus || 0));
+  row.push(Math.max(c.status?.covenant?.[c.covenant] || 0, c._ots_covenant_bonus || 0));
 
   // Covenant standings (4 covenant slots)
   for (const cov of COV_ORDER) {
     const short = COV_SHORT[cov];
     row.push(short);
-    const standing = c.covenant_standings?.[short] || c.covenant_standings?.[cov];
-    if (c.covenant === cov) {
-      row.push(fmtDots(c.status?.covenant || 0));
-    } else if (standing) {
-      row.push(fmtDots(standing));
-    } else {
-      row.push('-');
-    }
+    const val = c.status?.covenant?.[cov] || 0;
+    row.push(val ? fmtDots(val) : '-');
   }
 
   // Domain merits

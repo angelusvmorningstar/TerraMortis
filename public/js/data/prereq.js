@@ -10,11 +10,11 @@
 
 import { getAttrVal, skDots } from './accessors.js';
 
-// Short covenant names → full names used in char.covenant
+// Short/lowercase covenant names → full names used in char.covenant and status.covenant keys
 const COV_FULL = {
   carthian: 'Carthian Movement', crone: 'Circle of the Crone',
   invictus: 'Invictus', lance: 'Lancea et Sanctum',
-  sanctified: 'Lancea et Sanctum'
+  sanctified: 'Lancea et Sanctum', ordo: 'Ordo Dracul',
 };
 
 /** Resolve a status qualifier against character data. */
@@ -22,14 +22,9 @@ function _getStatus(char, qualifier) {
   const q = qualifier.toLowerCase();
   if (q === 'city') return char.status?.city || 0;
   if (q === 'clan') return char.status?.clan || 0;
-  // Covenant status: own covenant uses status.covenant, others use covenant_standings
+  // Unified covenant status: all covenants keyed by full name in status.covenant
   const fullName = COV_FULL[q] || qualifier;
-  if ((char.covenant || '').toLowerCase() === fullName.toLowerCase()) {
-    return char.status?.covenant || 0;
-  }
-  const standings = char.covenant_standings || {};
-  const k = Object.keys(standings).find(k => k.toLowerCase() === q);
-  return k ? standings[k] : 0;
+  return char.status?.covenant?.[fullName] || 0;
 }
 
 /**

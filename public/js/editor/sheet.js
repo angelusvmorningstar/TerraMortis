@@ -1095,12 +1095,12 @@ function _checkSingleTerm(c, term) {
       const type = name.slice(0, -7).trim().toLowerCase();
       if (type === 'city') return ((c.status || {}).city || 0) >= req;
       if (type === 'clan') return ((c.status || {}).clan || 0) >= req;
-      if (type === 'covenant') return Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0) >= req;
+      if (type === 'covenant') return Math.max(c.status?.covenant?.[c.covenant] || 0, c._ots_covenant_bonus || 0) >= req;
       const cov = _COV_STATUS_MAP[type];
       if (!cov) return true;
-      // Own covenant: use effective status (incl. OTS floor); others: use covenant_standings
-      const ownMatch = (c.covenant || '').toLowerCase().replace(/[^a-z]/g, '').includes(type.replace(/[^a-z]/g, ''));
-      const dots = ownMatch ? Math.max((c.status || {}).covenant || 0, c._ots_covenant_bonus || 0) : ((c.covenant_standings || {})[cov] || 0);
+      // Unified: all covenant standings keyed by full name in status.covenant
+      const covVal = c.status?.covenant?.[cov] || 0;
+      const dots = (cov === c.covenant) ? Math.max(covVal, c._ots_covenant_bonus || 0) : covVal;
       return dots >= req;
     }
 
@@ -1587,8 +1587,8 @@ export function renderSheet(c, target = null) {
   else covRow(clanIconHtml, '', '<div class="sh-faction-label">' + esc(c.clan || '\u2014') + '</div>' + (bl ? '<div class="sh-faction-bloodline">' + esc(bl) + '</div>' : ''), 'Clan', OTHER_SVG, st.clan || 0, 'Clan', 'clan', st.clan || 0, 0);
   h += '</div></div></div>'; // end right, body, hdr
   // Covenant strip
-  const covLbls = ['Carthian', 'Crone', 'Invictus', 'Lance'], covSM = { 'Carthian Movement': 'Carthian', 'Circle of the Crone': 'Crone', 'Invictus': 'Invictus', 'Lancea et Sanctum': 'Lance' }, pLbl = covSM[c.covenant] || c.covenant;
-  const covS = covLbls.filter(l => l !== pLbl).map(l => ({ label: l, status: (c.covenant_standings || {})[l] || 0 }));
+  const _covFull = [['Carthian Movement','Carthian'],['Circle of the Crone','Crone'],['Invictus','Invictus'],['Lancea et Sanctum','Lance']];
+  const covS = _covFull.filter(([full]) => full !== c.covenant).map(([full, short]) => ({ label: short, fullName: full, status: c.status?.covenant?.[full] || 0 }));
   if (covS.length) { h += '<div class="cov-strip">'; covS.forEach(cs => { const a = cs.status > 0, lq = cs.label.replace(/'/g, "\\'"); if (editMode) { h += '<div class="cov-strip-cell cov-strip-cell-edit"><span class="cov-strip-name' + (a ? ' active' : '') + '">' + esc(cs.label) + '</span>' + _statusTrack(cs.status, 0, '') + _statusEditBtns('shCovStandingDown(\'' + lq + '\')', 'shCovStandingUp(\'' + lq + '\')') + '</div>'; } else { h += '<div class="cov-strip-cell"><span class="cov-strip-name' + (a ? ' active' : '') + '">' + esc(cs.label) + '</span><span class="cov-strip-dot' + (a ? ' active' : '') + '">' + (a ? '\u25CB' : '\u2013') + '</span></div>'; } }); h += '</div>'; }
   h += shRenderStatsStrip(c);
   if (isDesktop) {

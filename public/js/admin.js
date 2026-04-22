@@ -723,8 +723,7 @@ async function createNewCharacter() {
     humanity_base: 7,
     blood_potency: 1,
     bp_creation: { cp: 0, xp: 0, lost: 0 },
-    status: { city: 0, clan: 0, covenant: 0 },
-    covenant_standings: {},
+    status: { city: 0, clan: 0, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
     attribute_priorities: {},
     skill_priorities: {},
     attributes: Object.fromEntries(

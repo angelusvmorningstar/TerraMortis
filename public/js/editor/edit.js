@@ -260,11 +260,20 @@ export function shStatusDown(key) {
   _renderSheet(c);
 }
 
+const _COV_SHORT_FULL = { 'Carthian': 'Carthian Movement', 'Crone': 'Circle of the Crone', 'Invictus': 'Invictus', 'Lance': 'Lancea et Sanctum', 'Ordo': 'Ordo Dracul' };
+function _ensureCovObj(c) {
+  if (!c.status) c.status = {};
+  if (!c.status.covenant || typeof c.status.covenant !== 'object') {
+    c.status.covenant = { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 };
+  }
+}
+
 export function shCovStandingUp(label) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!c.covenant_standings) c.covenant_standings = {};
-  c.covenant_standings[label] = Math.min(5, (c.covenant_standings[label] || 0) + 1);
+  _ensureCovObj(c);
+  const full = _COV_SHORT_FULL[label] || label;
+  c.status.covenant[full] = Math.min(5, (c.status.covenant[full] || 0) + 1);
   _markDirty();
   _renderSheet(c);
 }
@@ -272,8 +281,9 @@ export function shCovStandingUp(label) {
 export function shCovStandingDown(label) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!c.covenant_standings) c.covenant_standings = {};
-  c.covenant_standings[label] = Math.max(0, (c.covenant_standings[label] || 0) - 1);
+  _ensureCovObj(c);
+  const full = _COV_SHORT_FULL[label] || label;
+  c.status.covenant[full] = Math.max(0, (c.status.covenant[full] || 0) - 1);
   _markDirty();
   _renderSheet(c);
 }

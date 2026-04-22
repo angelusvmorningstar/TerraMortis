@@ -30,7 +30,7 @@ const TEST_CHAR = {
   blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null,
   regent_territory: 'The North Shore', regent_lieutenant: 'Keeper',
   retired: false,
-  status: { city: 2, clan: 3, covenant: 2 },
+  status: { city: 2, clan: 3, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 2, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
     Strength: { dots: 1, bonus: 0 }, Dexterity: { dots: 3, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },

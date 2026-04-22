@@ -37,7 +37,7 @@ const INVICTUS_CHAR = {
   _id: 'char-inv-001', name: 'Charlie Invictus', moniker: null, honorific: null,
   clan: 'Ventrue', covenant: 'Invictus', player: 'Test Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 2, clan: 1, covenant: 3 },
+  status: { city: 2, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 3, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: BASE_ATTRS, skills: {}, disciplines: {}, ordeals: [],
   merits: [
     { name: 'Invested',   category: 'standing', rating: 1, cp: 1,  xp: 0 },
@@ -63,7 +63,7 @@ const INFLUENCE_CHAR = {
   _id: 'char-inf-001', name: 'Influential One', moniker: null, honorific: null,
   clan: 'Daeva', covenant: 'Carthian Movement', player: 'Inf Player',
   blood_potency: 1, humanity: 7, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 1, clan: 1, covenant: 2 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 2, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: BASE_ATTRS, skills: {}, disciplines: {}, ordeals: [],
   merits: [
     { name: 'Allies',   category: 'influence', rating: 2, cp: 2, xp: 0, area: 'Doctors' },
@@ -77,7 +77,7 @@ const RETIRED_CHAR = {
   _id: 'char-ret-001', name: 'Old Char', moniker: null, honorific: null,
   clan: 'Gangrel', covenant: 'Unaligned', player: 'Old Player',
   blood_potency: 1, humanity: 5, humanity_base: 7, court_title: null, retired: true,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: BASE_ATTRS, skills: {}, disciplines: {}, ordeals: [],
   merits: [], powers: [], xp_log: { spent: 0 },
 };
@@ -87,7 +87,7 @@ const FEED_CHAR = {
   _id: 'char-fd-001', name: 'Alice Vunder', moniker: null, honorific: null,
   clan: 'Mekhet', covenant: 'Circle of the Crone', player: 'Katherine H',
   blood_potency: 1, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 2, clan: 3, covenant: 2 },
+  status: { city: 2, clan: 3, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 2, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 3, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
     Strength: { dots: 1, bonus: 0 }, Dexterity: { dots: 3, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },

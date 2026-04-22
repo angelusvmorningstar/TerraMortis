@@ -247,8 +247,7 @@ export function investedUsed(c) {
 /** Effective Invictus covenant status — includes Oath of the Scapegoat floor. */
 export function effectiveInvictusStatus(c) {
   if (c.covenant !== 'Invictus') return 0;
-  const st = c.status || {};
-  return Math.max(st.covenant || 0, c._ots_covenant_bonus || 0);
+  return Math.max(c.status?.covenant?.['Invictus'] || 0, c._ots_covenant_bonus || 0);
 }
 
 /** Dots granted by an Attaché merit linked to the named target merit. */

@@ -31,7 +31,7 @@ const CHAR_ALLIES = {
   _id: 'char-allies', name: 'Charlie Test', moniker: null, honorific: null,
   clan: 'Daeva', covenant: 'Invictus', player: 'Test Player',
   blood_potency: 2, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 0, 'Invictus': 1, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 3, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 2, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 2, bonus: 0 },
@@ -50,7 +50,7 @@ const CHAR_SORC = {
   _id: 'char-sorc', name: 'Sorc McSorcface', moniker: null, honorific: null,
   clan: 'Mekhet', covenant: 'Circle of the Crone', player: 'Sorc Player',
   blood_potency: 3, humanity: 6, humanity_base: 7, court_title: null, retired: false,
-  status: { city: 1, clan: 1, covenant: 1 },
+  status: { city: 1, clan: 1, covenant: { 'Carthian Movement': 0, 'Circle of the Crone': 1, 'Invictus': 0, 'Lancea et Sanctum': 0, 'Ordo Dracul': 0 } },
   attributes: {
     Strength: { dots: 2, bonus: 0 }, Dexterity: { dots: 2, bonus: 0 }, Stamina: { dots: 2, bonus: 0 },
     Intelligence: { dots: 3, bonus: 0 }, Wits: { dots: 2, bonus: 0 }, Resolve: { dots: 3, bonus: 0 },
