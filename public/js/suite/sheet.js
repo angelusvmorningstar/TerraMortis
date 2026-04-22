@@ -45,14 +45,39 @@ export function repaintSheetTrackers() {
   const maxWP = calcWillpowerMax(c);
   const maxInf = calcTotalInfluence(c);
 
-  const vals = {
-    health: { cur: Math.max(0, maxH - (cs.bashing ?? 0) - (cs.lethal ?? 0) - (cs.aggravated ?? 0)), max: maxH, cls: 'health-filled' },
-    vitae:  { cur: Math.max(0, Math.min(cs.vitae ?? maxV, maxV)),     max: maxV,  cls: 'vitae-filled' },
-    wp:     { cur: Math.max(0, Math.min(cs.willpower ?? maxWP, maxWP)), max: maxWP, cls: 'wp-filled' },
-    inf:    { cur: Math.max(0, Math.min(cs.inf ?? maxInf, maxInf)),   max: maxInf, cls: 'inf-filled' },
+  // Health — render with damage type marks
+  const agg = cs.aggravated ?? 0, leth = cs.lethal ?? 0, bash = cs.bashing ?? 0;
+  const healthBoxes = document.getElementById('tb-health');
+  const healthNum = document.getElementById('tn-health');
+  if (healthBoxes) {
+    const disp = Math.min(maxH, 15);
+    let hb = '';
+    for (let i = 0; i < disp; i++) {
+      let cls = 'tbox', mark = '';
+      if (i < agg)                    { cls += ' tbox-agg';     mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/><line x1="10" y1="2" x2="10" y2="18"/></svg>'; }
+      else if (i < agg + leth)        { cls += ' tbox-lethal';  mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/></svg>'; }
+      else if (i < agg + leth + bash) { cls += ' tbox-bashing'; mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg>'; }
+      else                            { cls += ' health-filled'; }
+      hb += `<div class="${cls}" data-tracker="health" data-idx="${i}" data-max="${disp}" data-filled="health-filled">${mark}</div>`;
+    }
+    healthBoxes.innerHTML = hb;
+  }
+  if (healthNum) {
+    const dmgTotal = agg + leth + bash;
+    const legend = dmgTotal > 0
+      ? ` <span class="sh-health-legend">${agg ? `<span class="sh-hl-agg">${agg}A</span>` : ''}${leth ? `<span class="sh-hl-let">${leth}L</span>` : ''}${bash ? `<span class="sh-hl-bash">${bash}B</span>` : ''}</span>`
+      : '';
+    healthNum.innerHTML = `${maxH - dmgTotal}/${maxH}${legend}`;
+  }
+
+  // Vitae, WP, Influence — simple filled/empty
+  const simple = {
+    vitae:  { cur: Math.max(0, Math.min(cs.vitae ?? maxV, maxV)),       max: maxV,   cls: 'vitae-filled' },
+    wp:     { cur: Math.max(0, Math.min(cs.willpower ?? maxWP, maxWP)), max: maxWP,  cls: 'wp-filled' },
+    inf:    { cur: Math.max(0, Math.min(cs.inf ?? maxInf, maxInf)),     max: maxInf, cls: 'inf-filled' },
   };
 
-  for (const [type, { cur, max, cls }] of Object.entries(vals)) {
+  for (const [type, { cur, max, cls }] of Object.entries(simple)) {
     const boxesEl = document.getElementById('tb-' + type);
     const numEl   = document.getElementById('tn-' + type);
     if (boxesEl) {
@@ -62,7 +87,6 @@ export function repaintSheetTrackers() {
       ).join('');
     }
     if (numEl) {
-      // Preserve the info button if present
       const infoBtn = numEl.querySelector('.sh-tracker-info-btn');
       numEl.textContent = cur + '/' + max;
       if (infoBtn) numEl.appendChild(infoBtn);
@@ -238,6 +262,30 @@ export function renderSheet() {
 
   const TRACKER_LABELS = { health: 'Health', vitae: 'Vitae', wp: 'Willpower', inf: 'Influence' };
 
+  // Health box row — shows bashing (/), lethal (X), aggravated (X|) marks per VtR rules
+  function mkHealthRow(agg, leth, bash, max) {
+    const disp = Math.min(max, 15);
+    const healthy = Math.max(0, disp - agg - leth - bash);
+    let boxes = '';
+    for (let i = 0; i < disp; i++) {
+      let cls = 'tbox', mark = '';
+      if (i < agg)                    { cls += ' tbox-agg';     mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/><line x1="10" y1="2" x2="10" y2="18"/></svg>'; }
+      else if (i < agg + leth)        { cls += ' tbox-lethal';  mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="3" y1="17" x2="17" y2="3"/><line x1="3" y1="3" x2="17" y2="17"/></svg>'; }
+      else if (i < agg + leth + bash) { cls += ' tbox-bashing'; mark = '<svg class="tbox-mark" viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg>'; }
+      else                            { cls += ' health-filled'; }
+      boxes += `<div class="${cls}" data-tracker="health" data-idx="${i}" data-max="${disp}" data-filled="health-filled">${mark}</div>`;
+    }
+    const dmgTotal = agg + leth + bash;
+    const legend = dmgTotal > 0
+      ? `<span class="sh-health-legend">${agg ? `<span class="sh-hl-agg">${agg}A</span>` : ''}${leth ? `<span class="sh-hl-let">${leth}L</span>` : ''}${bash ? `<span class="sh-hl-bash">${bash}B</span>` : ''}</span>`
+      : '';
+    return `<div class="sh-tracker-row">
+      <div class="sh-tracker-lbl">Health</div>
+      <div class="sh-tracker-boxes" id="tb-health">${boxes}</div>
+      <div class="sh-tracker-num" id="tn-health">${max - dmgTotal}/${max}${legend}</div>
+    </div>`;
+  }
+
   function mkBoxRow(type, current, max, filledCls, infoHtml) {
     const disp = Math.min(max, 15);
     const boxes = Array.from({ length: disp }, (_, i) => {
@@ -264,7 +312,7 @@ export function renderSheet() {
     : '';
 
   html += `<div class="sh-tracker-block" id="tracker-block">
-    ${mkBoxRow('health', tState.health, maxH, 'health-filled')}
+    ${mkHealthRow(cs.aggravated ?? 0, cs.lethal ?? 0, cs.bashing ?? 0, maxH)}
     ${mkBoxRow('vitae', tState.vitae, maxV, 'vitae-filled')}
     ${mkBoxRow('wp', tState.wp, maxWP, 'wp-filled')}
     ${maxInf > 0 ? mkBoxRow('inf', tState.inf, maxInf, 'inf-filled', infPopoverHtml) : ''}

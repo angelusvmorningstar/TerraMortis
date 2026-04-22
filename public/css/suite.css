@@ -205,12 +205,22 @@ select.sh-char-sel{width:100%;height:48px;background:var(--surf2);border:1px sol
 .sh-tracker-row:last-child{margin-bottom:0;}
 .sh-tracker-lbl{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);flex:1;}
 .sh-tracker-boxes{display:flex;gap:5px;flex-wrap:wrap;width:100%;order:1;margin-top:4px;}
-.tbox{width:34px;height:30px;border-radius:4px;border:1px solid var(--gold-a30);background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.tbox{width:34px;height:30px;border-radius:4px;border:1px solid var(--gold-a30);background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;}
 body.tracker-readonly .tbox{cursor:default;pointer-events:none;}
 .tbox.health-filled{background:var(--green);border-color:var(--green2);}
 .tbox.vitae-filled{background:var(--crim-a85);border-color:var(--err5);}
 .tbox.wp-filled{background:var(--gold);border-color:var(--gold);}
 .tbox.inf-filled{background:var(--info3-a8);border-color:var(--info-a9);}
+/* Health damage marks — VtR notation: / bashing, X lethal, X| aggravated */
+.tbox-mark{width:18px;height:18px;stroke-width:2.5;stroke-linecap:round;}
+.tbox-bashing{border-color:var(--gold-a30);}.tbox-bashing .tbox-mark{stroke:var(--txt2);}
+.tbox-lethal{border-color:var(--err5);background:rgba(139,0,0,.1);}.tbox-lethal .tbox-mark{stroke:var(--crim);}
+.tbox-agg{border-color:var(--err5);background:rgba(139,0,0,.2);}.tbox-agg .tbox-mark{stroke:#E07070;stroke-width:3;}
+/* Health legend (compact damage breakdown next to count) */
+.sh-health-legend{font-size:9px;margin-left:4px;letter-spacing:.02em;}
+.sh-hl-agg{color:#E07070;margin-right:3px;font-weight:700;}
+.sh-hl-let{color:var(--crim);margin-right:3px;font-weight:600;}
+.sh-hl-bash{color:var(--txt3);}
 .sh-tracker-num{font-family:var(--fl);font-size:11px;color:var(--txt3);text-align:right;}
 .sh-inf-breakdown{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0 2px 86px;}
 .sh-inf-merit{font-size:11px;color:var(--txt2);white-space:nowrap;}
