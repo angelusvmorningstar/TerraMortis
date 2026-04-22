@@ -2256,6 +2256,12 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 .dm-pool-sel:focus { outline: none; border-color: var(--accent); }
 .dm-pool-plus { color: var(--txt3); font-size: 14px; font-weight: 700; flex-shrink: 0; }
+/* Resistance section */
+.dm-resist { margin-bottom: 8px; padding: 8px 0; border-top: 1px solid var(--bdr); }
+.dm-resist .dm-lbl { margin-bottom: 6px; }
+.dm-resist-line { font-size: 12px; color: var(--txt2); margin-top: 6px; line-height: 1.5; }
+.dm-resist-val { color: var(--accent); font-weight: 600; }
+.dm-resist-pen { color: #E8A0A0; font-weight: 600; }
 
 /* ── Controls ── */
 .dm-controls { margin-bottom: 10px; }
