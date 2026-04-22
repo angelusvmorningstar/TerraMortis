@@ -48,7 +48,7 @@ import { openContestedRoll, closeContestedRoll, crSetType, crSetChar, crAdjPool,
 import { startChallengePoller, stopChallengePoller } from './game/challenge-notification.js';
 import { openChallengeModal } from './game/challenge-initiation.js';
 import { loadDtLookup } from './game/dt-lookup.js';
-import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle } from './game/tracker.js';
+import { initTracker, trackerReset, trackerAdj, trackerAddCondition, trackerRemoveCond, trackerToggle, ensureLoaded as ensureTrackerLoaded } from './game/tracker.js';
 import { initWS } from './data/ws.js';
 import { initSignIn } from './game/signin-tab.js';
 import { renderEmergencyTab } from './game/emergency-tab.js';
@@ -1138,6 +1138,9 @@ async function boot() {
           ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
           : -1;
         const charIdx = savedIdx >= 0 ? savedIdx : 0;
+        // Load tracker state from API before rendering sheet — prevents
+        // showing full defaults that snap to real values on first interaction
+        await ensureTrackerLoaded(editorState.chars[charIdx]);
         openChar(charIdx);
         pickChar(editorState.chars[charIdx]);
       }

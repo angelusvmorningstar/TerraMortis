@@ -80,7 +80,7 @@ function saveToApi(charId, fields) {
   }).catch(() => { /* silent fail — cache remains valid */ });
 }
 
-async function ensureLoaded(c) {
+export async function ensureLoaded(c) {
   const id = String(c._id);
   if (_confirmed.has(id)) return _cache[id];
 
