@@ -32,6 +32,7 @@ let _terrExpanded = new Set(); // territory ids currently expanded
 let _feedingEdits = {};      // terrId -> charId[] (working copy while editing)
 let prestigeView = 0; // 0-3 for the four views
 let _activeCycle = null;     // active downtime cycle (for regent confirmation chips)
+let _latestSession = null;   // most recent game session (for Eminence & Ascendancy)
 
 export async function initCityView() {
   const container = document.getElementById('city-content');
@@ -56,6 +57,11 @@ export async function initCityView() {
     _activeCycle = sorted.find(c => c.status === 'active') || null;
   } catch { _activeCycle = null; }
 
+  try {
+    const sessions = await apiGet('/api/game_sessions');
+    _latestSession = sessions.sort((a, b) => (b.session_date || '').localeCompare(a.session_date || ''))[0] || null;
+  } catch { _latestSession = null; }
+
   renderCity(container);
 }
 
@@ -71,6 +77,24 @@ function renderCity(container) {
 //  COURT (editable)
 // ══════════════════════════════════════
 
+function _renderSlot(cat, active, holder) {
+  const multiOk = cat !== 'Head of State';
+  let h = '<div class="court-slot-row">';
+  h += `<select class="court-edit-sel" data-court-category="${esc(cat)}">`;
+  h += '<option value="">— Vacant —</option>';
+  for (const c of active) {
+    const sel = holder && String(holder._id) === String(c._id) ? ' selected' : '';
+    h += `<option value="${esc(c._id)}"${sel}>${esc(c.moniker || c.name)}</option>`;
+  }
+  h += '</select>';
+  h += `<input type="text" class="court-title-input" data-court-title placeholder="${esc(cat)}" value="${esc(holder?.court_title || '')}">`;
+  if (multiOk) {
+    h += `<button class="court-remove-slot-btn" title="Remove slot">&times;</button>`;
+  }
+  h += '</div>';
+  return h;
+}
+
 function renderCourt() {
   const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
   const titled = active.filter(c => c.court_category).sort((a, b) => {
@@ -81,13 +105,10 @@ function renderCourt() {
 
   let h = '<h3 class="city-section-title">Court</h3><div class="court-list">';
   for (const c of titled) {
-    const _rt = terrDocs.find(td => td.regent_id === String(c._id));
-    const territory = _rt ? ' — Regent of ' + esc(_rt.name || _rt.id) : '';
-    const epithet = (c.court_title && c.court_title !== c.court_category) ? ` <span class="court-epithet">(${esc(c.court_title)})</span>` : '';
     h += `<div class="court-row">
-      <span class="court-title">${esc(c.court_category)}${epithet}</span>
-      <span class="court-name">${esc(displayName(c))}</span>
-      <span class="court-detail">${esc(c.clan || '')}${territory}</span>
+      <span class="court-title">${esc(c.court_category)}</span>
+      <span class="court-name">${esc(c.moniker || c.name)}</span>
+      <span class="court-detail">${esc(c.covenant || '')}</span>
     </div>`;
   }
   h += '</div>';
@@ -98,16 +119,20 @@ function renderCourt() {
   h += '<div class="court-edit-panel" id="court-edit-panel" style="display:none">';
   h += '<div class="court-edit-grid">';
   for (const cat of COURT_CATEGORIES) {
-    const holder = active.find(c => c.court_category === cat);
-    h += `<div class="court-edit-row">`;
+    const holders = active.filter(c => c.court_category === cat);
+    const slots = holders.length ? holders : [null];
+    const multiOk = cat !== 'Head of State';
+    h += `<div class="court-edit-category" data-category="${esc(cat)}">`;
     h += `<span class="court-edit-label">${esc(cat)}</span>`;
-    h += `<select class="court-edit-sel" data-court-category="${esc(cat)}">`;
-    h += '<option value="">— Vacant —</option>';
-    for (const c of active) {
-      const sel = holder && holder._id === c._id ? ' selected' : '';
-      h += `<option value="${esc(c._id)}"${sel}>${esc(displayNameRaw(c))}</option>`;
+    h += `<div class="court-slot-list">`;
+    for (const holder of slots) {
+      h += _renderSlot(cat, active, holder);
     }
-    h += '</select></div>';
+    h += '</div>';
+    if (multiOk) {
+      h += `<button class="court-add-slot-btn" data-add-category="${esc(cat)}">+ Add ${esc(cat)}</button>`;
+    }
+    h += '</div>';
   }
   h += '</div>';
   h += '<button class="city-save-btn" id="court-save">Save Court</button>';
@@ -122,30 +147,53 @@ function renderCourt() {
 // ══════════════════════════════════════
 
 function renderAscendancy() {
-  const eminence = [
-    { name: 'Mekhet', val: 17 },
-    { name: 'Ventrue', val: 12 },
-    { name: 'Gangrel', val: 11 },
-    { name: 'Daeva', val: 7 },
-    { name: 'Nosferatu', val: 5 },
-  ];
-  const ascendancy = [
-    { name: 'Circle of the Crone', val: 17 },
-    { name: 'Lancea et Sanctum', val: 14 },
-    { name: 'Carthian Movement', val: 12 },
-    { name: 'Invictus', val: 9 },
-  ];
+  if (!_latestSession) {
+    return '<h3 class="city-section-title">Eminence &amp; Ascendancy</h3><p class="placeholder">No session data available.</p>';
+  }
 
-  let h = '<h3 class="city-section-title">Eminence &amp; Ascendancy <span class="city-game-tag">Game 2</span></h3>';
+  const attendedIds = new Set(
+    (_latestSession.attendance || [])
+      .filter(a => a.attended)
+      .map(a => String(a.character_id))
+  );
+  const attendedChars = chars.filter(c => !c.retired && attendedIds.has(String(c._id)));
+
+  const eminenceMap = {};
+  const ascendancyMap = {};
+  for (const c of attendedChars) {
+    const cs = c.status?.city || 0;
+    if (c.clan)     eminenceMap[c.clan]       = (eminenceMap[c.clan]       || 0) + cs;
+    if (c.covenant) ascendancyMap[c.covenant] = (ascendancyMap[c.covenant] || 0) + cs;
+  }
+
+  const toSorted = (map) => Object.entries(map)
+    .filter(([, v]) => v > 0)
+    .sort(([, a], [, b]) => b - a)
+    .map(([name, val]) => ({ name, val }));
+
+  const eminence   = toSorted(eminenceMap);
+  const ascendancy = toSorted(ascendancyMap);
+
+  const sessionLabel = esc(_latestSession.title || _latestSession.session_date || 'Latest Session');
+
+  let h = `<h3 class="city-section-title">Eminence &amp; Ascendancy <span class="city-game-tag">${sessionLabel}</span></h3>`;
   h += '<div class="asc-columns">';
   h += '<div class="asc-block"><div class="asc-label">Eminence (Clan)</div>';
-  for (const e of eminence) {
-    h += `<div class="asc-card">${clanIcon(e.name, 28)}<span class="asc-name">${esc(e.name)}</span><span class="asc-val">${e.val}</span></div>`;
+  if (eminence.length) {
+    for (const e of eminence) {
+      h += `<div class="asc-card">${clanIcon(e.name, 28)}<span class="asc-name">${esc(e.name)}</span><span class="asc-val">${e.val}</span></div>`;
+    }
+  } else {
+    h += '<p class="placeholder">No attendance data.</p>';
   }
   h += '</div>';
   h += '<div class="asc-block"><div class="asc-label">Ascendancy (Covenant)</div>';
-  for (const a of ascendancy) {
-    h += `<div class="asc-card">${covIcon(a.name, 28)}<span class="asc-name">${esc(a.name)}</span><span class="asc-val">${a.val}</span></div>`;
+  if (ascendancy.length) {
+    for (const a of ascendancy) {
+      h += `<div class="asc-card">${covIcon(a.name, 28)}<span class="asc-name">${esc(a.name)}</span><span class="asc-val">${a.val}</span></div>`;
+    }
+  } else {
+    h += '<p class="placeholder">No attendance data.</p>';
   }
   h += '</div></div>';
   return h;
@@ -411,6 +459,30 @@ function wireEvents(container) {
   // Court save
   container.querySelector('#court-save')?.addEventListener('click', saveCourt);
 
+  // Add slot
+  container.querySelector('#court-edit-panel')?.addEventListener('click', e => {
+    const addBtn = e.target.closest('[data-add-category]');
+    if (addBtn) {
+      const cat = addBtn.dataset.addCategory;
+      const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+      const list = addBtn.previousElementSibling;
+      const div = document.createElement('div');
+      div.innerHTML = _renderSlot(cat, active, null);
+      list.appendChild(div.firstElementChild);
+    }
+    const rmBtn = e.target.closest('.court-remove-slot-btn');
+    if (rmBtn) {
+      const row = rmBtn.closest('.court-slot-row');
+      const list = row.parentElement;
+      if (list.querySelectorAll('.court-slot-row').length > 1) {
+        row.remove();
+      } else {
+        row.querySelector('.court-edit-sel').value = '';
+        row.querySelector('.court-title-input').value = '';
+      }
+    }
+  });
+
 
   // Prestige view switcher
   container.querySelectorAll('[data-prestige-view]').forEach(btn => {
@@ -541,29 +613,38 @@ async function saveFeedingRights(terrId) {
 
 async function saveCourt() {
   const status = document.getElementById('court-save-status');
-  const selects = document.querySelectorAll('[data-court-category]');
-  const assignments = {};
-  selects.forEach(sel => { assignments[sel.dataset.courtCategory] = sel.value; });
+
+  // Collect all slot rows: { charId, category, title }
+  const newSlots = [];
+  document.querySelectorAll('.court-slot-row').forEach(row => {
+    const sel = row.querySelector('.court-edit-sel');
+    const titleInput = row.querySelector('.court-title-input');
+    const cat = sel?.dataset.courtCategory;
+    const charId = sel?.value;
+    const title = titleInput?.value.trim() || cat;
+    if (cat && charId) newSlots.push({ charId, category: cat, title });
+  });
 
   try {
-    // Clear all existing court categories, then assign new ones
-    const active = chars.filter(c => !c.retired).sort((a, b) => sortName(a).localeCompare(sortName(b)));
+    const active = chars.filter(c => !c.retired);
+    // Clear characters no longer in any slot
     for (const c of active) {
       if (!c.court_category) continue;
-      // Check if still assigned
-      const stillAssigned = Object.entries(assignments).some(([cat, id]) => id === c._id && cat === c.court_category);
-      if (!stillAssigned) {
-        await apiPut(`/api/characters/${c._id}`, { court_category: null });
+      const kept = newSlots.some(s => s.charId === String(c._id));
+      if (!kept) {
+        await apiPut(`/api/characters/${c._id}`, { court_category: null, court_title: null });
         c.court_category = null;
+        c.court_title = null;
       }
     }
-    // Assign new categories
-    for (const [cat, charId] of Object.entries(assignments)) {
-      if (!charId) continue;
-      const c = active.find(x => x._id === charId);
-      if (c && c.court_category !== cat) {
-        await apiPut(`/api/characters/${c._id}`, { court_category: cat });
-        c.court_category = cat;
+    // Write new assignments
+    for (const { charId, category, title } of newSlots) {
+      const c = active.find(x => String(x._id) === charId);
+      if (!c) continue;
+      if (c.court_category !== category || c.court_title !== title) {
+        await apiPut(`/api/characters/${c._id}`, { court_category: category, court_title: title });
+        c.court_category = category;
+        c.court_title = title;
       }
     }
     if (status) status.textContent = 'Saved';

@@ -862,6 +862,7 @@ body {
 }
 
 .court-name {
+  font-size: 14px;
   color: var(--txt);
   flex: 1;
 }
@@ -870,6 +871,48 @@ body {
   font-size: 12px;
   color: var(--txt3);
 }
+
+.court-edit-category {
+  margin-bottom: 8px;
+}
+.court-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.court-slot-row .court-edit-sel {
+  flex: 1;
+}
+.court-title-input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 13px;
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  background: var(--surf2);
+  color: var(--txt);
+}
+.court-add-slot-btn {
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  margin-top: 2px;
+}
+.court-add-slot-btn:hover { text-decoration: underline; }
+.court-remove-slot-btn {
+  background: none;
+  border: none;
+  color: var(--txt3);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.court-remove-slot-btn:hover { color: var(--accent); }
 
 .infl-table {
   width: 100%;

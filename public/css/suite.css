@@ -1091,6 +1091,9 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .si-session-label { font-weight: 700; color: var(--txt); flex: 1; }
 .si-stat { color: var(--txt3); }
 .si-status { color: var(--txt3); font-size: 11px; margin-left: auto; }
+.si-eminence-block { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 8px 16px; border-bottom: 1px solid var(--bdr); font-size: 12px; background: var(--surf2); }
+.si-em-label { font-family: var(--fl); color: var(--accent); font-weight: 600; white-space: nowrap; }
+.si-em-val { color: var(--txt); }
 .si-list { display: flex; flex-direction: column; }
 .si-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--bdr); transition: background .1s; }
 .si-row.si-attended { background: var(--surf2); }

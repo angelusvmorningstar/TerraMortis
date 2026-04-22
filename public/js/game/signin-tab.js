@@ -14,6 +14,25 @@ import { displayName, sortName, esc } from '../data/helpers.js';
 
 const PAYMENT_METHODS = ['', 'Cash', 'PayPal', 'PayID (Symon)', 'Transfer (Lyn)', 'Exiles', 'Waived'];
 
+function calcEminence(session, chars) {
+  const attendedIds = new Set(
+    (session?.attendance || []).filter(a => a.attended).map(a => String(a.character_id))
+  );
+  const em = {}, asc = {};
+  for (const c of chars) {
+    if (!attendedIds.has(String(c._id))) continue;
+    const cs = c.status?.city || 0;
+    if (c.clan)     em[c.clan]      = (em[c.clan]      || 0) + cs;
+    if (c.covenant) asc[c.covenant] = (asc[c.covenant] || 0) + cs;
+  }
+  const top2 = (obj) => Object.entries(obj)
+    .filter(([, v]) => v > 0)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 2)
+    .map(([name, total]) => ({ name, total }));
+  return { eminence: top2(em), ascendancy: top2(asc) };
+}
+
 let _session = null;
 let _chars = [];
 let _saveTimer = null;
@@ -80,10 +99,19 @@ function render() {
   const label = _session.session_date + (_session.title ? ' \u2014 ' + _session.title : '');
   const attended = att.filter(a => a.attended).length;
 
+  const { eminence, ascendancy } = calcEminence(_session, _chars);
+  const fmtTop = (arr) => arr.length
+    ? arr.map(e => `${esc(e.name)} (${e.total})`).join(' · ')
+    : '—';
+
   let h = `<div class="si-header">
     <span class="si-session-label">${esc(label)}</span>
     <span class="si-stat">${attended} / ${att.length} attended</span>
     <span class="si-status"></span>
+  </div>
+  <div class="si-eminence-block">
+    <span class="si-em-label">Eminence:</span><span class="si-em-val">${fmtTop(eminence)}</span>
+    <span class="si-em-label">Ascendancy:</span><span class="si-em-val">${fmtTop(ascendancy)}</span>
   </div>`;
 
   h += '<div class="si-list">';
