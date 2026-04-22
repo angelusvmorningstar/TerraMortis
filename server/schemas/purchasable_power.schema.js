@@ -118,8 +118,8 @@ export const purchasablePowerSchema = {
     },
     exclusive: { type: ['string', 'null'] },
 
-    // Merit sub-category (general/influence/domain/standing) — null for non-merits
-    sub_category: { type: ['string', 'null'], enum: ['general', 'influence', 'domain', 'standing', null] },
+    // Sub-category: merits use general/influence/domain/standing; other categories use null or a free string
+    sub_category: { type: ['string', 'null'] },
 
     // Cost & metadata
     xp_fixed:  { type: ['integer', 'null'], minimum: 0 },

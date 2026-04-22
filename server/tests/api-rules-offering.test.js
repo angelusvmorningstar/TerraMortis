@@ -1,5 +1,5 @@
 /**
- * API tests — /api/rules offering field
+ * API tests — /api/rules offering field + sub_category schema
  *
  * Covers:
  *   - PUT /api/rules/:key accepts and persists the offering field (ST)
@@ -7,6 +7,9 @@
  *   - PUT /api/rules/:key with Offering (capital) accepted via UPDATABLE_FIELDS
  *   - Player cannot PUT to /api/rules/:key (403)
  *   - offering null-clears correctly
+ *   - POST rite with sub_category null → 201
+ *   - POST rite with sub_category free string → 201
+ *   - POST rite with merit sub_category value → 201
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -112,5 +115,47 @@ describe('GET /api/rules — rite documents include offering field', () => {
     expect(rite).toBeDefined();
     expect(Object.prototype.hasOwnProperty.call(rite, 'offering') ||
       rite.offering === undefined).toBeTruthy();
+  });
+});
+
+describe('POST /api/rules — sub_category enum relaxed (rites.3)', () => {
+  const subCatKeys = [];
+
+  afterAll(async () => {
+    const col = (await import('../db.js')).getCollection('purchasable_powers');
+    await col.deleteMany({ key: { $in: subCatKeys } });
+  });
+
+  async function postRite(key, sub_category) {
+    subCatKeys.push(key);
+    return request(app)
+      .post('/api/rules')
+      .set('X-Test-User', stUser())
+      .send({
+        key,
+        name: 'Sub-category Test Rite',
+        category: 'rite',
+        parent: 'Theban',
+        rank: 1,
+        cost: '1 WP',
+        sub_category,
+      });
+  }
+
+  it('POST rite with sub_category null → 201', async () => {
+    const res = await postRite('rite-subcat-test-null', null);
+    expect(res.status).toBe(201);
+  });
+
+  it('POST rite with sub_category free string → 201', async () => {
+    const res = await postRite('rite-subcat-test-free', 'Transmutation 3');
+    expect(res.status).toBe(201);
+    expect(res.body.sub_category).toBe('Transmutation 3');
+  });
+
+  it('POST rite with merit sub_category value → 201', async () => {
+    const res = await postRite('rite-subcat-test-merit', 'general');
+    expect(res.status).toBe(201);
+    expect(res.body.sub_category).toBe('general');
   });
 });
