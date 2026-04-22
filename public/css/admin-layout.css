@@ -1748,6 +1748,18 @@ body {
 .dt-status-pending { background: rgba(138, 126, 110, 0.15); color: var(--txt3); }
 .dt-status-approved { background: var(--result-succ-bg); color: var(--result-succ); }
 .dt-status-game { background: var(--accent-a8); color: var(--accent); font-weight: 600; }
+.dt-status-prep { background: var(--surf2); color: var(--txt3); font-weight: 600; }
+.dt-prep-panel { padding: 16px; border-bottom: 1px solid var(--bdr); }
+.dt-prep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.dt-prep-field { display: flex; flex-direction: column; gap: 4px; }
+.dt-lbl { font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--txt3); }
+.dt-prep-early { margin-bottom: 16px; }
+.dt-prep-early-title { font-family: var(--fl); font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+.dt-early-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.dt-prep-add-row { display: flex; gap: 8px; margin-top: 8px; }
+.dt-prep-actions { padding-top: 8px; border-top: 1px solid var(--bdr); }
+.dt-btn-new { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.dt-btn-new:hover { opacity: .85; }
 .dt-status-modified { background: var(--accent-a8); color: var(--accent); }
 .dt-status-rejected { background: var(--crim-a15); color: var(--crim2); }
 .dt-btn-game { border-color: var(--accent); color: var(--accent); }

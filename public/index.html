@@ -70,14 +70,17 @@
     <!-- Desktop mode sidebar (hidden in game mode) -->
     <div id="desktop-sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-title">Terra Mortis</div>
-        <div class="sidebar-sub">Game App</div>
+        <div class="sidebar-header-top">
+          <div class="sidebar-header-text">
+            <div class="sidebar-title">Terra Mortis</div>
+            <div class="sidebar-sub">Game App</div>
+          </div>
+          <button id="sb-collapse-btn" class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar">
+            <svg class="sb-icon-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <svg class="sb-icon-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
         <div class="sidebar-char-sel" id="sidebar-char-sel" style="display:none"></div>
-        <div class="sidebar-actions" id="desktop-sidebar-actions"></div>
-        <button id="sb-collapse-btn" class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar">
-          <svg class="sb-icon-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          <svg class="sb-icon-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
       </div>
       <div id="desktop-sidebar-nav" class="sidebar-nav"></div>
       <div class="sidebar-footer" id="desktop-sidebar-footer"></div>

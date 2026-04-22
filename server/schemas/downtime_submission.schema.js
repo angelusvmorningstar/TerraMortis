@@ -419,9 +419,11 @@ export const downtimeCycleSchema = {
     label:            { type: 'string' },
     title:            { type: 'string' },
     deadline_at:      { type: 'string' },  // ISO timestamp
+    auto_open_at:     { type: 'string' },  // ISO timestamp — when DT form opens to all players
     game_number:      { type: 'integer', minimum: 1 },
-    status:           { type: 'string', enum: ['open', 'closed'] },
+    status:           { type: 'string', enum: ['prep', 'game', 'active', 'open', 'closed'] },
     submission_count: { type: 'integer', minimum: 0 },
+    early_access_player_ids: { type: 'array', items: { type: 'string' } },
     feeding_rights_confirmed: { type: 'boolean' },
     regent_confirmations: {
       type: 'array',

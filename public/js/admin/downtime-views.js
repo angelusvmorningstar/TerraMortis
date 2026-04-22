@@ -215,20 +215,29 @@ function entryActionKey(entry) {
 
 function getCyclePhase(cycle, subs) {
   if (!cycle) return null;
-  if (cycle.status === 'game')   return 0;
-  if (cycle.status === 'active') return 1;
+  if (cycle.status === 'prep')   return 0;
+  if (cycle.status === 'game')   return 1;
+  if (cycle.status === 'active') return 2;
   // closed
   const hasPending = (subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
-  return hasPending ? 2 : 3;
+  return hasPending ? 3 : 4;
 }
 
 function getSubPhases(phase, cycle, subs) {
   switch (phase) {
-    case 0:
+    case 0: {
+      const hasAutoOpen = !!cycle.auto_open_at;
+      const hasDeadline = !!cycle.deadline_at;
+      return [
+        { label: 'Auto-Open Set', done: hasAutoOpen },
+        { label: 'Deadline Set',  done: hasDeadline },
+      ];
+    }
+    case 1:
       return [
         { label: 'Ambience Applied', done: !!cycle.ambience_applied },
       ];
-    case 1: {
+    case 2: {
       const hasSubs = (subs || []).length > 0;
       const deadlinePast = !!(cycle.deadline_at && new Date(cycle.deadline_at) < new Date());
       return [
@@ -237,14 +246,14 @@ function getSubPhases(phase, cycle, subs) {
         { label: 'Deadline Passed',      done: deadlinePast },
       ];
     }
-    case 2: {
+    case 3: {
       const allResolved = !(subs || []).some(s => !s.approval_status || s.approval_status === 'pending');
       return [
         { label: 'Reviewing',    done: allResolved, inProgress: !allResolved },
         { label: 'All Resolved', done: allResolved },
       ];
     }
-    case 3:
+    case 4:
     default:
       return [];
   }
@@ -263,7 +272,7 @@ function renderPhaseRibbon(cycle, subs) {
   }
 
   // Main ribbon
-  const mainSteps = ['City \u0026 Feeding', 'Downtimes', 'ST Processing', 'Push Ready'];
+  const mainSteps = ['DT Prep', 'City & Feeding', 'Downtimes', 'ST Processing', 'Push Ready'];
   mainEl.style.display = '';
   mainEl.innerHTML = mainSteps.map((label, i) => {
     const done   = i < phase;
@@ -299,6 +308,7 @@ export async function initDowntimeView(passedChars) {
     _shellInited = true;
     container.innerHTML = buildShell();
 
+    document.getElementById('dt-new-cycle').addEventListener('click', handleNewCycle);
     document.getElementById('dt-close-cycle').addEventListener('click', handleCloseCycle);
     document.getElementById('dt-export-all').addEventListener('click', handleExportAll);
     document.getElementById('dt-export-json').addEventListener('click', handleExportJson);
@@ -794,6 +804,7 @@ async function loadCycleById(cycleId) {
   cycleReminders = cycle.processing_reminders || [];
   cachedTerritories = null; // refresh territory ambience on next processing render
 
+  const isPrep   = cycle.status === 'prep';
   const isActive = cycle.status === 'active';
   const isGame   = cycle.status === 'game';
   const isClosed = cycle.status === 'closed';
@@ -801,8 +812,8 @@ async function loadCycleById(cycleId) {
     ? new Date(cycle.deadline_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : null;
   const deadlinePast = cycle.deadline_at && new Date(cycle.deadline_at) < new Date();
-  const statusLabel = isActive ? 'active' : isGame ? 'game' : 'closed';
-  const statusCss   = isActive ? 'pending' : isGame ? 'game' : 'approved';
+  const statusLabel = isPrep ? 'prep' : isActive ? 'active' : isGame ? 'game' : 'closed';
+  const statusCss   = isPrep ? 'prep' : isActive ? 'pending' : isGame ? 'game' : 'approved';
   let statusHtml = `<span class="dt-status-badge dt-status-${statusCss}">${statusLabel}</span>` +
     `<span class="domain-count">${cycle.submission_count || 0} submissions</span>`;
   if (deadlineStr) {
@@ -827,6 +838,7 @@ async function loadCycleById(cycleId) {
 
   // ── Phase ribbon (initial render — submissions not yet loaded) ──
   renderPhaseRibbon(cycle, []);
+  renderPrepPanel(cycle);
 
   // Wire deadline input
   document.getElementById('dt-deadline-input')?.addEventListener('change', async e => {
@@ -1371,6 +1383,102 @@ async function processFilePreview(file) {
   renderCityOverview();
   renderInvestigations();
   renderSubmissions();
+}
+
+
+async function handleNewCycle() {
+  const all = await import('../downtime/db.js').then(m => m.getCycles()).catch(() => []);
+  const closedCount = (all || []).filter(c => c.status === 'closed').length;
+  const gameNum = closedCount + 2;
+  if (!confirm('Create a new prep cycle for Downtime ' + gameNum + '?')) return;
+  const { createCycle } = await import('../downtime/db.js');
+  await createCycle(gameNum, { status: 'prep' });
+  await loadAllCycles();
+}
+
+function renderPrepPanel(cycle) {
+  const panel = document.getElementById('dt-prep-panel');
+  if (!panel) return;
+  if (!cycle || cycle.status !== 'prep') { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+
+  const autoVal = cycle.auto_open_at ? isoToLocalInput(cycle.auto_open_at) : '';
+  const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
+
+  const earlyIds = cycle.early_access_player_ids || [];
+  const earlyPlayers = (players || []).filter(p => earlyIds.includes(String(p._id)));
+  const otherPlayers = (players || []).filter(p => !earlyIds.includes(String(p._id)));
+
+  let earlyHtml = earlyPlayers.map(p =>
+    '<div class='dt-early-row'><span>' + esc(p.player_name || p.username || String(p._id)) + '</span>' +
+    '<button class='dt-btn dt-btn-sm dt-early-remove' data-player-id='' + String(p._id) + ''>Remove</button></div>'
+  ).join('');
+
+  let addOpts = otherPlayers.map(p =>
+    '<option value='' + String(p._id) + ''>' + esc(p.player_name || p.username || String(p._id)) + '</option>'
+  ).join('');
+
+  panel.innerHTML = '<div class='dt-prep-grid'>' +
+    '<div class='dt-prep-field'><label class='dt-lbl'>Auto-Open Date/Time</label>' +
+    '<input type='datetime-local' id='dt-auto-open-input' class='dt-deadline-input' value='' + esc(autoVal) + ''></div>' +
+    '<div class='dt-prep-field'><label class='dt-lbl'>Deadline Date/Time</label>' +
+    '<input type='datetime-local' id='dt-prep-deadline-input' class='dt-deadline-input' value='' + esc(deadlineVal) + ''></div>' +
+    '</div>' +
+    '<div class='dt-prep-early'>' +
+    '<div class='dt-prep-early-title'>Early Access Players</div>' +
+    (earlyHtml || '<p class='placeholder'>No early access granted.</p>') +
+    '<div class='dt-prep-add-row'>' +
+    '<select id='dt-early-add-sel'><option value=''>— Add player —</option>' + addOpts + '</select>' +
+    '<button class='dt-btn dt-btn-sm' id='dt-early-add-btn'>Add</button>' +
+    '</div></div>' +
+    '<div class='dt-prep-actions'>' +
+    '<button class='dt-btn' id='dt-open-game-phase'>Open City &amp; Feeding Phase →</button>' +
+    '</div>';
+
+  document.getElementById('dt-auto-open-input')?.addEventListener('change', async e => {
+    const val = e.target.value;
+    await updateCycle(cycle._id, { auto_open_at: val ? new Date(val).toISOString() : null });
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) allCycles[idx].auto_open_at = val ? new Date(val).toISOString() : null;
+    renderPhaseRibbon(allCycles[idx] || cycle, []);
+  });
+
+  document.getElementById('dt-prep-deadline-input')?.addEventListener('change', async e => {
+    const val = e.target.value;
+    await updateCycle(cycle._id, { deadline_at: val ? new Date(val).toISOString() : null });
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
+  });
+
+  document.getElementById('dt-early-add-btn')?.addEventListener('click', async () => {
+    const sel = document.getElementById('dt-early-add-sel');
+    const pid = sel?.value;
+    if (!pid) return;
+    const updated = [...new Set([...earlyIds, pid])];
+    await updateCycle(cycle._id, { early_access_player_ids: updated });
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) allCycles[idx].early_access_player_ids = updated;
+    renderPrepPanel(allCycles[idx] || cycle);
+  });
+
+  panel.querySelectorAll('.dt-early-remove').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const pid = btn.dataset.playerId;
+      const updated = earlyIds.filter(id => id !== pid);
+      await updateCycle(cycle._id, { early_access_player_ids: updated });
+      const idx = allCycles.findIndex(c => c._id === cycle._id);
+      if (idx >= 0) allCycles[idx].early_access_player_ids = updated;
+      renderPrepPanel(allCycles[idx] || cycle);
+    });
+  });
+
+  document.getElementById('dt-open-game-phase')?.addEventListener('click', async () => {
+    if (!confirm('Open City & Feeding phase? This moves the cycle from Prep to game status.')) return;
+    await updateCycle(cycle._id, { status: 'game', game_phase_at: new Date().toISOString() });
+    const idx = allCycles.findIndex(c => c._id === cycle._id);
+    if (idx >= 0) allCycles[idx].status = 'game';
+    await loadCycleById(cycle._id);
+  });
 }
 
 async function handleCloseCycle() {

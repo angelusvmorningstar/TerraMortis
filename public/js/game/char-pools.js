@@ -103,8 +103,9 @@ export function renderCharPools(el, char, onTap) {
     skillHtml += poolBtn(sk, poolTotal, sub, idx, na, roteEligible);
   }
   if (skillHtml) {
-    h += '<div class="gcp-section-hd">Skill Pools</div>';
-    h += '<div class="gcp-pool-grid">' + skillHtml + '</div>';
+    const sc = localStorage.getItem('tm_pool_collapsed_skills') === '1';
+    h += `<div class="gcp-section-hd gcp-section-toggle" data-section="skills">Skill Pools <span class="gcp-chevron${sc ? ' gcp-chevron-collapsed' : ''}">&#8964;</span></div>`;
+    h += `<div class="gcp-pool-grid${sc ? ' gcp-section-collapsed' : ''}">${skillHtml}</div>`;
   }
 
   // ── Discipline power pools (rollable only) ──
@@ -136,8 +137,9 @@ export function renderCharPools(el, char, onTap) {
     discHtml += poolBtn(pw.name, pi.total, sub, idx, discNa);
   }
   if (discHtml) {
-    h += '<div class="gcp-section-hd">Discipline Pools</div>';
-    h += '<div class="gcp-pool-grid">' + discHtml + '</div>';
+    const dc = localStorage.getItem('tm_pool_collapsed_discs') === '1';
+    h += `<div class="gcp-section-hd gcp-section-toggle" data-section="discs">Discipline Pools <span class="gcp-chevron${dc ? ' gcp-chevron-collapsed' : ''}">&#8964;</span></div>`;
+    h += `<div class="gcp-pool-grid${dc ? ' gcp-section-collapsed' : ''}">${discHtml}</div>`;
   }
 
   h += '</div>';
@@ -146,6 +148,18 @@ export function renderCharPools(el, char, onTap) {
   el.querySelectorAll('.gcp-pool-btn').forEach(btn => {
     const idx = Number(btn.dataset.idx);
     btn.addEventListener('click', () => onTap(_pools[idx]));
+  });
+
+  el.querySelectorAll('.gcp-section-toggle').forEach(hd => {
+    hd.addEventListener('click', () => {
+      const section = hd.dataset.section;
+      const grid = hd.nextElementSibling;
+      const key = section === 'skills' ? 'tm_pool_collapsed_skills' : 'tm_pool_collapsed_discs';
+      const nowCollapsed = !grid.classList.contains('gcp-section-collapsed');
+      grid.classList.toggle('gcp-section-collapsed', nowCollapsed);
+      hd.querySelector('.gcp-chevron').classList.toggle('gcp-chevron-collapsed', nowCollapsed);
+      localStorage.setItem(key, nowCollapsed ? '1' : '0');
+    });
   });
 }
 

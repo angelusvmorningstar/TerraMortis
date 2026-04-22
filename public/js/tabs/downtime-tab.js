@@ -4,6 +4,7 @@ import { apiGet } from '../data/api.js';
 import { esc } from '../data/helpers.js';
 import { renderDowntimeTab } from './downtime-form.js';
 import { renderOutcomeWithCards } from './story-tab.js';
+import { isSTRole, getUser } from '../auth/discord.js';
 
 export async function initDowntimeTab(el, char, territories = []) {
   el.innerHTML = '<p class="placeholder-msg">Loading\u2026</p>';
@@ -25,7 +26,18 @@ export async function initDowntimeTab(el, char, territories = []) {
   }
 
   const charId = String(char._id);
-  const activeCycle = cycles.find(c => c.status === 'open' || c.status === 'active') || null;
+  const isST = isSTRole();
+  const playerId = getUser()?.player_id ? String(getUser().player_id) : null;
+
+  // Find the most relevant cycle: active/open first, then prep
+  const activeCycle = cycles.find(c => c.status === 'open' || c.status === 'active') ||
+                      cycles.find(c => c.status === 'prep') || null;
+
+  // Access gate: STs always pass; players need early access or auto_open_at reached
+  const inEarlyAccess = playerId && (activeCycle?.early_access_player_ids || []).includes(playerId);
+  const autoOpenPassed = activeCycle?.auto_open_at && new Date(activeCycle.auto_open_at) <= new Date();
+  const cycleIsOpen = activeCycle?.status === 'open' || activeCycle?.status === 'active';
+  const canAccess = isST || inEarlyAccess || autoOpenPassed || cycleIsOpen;
   const mySubs = subs.filter(s => String(s.character_id) === charId);
   const myActiveSub = activeCycle
     ? mySubs.find(s => String(s.cycle_id) === String(activeCycle._id)) || null
@@ -44,7 +56,24 @@ export async function initDowntimeTab(el, char, territories = []) {
   const currentZone = document.createElement('div');
   currentZone.className = 'dt-current-zone';
 
-  if (activeCycle) {
+  if (activeCycle && !canAccess) {
+    // DT not yet open for this player — show countdown or locked message
+    if (activeCycle.auto_open_at) {
+      const openDate = new Date(activeCycle.auto_open_at);
+      const label = openDate.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      currentZone.innerHTML = `<div class="dt-state-card">
+        <p class="dt-state-title">Downtimes opening soon</p>
+        <p class="dt-state-body">Opens <strong>${esc(label)}</strong></p>
+        <p class="dt-countdown" data-open-at="${esc(activeCycle.auto_open_at)}"></p>
+      </div>`;
+      _startCountdown(currentZone.querySelector('.dt-countdown'), openDate);
+    } else {
+      currentZone.innerHTML = `<div class="dt-state-card">
+        <p class="dt-state-title">Downtimes are not yet open</p>
+        <p class="dt-state-body">Your ST will open downtime submissions soon.</p>
+      </div>`;
+    }
+  } else if (activeCycle) {
     const cycleLabel = activeCycle.label || `Cycle ${String(activeCycle._id).slice(-4)}`;
     const forceForm = location.hostname === 'localhost';
     if (!myActiveSub || forceForm) {
@@ -137,4 +166,21 @@ function _cycleDate(sub, cycles) {
   const raw = cycle.closed_at || cycle.deadline_at;
   if (!raw) return '';
   return new Date(raw).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' });
+}
+
+let _countdownInterval = null;
+function _startCountdown(el, openDate) {
+  if (_countdownInterval) clearInterval(_countdownInterval);
+  const update = () => {
+    if (!el || !el.isConnected) { clearInterval(_countdownInterval); return; }
+    const diff = openDate - new Date();
+    if (diff <= 0) { el.textContent = 'Opening now — refresh the page.'; clearInterval(_countdownInterval); return; }
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    el.textContent = (d > 0 ? d + 'd ' : '') + h + 'h ' + m + 'm ' + s + 's';
+  };
+  update();
+  _countdownInterval = setInterval(update, 1000);
 }

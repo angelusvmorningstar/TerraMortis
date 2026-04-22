@@ -793,6 +793,10 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .gcp-stat-v{font-family:var(--fl);font-size:20px;color:var(--gold2);line-height:1;}
 .gcp-stat-l{font-family:var(--fl);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-top:3px;text-align:center;}
 .gcp-section-hd{font-family:var(--fl);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:8px 0 6px;}
+.gcp-section-toggle{cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;}
+.gcp-chevron{font-size:14px;line-height:1;transition:transform .15s;}
+.gcp-chevron-collapsed{transform:rotate(-90deg);}
+.gcp-section-collapsed{display:none;}
 .gcp-pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
 .gcp-pool-btn{display:flex;flex-direction:column;align-items:flex-start;padding:8px 10px;background:var(--surf);border:1px solid var(--bdr);border-radius:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left;width:100%;}
 .gcp-pool-btn:active{background:var(--surf2);border-color:var(--gold-a30);}
@@ -1728,13 +1732,23 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
   .status-split { flex-direction: row; gap: 24px; }
 }
 
-/* ── DT Submission — dark theme override (css-audit follow-up) ── */
+/* ── DT Submission + Primer — dark theme override (css-audit follow-up) ── */
 /* .reading-pane in game app = dark theme, not parchment */
 #t-downtime .reading-pane,
-#t-feeding .reading-pane {
+#t-feeding .reading-pane,
+#t-primer .reading-pane {
   background: var(--bg);
   color: var(--txt);
+  border-color: var(--bdr);
 }
+/* Primer headings — re-apply dark-safe tokens (overrides undefined --rp-head) */
+#t-primer .reading-pane h1,
+#t-primer .reading-pane h2 { color: var(--accent); }
+#t-primer .reading-pane h3,
+#t-primer .reading-pane h4 { color: var(--txt2); }
+#t-primer .reading-pane p,
+#t-primer .reading-pane ul,
+#t-primer .reading-pane ol { color: var(--txt); }
 
 /* Override parchment form elements → dark theme tokens */
 #t-downtime .qf-input,
@@ -1871,6 +1885,12 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   border-bottom: 1px solid var(--bdr);
   flex-shrink: 0;
 }
+#desktop-sidebar .sidebar-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#desktop-sidebar .sidebar-header-text { flex: 1; }
 #desktop-sidebar .sidebar-title { font-family: var(--fh); font-size: 15px; color: var(--accent); letter-spacing: .04em; }
 #desktop-sidebar .sidebar-sub { font-family: var(--fl); font-size: 10px; color: var(--txt3); text-transform: uppercase; letter-spacing: .14em; margin-top: 3px; }
 /* Sidebar character selector dropdown */

@@ -1964,7 +1964,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 }
 .dt-residency-locked {
   flex: 1;
-  color: var(--text, #ddd);
+  color: var(--txt);
   font-style: italic;
 }
 .dt-residency-select { flex: 1; }

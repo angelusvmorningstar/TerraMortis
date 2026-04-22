@@ -246,6 +246,7 @@ const NAV_ALIAS = {
 // Icons are inlined (not referencing _svg) to avoid declaration-order issues.
 const NAV_ITEMS = [
   // Sheet split into Stats / Skills / Powers for phone UX
+  { id: 'dice',      label: 'Dice',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'dice' },
   { id: 'stats',     label: 'Stats',     icon: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>', goTab: 'stats' },
   { id: 'skills',    label: 'Skills',    icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', goTab: 'skills' },
   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
@@ -1706,17 +1707,8 @@ function toggleDesktopMode() {
 }
 
 function _syncSidebarActions() {
-  const actionsEl = document.getElementById('desktop-sidebar-actions');
-  if (!actionsEl) return;
-  const isDesktop = document.body.classList.contains('desktop-mode');
-  if (!isDesktop) { actionsEl.innerHTML = ''; return; }
-  // Collapse button is hardcoded in index.html (#sb-collapse-btn) — don't create another.
-  // Only clone the admin link if visible.
-  actionsEl.innerHTML = '';
-  const adminLink = document.getElementById('nav-admin');
-  if (adminLink && adminLink.style.display !== 'none') {
-    actionsEl.appendChild(adminLink.cloneNode(true));
-  }
+  // ST Admin button lives in the sidebar footer (renderDesktopSidebar).
+  // Nothing else to sync here.
 }
 
 function _updateDesktopIcon() {
