@@ -26,7 +26,7 @@ import {
 } from '../data/accessors.js';
 import { xpEarned, xpSpent, xpLeft } from '../editor/xp.js';
 import { trackerRead, trackerReadRaw, trackerAdj, trackerWriteField } from '../game/tracker.js';
-import { calcTotalInfluence, influenceBreakdown } from '../editor/domain.js';
+import { calcTotalInfluence, influenceBreakdown, ssjHerdBonus, flockHerdBonus } from '../editor/domain.js';
 import { getEquipment, weaponPoolLabel, effectiveDefence } from '../data/equipment.js';
 import { DICE_ICON_SVG, canRollDice } from './dice-modal.js';
 import { getPool } from '../shared/pools.js';
@@ -584,7 +584,11 @@ export function renderSheet() {
         html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotH}<span class="trait-qual" style="font-size:10px">Shared</span></div></div></div></div>`;
       } else {
         const purch = (m.cp || 0) + (m.xp || 0);
-        const bon = Math.max(0, (m.rating || 0) - purch);
+        const ssjB = m.name === 'Herd' ? ssjHerdBonus(c) : 0;
+        const flockB = m.name === 'Herd' ? flockHerdBonus(c) : 0;
+        const derived = ssjB + flockB;
+        const totalDots = purch + derived + Math.max(0, (m.rating || 0) - purch);
+        const bon = Math.max(0, totalDots - purch);
         html += `<div class="merit-plain"><div class="trait-row"><div class="trait-main"><span class="trait-name">${m.name}</span><div class="trait-right">${dotsMixed(purch, bon)}</div></div></div></div>`;
       }
     });
