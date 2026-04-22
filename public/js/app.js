@@ -1129,10 +1129,10 @@ async function boot() {
       _initDesktopMode();
       _updateThemeIcon();
 
-      // Auto-open character for players so Sheet/Downtime tabs work immediately,
-      // and pre-fill the dice tab so the roller is ready without a manual pick.
-      if (getRole() !== 'st' && editorState.chars.length > 0) {
-        // Restore saved character selection, or default to first
+      // Auto-open a character so split tabs (stats/skills/powers) and the
+      // dice roller are ready immediately. Applies to all roles on phone;
+      // players and STs alike need a sheetChar set for the sheet to render.
+      if (editorState.chars.length > 0) {
         const savedCharId = localStorage.getItem('tm_active_char');
         const savedIdx = savedCharId
           ? editorState.chars.findIndex(c => String(c._id) === savedCharId)
@@ -1142,7 +1142,7 @@ async function boot() {
         pickChar(editorState.chars[charIdx]);
       }
       // Desktop: STs land on character grid, players land on sheet.
-      // Phone: players land on stats (split tab view).
+      // Phone: everyone lands on stats (split tab view).
       const isDesktop = DESKTOP_MQ.matches;
       const isPlayer = getRole() !== 'st';
       goTab(isDesktop ? (isPlayer ? 'sheets' : 'chars') : 'stats');
