@@ -32,7 +32,7 @@ This story defines the new schema, writes the MongoDB migration, and updates ser
 6. Every power object (`powers[]`) has a `rule_key` field; devotions gain an `xp` field (populated from `purchasable_powers.xp_fixed` during migration)
 7. `merit_creation`, `attr_creation`, `skill_creation`, `disc_creation` fields are removed from the schema entirely
 8. `fighting_styles` entries gain `rule_key`; existing inline fields unchanged
-9. Migration script transforms all existing characters in `tm_suite_dev` in place
+9. Migration script transforms all existing characters in `tm_suite` in place
 10. Migration is idempotent (safe to run twice)
 11. Updated `character.schema.js` rejects documents with old parallel fields
 12. All 31 characters pass validation after migration
@@ -53,7 +53,7 @@ This story defines the new schema, writes the MongoDB migration, and updates ser
 
 - [x] Task 2: Write migration script (AC: 9, 10, 12)
   - [x] Create `server/scripts/migrate-schema-v3.js`
-  - [x] Connect to `tm_suite_dev` via `MONGODB_URI`
+  - [x] Connect to `tm_suite` via `MONGODB_URI`
   - [x] For each character document:
     - [x] **Merits**: merge `merit_creation[i]` fields into `merits[i]`; generate `rule_key` by slugifying merit name and looking up in `purchasable_powers`; delete `merit_creation`
     - [x] **Attributes**: merge `attr_creation[attrName]` fields into `attributes[attrName]`; set `rule_key` from `purchasable_powers` lookup; delete `attr_creation`
@@ -75,7 +75,7 @@ This story defines the new schema, writes the MongoDB migration, and updates ser
   - [x] Verify PUT and POST routes pass with new schema
 
 - [x] Task 4: Validate migration (AC: 10, 12)
-  - [x] Run migration against `tm_suite_dev`
+  - [x] Run migration against `tm_suite`
   - [x] Run migration a second time to verify idempotency
   - [x] Spot-check 5 characters: confirm merit dot totals match pre-migration
   - [x] Spot-check XP spent totals match pre-migration for 5 characters
@@ -168,7 +168,7 @@ Read `server/schemas/character.schema.js` first — it contains the full current
 
 Before running the migration, back up the collection:
 ```bash
-mongodump --uri="$MONGODB_URI" --db=tm_suite_dev --collection=characters --out=./backup-pre-v3
+mongodump --uri="$MONGODB_URI" --db=tm_suite --collection=characters --out=./backup-pre-v3
 ```
 The migration script must use a MongoDB session/transaction so that a validation failure on any character results in zero writes (all-or-nothing).
 
@@ -187,7 +187,7 @@ The migration script must use a MongoDB session/transaction so that a validation
 Claude Opus 4.6
 
 ### Debug Log References
-- Dry run migration passed for 2 characters in tm_suite_dev
+- Dry run migration passed for 2 characters in tm_suite
 - Second run confirmed idempotency (both characters skipped)
 - Spot-check confirmed: disciplines as objects, merits with inline cp/xp/free/grant pools, rule_keys resolved from 620 purchasable_powers
 
@@ -197,7 +197,7 @@ Claude Opus 4.6
 - Migration script handles all object types: attributes, skills, disciplines (int→object), merits (parallel array merge), powers (rule_key + xp for devotions/rites), fighting styles
 - Legacy `fighting_styles.up` → `cp` migration removed from PUT route (no longer needed post-v3)
 - `additionalProperties: true` kept at top level (existing behaviour) — schema rejects old fields via their absence from properties, but doesn't hard-block unknown fields on the document root
-- Note: tm_suite_dev has only 2 characters currently; full 31-character validation will occur when data is re-seeded or on production migration
+- Note: tm_suite has only 2 characters currently; full 31-character validation will occur when data is re-seeded or on production migration
 - Task 3 subtask "Remove exclusion list if still referencing old fields": the exclusion list (`_id`, `_gameXP`, `_grant_pools`, etc.) references transient client-side computed fields, not old creation fields — no change needed
 - Task 4 spot-check: only 2 characters available (not 5), but both verified correct
 
@@ -229,7 +229,7 @@ Claude Opus 4.6
 | AC9: Migration transforms in place | PASS | replaceOne within transaction. |
 | AC10: Idempotent | PASS | Checks discipline type, merit field existence, power rule_key. Second run skips. |
 | AC11: Schema rejects old parallel fields | NOT MET | additionalProperties: true at top level — old fields tolerated, not rejected. |
-| AC12: All 31 characters pass validation | PARTIAL | Only 2 characters in tm_suite_dev. Full 31 not validated. |
+| AC12: All 31 characters pass validation | PARTIAL | Only 2 characters in tm_suite. Full 31 not validated. |
 
 #### Findings Summary
 

@@ -83,12 +83,12 @@ Import historical content into the player-facing Chronicles and Ordeals systems.
 
 ### Acceptance Criteria
 
-1. Ordeal data from `tm_suite` is verified present in `tm_suite_dev` (active database)
+1. Ordeal data from `tm_suite` is verified present in `tm_suite` (active database)
 2. No ordeal completions are missing from any character
 3. XP totals reflect correct ordeal data
 
 ### Dev Notes
 
-- Investigate: run a comparison query between tm_suite and tm_suite_dev ordeal records
+- Investigate: run a comparison query between tm_suite and tm_suite ordeal records
 - May be a simple data copy / migration script rather than a code change
 - Confirm which database is active in production (likely `tm_suite` — verify)

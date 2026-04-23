@@ -309,7 +309,7 @@ cd server
 MONGODB_URI="<connection string>" node scripts/migrate-status-unification.js
 ```
 
-Run against `tm_suite_dev` first, verify output, then run against `tm_suite` (production). The idempotency guard makes a double-run safe.
+Run against `tm_suite` first, verify output, then run against `tm_suite` (production). The idempotency guard makes a double-run safe.
 
 ---
 

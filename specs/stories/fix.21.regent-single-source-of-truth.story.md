@@ -41,7 +41,7 @@ There is no cross-validation. Multiple characters could have `regent_territory: 
   - [ ] Remove `regent_territory` and `regent_lieutenant` from `server/schemas/character.schema.js` properties
   - [ ] Update `server/schemas/territory.schema.js`: rename `regent` → `regent_id`, `lieutenant` → `lieutenant_id`
   - [ ] Create `server/scripts/migrate-regent-to-id.js`:
-    - Connect to `tm_suite_dev` via `MONGODB_URI`
+    - Connect to `tm_suite` via `MONGODB_URI`
     - Load all characters (name, moniker, _id)
     - For each territory with a `regent` name string: find matching character by `displayName` or `moniker` or `name`, replace `regent` with `regent_id` set to character `_id`, `$unset` old `regent` field. If no character matches (retired/deleted), set `regent_id: null` and log a warning. Same for `lieutenant` → `lieutenant_id`.
     - `$unset` `regent_territory` and `regent_lieutenant` from all character documents

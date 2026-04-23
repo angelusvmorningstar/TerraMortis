@@ -9,7 +9,7 @@
  *   cd server
  *   MONGODB_URI="mongodb+srv://..." node scripts/migrate-status-unification.js
  *   # Or with explicit db name:
- *   MONGODB_URI="mongodb+srv://..." DB_NAME=tm_suite_dev node scripts/migrate-status-unification.js
+ *   MONGODB_URI="mongodb+srv://..." DB_NAME=tm_suite node scripts/migrate-status-unification.js
  */
 
 import { MongoClient } from 'mongodb';
@@ -41,7 +41,7 @@ async function migrate() {
   const uri = process.env.MONGODB_URI;
   if (!uri) { console.error('MONGODB_URI not set'); process.exit(1); }
 
-  const dbName = process.env.DB_NAME || 'tm_suite_dev';
+  const dbName = process.env.DB_NAME || 'tm_suite';
   console.log(`Connecting to ${dbName}...`);
 
   const client = new MongoClient(uri);

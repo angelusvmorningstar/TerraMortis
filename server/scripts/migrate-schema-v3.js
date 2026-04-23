@@ -209,7 +209,7 @@ async function main() {
   const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
   try {
     await client.connect();
-    const db = client.db('tm_suite_dev');
+    const db = client.db('tm_suite');
 
     // ── Build rule_key lookup from purchasable_powers ──
     const rulesCol = db.collection('purchasable_powers');
