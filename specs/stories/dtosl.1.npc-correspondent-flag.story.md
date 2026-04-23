@@ -1,7 +1,7 @@
 ---
 id: dtosl.1
 epic: dt-off-screen-life
-status: ready-for-dev
+status: review
 priority: high
 depends_on: []
 ---

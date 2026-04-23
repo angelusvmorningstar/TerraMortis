@@ -7809,6 +7809,9 @@ function renderNpcs() {
         status: el.querySelector(`#dt-npc-status-${esc(formId)}`)?.value || 'active',
         notes: el.querySelector(`#dt-npc-notes-${esc(formId)}`)?.value.trim() || '',
         linked_cycle_id: selectedCycleId || null,
+        // DTOSL.1: correspondent flag — ST-managed, gates visibility in
+        // the Personal Story Correspondence dropdown on player DT forms.
+        is_correspondent: !!el.querySelector(`#dt-npc-correspondent-${esc(formId)}`)?.checked,
       };
       try {
         if (formId === 'new') {
@@ -7848,6 +7851,7 @@ function renderNpcCard(npc) {
 function renderNpcForm(npc) {
   const id = npc?._id || 'new';
   const v = (f) => esc(npc?.[f] || '');
+  const isCorrespondent = !!npc?.is_correspondent;
   let h = `<div class="dt-npc-form">`;
   h += `<input class="dt-inv-input" id="dt-npc-name-${id}" placeholder="Name *" value="${v('name')}">`;
   h += `<textarea class="dt-narr-textarea dt-narr-textarea-sm" id="dt-npc-desc-${id}" placeholder="Description">${v('description')}</textarea>`;
@@ -7857,6 +7861,9 @@ function renderNpcForm(npc) {
     h += `<option value="${s}"${npc?.status === s ? ' selected' : ''}>${s}</option>`;
   }
   h += '</select>';
+  // DTOSL.1: correspondent toggle — gates inclusion in the Off-Screen Life
+  // Correspondence dropdown on the player DT form.
+  h += `<label class="dt-npc-correspondent-label"><input type="checkbox" id="dt-npc-correspondent-${id}"${isCorrespondent ? ' checked' : ''}> Correspondent</label>`;
   h += `<button class="dt-btn dt-npc-save" data-form-id="${id}">Save</button>`;
   h += `<button class="dt-btn dt-btn-muted dt-npc-cancel">Cancel</button>`;
   h += '</div>';

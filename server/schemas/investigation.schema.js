@@ -49,10 +49,27 @@ export const npcSchema = {
   properties: {
     name:                { type: 'string', minLength: 1 },
     description:         { type: 'string' },
-    status:              { type: 'string', enum: ['active', 'inactive', 'destroyed'] },
+    status:              { type: 'string', enum: ['active', 'inactive', 'destroyed', 'pending', 'archived'] },
     linked_character_ids:{ type: 'array', items: { type: 'string' } },
     linked_cycle_id:     { type: ['string', 'null'] },
     notes:               { type: 'string' },
+    // DTOSL.1: ST-managed flag marking an NPC as available in the
+    // Personal Story "Correspondence" dropdown on the DT form.
+    is_correspondent:    { type: 'boolean' },
+    // DTOSL.3: per-character list of character IDs for which this NPC
+    // has been ST-suggested. Players see Confirm/Reject on their DT form.
+    st_suggested_for:    { type: 'array', items: { type: 'string' } },
+    // DTOSL.5: populated when a player creates an NPC via the quick-add
+    // endpoint; ST reviews and promotes to status:'active'.
+    created_by: {
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        type:         { type: 'string', enum: ['player', 'st'] },
+        player_id:    { type: ['string', 'null'] },
+        character_id: { type: ['string', 'null'] },
+      },
+    },
     created_at:          { type: 'string' },
     updated_at:          { type: 'string' },
   },
