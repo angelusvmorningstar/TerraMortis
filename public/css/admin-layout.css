@@ -6620,6 +6620,8 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success
 .reg-cta-banner { background: rgba(224,196,122,0.08); border: 1px solid rgba(224,196,122,0.35); border-radius: 4px; color: var(--txt2); font-size: 13px; margin-bottom: 14px; padding: 12px 14px; }
 .reg-confirmed-chip { background: rgba(60,180,80,0.15); border: 1px solid rgba(60,180,80,0.35); border-radius: 10px; color: var(--reg-confirmed-fg); font-size: 11px; padding: 2px 8px; white-space: nowrap; }
 .reg-confirmed-badge { color: var(--reg-confirmed-fg); font-size: 12px; }
+/* Lock indicator: this character has already fed here this cycle. */
+.reg-locked-chip { background: var(--gold-a12); border: 1px solid var(--gold-a30); border-radius: 10px; color: var(--gold); font-size: 11px; padding: 2px 8px; white-space: nowrap; cursor: help; }
 .terr-confirm-chip { border-radius: 10px; display: inline-block; font-size: 11px; margin-top: 2px; padding: 2px 8px; }
 .terr-confirm-chip--confirmed { background: rgba(60,180,80,0.12); border: 1px solid rgba(60,180,80,0.3); color: var(--reg-confirmed-fg); }
 .terr-confirm-chip--pending { background: var(--surf); border: 1px solid var(--bdr2); color: var(--txt3); }

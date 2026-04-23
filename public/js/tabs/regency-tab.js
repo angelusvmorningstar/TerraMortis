@@ -8,16 +8,35 @@
  * or the feeding_rights array sent to the API.
  */
 
-import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { apiGet, apiPost, apiPatch } from '../data/api.js';
 import { esc, displayName, findRegentTerritory } from '../data/helpers.js';
 import { TERRITORY_DATA, AMBIENCE_CAP } from './downtime-data.js';
 
 const MAX_FEEDING_POSITION = 12; // maximum position index to scan (regent=1, lt=2, additional 3-12)
 
+// Mirrors server/utils/territory-slugs.js — maps submission feeding_territories
+// slug variants to canonical territory.id values.
+const TERRITORY_SLUG_ALIASES = {
+  the_academy: 'academy',
+  the_harbour: 'harbour',
+  the_city_harbour: 'harbour',
+  the_dockyards: 'dockyards',
+  the_docklands: 'dockyards',
+  the_second_city: 'secondcity',
+  the_north_shore: 'northshore',
+  the_northern_shore: 'northshore',
+};
+function _matchesTerritory(feedingSlug, terrId) {
+  if (!feedingSlug || !terrId) return false;
+  if (feedingSlug === terrId) return true;
+  return TERRITORY_SLUG_ALIASES[feedingSlug] === terrId;
+}
+
 let currentChar = null;
 let _territories = [];
 let allCharNames = [];
 let _activeCycle = null;
+let _lockedCharIds = new Set();  // character IDs that cannot be removed this cycle
 
 function _regInfo() { return findRegentTerritory(_territories, currentChar); }
 
@@ -47,7 +66,41 @@ export async function renderRegencyTab(container, char, territories) {
     _activeCycle = sorted.find(c => c.status === 'active') || null;
   } catch { _activeCycle = null; }
 
+  // Compute locked character IDs from this cycle's submitted downtimes
+  await _computeLocked();
+
   render(container);
+}
+
+// Populate _lockedCharIds with character IDs who have submitted a DT this
+// cycle marked as 'resident' on this regent's territory. These characters
+// cannot be removed from feeding_rights (enforced server-side; mirrored here
+// for immediate UI disable state).
+async function _computeLocked() {
+  _lockedCharIds = new Set();
+  if (!_activeCycle?._id) return;
+  const ri = _regInfo();
+  if (!ri?.territoryId) return;
+
+  try {
+    const subs = await apiGet(`/api/downtime_submissions?cycle_id=${encodeURIComponent(_activeCycle._id)}`);
+    for (const sub of (subs || [])) {
+      if (sub.status !== 'submitted') continue;
+      const raw = sub?.responses?.feeding_territories;
+      if (!raw) continue;
+      let grid;
+      try { grid = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { continue; }
+      if (!grid || typeof grid !== 'object') continue;
+      for (const [slug, state] of Object.entries(grid)) {
+        if (state !== 'resident') continue;
+        if (_matchesTerritory(slug, ri.territoryId)) {
+          _lockedCharIds.add(String(sub.character_id));
+        }
+      }
+    }
+  } catch {
+    // Non-fatal; tab still renders without lock chips
+  }
 }
 
 function getRegentCap() {
@@ -123,6 +176,7 @@ function render(container) {
     const rowClass = overCap ? 'dt-residency-row dt-over-cap' : 'dt-residency-row';
     const savedVal = additionalRights[i - loopStart] || '';
     const isConfirmedSlot = confirmedRights.includes(savedVal) && savedVal;
+    const isLocked = savedVal && _lockedCharIds.has(String(savedVal));
 
     h += `<div class="${rowClass}">`;
     h += `<span class="dt-residency-label">Feeding Right ${i}</span>`;
@@ -133,6 +187,13 @@ function render(container) {
       h += `<option value="${esc(savedVal)}" selected>${esc(confirmedName)}</option>`;
       h += '</select>';
       h += '<span class="reg-confirmed-chip">Confirmed</span>';
+    } else if (isLocked) {
+      const lockedChar = allCharNames.find(c => String(c._id) === savedVal);
+      const lockedName = lockedChar ? displayName(lockedChar) : savedVal;
+      h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}" disabled>`;
+      h += `<option value="${esc(savedVal)}" selected>${esc(lockedName)}</option>`;
+      h += '</select>';
+      h += '<span class="reg-locked-chip" title="This character has fed here this cycle and cannot be removed until the cycle closes.">Fed this cycle</span>';
     } else {
       h += `<select id="reg-slot-${i}" class="qf-select dt-residency-select" data-residency-slot="${i}">`;
       h += '<option value="">— None —</option>';
@@ -206,8 +267,16 @@ async function saveRegency() {
     if (el.value) feedingRights.push(el.value);
   }
 
+  // Include any locked entries that the disabled select omitted from the
+  // DOM collection — they must remain in the saved array.
+  for (const lockedId of _lockedCharIds) {
+    if (!feedingRights.includes(lockedId)) feedingRights.push(lockedId);
+  }
+
   try {
-    await apiPost('/api/territories', { id: ri.territoryId, feeding_rights: feedingRights });
+    await apiPatch(`/api/territories/${encodeURIComponent(ri.territoryId)}/feeding-rights`, {
+      feeding_rights: feedingRights,
+    });
 
     // Update local territory doc so display reflects saved state
     const td = _territories.find(t => t.id === ri.territoryId);
@@ -215,7 +284,15 @@ async function saveRegency() {
 
     if (statusEl) { statusEl.textContent = 'Saved'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
   } catch (err) {
-    if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+    // Backend returns { error, message, locked } for 409s. The generic error
+    // string from api.js carries the message; surface a clearer hint for the
+    // locked case.
+    const msg = err.message || 'Save failed';
+    if (/already fed this cycle/i.test(msg)) {
+      if (statusEl) statusEl.textContent = 'Cannot remove a character who has already fed here this cycle.';
+    } else {
+      if (statusEl) statusEl.textContent = 'Save failed: ' + msg;
+    }
   }
 }
 
