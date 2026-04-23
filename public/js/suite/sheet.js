@@ -369,15 +369,17 @@ export function renderSheet() {
       const naLabel = na ? '9-Again' : ptNa ? '9-Again (PT)' : ohmNa ? '9-Again (OHM)' : '';
       const _diceBtn = (_showDice && hasDots) ? `<span class="skill-dice-btn" onclick="openDiceModal('skill','${s}')" title="Roll ${s}">${DICE_ICON_SVG}</span>` : '';
       html += `<div class="skill-row${hasDots ? ' has-dots' : ''}">
-        <div class="skill-name-wrap">
-          <span class="skill-name">${s}</span>
-          ${sp ? `<span class="skill-spec">${sp}</span>` : ''}
+        <div class="skill-row-top">
+          <div class="skill-name-wrap">
+            <span class="skill-name">${s}</span>
+            ${sp ? `<span class="skill-spec">${sp}</span>` : ''}
+          </div>
+          <div class="skill-dots-wrap">
+            <span class="${hasDots ? 'skill-dots' : 'skill-zero'}">${dotStr}</span>
+            ${naLabel ? `<span class="skill-na${ptNa || ohmNa ? ' pt-na' : ''}">${naLabel}</span>` : ''}
+          </div>
         </div>
-        <div class="skill-dots-wrap">
-          <span class="${hasDots ? 'skill-dots' : 'skill-zero'}">${dotStr}</span>
-          ${naLabel ? `<span class="skill-na${ptNa || ohmNa ? ' pt-na' : ''}">${naLabel}</span>` : ''}
-        </div>
-        ${_diceBtn}
+        ${_diceBtn ? `<div class="skill-row-actions">${_diceBtn}</div>` : ''}
       </div>`;
     });
     html += `</div>`;
