@@ -12,7 +12,29 @@ function parseId(id) {
   try { return new ObjectId(id); } catch { return null; }
 }
 
-// All NPC routes are ST-only
+// DTOSL.2: player-readable endpoint (must register BEFORE the ST-only
+// router.use below). Returns NPCs linked to the given character. The
+// caller must own the character (character_ids contains the id). ST
+// bypasses the ownership check.
+router.get('/for-character/:characterId', async (req, res) => {
+  const { characterId } = req.params;
+  const userCharIds = (req.user?.character_ids || []).map(String);
+  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
+  if (!isSt && !userCharIds.includes(String(characterId))) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+  const filter = {
+    linked_character_ids: String(characterId),
+    status: { $in: ['active', 'pending'] },
+  };
+  if (req.query.is_correspondent === 'true') {
+    filter.is_correspondent = true;
+  }
+  const docs = await col().find(filter).sort({ name: 1 }).toArray();
+  res.json(docs);
+});
+
+// All other NPC routes are ST-only
 router.use(requireRole('st'));
 
 // GET /api/npcs — list all, optionally filtered by cycle_id

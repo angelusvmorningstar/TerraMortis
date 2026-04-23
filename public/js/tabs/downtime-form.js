@@ -45,6 +45,7 @@ let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
+let _linkedNpcs = [];   // DTOSL.2: NPCs linked to current character (all statuses for Other dropdown)
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
@@ -332,7 +333,7 @@ function collectResponses() {
     }
   }
 
-  // Personal story fields
+  // Personal story fields (legacy keys kept for back-compat with ST admin views)
   const psNpcId   = document.getElementById('dt-personal_story_npc_id');
   const psNpcName = document.getElementById('dt-personal_story_npc_name');
   const psNote    = document.getElementById('dt-personal_story_note');
@@ -341,6 +342,16 @@ function collectResponses() {
   responses['personal_story_npc_name'] = psNpcName ? psNpcName.value : '';
   responses['personal_story_note']     = psNote    ? psNote.value    : '';
   responses['personal_story_direction'] = psDir    ? psDir.value     : 'continue';
+
+  // DTOSL.2/.4: structured Off-Screen Life choice + target + moment
+  const oslChoice     = document.getElementById('dt-osl_choice');
+  const oslTargetId   = document.getElementById('dt-osl_target_id');
+  const oslTargetType = document.getElementById('dt-osl_target_type');
+  const oslMoment     = document.getElementById('dt-osl_moment');
+  responses['osl_choice']      = oslChoice     ? oslChoice.value     : '';
+  responses['osl_target_id']   = oslTargetId   ? oslTargetId.value   : '';
+  responses['osl_target_type'] = oslTargetType ? oslTargetType.value : '';
+  responses['osl_moment']      = oslMoment     ? oslMoment.value     : '';
 
   // Aspiration structured slots
   for (let n = 1; n <= 3; n++) {
@@ -764,6 +775,15 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   // Dev bypass: on localhost with no active cycle, stub one so the form renders for design iteration
   if ((!currentCycle || currentCycle.status !== 'active') && location.hostname === 'localhost') {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
+  }
+
+  // DTOSL.2: load NPCs linked to this character (used by Off-Screen Life
+  // dropdowns). Fetch fails silently — form still renders, dropdowns go empty.
+  _linkedNpcs = [];
+  if (currentChar?._id) {
+    try {
+      _linkedNpcs = await apiGet(`/api/npcs/for-character/${encodeURIComponent(currentChar._id)}`);
+    } catch { _linkedNpcs = []; }
   }
 
   // Load existing submission for this character + cycle
@@ -1236,6 +1256,25 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
+    // DTOSL.2: Off-Screen Life choice chip toggle
+    const oslChip = e.target.closest('[data-osl-choice]');
+    if (oslChip) {
+      const newChoice = oslChip.dataset.oslChoice;
+      const hidden = document.getElementById('dt-osl_choice');
+      const current = hidden?.value || '';
+      // Click same chip to deselect; otherwise switch
+      if (hidden) hidden.value = current === newChoice ? '' : newChoice;
+      // Changing choice resets target_id because the dropdown list changes
+      const tgt = document.getElementById('dt-osl_target_id');
+      if (tgt && current !== newChoice) tgt.value = '';
+      const responses = collectResponses();
+      if (responseDoc) responseDoc.responses = responses;
+      else responseDoc = { responses };
+      renderForm(container);
+      scheduleSave();
+      return;
+    }
+
     // Skill acquisition spec chip toggle
     const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
     if (skAcqSpec) {
@@ -2664,7 +2703,116 @@ function getRowCost(row) {
 
 // ── Blood Sorcery ──
 
+// DTOSL.2/.4: Personal Story: Off-Screen Life — structured choice flow
+// with contextual dropdown and moment prompt.
+const OSL_PROMPTS = {
+  correspondence: {
+    label: 'Your letter',
+    placeholder: 'Write the letter you are sending this cycle...',
+    emptyMsg: 'No correspondents set up yet. Ask your ST to flag an NPC as a correspondent.',
+  },
+  touchstone: {
+    label: 'Your moment with them',
+    placeholder: 'How do you want to interact with them?',
+    emptyMsg: 'No mortal touchstones on your sheet.',
+  },
+  other: {
+    label: 'What do you want to do?',
+    placeholder: 'Describe the off-screen moment...',
+    emptyMsg: 'No NPCs linked to this character yet.',
+  },
+};
+
+function _oslDropdownOptions(choice) {
+  if (choice === 'correspondence') {
+    return _linkedNpcs.filter(n => n.is_correspondent).map(n => ({ id: String(n._id), name: n.name }));
+  }
+  if (choice === 'touchstone') {
+    return (currentChar?.touchstones || []).map(t => ({ id: `ts:${t.name}`, name: t.name }));
+  }
+  return _linkedNpcs.map(n => ({ id: String(n._id), name: n.name }));
+}
+
 function renderPersonalStorySection(saved) {
+  const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
+  if (!section) return '';
+
+  // Back-compat seeds from legacy fields (personal_story_npc_id, correspondence, etc.)
+  let savedChoice = saved['osl_choice'] || '';
+  if (!savedChoice && (saved['correspondence'] || '').trim()) savedChoice = 'correspondence';
+  const savedTargetId   = saved['osl_target_id']   || saved['personal_story_npc_id'] || '';
+  const savedMoment     = saved['osl_moment']     || saved['personal_story_note'] || saved['correspondence'] || '';
+  const savedDir        = saved['personal_story_direction']  || 'continue';
+
+  let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
+  h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
+  h += '<div class="qf-section-body">';
+  h += '<p class="qf-section-intro">How is your character spending off-screen time this cycle? Pick a lane — a letter to a correspondent, a moment with a mortal Touchstone, or something else entirely.</p>';
+
+  // Choice chips (Correspondence / Touchstone / Other)
+  h += '<div class="dt-osl-choice-group" role="radiogroup" aria-label="Off-screen life choice">';
+  for (const [val, label] of [['correspondence', 'Correspondence'], ['touchstone', 'Touchstone'], ['other', 'Other']]) {
+    const active = savedChoice === val ? ' dt-osl-choice-on' : '';
+    h += `<button type="button" class="dt-osl-choice${active}" data-osl-choice="${val}">${label}</button>`;
+  }
+  h += '</div>';
+  h += `<input type="hidden" id="dt-osl_choice" value="${esc(savedChoice)}">`;
+
+  // Contextual dropdown + moment prompt
+  if (savedChoice) {
+    const opts = _oslDropdownOptions(savedChoice);
+    const prompts = OSL_PROMPTS[savedChoice] || OSL_PROMPTS.other;
+    h += '<div class="qf-field" style="margin-top:12px;">';
+    if (opts.length === 0) {
+      h += `<p class="dt-osl-empty">${esc(prompts.emptyMsg)}</p>`;
+      h += `<input type="hidden" id="dt-osl_target_id" value="">`;
+      h += `<input type="hidden" id="dt-osl_target_type" value="">`;
+    } else {
+      const lbl = savedChoice === 'correspondence' ? 'Who are you writing to?'
+        : savedChoice === 'touchstone' ? 'Which Touchstone?'
+        : 'Who are you spending time with?';
+      h += `<label class="qf-label">${lbl}</label>`;
+      h += `<select id="dt-osl_target_id" class="qf-select">`;
+      h += '<option value="">— Select —</option>';
+      for (const o of opts) {
+        const sel = String(savedTargetId) === String(o.id) ? ' selected' : '';
+        h += `<option value="${esc(o.id)}"${sel}>${esc(o.name)}</option>`;
+      }
+      h += '</select>';
+      h += `<input type="hidden" id="dt-osl_target_type" value="${savedChoice === 'touchstone' ? 'touchstone' : 'npc'}">`;
+    }
+    h += '</div>';
+
+    // Contextual moment prompt (DTOSL.4)
+    h += '<div class="qf-field" style="margin-top:12px;">';
+    h += `<label class="qf-label">${esc(prompts.label)}</label>`;
+    h += `<textarea id="dt-osl_moment" class="qf-textarea" rows="4" placeholder="${esc(prompts.placeholder)}">${esc(savedMoment)}</textarea>`;
+    h += '</div>';
+  }
+
+  // Legacy story direction radios (kept until DTOSL.3 lands the ST-suggested flow)
+  h += '<div class="qf-field" style="margin-top:8px;">';
+  h += '<label class="qf-label">Story direction</label>';
+  h += '<div class="dt-npc-direction">';
+  for (const [val, label, desc] of [
+    ['continue', 'Happy with this direction', 'Let the ST continue the current story thread'],
+    ['redirect', 'I would like to redirect', 'I want to adjust the story — see note above'],
+  ]) {
+    const checked = savedDir === val ? ' checked' : '';
+    h += `<label class="dt-npc-dir-option">`;
+    h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
+    h += `<span class="dt-npc-dir-label">${label}</span>`;
+    h += `<span class="dt-npc-dir-desc">${desc}</span>`;
+    h += `</label>`;
+  }
+  h += '</div></div>';
+
+  h += '</div></div>';
+  return h;
+}
+
+// ── Legacy renderer (kept for diff isolation — unused after DTOSL.2) ──
+function _legacyRenderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
