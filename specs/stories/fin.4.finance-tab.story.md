@@ -34,11 +34,11 @@ Replaces the Google Sheet "Finances" tab as the SSOT for game-by-game takings, v
 **When** the per-game panel renders
 **Then** it shows:
   - Attendee count (derived from attendance records in that session)
-  - Takings breakdown: Paid to Lyn total / Cash total / Exiles total / Waived count
-  - **Total collected** (sum of all non-waived, non-did-not-attend amounts)
-  - Venue cost (editable number field)
-  - Transfer to Conan: amount (editable), date (editable), proof URL (editable — renders as a clickable link when set)
-  - Balance for this game (total collected − venue cost)
+  - Takings breakdown by method: Cash / PayID / PayPal totals; Exiles + Waived as counts (no $)
+  - **Total collected** (sum of cash + payid + paypal amounts)
+  - **Expenses list** — each line item editable: category (free text), amount, optional date/proof URL/note; an "Add expense" button appends a new line
+  - **Transfers list** — each transfer editable: to (whom), amount, optional date, proof URL; an "Add transfer" button appends a new line
+  - Balance for this game: `total collected − sum(expenses) − sum(transfers)`
   - Notes (free-text textarea)
 
 ### Running totals panel
@@ -46,8 +46,9 @@ Replaces the Google Sheet "Finances" tab as the SSOT for game-by-game takings, v
 **Given** finance data exists for multiple sessions
 **When** the running totals panel renders
 **Then** it shows:
-  - **Cumulative budget available** — sum of all per-game balances
-  - **Games funded** — floor(cumulative budget ÷ most recent venue cost)
+  - **Cumulative budget available** — sum of all per-game balances (collected − expenses − transfers)
+  - **Typical venue cost** — most recent session expense with `category === 'venue'` (fallback: largest recent expense)
+  - **Games funded** — `floor(cumulative budget ÷ typical venue cost)`
   - These update automatically when any per-game figure changes
 
 ### Saving
@@ -86,33 +87,50 @@ function calcRunningTotals(sessions) {
 
 ### Takings breakdown (client-side derived)
 
-The totals per method are derived from `session.attendance[n].payment`:
+Per-method totals are derived from `session.attendance[n].payment`:
 ```js
-const breakdown = { paid_to_lyn: 0, cash: 0, exiles: 0, waived: 0 };
-for (const entry of session.attendance) {
-  const p = entry.payment;
-  if (!p || p.method === 'did_not_attend') continue;
-  breakdown[p.method] = (breakdown[p.method] || 0) + (p.amount || 0);
+function derivePayments(session) {
+  const byMethod = { cash: 0, payid: 0, paypal: 0, exiles: 0 };
+  const counts  = { cash: 0, payid: 0, paypal: 0, exiles: 0, waived: 0, did_not_attend: 0 };
+  for (const entry of session.attendance || []) {
+    const p = entry.payment;
+    if (!p || !p.method) continue;
+    counts[p.method] = (counts[p.method] || 0) + 1;
+    if (byMethod[p.method] !== undefined) byMethod[p.method] += (p.amount || 0);
+  }
+  const collected = byMethod.cash + byMethod.payid + byMethod.paypal;  // exiles is offset, not real $
+  return { byMethod, counts, collected };
 }
-const total = breakdown.paid_to_lyn + breakdown.cash + breakdown.exiles;
 ```
 
 ### Balance
 
-`balance = total_collected - venue_cost`
-
-If venue_cost is not yet set, show balance as "— Venue cost not recorded".
+```js
+function deriveBalance(session) {
+  const { collected } = derivePayments(session);
+  const fin = session.finances || {};
+  const expenseTotal = (fin.expenses || []).reduce((s, e) => s + (e.amount || 0), 0);
+  const transferTotal = (fin.transfers || []).reduce((s, t) => s + (t.amount || 0), 0);
+  return collected - expenseTotal - transferTotal;
+}
+```
 
 ### Running totals
 
 ```js
-const cumulativeBudget = sessions.reduce((sum, s) => {
-  const collected = deriveTotal(s);
-  const cost = s.finances?.venue_cost || 0;
-  return sum + (collected - cost);
-}, 0);
-const latestVenueCost = [...sessions].reverse().find(s => s.finances?.venue_cost)?.finances?.venue_cost || 0;
-const gamesFunded = latestVenueCost ? Math.floor(cumulativeBudget / latestVenueCost) : 0;
+const cumulativeBudget = sessions.reduce((sum, s) => sum + deriveBalance(s), 0);
+
+// Typical venue cost — prefer most recent 'venue' expense, fall back to largest recent expense
+function typicalVenueCost(sessions) {
+  for (const s of [...sessions].reverse()) {
+    const venue = (s.finances?.expenses || []).find(e => e.category === 'venue');
+    if (venue?.amount) return venue.amount;
+  }
+  return 0;
+}
+const gamesFunded = typicalVenueCost(sessions)
+  ? Math.floor(cumulativeBudget / typicalVenueCost(sessions))
+  : 0;
 ```
 
 ---

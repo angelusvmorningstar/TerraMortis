@@ -43,7 +43,7 @@ The game app already has a Sign-In tab — this story repurposes or replaces it 
 **Given** a player arrives
 **When** the coordinator taps their row
 **Then** the attended toggle turns on
-**And** the payment method selector becomes active (default: Paid to Lyn)
+**And** the payment method selector becomes active (default: unset — coordinator picks per-player)
 
 **Given** the coordinator selects "Did Not Attend"
 **When** the row renders
@@ -81,15 +81,18 @@ export async function renderCheckinTab(el, sessionId) {
 }
 ```
 
-Payment methods dropdown options:
+Payment methods dropdown options (values match fin.2 schema enum):
 ```
-— Not yet recorded —
-Paid to Lyn (PayID)
-Cash
-Exiles (paid directly)
-Waived
-Did Not Attend
+— Not yet recorded —    (value: '')
+Cash                     (value: 'cash')
+PayID                    (value: 'payid')
+PayPal                   (value: 'paypal')
+Exiles                   (value: 'exiles')        — tracked as $0 collected (offset)
+Waived                   (value: 'waived')        — tracked as $0 collected
+Did Not Attend           (value: 'did_not_attend')
 ```
+
+Default amount: `15` (when method is cash/payid/paypal); `0` for exiles/waived/did_not_attend.
 
 ### Tablet layout
 
