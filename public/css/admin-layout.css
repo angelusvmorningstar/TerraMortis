@@ -7896,3 +7896,237 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   color: var(--bg);
   border-color: var(--accent);
 }
+
+/* ── Relationship editor (NPCR.2) ── */
+
+.npcr-hidden { display: none !important; }
+
+.npcr-rels-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.npcr-rels-title {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--txt3);
+}
+
+.npcr-rels-err {
+  color: var(--crim, #8B0000);
+  font-family: var(--fl);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.npcr-rels-err:empty { display: none; }
+
+.npcr-rels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.npcr-rels-family {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.npcr-rels-family-head {
+  font-family: var(--fh);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent);
+  padding-bottom: 2px;
+  border-bottom: 1px dashed var(--bdr);
+}
+
+.npcr-rels-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+}
+
+.npcr-rels-row.retired {
+  opacity: 0.55;
+  background: transparent;
+}
+
+.npcr-rels-row.disp-positive { border-left: 3px solid #5a7d3a; }
+.npcr-rels-row.disp-neutral  { border-left: 3px solid var(--txt3); }
+.npcr-rels-row.disp-negative { border-left: 3px solid var(--crim, #8B0000); }
+
+.npcr-rels-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.npcr-rels-side {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.npcr-rels-kind {
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.npcr-rels-dir {
+  color: var(--txt3);
+  font-size: 14px;
+}
+
+.npcr-rels-other {
+  flex: 1;
+  color: var(--txt);
+}
+
+.npcr-rels-hidden-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--gold2, var(--accent));
+  border-radius: 2px;
+}
+
+.npcr-rels-status {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1px 6px;
+  border: 1px solid var(--bdr);
+  border-radius: 2px;
+  color: var(--txt3);
+}
+
+.npcr-rels-status.pending {
+  color: var(--gold2, var(--accent));
+  border-color: var(--gold2, var(--accent));
+}
+
+.npcr-rels-state {
+  font-size: 13px;
+  color: var(--txt2, var(--txt));
+  padding-left: 26px;
+}
+
+.npcr-rels-disp {
+  font-size: 12px;
+  color: var(--txt3);
+  padding-left: 26px;
+}
+
+.npcr-rels-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.npcr-rels-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+}
+
+.npcr-rels-form-title {
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+.npcr-rels-form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.npcr-rels-form-row > .npcr-field {
+  flex: 1;
+}
+
+.npcr-rels-side-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 22px;
+  font-family: var(--fh);
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.npcr-rels-disp-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.npcr-rels-history {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.npcr-rels-history summary {
+  cursor: pointer;
+  font-family: var(--fl);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--txt3);
+}
+
+.npcr-rels-history ul {
+  margin: 4px 0 0 18px;
+  padding: 0;
+  list-style: disc;
+}
+
+.npcr-rels-history-fields {
+  margin: 2px 0 4px 16px !important;
+  list-style: circle;
+}
+
+.npcr-rels-history .before { color: var(--txt3); }
+.npcr-rels-history .after  { color: var(--accent); }
