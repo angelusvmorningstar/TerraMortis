@@ -1,7 +1,7 @@
 ---
 id: fin.3
 epic: finance-coordinator
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [fin.1, fin.2]
 ---
@@ -115,5 +115,27 @@ Add Check-In tab to the nav section gated by `role === 'st' || role === 'coordin
 
 ## Dev Agent Record
 ### Agent Model Used
+claude-opus-4-7
+
 ### Completion Notes
+
+- Existing `signin-tab.js` repurposed in place; no new `checkin-tab.js` file
+- Nav label changed from "Sign-In" to "Check-In" in `NAV_ITEMS` and `MORE_APPS`
+- `PAYMENT_METHODS` replaced with fin.2 enum-aligned `{value, label}` array
+- Per-row: method dropdown + amount input; writes structured `attendance[n].payment = { method, amount }`
+- Legacy `payment_method` mirrored for back-compat
+- Amount defaults: 15 for cash/payid/paypal; 0 for exiles/waived/did_not_attend
+- `did_not_attend` rows render greyed out (`.si-dna`)
+- Footer shows `N attended · $X collected` (sum of cash/payid/paypal only)
+- Visibility gated via `coordinatorOnly: true` from fin.1
+- Auto-save via existing 800ms debounced PUT
+
 ### File List
+
+- `public/js/game/signin-tab.js`
+- `public/js/app.js`
+- `public/css/suite.css`
+
+### Change Log
+
+- 2026-04-23: Implemented fin.3 — repurposed Sign-In as Check-In with fin.2-structured payment fields

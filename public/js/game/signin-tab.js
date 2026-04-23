@@ -1,10 +1,12 @@
 /**
- * signin-tab.js — Live game sign-in tab (ST only).
+ * signin-tab.js — Live game check-in tab (ST + coordinator).
  *
+ * Repurposed by fin.3 as the coordinator check-in tool.
  * Shows attendance entries for the most recent game session.
- * Each row: player name, character name, payment method, attended tick,
- * and starting Vitae / WP / Influence derived from character data.
- * Changes auto-save to /api/game_sessions/:id with 800ms debounce.
+ * Each row: player name, character name, attended tick, payment method,
+ * amount, and starting Vitae / WP / Influence derived from character data.
+ * Payment is written to the structured attendance[n].payment object
+ * (fin.2 schema). Changes auto-save to /api/game_sessions/:id.
  */
 
 import { apiGet, apiPut } from '../data/api.js';
@@ -12,7 +14,18 @@ import { calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { displayName, sortName, esc } from '../data/helpers.js';
 
-const PAYMENT_METHODS = ['', 'Cash', 'PayPal', 'PayID (Symon)', 'Transfer (Lyn)', 'Exiles', 'Waived'];
+// fin.2 schema enum. Display labels paired with stored values.
+const PAYMENT_METHODS = [
+  { value: '',               label: '— Not recorded' },
+  { value: 'cash',           label: 'Cash' },
+  { value: 'payid',          label: 'PayID' },
+  { value: 'paypal',         label: 'PayPal' },
+  { value: 'exiles',         label: 'Exiles (offset)' },
+  { value: 'waived',         label: 'Waived' },
+  { value: 'did_not_attend', label: 'Did Not Attend' },
+];
+const DEFAULT_AMOUNT = 15;
+const ZERO_AMOUNT_METHODS = new Set(['exiles', 'waived', 'did_not_attend', '']);
 
 function calcEminence(session, chars) {
   const attendedIds = new Set(
@@ -131,25 +144,39 @@ function render() {
       </div>`;
     }
 
+    const currentMethod = a.payment?.method ?? '';
+    const currentAmount = a.payment?.amount ?? '';
     const payOpts = PAYMENT_METHODS.map(m =>
-      `<option value="${esc(m)}"${a.payment_method === m ? ' selected' : ''}>${esc(m || '\u2014')}</option>`
+      `<option value="${esc(m.value)}"${currentMethod === m.value ? ' selected' : ''}>${esc(m.label)}</option>`
     ).join('');
+    const isDNA = currentMethod === 'did_not_attend';
 
-    h += `<div class="si-row${a.attended ? ' si-attended' : ''}" data-idx="${idx}">
+    h += `<div class="si-row${a.attended ? ' si-attended' : ''}${isDNA ? ' si-dna' : ''}" data-idx="${idx}">
       <label class="si-attended-wrap">
         <input type="checkbox" class="si-att-chk" data-idx="${idx}"${a.attended ? ' checked' : ''}>
       </label>
       <div class="si-info">
-        <div class="si-player">${esc(a.player || '\u2014')}</div>
+        <div class="si-player">${esc(a.player || '—')}</div>
         <div class="si-char">${esc(charName)}</div>
         ${resourceRow}
       </div>
       <select class="si-pay-sel" data-idx="${idx}">
         ${payOpts}
       </select>
+      <input type="number" class="si-pay-amt" data-idx="${idx}" min="0" step="1" value="${currentAmount}" placeholder="$">
     </div>`;
   });
   h += '</div>';
+
+  // Footer: attended count + collected total from real-payment methods
+  const collected = att.reduce((s, a) => {
+    const m = a.payment?.method;
+    if (m === 'cash' || m === 'payid' || m === 'paypal') {
+      return s + (Number(a.payment?.amount) || 0);
+    }
+    return s;
+  }, 0);
+  h += `<div class="si-footer"><strong>${attended}</strong> attended · <strong>$${collected}</strong> collected</div>`;
 
   _el.innerHTML = h;
   wireEvents();
@@ -170,10 +197,36 @@ function wireEvents() {
   _el.querySelectorAll('.si-pay-sel').forEach(sel => {
     sel.addEventListener('change', () => {
       const idx = parseInt(sel.dataset.idx);
-      if (_session.attendance[idx]) {
-        _session.attendance[idx].payment_method = sel.value;
-        scheduleAutosave();
+      const entry = _session.attendance[idx];
+      if (!entry) return;
+      const method = sel.value;
+      // Build structured payment (fin.2 schema). Reset amount sensibly.
+      const prevAmount = entry.payment?.amount;
+      let amount;
+      if (ZERO_AMOUNT_METHODS.has(method)) {
+        amount = 0;
+      } else if (prevAmount != null && prevAmount > 0) {
+        amount = prevAmount;            // keep whatever coordinator had typed
+      } else {
+        amount = DEFAULT_AMOUNT;        // first time switching to a real method
       }
+      entry.payment = { ...(entry.payment || {}), method, amount };
+      // Legacy mirror for any old readers
+      entry.payment_method = method;
+      scheduleAutosave();
+      render();
+    });
+  });
+
+  _el.querySelectorAll('.si-pay-amt').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const idx = parseInt(inp.dataset.idx);
+      const entry = _session.attendance[idx];
+      if (!entry) return;
+      const amount = Number(inp.value) || 0;
+      entry.payment = { ...(entry.payment || {}), amount };
+      scheduleAutosave();
+      render();
     });
   });
 }
