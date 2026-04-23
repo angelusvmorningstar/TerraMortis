@@ -1,7 +1,7 @@
 ---
 id: fin.4
 epic: finance-coordinator
-status: ready-for-dev
+status: review
 priority: medium
 depends_on: [fin.1, fin.2]
 ---
@@ -143,5 +143,25 @@ const gamesFunded = typicalVenueCost(sessions)
 
 ## Dev Agent Record
 ### Agent Model Used
+claude-opus-4-7
+
 ### Completion Notes
+
+- New `public/js/game/finance-tab.js` with `initFinanceTab(el)`
+- Per-session panel: takings (cash/payid/paypal totals; exiles/waived/dna counts), line-item expenses, line-item transfers, balance, notes
+- Running totals: cumulative budget, typical venue cost, games funded
+- Add/remove rows for expenses and transfers; 600ms debounced PUT on every edit
+- `#t-finance` added to index.html; init wired in app.js
+- `finance` nav entry in NAV_ITEMS + MORE_APPS with coordinatorOnly: true
+- New .fin-* CSS rules
+
 ### File List
+
+- `public/js/game/finance-tab.js` (new)
+- `public/index.html`
+- `public/js/app.js`
+- `public/css/suite.css`
+
+### Change Log
+
+- 2026-04-23: Implemented fin.4 — Finance tab with per-game breakdown and running totals
