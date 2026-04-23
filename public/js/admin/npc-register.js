@@ -2,7 +2,7 @@
    Two-pane layout: PC picker left, NPC grid + detail right.
    Data loads lazily on first entry; subsequent entries re-render from cache. */
 
-import { apiGet } from '../data/api.js';
+import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { esc, sortName, displayName } from '../data/helpers.js';
 
 const ALL = '__all__';
@@ -225,29 +225,163 @@ function cardHtml(n) {
   return h;
 }
 
+function charNameFor(id) {
+  const c = _chars.find(x => String(x._id) === String(id));
+  return c ? displayName(c) : `(${id})`;
+}
+
 function renderDetail() {
   const detail = document.getElementById('npcr-detail');
   if (!detail) return;
-  if (!_selectedNpcId) {
-    detail.innerHTML = '';
-    return;
+  if (!_selectedNpcId) { detail.innerHTML = ''; return; }
+
+  const isNew = _selectedNpcId === '__new__';
+  const npc = isNew ? {} : _npcs.find(n => String(n._id) === String(_selectedNpcId));
+  if (!isNew && !npc) { detail.innerHTML = ''; return; }
+
+  const status = npc.status || 'active';
+  const statusOpts = ['active', 'pending', 'inactive', 'destroyed'];
+  const linkedIds = Array.isArray(npc.linked_character_ids) ? npc.linked_character_ids : [];
+  const suggestedFor = Array.isArray(npc.st_suggested_for) ? npc.st_suggested_for : [];
+
+  let h = '<div class="npcr-detail-form">';
+  h += `<div class="npcr-detail-err" id="npcr-detail-err"></div>`;
+  h += `<div class="npcr-detail-title">${isNew ? 'New NPC' : esc(npc.name || '')}</div>`;
+
+  h += `<label class="npcr-field">
+    <span class="npcr-field-label">Name *</span>
+    <input type="text" id="npcr-f-name" class="npcr-input" value="${esc(npc.name || '')}" />
+  </label>`;
+
+  h += `<label class="npcr-field">
+    <span class="npcr-field-label">Description</span>
+    <textarea id="npcr-f-desc" class="npcr-textarea" rows="2">${esc(npc.description || '')}</textarea>
+  </label>`;
+
+  h += `<div class="npcr-field-row">`;
+  h += `<label class="npcr-field">
+    <span class="npcr-field-label">Status</span>
+    <select id="npcr-f-status" class="npcr-input">
+      ${statusOpts.map(s => `<option value="${s}"${status === s ? ' selected' : ''}>${s}</option>`).join('')}
+    </select>
+  </label>`;
+  h += `<label class="npcr-field-inline">
+    <input type="checkbox" id="npcr-f-corr"${npc.is_correspondent ? ' checked' : ''} />
+    <span>Correspondent</span>
+  </label>`;
+  h += `</div>`;
+
+  h += `<label class="npcr-field">
+    <span class="npcr-field-label">Notes (ST only)</span>
+    <textarea id="npcr-f-notes" class="npcr-textarea" rows="2">${esc(npc.notes || '')}</textarea>
+  </label>`;
+
+  if (linkedIds.length > 0) {
+    h += `<div class="npcr-field">
+      <span class="npcr-field-label">Linked to</span>
+      <div class="npcr-chips">${linkedIds.map(id => `<span class="npcr-chip">${esc(charNameFor(id))}</span>`).join('')}</div>
+    </div>`;
   }
-  if (_selectedNpcId === '__new__') {
-    detail.innerHTML = '<div class="npcr-detail-placeholder">New NPC form lands in task 4.</div>';
-    return;
+
+  if (suggestedFor.length > 0) {
+    h += `<div class="npcr-field">
+      <span class="npcr-field-label">ST-suggested for</span>
+      <div class="npcr-chips">${suggestedFor.map(id => `<span class="npcr-chip">${esc(charNameFor(id))}</span>`).join('')}</div>
+    </div>`;
   }
-  const npc = _npcs.find(n => String(n._id) === String(_selectedNpcId));
-  if (!npc) {
-    detail.innerHTML = '';
-    return;
+
+  if (!isNew) {
+    const meta = [];
+    if (npc.created_by?.type) {
+      let creator = npc.created_by.type;
+      if (npc.created_by.character_id) creator += ' - ' + charNameFor(npc.created_by.character_id);
+      meta.push(['Created by', creator]);
+    }
+    if (npc.created_at) meta.push(['Created', new Date(npc.created_at).toLocaleString()]);
+    if (npc.updated_at) meta.push(['Updated', new Date(npc.updated_at).toLocaleString()]);
+    if (meta.length > 0) {
+      h += '<div class="npcr-meta">';
+      for (const [label, value] of meta) {
+        h += `<div class="npcr-meta-row"><span class="npcr-meta-label">${esc(label)}</span><span>${esc(value)}</span></div>`;
+      }
+      h += '</div>';
+    }
   }
-  let h = '<div class="npcr-detail-preview">';
-  h += `<div class="npcr-detail-title">${esc(npc.name)}</div>`;
-  h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Status</span><span>${esc(npc.status || 'active')}</span></div>`;
-  if (npc.description) h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Description</span><span>${esc(npc.description)}</span></div>`;
-  if (npc.notes) h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Notes</span><span>${esc(npc.notes)}</span></div>`;
-  h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Correspondent</span><span>${npc.is_correspondent ? 'yes' : 'no'}</span></div>`;
-  h += '<div class="npcr-detail-placeholder">Editor lands in task 4.</div>';
+
+  h += '<div class="npcr-actions">';
+  h += `<button class="npcr-btn save" id="npcr-save">Save</button>`;
+  h += `<button class="npcr-btn muted" id="npcr-cancel">Cancel</button>`;
+  if (!isNew) h += `<button class="npcr-btn dim" id="npcr-retire">Retire</button>`;
   h += '</div>';
+  h += '</div>';
+
   detail.innerHTML = h;
+
+  document.getElementById('npcr-cancel')?.addEventListener('click', () => {
+    _selectedNpcId = null;
+    renderDetail();
+    updateCardSelection();
+  });
+  document.getElementById('npcr-save')?.addEventListener('click', () => saveNpc(isNew));
+  if (!isNew) {
+    document.getElementById('npcr-retire')?.addEventListener('click', () => retireNpc(npc._id));
+  }
+
+  if (isNew) document.getElementById('npcr-f-name')?.focus();
+}
+
+async function saveNpc(isNew) {
+  const errEl = document.getElementById('npcr-detail-err');
+  if (errEl) errEl.textContent = '';
+
+  const name = document.getElementById('npcr-f-name')?.value.trim() || '';
+  if (!name) {
+    if (errEl) errEl.textContent = 'Name is required.';
+    return;
+  }
+
+  const body = {
+    name,
+    description: document.getElementById('npcr-f-desc')?.value.trim() || '',
+    status: document.getElementById('npcr-f-status')?.value || 'active',
+    notes: document.getElementById('npcr-f-notes')?.value.trim() || '',
+    is_correspondent: !!document.getElementById('npcr-f-corr')?.checked,
+  };
+
+  try {
+    if (isNew) {
+      const linked = [];
+      if (_selectedCharId !== ALL && _selectedCharId !== UNLINKED) {
+        linked.push(String(_selectedCharId));
+      }
+      body.linked_character_ids = linked;
+      const created = await apiPost('/api/npcs', body);
+      _npcs.push(created);
+      _selectedNpcId = String(created._id);
+    } else {
+      const updated = await apiPut(`/api/npcs/${_selectedNpcId}`, body);
+      const idx = _npcs.findIndex(n => String(n._id) === String(_selectedNpcId));
+      if (idx >= 0) _npcs[idx] = updated;
+    }
+    renderShell();
+  } catch (err) {
+    console.error('[npc-register] save error:', err);
+    if (errEl) errEl.textContent = 'Save failed: ' + (err?.message || 'unknown error');
+  }
+}
+
+async function retireNpc(id) {
+  if (!confirm('Retire this NPC? It will be archived and removed from the default view.')) return;
+  const errEl = document.getElementById('npcr-detail-err');
+  if (errEl) errEl.textContent = '';
+  try {
+    await apiDelete(`/api/npcs/${id}`);
+    const idx = _npcs.findIndex(n => String(n._id) === String(id));
+    if (idx >= 0) _npcs[idx].status = 'archived';
+    _selectedNpcId = null;
+    renderShell();
+  } catch (err) {
+    console.error('[npc-register] retire error:', err);
+    if (errEl) errEl.textContent = 'Retire failed: ' + (err?.message || 'unknown error');
+  }
 }
