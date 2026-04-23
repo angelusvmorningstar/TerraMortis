@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-// Seeds tm_suite_dev with Yusuf's character only and creates ST player records.
-// Run ONCE to set up the dev database, then update Render's MONGODB_DB=tm_suite_dev.
+// Seeds tm_suite with Yusuf's character only and creates ST player records.
+// Run ONCE to set up the dev database, then update Render's MONGODB_DB=tm_suite.
 //
 // Usage: cd server && node scripts/seed-dev.js
 //
 // What it does:
 //   - Connects to the same Atlas cluster as production
-//   - Creates/resets the tm_suite_dev database
+//   - Creates/resets the tm_suite database
 //   - Seeds characters from data/chars_dev.json (Yusuf only)
 //   - Creates a players collection with Peter (ST) pre-seeded
 //   - Clears all other collections (downtime, sessions, territories)
@@ -22,7 +22,7 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-const DB_NAME = 'tm_suite_dev';
+const DB_NAME = 'tm_suite';
 const DATA_PATH = new URL('../../data/chars_dev.json', import.meta.url);
 
 const PETER_DISCORD_ID  = '469356244398899201';
@@ -97,7 +97,7 @@ async function seed() {
 
     console.log(`\nDone. Dev database '${DB_NAME}' is ready.`);
     console.log('\nNext steps:');
-    console.log('  1. In Render dashboard: set MONGODB_DB=tm_suite_dev');
+    console.log('  1. In Render dashboard: set MONGODB_DB=tm_suite');
     console.log('  2. Peter logs in via Discord OAuth — his ST role is pre-seeded.');
     console.log('  3. When dev work is complete, remove MONGODB_DB from Render to restore production.');
 

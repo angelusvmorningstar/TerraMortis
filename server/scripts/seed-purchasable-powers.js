@@ -357,7 +357,7 @@ async function seed() {
   const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
   try {
     await client.connect();
-    const db = client.db('tm_suite_dev');
+    const db = client.db('tm_suite');
     const col = db.collection('purchasable_powers');
 
     console.log('\nDropping existing collection...');

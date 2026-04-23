@@ -22,7 +22,7 @@
  *   node scripts/zero-free-fields.js --apply     # actually write
  *
  *   # Override the database (default: tm_suite)
- *   DB_NAME=tm_suite_dev node scripts/zero-free-fields.js --apply
+ *   DB_NAME=tm_suite node scripts/zero-free-fields.js --apply
  */
 
 import 'dotenv/config';

@@ -49,7 +49,7 @@ function migrateNode(node) {
 const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
 try {
   await client.connect();
-  const col = client.db('tm_suite_dev').collection('purchasable_powers');
+  const col = client.db('tm_suite').collection('purchasable_powers');
 
   // Find all docs with a prereq containing "Status"
   const docs = await col.find({ prereq: { $ne: null } }).toArray();

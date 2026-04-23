@@ -8,7 +8,7 @@
  * script matches each attendance entry by character_name to the live
  * characters collection and rewrites character_id to the current _id.
  *
- * Database: tm_suite_dev
+ * Database: tm_suite
  *
  * Usage:
  *   node scripts/fix-attendance-character-ids.js --dry-run   # show what would change
@@ -37,7 +37,7 @@ async function main() {
 
   try {
     await client.connect();
-    const db = client.db('tm_suite_dev');
+    const db = client.db('tm_suite');
 
     // Build name → _id map from characters collection
     const characters = await db.collection('characters')
