@@ -1,6 +1,6 @@
 # Story EPC.1: Enhanced Game App Dice Roller — Custom Pool Builder + Smart Modifiers
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

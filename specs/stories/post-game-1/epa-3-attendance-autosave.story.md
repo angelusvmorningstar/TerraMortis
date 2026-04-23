@@ -1,6 +1,6 @@
 # Story EPA.3: Auto-Save Attendance on Each Change
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

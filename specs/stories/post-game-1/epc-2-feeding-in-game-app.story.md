@@ -1,6 +1,6 @@
 # Story EPC.2: Integrate Feeding Roll into Game App
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

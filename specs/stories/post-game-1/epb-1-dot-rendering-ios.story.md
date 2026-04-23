@@ -1,6 +1,6 @@
 # Story EPB.1: Fix Dot Rendering on iOS — Hollow Dots and Bonus Dots
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

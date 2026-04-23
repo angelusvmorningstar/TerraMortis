@@ -1,6 +1,6 @@
 # Story EPC.3: Surface Auspex Insight Questions in Game App
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story EPB.4: Sidebar Nav Mobile Improvements
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

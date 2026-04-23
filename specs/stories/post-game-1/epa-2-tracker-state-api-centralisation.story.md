@@ -1,6 +1,6 @@
 # Story EPA.2: Centralise Tracker State — Add Influence to API, Remove localStorage Bridge
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story EPB.3: Fix Dice Roll Button Size on Mobile
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

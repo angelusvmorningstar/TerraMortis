@@ -1,6 +1,6 @@
 # Story EPB.7: Emergency Contact Access from Any ST Character View
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

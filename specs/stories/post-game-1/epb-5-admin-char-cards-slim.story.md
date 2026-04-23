@@ -1,6 +1,6 @@
 # Story EPB.5: Slim Down Admin Character Cards
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

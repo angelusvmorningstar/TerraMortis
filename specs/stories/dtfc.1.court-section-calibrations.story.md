@@ -2,7 +2,7 @@
 id: dtfc.1
 epic: downtime-form-calibration
 group: A
-status: ready-for-dev
+status: done
 priority: high
 ---
 

@@ -1,6 +1,6 @@
 # Story EPC.4: Sign-In Tab in Game App
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story EPA.4: Fix Feeding Roll State Persistence Across Player Navigation
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

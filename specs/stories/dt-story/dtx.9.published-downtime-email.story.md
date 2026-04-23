@@ -1,6 +1,6 @@
 # Story DTX.9: Automated Downtime Published Email
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

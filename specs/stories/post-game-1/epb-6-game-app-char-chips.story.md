@@ -1,6 +1,6 @@
 # Story EPB.6: Replace Character Cards with Finger-Friendly Chips in Game App ST View
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

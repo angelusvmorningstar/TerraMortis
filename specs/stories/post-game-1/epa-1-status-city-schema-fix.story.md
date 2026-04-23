@@ -1,6 +1,6 @@
 # Story EPA.1: Fix status.city Schema Validation Error
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

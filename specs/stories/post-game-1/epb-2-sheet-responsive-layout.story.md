@@ -1,6 +1,6 @@
 # Story EPB.2: Character Sheet Responsive Layout — Apply Single-Column to Player View
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
