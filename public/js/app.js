@@ -246,7 +246,7 @@ const NAV_ALIAS = {
 // Icons are inlined (not referencing _svg) to avoid declaration-order issues.
 const NAV_ITEMS = [
   // Sheet split into Stats / Skills / Powers for phone UX
-  { id: 'dice',      label: 'Dice',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'dice' },
+  { id: 'dice',      label: 'Dice',      icon: '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/><circle cx="17" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>', goTab: 'dice', stOnly: true },
   { id: 'stats',     label: 'Stats',     icon: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>', goTab: 'stats' },
   { id: 'skills',    label: 'Skills',    icon: '<svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>', goTab: 'skills' },
   { id: 'powers',    label: 'Powers',    icon: '<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', goTab: 'powers' },
@@ -1701,9 +1701,12 @@ function toggleDesktopMode() {
   // Session-only toggle — do NOT persist to localStorage, so autodetect works on reload.
   _updateDesktopIcon();
   _syncSidebarActions();
-  // Show header controls in both modes so user can toggle back
+  // Header controls are ST-only.
   const hdrNav = document.getElementById('hdr-nav');
-  if (hdrNav) hdrNav.style.display = '';
+  if (hdrNav) {
+    const isST = effectiveRole() === 'st' || effectiveRole() === 'dev';
+    hdrNav.style.display = isST ? '' : 'none';
+  }
   if (isDesktop) {
     renderDesktopSidebar();
     _initSidebarCollapse();
@@ -1747,10 +1750,13 @@ function _applyDesktopMode(isDesktop) {
   document.body.classList.toggle('desktop-mode', isDesktop);
   _updateDesktopIcon();
   _syncSidebarActions();
-  // Show header controls (theme toggle, desktop toggle, ST admin) in BOTH modes
-  // so the user can switch back from phablet without being trapped.
+  // Header controls (theme toggle, desktop toggle, ST admin) are ST-only.
+  // Players and ST-in-player-view get a clean header — no chrome clutter.
   const hdrNav = document.getElementById('hdr-nav');
-  if (hdrNav) hdrNav.style.display = '';
+  if (hdrNav) {
+    const isST = effectiveRole() === 'st' || effectiveRole() === 'dev';
+    hdrNav.style.display = isST ? '' : 'none';
+  }
   if (isDesktop) {
     renderDesktopSidebar();
     _initSidebarCollapse();
@@ -2034,10 +2040,11 @@ function renderUserHeader() {
   if (!user) return;
 
   // Desktop sidebar shows profile; mobile header is kept clean (logo + char name only).
-  // The hdr-nav is hidden on mobile via CSS but visible in desktop mode.
+  // hdr-nav is ST-only — players and ST-in-player-view see a clean header.
   const hdrNav = document.getElementById('hdr-nav');
-  if (hdrNav && document.body.classList.contains('desktop-mode')) {
-    hdrNav.style.display = '';
+  if (hdrNav) {
+    const isST = effectiveRole() === 'st' || effectiveRole() === 'dev';
+    hdrNav.style.display = isST ? '' : 'none';
   }
 
   // Show toggle for STs, restore saved label
