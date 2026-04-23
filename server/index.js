@@ -97,7 +97,9 @@ app.use('/api/territories', requireAuth, territoriesRouter);
 // Tracker — auth required; players can only read/write own characters (enforced in router)
 app.use('/api/tracker_state', requireAuth, trackerRouter);
 app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
-app.use('/api/game_sessions', requireAuth, requireRole('st'), gameSessionsRouter);
+// Coordinator tier: needs read/write for check-in (fin.3) and finance (fin.4).
+// requireRole('coordinator') implicitly allows st/dev too.
+app.use('/api/game_sessions', requireAuth, requireRole('coordinator'), gameSessionsRouter);
 app.use('/api/downtime_investigations', requireAuth, investigationsRouter);
 app.use('/api/npcs', requireAuth, npcsRouter);
 app.use('/api/admin', requireAuth, requireRole('st'), adminMigrationsRouter);

@@ -1,7 +1,7 @@
 ---
 id: fin.2
 epic: finance-coordinator
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [fin.1]
 ---
@@ -165,5 +165,20 @@ Confirm the `isCoordinator` middleware (from FIN-1) is applied to `GET` and `PAT
 
 ## Dev Agent Record
 ### Agent Model Used
+claude-opus-4-7
+
 ### Completion Notes
+
+- `game_session.schema.js`: added `payment` object on attendance entries (method enum + amount + note). Legacy `paid`/`payment_method` fields retained for back-compat
+- `game_session.schema.js`: added root `finances` object with `expenses[]` + `transfers[]` arrays and `notes`
+- `server/index.js`: `/api/game_sessions` auth widened from `requireRole('st')` to `requireRole('coordinator')` — ST/dev still pass via coordinator-includes-ST logic from fin.1
+- No data migration required — additive and optional
+
 ### File List
+
+- `server/schemas/game_session.schema.js`
+- `server/index.js`
+
+### Change Log
+
+- 2026-04-23: Implemented fin.2 — finance schema + game_sessions auth widening

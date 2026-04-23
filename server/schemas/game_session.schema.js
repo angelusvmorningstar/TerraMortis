@@ -40,10 +40,58 @@ export const gameSessionSchema = {
           costuming:         { type: 'boolean' },
           downtime:          { type: 'boolean' },
           extra:             { type: 'number', minimum: 0 },
+          // Legacy fields (kept for back-compat; use `payment` object going forward)
           paid:              { type: 'boolean' },
           payment_method:    { type: 'string' },
+          // fin.2: structured payment record
+          payment: {
+            type: 'object',
+            properties: {
+              method: {
+                type: 'string',
+                enum: ['cash', 'payid', 'paypal', 'exiles', 'waived', 'did_not_attend', ''],
+              },
+              amount: { type: 'number', minimum: 0 },
+              note:   { type: ['string', 'null'] },
+            },
+          },
         },
         additionalProperties: true,
+      },
+    },
+
+    // fin.2: game-level finance — line-item expenses + transfers
+    finances: {
+      type: 'object',
+      properties: {
+        expenses: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['category', 'amount'],
+            properties: {
+              category:  { type: 'string' },
+              amount:    { type: 'number' },
+              date:      { type: ['string', 'null'] },
+              proof_url: { type: ['string', 'null'] },
+              note:      { type: ['string', 'null'] },
+            },
+          },
+        },
+        transfers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['to', 'amount'],
+            properties: {
+              to:        { type: 'string' },
+              amount:    { type: 'number' },
+              date:      { type: ['string', 'null'] },
+              proof_url: { type: ['string', 'null'] },
+            },
+          },
+        },
+        notes: { type: ['string', 'null'] },
       },
     },
   },
