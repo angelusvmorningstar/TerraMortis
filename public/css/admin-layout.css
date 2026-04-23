@@ -7842,3 +7842,71 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   color: var(--txt3);
   margin-left: auto;
 }
+
+.npcr-main-head-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.npcr-main-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+
+.npcr-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.npcr-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 6px 10px;
+  background: var(--bg);
+  color: var(--txt);
+  border: 1px solid var(--bdr);
+  border-radius: 3px;
+  font-family: var(--ft);
+  font-size: 14px;
+}
+
+.npcr-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.npcr-chips-filter {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.npcr-chip-btn {
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--txt3);
+  border: 1px solid var(--bdr);
+  border-radius: 12px;
+  font-family: var(--fl);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.npcr-chip-btn:hover {
+  border-color: var(--accent);
+  color: var(--txt);
+}
+
+.npcr-chip-btn.on {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}

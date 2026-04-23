@@ -62,6 +62,25 @@ function npcsForSelection() {
   return idx[_selectedCharId] || [];
 }
 
+function visibleNpcs() {
+  let list = npcsForSelection();
+  if (_activeChip === 'pending') {
+    list = list.filter(n => n.status === 'pending');
+  } else if (_activeChip === 'correspondents') {
+    list = list.filter(n => n.is_correspondent);
+  } else if (_activeChip === 'suggested') {
+    list = list.filter(n => Array.isArray(n.st_suggested_for) && n.st_suggested_for.length > 0);
+  }
+  if (_search) {
+    const q = _search.toLowerCase();
+    list = list.filter(n =>
+      (n.name || '').toLowerCase().includes(q) ||
+      (n.description || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
 function labelForSelection() {
   if (_selectedCharId === ALL) return 'All NPCs';
   if (_selectedCharId === UNLINKED) return 'Unlinked';
@@ -153,18 +172,51 @@ function renderMain() {
 function renderHeader() {
   const header = document.getElementById('npcr-main-header');
   if (!header) return;
-  const list = npcsForSelection();
+  const list = visibleNpcs();
+  const chips = [
+    ['pending', 'Pending'],
+    ['correspondents', 'Correspondents'],
+    ['suggested', 'Suggested'],
+  ];
   header.innerHTML = `
-    <div class="npcr-main-title">${esc(labelForSelection())}</div>
-    <div class="npcr-main-sub">${list.length} NPC${list.length === 1 ? '' : 's'}</div>
+    <div class="npcr-main-head-row">
+      <div class="npcr-main-title">${esc(labelForSelection())}</div>
+      <div class="npcr-main-sub">${list.length} NPC${list.length === 1 ? '' : 's'}</div>
+    </div>
+    <div class="npcr-toolbar">
+      <input type="search" id="npcr-search" class="npcr-search" placeholder="Search name or description..." value="${esc(_search)}" />
+      <div class="npcr-chips-filter">
+        ${chips.map(([k, l]) => `<button class="npcr-chip-btn${_activeChip === k ? ' on' : ''}" data-chip="${k}">${esc(l)}</button>`).join('')}
+      </div>
+    </div>
   `;
+
+  const searchEl = document.getElementById('npcr-search');
+  searchEl?.addEventListener('input', (e) => {
+    _search = e.target.value;
+    renderGrid();
+    const sub = header.querySelector('.npcr-main-sub');
+    if (sub) {
+      const count = visibleNpcs().length;
+      sub.textContent = `${count} NPC${count === 1 ? '' : 's'}`;
+    }
+  });
+
+  header.querySelectorAll('.npcr-chip-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const chip = b.dataset.chip;
+      _activeChip = _activeChip === chip ? null : chip;
+      renderHeader();
+      renderGrid();
+    });
+  });
 }
 
 function renderGrid() {
   const grid = document.getElementById('npcr-grid');
   if (!grid) return;
 
-  const list = npcsForSelection().slice().sort((a, b) =>
+  const list = visibleNpcs().slice().sort((a, b) =>
     String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })
   );
 
