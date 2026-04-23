@@ -702,12 +702,13 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   currentCycle = null;
   gateValues = {};
 
-  // Load current cycle — only 'active' cycles accept new submissions
+  // Load current cycle — priority: active > game > prep > closed > anything
   try {
     const cycles = await apiGet('/api/downtime_cycles');
     const sorted = cycles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    currentCycle = sorted.find(c => c.status === 'active')
-      || sorted.find(c => c.status === 'game' || c.status === 'closed')
+    const LIVE_STATUSES = ['active', 'game', 'prep'];
+    currentCycle = sorted.find(c => LIVE_STATUSES.includes(c.status))
+      || sorted.find(c => c.status === 'closed')
       || sorted[0]
       || null;
   } catch { /* no cycles */ }
@@ -820,10 +821,15 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
 
   const devPreview = location.hostname === 'localhost';
 
+  // STs can preview the form for active or prep cycles; players only for active
+  const _isST = isSTRole();
+  const _formStatuses = _isST ? ['active', 'prep'] : ['active'];
+  const _gateBlocks = !currentCycle || !_formStatuses.includes(currentCycle.status);
+
   if (options.singleColumn) {
     // Game app context: render form directly, no split, no right-panel history
     // (downtime-tab.js handles the history accordion separately)
-    if (!devPreview && (!currentCycle || currentCycle.status !== 'active')) {
+    if (!devPreview && _gateBlocks) {
       targetEl.innerHTML = renderCycleGatePage();
     } else {
       targetEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
@@ -843,7 +849,7 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
   const rightEl = document.getElementById('dt-right-pane');
 
   // Left: form or gate message
-  if (!devPreview && (!currentCycle || currentCycle.status !== 'active')) {
+  if (!devPreview && _gateBlocks) {
     leftEl.innerHTML = renderCycleGatePage();
   } else {
     leftEl.innerHTML = `<div id="dt-container" class="reading-pane"></div>`;
