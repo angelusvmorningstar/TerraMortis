@@ -18,6 +18,7 @@ import { initPlayersView } from './admin/players-view.js';
 import { initCityView } from './admin/city-views.js';
 import { initSpheresView } from './admin/spheres-view.js';
 import { initDowntimeView, renderCityOverview } from './admin/downtime-views.js';
+import { initNpcRegister } from './admin/npc-register.js';
 import { initAttendance } from './admin/attendance.js';
 import { initDiceEngine } from './admin/dice-engine.js';
 import { initFeedingEngine } from './admin/feeding-engine.js';
@@ -201,6 +202,7 @@ function switchDomain(domain) {
       renderCityOverview();
     }
   }
+  if (domain === 'npcs') initNpcRegister(chars);
   if (domain === 'attendance') { initNextSession(); initAttendance(chars); }
   if (domain === 'data') initDataPortabilityView(chars);
   if (domain === 'ordeals') initOrdealsAdminView(chars);
