@@ -278,7 +278,7 @@ function renderBottomNav() {
   const el = document.getElementById('bnav');
   if (!el) return;
   const role = effectiveRole();
-  const isST = role === 'st';
+  const isST = role === 'st' || role === 'dev';
   const isCoord = role === 'st' || role === 'dev' || role === 'coordinator';
 
   const showGuides = localStorage.getItem('tm-show-guides') === '1';
@@ -1629,7 +1629,7 @@ function renderMoreGrid() {
   if (!el) return;
 
   const role = effectiveRole();
-  const isST = role === 'st';
+  const isST = role === 'st' || role === 'dev';
   const isCoord = role === 'st' || role === 'dev' || role === 'coordinator';
 
   function appVisible(app) {

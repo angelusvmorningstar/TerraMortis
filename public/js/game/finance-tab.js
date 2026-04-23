@@ -16,6 +16,7 @@ let _el = null;
 let _sessions = [];
 let _selectedId = null;
 let _saveTimer = null;
+let _pendingSession = null;
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -62,12 +63,13 @@ function deriveBalance(session) {
 }
 
 function typicalVenueCost(sessions) {
-  for (const s of [...sessions].reverse()) {
+  // _sessions is already newest-first; iterate as-is to return the most recent venue cost
+  for (const s of sessions) {
     const venue = (s.finances?.expenses || []).find(e => e.category === 'venue');
     if (venue?.amount) return venue.amount;
   }
   // Fallback: largest single expense in the most recent session with any expense
-  for (const s of [...sessions].reverse()) {
+  for (const s of sessions) {
     const exps = s.finances?.expenses || [];
     if (exps.length) return Math.max(...exps.map(e => Number(e.amount) || 0));
   }
@@ -194,6 +196,7 @@ function _renderTransferRow(t, i) {
 
 function wireEvents(session) {
   _el.querySelector('#fin-session-sel')?.addEventListener('change', e => {
+    flushSave();
     _selectedId = e.target.value;
     render();
   });
@@ -259,7 +262,26 @@ function wireEvents(session) {
 
 function scheduleSave(session) {
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => doSave(session), 600);
+  _pendingSession = session;
+  _saveTimer = setTimeout(() => {
+    _saveTimer = null;
+    const s = _pendingSession;
+    _pendingSession = null;
+    doSave(s);
+  }, 600);
+}
+
+// Synchronously fire any pending save. Called before session switch to prevent data loss.
+function flushSave() {
+  if (_saveTimer) {
+    clearTimeout(_saveTimer);
+    _saveTimer = null;
+  }
+  if (_pendingSession) {
+    const s = _pendingSession;
+    _pendingSession = null;
+    doSave(s);
+  }
 }
 
 async function doSave(session) {

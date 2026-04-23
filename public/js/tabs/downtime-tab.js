@@ -29,8 +29,8 @@ export async function initDowntimeTab(el, char, territories = []) {
   const isST = isSTRole();
   const playerId = getUser()?.player_id ? String(getUser().player_id) : null;
 
-  // Find the most relevant non-closed cycle (priority: active > game > prep)
-  const LIVE_STATUSES = ['open', 'active', 'game', 'prep'];
+  // Find the most relevant non-closed cycle (priority: active > game > prep > open)
+  const LIVE_STATUSES = ['active', 'game', 'prep', 'open'];
   const activeCycle = cycles
     .filter(c => LIVE_STATUSES.includes(c.status))
     .sort((a, b) => LIVE_STATUSES.indexOf(a.status) - LIVE_STATUSES.indexOf(b.status))[0] || null;
