@@ -1,7 +1,7 @@
 ---
 id: dtu.2
 epic: dt-ux
-status: ready-for-dev
+status: review
 priority: high
 depends_on: []
 ---
@@ -65,3 +65,44 @@ DT form currently only persists when the player hits Save Draft or Submit. Any t
 - `public/js/tabs/downtime-form.js`
 - `public/css/components.css` (banner styling)
 - `tests/dt-draft-persistence.spec.js` (new — Playwright test for reload/restore flow)
+
+## Dev Agent Record
+
+### Agent Model Used
+claude-opus-4-7
+
+### Completion Notes
+
+**New helper** `public/js/tabs/draft-persist.js`:
+- `saveDraft(charId, cycleId, responses)` → writes `{ v, saved_at, responses }` to `localStorage` under key `tm-dt-draft-<charId>-<cycleId>`
+- `loadDraft(charId, cycleId)` → returns the payload or null (version-gated so future schema bumps don't surface incompatible data)
+- `clearDraft(charId, cycleId)` → removes the key
+- `pickFreshestDraft(localPayload, serverDoc)` → returns `{ responses, from }` where `from` is `'local'` or `'server'`; local wins when `saved_at` is strictly newer than server's `updated_at`
+
+**Wired into `downtime-form.js`**:
+- New `localSaveTimer` (800ms debounce — faster than server's 2s). On every input event that already triggers `scheduleSave`, a `_saveLocalSnapshot()` also fires — collects responses and mirrors to localStorage.
+- In `renderDowntimeTab` mount path: after loading the server submission, compare with any local draft. If local is newer AND the server doc isn't already `submitted`, overlay the local `responses` onto `responseDoc`. Set `restoredFromLocal = true`.
+- In `saveDraft` server success branch → `_clearLocalSnapshot()`.
+- In `submitForm` server success branch → `_clearLocalSnapshot()`.
+- In `renderForm`: if `restoredFromLocal` is true, render a one-shot banner "Restored unsaved edits from this browser. They will save to the server as you continue typing." The flag is cleared after rendering so subsequent re-renders don't re-show it.
+
+**Dev-stub cycle guarded**: the localhost dev-preview cycle has `_id: 'dev-stub'`. Local save/clear skip this case to avoid polluting localStorage with `tm-dt-draft-<charId>-dev-stub` entries.
+
+**Never overrides submitted state**: restore path explicitly checks `responseDoc.status !== 'submitted'`. Players cannot accidentally un-submit.
+
+**Banner styling**: uses existing `.qf-results-banner` class for consistency with other info banners (no new CSS rule required). The extra `.qf-local-restore-banner` class is a no-op marker for future custom styling if desired.
+
+**Test deferred**: same Playwright auth issues as prior stories. Manual verification flow:
+1. Open DT form, type in a field
+2. Wait 1-2 seconds (local save fires)
+3. Close tab before the 2s server save lands
+4. Reopen → banner shows, typed text is restored
+
+### File List
+
+- `public/js/tabs/draft-persist.js` (new, 69 lines)
+- `public/js/tabs/downtime-form.js` (modified — import, new timer + helpers, mount restore, clear on save/submit, banner)
+
+### Change Log
+
+- 2026-04-23: Implemented DTU-2 — DT form draft now mirrors to localStorage at 800ms; restores on mount if newer than server.

@@ -10,6 +10,7 @@
  */
 
 import { apiGet, apiPost, apiPut } from '../data/api.js';
+import { saveDraft as saveLocalDraft, loadDraft as loadLocalDraft, clearDraft as clearLocalDraft, pickFreshestDraft } from './draft-persist.js';
 import { esc, displayName, parseOutcomeSections, redactPlayer, redactCharName, hasAoE, isSpecs, findRegentTerritory } from '../data/helpers.js';
 import { applyDerivedMerits } from '../editor/mci.js';
 import { DOWNTIME_SECTIONS, DOWNTIME_GATES, SPHERE_ACTIONS, TERRITORY_DATA, FEEDING_TERRITORIES, PROJECT_ACTIONS, FEED_METHODS } from './downtime-data.js';
@@ -41,6 +42,8 @@ let currentCycle = null;
 let _territories = [];
 let gateValues = {};
 let saveTimer = null;
+let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
+let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
 
 // Merits detected from the character sheet, grouped by type
@@ -121,6 +124,26 @@ const SPHERE_ACTION_FIELDS = {
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveDraft(), 2000);
+  // DTU-2: localStorage mirror runs at 800ms so a tab close between
+  // keystrokes and the 2s server save doesn't wipe in-progress work.
+  if (localSaveTimer) clearTimeout(localSaveTimer);
+  localSaveTimer = setTimeout(_saveLocalSnapshot, 800);
+}
+
+function _saveLocalSnapshot() {
+  if (!currentChar?._id || !currentCycle?._id) return;
+  if (currentCycle._id === 'dev-stub') return;
+  try {
+    const responses = collectResponses();
+    saveLocalDraft(String(currentChar._id), String(currentCycle._id), responses);
+  } catch {
+    // Never block rendering on a storage failure.
+  }
+}
+
+function _clearLocalSnapshot() {
+  if (!currentChar?._id || !currentCycle?._id) return;
+  clearLocalDraft(String(currentChar._id), String(currentCycle._id));
 }
 
 /** Build a stable key for a merit (used as field prefix and toggle key). */
@@ -575,6 +598,8 @@ async function saveDraft() {
     // Residency is now saved in the Regency tab
     if (statusEl) statusEl.textContent = 'Saved';
     setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    // DTU-2: server now has the truth, drop the local mirror.
+    _clearLocalSnapshot();
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
   }
@@ -637,6 +662,8 @@ async function submitForm() {
       });
     }
     showToast('Downtime submitted successfully!', 'success');
+    // DTU-2: submission completed, local mirror no longer needed.
+    _clearLocalSnapshot();
     renderForm(document.getElementById('dt-container'));
   } catch (err) {
     showToast('Submit failed: ' + err.message, 'error');
@@ -728,6 +755,25 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
       ) || null;
       if (responseDoc) _promotePublishedOutcome(responseDoc);
     } catch { /* no submission */ }
+  }
+
+  // DTU-2: if a localStorage draft is newer than the server copy, restore
+  // from it. Handles the "tab close between keystroke and 2s server save"
+  // case. Never overrides a submitted doc — only pre-submit draft state.
+  restoredFromLocal = false;
+  if (currentChar?._id && currentCycle?._id && currentCycle._id !== 'dev-stub') {
+    const local = loadLocalDraft(String(currentChar._id), String(currentCycle._id));
+    if (local && (!responseDoc || responseDoc.status !== 'submitted')) {
+      const picked = pickFreshestDraft(local, responseDoc);
+      if (picked.from === 'local') {
+        if (!responseDoc) {
+          responseDoc = { responses: picked.responses };
+        } else {
+          responseDoc.responses = picked.responses;
+        }
+        restoredFromLocal = true;
+      }
+    }
   }
 
   // Check for published outcomes from previous cycles (for "results available" banner)
@@ -971,6 +1017,13 @@ function renderForm(container) {
   const isSubmitted = status === 'submitted';
 
   let h = '';
+
+  // DTU-2: show a one-shot banner when the form was restored from a local
+  // draft (i.e., server copy was older than localStorage snapshot).
+  if (restoredFromLocal) {
+    h += `<div class="qf-results-banner qf-local-restore-banner">&#x2139; Restored unsaved edits from this browser. They will save to the server as you continue typing.</div>`;
+    restoredFromLocal = false; // only show once per mount
+  }
 
   // Status banner — results live in the Story tab, not here
   const published = responseDoc?.published_outcome;
