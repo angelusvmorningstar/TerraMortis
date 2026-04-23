@@ -117,12 +117,15 @@ describe('ST-only routes — role gating', () => {
     expect(res.status).toBe(200);
   });
 
-  it('blocks player from /api/territories', async () => {
+  it('allows player to read /api/territories (GET is open)', async () => {
+    // Per RFR.1: GET /api/territories is open to any authenticated user.
+    // Writes are gated at the route level (POST/PUT ST-only; PATCH
+    // /:id/feeding-rights regent+ST).
     const res = await request(app)
       .get('/api/territories')
       .set('X-Test-User', playerUser([]));
-    expect(res.status).toBe(403);
-    expect(res.body.error).toBe('FORBIDDEN');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
   });
 
   it('allows ST to access /api/game_sessions', async () => {

@@ -52,8 +52,10 @@ export function createTestApp() {
   app.use('/api/territory-residency', mockAuth, residencyRouter);
   app.use('/api/attendance', mockAuth, attendanceRouter);
 
+  // Territories — matches prod: auth required at app level; write gating is
+  // inside the router (POST/PUT ST-only, PATCH /:id/feeding-rights regent+ST).
+  app.use('/api/territories', mockAuth, territoriesRouter);
   // ST-only routes
-  app.use('/api/territories', mockAuth, requireRole('st'), territoriesRouter);
   app.use('/api/game_sessions', mockAuth, requireRole('coordinator'), gameSessionsRouter);
   app.use('/api/tracker_state', mockAuth, requireRole('st'), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, ordealSubmissionsRouter);

@@ -93,6 +93,18 @@ export function isCoordinatorRole(user) {
   return r === 'coordinator' || r === 'st' || r === 'dev';
 }
 
+/**
+ * Regent check — returns true if the user is ST (override) OR the user's
+ * character_ids includes the territory's regent_id.
+ * Used by feeding-rights write gate.
+ */
+export function isRegentOfTerritory(user, territory) {
+  if (isStRole(user)) return true;
+  if (!territory?.regent_id) return false;
+  const charIds = (user?.character_ids || []).map(id => String(id));
+  return charIds.includes(String(territory.regent_id));
+}
+
 // Role gate middleware — use after requireAuth
 export function requireRole(...roles) {
   return (req, res, next) => {

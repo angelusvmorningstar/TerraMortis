@@ -56,11 +56,12 @@ describe('GET /api/territories', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
-  it('player is blocked', async () => {
+  it('player can list (GET is open to all authenticated users)', async () => {
     const res = await request(app)
       .get('/api/territories')
       .set('X-Test-User', playerUser([]));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
   });
 
   it('returns 401 without auth', async () => {
