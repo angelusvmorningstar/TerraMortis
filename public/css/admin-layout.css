@@ -1352,7 +1352,7 @@ body {
   display: inline-block;
   width: 20px;
   height: 1px;
-  background: #333;
+  background: var(--divider-neutral);
   vertical-align: middle;
   flex-shrink: 0;
 }
@@ -4248,7 +4248,7 @@ body {
   box-sizing: border-box;
 }
 .proc-xp-note-input:focus { border-color: var(--accent); outline: none; }
-.proc-xp-approve-btn.active { border-color: var(--green3, #4caf50); color: var(--green3, #4caf50); background: rgba(76,175,80,.1); }
+.proc-xp-approve-btn.active { border-color: var(--green3, var(--toast-succ-fg)); color: var(--green3, var(--toast-succ-fg)); background: rgba(76,175,80,.1); }
 .proc-xp-flag-btn.active    { border-color: var(--crim); color: var(--crim); background: var(--crim-a8, rgba(139,0,0,.08)); }
 
 /* XP trait field in project action detail */
@@ -4497,7 +4497,7 @@ body {
 .proc-second-opinion-btn.active {
   background: var(--gold2);
   border-color: var(--gold2);
-  color: #1a1208;
+  color: var(--txt-on-gold);
   font-weight: 600;
 }
 
@@ -5730,7 +5730,7 @@ body {
   border-radius: 3px;
   white-space: nowrap;
 }
-.proc-merit-cat-allies   { background: var(--gold2); color: #1a1208; }
+.proc-merit-cat-allies   { background: var(--gold2); color: var(--txt-on-gold); }
 .proc-merit-cat-status   { background: rgba(139,0,0,0.55); color: var(--txt); border: 1px solid var(--crim); }
 .proc-merit-cat-retainer { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
 .proc-merit-cat-staff    { background: var(--surf1); color: var(--txt3); border: 1px solid var(--bdr); }
@@ -6396,7 +6396,7 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
 }
 .roll-die.succ {
   background: rgba(74,124,89,0.3);
-  color: #7fbf8f;
+  color: var(--success-exceptional);
   border-color: rgba(74,124,89,0.6);
 }
 .roll-die.fail {
@@ -6425,7 +6425,7 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
   line-height: 1;
   color: var(--accent);
 }
-.roll-count.exceptional { color: #7fbf8f; }
+.roll-count.exceptional { color: var(--success-exceptional); }
 .roll-count.failure     { color: var(--crim2); }
 .roll-count-label {
   font-family: var(--fl);
@@ -6435,7 +6435,7 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
   color: var(--txt3);
   margin-top: 6px;
 }
-.roll-count-label.exceptional { color: #7fbf8f; }
+.roll-count-label.exceptional { color: var(--success-exceptional); }
 .roll-count-label.failure     { color: var(--crim2); }
 
 .roll-btn-row {
@@ -6475,7 +6475,7 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
   text-transform: uppercase;
   color: var(--txt3);
 }
-.roll-dice-label.winner { color: #7fbf8f; }
+.roll-dice-label.winner { color: var(--success-exceptional); }
 .rote-tag {
   font-family: var(--fl);
   font-size: 10px;
@@ -6496,7 +6496,7 @@ html:not([data-theme="dark"]) .proc-pool-nochar-warn {
 /* Roll button semantic colours (not inline styles) */
 .roll-btn-save  { border-color: var(--story-compl) !important; color: var(--story-compl) !important; }
 .roll-btn-close { border-color: var(--txt3) !important; color: var(--txt3) !important; }
-.roll-btn-save:hover  { border-color: #7fbf8f !important; color: #7fbf8f !important; }
+.roll-btn-save:hover  { border-color: var(--success-exceptional) !important; color: var(--success-exceptional) !important; }
 .roll-btn-close:hover { border-color: var(--txt2) !important; color: var(--txt2) !important; }
 
 /* ── Roll modal parchment overrides ── */
@@ -6504,18 +6504,18 @@ html:not([data-theme="dark"]) .roll-overlay       { background: rgba(80,60,30,0.
 html:not([data-theme="dark"]) .roll-panel         { background: var(--bg); box-shadow: 0 8px 32px rgba(0,0,0,0.22); border-color: var(--bdr2); }
 html:not([data-theme="dark"]) .roll-title         { color: var(--txt); }
 html:not([data-theme="dark"]) .roll-count         { color: var(--crim); }
-html:not([data-theme="dark"]) .roll-count.exceptional { color: #3a8a50; }
-html:not([data-theme="dark"]) .roll-count-label.exceptional { color: #3a8a50; }
+html:not([data-theme="dark"]) .roll-count.exceptional { color: var(--success-exceptional-hover); }
+html:not([data-theme="dark"]) .roll-count-label.exceptional { color: var(--success-exceptional-hover); }
 html:not([data-theme="dark"]) .roll-count.failure { color: var(--crim2); }
 html:not([data-theme="dark"]) .roll-count-label.failure { color: var(--crim2); }
 html:not([data-theme="dark"]) .roll-die.again     { border-color: var(--gold2) !important; box-shadow: 0 0 5px rgba(180,140,60,0.2); }
 html:not([data-theme="dark"]) .roll-rote-toggle   { color: var(--txt2) !important; border-color: var(--bdr2) !important; }
 html:not([data-theme="dark"]) .rote-tag           { color: var(--crim); border-color: rgba(139,0,0,0.35); }
 html:not([data-theme="dark"]) .roll-dice-wrap     { background: var(--surf2); border-color: var(--bdr); }
-html:not([data-theme="dark"]) .roll-die.succ      { background: rgba(60,100,70,0.15); color: #3a7a50; border-color: rgba(60,100,70,0.4); }
+html:not([data-theme="dark"]) .roll-die.succ      { background: rgba(60,100,70,0.15); color: var(--success-exceptional); border-color: rgba(60,100,70,0.4); }
 html:not([data-theme="dark"]) .roll-die.fail      { background: var(--surf3); color: var(--txt3); border-color: var(--bdr); }
-html:not([data-theme="dark"]) .roll-btn-save      { border-color: #3a7a50 !important; color: #3a7a50 !important; }
-html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !important; color: #3a8a50 !important; }
+html:not([data-theme="dark"]) .roll-btn-save      { border-color: var(--success-exceptional) !important; color: var(--success-exceptional) !important; }
+html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: var(--success-exceptional-hover) !important; color: var(--success-exceptional-hover) !important; }
 
 /* ── DT Story Tab ─────────────────────────────────────────────────── */
 
@@ -6543,7 +6543,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-sub-tab-btn.active {
   background: var(--gold2);
   border-color: var(--gold2);
-  color: #0d0b09;
+  color: var(--txt-on-gold);
   font-weight: 700;
 }
 
@@ -6586,7 +6586,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   height: 7px;
   width: 7px;
 }
-.dt-story-pill.amber .dt-story-pill-dot { background: #c89040; }
+.dt-story-pill.amber .dt-story-pill-dot { background: var(--chip-draft); }
 .dt-story-pill.green  .dt-story-pill-dot { background: var(--story-compl); }
 .dt-story-pill.amber { border-color: rgba(200,144,64,0.4); }
 .dt-story-pill.green  { border-color: var(--story-compl-a40); }
@@ -6618,10 +6618,10 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 .dt-feeding-locked-msg { color: var(--txt2); font-size: 13px; margin: 0 0 6px; }
 .dt-feeding-locked-pending { color: var(--txt3); font-size: 12px; margin: 0; }
 .reg-cta-banner { background: rgba(224,196,122,0.08); border: 1px solid rgba(224,196,122,0.35); border-radius: 4px; color: var(--txt2); font-size: 13px; margin-bottom: 14px; padding: 12px 14px; }
-.reg-confirmed-chip { background: rgba(60,180,80,0.15); border: 1px solid rgba(60,180,80,0.35); border-radius: 10px; color: #5dc86a; font-size: 11px; padding: 2px 8px; white-space: nowrap; }
-.reg-confirmed-badge { color: #5dc86a; font-size: 12px; }
+.reg-confirmed-chip { background: rgba(60,180,80,0.15); border: 1px solid rgba(60,180,80,0.35); border-radius: 10px; color: var(--reg-confirmed-fg); font-size: 11px; padding: 2px 8px; white-space: nowrap; }
+.reg-confirmed-badge { color: var(--reg-confirmed-fg); font-size: 12px; }
 .terr-confirm-chip { border-radius: 10px; display: inline-block; font-size: 11px; margin-top: 2px; padding: 2px 8px; }
-.terr-confirm-chip--confirmed { background: rgba(60,180,80,0.12); border: 1px solid rgba(60,180,80,0.3); color: #5dc86a; }
+.terr-confirm-chip--confirmed { background: rgba(60,180,80,0.12); border: 1px solid rgba(60,180,80,0.3); color: var(--reg-confirmed-fg); }
 .terr-confirm-chip--pending { background: var(--surf); border: 1px solid var(--bdr2); color: var(--txt3); }
 
 /* Character view */
@@ -6672,7 +6672,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
 }
 .dt-story-tracker-chip.draft {
   border-color: rgba(200,144,64,0.5);
-  color: #c89040;
+  color: var(--chip-draft);
 }
 .dt-story-tracker-chip.revision {
   border-color: rgba(139,0,0,0.4);
@@ -6983,7 +6983,7 @@ html:not([data-theme="dark"]) .roll-btn-save:hover { border-color: #3a8a50 !impo
   width: 100%;
 }
 .dt-story-notes-ta:focus { border-color: var(--gold2); outline: none; }
-.dt-story-save-status { color: var(--green2, #5dc86a); font-size: 11px; margin-top: 4px; display: block; }
+.dt-story-save-status { color: var(--green2, var(--reg-confirmed-fg)); font-size: 11px; margin-top: 4px; display: block; }
 
 .dt-story-card-actions { align-items: center; display: flex; gap: 8px; }
 .dt-story-save-draft-btn,

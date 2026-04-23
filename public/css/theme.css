@@ -46,6 +46,8 @@
 
   /* Fonts — same for all themes */
   --fh:'Cinzel',serif;--fl:'Lato',sans-serif;--ft:'Libre Baskerville',serif;
+  /* Display variant — used for reading-pane h1/h2 in rules/lore documents */
+  --fh-decorative:'Cinzel Decorative','Cinzel',serif;
   /* Transition aliases — kept until DS-02 through DS-12 sweep removes all usages */
   --fhd:var(--fh);--fb:var(--ft);
 
@@ -106,12 +108,12 @@
   --badge-err-bg:rgba(180,30,30,.9);--badge-err-bdr:rgba(255,80,80,.4);
   --badge-warn-bg:rgba(180,140,20,.85);--badge-warn-bdr:rgba(255,210,60,.4);
 
-  /* Ticket / task badge palette (admin only) */
+  /* Ticket / task badge palette (admin only) — parchment values */
   --tk-inprog-bg:rgba(80,140,200,.2);--tk-inprog-fg:#7ab4e0;
   --tk-resolved-bg:rgba(80,180,100,.2);--tk-resolved-fg:#72c47a;
   --tk-bug-bg:rgba(180,60,60,.2);--tk-bug-fg:#c47272;
-  --tk-feature-bg:rgba(130,80,180,.2);--tk-feature-fg:#b080d8;
-  --tk-question-bg:rgba(60,170,160,.2);--tk-question-fg:#60c8be;
+  --tk-feature-bg:rgba(130,80,180,.12);--tk-feature-fg:#6A30A0;
+  --tk-question-bg:rgba(20,120,110,.10);--tk-question-fg:#186058;
   --tk-sheet-bg:rgba(200,150,50,.2);--tk-sheet-fg:#d4a84b;
 
   /* Lethal damage colour (amber — suite tracker, parchment variant) */
@@ -127,6 +129,44 @@
   /* --txt-on-dark: for text on always-dark surfaces (crim, discord, dark rgba overlays). Parchment cream, warmer than stark white. */
   /* --txt-inverse: for text on theme-flipping surfaces (--err, --green when they become light) */
   --txt-on-dark:#F4EFE4;--txt-inverse:var(--bg);
+
+  /* Text on gold accent surfaces (theme-invariant, always dark on yellowy gold) */
+  --txt-on-gold:#1a1208;
+
+  /* Roll result — exceptional success tier (distinct from --green family) */
+  --success-exceptional:#3a7a50;--success-exceptional-hover:#3a8a50;
+
+  /* Toast component palette */
+  --toast-succ-bg:#1B3A1B;--toast-succ-fg:#4CAF50;
+  --toast-err-bg:#3A1B1B;--toast-err-fg:#E57373;
+
+  /* Territory pill states (feeding rights / poaching) */
+  --terr-rights-fg:#1e6b35;--terr-poach-fg:#8a5000;
+
+  /* Influence / feeding positive state */
+  --influence-ok:#2A7A3A;
+
+  /* Damage tiers (aggravated / critical) */
+  --dmg-agg:#E07070;--dmg-crit:#CC0000;
+
+  /* Structural neutrals — pure-ish blacks for inputs and dividers */
+  --surf-ink:#111;--divider-neutral:#333;
+
+  /* Story / chip draft state */
+  --chip-draft:#c89040;
+
+  /* Reading pane — extended text hierarchy (always parchment, no dark override needed) */
+  --rp-neutral-warm:#C8B8A0;--rp-strong:#3A1A0F;--rp-label:#3A2010;
+  --rp-badge-approved:#2A6A2A;--rp-brown-mid:#5A3A20;--rp-brown-dark:#4A2A10;
+
+  /* Crim interaction states (hover = lighter, active = darker) */
+  --crim-hover:#A00000;--crim-active:#6B0000;
+
+  /* Pure black — reserved for map canvases and maximum-contrast overlays */
+  --ink-black:#000;
+
+  /* Registration / confirmation state (admin scheduling) */
+  --reg-confirmed-fg:#5dc86a;
 }
 
 /* ── Dark mode override ── */
@@ -222,6 +262,13 @@
   --proc-blocked-bg:rgba(100,0,0,.45);--proc-blocked-fg:#e08080;--proc-blocked-bdr:rgba(139,0,0,.6);
   --proc-contested-bg:rgba(180,120,30,.35);--proc-contested-bdr:rgba(180,120,30,.5);
   --proc-pos:#5dbb6a;
+
+  /* Roll result — exceptional success (dark variant is brighter to pop on dark surface) */
+  --success-exceptional:#7fbf8f;--success-exceptional-hover:#7fbf8f;
+
+  /* Ticket badge overrides — feature/question use brighter variants on dark */
+  --tk-feature-bg:rgba(130,80,180,.2);--tk-feature-fg:#b080d8;
+  --tk-question-bg:rgba(60,170,160,.2);--tk-question-fg:#60c8be;
 }
 
 /* ── Cross-app navigation buttons ── */

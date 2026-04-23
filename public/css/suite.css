@@ -220,10 +220,10 @@ body.tracker-readonly .tbox{cursor:default;pointer-events:none;}
 .tbox-mark{width:18px;height:18px;stroke-width:2.5;stroke-linecap:round;}
 .tbox-bashing{border-color:var(--gold-a30);}.tbox-bashing .tbox-mark{stroke:var(--txt2);}
 .tbox-lethal{border-color:var(--err5);background:rgba(139,0,0,.1);}.tbox-lethal .tbox-mark{stroke:var(--crim);}
-.tbox-agg{border-color:var(--err5);background:rgba(139,0,0,.2);}.tbox-agg .tbox-mark{stroke:#E07070;stroke-width:3;}
+.tbox-agg{border-color:var(--err5);background:rgba(139,0,0,.2);}.tbox-agg .tbox-mark{stroke:var(--dmg-agg);stroke-width:3;}
 /* Health legend (compact damage breakdown next to count) */
 .sh-health-legend{font-size:9px;margin-left:4px;letter-spacing:.02em;}
-.sh-hl-agg{color:#E07070;margin-right:3px;font-weight:700;}
+.sh-hl-agg{color:var(--dmg-agg);margin-right:3px;font-weight:700;}
 .sh-hl-let{color:var(--crim);margin-right:3px;font-weight:600;}
 .sh-hl-bash{color:var(--txt3);}
 .sh-tracker-num{font-family:var(--fl);font-size:11px;color:var(--txt3);text-align:right;}
@@ -1405,7 +1405,7 @@ details.city-section[open] > .city-section-hd::before { transform: rotate(90deg)
   font-size: 15px;
   font-weight: 600;
 }
-.feeding-st-roll-suc { color: var(--green3, #4CAF50); }
+.feeding-st-roll-suc { color: var(--green3, var(--toast-succ-fg)); }
 .feeding-st-roll-exc { color: var(--gold2); }
 .feeding-st-roll-fail { color: var(--crim); }
 .feeding-st-roll-detail {
@@ -1438,9 +1438,9 @@ details.city-section[open] > .city-section-hd::before { transform: rotate(90deg)
 .fvc-select { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-size: 13px; padding: 4px 8px; }
 .fvc-consequence { font-size: 12px; min-width: 100px; }
 .fvc-consequence.fvc-safe { color: var(--accent); }
-.fvc-consequence.fvc-drained { color: #C89040; }
+.fvc-consequence.fvc-drained { color: var(--chip-draft); }
 .fvc-consequence.fvc-serious { color: var(--crim); }
-.fvc-consequence.fvc-critical { color: #CC0000; }
+.fvc-consequence.fvc-critical { color: var(--dmg-crit); }
 /* ── Vitae Tally Card (player portal) ── */
 .fvt-card { margin: 16px 0; padding: 14px 16px; background: var(--surf); border: 1px solid var(--bdr); border-radius: 8px; font-size: 13px; }
 .fvt-title { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); margin-bottom: 10px; }
@@ -1589,7 +1589,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .cbt-box { width: 12px; height: 12px; border: 1px solid var(--bdr2); border-radius: 2px; background: var(--surf2); }
 .cbt-box.cbt-bash { background: var(--txt3); border-color: var(--txt2); }
 .cbt-box.cbt-let { background: var(--crim); border-color: var(--crim2); }
-.cbt-box.cbt-agg { background: #111; border-color: #000; }
+.cbt-box.cbt-agg { background: var(--surf-ink); border-color: var(--ink-black); }
 .cbt-def { font-family: var(--fl); font-size: 10px; font-weight: 700; color: var(--txt3); letter-spacing: .04em; }
 .cbt-def-used { font-family: var(--fl); font-size: 10px; font-weight: 700; color: var(--txt3); opacity: .4; text-decoration: line-through; letter-spacing: .04em; }
 .cbt-def-toggle { background: none; border: 1px solid var(--bdr); border-radius: 4px; padding: 2px 5px; cursor: pointer; font-size: 11px; }
@@ -1600,7 +1600,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 .cbt-dmg-lbl { font-family: var(--fl); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--txt3); }
 .cbt-dmg-btn { padding: 3px 7px; font-family: var(--fl); font-size: 10px; font-weight: 700; border-radius: 4px; cursor: pointer; border: 1px solid var(--bdr2); background: var(--surf2); color: var(--txt2); }
 .cbt-dmg-btn.let { background: var(--crim-a12); border-color: var(--crim-a40); color: var(--err); }
-.cbt-dmg-btn.agg { background: rgba(0,0,0,.15); border-color: #333; color: var(--txt); }
+.cbt-dmg-btn.agg { background: rgba(0,0,0,.15); border-color: var(--divider-neutral); color: var(--txt); }
 /* Setup screen */
 .cbt-setup { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .cbt-setup-title { font-family: var(--fl); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--txt3); }
@@ -2028,7 +2028,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   letter-spacing: .5px; text-decoration: none;
   border: none; cursor: pointer; transition: background .15s;
 }
-.sidebar-st-btn:hover { background: #A00000; }
+.sidebar-st-btn:hover { background: var(--crim-hover); }
 
 /* Sidebar collapse button */
 .sidebar-collapse-btn {
@@ -2386,7 +2386,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   letter-spacing: .5px; cursor: pointer; text-transform: uppercase;
   transition: background .15s;
 }
-.dm-roll-btn:active { background: #6B0000; }
+.dm-roll-btn:active { background: var(--crim-active); }
 
 /* ── Result ── */
 .dm-result {
@@ -2400,7 +2400,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .dm-rcnt.s, .dm-rlbl.s { color: var(--green2); }
 .dm-rcnt.e, .dm-rlbl.e { color: var(--accent); }
 .dm-rcnt.f, .dm-rlbl.f { color: var(--err); }
-.dm-rcnt.d, .dm-rlbl.d { color: #E07070; }
+.dm-rcnt.d, .dm-rlbl.d { color: var(--dmg-agg); }
 
 /* ── Dice area ── */
 .dm-dice-area {
@@ -2427,4 +2427,4 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .dm-hist-res.s { color: var(--green2); }
 .dm-hist-res.e { color: var(--accent); }
 .dm-hist-res.f { color: var(--err); }
-.dm-hist-res.d { color: #E07070; }
+.dm-hist-res.d { color: var(--dmg-agg); }
