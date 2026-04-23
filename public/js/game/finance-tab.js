@@ -11,6 +11,7 @@
 
 import { apiGet, apiPut } from '../data/api.js';
 import { esc } from '../data/helpers.js';
+import { readPayment } from './payment-helpers.js';
 
 let _el = null;
 let _sessions = [];
@@ -44,10 +45,10 @@ function derivePayments(session) {
   const byMethod = { cash: 0, payid: 0, paypal: 0, exiles: 0 };
   const counts  = { cash: 0, payid: 0, paypal: 0, exiles: 0, waived: 0, did_not_attend: 0 };
   for (const entry of session.attendance || []) {
-    const p = entry.payment;
-    if (!p || !p.method) continue;
-    counts[p.method] = (counts[p.method] || 0) + 1;
-    if (byMethod[p.method] !== undefined) byMethod[p.method] += (p.amount || 0);
+    const { method, amount } = readPayment(entry);
+    if (!method) continue;
+    counts[method] = (counts[method] || 0) + 1;
+    if (byMethod[method] !== undefined) byMethod[method] += amount;
   }
   // Exiles is offset/credit, not real cash collected
   const collected = byMethod.cash + byMethod.payid + byMethod.paypal;

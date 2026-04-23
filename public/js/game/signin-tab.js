@@ -13,6 +13,7 @@ import { apiGet, apiPut } from '../data/api.js';
 import { calcVitaeMax, calcWillpowerMax } from '../data/accessors.js';
 import { calcTotalInfluence } from '../editor/domain.js';
 import { displayName, sortName, esc } from '../data/helpers.js';
+import { readPayment } from './payment-helpers.js';
 
 // fin.2 schema enum. Display labels paired with stored values.
 const PAYMENT_METHODS = [
@@ -144,8 +145,8 @@ function render() {
       </div>`;
     }
 
-    const currentMethod = a.payment?.method ?? '';
-    const currentAmount = a.payment?.amount ?? '';
+    const { method: currentMethod, amount: legacyAmt } = readPayment(a);
+    const currentAmount = a.payment?.amount ?? (legacyAmt || '');
     const payOpts = PAYMENT_METHODS.map(m =>
       `<option value="${esc(m.value)}"${currentMethod === m.value ? ' selected' : ''}>${esc(m.label)}</option>`
     ).join('');
@@ -168,11 +169,11 @@ function render() {
   });
   h += '</div>';
 
-  // Footer: attended count + collected total from real-payment methods
+  // Footer: attended count + collected total from real-payment methods (reads via readPayment for legacy compat)
   const collected = att.reduce((s, a) => {
-    const m = a.payment?.method;
-    if (m === 'cash' || m === 'payid' || m === 'paypal') {
-      return s + (Number(a.payment?.amount) || 0);
+    const { method, amount } = readPayment(a);
+    if (method === 'cash' || method === 'payid' || method === 'paypal') {
+      return s + amount;
     }
     return s;
   }, 0);
