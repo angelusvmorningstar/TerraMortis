@@ -88,6 +88,10 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 .nbtn-seasonal.on{color:#fff;background:var(--crim);border-radius:6px;}.nbtn-seasonal.on svg{stroke:#fff;}
 .nbtn.on{color:var(--accent);}
 .nbtn.on svg{stroke:var(--accent);}
+.nbtn.nbtn-admin-tier{background:var(--surf2);}
+.nbtn.nbtn-admin-tier.on{background:var(--surf3);}
+.more-app-icon.more-app-admin-tier{background:var(--surf2);}
+.sidebar-app-tile.sidebar-app-tile-admin{background:var(--surf2);}
 
 /* ── SHARED ── */
 .slabel{font-family:var(--fl);font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;}

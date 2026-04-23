@@ -290,8 +290,9 @@ function renderBottomNav() {
       continue;
     }
     const dis = item.disabled ? ' nbtn-disabled' : '';
+    const admin = item.stOnly ? ' nbtn-admin-tier' : '';
     const click = item.disabled ? '' : ` onclick="goTab('${item.goTab}')"`;
-    h += `<button class="nbtn${dis}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
+    h += `<button class="nbtn${dis}${admin}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
   }
   el.innerHTML = h;
 
@@ -1634,7 +1635,8 @@ function renderMoreGrid() {
   function appIcon(app) {
     const hasBadge = typeof app.badge === 'function' && app.badge();
     const badgeDot = hasBadge ? '<span class="nav-badge visible"></span>' : '';
-    return `<button class="more-app-icon" data-app="${app.id}" onclick="goTab('${app.id}')">` +
+    const admin = app.stOnly ? ' more-app-admin-tier' : '';
+    return `<button class="more-app-icon${admin}" data-app="${app.id}" onclick="goTab('${app.id}')">` +
       `<span class="more-app-icon-svg">${app.icon}</span>` +
       `<span class="more-app-label">${app.label}</span>` +
       badgeDot +
@@ -1829,7 +1831,8 @@ function renderDesktopSidebar() {
     }
     for (const app of sectionApps) {
       const on = isActive(app.id) ? ' on' : '';
-      h += `<button class="sidebar-app-tile${on}" onclick="goTab('${app.id}')" title="${app.label}">`;
+      const admin = app.stOnly ? ' sidebar-app-tile-admin' : '';
+      h += `<button class="sidebar-app-tile${on}${admin}" onclick="goTab('${app.id}')" title="${app.label}">`;
       h += `<span class="sidebar-app-tile-icon">${app.icon}</span>`;
       h += `<span class="sidebar-app-tile-label">${app.label}</span>`;
       h += `</button>`;
