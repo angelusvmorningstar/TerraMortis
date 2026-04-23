@@ -1,7 +1,7 @@
 ---
 id: fin.1
 epic: finance-coordinator
-status: ready-for-dev
+status: review
 priority: high
 ---
 
@@ -107,5 +107,24 @@ Lyn's Discord ID is already in the system.
 
 ## Dev Agent Record
 ### Agent Model Used
+claude-opus-4-7
+
 ### Completion Notes
+
+- `player.schema.js`: role enum extended to `['player', 'coordinator', 'st', 'dev']`
+- `auth.js`: added `isCoordinatorRole(user)` helper; `requireRole` now treats ST/dev as a superset of coordinator when `requireRole('coordinator')` is used
+- Auth redirect: `admin.js` client-side guard now redirects ANY non-ST/dev user (including coordinators) away from admin.html to `/`
+- Nav gating: replaced `stOnly: true` on Sign-In + Emergency with new `coordinatorOnly: true` flag; added filter logic to `renderBottomNav()`, `renderMoreGrid()`, and `renderDesktopSidebar()`
+- Admin-tier visual tint (from game.13) now applies to both `stOnly` and `coordinatorOnly` items so coordinator tabs share the visual treatment
+- Lyn's record: not updated in this change; ST to run `db.players.updateOne({ discord_id: '<Lyn>' }, { $set: { role: 'coordinator' } })` when ready
+
 ### File List
+
+- `server/schemas/player.schema.js`
+- `server/middleware/auth.js`
+- `public/js/admin.js`
+- `public/js/app.js`
+
+### Change Log
+
+- 2026-04-23: Implemented fin.1 — coordinator role + nav gating + admin.html redirect

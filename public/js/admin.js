@@ -111,10 +111,11 @@ async function boot() {
         return;
       }
 
-      // Player-only users get redirected to the player portal
+      // Non-ST users get redirected to the game app — admin.html is ST/dev only.
+      // Coordinators have their own tabs inside the game app; they never see this view.
       const info = getPlayerInfo();
-      if (info && info.role === 'player') {
-        window.location.replace('/player');
+      if (info && info.role !== 'st' && info.role !== 'dev') {
+        window.location.replace('/');
         return;
       }
 

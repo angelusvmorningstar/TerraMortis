@@ -84,6 +84,15 @@ export function isStRole(user) {
   return r === 'st' || r === 'dev';
 }
 
+/**
+ * Coordinator tier — non-ST staff with access to check-in, finance,
+ * and emergency tabs. ST and dev also qualify.
+ */
+export function isCoordinatorRole(user) {
+  const r = user?.role;
+  return r === 'coordinator' || r === 'st' || r === 'dev';
+}
+
 // Role gate middleware — use after requireAuth
 export function requireRole(...roles) {
   return (req, res, next) => {
@@ -91,8 +100,13 @@ export function requireRole(...roles) {
     if (!role) {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Insufficient role' });
     }
-    // dev is treated as st for all access checks
-    const effective = roles.includes('st') && !roles.includes('dev') ? [...roles, 'dev'] : roles;
+    // dev is treated as st for all access checks; st is also treated as coordinator
+    let effective = [...roles];
+    if (roles.includes('st') && !roles.includes('dev')) effective.push('dev');
+    if (roles.includes('coordinator')) {
+      if (!effective.includes('st')) effective.push('st');
+      if (!effective.includes('dev')) effective.push('dev');
+    }
     if (!effective.includes(role)) {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'Insufficient role' });
     }

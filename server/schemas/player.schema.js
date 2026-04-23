@@ -19,7 +19,7 @@ export const playerSchema = {
     discord_username:   { type: ['string', 'null'] },
     discord_global_name:{ type: ['string', 'null'] },
     discord_avatar:     { type: ['string', 'null'] },
-    role:             { type: 'string', enum: ['player', 'st', 'dev'], default: 'player' },
+    role:             { type: 'string', enum: ['player', 'coordinator', 'st', 'dev'], default: 'player' },
     email:                    { type: ['string', 'null'] },
     mobile:                   { type: ['string', 'null'] },
     medical_info:             { type: ['string', 'null'] },

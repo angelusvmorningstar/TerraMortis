@@ -263,8 +263,8 @@ const NAV_ITEMS = [
   { id: 'territory', label: 'Territory', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>', goTab: 'territory', stOnly: true },
   { id: 'tracker',   label: 'Tracker',   icon: '<svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>', goTab: 'tracker', stOnly: true },
   { id: 'combat',    label: 'Combat',    icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M3 14l7-7"/></svg>', goTab: 'combat', stOnly: true },
-  { id: 'signin',    label: 'Sign-In',   icon: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>', goTab: 'signin', stOnly: true },
-  { id: 'emergency', label: 'Emergency', icon: '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.89 12 19.79 19.79 0 0 1 1.84 3.4 2 2 0 0 1 3.81 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>', goTab: 'emergency', stOnly: true },
+  { id: 'signin',    label: 'Sign-In',   icon: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>', goTab: 'signin', coordinatorOnly: true },
+  { id: 'emergency', label: 'Emergency', icon: '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.89 12 19.79 19.79 0 0 1 1.84 3.4 2 2 0 0 1 3.81 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>', goTab: 'emergency', coordinatorOnly: true },
   // Conditional
   { id: 'regency',   label: 'Regency',   icon: '<svg viewBox="0 0 24 24"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M6 5a2 2 0 1 0-4 0 2 2 0 0 0 4 0z"/><path d="M18 5a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>', goTab: 'regency', condition: 'hasRegency' },
   { id: 'office',    label: 'Office',    icon: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', goTab: 'office', condition: 'hasOffice' },
@@ -277,11 +277,13 @@ function renderBottomNav() {
   if (!el) return;
   const role = effectiveRole();
   const isST = role === 'st';
+  const isCoord = role === 'st' || role === 'dev' || role === 'coordinator';
 
   const showGuides = localStorage.getItem('tm-show-guides') === '1';
   let h = '';
   for (const item of NAV_ITEMS) {
     if (item.stOnly && !isST) continue;
+    if (item.coordinatorOnly && !isCoord) continue;
     if (item.condition && !_moreGridCondition(item)) continue;
     if (item.guide && !showGuides) continue;
     if (item.seasonal) {
@@ -290,7 +292,7 @@ function renderBottomNav() {
       continue;
     }
     const dis = item.disabled ? ' nbtn-disabled' : '';
-    const admin = item.stOnly ? ' nbtn-admin-tier' : '';
+    const admin = (item.stOnly || item.coordinatorOnly) ? ' nbtn-admin-tier' : '';
     const click = item.disabled ? '' : ` onclick="goTab('${item.goTab}')"`;
     h += `<button class="nbtn${dis}${admin}" id="n-${item.id}"${click}>${item.icon}<span>${item.label}</span></button>`;
   }
@@ -1336,8 +1338,8 @@ const MORE_APPS = [
   // ── Storyteller section (ST role only) ──
   { id: 'tracker',      label: 'Tracker',     icon: _svg.tracker,  section: 'st', stOnly: true },
   { id: 'combat',       label: 'Combat',      icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'st', stOnly: true },
-  { id: 'signin',       label: 'Sign-In',     icon: _svg.signin,   section: 'st', stOnly: true },
-  { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', stOnly: true },
+  { id: 'signin',       label: 'Sign-In',     icon: _svg.signin,   section: 'st', coordinatorOnly: true },
+  { id: 'emergency',    label: 'Emergency',   icon: _svg.emergency,section: 'st', coordinatorOnly: true },
   // ── Conditional apps (section determined by context) ──
   { id: 'regency',      label: 'Regency',     icon: _svg.regency,  section: 'game', condition: 'hasRegency' },
   { id: 'office',       label: 'Office',      icon: _svg.office,   section: 'game', condition: 'hasOffice' },
@@ -1624,9 +1626,11 @@ function renderMoreGrid() {
 
   const role = effectiveRole();
   const isST = role === 'st';
+  const isCoord = role === 'st' || role === 'dev' || role === 'coordinator';
 
   function appVisible(app) {
     if (app.stOnly && !isST) return false;
+    if (app.coordinatorOnly && !isCoord) return false;
     if (app.playerOnly && isST) return false;
     if (app.condition && !_moreGridCondition(app)) return false;
     return true;
@@ -1635,7 +1639,7 @@ function renderMoreGrid() {
   function appIcon(app) {
     const hasBadge = typeof app.badge === 'function' && app.badge();
     const badgeDot = hasBadge ? '<span class="nav-badge visible"></span>' : '';
-    const admin = app.stOnly ? ' more-app-admin-tier' : '';
+    const admin = (app.stOnly || app.coordinatorOnly) ? ' more-app-admin-tier' : '';
     return `<button class="more-app-icon${admin}" data-app="${app.id}" onclick="goTab('${app.id}')">` +
       `<span class="more-app-icon-svg">${app.icon}</span>` +
       `<span class="more-app-label">${app.label}</span>` +
@@ -1809,8 +1813,11 @@ function renderDesktopSidebar() {
   for (const section of MORE_SECTIONS) {
     const sectionApps = MORE_APPS.filter(app => {
       if (app.section !== section.id) return false;
-      if (app.stOnly && effectiveRole() !== 'st') return false;
-      if (app.playerOnly && effectiveRole() === 'st') return false;
+      const r = effectiveRole();
+      const isCoord = r === 'st' || r === 'dev' || r === 'coordinator';
+      if (app.stOnly && r !== 'st' && r !== 'dev') return false;
+      if (app.coordinatorOnly && !isCoord) return false;
+      if (app.playerOnly && (r === 'st' || r === 'dev')) return false;
       if (app.guide && !showGuides) return false;
       if (app.condition && !_moreGridCondition(app)) return false;
       return true;
@@ -1831,7 +1838,7 @@ function renderDesktopSidebar() {
     }
     for (const app of sectionApps) {
       const on = isActive(app.id) ? ' on' : '';
-      const admin = app.stOnly ? ' sidebar-app-tile-admin' : '';
+      const admin = (app.stOnly || app.coordinatorOnly) ? ' sidebar-app-tile-admin' : '';
       h += `<button class="sidebar-app-tile${on}${admin}" onclick="goTab('${app.id}')" title="${app.label}">`;
       h += `<span class="sidebar-app-tile-icon">${app.icon}</span>`;
       h += `<span class="sidebar-app-tile-label">${app.label}</span>`;
