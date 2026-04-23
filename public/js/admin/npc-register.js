@@ -145,16 +145,109 @@ function rowHtml(id, label, count, dim) {
 }
 
 function renderMain() {
-  const header = document.getElementById('npcr-main-header');
-  const grid = document.getElementById('npcr-grid');
-  const detail = document.getElementById('npcr-detail');
-  if (!header || !grid || !detail) return;
+  renderHeader();
+  renderGrid();
+  renderDetail();
+}
 
+function renderHeader() {
+  const header = document.getElementById('npcr-main-header');
+  if (!header) return;
   const list = npcsForSelection();
   header.innerHTML = `
     <div class="npcr-main-title">${esc(labelForSelection())}</div>
     <div class="npcr-main-sub">${list.length} NPC${list.length === 1 ? '' : 's'}</div>
   `;
-  grid.innerHTML = '<p class="npcr-empty">Grid renders in task 3.</p>';
-  detail.innerHTML = '';
+}
+
+function renderGrid() {
+  const grid = document.getElementById('npcr-grid');
+  if (!grid) return;
+
+  const list = npcsForSelection().slice().sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })
+  );
+
+  let h = '';
+  h += `<button class="npcr-add-btn" id="npcr-add-btn">+ Add NPC</button>`;
+
+  if (list.length === 0) {
+    h += '<p class="npcr-empty">No NPCs in this bucket.</p>';
+  } else {
+    h += '<div class="npcr-cards">';
+    for (const n of list) h += cardHtml(n);
+    h += '</div>';
+  }
+
+  grid.innerHTML = h;
+
+  document.getElementById('npcr-add-btn')?.addEventListener('click', () => {
+    _selectedNpcId = '__new__';
+    renderDetail();
+  });
+
+  grid.querySelectorAll('.npcr-card').forEach(card => {
+    card.addEventListener('click', () => {
+      _selectedNpcId = card.dataset.npcId;
+      renderDetail();
+      updateCardSelection();
+    });
+  });
+
+  updateCardSelection();
+}
+
+function updateCardSelection() {
+  const grid = document.getElementById('npcr-grid');
+  if (!grid) return;
+  grid.querySelectorAll('.npcr-card').forEach(c => {
+    c.classList.toggle('on', c.dataset.npcId === _selectedNpcId);
+  });
+}
+
+function cardHtml(n) {
+  const isCorr = !!n.is_correspondent;
+  const suggestedCount = Array.isArray(n.st_suggested_for) ? n.st_suggested_for.length : 0;
+  const status = n.status || 'active';
+  const statusCls = status === 'pending' ? ' pending'
+                  : status === 'inactive' || status === 'destroyed' ? ' inactive' : '';
+  let h = `<button class="npcr-card" data-npc-id="${esc(n._id)}">`;
+  h += `<div class="npcr-card-head">`;
+  h += `<span class="npcr-card-name">${esc(n.name)}</span>`;
+  h += `<span class="npcr-card-status${statusCls}">${esc(status)}</span>`;
+  h += `</div>`;
+  const badges = [];
+  if (isCorr) badges.push('<span class="npcr-badge corr" title="Correspondent">C</span>');
+  if (suggestedCount > 0) badges.push(`<span class="npcr-badge sug" title="ST-suggested for ${suggestedCount} character${suggestedCount === 1 ? '' : 's'}">S${suggestedCount}</span>`);
+  if (badges.length) h += `<div class="npcr-card-badges">${badges.join('')}</div>`;
+  if (n.description) h += `<div class="npcr-card-desc">${esc(n.description)}</div>`;
+  h += `</button>`;
+  return h;
+}
+
+function renderDetail() {
+  const detail = document.getElementById('npcr-detail');
+  if (!detail) return;
+  if (!_selectedNpcId) {
+    detail.innerHTML = '';
+    return;
+  }
+  if (_selectedNpcId === '__new__') {
+    detail.innerHTML = '<div class="npcr-detail-placeholder">New NPC form lands in task 4.</div>';
+    return;
+  }
+  const npc = _npcs.find(n => String(n._id) === String(_selectedNpcId));
+  if (!npc) {
+    detail.innerHTML = '';
+    return;
+  }
+  let h = '<div class="npcr-detail-preview">';
+  h += `<div class="npcr-detail-title">${esc(npc.name)}</div>`;
+  h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Status</span><span>${esc(npc.status || 'active')}</span></div>`;
+  if (npc.description) h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Description</span><span>${esc(npc.description)}</span></div>`;
+  if (npc.notes) h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Notes</span><span>${esc(npc.notes)}</span></div>`;
+  h += `<div class="npcr-detail-row"><span class="npcr-detail-label">Correspondent</span><span>${npc.is_correspondent ? 'yes' : 'no'}</span></div>`;
+  h += '<div class="npcr-detail-placeholder">Editor lands in task 4.</div>';
+  h += '</div>';
+  detail.innerHTML = h;
 }

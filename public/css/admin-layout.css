@@ -7520,3 +7520,171 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+
+.npcr-add-btn {
+  align-self: flex-start;
+  padding: 6px 14px;
+  background: var(--accent);
+  color: var(--bg);
+  border: 0;
+  border-radius: 2px;
+  font-family: var(--fl);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.npcr-add-btn:hover {
+  opacity: 0.85;
+}
+
+.npcr-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.npcr-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+  color: var(--txt);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--ft);
+  transition: border-color 120ms;
+}
+
+.npcr-card:hover {
+  border-color: var(--accent);
+}
+
+.npcr-card.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.npcr-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.npcr-card-name {
+  font-family: var(--fh);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.npcr-card-status {
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--txt3);
+  padding: 1px 6px;
+  border: 1px solid var(--bdr);
+  border-radius: 2px;
+}
+
+.npcr-card-status.pending {
+  color: var(--gold2, var(--accent));
+  border-color: var(--gold2, var(--accent));
+}
+
+.npcr-card-status.inactive {
+  color: var(--crim, var(--txt3));
+  border-color: var(--crim, var(--bdr));
+}
+
+.npcr-card-badges {
+  display: flex;
+  gap: 4px;
+}
+
+.npcr-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  font-family: var(--fl);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.npcr-badge.sug {
+  background: var(--gold2, var(--accent));
+}
+
+.npcr-card-desc {
+  font-size: 13px;
+  color: var(--txt2, var(--txt));
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.npcr-detail {
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--surf);
+  border: 1px solid var(--bdr);
+  border-radius: 4px;
+}
+
+.npcr-detail:empty {
+  display: none;
+}
+
+.npcr-detail-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.npcr-detail-title {
+  font-family: var(--fh);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.npcr-detail-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.npcr-detail-label {
+  font-family: var(--fl);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--txt3);
+}
+
+.npcr-detail-placeholder {
+  margin-top: 10px;
+  font-style: italic;
+  color: var(--txt3);
+  font-size: 13px;
+}
