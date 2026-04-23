@@ -1698,7 +1698,7 @@ let _userModeOverride = false;
 function toggleDesktopMode() {
   _userModeOverride = true;
   const isDesktop = document.body.classList.toggle('desktop-mode');
-  localStorage.setItem('tm-mode', isDesktop ? 'desktop' : 'game');
+  // Session-only toggle — do NOT persist to localStorage, so autodetect works on reload.
   _updateDesktopIcon();
   _syncSidebarActions();
   // Show header controls in both modes so user can toggle back
@@ -1731,14 +1731,13 @@ function _updateDesktopIcon() {
 const DESKTOP_MQ = window.matchMedia('(min-width: 900px)');
 
 function _initDesktopMode() {
-  // Prefer an explicit localStorage choice (set by a previous user toggle),
-  // otherwise fall back to auto-detect via viewport width.
-  const stored = localStorage.getItem('tm-mode');
-  const initial = stored ? stored === 'desktop' : DESKTOP_MQ.matches;
-  if (stored) _userModeOverride = true; // honour stored choice across reloads
-  _applyDesktopMode(initial);
+  // Always autodetect on page load. User toggle is session-only and does not
+  // persist across reloads. Clear any stale stored value from the buggy
+  // previous version so users aren't locked into a mode.
+  localStorage.removeItem('tm-mode');
+  _applyDesktopMode(DESKTOP_MQ.matches);
   DESKTOP_MQ.addEventListener('change', e => {
-    // Don't clobber an explicit user toggle when the window is resized.
+    // Respect an in-session user toggle so resize doesn't clobber their choice.
     if (_userModeOverride) return;
     _applyDesktopMode(e.matches);
   });

@@ -1966,8 +1966,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 /* User area */
 #desktop-sidebar .sidebar-user { padding: 10px 14px; border-top: 1px solid var(--bdr); flex-shrink: 0; }
 
-/* Desktop toggle button — hidden since desktop mode is now auto-detected via matchMedia */
-.desktop-toggle-btn { display: none !important; }
+/* Desktop/phablet toggle button — visible in header so STs can override autodetect */
 
 /* Sidebar footer — pinned to bottom */
 .sidebar-footer {
