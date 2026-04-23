@@ -122,6 +122,11 @@
 
   /* Discord external brand (fixed — no theme variant) */
   --discord-bg:#5865F2;--discord-bg-hover:#4752C4;
+
+  /* Text on coloured surfaces — theme-invariant and theme-flipping */
+  /* --txt-on-dark: for text on always-dark surfaces (crim, discord, dark rgba overlays). Parchment cream, warmer than stark white. */
+  /* --txt-inverse: for text on theme-flipping surfaces (--err, --green when they become light) */
+  --txt-on-dark:#F4EFE4;--txt-inverse:var(--bg);
 }
 
 /* ── Dark mode override ── */
@@ -220,5 +225,5 @@
 }
 
 /* ── Cross-app navigation buttons ── */
-.app-nav-btn{display:inline-block;padding:6px 14px;background:var(--crim,#8B0000);color:#fff;border:1px solid var(--crim-a70);border-radius:4px;font-family:var(--fh);font-size:12px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;cursor:pointer;}
+.app-nav-btn{display:inline-block;padding:6px 14px;background:var(--crim,#8B0000);color:var(--txt-on-dark);border:1px solid var(--crim-a70);border-radius:4px;font-family:var(--fh);font-size:12px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;cursor:pointer;}
 .app-nav-btn:hover{filter:brightness(1.15);}

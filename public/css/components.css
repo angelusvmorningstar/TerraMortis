@@ -17,8 +17,8 @@
 .cc-card-right{margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:6px;}
 .cc-alert-wrap{flex-shrink:0;}
 .cc-alert{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:700;font-family:var(--ft);line-height:1;}
-.cc-alert.red{background:var(--badge-err-bg);color:#fff;border:1px solid var(--badge-err-bdr);}
-.cc-alert.yellow{background:var(--badge-warn-bg);color:#fff;border:1px solid var(--badge-warn-bdr);font-size:8px;}
+.cc-alert.red{background:var(--badge-err-bg);color:var(--txt-on-dark);border:1px solid var(--badge-err-bdr);}
+.cc-alert.yellow{background:var(--badge-warn-bg);color:var(--txt-on-dark);border:1px solid var(--badge-warn-bdr);font-size:8px;}
 .cc-identity{flex:1;min-width:0;}
 .cc-name{font-family:var(--fh);font-size:15px;font-weight:700;color:var(--accent);letter-spacing:.04em;}
 .cc-player{font-family:var(--fl);font-size:12px;font-weight:700;color:var(--label-tertiary);}
@@ -545,8 +545,8 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-sub-title{font-family:var(--fl);font-size:9px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--label-secondary);margin:6px 0 3px;}
 .sh-sec-subtitle{font-family:var(--fl);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding-bottom:4px;border-bottom:1px solid var(--bdr);margin-bottom:6px;margin-top:4px;display:flex;align-items:center;gap:5px;}
 .sh-sec-alert{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;font-size:9px;font-weight:700;font-family:var(--ft);line-height:1;flex-shrink:0;text-transform:none;letter-spacing:0;}
-.sh-sec-alert.red{background:rgba(180,30,30,.9);color:#fff;border:1px solid rgba(255,80,80,.4);}
-.sh-sec-alert.yellow{background:rgba(160,120,10,.85);color:#fff;border:1px solid rgba(220,180,50,.4);font-size:7px;}
+.sh-sec-alert.red{background:rgba(180,30,30,.9);color:var(--txt-on-dark);border:1px solid rgba(255,80,80,.4);}
+.sh-sec-alert.yellow{background:rgba(160,120,10,.85);color:var(--txt-on-dark);border:1px solid rgba(220,180,50,.4);font-size:7px;}
 .sh-xp-badge.xp-over{color:var(--err)!important;}
 .sh-xp-badge.xp-under{color:var(--accent)!important;}
 
@@ -727,7 +727,7 @@ input.sh-edit-input:disabled {
   font-family: var(--fl);
   font-size: 9px;
   letter-spacing: 0.08em;
-  color: #fff;
+  color: var(--txt-on-dark);
   background: rgba(180, 40, 40, 0.85);
   padding: 1px 5px;
   border-radius: 2px;
@@ -760,7 +760,7 @@ input.sh-edit-input:disabled {
   font-family: var(--fl);
   font-size: 9px;
   letter-spacing: 0.08em;
-  color: #fff;
+  color: var(--txt-on-dark);
   background: rgba(180, 40, 40, 0.85);
   padding: 1px 5px;
   border-radius: 2px;
@@ -1038,7 +1038,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .reading-pane .qf-btn-approve {
   background: #3A7A3A;
-  color: #fff;
+  color: var(--txt-on-dark);
 }
 
 /* ── Icon filter override (dark bg icons need to be dark on light bg) ── */
@@ -1696,7 +1696,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 
 .qf-btn-approve {
   background: var(--green);
-  color: #fff;
+  color: var(--txt-on-dark);
 }
 
 .qf-btn-approve:hover { opacity: .85; }
@@ -2858,10 +2858,10 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
   transition: background 0.15s, color 0.15s;
 }
 .dt-feed-chip:hover { background: var(--surf3); color: var(--txt1); }
-.dt-feed-chip-on { background: var(--crim); color: #fff; border-color: var(--crim); }
+.dt-feed-chip-on { background: var(--crim); color: var(--txt-on-dark); border-color: var(--crim); }
 .dt-feed-chip-disc { border-color: rgba(139,0,0,.5); color: var(--crim); }
 .dt-feed-chip-disc:hover { background: rgba(139,0,0,.1); }
-.dt-feed-chip-disc.dt-feed-chip-on { background: var(--crim); color: #fff; }
+.dt-feed-chip-disc.dt-feed-chip-on { background: var(--crim); color: var(--txt-on-dark); }
 
 /* ── Regency sub-field (inside Vamping) ── */
 .dt-regency-sub { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--surf3); }
@@ -3048,7 +3048,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .feeding-flow-step { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; font-size: 13px; color: var(--txt2); }
 .feeding-flow-step.done { border-color: var(--green-a45); color: var(--green2); }
 .feeding-flow-num { width: 24px; height: 24px; border-radius: 50%; background: var(--bdr); color: var(--txt); font-family: var(--fl); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.feeding-flow-step.done .feeding-flow-num { background: var(--green-a45); color: #fff; }
+.feeding-flow-step.done .feeding-flow-num { background: var(--green-a45); color: var(--txt-on-dark); }
 
 .feeding-confirmed {
   margin-bottom: 16px;
@@ -3145,7 +3145,7 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .fvc-alloc-badge { display: inline-block; margin-top: 12px; padding: 6px 14px; background: var(--surf); border: 1px solid var(--green3); border-radius: 6px; color: var(--green3); font-size: 12px; font-family: var(--fl); text-transform: uppercase; letter-spacing: .08em; }
 .feeding-dramatic { margin-top: 16px; padding: 16px; background: var(--surf); border: 1px solid var(--err); border-radius: 8px; color: var(--err); font-size: 14px; text-align: center; }
 .feeding-overfeed-warn { font-size: 12px; color: var(--err); margin-top: 8px; }
-.feeding-roll-btn { width: 100%; padding: 14px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: 6px; color: #fff; font-family: var(--fl); font-size: 14px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; margin-top: 16px; }
+.feeding-roll-btn { width: 100%; padding: 14px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: 6px; color: var(--txt-on-dark); font-family: var(--fl); font-size: 14px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; margin-top: 16px; }
 .feeding-roll-btn:hover { filter: brightness(1.2); }
 .feeding-st-override { margin-top: 24px; padding: 12px 16px; border: 1px solid var(--gold2); border-radius: 6px; background: rgba(224,196,122,.06); display: flex; align-items: center; gap: 12px; }
 .feeding-st-label { font-family: var(--fl); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold2); white-space: nowrap; }

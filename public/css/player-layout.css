@@ -53,7 +53,7 @@ body {
   align-items: center;
   gap: 10px;
   background: #5865F2;
-  color: #fff;
+  color: var(--txt-on-dark);
   border: none;
   border-radius: 6px;
   padding: 12px 24px;

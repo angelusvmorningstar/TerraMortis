@@ -257,7 +257,7 @@ body {
   align-items: center;
   gap: 10px;
   background: var(--discord-bg);
-  color: #fff;
+  color: var(--txt-on-dark);
   border: none;
   border-radius: 6px;
   padding: 12px 28px;
@@ -379,7 +379,7 @@ body {
   font-family: var(--fl);
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: #fff;
+  color: var(--txt-on-dark);
   background: rgba(180, 40, 40, 0.85);
   padding: 2px 7px;
   border-radius: 2px;
@@ -821,7 +821,7 @@ body {
 .court-edit-row { display: flex; align-items: center; gap: 12px; }
 .court-edit-label { font-family: var(--fl); font-size: 12px; color: var(--accent); min-width: 110px; }
 .court-edit-sel, .terr-edit-sel { flex: 1; padding: 6px 8px; background: var(--surf2); border: 1px solid var(--bdr); border-radius: 4px; color: var(--txt); font-family: var(--ft); font-size: 13px; }
-.city-save-btn { margin-top: 12px; padding: 8px 16px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: 4px; color: #fff; font-family: var(--fl); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.city-save-btn { margin-top: 12px; padding: 8px 16px; background: var(--crim); border: 1px solid var(--crim-a70); border-radius: 4px; color: var(--txt-on-dark); font-family: var(--fl); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
 .city-save-btn:hover { filter: brightness(1.2); }
 .city-save-status { font-size: 12px; color: var(--green2); margin-left: 12px; }
 .terr-edit-block { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--bdr); }
@@ -4978,7 +4978,7 @@ body {
 
 .proc-travel-btn.active[data-discretion="obvious"] {
   background: var(--crim);
-  color: #fff;
+  color: var(--txt-on-dark);
   border-color: var(--crim);
   font-weight: 600;
 }
@@ -4992,7 +4992,7 @@ body {
 
 .proc-travel-btn.active[data-discretion="subtle"] {
   background: rgba(60,140,60,.8);
-  color: #fff;
+  color: var(--txt-on-dark);
   border-color: rgba(60,140,60,.8);
   font-weight: 600;
 }
@@ -7377,7 +7377,7 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 }
 .proc-restore-btn:hover {
   background: var(--crim);
-  color: #fff;
+  color: var(--txt-on-dark);
 }
 
 /* ── Emergency contact modal ── */
