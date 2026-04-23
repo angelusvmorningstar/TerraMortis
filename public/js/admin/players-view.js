@@ -103,6 +103,8 @@ function playerCard(p) {
 
   const roleBadge = p.role === 'st'
     ? '<span class="pv-badge pv-badge-st">ST</span>'
+    : p.role === 'coordinator'
+    ? '<span class="pv-badge pv-badge-coord">Coordinator</span>'
     : '<span class="pv-badge pv-badge-player">Player</span>';
 
   const lastLogin = p.last_login
@@ -190,6 +192,7 @@ function playerForm(p, formId) {
         <span>Role</span>
         <select class="pv-input pv-select" id="pv-f-role">
           <option value="player" ${(p?.role || 'player') === 'player' ? 'selected' : ''}>Player</option>
+          <option value="coordinator" ${p?.role === 'coordinator' ? 'selected' : ''}>Coordinator</option>
           <option value="st" ${p?.role === 'st' ? 'selected' : ''}>Storyteller</option>
         </select>
       </label>

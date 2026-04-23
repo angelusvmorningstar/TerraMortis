@@ -3026,6 +3026,7 @@ body {
 }
 
 .pv-badge-st     { background: var(--accent-a8); color: var(--accent); }
+.pv-badge-coord  { background: var(--gold1, #C9A962); color: var(--bg, #0D0B09); }
 .pv-badge-player { background: var(--surf2); color: var(--txt3); }
 
 .pv-discord-row {
