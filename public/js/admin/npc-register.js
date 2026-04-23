@@ -4,6 +4,7 @@
 
 import { apiGet, apiPost, apiPut, apiDelete } from '../data/api.js';
 import { esc, sortName, displayName } from '../data/helpers.js';
+import { renderRelationshipsSection } from './relationship-editor.js';
 
 const ALL = '__all__';
 const UNLINKED = '__unlinked__';
@@ -343,6 +344,10 @@ function renderDetail() {
   }
 
   if (!isNew) {
+    h += `<div class="npcr-rels-mount" id="npcr-rels-mount"></div>`;
+  }
+
+  if (!isNew) {
     const meta = [];
     if (npc.created_by?.type) {
       let creator = npc.created_by.type;
@@ -380,6 +385,17 @@ function renderDetail() {
   }
 
   if (isNew) document.getElementById('npcr-f-name')?.focus();
+
+  if (!isNew) {
+    const mount = document.getElementById('npcr-rels-mount');
+    if (mount) {
+      renderRelationshipsSection(mount, {
+        npcId: String(npc._id),
+        chars: _chars,
+        npcs:  _npcs,
+      });
+    }
+  }
 }
 
 async function saveNpc(isNew) {

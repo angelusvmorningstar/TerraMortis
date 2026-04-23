@@ -8130,3 +8130,9 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
 
 .npcr-rels-history .before { color: var(--txt3); }
 .npcr-rels-history .after  { color: var(--accent); }
+
+.npcr-rels-mount {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--bdr);
+}
