@@ -1899,8 +1899,8 @@ body {
 .tk-badge-resolved { background: rgba(80,180,100,0.2); color: var(--tk-resolved-fg); }
 .tk-badge-closed { background: rgba(120,120,120,0.15); color: var(--txt3); }
 .tk-badge-bug { background: rgba(180,60,60,0.2); color: var(--tk-bug-fg); }
-.tk-badge-feature { background: rgba(130,80,180,0.2); color: var(--tk-feature-fg); }
-.tk-badge-question { background: rgba(60,170,160,0.2); color: var(--tk-question-fg); }
+.tk-badge-feature { background: var(--tk-feature-bg); color: var(--tk-feature-fg); }
+.tk-badge-question { background: var(--tk-question-bg); color: var(--tk-question-fg); }
 .tk-badge-sheet { background: rgba(200,150,50,0.2); color: var(--tk-sheet-fg); }
 .tk-badge-other { background: rgba(120,120,120,0.15); color: var(--txt3); }
 .tk-item-toggle { cursor: pointer; user-select: none; }
