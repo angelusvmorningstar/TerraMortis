@@ -80,7 +80,7 @@ export const relationshipSchema = {
   additionalProperties: false,
 
   properties: {
-    _id:          { type: ['string', 'object'] },
+    _id:          { type: 'string' },
     a:            endpointSchema,
     b:            endpointSchema,
     kind:         { type: 'string', enum: KIND_ENUM },

@@ -122,7 +122,10 @@ router.put('/:id', validate(relationshipSchema), async (req, res) => {
     const before = existing[name];
     const after = body[name];
     if (JSON.stringify(before) !== JSON.stringify(after)) {
-      fields.push({ name, before, after });
+      const delta = { name };
+      if (before !== undefined) delta.before = before;
+      if (after !== undefined) delta.after = after;
+      fields.push(delta);
     }
   }
 
