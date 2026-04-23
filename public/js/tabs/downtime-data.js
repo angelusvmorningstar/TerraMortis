@@ -94,10 +94,12 @@ export const FEED_METHODS = [
 ];
 
 export const DOWNTIME_SECTIONS = [
-  // 1. Court — gated: only shown if the player attended last game
+  // 1. Court — gated: only shown if the player attended last game.
+  // Prior "Politics and Correspondence" title renamed post-DTR.2/.3 since
+  // Correspondence moved to Personal Story and Aspirations moved to Vamping.
   {
     key: 'court',
-    title: 'Court: Politics and Correspondence',
+    title: 'Court: Last Game Session',
     gate: 'attended',
     intro: null,
     questions: [
@@ -111,9 +113,9 @@ export const DOWNTIME_SECTIONS = [
       {
         key: 'game_recount',
         label: 'Game Recount: 3–5 highlights or actions you took in-character.',
-        type: 'textarea',
+        type: 'highlight_slots',
         required: true,
-        desc: 'Summarise the key things your character did or said at Court. What conversations did you have? What plots did you advance or uncover? What did you witness?\n\nExample: "I approached Lord Vance about the missing shipment, then coordinated with Iseult to pressure the Carthians before the vote. I avoided Mammon entirely after last session\'s confrontation."',
+        desc: 'Capture each highlight in its own field. Start with three; a fourth and fifth field will appear as you fill them. Each one is a separate conversation, plot, or moment.\n\nExample highlight: "Approached Lord Vance about the missing shipment."',
       },
       {
         key: 'rp_shoutout',
@@ -122,6 +124,18 @@ export const DOWNTIME_SECTIONS = [
         required: true,
         desc: 'Acknowledge peers whose performance or collaboration made the session memorable for you.',
       },
+    ],
+  },
+
+  // 2. Personal Story — always shown; player selects an NPC to interact with.
+  // DTR.2: correspondence moved here from the Court section (where it
+  // historically lived). Rendered by the custom personal-story renderer.
+  {
+    key: 'personal_story',
+    title: 'Personal Story: Off-Screen Life',
+    gate: null,
+    intro: null,
+    questions: [
       {
         key: 'correspondence',
         label: 'Dear X: A short in-character correspondence to an NPC back home.',
@@ -129,23 +143,7 @@ export const DOWNTIME_SECTIONS = [
         required: false,
         desc: 'Write a brief letter, message, or communiqué from your character to a contact, sire, childe, or associate not present at Court.\n\nExample: "Dear Magistrix, The colonials are more fractious than anticipated. The Invictus here lack a unifying voice. I have begun positioning accordingly — your investment is well placed. Yours in blood, V."',
       },
-      {
-        key: 'aspirations',
-        label: 'Aspirations',
-        type: 'aspiration_slots',
-        required: false,
-        desc: null,
-      },
     ],
-  },
-
-  // 2. Personal Story — always shown; player selects an NPC to interact with
-  {
-    key: 'personal_story',
-    title: 'Personal Story: Off-Screen Life',
-    gate: null,
-    intro: null,
-    questions: [], // rendered dynamically by downtime-form.js
   },
 
   // 3. Blood Sorcery — auto-gated by disciplines, rendered dynamically; declared before Feeding
@@ -263,7 +261,8 @@ export const DOWNTIME_SECTIONS = [
     questions: [], // rendered dynamically
   },
 
-  // 12. Vamping — always shown; includes conditional Regency sub-field for Regents
+  // 12. Vamping — always shown; includes conditional Regency sub-field for Regents.
+  // DTR.3: aspirations moved here from the Court section.
   {
     key: 'vamping',
     title: 'Vamping: Fever for the Flavour',
@@ -276,6 +275,13 @@ export const DOWNTIME_SECTIONS = [
         type: 'textarea',
         required: false,
         desc: 'Soft RP, general flavour, non-mechanical activities, personal habits, quirks, or fun. This section won\'t generate rolls but informs ST narration and may influence ongoing plots.\n\nExample: "Konstantin spends most nights at the casino, cultivating his image as a wealthy eccentric. He\'s been composing a letter to his sire that he never sends."',
+      },
+      {
+        key: 'aspirations',
+        label: 'Aspirations',
+        type: 'aspiration_slots',
+        required: false,
+        desc: null,
       },
     ],
   },

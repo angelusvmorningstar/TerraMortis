@@ -350,6 +350,21 @@ function collectResponses() {
     responses[`aspiration_${n}_text`] = textEl ? textEl.value : '';
   }
 
+  // DTR.1: Game recount structured highlight slots (game_recount_1…5).
+  // We also maintain a joined `game_recount` string (one highlight per line)
+  // so ST admin views that still read the legacy key keep working, and so
+  // the required-field validator has something to check.
+  const highlights = [];
+  for (let n = 1; n <= 5; n++) {
+    const el = document.getElementById(`dt-game_recount_${n}`);
+    const val = el ? el.value : '';
+    responses[`game_recount_${n}`] = val;
+    if (val.trim()) highlights.push(val.trim());
+  }
+  if (highlights.length > 0) {
+    responses['game_recount'] = highlights.map((h, i) => `${i + 1}. ${h}`).join('\n\n');
+  }
+
   // Collect project slots
   const projectSection = DOWNTIME_SECTIONS.find(s => s.key === 'projects');
   const projectSlotCount = projectSection?.projectSlots || 4;
@@ -615,6 +630,12 @@ async function submitForm() {
     if (section.gate && gateValues[section.gate] !== 'yes') continue;
     for (const q of (section.questions || [])) {
       if (!q.required) continue;
+      // DTR.1: highlight_slots validates to "at least one slot has content"
+      if (q.type === 'highlight_slots') {
+        const hasAny = [1, 2, 3, 4, 5].some(n => (responses[`${q.key}_${n}`] || '').trim());
+        if (!hasAny) missing.push(q.label || q.key);
+        continue;
+      }
       const val = responses[q.key];
       if (!val || (typeof val === 'string' && !val.trim())) {
         missing.push(q.label || q.key);
@@ -1370,6 +1391,17 @@ function renderForm(container) {
   container.addEventListener('input', (e) => {
     scheduleSave();
     updateSectionTicks(container);
+
+    // DTR.1: reveal the next highlight slot when the current one gets content.
+    const hl = e.target.closest('.dt-highlight-input');
+    if (hl) {
+      const hasText = hl.value.trim().length > 0;
+      const n = Number(hl.dataset.highlightN);
+      if (hasText && n >= 3 && n < 5) {
+        const next = container.querySelector(`.dt-highlight-slot[data-highlight-n="${n + 1}"]`);
+        if (next && next.style.display === 'none') next.style.display = '';
+      }
+    }
 
     // Live update contact/retainer row status badges
     const contactPanel = e.target.closest('[data-contact-panel]');
@@ -2699,6 +2731,14 @@ function renderPersonalStorySection(saved) {
   }
   h += '</div></div>';
 
+  // DTR.2: correspondence moved here from Court. Rendered from the first
+  // question in section.questions (type 'textarea') so collectResponses
+  // can still find it via `dt-<key>`.
+  const correspondenceQ = (section.questions || []).find(q => q.key === 'correspondence');
+  if (correspondenceQ) {
+    h += renderQuestion(correspondenceQ, saved['correspondence'] || '');
+  }
+
   h += '</div></div>';
   return h;
 }
@@ -3999,6 +4039,34 @@ function renderQuestion(q, value) {
         }
         h += '</select>';
         h += `<input type="text" id="dt-aspiration_${n}_text" class="qf-input dt-aspiration-text" value="${esc(savedText)}" placeholder="Aspiration ${n}">`;
+        h += '</div>';
+      }
+      h += '</div>';
+      break;
+    }
+
+    case 'highlight_slots': {
+      // DTR.1: 3 fields minimum, expanding to 4 and 5 as each is filled.
+      // Legacy game_recount (single blob) imports into slot 1 on first load
+      // if no numbered slots exist yet — player can then redistribute.
+      const saved = responseDoc?.responses || {};
+      const legacy = saved['game_recount'];
+      const slotVals = [];
+      for (let n = 1; n <= 5; n++) slotVals.push(saved[`game_recount_${n}`] || '');
+      if (legacy && !slotVals.some(v => v)) slotVals[0] = legacy;
+
+      // Visible count: always >=3; reveal 4 if slot 3 has text; reveal 5 if slot 4 has text.
+      let visibleCount = 3;
+      for (let n = 4; n <= 5; n++) {
+        if (slotVals[n - 2].trim() || slotVals[n - 1].trim()) visibleCount = Math.max(visibleCount, n);
+      }
+
+      h += '<div class="dt-highlight-slots" data-highlight-root>';
+      for (let n = 1; n <= 5; n++) {
+        const hidden = n > visibleCount ? ' style="display:none"' : '';
+        h += `<div class="dt-highlight-slot" data-highlight-n="${n}"${hidden}>`;
+        h += `<label class="qf-label">Highlight ${n}${n > 3 ? ' (optional)' : ''}</label>`;
+        h += `<textarea id="dt-game_recount_${n}" class="qf-textarea dt-highlight-input" data-highlight-n="${n}" rows="2" placeholder="One highlight…">${esc(slotVals[n - 1])}</textarea>`;
         h += '</div>';
       }
       h += '</div>';

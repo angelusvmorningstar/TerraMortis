@@ -2806,6 +2806,12 @@ html:not([data-theme="dark"]) .sk-spec-row  span { color: var(--crim) !important
 .dt-aspiration-slots { display: flex; flex-direction: column; gap: 8px; }
 .dt-aspiration-slot { display: flex; gap: 8px; align-items: center; }
 .dt-aspiration-type { width: 110px; flex-shrink: 0; }
+
+/* DTR.1: Highlight slots (game_recount) — 3 fixed, up to 5 progressive */
+.dt-highlight-slots { display: flex; flex-direction: column; gap: 10px; }
+.dt-highlight-slot { display: flex; flex-direction: column; gap: 4px; }
+.dt-highlight-slot .qf-label { margin: 0; font-size: 12px; color: var(--txt2); letter-spacing: 0.04em; }
+.dt-highlight-input { min-height: 42px; }
 .dt-aspiration-text { flex: 1; }
 
 /* ── Territory pill switcher ── */

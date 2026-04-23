@@ -1,7 +1,7 @@
 ---
 id: dtr.4
 epic: dt-restructure
-status: ready-for-dev
+status: review
 priority: low
 depends_on: [dtr.2, dtr.3]
 ---
