@@ -2163,20 +2163,6 @@ body {
 .dt-inv-note-entry:last-child { border-bottom: none; }
 .dt-inv-note-when { color: var(--accent); }
 
-/* ── NPC Register (1.6) ── */
-.dt-npc-panel { margin-bottom: 12px; border: 1px solid var(--bdr); border-radius: 6px; overflow: hidden; }
-.dt-npc-body { padding: 10px 12px; }
-.dt-npc-card { border: 1px solid var(--bdr); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--surf2); }
-.dt-npc-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-.dt-npc-name { font-family: var(--fl); font-size: 13px; font-weight: 600; flex: 1; }
-.dt-npc-dead { color: var(--crim); text-decoration: line-through; }
-.dt-npc-unknown { color: var(--txt-dim); }
-.dt-npc-status-badge { font-size: 11px; color: var(--txt-dim); background: var(--surf); padding: 1px 6px; border-radius: 8px; }
-.dt-npc-desc { font-size: 12px; margin-bottom: 4px; }
-.dt-npc-notes { font-size: 11px; color: var(--txt-dim); font-style: italic; }
-.dt-npc-form { background: var(--surf2); border: 1px solid var(--bdr); border-radius: 6px; padding: 10px; margin-bottom: 8px; }
-.dt-npc-form-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
-
 .dt-approval-detail {
   margin-top: 10px;
   padding-top: 10px;
