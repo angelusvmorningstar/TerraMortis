@@ -54,7 +54,7 @@ export function createTestApp() {
 
   // ST-only routes
   app.use('/api/territories', mockAuth, requireRole('st'), territoriesRouter);
-  app.use('/api/game_sessions', mockAuth, requireRole('st'), gameSessionsRouter);
+  app.use('/api/game_sessions', mockAuth, requireRole('coordinator'), gameSessionsRouter);
   app.use('/api/tracker_state', mockAuth, requireRole('st'), trackerRouter);
   app.use('/api/ordeal_submissions', mockAuth, ordealSubmissionsRouter);
   app.use('/api/archive_documents', mockAuth, archiveDocumentsRouter);
@@ -83,6 +83,18 @@ export function playerUser(characterIds = [], overrides = {}) {
     role: 'player',
     player_id: 'p-player-001',
     character_ids: characterIds,
+    ...overrides,
+  });
+}
+
+/** Build X-Test-User header for a coordinator user (fin.1) */
+export function coordinatorUser(overrides = {}) {
+  return JSON.stringify({
+    id: 'test-coord-001',
+    username: 'test_coord',
+    role: 'coordinator',
+    player_id: 'p-coord-001',
+    character_ids: [],
     ...overrides,
   });
 }
