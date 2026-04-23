@@ -1755,6 +1755,12 @@ body {
 .dt-lbl { font-family: var(--fl); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--txt3); }
 .dt-prep-early { margin-bottom: 16px; }
 .dt-prep-early-title { font-family: var(--fl); font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+.dt-early-list { max-height: 360px; overflow-y: auto; border: 1px solid var(--bdr); border-radius: 4px; }
+.dt-early-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--bdr); cursor: pointer; transition: background .1s; }
+.dt-early-toggle-row:last-child { border-bottom: none; }
+.dt-early-toggle-row:hover { background: var(--surf2); }
+.dt-early-name { font-size: 13px; color: var(--txt); }
+.dt-early-toggle { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 .dt-early-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 13px; }
 .dt-prep-add-row { display: flex; gap: 8px; margin-top: 8px; }
 .dt-prep-actions { padding-top: 8px; border-top: 1px solid var(--bdr); }

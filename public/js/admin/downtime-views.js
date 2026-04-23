@@ -1405,18 +1405,29 @@ function renderPrepPanel(cycle) {
   const autoVal = cycle.auto_open_at ? isoToLocalInput(cycle.auto_open_at) : '';
   const deadlineVal = cycle.deadline_at ? isoToLocalInput(cycle.deadline_at) : '';
 
-  const earlyIds = cycle.early_access_player_ids || [];
-  const earlyPlayers = (players || []).filter(p => earlyIds.includes(String(p._id)));
-  const otherPlayers = (players || []).filter(p => !earlyIds.includes(String(p._id)));
+  const earlyIds = new Set((cycle.early_access_player_ids || []).map(String));
 
-  const earlyHtml = earlyPlayers.map(p =>
-    `<div class="dt-early-row"><span>${esc(p.player_name || p.username || String(p._id))}</span>` +
-    `<button class="dt-btn dt-btn-sm dt-early-remove" data-player-id="${esc(String(p._id))}">Remove</button></div>`
-  ).join('');
+  // Active players — those with at least one non-retired linked character
+  const activePlayers = (players || [])
+    .filter(p => {
+      const charIds = (p.character_ids || []).map(String);
+      return characters.some(c => !c.retired && charIds.includes(String(c._id)));
+    })
+    .sort((a, b) => (a.player_name || a.username || '').localeCompare(b.player_name || b.username || ''));
 
-  const addOpts = otherPlayers.map(p =>
-    `<option value="${esc(String(p._id))}">${esc(p.player_name || p.username || String(p._id))}</option>`
-  ).join('');
+  const toggleHtml = activePlayers.map(p => {
+    const id = String(p._id);
+    const checked = earlyIds.has(id) ? ' checked' : '';
+    const name = esc(p.player_name || p.username || id);
+    return `<label class="dt-early-toggle-row" data-player-id="${esc(id)}">
+      <span class="dt-early-name">${name}</span>
+      <input type="checkbox" class="dt-early-toggle"${checked}>
+    </label>`;
+  }).join('');
+
+  const earlyContent = activePlayers.length
+    ? toggleHtml
+    : `<p class="placeholder">No active players.</p>`;
 
   panel.innerHTML =
     `<div class="dt-prep-grid">` +
@@ -1427,11 +1438,8 @@ function renderPrepPanel(cycle) {
     `</div>` +
     `<div class="dt-prep-early">` +
     `<div class="dt-prep-early-title">Early Access Players</div>` +
-    (earlyHtml || `<p class="placeholder">No early access granted.</p>`) +
-    `<div class="dt-prep-add-row">` +
-    `<select id="dt-early-add-sel"><option value="">— Add player —</option>${addOpts}</select>` +
-    `<button class="dt-btn dt-btn-sm" id="dt-early-add-btn">Add</button>` +
-    `</div></div>` +
+    `<div class="dt-early-list">${earlyContent}</div>` +
+    `</div>` +
     `<div class="dt-prep-actions">` +
     `<button class="dt-btn" id="dt-open-game-phase">Open City &amp; Feeding Phase →</button>` +
     `</div>`;
@@ -1451,25 +1459,18 @@ function renderPrepPanel(cycle) {
     if (idx >= 0) allCycles[idx].deadline_at = val ? new Date(val).toISOString() : null;
   });
 
-  document.getElementById('dt-early-add-btn')?.addEventListener('click', async () => {
-    const sel = document.getElementById('dt-early-add-sel');
-    const pid = sel?.value;
-    if (!pid) return;
-    const updated = [...new Set([...earlyIds, pid])];
-    await updateCycle(cycle._id, { early_access_player_ids: updated });
-    const idx = allCycles.findIndex(c => c._id === cycle._id);
-    if (idx >= 0) allCycles[idx].early_access_player_ids = updated;
-    renderPrepPanel(allCycles[idx] || cycle);
-  });
-
-  panel.querySelectorAll('.dt-early-remove').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const pid = btn.dataset.playerId;
-      const updated = earlyIds.filter(id => id !== pid);
+  panel.querySelectorAll('.dt-early-toggle').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const row = cb.closest('.dt-early-toggle-row');
+      const pid = row?.dataset.playerId;
+      if (!pid) return;
+      const current = new Set((cycle.early_access_player_ids || []).map(String));
+      if (cb.checked) current.add(pid); else current.delete(pid);
+      const updated = [...current];
       await updateCycle(cycle._id, { early_access_player_ids: updated });
       const idx = allCycles.findIndex(c => c._id === cycle._id);
       if (idx >= 0) allCycles[idx].early_access_player_ids = updated;
-      renderPrepPanel(allCycles[idx] || cycle);
+      cycle.early_access_player_ids = updated;
     });
   });
 
