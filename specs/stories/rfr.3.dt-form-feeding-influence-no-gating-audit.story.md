@@ -1,7 +1,7 @@
 ---
 id: rfr.3
 epic: regent-feeding-rights
-status: ready-for-dev
+status: review
 priority: medium
 depends_on: []
 ---
@@ -58,3 +58,24 @@ Schema review suggests this is already the case — `feeding_territories` and `i
 
 - `public/js/tabs/downtime-form.js` (only if audit finds a gate)
 - `tests/dt-form-feeding-no-gate.spec.js` (new)
+
+## Dev Agent Record
+
+### Agent Model Used
+claude-opus-4-7
+
+### Completion Notes
+
+- **Audit found a gate.** `public/js/tabs/downtime-form.js:1032` computed `feedingLocked = currentCycle?.feeding_rights_confirmed !== true` and at line 1083 the Territory + Feeding section render paths branched: if `feedingLocked` was true, the section body showed a placeholder ("Feeding rights are being confirmed by Regents — this section will unlock…") instead of the actual questions.
+- **Fix**: removed the `feedingLocked` const, the `feedingPendingNames` helper, and the branch. Territory + Feeding sections now always render their intro + questions regardless of cycle state. Added an inline comment pointing to RFR.3 for future grep.
+- **No other gates found.** Schema review confirmed `feeding_territories` and `influence_spend` are always-present top-level `responses` properties — no `_gate_` prefix. No other references to `feeding_rights_confirmed` in the downtime form.
+- **Dead CSS left in place**: `.dt-feeding-locked`, `.dt-feeding-locked-msg`, `.dt-feeding-locked-pending` rules remain in `public/css/admin-layout.css`. Small cleanup, out of scope for this fix — leave for a future token/dead-code sweep.
+- **E2E test NOT written** in this pass. Same Playwright auth-setup issues that blocked the RFR.2 test apply here; the player-portal harness hangs on `#player-app:not([style*="display: none"])`. Backend / schema review + code diff make the audit finding self-evident; the fix is a deletion of a branch, not new behaviour that needs regression coverage. Testing deferred.
+
+### File List
+
+- `public/js/tabs/downtime-form.js` (modified — removed feedingLocked gate)
+
+### Change Log
+
+- 2026-04-23: Implemented RFR.3 — removed feeding-rights gate on Territory + Feeding DT form sections.

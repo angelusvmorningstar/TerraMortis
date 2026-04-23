@@ -1029,7 +1029,9 @@ function renderForm(container) {
   h += '</div>';
 
   // Static sections: Court only — territory/feeding/regency rendered explicitly below in game-logic order
-  const feedingLocked = currentCycle?.feeding_rights_confirmed !== true;
+  // RFR.3: territory + feeding sections render regardless of cycle's
+  // feeding_rights_confirmed state. Regents manage feeding_rights on the
+  // Regency tab; players are never blocked from filing downtime.
   for (const section of DOWNTIME_SECTIONS) {
     if (section.key === 'projects') continue;
     if (section.key === 'acquisitions') continue;
@@ -1067,28 +1069,14 @@ function renderForm(container) {
   }
 
   // ── Territory then Feeding — players see ambience/cap before choosing hunt method ──
-  const feedingPendingNames = (() => {
-    const pending = _territories
-      .filter(t => t.regent_id)
-      .filter(t => !(currentCycle?.regent_confirmations || []).some(c => c.territory_id === t.id));
-    return pending.map(t => esc(t.name || t.id)).join(', ');
-  })();
-
   for (const key of ['territory', 'feeding']) {
     const section = DOWNTIME_SECTIONS.find(s => s.key === key);
     if (!section) continue;
     h += `<div class="qf-section collapsed" data-gate-section="" data-section-key="${key}">`;
     h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
     h += '<div class="qf-section-body">';
-    if (feedingLocked) {
-      h += `<div class="dt-feeding-locked">`;
-      h += `<p class="dt-feeding-locked-msg">Feeding rights are being confirmed by Regents &mdash; this section will unlock once all territories are confirmed. Check back soon.</p>`;
-      if (feedingPendingNames) h += `<p class="dt-feeding-locked-pending">Awaiting: ${feedingPendingNames}</p>`;
-      h += `</div>`;
-    } else {
-      if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
-      for (const q of section.questions) h += renderQuestion(q, saved[q.key] || '');
-    }
+    if (section.intro) h += `<p class="qf-section-intro">${esc(section.intro)}</p>`;
+    for (const q of section.questions) h += renderQuestion(q, saved[q.key] || '');
     h += '</div></div>';
   }
 
