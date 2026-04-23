@@ -2016,9 +2016,16 @@ async function renderLifecycleCards() {
 
 function _updateSeasonalNav(activeCycle) {
   const btn = document.getElementById('n-downtime');
-  if (btn) {
-    btn.style.display = activeCycle ? '' : 'none';
+  if (!btn) return;
+  // STs always see the downtime button — they need access during prep,
+  // processing, and for reviewing past cycles. STs in player-view follow
+  // the regular seasonal logic (what a real player would see).
+  const isST = effectiveRole() === 'st' || effectiveRole() === 'dev';
+  if (isST) {
+    btn.style.display = '';
+    return;
   }
+  btn.style.display = activeCycle ? '' : 'none';
 }
 
 /** Show logged-in user in header (desktop mode only — mobile uses Settings tab). */
