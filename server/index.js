@@ -11,6 +11,7 @@ import sessionsRouter from './routes/sessions.js';
 import { cyclesRouter, submissionsRouter } from './routes/downtime.js';
 import investigationsRouter from './routes/investigations.js';
 import npcsRouter from './routes/npcs.js';
+import relationshipsRouter from './routes/relationships.js';
 import gameSessionsRouter, { getNextSession } from './routes/game-sessions.js';
 import playersRouter from './routes/players.js';
 import questionnaireRouter from './routes/questionnaire.js';
@@ -102,6 +103,7 @@ app.use('/api/session_logs', requireAuth, requireRole('st'), sessionsRouter);
 app.use('/api/game_sessions', requireAuth, requireRole('coordinator'), gameSessionsRouter);
 app.use('/api/downtime_investigations', requireAuth, investigationsRouter);
 app.use('/api/npcs', requireAuth, npcsRouter);
+app.use('/api/relationships', requireAuth, relationshipsRouter);
 app.use('/api/admin', requireAuth, requireRole('st'), adminMigrationsRouter);
 
 // Start server first, then attempt DB connection

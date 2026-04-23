@@ -17,6 +17,7 @@ import trackerRouter from '../../routes/tracker.js';
 import ordealSubmissionsRouter from '../../routes/ordeal-submissions.js';
 import archiveDocumentsRouter from '../../routes/archive-documents.js';
 import rulesRouter from '../../routes/rules.js';
+import relationshipsRouter from '../../routes/relationships.js';
 
 /**
  * Create a test app with a mock user injected via header.
@@ -61,6 +62,7 @@ export function createTestApp() {
   app.use('/api/ordeal_submissions', mockAuth, ordealSubmissionsRouter);
   app.use('/api/archive_documents', mockAuth, archiveDocumentsRouter);
   app.use('/api/rules', mockAuth, rulesRouter);
+  app.use('/api/relationships', mockAuth, relationshipsRouter);
 
   return app;
 }
