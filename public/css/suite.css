@@ -2312,7 +2312,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .dm-pool-info {
   font-size: 12px; color: var(--txt2); margin-bottom: 12px; line-height: 1.5;
 }
-.dm-info-neg { color: #E8A0A0; }
+.dm-info-neg { color: var(--err); }
 .dm-info-dim { color: var(--txt3); }
 /* Attribute + Skill selectors in skill roll mode */
 .dm-pool-selectors { display: flex; align-items: center; gap: 6px; }
@@ -2328,7 +2328,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 .dm-resist .dm-lbl { margin-bottom: 6px; }
 .dm-resist-line { font-size: 12px; color: var(--txt2); margin-top: 6px; line-height: 1.5; }
 .dm-resist-val { color: var(--accent); font-weight: 600; }
-.dm-resist-pen { color: #E8A0A0; font-weight: 600; }
+.dm-resist-pen { color: var(--err); font-weight: 600; }
 
 /* ── Controls ── */
 .dm-controls { margin-bottom: 10px; }
@@ -2346,16 +2346,16 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   flex: 1; text-align: center; font-size: 16px; font-weight: 700;
   color: var(--txt); font-family: var(--ft);
 }
-.dm-adj-val.chance { color: #E8A0A0; font-size: 13px; }
-.dm-adj-val.pos { color: #7EC8A0; }
-.dm-adj-val.neg { color: #E8A0A0; }
+.dm-adj-val.chance { color: var(--err); font-size: 13px; }
+.dm-adj-val.pos { color: var(--green2); }
+.dm-adj-val.neg { color: var(--err); }
 
 /* ── Effective pool ── */
 .dm-eff {
   font-size: 13px; color: var(--txt2); text-align: center; margin-bottom: 8px;
 }
 .dm-eff b { color: var(--txt); }
-.dm-chance { color: #E8A0A0 !important; }
+.dm-chance { color: var(--err) !important; }
 
 /* ── Specialty badges ── */
 .dm-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; justify-content: center; }
@@ -2375,7 +2375,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   cursor: pointer; transition: all .15s; text-transform: uppercase; letter-spacing: .3px;
 }
 .dm-chip.on { background: var(--accent-a15, rgba(224,196,122,.15)); border-color: var(--accent); color: var(--accent); }
-.dm-chip.dm-wp.on { background: rgba(126,200,160,.15); border-color: #7EC8A0; color: #7EC8A0; }
+.dm-chip.dm-wp.on { background: rgba(126,200,160,.15); border-color: var(--green2); color: var(--green2); }
 .dm-chip.dm-rote-eligible { border-color: rgba(158,122,224,.4); }
 
 /* ── Roll button ── */
@@ -2397,9 +2397,9 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
   font-size: 28px; font-weight: 900; font-family: var(--ft); margin-right: 8px;
 }
 .dm-rlbl { font-size: 14px; font-weight: 600; }
-.dm-rcnt.s, .dm-rlbl.s { color: #7EC8A0; }
+.dm-rcnt.s, .dm-rlbl.s { color: var(--green2); }
 .dm-rcnt.e, .dm-rlbl.e { color: var(--accent); }
-.dm-rcnt.f, .dm-rlbl.f { color: #E8A0A0; }
+.dm-rcnt.f, .dm-rlbl.f { color: var(--err); }
 .dm-rcnt.d, .dm-rlbl.d { color: #E07070; }
 
 /* ── Dice area ── */
@@ -2424,7 +2424,7 @@ body.desktop-mode.sidebar-collapsed .sb-collapse-btn { width: 100%; justify-cont
 }
 .dm-hist-name { color: var(--txt2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 .dm-hist-res { font-weight: 600; white-space: nowrap; }
-.dm-hist-res.s { color: #7EC8A0; }
+.dm-hist-res.s { color: var(--green2); }
 .dm-hist-res.e { color: var(--accent); }
-.dm-hist-res.f { color: #E8A0A0; }
+.dm-hist-res.f { color: var(--err); }
 .dm-hist-res.d { color: #E07070; }
