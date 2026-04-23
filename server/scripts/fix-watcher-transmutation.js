@@ -18,7 +18,7 @@
  *   node scripts/fix-watcher-transmutation.js --apply     # actually write
  *
  *   # Override the database (default: tm_suite)
- *   DB_NAME=tm_suite_dev node scripts/fix-watcher-transmutation.js --apply
+ *   DB_NAME=tm_suite node scripts/fix-watcher-transmutation.js --apply
  */
 
 import 'dotenv/config';

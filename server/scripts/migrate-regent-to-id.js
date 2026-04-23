@@ -25,7 +25,7 @@ import { MongoClient } from 'mongodb';
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) { console.error('MONGODB_URI not set.'); process.exit(1); }
 
-const DB_NAME = process.env.DB_NAME || 'tm_suite_dev';
+const DB_NAME = process.env.DB_NAME || 'tm_suite';
 const APPLY = process.argv.includes('--apply');
 
 const TERRITORY_IDS = {

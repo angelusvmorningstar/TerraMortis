@@ -504,7 +504,7 @@ async function main() {
   // Connect to MongoDB
   const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
   await client.connect();
-  const db = client.db('tm_suite_dev');
+  const db = client.db('tm_suite');
 
   // Build rule_key lookup from purchasable_powers
   const rules = await db.collection('purchasable_powers').find({}).toArray();
@@ -658,7 +658,7 @@ async function main() {
   if (!CONFIRM) {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise(resolve => {
-      rl.question(`\n⚠️  This will DROP and re-insert ${results.length} characters in tm_suite_dev. Type YES to proceed: `, resolve);
+      rl.question(`\n⚠️  This will DROP and re-insert ${results.length} characters in tm_suite. Type YES to proceed: `, resolve);
     });
     rl.close();
     if (answer !== 'YES') { console.log('Aborted.'); await client.close(); return; }
@@ -676,7 +676,7 @@ async function main() {
   const col = db.collection('characters');
   await col.deleteMany({});
   if (results.length) await col.insertMany(results);
-  console.log(`\n✅ Inserted ${results.length} characters into tm_suite_dev.characters`);
+  console.log(`\n✅ Inserted ${results.length} characters into tm_suite.characters`);
 
   // Link players to their characters
   if (playerLinks.length) {

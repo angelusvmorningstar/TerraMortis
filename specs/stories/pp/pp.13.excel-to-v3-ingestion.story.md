@@ -82,7 +82,7 @@ This story replaces the chain with a single ES module script that reads the Exce
   - [x] Log any misses (null rule_key) as warnings — don't fail, just report
 
 - [x] Task 4: Existing character data merge (AC: 2)
-  - [x] Read base character data from the live MongoDB `characters` collection in `tm_suite_dev` (NOT from `data/chars_v2.json` which was deleted in PP.7). Alternatively, use `data/chars_dev.json` if present as a local fallback.
+  - [x] Read base character data from the live MongoDB `characters` collection in `tm_suite` (NOT from `data/chars_v2.json` which was deleted in PP.7). Alternatively, use `data/chars_dev.json` if present as a local fallback.
   - [x] Merge strategy: Excel provides identity + attributes + skills + disciplines + merit point allocations. Existing DB data provides powers, touchstones, ordeals, banes, fighting_styles, fighting_picks, willpower, aspirations, status, covenant_standings, etc.
   - [x] For merits: match Excel merit slots to existing merits by name, apply point data inline
   - [x] Preserve fields that don't exist in Excel (e.g. `merit.cult_name`, `merit.asset_skills`, `merit.dot1_choice`, `power.stats`, `power.tradition`)
@@ -170,7 +170,7 @@ This matching logic already exists in `migrate-points.js:126-213` — port it.
 - Compare 5 characters: XP spent breakdown matches
 - Verify all 31 pass schema validation
 - Verify rule_key populated on standard entries (null only for custom/homebrew)
-- Run without flags against tm_suite_dev, verify characters load correctly in admin editor
+- Run without flags against tm_suite, verify characters load correctly in admin editor
 - Verify `xlsx` package resolves from `server/` directory
 - Test with a character name mismatch (Excel name doesn't match any DB character) — verify warning logged and Excel-only character created
 

@@ -16,8 +16,8 @@ top_issues:
 
   - id: "REQ-002"
     severity: medium
-    finding: "AC12 ('All 31 characters pass validation after migration') partially met. Dev notes state tm_suite_dev has only 2 characters. The migration was validated against 2, not the full 31. The production dataset (tm_suite) was not migrated."
-    suggested_action: "Re-seed tm_suite_dev with the full 31-character dataset from data/chars_v2.json (via migrate.js), then run migrate-schema-v3.js to validate all 31."
+    finding: "AC12 ('All 31 characters pass validation after migration') partially met. Dev notes state tm_suite has only 2 characters. The migration was validated against 2, not the full 31. The production dataset (tm_suite) was not migrated."
+    suggested_action: "Re-seed tm_suite with the full 31-character dataset from data/chars_v2.json (via migrate.js), then run migrate-schema-v3.js to validate all 31."
 
   - id: "ARCH-001"
     severity: low
