@@ -39,8 +39,8 @@ Currently allowed roles: `st`, `player`. Adding `coordinator` as a third role.
 
 **Given** a coordinator is authenticated in the game app
 **When** the nav renders
-**Then** Check-In and Finance tabs are visible
-**And** all ST-only tabs (Territory, Tracker, Combat, etc.) remain hidden unless the user is ST
+**Then** Check-In, Finance, and Emergency tabs are visible
+**And** all ST-only tabs (Territory, Tracker, Combat, Dice) remain hidden unless the user is ST
 
 **Admin.html access blocked**
 
@@ -84,7 +84,9 @@ return res.redirect('/player.html');
 
 ### Game app client
 
-**`public/js/app.js`** — the game app already checks `role === 'st'` to show ST tabs. Extend to `role === 'st' || role === 'coordinator'` for check-in and finance tabs only. All other ST-gated tabs remain `role === 'st'` only.
+**`public/js/app.js`** — the game app already checks `role === 'st'` to show ST tabs. Extend to `role === 'st' || role === 'coordinator'` for Check-In, Finance, and Emergency tabs only. All other ST-gated tabs (Territory, Tracker, Combat, Dice) remain `role === 'st'` only.
+
+Rationale for Emergency: Lyn is at the door handling real-world logistics — she needs access to safety/emergency actions alongside check-in. It's the same "people arriving at the venue" responsibility set.
 
 ### Lyn's record
 
