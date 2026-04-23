@@ -3163,10 +3163,19 @@ function renderFeedingTerritoryPills(gridVals) {
     const terrData = TERRITORY_DATA.find(t => t.name === terr);
     const ambience = terrData ? terrData.ambience : '';
 
-    const hasFeedingRights = !isBarrens && (_territories || []).some(t =>
-      t.name === terr && Array.isArray(t.feeding_rights) &&
-      t.feeding_rights.some(id => String(id) === String(currentChar._id))
-    );
+    // A character has feeding rights on a territory if they are:
+    //   - the regent (territory.regent_id matches) — implicit, not in feeding_rights[]
+    //   - the lieutenant (territory.lieutenant_id matches) — implicit
+    //   - explicitly listed in territory.feeding_rights[]
+    // Regent and lieutenant are stored on their own fields; the regency tab
+    // deliberately strips them from feeding_rights[] to avoid duplication.
+    const myId = String(currentChar._id);
+    const hasFeedingRights = !isBarrens && (_territories || []).some(t => {
+      if (t.name !== terr) return false;
+      if (String(t.regent_id || '') === myId) return true;
+      if (String(t.lieutenant_id || '') === myId) return true;
+      return Array.isArray(t.feeding_rights) && t.feeding_rights.some(id => String(id) === myId);
+    });
 
     let savedVal = gridVals[terrKey] || 'none';
     if (savedVal === 'resident') savedVal = 'feeding_rights';

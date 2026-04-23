@@ -6516,8 +6516,13 @@ function renderActionPanel(entry, review) {
           (t.name && t.name.toLowerCase().replace(/[^a-z0-9]+/g, '_') === terrKey)
         );
         if (!_td) continue;
-        const _hasRights = _charId && Array.isArray(_td.feeding_rights) &&
-          _td.feeding_rights.some(id => String(id) === _charId);
+        // Rights-holders: regent, lieutenant, or anyone on the explicit list.
+        // regent_id and lieutenant_id are implicit — not duplicated into feeding_rights[].
+        const _hasRights = _charId && (
+          String(_td.regent_id || '') === _charId ||
+          String(_td.lieutenant_id || '') === _charId ||
+          (Array.isArray(_td.feeding_rights) && _td.feeding_rights.some(id => String(id) === _charId))
+        );
         if (val === 'feeding_rights' && !_hasRights) {
           _mismatches.push(`Claims feeding rights in ${_td.name} — not on Regent's list`);
         } else if (val === 'poaching' && _hasRights) {
