@@ -154,7 +154,7 @@ body.desktop-mode .view-toggle-btn{display:inline-flex !important;}
 .mchip.wp-chip.on{border-color:var(--green2);color:var(--bg);background:var(--green2);font-weight:700;}
 
 /* Roll button */
-#roll-btn{min-height:58px;padding:18px 16px;border-radius:8px;background:var(--crim);border:1px solid var(--crim-a70);color:var(--txt);font-family:var(--fl);font-size:13px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+#roll-btn{min-height:58px;padding:18px 16px;border-radius:8px;background:var(--crim);border:1px solid var(--crim-a70);color:var(--txt-on-dark);font-family:var(--fl);font-size:13px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 #roll-btn:active{background:var(--crim2);}
 html:not([data-theme="dark"]) #roll-btn{color:var(--txt-on-dark);}
 
@@ -317,7 +317,7 @@ body.desktop-mode .sh-powers-grid > .sh-sec{break-inside:avoid;}
 .pi-main{font-family:var(--fl);font-size:12px;color:var(--txt);letter-spacing:.02em;}
 .pi-sub{font-family:var(--fl);font-size:9px;color:var(--txt3);letter-spacing:.04em;margin-top:2px;}
 .pi-badge{font-family:var(--fl);font-size:10px;color:var(--gdim);}
-.pi-pool{width:36px;height:36px;border-radius:8px;background:var(--crim);display:flex;align-items:center;justify-content:center;font-family:var(--fl);font-size:15px;color:var(--txt);flex-shrink:0;}
+.pi-pool{width:36px;height:36px;border-radius:8px;background:var(--crim);display:flex;align-items:center;justify-content:center;font-family:var(--fl);font-size:15px;color:var(--txt-on-dark);flex-shrink:0;}
 .pi-pool.nr{background:var(--surf2);color:var(--txt3);}
 /* ── Auspex Insight ── */
 .auspex-insight-btn{display:block;width:100%;margin-top:10px;padding:10px 14px;background:var(--gold-a8);border:1px solid var(--gold-a20);border-radius:6px;color:var(--gold);font-family:var(--fl);font-size:12px;letter-spacing:.1em;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}
@@ -1817,7 +1817,7 @@ html:not([data-theme="dark"]) .more-app-icon-svg svg {
 #t-downtime .qf-checkbox-label { color: var(--txt); }
 #t-downtime .qf-radio-label:hover,
 #t-downtime .qf-checkbox-label:hover { background: var(--surf2); }
-#t-downtime .qf-btn-submit { background: var(--crim); color: var(--txt); border: 1px solid var(--crim-a70); }
+#t-downtime .qf-btn-submit { background: var(--crim); color: var(--txt-on-dark); border: 1px solid var(--crim-a70); }
 #t-downtime .qf-btn-save { background: var(--surf2); color: var(--txt2); border: 1px solid var(--bdr); }
 #t-downtime .qf-opener-label,
 #t-downtime .qf-section-title { color: var(--accent); }

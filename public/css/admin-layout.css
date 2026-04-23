@@ -560,7 +560,7 @@ body {
 
 .cd-save {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--txt-on-dark);
   border: none;
   padding: 8px 24px;
   border-radius: 4px;
@@ -628,7 +628,7 @@ body {
 
 .log-add-btn {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--txt-on-dark);
   border: none;
   padding: 6px 16px;
   border-radius: 4px;
@@ -1287,12 +1287,12 @@ body {
   border: 1px solid rgba(224, 196, 122, 0.25);
 }
 .pr-active {
-  color: var(--bg);
+  color: var(--txt-on-dark);
   background: var(--accent);
 }
 .pr-active .pr-step-num {
   background: rgba(0,0,0,0.25);
-  color: var(--bg);
+  color: var(--txt-on-dark);
   border: none;
 }
 .pr-future {
@@ -2355,7 +2355,7 @@ body {
 
 .att-save-btn {
   background: var(--crim);
-  color: var(--txt);
+  color: var(--txt-on-dark);
   border-color: var(--crim);
 }
 .att-save-btn:hover { opacity: 0.9; }
@@ -2548,7 +2548,7 @@ body {
 #dice-engine .mchip.on { border-color: var(--crim-a55); color: var(--accent); background: var(--crim-a15); }
 
 /* Roll button */
-.de-roll-btn { height: 50px; min-height: 48px; min-width: 120px; border-radius: 8px; background: var(--crim); border: 1px solid var(--crim-a70); color: var(--txt); font-family: var(--fl); font-size: 15px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
+.de-roll-btn { height: 50px; min-height: 48px; min-width: 120px; border-radius: 8px; background: var(--crim); border: 1px solid var(--crim-a70); color: var(--txt-on-dark); font-family: var(--fl); font-size: 15px; letter-spacing: .22em; text-transform: uppercase; cursor: pointer; }
 .de-roll-btn:hover { background: var(--crim2); }
 @media (max-width: 768px) { .de-roll-btn { width: 100%; font-size: 15px; } }
 
@@ -3865,7 +3865,7 @@ body {
 .rules-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .rules-cat-btn { padding: 5px 12px; border: 1px solid var(--bdr, rgba(201,169,98,.2)); border-radius: 14px; background: var(--surf, #1A1714); color: var(--txt2, #aaa); font-size: 12px; cursor: pointer; font-family: var(--fl); }
 .rules-cat-btn:hover { background: var(--surf2, #252119); }
-.rules-cat-btn.rules-cat-active { background: var(--accent); color: var(--bg, #0D0B09); border-color: var(--accent); }
+.rules-cat-btn.rules-cat-active { background: var(--accent); color: var(--txt-on-dark); border-color: var(--accent); }
 .rules-search-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .rules-search-wrap { flex: 1; position: relative; }
 .rules-search { width: 100%; box-sizing: border-box; padding: 8px 32px 8px 12px; background: var(--surf, #1A1714); border: 1px solid var(--bdr, rgba(201,169,98,.2)); border-radius: 4px; color: var(--txt1, #E8E0D0); font-size: 13px; font-family: inherit; }
@@ -3961,7 +3961,7 @@ body {
 }
 .proc-mode-btn.active {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--txt-on-dark);
   font-weight: 600;
 }
 
