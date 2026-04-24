@@ -45,7 +45,88 @@ function touchstoneShapeError(body) {
   return null;
 }
 
-// All routes ST-only. Player-readable endpoints land in NPCR.6.
+// NPCR.6: player-readable endpoint. Registered BEFORE the ST-only
+// router.use below. Caller must own the character or be ST. Player
+// callers receive only active / pending_confirmation edges where
+// st_hidden !== true; ST callers receive every status including
+// retired and hidden.
+router.get('/for-character/:characterId', async (req, res) => {
+  const { characterId } = req.params;
+  if (!ObjectId.isValid(String(characterId))) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid characterId' });
+  }
+  const isSt = req.user?.role === 'st' || req.user?.role === 'dev';
+  const userCharIds = (req.user?.character_ids || []).map(String);
+  if (!isSt && !userCharIds.includes(String(characterId))) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'Not your character' });
+  }
+
+  const filter = {
+    $or: [{ 'a.id': String(characterId) }, { 'b.id': String(characterId) }],
+  };
+  if (!isSt) {
+    filter.status = { $in: ['active', 'pending_confirmation'] };
+    filter.st_hidden = { $ne: true };
+  }
+  const docs = await col().find(filter).sort({ updated_at: -1 }).toArray();
+
+  // Enrich each edge with _other_name so the player tab can render without
+  // needing ST-only GETs on npcs / characters. "Other" = whichever endpoint
+  // isn't this character.
+  const charIdStr = String(characterId);
+  const npcIds = new Set();
+  const pcIds = new Set();
+  for (const e of docs) {
+    const other = String(e.a?.id) === charIdStr ? e.b : e.a;
+    if (!other) continue;
+    if (other.type === 'npc' && other.id) npcIds.add(String(other.id));
+    if (other.type === 'pc'  && other.id) pcIds.add(String(other.id));
+  }
+
+  const npcOids = [];
+  for (const id of npcIds) {
+    try { npcOids.push(new ObjectId(id)); } catch { /* skip */ }
+  }
+  const npcsList = npcOids.length
+    ? await getCollection('npcs').find(
+        { _id: { $in: npcOids } },
+        { projection: { name: 1 } }
+      ).toArray()
+    : [];
+  const npcById = new Map(npcsList.map(n => [String(n._id), n]));
+
+  const pcOids = [];
+  for (const id of pcIds) {
+    try { pcOids.push(new ObjectId(id)); } catch { /* skip */ }
+  }
+  const pcsList = pcOids.length
+    ? await getCollection('characters').find(
+        { _id: { $in: pcOids } },
+        { projection: { name: 1, moniker: 1, honorific: 1 } }
+      ).toArray()
+    : [];
+  const pcById = new Map(pcsList.map(c => [String(c._id), c]));
+
+  for (const e of docs) {
+    const other = String(e.a?.id) === charIdStr ? e.b : e.a;
+    if (!other) { e._other_name = null; continue; }
+    if (other.type === 'npc') {
+      e._other_name = npcById.get(String(other.id))?.name || null;
+    } else if (other.type === 'pc') {
+      const c = pcById.get(String(other.id));
+      if (c) {
+        const honorific = c.honorific ? `${c.honorific} ` : '';
+        e._other_name = `${honorific}${c.moniker || c.name || ''}`.trim();
+      } else {
+        e._other_name = null;
+      }
+    }
+  }
+
+  res.json(docs);
+});
+
+// All other routes ST-only.
 router.use(requireRole('st'));
 
 // GET / — list edges

@@ -63,6 +63,7 @@ import { renderTicketsTab } from './tabs/tickets-tab.js';
 import { initOrdeals } from './tabs/ordeals-view.js';
 import { renderRegencyTab } from './tabs/regency-tab.js';
 import { renderOfficeTab } from './tabs/office-tab.js';
+import { renderRelationshipsTab } from './tabs/relationships-tab.js';
 import { renderCityTab } from './tabs/city-tab.js';
 import { initArchiveTab } from './tabs/archive-tab.js';
 import { renderFeedingTab } from './tabs/feeding-tab.js';
@@ -429,6 +430,11 @@ function goTab(t) {
     const el = document.getElementById('t-ordeals');
     const char = _activeMoreChar();
     if (el && char) initOrdeals(char, suiteState.chars, el);
+  }
+  if (t === 'relationships') {
+    const el = document.getElementById('t-relationships');
+    const char = _activeMoreChar();
+    if (el && char) renderRelationshipsTab(el, char);
   }
   if (t === 'emergency') {
     const el = document.getElementById('t-emergency');
@@ -1332,6 +1338,7 @@ const MORE_APPS = [
     }
   },
   { id: 'ordeals',      label: 'Ordeals',     icon: _svg.ordeals,  section: 'player' },
+  { id: 'relationships', label: 'Relationships', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><line x1="8" y1="12" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="18"/></svg>', section: 'player' },
   // Tickets removed — submit form is in Settings
   { id: 'challenge',    label: 'Challenge',   icon: '<svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M2 2l20 20"/><path d="M3 14l7-7"/></svg>', section: 'player', playerOnly: true },
   // ── Lore section (gated by show_guides setting) ──

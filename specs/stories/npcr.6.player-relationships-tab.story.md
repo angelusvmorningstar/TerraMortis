@@ -1,7 +1,7 @@
 ---
 id: npcr.6
 epic: npcr
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [npcr.2]
 ---
@@ -78,7 +78,20 @@ State-in-UI banners (new-edge, updated-edge, pending confirmation) land in this 
 - ACs verified in-browser for a player with active character
 - `st_hidden: true` edge never appears in player query (verify by inserting hidden test edge)
 - Query isolation verified: player A cannot see player B's edges
-- Disposition chip colours visible in all states
+- Disposition chip colours visible in all three states (positive/neutral/negative)
 - localStorage-based New/Updated badges work across reloads
 - Quinn verification pass
 - `bmad-code-review` required (auth boundary + new player endpoint)
+
+---
+
+## Revision History
+
+- **2026-04-24 r1**: initial draft from the epic. Target entry point listed as `public/js/index.js`; disposition described as 5-point (`allied/friendly/neutral/strained/hostile`); pending PC-PC confirmation banner specified with live Accept/Decline handoff to NPCR.10.
+- **2026-04-24 r2**: implemented against the current repo shape. Corrections:
+  - Client entry is `public/js/app.js` (unified portal per the three-product vision 2026-04-20); the tab module is `public/js/tabs/relationships-tab.js`; HTML anchor is `<div id="t-relationships">` in `public/index.html`; sidebar registration is in the `MORE_APPS` array in `app.js` under `section: 'player'`.
+  - Disposition is **3-point** (`positive / neutral / negative`) matching the NPCR.2 `DISPOSITION_ENUM`. Chip colours: positive=green accent, neutral=muted, negative=crim. The r1 five-point colour mapping is dropped.
+  - Pending PC-PC confirmation banner is **deferred to NPCR.10**. NPCR.7 is PC-to-NPC only; no PC-PC edges can be created from the player side until NPCR.10 lands, so a banner now would be dead UI. Banner + Accept/Decline flow ship together when NPCR.10 is built.
+  - "Updated" chip label is bare — the chip shows `Updated ✕` (dismiss control) with no sub-text. `history[].change` is too generic (`created`/`updated`/`retired`) to be worth displaying; per-field delta summaries deferred unless the bare label proves unclear.
+  - Server endpoint returns each edge with `_other_name` attached (NPC or PC on the far side of this character), so the client doesn't need ST-only GETs to resolve names. The enrichment mirrors the `character._touchstones[i]._npc_name` pattern from NPCR.4.
+  - Collapsible family state persists per character in `tm:rel_family_collapsed:{charId}` alongside `tm:rel_last_seen:{charId}` and `tm:rel_dismissed_updates:{charId}`.

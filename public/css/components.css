@@ -551,6 +551,51 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-ts-picker-textarea{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--ft);font-size:11px;padding:4px 6px;min-height:50px;resize:vertical;}
 .sh-ts-picker-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
 
+/* ── NPCR.6 Player Relationships tab ── */
+.rel-tab{padding:14px 16px 40px;max-width:860px;margin:0 auto;}
+.rel-tab-head{border-bottom:1px solid var(--bdr);padding-bottom:10px;margin-bottom:12px;}
+.rel-tab-title{font-family:var(--fh);font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.04em;margin:0;}
+.rel-tab-sub{font-family:var(--ft);font-size:12px;color:var(--txt3);margin-top:3px;}
+.rel-loading,.rel-empty,.rel-error{padding:24px;text-align:center;font-family:var(--fl);font-size:13px;color:var(--txt3);}
+.rel-error{color:var(--err);background:var(--warn-dk-bg);border:1px solid var(--err);border-radius:4px;}
+.rel-empty p{margin:0 0 6px;}
+.rel-empty-hint{font-size:11px;color:var(--txt3);font-style:italic;}
+
+.rel-family{border:1px solid var(--bdr);border-radius:6px;margin-bottom:10px;background:var(--surf);overflow:hidden;}
+.rel-family-head{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;background:var(--surf2);border-bottom:1px solid var(--bdr);user-select:none;}
+.rel-family-head:hover{background:var(--surf3);}
+.rel-family-name{flex:1;font-family:var(--fl);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);}
+.rel-family-count{font-family:var(--fl);font-size:10px;color:var(--txt3);padding:1px 6px;border:1px solid var(--bdr);border-radius:10px;}
+.rel-family-caret{font-size:12px;color:var(--txt3);width:14px;text-align:center;}
+.rel-family-body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+.rel-family.collapsed .rel-family-body{display:none;}
+.rel-family.collapsed .rel-family-head{border-bottom:none;}
+
+.rel-edge-card{background:var(--surf2);border:1px solid var(--bdr);border-radius:5px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;}
+.rel-edge-head{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;}
+.rel-edge-head-main{display:flex;flex-direction:column;gap:2px;flex:1;min-width:180px;}
+.rel-edge-name{font-family:var(--fh);font-size:14px;font-weight:700;color:var(--txt);}
+.rel-edge-kind{font-family:var(--fl);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);}
+.rel-edge-head-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+
+.rel-disp{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid;}
+.rel-disp.positive{color:var(--green2, #5a8a5a);border-color:var(--green2, #5a8a5a);background:rgba(140,200,140,.08);}
+.rel-disp.neutral{color:var(--txt3);border-color:var(--bdr);background:var(--surf);}
+.rel-disp.negative{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
+
+.rel-status-chip{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid var(--bdr);color:var(--txt3);background:var(--surf);}
+.rel-status-chip.pending{color:var(--warn-dk);border-color:var(--warn-dk);background:var(--warn-dk-bg);}
+.rel-status-chip.retired{opacity:.6;}
+.rel-status-chip.rejected{color:var(--err);border-color:var(--err);}
+
+.rel-new-badge{font-family:var(--fl);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:var(--accent);color:var(--bg);}
+.rel-updated-chip{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:var(--gold2-a12);color:var(--accent);border:1px solid var(--accent);cursor:pointer;}
+.rel-updated-chip:hover{background:var(--gold2-a25);}
+
+.rel-edge-state{font-family:var(--ft);font-size:12px;color:var(--txt2);line-height:1.5;position:relative;}
+.rel-edge-state-more{background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--fl);font-size:10px;padding:0 0 0 4px;text-decoration:underline;}
+.rel-edge-state-full{display:none;}
+
 /* Picker extras (NPCR.4) */
 .sh-ts-picker-head{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:4px;border-bottom:1px solid var(--bdr);margin-bottom:4px;}
 .sh-ts-picker-check{display:flex;align-items:center;gap:6px;cursor:pointer;}
