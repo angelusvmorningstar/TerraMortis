@@ -14,7 +14,8 @@ A browser-based character management system for a **Vampire: The Requiem 2nd Edi
 
 | Path | Purpose |
 |------|---------|
-| `public/admin.html` | ST Admin — character management, city views, downtime, attendance, session log |
+| `public/admin.html` | ST Admin — characters, city, downtime processing, attendance, session log, NPC Register + relationships |
+| `public/player.html` | Player Portal + Game App — character sheet, tracker, downtime form, check-in, regency, finance (coordinator) |
 | `public/index.html` | ST Suite — roll calculator, sheet viewer, territory tracker |
 
 ## Local Development
@@ -66,15 +67,18 @@ Browser (Netlify)  →  Express API (Render)  →  MongoDB Atlas
    static files        /api/* endpoints          tm_suite DB
 ```
 
-- **Auth**: Discord OAuth2. ST IDs whitelisted in server config.
+- **Auth**: Discord OAuth2. ST IDs whitelisted in server config. Coordinator + dev roles for check-in / finance / dev access.
 - **Frontend**: vanilla JS modules, no build step. Cinzel/Lora fonts, dark theme with gold accents.
-- **API**: Express 5, ES modules, `server/` directory. Routes: characters, territories, downtime, game_sessions, session_logs.
+- **API**: Express 5, ES modules, `server/` directory. Routes: characters, territories (+ feeding-rights PATCH), downtime, game_sessions, session_logs, npcs, relationships, attendance, rules.
+- **Tests**: Vitest integration tests in `server/tests/`, forced against `tm_suite_test` (isolated from live DB).
 
 ## Branching
 
-- `dev` — active development, push freely
+- `Morningstar` — Angelus's working branch
+- `Piatra` — Peter's working branch
+- `dev` — integration branch; Morningstar and Piatra merge in
 - `main` — production, triggers Netlify + Render deploy on push
-- Feature branches merge to `dev`, `dev` merges to `main` per epic
+- Pattern: commit to your working branch → merge to `dev` per story → merge `dev` → `main` per epic
 
 ## Embedded Reference Data
 
