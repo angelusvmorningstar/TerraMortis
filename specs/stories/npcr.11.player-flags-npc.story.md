@@ -1,7 +1,7 @@
 ---
 id: npcr.11
 epic: npcr
-status: ready-for-dev
+status: review
 priority: high
 depends_on: [npcr.3, npcr.6]
 ---
@@ -62,3 +62,15 @@ Client-side surface on top of the `POST /api/npc-flags` endpoint and resolution 
 - Resolved chip displays with ST's note; dismiss persists per character
 - 403 verified for flag from unrelated player
 - Quinn verification pass
+
+---
+
+## Revision History
+
+- **2026-04-24 r1**: initial draft from the epic.
+- **2026-04-24 r2**: implemented.
+  - **Flag-state surfacing**: `GET /api/relationships/for-character/:id` now attaches `_flag_state` per NPC-endpoint edge: `{status:'open', reason, created_at}` for open flags; `{status:'resolved', resolution_note, resolved_at}` for resolved; absent when none. Most recent flag per (character_id, npc_id) wins. Keeps the flag system opaque to the client while driving UI state.
+  - **Client**: flag icon (⚑) on NPC-endpoint edge cards by default; replaced by "⚑ Flagged" chip when an open flag exists (card is inert); replaced by "⚑ ST resolved · {note} ✕" chip when resolved. Resolved chip is dismissable — dismissal persists in localStorage `tm:rel_dismissed_flags:{charId}` keyed by `npc_id → resolved_at` (so a future resolution on the same NPC re-appears).
+  - **Modal**: reuses the same NPCR.3 `.npcr-modal-overlay` theme (same styling used by the flag-resolve modal on the admin side). Esc / click-outside cancel, Ctrl/Cmd+Enter submits if reason is non-empty.
+  - **Duplicate-flag handling**: server already 409s on a second open flag from the same player for the same NPC (NPCR.3 indexed constraint). Client treats 409 the same as success — just refreshes the tab, which will render the existing-open-flag chip.
+  - **Server POST unchanged**: the existing `POST /api/npc-flags` from NPCR.3 handles auth + dedup. No route changes in this story.

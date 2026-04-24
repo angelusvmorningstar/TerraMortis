@@ -65,9 +65,10 @@ function playerPcPcKinds() {
   });
 }
 
-const LAST_SEEN_PREFIX    = 'tm:rel_last_seen:';
-const DISMISSED_PREFIX    = 'tm:rel_dismissed_updates:';
-const COLLAPSED_PREFIX    = 'tm:rel_family_collapsed:';
+const LAST_SEEN_PREFIX     = 'tm:rel_last_seen:';
+const DISMISSED_PREFIX     = 'tm:rel_dismissed_updates:';
+const COLLAPSED_PREFIX     = 'tm:rel_family_collapsed:';
+const DISMISSED_FLAGS_PFX  = 'tm:rel_dismissed_flags:'; // NPCR.11: keyed by char; value { npc_id: resolved_at }
 
 function lastSeenKey(charId)   { return LAST_SEEN_PREFIX   + String(charId); }
 function dismissedKey(charId)  { return DISMISSED_PREFIX   + String(charId); }
@@ -102,6 +103,68 @@ function readCollapsed(charId) {
 
 function writeCollapsed(charId, map) {
   try { localStorage.setItem(collapsedKey(charId), JSON.stringify(map)); } catch { /* */ }
+}
+
+function dismissedFlagsKey(charId) { return DISMISSED_FLAGS_PFX + String(charId); }
+function readDismissedFlags(charId) {
+  try {
+    const raw = localStorage.getItem(dismissedFlagsKey(charId));
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+function writeDismissedFlags(charId, map) {
+  try { localStorage.setItem(dismissedFlagsKey(charId), JSON.stringify(map)); } catch { /* */ }
+}
+
+// NPCR.11: simple themed modal for the flag-reason prompt. Returns a Promise
+// that resolves to the trimmed reason string on submit, or null on cancel.
+function openFlagModal({ npcName }) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'npcr-modal-overlay';
+    overlay.innerHTML = `
+      <div class="npcr-modal" role="dialog" aria-labelledby="rel-flag-modal-title">
+        <div class="npcr-modal-title" id="rel-flag-modal-title">Flag ${esc(npcName)} for ST review</div>
+        <div class="npcr-modal-body">
+          <label class="npcr-field">
+            <span class="npcr-field-label">What feels off? (required)</span>
+            <textarea id="rel-flag-reason" class="npcr-textarea" rows="4" maxlength="2000" placeholder="The ST will read this and either edit the record or reply with a resolution note."></textarea>
+          </label>
+        </div>
+        <div class="npcr-modal-actions">
+          <button class="npcr-btn muted" data-act="cancel">Cancel</button>
+          <button class="npcr-btn save" data-act="submit">Submit</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const textarea = overlay.querySelector('#rel-flag-reason');
+    setTimeout(() => textarea?.focus(), 0);
+
+    function close(result) {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') close(null);
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        const v = textarea.value.trim();
+        if (v) close(v);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => close(null));
+    overlay.querySelector('[data-act="submit"]').addEventListener('click', () => {
+      const v = textarea.value.trim();
+      if (!v) {
+        textarea.focus();
+        return;
+      }
+      close(v);
+    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
+  });
 }
 
 // ── Derivation helpers ──────────────────────────────────────────────────────
@@ -319,6 +382,26 @@ function renderEdgeCard(edge, lastSeen, dismissed, char) {
     return renderEdgeEditForm(edge);
   }
 
+  // NPCR.11: flag state for NPC-endpoint edges. The "Other" side is either
+  // b (when a=this char) or a (when b=this char). Only surface the flag
+  // affordance when the other side is an NPC.
+  const otherEp = String(edge.a?.id) === String(char?._id) ? edge.b : edge.a;
+  const isNpcEdge = otherEp?.type === 'npc';
+  const flagState = edge._flag_state;
+  let flagAffordance = '';
+  if (isNpcEdge) {
+    const dismissed = readDismissedFlags(char._id);
+    const npcId = String(otherEp.id);
+    const dismissedAt = dismissed[npcId];
+    if (flagState?.status === 'open') {
+      flagAffordance = '<span class="rel-flag-chip flagged" title="Awaiting ST review">⚑ Flagged</span>';
+    } else if (flagState?.status === 'resolved' && flagState.resolved_at !== dismissedAt) {
+      flagAffordance = `<span class="rel-flag-chip resolved" data-act="dismiss-flag" data-npc-id="${esc(npcId)}" data-resolved-at="${esc(flagState.resolved_at || '')}" title="Click to dismiss">⚑ ST resolved · ${esc(flagState.resolution_note || '(no note)')} ✕</span>`;
+    } else {
+      flagAffordance = `<button type="button" class="rel-flag-btn" data-act="flag-npc" data-npc-id="${esc(npcId)}" title="Something off about this NPC?">⚑</button>`;
+    }
+  }
+
   return `
     <article class="rel-edge-card" data-edge-id="${esc(String(edge._id))}">
       <header class="rel-edge-head">
@@ -331,6 +414,7 @@ function renderEdgeCard(edge, lastSeen, dismissed, char) {
           ${statusChip(edge, char)}
           ${showNew ? '<span class="rel-new-badge" title="Added since your last visit">New</span>' : ''}
           ${showUpdated ? `<span class="rel-updated-chip" data-act="dismiss-update" data-at="${esc(stUpdate.at)}" title="Dismiss">Updated ✕</span>` : ''}
+          ${flagAffordance}
         </div>
       </header>
       ${stateText ? `
@@ -439,6 +523,44 @@ function attachHandlers(root, charId, char, edges) {
       text.textContent = full.textContent;
       wrap.classList.remove('truncated');
       moreBtn.remove();
+    });
+  });
+
+  // NPCR.11 flag NPC for review
+  root.querySelectorAll('[data-act="flag-npc"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const npcId = btn.dataset.npcId;
+      const card = btn.closest('.rel-edge-card');
+      const nameEl = card?.querySelector('.rel-edge-name');
+      const npcName = nameEl?.textContent?.trim() || 'this NPC';
+      const reason = await openFlagModal({ npcName });
+      if (!reason) return;
+      const { status, ok, body: resBody } = await apiRaw('POST', '/api/npc-flags', {
+        npc_id: npcId,
+        character_id: String(char._id),
+        reason,
+      });
+      if (ok) {
+        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+        return;
+      }
+      if (status === 409) {
+        // Already an open flag — refresh to pick up the chip.
+        renderRelationshipsTab(document.getElementById('t-relationships'), char);
+      } else {
+        const msg = resBody?.message || `Flag failed (HTTP ${status}).`;
+        alert(msg);
+      }
+    });
+  });
+  root.querySelectorAll('[data-act="dismiss-flag"]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const npcId = chip.dataset.npcId;
+      const at = chip.dataset.resolvedAt;
+      const map = readDismissedFlags(char._id);
+      map[npcId] = at;
+      writeDismissedFlags(char._id, map);
+      chip.remove();
     });
   });
 

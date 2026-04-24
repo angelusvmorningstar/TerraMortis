@@ -591,6 +591,14 @@ html:not([data-theme="dark"]) .edit-icon {
 .rel-add-mode-chip.on{background:var(--gold2-a12);color:var(--accent);border-color:var(--accent);}
 .rel-add-hint{font-family:var(--ft);font-size:11px;color:var(--txt3);font-style:italic;padding:0 2px;}
 
+/* NPCR.11 Flag-for-review */
+.rel-flag-btn{background:none;border:1px solid transparent;border-radius:10px;color:var(--txt3);cursor:pointer;font-family:var(--fl);font-size:12px;padding:1px 7px;line-height:1;}
+.rel-flag-btn:hover{color:var(--err);border-color:var(--err);}
+.rel-flag-chip{display:inline-flex;align-items:center;gap:4px;font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;border:1px solid;}
+.rel-flag-chip.flagged{color:var(--err);border-color:var(--err);background:var(--warn-dk-bg);}
+.rel-flag-chip.resolved{color:var(--accent);border-color:var(--accent);background:var(--gold2-a12);cursor:pointer;text-transform:none;font-size:10px;letter-spacing:.02em;}
+.rel-flag-chip.resolved:hover{background:var(--gold2-a25);}
+
 /* NPCR.10 Pending incoming banner */
 .rel-pending-banner{display:flex;align-items:center;gap:12px;background:var(--gold2-a12);border:1px solid var(--accent);border-radius:6px;padding:10px 12px;margin-bottom:10px;flex-wrap:wrap;}
 .rel-pending-text{flex:1;min-width:220px;font-family:var(--ft);font-size:13px;color:var(--txt);line-height:1.5;}

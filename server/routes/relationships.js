@@ -123,6 +123,44 @@ router.get('/for-character/:characterId', async (req, res) => {
     }
   }
 
+  // NPCR.11: attach _flag_state per NPC-endpoint edge for this character.
+  // - Open flag: {status:'open', reason, created_at}
+  // - Resolved flag: {status:'resolved', resolution_note, resolved_at}
+  // - Neither: null (absent)
+  // Only the most recent flag per (character_id, npc_id) surfaces.
+  const npcIdsForFlags = [...npcIds];
+  if (npcIdsForFlags.length > 0) {
+    const flags = await getCollection('npc_flags').find(
+      {
+        'flagged_by.character_id': charIdStr,
+        npc_id: { $in: npcIdsForFlags.map(id => String(id)) },
+      },
+      {
+        projection: {
+          npc_id: 1, status: 1, reason: 1, resolution_note: 1,
+          created_at: 1, resolved_at: 1,
+        },
+      }
+    ).sort({ created_at: -1 }).toArray();
+
+    const flagByNpc = new Map();
+    for (const f of flags) {
+      const key = String(f.npc_id);
+      if (!flagByNpc.has(key)) flagByNpc.set(key, f);
+    }
+    for (const e of docs) {
+      const other = String(e.a?.id) === charIdStr ? e.b : e.a;
+      if (!other || other.type !== 'npc') continue;
+      const f = flagByNpc.get(String(other.id));
+      if (!f) continue;
+      if (f.status === 'open') {
+        e._flag_state = { status: 'open', reason: f.reason, created_at: f.created_at };
+      } else if (f.status === 'resolved') {
+        e._flag_state = { status: 'resolved', resolution_note: f.resolution_note || '', resolved_at: f.resolved_at || null };
+      }
+    }
+  }
+
   res.json(docs);
 });
 
