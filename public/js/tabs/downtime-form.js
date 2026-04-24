@@ -21,6 +21,8 @@ import { xpLeft } from '../editor/xp.js';
 import { meetsPrereq } from '../editor/merits.js';
 import { getRuleByKey, getRulesByCategory } from '../data/loader.js';
 import { getRole, isSTRole } from '../auth/discord.js';
+import { FAMILIES, kindByCode } from '../data/relationship-kinds.js';
+import { promptForKind } from '../data/kind-prompts.js';
 
 // Influence merit names that generate monthly influence
 const INFLUENCE_MERIT_NAMES = ['Allies', 'Retainer', 'Mentor', 'Resources', 'Staff', 'Contacts', 'Status'];
@@ -45,7 +47,8 @@ let saveTimer = null;
 let localSaveTimer = null; // DTU-2: localStorage mirror fires faster than server save
 let restoredFromLocal = false; // DTU-2: banner flag set when form mounts from localStorage
 let priorPublishedLabel = null; // label of most recent published cycle other than current
-let _linkedNpcs = [];   // DTOSL.2: NPCs linked to current character (all statuses for Other dropdown)
+let _linkedNpcs = [];    // DTOSL.2 legacy (kept so legacy renderers don't crash) — unused in new flow
+let _myRelationships = []; // NPCR.12: active edges involving the current character, for the story-moment picker
 
 // Merits detected from the character sheet, grouped by type
 let detectedMerits = { spheres: [], contacts: [], retainers: [], status: [] };
@@ -343,15 +346,13 @@ function collectResponses() {
   responses['personal_story_note']     = psNote    ? psNote.value    : '';
   responses['personal_story_direction'] = psDir    ? psDir.value     : 'continue';
 
-  // DTOSL.2/.4: structured Off-Screen Life choice + target + moment
-  const oslChoice     = document.getElementById('dt-osl_choice');
-  const oslTargetId   = document.getElementById('dt-osl_target_id');
-  const oslTargetType = document.getElementById('dt-osl_target_type');
-  const oslMoment     = document.getElementById('dt-osl_moment');
-  responses['osl_choice']      = oslChoice     ? oslChoice.value     : '';
-  responses['osl_target_id']   = oslTargetId   ? oslTargetId.value   : '';
-  responses['osl_target_type'] = oslTargetType ? oslTargetType.value : '';
-  responses['osl_moment']      = oslMoment     ? oslMoment.value     : '';
+  // NPCR.12: Personal Story target + moment note. Legacy osl_* / correspondence
+  // fields are no longer written from new submissions; legacy submissions in
+  // the DB are read by downstream renderers via fallback lookups.
+  const relIdEl = document.getElementById('dt-story_moment_relationship_id');
+  const noteEl  = document.getElementById('dt-story_moment_note');
+  responses['story_moment_relationship_id'] = relIdEl ? relIdEl.value : '';
+  responses['story_moment_note']            = noteEl  ? noteEl.value  : '';
 
   // Aspiration structured slots
   for (let n = 1; n <= 3; n++) {
@@ -777,13 +778,23 @@ export async function renderDowntimeTab(targetEl, char, territories, options = {
     currentCycle = { _id: 'dev-stub', status: 'active', label: '[Dev Preview]', feeding_rights_confirmed: true };
   }
 
-  // DTOSL.2: load NPCs linked to this character (used by Off-Screen Life
-  // dropdowns). Fetch fails silently — form still renders, dropdowns go empty.
+  // DTOSL.2 legacy: kept so legacy-submission renderers on the admin side
+  // don't break when viewing old cycles. The new flow (NPCR.12) does not
+  // use this list.
   _linkedNpcs = [];
   if (currentChar?._id) {
     try {
       _linkedNpcs = await apiGet(`/api/npcs/for-character/${encodeURIComponent(currentChar._id)}`);
     } catch { _linkedNpcs = []; }
+  }
+
+  // NPCR.12: load this character's relationships (active + pending) for
+  // the Personal Story picker. Fails silently — picker shows empty state.
+  _myRelationships = [];
+  if (currentChar?._id) {
+    try {
+      _myRelationships = await apiGet(`/api/relationships/for-character/${encodeURIComponent(currentChar._id)}`);
+    } catch { _myRelationships = []; }
   }
 
   // Load existing submission for this character + cycle
@@ -1256,24 +1267,8 @@ function renderForm(container) {
 
   // Section collapse/expand toggle
   container.addEventListener('click', (e) => {
-    // DTOSL.2: Off-Screen Life choice chip toggle
-    const oslChip = e.target.closest('[data-osl-choice]');
-    if (oslChip) {
-      const newChoice = oslChip.dataset.oslChoice;
-      const hidden = document.getElementById('dt-osl_choice');
-      const current = hidden?.value || '';
-      // Click same chip to deselect; otherwise switch
-      if (hidden) hidden.value = current === newChoice ? '' : newChoice;
-      // Changing choice resets target_id because the dropdown list changes
-      const tgt = document.getElementById('dt-osl_target_id');
-      if (tgt && current !== newChoice) tgt.value = '';
-      const responses = collectResponses();
-      if (responseDoc) responseDoc.responses = responses;
-      else responseDoc = { responses };
-      renderForm(container);
-      scheduleSave();
-      return;
-    }
+    // DTOSL.2 choice chip handler — removed in NPCR.12 (replaced by the
+    // single relationships picker in renderPersonalStorySection).
 
     // Skill acquisition spec chip toggle
     const skAcqSpec = e.target.closest('[data-skill-acq-spec]');
@@ -1471,6 +1466,22 @@ function renderForm(container) {
     }
   });
   container.addEventListener('change', (e) => {
+    // NPCR.12/13: relationship picker change — swap the kind-driven label
+    // and placeholder in place, preserving whatever the player has typed.
+    if (e.target.id === 'dt-story_moment_relationship_id') {
+      const relId = e.target.value;
+      const edge = (_myRelationships || []).find(r => String(r._id) === String(relId));
+      const prompt = edge
+        ? promptForKind(edge.kind, edge.custom_label)
+        : promptForKind('_default', null);
+      const label = document.getElementById('dt-story_moment_note_label');
+      const note  = document.getElementById('dt-story_moment_note');
+      if (label) label.textContent = prompt.label;
+      if (note)  note.setAttribute('placeholder', prompt.placeholder);
+      scheduleSave();
+      return;
+    }
+
     // Personal story free-text NPC name — sync to hidden fields and deselect cards
     if (e.target.id === 'dt-personal_story_npc_name_free') {
       const val    = e.target.value.trim();
@@ -2703,94 +2714,87 @@ function getRowCost(row) {
 
 // ── Blood Sorcery ──
 
-// DTOSL.2/.4: Personal Story: Off-Screen Life — structured choice flow
-// with contextual dropdown and moment prompt.
-const OSL_PROMPTS = {
-  correspondence: {
-    label: 'Your letter',
-    placeholder: 'Write the letter you are sending this cycle...',
-    emptyMsg: 'No correspondents set up yet. Ask your ST to flag an NPC as a correspondent.',
-  },
-  touchstone: {
-    label: 'Your moment with them',
-    placeholder: 'How do you want to interact with them?',
-    emptyMsg: 'No mortal touchstones on your sheet.',
-  },
-  other: {
-    label: 'What do you want to do?',
-    placeholder: 'Describe the off-screen moment...',
-    emptyMsg: 'No NPCs linked to this character yet.',
-  },
-};
-
-function _oslDropdownOptions(choice) {
-  if (choice === 'correspondence') {
-    return _linkedNpcs.filter(n => n.is_correspondent).map(n => ({ id: String(n._id), name: n.name }));
-  }
-  if (choice === 'touchstone') {
-    return (currentChar?.touchstones || []).map(t => ({ id: `ts:${t.name}`, name: t.name }));
-  }
-  return _linkedNpcs.map(n => ({ id: String(n._id), name: n.name }));
-}
+// NPCR.12: Personal Story: Off-Screen Life — relationships-driven picker.
+// Retires the DTOSL.2/.4 three-way choice. The picker shows a single list of
+// the character's active relationships (grouped by kind family); selecting
+// one stores its _id as responses.story_moment_relationship_id. The
+// follow-up textarea is kind-driven via kind-prompts.js (NPCR.13).
 
 function renderPersonalStorySection(saved) {
   const section = DOWNTIME_SECTIONS.find(s => s.key === 'personal_story');
   if (!section) return '';
 
-  // Back-compat seeds from legacy fields (personal_story_npc_id, correspondence, etc.)
-  let savedChoice = saved['osl_choice'] || '';
-  if (!savedChoice && (saved['correspondence'] || '').trim()) savedChoice = 'correspondence';
-  const savedTargetId   = saved['osl_target_id']   || saved['personal_story_npc_id'] || '';
-  const savedMoment     = saved['osl_moment']     || saved['personal_story_note'] || saved['correspondence'] || '';
-  const savedDir        = saved['personal_story_direction']  || 'continue';
+  // Back-compat read: new submissions use story_moment_relationship_id;
+  // legacy submissions seeded the note into osl_moment / personal_story_note /
+  // correspondence. The direction radio used personal_story_direction.
+  const savedRelId = saved['story_moment_relationship_id'] || '';
+  const savedNote  = saved['story_moment_note']
+                   || saved['osl_moment']
+                   || saved['personal_story_note']
+                   || saved['correspondence']
+                   || '';
+  const savedDir   = saved['personal_story_direction'] || 'continue';
+
+  // Only active edges are pickable. _myRelationships was loaded in
+  // renderDowntimeTab from /api/relationships/for-character/:id.
+  const activeEdges = (_myRelationships || []).filter(e => e.status === 'active');
+
+  // Resolve the selected edge (if still active) to drive the prompt copy.
+  const selectedEdge = activeEdges.find(e => String(e._id) === String(savedRelId)) || null;
+  const prompt = selectedEdge
+    ? promptForKind(selectedEdge.kind, selectedEdge.custom_label)
+    : promptForKind('_default', null);
 
   let h = '<div class="qf-section collapsed" data-section-key="personal_story">';
   h += `<h4 class="qf-section-title">${esc(section.title)}<span class="qf-section-tick">✔</span></h4>`;
   h += '<div class="qf-section-body">';
-  h += '<p class="qf-section-intro">How is your character spending off-screen time this cycle? Pick a lane — a letter to a correspondent, a moment with a mortal Touchstone, or something else entirely.</p>';
+  h += '<p class="qf-section-intro">Pick a relationship to focus this cycle’s off-screen moment. Don’t have one yet? Visit the Relationships tab to add one, or submit without a story moment.</p>';
 
-  // Choice chips (Correspondence / Touchstone / Other)
-  h += '<div class="dt-osl-choice-group" role="radiogroup" aria-label="Off-screen life choice">';
-  for (const [val, label] of [['correspondence', 'Correspondence'], ['touchstone', 'Touchstone'], ['other', 'Other']]) {
-    const active = savedChoice === val ? ' dt-osl-choice-on' : '';
-    h += `<button type="button" class="dt-osl-choice${active}" data-osl-choice="${val}">${label}</button>`;
+  // Picker: grouped by kind family via <optgroup>.
+  h += '<div class="qf-field">';
+  h += '<label class="qf-label">Who is this moment about?</label>';
+  if (activeEdges.length === 0) {
+    h += '<p class="dt-osl-empty">You have no active relationships yet. Visit the Relationships tab to create one, or submit this downtime without a story moment.</p>';
+    h += '<input type="hidden" id="dt-story_moment_relationship_id" value="">';
+  } else {
+    // Group by kind family, sort entries by other-endpoint name within family.
+    const byFamily = Object.fromEntries(FAMILIES.map(f => [f, []]));
+    for (const e of activeEdges) {
+      const k = kindByCode(e.kind);
+      const fam = k?.family || 'Other';
+      byFamily[fam].push(e);
+    }
+    for (const fam of FAMILIES) {
+      byFamily[fam].sort((a, b) => String(a._other_name || '').localeCompare(String(b._other_name || ''), undefined, { sensitivity: 'base' }));
+    }
+
+    h += '<select id="dt-story_moment_relationship_id" class="qf-select">';
+    h += '<option value="">— None (no story moment this cycle) —</option>';
+    for (const fam of FAMILIES) {
+      const bucket = byFamily[fam];
+      if (bucket.length === 0) continue;
+      h += `<optgroup label="${esc(fam)}">`;
+      for (const e of bucket) {
+        const k = kindByCode(e.kind);
+        const kindLabel = k?.label || e.kind;
+        const custom = e.kind === 'other' && e.custom_label ? ` (${esc(e.custom_label)})` : '';
+        const name = e._other_name || '(unknown)';
+        const sel = String(savedRelId) === String(e._id) ? ' selected' : '';
+        h += `<option value="${esc(String(e._id))}"${sel}>${esc(name)} · ${esc(kindLabel)}${custom}</option>`;
+      }
+      h += '</optgroup>';
+    }
+    h += '</select>';
   }
   h += '</div>';
-  h += `<input type="hidden" id="dt-osl_choice" value="${esc(savedChoice)}">`;
 
-  // Contextual dropdown + moment prompt
-  if (savedChoice) {
-    const opts = _oslDropdownOptions(savedChoice);
-    const prompts = OSL_PROMPTS[savedChoice] || OSL_PROMPTS.other;
-    h += '<div class="qf-field" style="margin-top:12px;">';
-    if (opts.length === 0) {
-      h += `<p class="dt-osl-empty">${esc(prompts.emptyMsg)}</p>`;
-      h += `<input type="hidden" id="dt-osl_target_id" value="">`;
-      h += `<input type="hidden" id="dt-osl_target_type" value="">`;
-    } else {
-      const lbl = savedChoice === 'correspondence' ? 'Who are you writing to?'
-        : savedChoice === 'touchstone' ? 'Which Touchstone?'
-        : 'Who are you spending time with?';
-      h += `<label class="qf-label">${lbl}</label>`;
-      h += `<select id="dt-osl_target_id" class="qf-select">`;
-      h += '<option value="">— Select —</option>';
-      for (const o of opts) {
-        const sel = String(savedTargetId) === String(o.id) ? ' selected' : '';
-        h += `<option value="${esc(o.id)}"${sel}>${esc(o.name)}</option>`;
-      }
-      h += '</select>';
-      h += `<input type="hidden" id="dt-osl_target_type" value="${savedChoice === 'touchstone' ? 'touchstone' : 'npc'}">`;
-    }
-    h += '</div>';
+  // Kind-driven prompt (NPCR.13).
+  h += '<div class="qf-field" style="margin-top:12px;">';
+  h += `<label class="qf-label" id="dt-story_moment_note_label">${esc(prompt.label)}</label>`;
+  h += `<textarea id="dt-story_moment_note" class="qf-textarea" rows="4" placeholder="${esc(prompt.placeholder)}">${esc(savedNote)}</textarea>`;
+  h += '</div>';
 
-    // Contextual moment prompt (DTOSL.4)
-    h += '<div class="qf-field" style="margin-top:12px;">';
-    h += `<label class="qf-label">${esc(prompts.label)}</label>`;
-    h += `<textarea id="dt-osl_moment" class="qf-textarea" rows="4" placeholder="${esc(prompts.placeholder)}">${esc(savedMoment)}</textarea>`;
-    h += '</div>';
-  }
-
-  // Legacy story direction radios (kept until DTOSL.3 lands the ST-suggested flow)
+  // Story direction radios — preserved from legacy (cheap signal for the ST).
   h += '<div class="qf-field" style="margin-top:8px;">';
   h += '<label class="qf-label">Story direction</label>';
   h += '<div class="dt-npc-direction">';
@@ -2799,11 +2803,11 @@ function renderPersonalStorySection(saved) {
     ['redirect', 'I would like to redirect', 'I want to adjust the story — see note above'],
   ]) {
     const checked = savedDir === val ? ' checked' : '';
-    h += `<label class="dt-npc-dir-option">`;
+    h += '<label class="dt-npc-dir-option">';
     h += `<input type="radio" name="personal_story_direction" value="${val}"${checked}>`;
     h += `<span class="dt-npc-dir-label">${label}</span>`;
     h += `<span class="dt-npc-dir-desc">${desc}</span>`;
-    h += `</label>`;
+    h += '</label>';
   }
   h += '</div></div>';
 

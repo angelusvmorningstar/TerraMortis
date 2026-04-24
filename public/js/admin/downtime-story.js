@@ -1276,7 +1276,7 @@ function renderProjectCard(char, sub, idx) {
  * Player letter field confirmed as `correspondence` (schema: "In-character letter to NPC").
  */
 function buildLetterContext(char, sub, opts = {}) {
-  const { prevCorrespondence = null, prevCycleNumber = null, stVoiceNote = null } = opts;
+  const { prevCorrespondence = null, prevCycleNumber = null, stVoiceNote = null, storyMomentTarget = null } = opts;
   const humanity = char?.humanity ?? 0;
   const touchstones = char?.touchstones || [];
 
@@ -1306,6 +1306,14 @@ function buildLetterContext(char, sub, opts = {}) {
 
   lines.push('');
   lines.push(`Aspirations: ${playerAspirations ? playerAspirations.trim() : '[No aspirations recorded]'}`);
+
+  // NPCR.12: player's chosen story-moment target (if any). Surfaces name +
+  // kind as prompt context so the letter can acknowledge that focus.
+  if (storyMomentTarget?.name) {
+    const kindLabel = storyMomentTarget.custom_label || storyMomentTarget.kind || '';
+    lines.push('');
+    lines.push(`Story-moment target: ${storyMomentTarget.name} (${kindLabel})`);
+  }
 
   lines.push('');
   lines.push('Player-submitted letter:');
@@ -3159,7 +3167,40 @@ async function handleCopyLetterContext(btn) {
   } catch { /* leave nulls */ }
 
   const stVoiceNote = _currentSub.st_narrative?.letter_from_home?.voice_note || null;
-  const text = buildLetterContext(char, _currentSub, { prevCorrespondence, prevCycleNumber, stVoiceNote });
+
+  // NPCR.12: if the player selected a relationship as the story-moment
+  // target, resolve it server-side so the letter prompt mentions the
+  // target's name and kind. Best-effort; fall through on any error.
+  let storyMomentTarget = null;
+  const relId = _currentSub.responses?.story_moment_relationship_id;
+  if (relId) {
+    try {
+      const edge = await apiGet(`/api/relationships/${encodeURIComponent(relId)}`);
+      if (edge?.kind) {
+        storyMomentTarget = {
+          kind: edge.kind,
+          custom_label: edge.custom_label || null,
+          // Look up the NPC or PC name on the "other" endpoint (not this char).
+          // Simplest: re-use the for-character enrichment or just fetch by id.
+          name: null,
+        };
+        const charId = String(_currentSub.character_id);
+        const other = String(edge.a?.id) === charId ? edge.b : edge.a;
+        if (other?.type === 'npc' && other.id) {
+          const npcs = await apiGet('/api/npcs').catch(() => []);
+          const npc = (Array.isArray(npcs) ? npcs : []).find(n => String(n._id) === String(other.id));
+          if (npc) storyMomentTarget.name = npc.name;
+        } else if (other?.type === 'pc' && other.id) {
+          const otherChar = getCharForSub({ character_id: other.id });
+          if (otherChar) storyMomentTarget.name = (otherChar.moniker || otherChar.name || '').trim();
+        }
+      }
+    } catch { /* leave null */ }
+  }
+
+  const text = buildLetterContext(char, _currentSub, {
+    prevCorrespondence, prevCycleNumber, stVoiceNote, storyMomentTarget,
+  });
   copyToClipboard(text, btn);
 }
 

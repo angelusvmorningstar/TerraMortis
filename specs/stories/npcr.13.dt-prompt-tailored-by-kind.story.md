@@ -1,7 +1,7 @@
 ---
 id: npcr.13
 epic: npcr
-status: ready-for-dev
+status: review
 priority: medium
 depends_on: [npcr.12]
 ---
@@ -74,3 +74,17 @@ Replaces the DTOSL.4 contextual moment-prompt logic with a cleaner kind-driven m
 - Label and placeholder swap on selection change; typed content persists
 - Legacy DTOSL.4 code path removed cleanly
 - Quinn verification pass
+
+---
+
+## Revision History
+
+- **2026-04-24 r1**: initial draft.
+- **2026-04-24 r2**: implemented alongside NPCR.12.
+  - `public/js/data/kind-prompts.js` exports `KIND_PROMPTS` (18 kinds mapped + `_default`) and `promptForKind(kind, customLabel)` helper.
+  - `renderPersonalStorySection` in `downtime-form.js` computes the prompt off the selected relationship's kind; change listener on `#dt-story_moment_relationship_id` swaps `label.textContent` and `textarea.placeholder` in place without destroying the textarea's existing value.
+  - For `kind='other'` with a `custom_label`, the helper uses the custom label as the prompt label and falls back to the 'other' placeholder.
+  - Typed content persists across selection changes (the label/placeholder swap doesn't touch the textarea `value`).
+  - Copy tone lands on British English, second-person, conversational. No em-dashes.
+  - **DTOSL.4 logic retired**: the `OSL_PROMPTS` map and its branching in the old renderer are deleted. Kind-prompts is the single source.
+  - **Status**: review.
