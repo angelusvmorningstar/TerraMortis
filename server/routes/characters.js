@@ -30,6 +30,66 @@ function parseId(id) {
  * active relationship edge with kind='touchstone' and the character on
  * one endpoint. Returns null on success, or an error message string.
  */
+/**
+ * NPCR.4: attach _touchstones_resolved on each character whose
+ * touchstone_edge_ids is non-empty. Each entry is the minimum the
+ * client needs to render a slot: {edge_id, humanity, npc_id, npc_name, state}.
+ *
+ * When forPlayer is true, edges with st_hidden are excluded from the
+ * result. ST callers see everything.
+ */
+async function enrichTouchstonesResolved(chars, { forPlayer } = {}) {
+  const allEdgeOids = [];
+  for (const c of chars) {
+    const ids = Array.isArray(c.touchstone_edge_ids) ? c.touchstone_edge_ids : [];
+    for (const id of ids) {
+      try { allEdgeOids.push(new ObjectId(String(id))); } catch { /* skip */ }
+    }
+  }
+  if (allEdgeOids.length === 0) return;
+
+  const rels = getCollection('relationships');
+  const edgeFilter = {
+    _id: { $in: allEdgeOids },
+    kind: 'touchstone',
+    status: { $ne: 'retired' },
+  };
+  if (forPlayer) edgeFilter.st_hidden = { $ne: true };
+  const edges = await rels.find(edgeFilter).toArray();
+  const edgeById = new Map(edges.map(e => [String(e._id), e]));
+
+  const npcOids = [];
+  for (const e of edges) {
+    const npcEp = e.a?.type === 'npc' ? e.a : (e.b?.type === 'npc' ? e.b : null);
+    if (npcEp?.id) {
+      try { npcOids.push(new ObjectId(String(npcEp.id))); } catch { /* skip */ }
+    }
+  }
+  const npcs = npcOids.length > 0
+    ? await getCollection('npcs').find({ _id: { $in: npcOids } }, { projection: { name: 1 } }).toArray()
+    : [];
+  const npcById = new Map(npcs.map(n => [String(n._id), n]));
+
+  for (const c of chars) {
+    const ids = Array.isArray(c.touchstone_edge_ids) ? c.touchstone_edge_ids : [];
+    const resolved = [];
+    for (const id of ids) {
+      const e = edgeById.get(String(id));
+      if (!e) continue;
+      const npcEp = e.a?.type === 'npc' ? e.a : e.b;
+      const npc = npcEp ? npcById.get(String(npcEp.id)) : null;
+      resolved.push({
+        edge_id: String(e._id),
+        humanity: e.touchstone_meta?.humanity ?? null,
+        npc_id: npcEp?.id ? String(npcEp.id) : null,
+        npc_name: npc?.name || null,
+        state: e.state || '',
+      });
+    }
+    c._touchstones_resolved = resolved;
+  }
+}
+
 async function validateTouchstoneEdgeIds(ids, characterId) {
   if (!Array.isArray(ids) || ids.length === 0) return null;
   const rels = getCollection('relationships');
@@ -59,6 +119,7 @@ async function validateTouchstoneEdgeIds(ids, characterId) {
 router.get('/', async (req, res) => {
   if (isStRole(req.user) && !req.query.mine) {
     const chars = await col().find().toArray();
+    await enrichTouchstonesResolved(chars, { forPlayer: false });
     return res.json(chars);
   }
 
@@ -111,6 +172,7 @@ router.get('/', async (req, res) => {
     }
   }
 
+  await enrichTouchstonesResolved(chars, { forPlayer: true });
   res.json(chars);
 });
 
@@ -247,6 +309,8 @@ router.get('/:id', async (req, res) => {
   const char = await col().findOne({ _id: oid });
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
+  const forPlayer = req.user.role === 'player';
+  await enrichTouchstonesResolved([char], { forPlayer });
   res.json(char);
 });
 

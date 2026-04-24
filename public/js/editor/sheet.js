@@ -247,6 +247,9 @@ function renderTouchstonesLegacy(c, editMode) {
   if (editMode) {
     let h = '<div class="sh-touchstones-edit">';
     h += '<div class="sh-sec-title" style="font-size:11px;margin:8px 0 4px">Touchstones <span class="sh-ts-migration-badge">Migration required</span></div>';
+    if (c._ts_err) {
+      h += '<div class="sh-touchstones-error" role="alert">' + esc(c._ts_err) + '</div>';
+    }
     if (ts.length) {
       h += '<div class="sh-ts-legacy-list">';
       ts.forEach(t => {
@@ -313,6 +316,9 @@ function renderTouchstonesEdgeMode(c, editMode) {
   const picker = c._ts_picker;
   let h = '<div class="sh-touchstones-edit">';
   h += '<div class="sh-sec-title" style="font-size:11px;margin:8px 0 4px">Touchstones</div>';
+  if (c._ts_err) {
+    h += '<div class="sh-touchstones-error" role="alert">' + esc(c._ts_err) + '</div>';
+  }
   if (maxSlot === 0) {
     h += '<div class="sh-ts-slot-empty-all">Set Humanity to unlock touchstone slots.</div>';
   }

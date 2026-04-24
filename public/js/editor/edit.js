@@ -172,7 +172,57 @@ export function shRemoveTouchstone(i) {
    Each operation round-trips immediately (edge POST/PUT/DELETE
    and a partial character PUT with the new id list) so the
    state is atomic without waiting for a full Save Character.
+
+   All user-facing prompts use themed modals (see NPCR.3 pattern)
+   — never window.confirm/prompt/alert. Errors surface via an
+   inline banner inside the touchstone section.
 ══════════════════════════════════════════════════════════ */
+
+function _tsConfirmModal({ title, body, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'npcr-modal-overlay';
+    overlay.innerHTML = `
+      <div class="npcr-modal" role="dialog" aria-labelledby="sh-ts-modal-title">
+        <div class="npcr-modal-title" id="sh-ts-modal-title">${_esc(title)}</div>
+        <div class="npcr-modal-body"><p>${_esc(body)}</p></div>
+        <div class="npcr-modal-actions">
+          <button class="npcr-btn muted" data-act="cancel">${_esc(cancelLabel)}</button>
+          <button class="npcr-btn ${danger ? 'danger' : 'save'}" data-act="confirm">${_esc(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const confirmBtn = overlay.querySelector('[data-act="confirm"]');
+    setTimeout(() => confirmBtn?.focus(), 0);
+
+    function close(result) {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') close(false);
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) close(true);
+    }
+    document.addEventListener('keydown', onKey);
+    overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => close(false));
+    confirmBtn.addEventListener('click', () => close(true));
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+  });
+}
+
+function _esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function _tsSetError(c, msg) {
+  c._ts_err = String(msg || '');
+  _renderSheet(c);
+}
+function _tsClearError(c) {
+  if (c._ts_err) { delete c._ts_err; }
+}
 
 export async function shEnsureTouchstoneData() {
   if (state.editIdx < 0) return;
@@ -238,7 +288,8 @@ export async function shTouchstoneLink(humanity) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
   const draft = c._ts_picker?.draft;
-  if (!draft || !draft.npc_id) { alert('Pick an NPC.'); return; }
+  if (!draft || !draft.npc_id) { _tsSetError(c, 'Pick an NPC before linking.'); return; }
+  _tsClearError(c);
   const charId = String(c._id);
   try {
     const edge = await apiPost('/api/relationships', {
@@ -259,7 +310,7 @@ export async function shTouchstoneLink(humanity) {
     _renderSheet(c);
   } catch (err) {
     console.error('[touchstone] link error:', err);
-    alert('Link failed: ' + (err?.message || 'unknown error'));
+    _tsSetError(c, 'Link failed: ' + (err?.message || 'unknown error'));
   }
 }
 
@@ -269,7 +320,8 @@ export async function shTouchstoneCreate(humanity) {
   const draft = c._ts_picker?.draft;
   if (!draft) return;
   const name = String(draft.name || '').trim();
-  if (!name) { alert('Name is required.'); return; }
+  if (!name) { _tsSetError(c, 'Name is required to create an NPC.'); return; }
+  _tsClearError(c);
   const description = String(draft.desc || '').trim();
   const charId = String(c._id);
   try {
@@ -293,7 +345,7 @@ export async function shTouchstoneCreate(humanity) {
     _renderSheet(c);
   } catch (err) {
     console.error('[touchstone] create error:', err);
-    alert('Create failed: ' + (err?.message || 'unknown error'));
+    _tsSetError(c, 'Create failed: ' + (err?.message || 'unknown error'));
   }
 }
 
@@ -304,6 +356,7 @@ export async function shTouchstoneEditState(edgeId, newState) {
   if (!edge) return;
   const trimmed = String(newState || '').trim();
   if (trimmed === (edge.state || '')) { delete c._ts_picker; _renderSheet(c); return; }
+  _tsClearError(c);
   try {
     const body = {
       a: edge.a, b: edge.b, kind: edge.kind,
@@ -321,14 +374,21 @@ export async function shTouchstoneEditState(edgeId, newState) {
     _renderSheet(c);
   } catch (err) {
     console.error('[touchstone] edit state error:', err);
-    alert('Save failed: ' + (err?.message || 'unknown error'));
+    _tsSetError(c, 'Save failed: ' + (err?.message || 'unknown error'));
   }
 }
 
 export async function shTouchstoneUnlink(edgeId) {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!confirm('Remove this touchstone? The relationship record will be retired (ST can reactivate from the NPC register).')) return;
+  const ok = await _tsConfirmModal({
+    title: 'Remove touchstone?',
+    body: 'The relationship record will be retired. An ST can reactivate it from the NPC register if needed.',
+    confirmLabel: 'Remove',
+    danger: true,
+  });
+  if (!ok) return;
+  _tsClearError(c);
   const charId = String(c._id);
   try {
     await apiDelete('/api/relationships/' + edgeId);
@@ -339,23 +399,28 @@ export async function shTouchstoneUnlink(edgeId) {
     _renderSheet(c);
   } catch (err) {
     console.error('[touchstone] unlink error:', err);
-    alert('Remove failed: ' + (err?.message || 'unknown error'));
+    _tsSetError(c, 'Remove failed: ' + (err?.message || 'unknown error'));
   }
 }
 
 export async function shBeginTouchstoneMigration() {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!confirm('Convert this character to the new touchstone system? The legacy text entries stay visible (read-only) until NPCR.5 migration runs.')) return;
+  const ok = await _tsConfirmModal({
+    title: 'Begin touchstone migration?',
+    body: 'Convert this character to the new touchstone system. The legacy text entries stay visible (read-only) until NPCR.5 migration runs.',
+    confirmLabel: 'Begin migration',
+  });
+  if (!ok) return;
+  _tsClearError(c);
   try {
     c.touchstone_edge_ids = [];
     await apiPut('/api/characters/' + String(c._id), { touchstone_edge_ids: [] });
     _renderSheet(c);
   } catch (err) {
     console.error('[touchstone] migration init error:', err);
-    alert('Migration init failed: ' + (err?.message || 'unknown error'));
     delete c.touchstone_edge_ids;
-    _renderSheet(c);
+    _tsSetError(c, 'Migration init failed: ' + (err?.message || 'unknown error'));
   }
 }
 

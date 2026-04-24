@@ -7975,6 +7975,26 @@ html:not([data-theme="dark"]) .rules-tbl tbody tr:hover            { background:
   margin-left: auto;
 }
 
+.npcr-btn.muted {
+  color: var(--txt3);
+  background: var(--surf2);
+}
+
+.npcr-btn.muted:hover {
+  color: var(--txt);
+  border-color: var(--bdr2);
+}
+
+.npcr-btn.danger {
+  color: var(--err);
+  border-color: var(--err);
+}
+
+.npcr-btn.danger:hover {
+  background: var(--err);
+  color: var(--bg);
+}
+
 .npcr-main-head-row {
   display: flex;
   align-items: baseline;

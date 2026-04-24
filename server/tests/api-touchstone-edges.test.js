@@ -347,6 +347,117 @@ describe('PUT /api/characters/:id touchstone_edge_ids validation', () => {
   });
 });
 
+// ── GET enrichment: _touchstones_resolved ───────────────────────────────────
+
+describe('GET /api/characters/:id _touchstones_resolved enrichment', () => {
+  async function seedNpc(name) {
+    const col = getCollection('npcs');
+    const now = new Date().toISOString();
+    const res = await col.insertOne({
+      name, description: '', status: 'active',
+      linked_character_ids: [], linked_cycle_id: null, notes: '',
+      created_at: now, updated_at: now,
+    });
+    return { _id: res.insertedId, name };
+  }
+
+  it('attaches _touchstones_resolved on GET /:id for a migrated char (ST)', async () => {
+    const char = await seedChar();
+    const charIdStr = String(char._id);
+    const npc = await seedNpc('Resolved-Test Sister');
+    CREATED_REL_IDS.push(); // placeholder — the cleanup handles ids collected below
+
+    const edge = await seedRelationship({
+      a: { type: 'pc', id: charIdStr },
+      b: { type: 'npc', id: String(npc._id) },
+      kind: 'touchstone',
+      touchstone_meta: { humanity: 6 },
+      state: 'Drawn from a quiet life',
+    });
+    await getCollection('characters').updateOne(
+      { _id: char._id },
+      { $set: { touchstone_edge_ids: [String(edge._id)] } }
+    );
+
+    const res = await request(app)
+      .get(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body._touchstones_resolved)).toBe(true);
+    expect(res.body._touchstones_resolved).toHaveLength(1);
+    expect(res.body._touchstones_resolved[0]).toMatchObject({
+      edge_id: String(edge._id),
+      humanity: 6,
+      npc_id: String(npc._id),
+      npc_name: 'Resolved-Test Sister',
+      state: 'Drawn from a quiet life',
+    });
+
+    // Cleanup the NPC we seeded inline
+    await getCollection('npcs').deleteOne({ _id: npc._id });
+  });
+
+  it('excludes st_hidden edges from _touchstones_resolved for players', async () => {
+    const char = await seedChar();
+    const charIdStr = String(char._id);
+    const npc = await seedNpc('Hidden Resolved-Test NPC');
+
+    const edge = await seedRelationship({
+      a: { type: 'pc', id: charIdStr },
+      b: { type: 'npc', id: String(npc._id) },
+      kind: 'touchstone',
+      touchstone_meta: { humanity: 4 },
+      st_hidden: true,
+    });
+    await getCollection('characters').updateOne(
+      { _id: char._id },
+      { $set: { touchstone_edge_ids: [String(edge._id)] } }
+    );
+
+    const playerRes = await request(app)
+      .get(`/api/characters/${char._id}`)
+      .set('X-Test-User', playerUser([String(char._id)]));
+
+    expect(playerRes.status).toBe(200);
+    expect(playerRes.body._touchstones_resolved).toEqual([]);
+
+    const stRes = await request(app)
+      .get(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(stRes.body._touchstones_resolved).toHaveLength(1);
+
+    await getCollection('npcs').deleteOne({ _id: npc._id });
+  });
+
+  it('excludes retired edges from _touchstones_resolved', async () => {
+    const char = await seedChar();
+    const charIdStr = String(char._id);
+    const npc = await seedNpc('Retired Resolved-Test NPC');
+
+    const edge = await seedRelationship({
+      a: { type: 'pc', id: charIdStr },
+      b: { type: 'npc', id: String(npc._id) },
+      kind: 'touchstone',
+      touchstone_meta: { humanity: 2 },
+      status: 'retired',
+    });
+    await getCollection('characters').updateOne(
+      { _id: char._id },
+      { $set: { touchstone_edge_ids: [String(edge._id)] } }
+    );
+
+    const res = await request(app)
+      .get(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.body._touchstones_resolved).toEqual([]);
+
+    await getCollection('npcs').deleteOne({ _id: npc._id });
+  });
+});
+
 // ── Character creation: touchstone_edge_ids forced to [] ────────────────────
 
 describe('POST /api/characters touchstone_edge_ids default', () => {

@@ -523,8 +523,8 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-ts-hum{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--fl);font-size:10px;padding:3px;width:40px;text-align:center;}
 
 /* ── NPCR.4 Touchstone picker (Shape B) ── */
-.sh-touchstones-loading,.sh-touchstones-error{padding:8px 10px;font-family:var(--fl);font-size:11px;color:var(--txt3);}
-.sh-touchstones-error{color:var(--err);}
+.sh-touchstones-loading{padding:8px 10px;font-family:var(--fl);font-size:11px;color:var(--txt3);}
+.sh-touchstones-error{padding:6px 10px;margin-bottom:6px;font-family:var(--fl);font-size:11px;color:var(--err);background:var(--warn-dk-bg);border:1px solid var(--err);border-radius:3px;}
 .sh-ts-slot{border:1px solid var(--bdr);border-radius:4px;margin-bottom:6px;background:var(--surf);}
 .sh-ts-slot-head{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--bdr);font-family:var(--fl);font-size:10px;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase;}
 .sh-ts-slot-hum{color:var(--accent);font-weight:700;}
