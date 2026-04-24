@@ -46,14 +46,14 @@ Three collections underpin the epic.
 
 **`relationships`** — typed edges between PCs and NPCs.
 - Endpoints: `a: { type: 'pc' | 'npc', id }`, `b: { type: 'pc' | 'npc', id }`
-- `kind`: closed enum (~15 starting values) with `'other'` + `custom_label` escape hatch
-- `direction`: `'symmetric'` or `'a_to_b'`
-- `disposition`: optional enum (`allied | friendly | neutral | strained | hostile`)
+- `kind`: closed enum (~15 starting values) with `'other'` + `custom_label` escape hatch. Inverse pairs (`sire`/`childe`, `debt-holder`/`debt-bearer`) are kept as peer codes intentionally — users pick the code matching their entry-time mental frame; graph aggregation uses the `family` field (not individual codes), and duplicate-inverse detection is a client-side concern for player-creation flows (NPCR.6).
+- `direction`: `'a_to_b'` or `'mutual'` (schema is technical; player-facing UIs render as natural language — e.g. "is sire of" / "mutual"). The kinds-module `direction` field (`'directed'`/`'mutual'`) is a per-kind *category* that controls picker defaults; `defaultDirectionFor()` translates to the schema instance vocabulary.
+- `disposition`: optional enum (`positive | neutral | negative`) — 3-point for MVP; expandable later if needed
 - `state`: freeform text capturing the current relationship narrative
-- `history[]`: append-only log of changes
+- `history[]`: append-only log of changes. Each row: `{at, by: {type, id}, change, fields?: [{name, before, after}]}` — `fields` is an array of per-field deltas so the history UI can render "X changed from A to B" cleanly.
 - `status`: `active | pending_confirmation | rejected | retired`
 - `st_hidden`: boolean. When true, players never see the edge even if their PC is on it.
-- `created_by`: `{ type: 'pc' | 'st', id }`
+- `created_by`: `{ type: 'st' | 'player', id }` — id is the Discord id of the acting user
 - `visibility rule`: every player query is filtered to "edge involves me" AND `st_hidden !== true`. There is no public directory.
 
 **`npc_flags`** — lightweight player-to-ST signal.

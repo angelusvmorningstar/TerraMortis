@@ -25,7 +25,7 @@ export const DIRECTION_ENUM = ['a_to_b', 'mutual'];
 
 export const DISPOSITION_ENUM = ['positive', 'neutral', 'negative'];
 
-export const STATUS_ENUM = ['active', 'retired', 'pending_confirmation'];
+export const STATUS_ENUM = ['active', 'retired', 'pending_confirmation', 'rejected'];
 
 export const ENDPOINT_TYPE_ENUM = ['pc', 'npc'];
 
