@@ -1,10 +1,12 @@
 ---
 id: npcr.5
 epic: npcr
-status: ready-for-dev
-priority: high
+status: deferred
+priority: low
 depends_on: [npcr.2, npcr.3, npcr.4]
 ---
+
+> **Deferred 2026-04-24 after pre-migration audit** (see Revision History r3). Re-open once the NPC register is populated enough that a bulk migration beats the NPCR.4 interactive picker. Trigger for revisit: more than ~10 NPCs in the register or player-created stubs appearing via NPCR.8.
 
 # Story NPCR-5: Data migration — three legacy shapes to relationships
 
@@ -121,3 +123,10 @@ Legacy `npcs.linked_character_ids` and `npcs.is_correspondent` fields remain on 
 
 - **2026-04-24 r1**: initial draft from the epic — four legacy shapes including `character.touchstones[]` → move-to-new-array.
 - **2026-04-24 r2**: rewritten after NPCR.4 r2 landed. Touchstones stay authoritative on `character.touchstones[]`; this migration now *augments* touchstone entries with `edge_id` where an NPC match exists, rather than relocating them. Added cap-guard (6) and out-of-range humanity reporting to match the NPCR.4 validator. Shape count dropped from four to three.
+- **2026-04-24 r3 (deferred)**: pre-migration audit run via `server/scripts/audit-npcr5-preconditions.js`. Findings:
+  - `character.npcs[]` stubs: **0 characters** use the field. Shape 3 has nothing to migrate.
+  - `npcs.is_correspondent = true`: **0 NPCs**. Shape 2 has nothing to migrate.
+  - `npcs.linked_character_ids`: **1 NPC** with any links. Shape 1 would create 1 edge.
+  - `character.touchstones[]`: 27 characters, 36 entries, all **object-mode** (zero `edge_id`), all within anchor range, none over cap. But the npcs collection only holds **1 NPC** — the fuzzy-match step would flag ~35 touchstones as "no NPC match, stays as object, review manually".
+  - 0 orphan touchstone edges from the smoke test.
+  The infrastructure would ship clean but produce a near-empty report. Meanwhile the NPCR.4 picker already lets STs link touchstones to NPCs one at a time as narrative demands. Conclusion: bulk migration is low-leverage at current data volumes. Deferred until the NPC register grows (trigger ~10+ NPCs or player-created stubs from NPCR.8). The audit script stays committed so re-running it is the first step when we revisit.
