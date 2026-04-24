@@ -69,7 +69,7 @@ Browser (Netlify)  →  Express API (Render)  →  MongoDB Atlas
 
 - **Auth**: Discord OAuth2. ST IDs whitelisted in server config. Coordinator + dev roles for check-in / finance / dev access.
 - **Frontend**: vanilla JS modules, no build step. Cinzel/Lora fonts, dark theme with gold accents.
-- **API**: Express 5, ES modules, `server/` directory. Routes: characters, territories (+ feeding-rights PATCH), downtime, game_sessions, session_logs, npcs, relationships, attendance, rules.
+- **API**: Express 5, ES modules, `server/` directory. Routes: characters, territories (+ feeding-rights PATCH), downtime, game_sessions, session_logs, npcs, relationships, npc-flags, attendance, rules.
 - **Tests**: Vitest integration tests in `server/tests/`, forced against `tm_suite_test` (isolated from live DB).
 
 ## Branching
