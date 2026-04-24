@@ -31,19 +31,77 @@ function parseId(id) {
  * one endpoint. Returns null on success, or an error message string.
  */
 /**
- * NPCR.4: attach _touchstones_resolved on each character whose
- * touchstone_edge_ids is non-empty. Each entry is the minimum the
- * client needs to render a slot: {edge_id, humanity, npc_id, npc_name, state}.
- *
- * When forPlayer is true, edges with st_hidden are excluded from the
- * result. ST callers see everything.
+ * NPCR.4 helpers — touchstones live on character.touchstones[], capped at 6.
+ * Slot rating descends from the clan anchor (Ventrue=7, else=6).
+ * Each entry may carry an optional edge_id linking to a relationships doc
+ * (kind='touchstone') when the touchstone is a character; omitted for objects.
  */
-async function enrichTouchstonesResolved(chars, { forPlayer } = {}) {
+
+function anchorFor(character) {
+  return character?.clan === 'Ventrue' ? 7 : 6;
+}
+
+/**
+ * Validate a touchstones[] array on a save body: cap, humanity-in-anchor-range,
+ * and each edge_id (when present) points to an active relationships edge of
+ * kind='touchstone' with this character on one endpoint.
+ * Returns null on success or an error message string.
+ */
+async function validateTouchstones(touchstones, characterId, currentCharDoc) {
+  if (!Array.isArray(touchstones)) return null;
+  if (touchstones.length > 6) {
+    return `touchstones cap is 6 (received ${touchstones.length})`;
+  }
+
+  const anchor = anchorFor(currentCharDoc);
+  const minRating = Math.max(1, anchor - 5);
+  for (const t of touchstones) {
+    if (!Number.isInteger(t?.humanity) || t.humanity < minRating || t.humanity > anchor) {
+      return `touchstone humanity ${t?.humanity} out of range (anchor=${anchor}, min=${minRating})`;
+    }
+  }
+
+  const edgeIds = touchstones
+    .map(t => t?.edge_id)
+    .filter(id => typeof id === 'string' && id.length > 0);
+  if (edgeIds.length === 0) return null;
+
+  const oids = [];
+  for (const id of edgeIds) {
+    try { oids.push(new ObjectId(id)); }
+    catch { return `touchstone edge_id '${id}' is not a valid id`; }
+  }
+  const rels = getCollection('relationships');
+  const edges = await rels.find({ _id: { $in: oids } }).toArray();
+  const foundById = new Map(edges.map(e => [String(e._id), e]));
+  const charIdStr = String(characterId);
+  for (const id of edgeIds) {
+    const edge = foundById.get(String(id));
+    if (!edge) return `touchstone edge '${id}' not found`;
+    if (edge.kind !== 'touchstone') return `edge '${id}' is kind='${edge.kind}', expected 'touchstone'`;
+    if (edge.status === 'retired') return `edge '${id}' is retired`;
+    const onEdge =
+      (edge.a?.type === 'pc' && String(edge.a.id) === charIdStr) ||
+      (edge.b?.type === 'pc' && String(edge.b.id) === charIdStr);
+    if (!onEdge) return `edge '${id}' does not have this character as an endpoint`;
+  }
+  return null;
+}
+
+/**
+ * Attach _npc_name on each touchstones[] entry that carries an edge_id,
+ * so the client can render the linked NPC's name without a separate fetch.
+ * Edges that are retired or (for player callers) st_hidden are treated as
+ * missing — no name attached; the client still renders the entry via its
+ * inline name field.
+ */
+async function enrichTouchstoneNpcNames(chars, { forPlayer } = {}) {
   const allEdgeOids = [];
   for (const c of chars) {
-    const ids = Array.isArray(c.touchstone_edge_ids) ? c.touchstone_edge_ids : [];
-    for (const id of ids) {
-      try { allEdgeOids.push(new ObjectId(String(id))); } catch { /* skip */ }
+    for (const t of (c.touchstones || [])) {
+      if (typeof t?.edge_id === 'string' && t.edge_id.length > 0) {
+        try { allEdgeOids.push(new ObjectId(t.edge_id)); } catch { /* skip */ }
+      }
     }
   }
   if (allEdgeOids.length === 0) return;
@@ -71,47 +129,15 @@ async function enrichTouchstonesResolved(chars, { forPlayer } = {}) {
   const npcById = new Map(npcs.map(n => [String(n._id), n]));
 
   for (const c of chars) {
-    const ids = Array.isArray(c.touchstone_edge_ids) ? c.touchstone_edge_ids : [];
-    const resolved = [];
-    for (const id of ids) {
-      const e = edgeById.get(String(id));
-      if (!e) continue;
-      const npcEp = e.a?.type === 'npc' ? e.a : e.b;
+    for (const t of (c.touchstones || [])) {
+      if (typeof t?.edge_id !== 'string' || !t.edge_id) continue;
+      const edge = edgeById.get(String(t.edge_id));
+      if (!edge) continue;
+      const npcEp = edge.a?.type === 'npc' ? edge.a : edge.b;
       const npc = npcEp ? npcById.get(String(npcEp.id)) : null;
-      resolved.push({
-        edge_id: String(e._id),
-        humanity: e.touchstone_meta?.humanity ?? null,
-        npc_id: npcEp?.id ? String(npcEp.id) : null,
-        npc_name: npc?.name || null,
-        state: e.state || '',
-      });
+      if (npc?.name) t._npc_name = npc.name;
     }
-    c._touchstones_resolved = resolved;
   }
-}
-
-async function validateTouchstoneEdgeIds(ids, characterId) {
-  if (!Array.isArray(ids) || ids.length === 0) return null;
-  const rels = getCollection('relationships');
-  const oids = [];
-  for (const id of ids) {
-    try { oids.push(new ObjectId(String(id))); }
-    catch { return `touchstone_edge_ids contains invalid id '${id}'`; }
-  }
-  const edges = await rels.find({ _id: { $in: oids } }).toArray();
-  const foundById = new Map(edges.map(e => [String(e._id), e]));
-  const charIdStr = String(characterId);
-  for (const id of ids) {
-    const edge = foundById.get(String(id));
-    if (!edge) return `touchstone edge '${id}' not found`;
-    if (edge.kind !== 'touchstone') return `edge '${id}' is kind='${edge.kind}', expected 'touchstone'`;
-    if (edge.status === 'retired') return `edge '${id}' is retired`;
-    const onEdge =
-      (edge.a?.type === 'pc' && String(edge.a.id) === charIdStr) ||
-      (edge.b?.type === 'pc' && String(edge.b.id) === charIdStr);
-    if (!onEdge) return `edge '${id}' does not have this character as an endpoint`;
-  }
-  return null;
 }
 
 // GET /api/characters — ST gets all, player gets only their characters
@@ -119,7 +145,7 @@ async function validateTouchstoneEdgeIds(ids, characterId) {
 router.get('/', async (req, res) => {
   if (isStRole(req.user) && !req.query.mine) {
     const chars = await col().find().toArray();
-    await enrichTouchstonesResolved(chars, { forPlayer: false });
+    await enrichTouchstoneNpcNames(chars, { forPlayer: false });
     return res.json(chars);
   }
 
@@ -172,7 +198,7 @@ router.get('/', async (req, res) => {
     }
   }
 
-  await enrichTouchstonesResolved(chars, { forPlayer: true });
+  await enrichTouchstoneNpcNames(chars, { forPlayer: true });
   res.json(chars);
 });
 
@@ -310,7 +336,7 @@ router.get('/:id', async (req, res) => {
   if (!char) return res.status(404).json({ error: 'NOT_FOUND', message: 'Character not found' });
 
   const forPlayer = req.user.role === 'player';
-  await enrichTouchstonesResolved([char], { forPlayer });
+  await enrichTouchstoneNpcNames([char], { forPlayer });
   res.json(char);
 });
 
@@ -328,9 +354,6 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
   doc.pending_approval = !isFirst;
   doc.retired = false;
   doc.created_at = new Date().toISOString();
-  // NPCR.4: new characters start on Shape B (relationship-backed touchstones);
-  // edges cannot yet exist at creation time, so force empty.
-  doc.touchstone_edge_ids = [];
 
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -348,9 +371,6 @@ router.post('/wizard', requireRole('player'), stripEphemeral, validateCharacter,
 router.post('/', requireRole('st'), stripEphemeral, validateCharacter, async (req, res) => {
   const doc = req.body;
   if (!doc || !doc.name) return res.status(400).json({ error: 'VALIDATION_ERROR', message: "Field 'name' is required" });
-  // NPCR.4: new characters start on Shape B (relationship-backed touchstones);
-  // edges cannot yet exist at creation time, so force empty.
-  doc.touchstone_edge_ids = [];
 
   const result = await col().insertOne(doc);
   const created = await col().findOne({ _id: result.insertedId });
@@ -366,11 +386,12 @@ router.put('/:id', requireRole('st'), stripEphemeral, validateCharacterPartial, 
 
   const { _id, willpower, ...updates } = req.body;
 
-  // NPCR.4: if the save includes touchstone_edge_ids, verify each edge
-  // exists, is kind='touchstone', not retired, and has this character
-  // as one endpoint.
-  if (Object.prototype.hasOwnProperty.call(updates, 'touchstone_edge_ids')) {
-    const err = await validateTouchstoneEdgeIds(updates.touchstone_edge_ids, oid);
+  // NPCR.4: if the save includes touchstones[], validate cap, humanity-in-range,
+  // and each embedded edge_id points to a valid touchstone relationship for this char.
+  if (Object.prototype.hasOwnProperty.call(updates, 'touchstones')) {
+    const existingChar = await col().findOne({ _id: oid }, { projection: { clan: 1 } });
+    const effectiveChar = { ...existingChar, ...updates }; // updates may also change clan
+    const err = await validateTouchstones(updates.touchstones, oid, effectiveChar);
     if (err) return res.status(400).json({ error: 'VALIDATION_ERROR', message: err });
   }
 

@@ -184,38 +184,22 @@ export function renderSheet() {
   regularBanes.forEach((b, i) => {
     infoHtml += expRow('bane' + i, 'Bane', b.name, `<div>${b.effect || ''}</div>`);
   });
-  // Touchstones \u2014 NPCR.4: prefer server-enriched _touchstones_resolved
-  // (Shape B) when present; fall back to legacy touchstones[] otherwise.
+  // Touchstones \u2014 NPCR.4: render touchstones[]; NPC-linked entries display
+  // _npc_name (server-enriched) in place of the inline name.
   const hum = c.humanity || 0;
-  if (Array.isArray(c._touchstones_resolved) && c._touchstones_resolved.length) {
-    const resolved = [...c._touchstones_resolved].sort((a, b) => (a.humanity || 0) - (b.humanity || 0));
-    const tsBody = resolved.map(t => {
-      const attached = t.humanity != null && hum >= t.humanity;
-      const humLbl = t.humanity != null ? `Humanity ${t.humanity}` : 'Humanity \u2014';
-      const attLbl = t.humanity != null ? (attached ? 'Attached' : 'Detached') : '';
-      const name = t.npc_name || '(unknown)';
+  const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
+  if (ts.length) {
+    const sorted = [...ts].sort((a, b) => (b.humanity || 0) - (a.humanity || 0));
+    const tsBody = sorted.map(t => {
+      const attached = hum >= t.humanity;
+      const name = t._npc_name || t.name || '(unnamed)';
       return `<div class="exp-ts-row">
-        <span class="exp-ts-hum">${humLbl}${attLbl ? ` \u2014 <span style="color:${attached ? 'rgba(140,200,140,.9)' : 'var(--txt3)'};font-style:normal">${attLbl}</span>` : ''}</span>
-        <span class="exp-ts-name">${name}${t.state ? ` <span class="exp-ts-desc">(${t.state})</span>` : ''}</span>
+        <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span style="color:${attached ? 'rgba(140,200,140,.9)' : 'var(--txt3)'};font-style:normal">${attached ? 'Attached' : 'Detached'}</span></span>
+        <span class="exp-ts-name">${name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
       </div>`;
     }).join('');
     infoHtml += expRow('touchstones', 'Touchstones', '', tsBody);
-  } else if (!Array.isArray(c.touchstone_edge_ids)) {
-    // Legacy fallback \u2014 pre-migration characters still show the old text list.
-    const ts = c.touchstones || [];
-    if (ts.length) {
-      const tsBody = ts.map(t => {
-        const attached = hum >= t.humanity;
-        return `<div class="exp-ts-row">
-          <span class="exp-ts-hum">Humanity ${t.humanity} \u2014 <span style="color:${attached ? 'rgba(140,200,140,.9)' : 'var(--txt3)'};font-style:normal">${attached ? 'Attached' : 'Detached'}</span></span>
-          <span class="exp-ts-name">${t.name}${t.desc ? ` <span class="exp-ts-desc">(${t.desc})</span>` : ''}</span>
-        </div>`;
-      }).join('');
-      infoHtml += expRow('touchstones', 'Touchstones', '', tsBody);
-    }
   }
-  // When touchstone_edge_ids is present but _touchstones_resolved is empty,
-  // the character has opted into Shape B with no touchstones set yet \u2014 render nothing.
   // Embrace + Apparent Age
   if (c.date_of_embrace || c.apparent_age) {
     infoHtml += `<div class="sh-meta-pair">`;

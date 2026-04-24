@@ -551,14 +551,13 @@ html:not([data-theme="dark"]) .edit-icon {
 .sh-ts-picker-textarea{background:var(--surf2);border:1px solid var(--bdr);border-radius:3px;color:var(--txt);font-family:var(--ft);font-size:11px;padding:4px 6px;min-height:50px;resize:vertical;}
 .sh-ts-picker-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
 
-/* Legacy fallback — migration badge + button */
-.sh-ts-migration-badge{display:inline-block;background:var(--warn-dk-bg);border:1px solid var(--warn-dk);border-radius:3px;color:var(--warn-dk);font-family:var(--fl);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;margin-left:6px;}
-.sh-ts-legacy-list{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;opacity:.7;}
-.sh-ts-legacy-row{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;}
-.sh-ts-legacy-empty{font-family:var(--fl);font-size:11px;color:var(--txt3);font-style:italic;margin-bottom:8px;}
-.sh-ts-migrate-btn{background:var(--accent);border:none;border-radius:3px;color:var(--bg);cursor:pointer;font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;margin-top:4px;}
-.sh-ts-migrate-btn:hover{background:var(--accent2);}
-.sh-ts-migrate-hint{font-family:var(--ft);font-size:10px;color:var(--txt3);margin-top:4px;font-style:italic;}
+/* Picker extras (NPCR.4) */
+.sh-ts-picker-head{font-family:var(--fl);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:4px;border-bottom:1px solid var(--bdr);margin-bottom:4px;}
+.sh-ts-picker-check{display:flex;align-items:center;gap:6px;cursor:pointer;}
+.sh-ts-picker-mode-chips{display:flex;gap:6px;margin-bottom:4px;}
+.sh-ts-picker-loading{font-family:var(--fl);font-size:10px;color:var(--txt3);font-style:italic;padding:4px;}
+.sh-ts-slot-kind{font-family:var(--fl);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-left:4px;}
+.sh-ts-slot-kind.dim{color:var(--txt3);}
 
 /* ── Covenant strip ── */
 .cov-strip{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr2);}

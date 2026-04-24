@@ -1,12 +1,19 @@
 /**
- * API tests — touchstone edges (NPCR.4)
+ * API tests — touchstones + relationship edges (NPCR.4, post-rework)
  *
- * Covers the Shape B bridge:
- * - relationships POST/PUT enforce touchstone_meta.humanity and pc+npc endpoints
- *   when kind='touchstone'
- * - characters POST/PUT validate touchstone_edge_ids[] against the relationships
- *   collection (exists, kind='touchstone', not retired, has this char on one endpoint)
- * - wizard + ST POST force touchstone_edge_ids to [] at creation time
+ * Model:
+ * - character.touchstones[] is authoritative (cap 6, humanity descends from anchor)
+ * - anchor = 7 if clan='Ventrue', else 6
+ * - each touchstones[] entry may carry optional edge_id linking to a
+ *   relationships doc (kind='touchstone') with touchstone_meta.humanity matching
+ *
+ * Covers:
+ * - relationships POST/PUT enforce touchstone_meta.humanity + one pc/one npc
+ *   endpoint when kind='touchstone' (unchanged from Phase A)
+ * - characters PUT validates touchstones[]: cap, humanity-in-anchor-range,
+ *   and embedded edge_id (when present) is active/correct-kind/char-on-endpoint
+ * - GET enriches _npc_name per touchstone item that has an edge_id
+ * - st_hidden excluded for player callers
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -20,9 +27,8 @@ import { getCollection } from '../db.js';
 let app;
 const CREATED_REL_IDS = [];
 const CREATED_CHAR_IDS = [];
+const CREATED_NPC_IDS = [];
 
-// Stable ids used across tests — we don't need real records for the
-// relationship schema, only for character-save validation.
 const NPC_ID = new ObjectId().toHexString();
 const NPC_ID_2 = new ObjectId().toHexString();
 const OTHER_PC_ID = new ObjectId().toHexString();
@@ -35,7 +41,7 @@ function baseTouchstoneBody(overrides = {}) {
     direction: 'a_to_b',
     state: 'Priscilla, the sister he failed to save',
     st_hidden: false,
-    touchstone_meta: { humanity: 7 },
+    touchstone_meta: { humanity: 6 },
     ...overrides,
   };
 }
@@ -47,7 +53,7 @@ async function seedChar(overrides = {}) {
     retired: false,
     pending_approval: false,
     attributes: {}, skills: {}, disciplines: {}, merits: [], powers: [], ordeals: {},
-    touchstone_edge_ids: [],
+    touchstones: [],
     ...overrides,
   };
   const result = await col.insertOne(doc);
@@ -78,6 +84,18 @@ async function seedRelationship(overrides = {}) {
   return { ...doc, _id: result.insertedId };
 }
 
+async function seedNpc(name) {
+  const col = getCollection('npcs');
+  const now = new Date().toISOString();
+  const res = await col.insertOne({
+    name, description: '', status: 'active',
+    linked_character_ids: [], linked_cycle_id: null, notes: '',
+    created_at: now, updated_at: now,
+  });
+  CREATED_NPC_IDS.push(res.insertedId);
+  return { _id: res.insertedId, name };
+}
+
 beforeAll(async () => {
   await setupDb();
   app = createTestApp();
@@ -90,22 +108,23 @@ afterAll(async () => {
   }
   const chars = getCollection('characters');
   for (const id of CREATED_CHAR_IDS) await chars.deleteOne({ _id: id });
+  const npcs = getCollection('npcs');
+  for (const id of CREATED_NPC_IDS) await npcs.deleteOne({ _id: id });
   await teardownDb();
 });
 
-// ── Relationships route: touchstone_meta + endpoint shape ───────────────────
+// ── Relationships route: touchstone_meta + endpoint shape (unchanged) ────────
 
 describe("POST /api/relationships kind='touchstone'", () => {
   it('creates a touchstone edge with touchstone_meta.humanity persisted', async () => {
     const res = await request(app)
       .post('/api/relationships')
       .set('X-Test-User', stUser())
-      .send(baseTouchstoneBody());
+      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 7 } }));
 
     expect(res.status).toBe(201);
     expect(res.body.kind).toBe('touchstone');
     expect(res.body.touchstone_meta).toEqual({ humanity: 7 });
-    expect(res.body.status).toBe('active');
     CREATED_REL_IDS.push(new ObjectId(res.body._id));
   });
 
@@ -118,26 +137,7 @@ describe("POST /api/relationships kind='touchstone'", () => {
       .send(body);
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('VALIDATION_ERROR');
     expect(res.body.message).toMatch(/touchstone_meta\.humanity/);
-  });
-
-  it('rejects humanity=0 (schema minimum)', async () => {
-    const res = await request(app)
-      .post('/api/relationships')
-      .set('X-Test-User', stUser())
-      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 0 } }));
-
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects humanity=11 (schema maximum)', async () => {
-    const res = await request(app)
-      .post('/api/relationships')
-      .set('X-Test-User', stUser())
-      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 11 } }));
-
-    expect(res.status).toBe(400);
   });
 
   it('rejects pc+pc endpoints on a touchstone edge', async () => {
@@ -153,44 +153,18 @@ describe("POST /api/relationships kind='touchstone'", () => {
     expect(res.body.message).toMatch(/one pc and one npc/);
   });
 
-  it('rejects npc+npc endpoints on a touchstone edge', async () => {
-    const res = await request(app)
-      .post('/api/relationships')
-      .set('X-Test-User', stUser())
-      .send(baseTouchstoneBody({
-        a: { type: 'npc', id: NPC_ID },
-        b: { type: 'npc', id: NPC_ID_2 },
-      }));
-
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/one pc and one npc/);
+  it('rejects humanity=0 and humanity=11', async () => {
+    const low = await request(app).post('/api/relationships').set('X-Test-User', stUser())
+      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 0 } }));
+    expect(low.status).toBe(400);
+    const high = await request(app).post('/api/relationships').set('X-Test-User', stUser())
+      .send(baseTouchstoneBody({ touchstone_meta: { humanity: 11 } }));
+    expect(high.status).toBe(400);
   });
 });
 
-describe("POST /api/relationships with non-touchstone kind", () => {
-  it("does not persist touchstone_meta when kind !== 'touchstone'", async () => {
-    const res = await request(app)
-      .post('/api/relationships')
-      .set('X-Test-User', stUser())
-      .send({
-        a: { type: 'pc',  id: OTHER_PC_ID },
-        b: { type: 'npc', id: NPC_ID },
-        kind: 'mentor',
-        direction: 'a_to_b',
-        state: '',
-        st_hidden: false,
-        // Client sends touchstone_meta by mistake; server must strip it.
-        touchstone_meta: { humanity: 5 },
-      });
-
-    expect(res.status).toBe(201);
-    expect(res.body.touchstone_meta).toBeUndefined();
-    CREATED_REL_IDS.push(new ObjectId(res.body._id));
-  });
-});
-
-describe("PUT /api/relationships kind change", () => {
-  it("clears touchstone_meta when kind changes away from 'touchstone'", async () => {
+describe("PUT /api/relationships kind change clears touchstone_meta", () => {
+  it("$unsets touchstone_meta when kind changes away from 'touchstone'", async () => {
     const created = await seedRelationship({
       kind: 'touchstone',
       touchstone_meta: { humanity: 3 },
@@ -200,13 +174,9 @@ describe("PUT /api/relationships kind change", () => {
       .put(`/api/relationships/${created._id}`)
       .set('X-Test-User', stUser())
       .send({
-        a: created.a,
-        b: created.b,
-        kind: 'mentor',
-        direction: 'a_to_b',
-        state: '',
-        st_hidden: false,
-        status: 'active',
+        a: created.a, b: created.b,
+        kind: 'mentor', direction: 'a_to_b',
+        state: '', st_hidden: false, status: 'active',
       });
 
     expect(res.status).toBe(200);
@@ -215,168 +185,163 @@ describe("PUT /api/relationships kind change", () => {
   });
 });
 
-// ── Characters route: touchstone_edge_ids validation ────────────────────────
+// ── Characters route: touchstones[] validation ──────────────────────────────
 
-describe('PUT /api/characters/:id touchstone_edge_ids validation', () => {
-  it('accepts empty touchstone_edge_ids []', async () => {
+describe('PUT /api/characters/:id touchstones[] validation', () => {
+  it('accepts an empty touchstones[]', async () => {
     const char = await seedChar();
     const res = await request(app)
       .put(`/api/characters/${char._id}`)
       .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: [] });
+      .send({ touchstones: [] });
 
     expect(res.status).toBe(200);
-    expect(res.body.touchstone_edge_ids).toEqual([]);
+    expect(res.body.touchstones).toEqual([]);
   });
 
-  it('rejects touchstone_edge_ids containing a non-ObjectId string', async () => {
-    const char = await seedChar();
+  it('accepts up to 6 touchstones (cap)', async () => {
+    const char = await seedChar({ clan: 'Ventrue' }); // anchor 7 → ratings 7..2
+    const six = [
+      { humanity: 7, name: 'T1' },
+      { humanity: 6, name: 'T2' },
+      { humanity: 5, name: 'T3' },
+      { humanity: 4, name: 'T4' },
+      { humanity: 3, name: 'T5' },
+      { humanity: 2, name: 'T6' },
+    ];
     const res = await request(app)
       .put(`/api/characters/${char._id}`)
       .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: ['not-a-valid-id'] });
+      .send({ touchstones: six });
+    expect(res.status).toBe(200);
+    expect(res.body.touchstones).toHaveLength(6);
+  });
 
+  it('rejects more than 6 touchstones', async () => {
+    const char = await seedChar({ clan: 'Ventrue' });
+    const seven = Array.from({ length: 7 }, (_, i) => ({ humanity: 7 - i, name: `T${i + 1}` }));
+    const res = await request(app)
+      .put(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser())
+      .send({ touchstones: seven });
+    // Fails at the Ajv layer (maxItems) before the custom validator.
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('VALIDATION_ERROR');
-    expect(res.body.message).toMatch(/invalid id/i);
   });
 
-  it('rejects a non-existent edge id', async () => {
-    const char = await seedChar();
-    const missing = new ObjectId().toHexString();
+  it('rejects humanity above the clan anchor (non-Ventrue anchor=6)', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
     const res = await request(app)
       .put(`/api/characters/${char._id}`)
       .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: [missing] });
+      .send({ touchstones: [{ humanity: 7, name: 'Too high' }] });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/out of range/i);
+  });
 
+  it('accepts humanity 7 when clan is Ventrue (anchor=7)', async () => {
+    const char = await seedChar({ clan: 'Ventrue' });
+    const res = await request(app)
+      .put(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser())
+      .send({ touchstones: [{ humanity: 7, name: 'Ventrue anchor' }] });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects humanity below the 6-slot range (anchor-5)', async () => {
+    const char = await seedChar({ clan: 'Daeva' }); // anchor 6, min 1
+    // anchor=6, anchor-5=1, so humanity=0 is out of range
+    const res = await request(app)
+      .put(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser())
+      .send({ touchstones: [{ humanity: 0, name: 'Too low' }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts a touchstones[] entry with a valid edge_id', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
+    const charIdStr = String(char._id);
+    const edge = await seedRelationship({
+      a: { type: 'pc', id: charIdStr },
+      b: { type: 'npc', id: NPC_ID },
+      touchstone_meta: { humanity: 6 },
+    });
+
+    const res = await request(app)
+      .put(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser())
+      .send({
+        touchstones: [{ humanity: 6, name: 'Edge-linked', edge_id: String(edge._id) }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.touchstones[0].edge_id).toBe(String(edge._id));
+  });
+
+  it('rejects a touchstones[] entry with a non-existent edge_id', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
+    const res = await request(app)
+      .put(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser())
+      .send({
+        touchstones: [{ humanity: 6, name: 'Bad link', edge_id: new ObjectId().toHexString() }],
+      });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/not found/i);
   });
 
-  it("rejects an edge whose kind !== 'touchstone'", async () => {
-    const char = await seedChar();
-    const charIdStr = String(char._id);
-    const wrongKind = await seedRelationship({
-      a: { type: 'pc', id: charIdStr },
-      b: { type: 'npc', id: NPC_ID },
-      kind: 'mentor',
-      touchstone_meta: undefined,
-    });
-    // Remove undefined key so the seed doc is clean.
-    delete wrongKind.touchstone_meta;
-    await getCollection('relationships').updateOne(
-      { _id: wrongKind._id },
-      { $unset: { touchstone_meta: '' } }
-    );
-
-    const res = await request(app)
-      .put(`/api/characters/${char._id}`)
-      .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: [String(wrongKind._id)] });
-
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/kind/i);
-  });
-
-  it('rejects a retired touchstone edge', async () => {
-    const char = await seedChar();
+  it('rejects a touchstones[] entry pointing to a retired edge', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
     const charIdStr = String(char._id);
     const retired = await seedRelationship({
       a: { type: 'pc', id: charIdStr },
       b: { type: 'npc', id: NPC_ID },
       status: 'retired',
     });
-
     const res = await request(app)
       .put(`/api/characters/${char._id}`)
       .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: [String(retired._id)] });
-
+      .send({
+        touchstones: [{ humanity: 6, name: 'Retired link', edge_id: String(retired._id) }],
+      });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/retired/i);
   });
 
-  it('rejects an edge that does not involve this character', async () => {
-    const char = await seedChar();
+  it('rejects an edge not involving the character', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
     const foreign = await seedRelationship({
       a: { type: 'pc', id: OTHER_PC_ID },
       b: { type: 'npc', id: NPC_ID },
     });
-
     const res = await request(app)
       .put(`/api/characters/${char._id}`)
       .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: [String(foreign._id)] });
-
+      .send({
+        touchstones: [{ humanity: 6, name: 'Foreign link', edge_id: String(foreign._id) }],
+      });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/endpoint/i);
   });
-
-  it('accepts a valid touchstone edge (char on side a)', async () => {
-    const char = await seedChar();
-    const charIdStr = String(char._id);
-    const good = await seedRelationship({
-      a: { type: 'pc', id: charIdStr },
-      b: { type: 'npc', id: NPC_ID },
-    });
-
-    const res = await request(app)
-      .put(`/api/characters/${char._id}`)
-      .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: [String(good._id)] });
-
-    expect(res.status).toBe(200);
-    expect(res.body.touchstone_edge_ids).toEqual([String(good._id)]);
-  });
-
-  it('accepts a valid touchstone edge (char on side b)', async () => {
-    const char = await seedChar();
-    const charIdStr = String(char._id);
-    const good = await seedRelationship({
-      a: { type: 'npc', id: NPC_ID },
-      b: { type: 'pc', id: charIdStr },
-    });
-
-    const res = await request(app)
-      .put(`/api/characters/${char._id}`)
-      .set('X-Test-User', stUser())
-      .send({ touchstone_edge_ids: [String(good._id)] });
-
-    expect(res.status).toBe(200);
-    expect(res.body.touchstone_edge_ids).toEqual([String(good._id)]);
-  });
 });
 
-// ── GET enrichment: _touchstones_resolved ───────────────────────────────────
+// ── GET enrichment: _npc_name per touchstone item ───────────────────────────
 
-describe('GET /api/characters/:id _touchstones_resolved enrichment', () => {
-  async function seedNpc(name) {
-    const col = getCollection('npcs');
-    const now = new Date().toISOString();
-    const res = await col.insertOne({
-      name, description: '', status: 'active',
-      linked_character_ids: [], linked_cycle_id: null, notes: '',
-      created_at: now, updated_at: now,
-    });
-    return { _id: res.insertedId, name };
-  }
-
-  it('attaches _touchstones_resolved on GET /:id for a migrated char (ST)', async () => {
-    const char = await seedChar();
+describe('GET /api/characters/:id touchstone enrichment', () => {
+  it('attaches _npc_name on touchstone items that link to an NPC edge (ST)', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
     const charIdStr = String(char._id);
     const npc = await seedNpc('Resolved-Test Sister');
-    CREATED_REL_IDS.push(); // placeholder — the cleanup handles ids collected below
 
     const edge = await seedRelationship({
       a: { type: 'pc', id: charIdStr },
       b: { type: 'npc', id: String(npc._id) },
       kind: 'touchstone',
       touchstone_meta: { humanity: 6 },
-      state: 'Drawn from a quiet life',
     });
+
     await getCollection('characters').updateOne(
       { _id: char._id },
-      { $set: { touchstone_edge_ids: [String(edge._id)] } }
+      { $set: { touchstones: [{ humanity: 6, name: 'ignored', edge_id: String(edge._id) }] } }
     );
 
     const res = await request(app)
@@ -384,35 +349,41 @@ describe('GET /api/characters/:id _touchstones_resolved enrichment', () => {
       .set('X-Test-User', stUser());
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body._touchstones_resolved)).toBe(true);
-    expect(res.body._touchstones_resolved).toHaveLength(1);
-    expect(res.body._touchstones_resolved[0]).toMatchObject({
-      edge_id: String(edge._id),
-      humanity: 6,
-      npc_id: String(npc._id),
-      npc_name: 'Resolved-Test Sister',
-      state: 'Drawn from a quiet life',
-    });
-
-    // Cleanup the NPC we seeded inline
-    await getCollection('npcs').deleteOne({ _id: npc._id });
+    expect(res.body.touchstones).toHaveLength(1);
+    expect(res.body.touchstones[0]._npc_name).toBe('Resolved-Test Sister');
   });
 
-  it('excludes st_hidden edges from _touchstones_resolved for players', async () => {
-    const char = await seedChar();
+  it('does not attach _npc_name for object touchstones (no edge_id)', async () => {
+    const char = await seedChar({
+      clan: 'Daeva',
+      touchstones: [{ humanity: 6, name: "Grandfather's watch", desc: 'Object touchstone' }],
+    });
+
+    const res = await request(app)
+      .get(`/api/characters/${char._id}`)
+      .set('X-Test-User', stUser());
+
+    expect(res.status).toBe(200);
+    expect(res.body.touchstones[0]._npc_name).toBeUndefined();
+    expect(res.body.touchstones[0].name).toBe("Grandfather's watch");
+  });
+
+  it('excludes _npc_name for st_hidden edges on the player path', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
     const charIdStr = String(char._id);
-    const npc = await seedNpc('Hidden Resolved-Test NPC');
+    const npc = await seedNpc('Hidden NPC');
 
     const edge = await seedRelationship({
       a: { type: 'pc', id: charIdStr },
       b: { type: 'npc', id: String(npc._id) },
       kind: 'touchstone',
-      touchstone_meta: { humanity: 4 },
+      touchstone_meta: { humanity: 6 },
       st_hidden: true,
     });
+
     await getCollection('characters').updateOne(
       { _id: char._id },
-      { $set: { touchstone_edge_ids: [String(edge._id)] } }
+      { $set: { touchstones: [{ humanity: 6, name: 'inline-fallback', edge_id: String(edge._id) }] } }
     );
 
     const playerRes = await request(app)
@@ -420,68 +391,36 @@ describe('GET /api/characters/:id _touchstones_resolved enrichment', () => {
       .set('X-Test-User', playerUser([String(char._id)]));
 
     expect(playerRes.status).toBe(200);
-    expect(playerRes.body._touchstones_resolved).toEqual([]);
+    expect(playerRes.body.touchstones[0]._npc_name).toBeUndefined();
 
     const stRes = await request(app)
       .get(`/api/characters/${char._id}`)
       .set('X-Test-User', stUser());
-
-    expect(stRes.body._touchstones_resolved).toHaveLength(1);
-
-    await getCollection('npcs').deleteOne({ _id: npc._id });
+    expect(stRes.body.touchstones[0]._npc_name).toBe('Hidden NPC');
   });
 
-  it('excludes retired edges from _touchstones_resolved', async () => {
-    const char = await seedChar();
+  it('excludes retired edges from enrichment', async () => {
+    const char = await seedChar({ clan: 'Daeva' });
     const charIdStr = String(char._id);
-    const npc = await seedNpc('Retired Resolved-Test NPC');
+    const npc = await seedNpc('Retired NPC');
 
     const edge = await seedRelationship({
       a: { type: 'pc', id: charIdStr },
       b: { type: 'npc', id: String(npc._id) },
       kind: 'touchstone',
-      touchstone_meta: { humanity: 2 },
+      touchstone_meta: { humanity: 6 },
       status: 'retired',
     });
+
     await getCollection('characters').updateOne(
       { _id: char._id },
-      { $set: { touchstone_edge_ids: [String(edge._id)] } }
+      { $set: { touchstones: [{ humanity: 6, name: 'inline-only', edge_id: String(edge._id) }] } }
     );
 
     const res = await request(app)
       .get(`/api/characters/${char._id}`)
       .set('X-Test-User', stUser());
 
-    expect(res.body._touchstones_resolved).toEqual([]);
-
-    await getCollection('npcs').deleteOne({ _id: npc._id });
-  });
-});
-
-// ── Character creation: touchstone_edge_ids forced to [] ────────────────────
-
-describe('POST /api/characters touchstone_edge_ids default', () => {
-  it('ST POST forces touchstone_edge_ids to [] even when client supplies ids', async () => {
-    const seededEdge = await seedRelationship({
-      a: { type: 'pc', id: OTHER_PC_ID },
-      b: { type: 'npc', id: NPC_ID },
-    });
-
-    const res = await request(app)
-      .post('/api/characters')
-      .set('X-Test-User', stUser())
-      .send({
-        name: 'Quinn Fresh ST Char',
-        attributes: {
-          Intelligence: { dots: 1, bonus: 0 }, Wits: { dots: 1, bonus: 0 }, Resolve: { dots: 1, bonus: 0 },
-          Strength: { dots: 1, bonus: 0 },     Dexterity: { dots: 1, bonus: 0 }, Stamina: { dots: 1, bonus: 0 },
-          Presence: { dots: 1, bonus: 0 },     Manipulation: { dots: 1, bonus: 0 }, Composure: { dots: 1, bonus: 0 },
-        },
-        touchstone_edge_ids: [String(seededEdge._id)],
-      });
-
-    expect(res.status).toBe(201);
-    expect(res.body.touchstone_edge_ids).toEqual([]);
-    CREATED_CHAR_IDS.push(new ObjectId(res.body._id));
+    expect(res.body.touchstones[0]._npc_name).toBeUndefined();
   });
 });

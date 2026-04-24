@@ -225,92 +225,34 @@ export function toggleDisc(id) {
   row.classList.toggle('open', !isOpen); drawer.classList.toggle('visible', !isOpen);
 }
 /**
- * NPCR.4 touchstone section — renders either the new edge-backed picker
- * (when character.touchstone_edge_ids is an array) or the legacy read-only
- * fallback with a Begin migration button (otherwise).
- *
- * The picker renders one slot per Humanity rating (1..max(humanity, edgeMaxH)).
- * Each slot is either empty (link/create picker) or filled (NPC name, state,
- * edit/remove controls). Picker state lives on c._ts_picker ephemerally.
+ * NPCR.4 touchstone section — character.touchstones[] is authoritative (cap 6).
+ * Slot rating descends from the clan anchor (Ventrue=7, else=6). Each entry
+ * may carry an optional edge_id linking to a relationships doc (kind='touchstone').
+ * The server enriches each item with _npc_name when linked.
  */
 export function renderTouchstones(c, editMode) {
-  const hasEdgeIds = Array.isArray(c.touchstone_edge_ids);
-  if (hasEdgeIds) return renderTouchstonesEdgeMode(c, editMode);
-  return renderTouchstonesLegacy(c, editMode);
-}
-
-function renderTouchstonesLegacy(c, editMode) {
-  const ts = c.touchstones || [];
-  if (!editMode && !ts.length) return '';
+  const ts = Array.isArray(c.touchstones) ? c.touchstones : [];
   const hum = c.humanity || 0;
-
-  if (editMode) {
-    let h = '<div class="sh-touchstones-edit">';
-    h += '<div class="sh-sec-title" style="font-size:11px;margin:8px 0 4px">Touchstones <span class="sh-ts-migration-badge">Migration required</span></div>';
-    if (c._ts_err) {
-      h += '<div class="sh-touchstones-error" role="alert">' + esc(c._ts_err) + '</div>';
-    }
-    if (ts.length) {
-      h += '<div class="sh-ts-legacy-list">';
-      ts.forEach(t => {
-        const att = hum >= t.humanity;
-        h += '<div class="sh-ts-legacy-row"><span class="exp-ts-hum">Humanity ' + t.humanity + ' · <span style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + ';font-style:normal">' + (att ? 'Attached' : 'Detached') + '</span></span><span class="exp-ts-name">' + esc(t.name || '') + (t.desc ? ' <span class="exp-ts-desc">(' + esc(t.desc) + ')</span>' : '') + '</span></div>';
-      });
-      h += '</div>';
-    } else {
-      h += '<div class="sh-ts-legacy-empty">No legacy touchstones on this character.</div>';
-    }
-    h += '<button class="sh-ts-migrate-btn" onclick="shBeginTouchstoneMigration()">Begin migration</button>';
-    h += '<div class="sh-ts-migrate-hint">Touchstones now live in the relationships graph. Click to initialise. The legacy entries above stay visible (read-only) until NPCR.5 migration runs.</div>';
-    h += '</div>';
-    return h;
-  }
-
-  return expRow('touchstones', 'Touchstones', '', ts.map(t => {
-    const att = hum >= t.humanity;
-    return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity + ' — <span style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + ';font-style:normal">' + (att ? 'Attached' : 'Detached') + '</span></span><span class="exp-ts-name">' + esc(t.name) + (t.desc ? ' <span class="exp-ts-desc">(' + esc(t.desc) + ')</span>' : '') + '</span></div>';
-  }).join(''));
-}
-
-function renderTouchstonesEdgeMode(c, editMode) {
-  if (c._ts_loaded !== true && c._ts_loaded !== 'error') {
-    shEnsureTouchstoneData();
-    return '<div class="sh-touchstones-loading">Loading touchstones…</div>';
-  }
-  if (c._ts_loaded === 'error') {
-    return '<div class="sh-touchstones-error">Failed to load touchstones: ' + esc(c._ts_load_error || 'unknown error') + '</div>';
-  }
-
-  const activeEdges = (c._ts_edges || []).filter(e => e.status !== 'retired');
-  const npcsById = new Map((c._ts_npcs || []).map(n => [String(n._id), n]));
-  const edgesByHumanity = new Map();
-  for (const e of activeEdges) {
-    const hum = e.touchstone_meta?.humanity;
-    if (!Number.isInteger(hum)) continue;
-    if (!edgesByHumanity.has(hum)) edgesByHumanity.set(hum, []);
-    edgesByHumanity.get(hum).push(e);
-  }
-
-  const curHumanity = c.humanity || 0;
-  let maxSlot = curHumanity;
-  for (const hum of edgesByHumanity.keys()) if (hum > maxSlot) maxSlot = hum;
+  const anchor = c?.clan === 'Ventrue' ? 7 : 6;
+  const sorted = [...ts].sort((a, b) => (b.humanity || 0) - (a.humanity || 0));
 
   if (!editMode) {
-    if (maxSlot === 0 && activeEdges.length === 0) return '';
-    const rows = [];
-    for (let n = 1; n <= maxSlot; n++) {
-      const edges = edgesByHumanity.get(n) || [];
-      if (edges.length === 0) continue;
-      const att = curHumanity >= n;
-      for (const e of edges) {
-        const otherEp = e.a?.type === 'npc' ? e.a : e.b;
-        const npc = otherEp ? npcsById.get(String(otherEp.id)) : null;
-        const name = npc ? npc.name : '(unknown NPC)';
-        rows.push('<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + n + ' — <span style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + ';font-style:normal">' + (att ? 'Attached' : 'Detached') + '</span></span><span class="exp-ts-name">' + esc(name) + (e.state ? ' <span class="exp-ts-desc">(' + esc(e.state) + ')</span>' : '') + '</span></div>');
-      }
-    }
-    if (rows.length === 0) return '';
-    return expRow('touchstones', 'Touchstones', '', rows.join(''));
+    if (sorted.length === 0) return '';
+    const rows = sorted.map(t => {
+      const att = hum >= t.humanity;
+      const name = t._npc_name || t.name || '(unnamed)';
+      return '<div class="exp-ts-row"><span class="exp-ts-hum">Humanity ' + t.humanity
+        + ' — <span style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)')
+        + ';font-style:normal">' + (att ? 'Attached' : 'Detached') + '</span></span>'
+        + '<span class="exp-ts-name">' + esc(name)
+        + (t.desc ? ' <span class="exp-ts-desc">(' + esc(t.desc) + ')</span>' : '') + '</span></div>';
+    }).join('');
+    return expRow('touchstones', 'Touchstones', '', rows);
+  }
+
+  // Edit mode — kick off NPC load (used by Add-picker).
+  if (c._ts_loaded !== true && c._ts_loaded !== 'error' && c._ts_loaded !== 'loading') {
+    shEnsureTouchstoneData();
   }
 
   const picker = c._ts_picker;
@@ -319,101 +261,132 @@ function renderTouchstonesEdgeMode(c, editMode) {
   if (c._ts_err) {
     h += '<div class="sh-touchstones-error" role="alert">' + esc(c._ts_err) + '</div>';
   }
-  if (maxSlot === 0) {
-    h += '<div class="sh-ts-slot-empty-all">Set Humanity to unlock touchstone slots.</div>';
+
+  sorted.forEach(t => {
+    const actualIdx = ts.indexOf(t);
+    const att = hum >= t.humanity;
+    const name = t._npc_name || t.name || '(unnamed)';
+    const isEditing = picker && picker.mode === 'edit' && picker.index === actualIdx;
+    h += '<div class="sh-ts-slot">';
+    h += '<div class="sh-ts-slot-head"><span class="sh-ts-slot-hum">Humanity ' + t.humanity
+      + '</span> · <span class="sh-ts-slot-att" style="color:'
+      + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">'
+      + (att ? 'Attached' : 'Detached') + '</span>'
+      + (t.edge_id ? ' <span class="sh-ts-slot-kind">character</span>' : ' <span class="sh-ts-slot-kind dim">object</span>')
+      + '</div>';
+    h += '<div class="sh-ts-slot-body">';
+    if (isEditing) {
+      h += renderTouchstoneEditForm(c, actualIdx);
+    } else {
+      h += '<div class="sh-ts-slot-filled-row">';
+      h += '<span class="sh-ts-slot-name">' + esc(name) + '</span>';
+      if (t.desc) h += '<span class="sh-ts-slot-state">' + esc(t.desc) + '</span>';
+      h += '<div class="sh-ts-slot-actions">';
+      h += '<button class="sh-ts-slot-btn" onclick="shTouchstoneStartEdit(' + actualIdx + ')" title="Edit">edit</button>';
+      h += '<button class="sh-ts-slot-btn danger" onclick="shTouchstoneRemove(' + actualIdx + ')" title="Remove">remove</button>';
+      h += '</div></div>';
+    }
+    h += '</div></div>';
+  });
+
+  if (picker && picker.mode === 'add') {
+    h += renderTouchstoneAddForm(c, anchor, ts.length);
+  } else {
+    const atCap = ts.length >= 6;
+    const nextHum = anchor - ts.length;
+    const btnLabel = atCap
+      ? 'Maximum of 6 touchstones reached'
+      : '+ Add touchstone (Humanity ' + nextHum + ')';
+    h += '<button class="sh-ts-slot-add"'
+      + (atCap ? ' disabled style="opacity:.5;cursor:not-allowed"' : ' onclick="shTouchstoneStartAdd()"')
+      + '>' + btnLabel + '</button>';
   }
-  for (let n = 1; n <= maxSlot; n++) {
-    h += renderTouchstoneSlot(c, n, edgesByHumanity.get(n) || [], npcsById, picker);
-  }
+
   h += '</div>';
   return h;
 }
 
-function renderTouchstoneSlot(c, humanity, edges, npcsById, picker) {
-  const curHumanity = c.humanity || 0;
-  const att = curHumanity >= humanity;
-  const attChip = '<span class="sh-ts-slot-att" style="color:' + (att ? 'rgba(140,200,140,.9)' : 'var(--txt3)') + '">' + (att ? 'Attached' : 'Detached') + '</span>';
-  const pickerForSlot = picker && picker.humanity === humanity ? picker : null;
+function renderTouchstoneAddForm(c, anchor, existingCount) {
+  const draft = c._ts_picker.draft;
+  const humanity = anchor - existingCount;
+  const npcsLoading = c._ts_loaded !== true;
+  const linkedNpcIds = new Set(
+    (c.touchstones || []).map(t => t.edge_id ? String(t._npc_id || '') : null).filter(Boolean)
+  );
+  const npcs = (c._ts_npcs || [])
+    .filter(n => n.status === 'active' || n.status === 'pending')
+    .filter(n => !linkedNpcIds.has(String(n._id)))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 
-  let body = '';
-  if (edges.length === 0) {
-    if (pickerForSlot && pickerForSlot.mode === 'choose') {
-      body = renderTouchstoneChoosePicker(c, humanity);
-    } else if (pickerForSlot && pickerForSlot.mode === 'create') {
-      body = renderTouchstoneCreatePicker(c, humanity);
-    } else {
-      body = '<button class="sh-ts-slot-add" onclick="shTouchstonePickerOpen(' + humanity + ', \'choose\')">+ Link or create NPC</button>';
-    }
+  let h = '<div class="sh-ts-picker">';
+  h += '<div class="sh-ts-picker-head">New touchstone · Humanity ' + humanity + '</div>';
+
+  h += '<label class="sh-ts-picker-field sh-ts-picker-check">';
+  h += '<input type="checkbox"' + (draft.is_character ? ' checked' : '')
+    + ' onchange="shTouchstonePickerToggleCharacter(this.checked)"> ';
+  h += '<span>This touchstone is a character (link or create an NPC)</span>';
+  h += '</label>';
+
+  if (!draft.is_character) {
+    h += '<label class="sh-ts-picker-field"><span>Name *</span>'
+      + '<input class="sh-edit-input" placeholder="e.g., Grandfather&#39;s pocket watch" value="'
+      + esc(draft.name || '') + '" oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
+    h += '<label class="sh-ts-picker-field"><span>Description (optional)</span>'
+      + '<input class="sh-edit-input" placeholder="Why it matters" value="'
+      + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
   } else {
-    body = '<div class="sh-ts-slot-filled-list">';
-    for (const e of edges) {
-      const otherEp = e.a?.type === 'npc' ? e.a : e.b;
-      const npc = otherEp ? npcsById.get(String(otherEp.id)) : null;
-      const npcName = npc ? npc.name : '(unknown NPC)';
-      const isEditing = pickerForSlot && pickerForSlot.mode === 'edit-state' && pickerForSlot.draft?.edge_id === String(e._id);
-      if (isEditing) {
-        body += renderTouchstoneEditStatePicker(e, npcName);
+    h += '<div class="sh-ts-picker-mode-chips">';
+    h += '<button type="button" class="sh-ts-slot-btn' + (draft.pick_existing ? ' primary' : '')
+      + '" onclick="shTouchstonePickerSetMode(&#39;existing&#39;)">Pick existing NPC</button>';
+    h += '<button type="button" class="sh-ts-slot-btn' + (!draft.pick_existing ? ' primary' : '')
+      + '" onclick="shTouchstonePickerSetMode(&#39;create&#39;)">Create new NPC</button>';
+    h += '</div>';
+
+    if (draft.pick_existing) {
+      if (npcsLoading) {
+        h += '<div class="sh-ts-picker-loading">Loading NPCs…</div>';
       } else {
-        const edgeIdEsc = esc(String(e._id));
-        body += '<div class="sh-ts-slot-filled-row">';
-        body += '<span class="sh-ts-slot-name">' + esc(npcName) + '</span>';
-        if (e.state) body += '<span class="sh-ts-slot-state">' + esc(e.state) + '</span>';
-        body += '<div class="sh-ts-slot-actions">';
-        body += '<button class="sh-ts-slot-btn" onclick="shTouchstoneEditStateOpen(' + humanity + ', \'' + edgeIdEsc + '\')" title="Edit description">edit</button>';
-        body += '<button class="sh-ts-slot-btn danger" onclick="shTouchstoneUnlink(\'' + edgeIdEsc + '\')" title="Remove">remove</button>';
-        body += '</div></div>';
+        const opts = npcs.map(n => '<option value="' + esc(String(n._id)) + '"'
+          + (String(draft.npc_id || '') === String(n._id) ? ' selected' : '') + '>'
+          + esc(n.name || '(unnamed)') + '</option>').join('');
+        h += '<label class="sh-ts-picker-field"><span>NPC *</span>'
+          + '<select class="sh-edit-select" onchange="shTouchstonePickerDraft(&#39;npc_id&#39;, this.value)">'
+          + '<option value="">(pick an NPC)</option>' + opts + '</select></label>';
       }
+      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
+        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
+        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
+    } else {
+      h += '<label class="sh-ts-picker-field"><span>NPC name *</span>'
+        + '<input class="sh-edit-input" placeholder="Full NPC name" value="'
+        + esc(draft.new_npc_name || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_name&#39;, this.value)"></label>';
+      h += '<label class="sh-ts-picker-field"><span>NPC description (for the register)</span>'
+        + '<input class="sh-edit-input" placeholder="Short description" value="'
+        + esc(draft.new_npc_desc || '') + '" oninput="shTouchstonePickerDraft(&#39;new_npc_desc&#39;, this.value)"></label>';
+      h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span>'
+        + '<input class="sh-edit-input" placeholder="How they anchor the character" value="'
+        + esc(draft.desc || '') + '" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)"></label>';
     }
-    body += '</div>';
   }
 
-  return '<div class="sh-ts-slot"><div class="sh-ts-slot-head"><span class="sh-ts-slot-hum">Humanity ' + humanity + '</span> · ' + attChip + '</div><div class="sh-ts-slot-body">' + body + '</div></div>';
-}
-
-function renderTouchstoneChoosePicker(c, humanity) {
-  const npcs = (c._ts_npcs || []).filter(n => n.status === 'active' || n.status === 'pending');
-  const linkedIds = new Set(
-    (c._ts_edges || []).filter(e => e.status !== 'retired').map(e => {
-      const ep = e.a?.type === 'npc' ? e.a : e.b;
-      return ep ? String(ep.id) : null;
-    }).filter(Boolean)
-  );
-  const opts = npcs
-    .filter(n => !linkedIds.has(String(n._id)))
-    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }))
-    .map(n => '<option value="' + esc(String(n._id)) + '">' + esc(n.name || '(unnamed)') + '</option>')
-    .join('');
-  let h = '<div class="sh-ts-picker">';
-  h += '<label class="sh-ts-picker-field"><span>NPC</span><select class="sh-edit-select" onchange="shTouchstonePickerDraft(\'npc_id\', this.value)"><option value="">(pick an NPC)</option>' + opts + '</select></label>';
-  h += '<label class="sh-ts-picker-field"><span>Description (optional)</span><input class="sh-edit-input" placeholder="How the touchstone anchors them" onchange="shTouchstonePickerDraft(\'state\', this.value)"></label>';
   h += '<div class="sh-ts-picker-actions">';
-  h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneLink(' + humanity + ')">Link</button>';
-  h += '<button class="sh-ts-slot-btn" onclick="shTouchstonePickerOpen(' + humanity + ', \'create\')">Create new NPC instead</button>';
+  h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneSaveAdd()">Save</button>';
   h += '<button class="sh-ts-slot-btn" onclick="shTouchstonePickerClose()">Cancel</button>';
   h += '</div></div>';
   return h;
 }
 
-function renderTouchstoneCreatePicker(c, humanity) {
+function renderTouchstoneEditForm(c, idx) {
+  const draft = c._ts_picker.draft;
   let h = '<div class="sh-ts-picker">';
-  h += '<label class="sh-ts-picker-field"><span>Name *</span><input class="sh-edit-input" placeholder="NPC name" oninput="shTouchstonePickerDraft(\'name\', this.value)"></label>';
-  h += '<label class="sh-ts-picker-field"><span>NPC description (optional)</span><input class="sh-edit-input" placeholder="Short description for the NPC register" onchange="shTouchstonePickerDraft(\'desc\', this.value)"></label>';
-  h += '<label class="sh-ts-picker-field"><span>Touchstone description (optional)</span><input class="sh-edit-input" placeholder="How the touchstone anchors them" onchange="shTouchstonePickerDraft(\'state\', this.value)"></label>';
+  h += '<label class="sh-ts-picker-field"><span>Name *</span>'
+    + '<input class="sh-edit-input" value="' + esc(draft.name || '') + '"'
+    + ' oninput="shTouchstonePickerDraft(&#39;name&#39;, this.value)"></label>';
+  h += '<label class="sh-ts-picker-field"><span>Description</span>'
+    + '<textarea class="sh-ts-picker-textarea" oninput="shTouchstonePickerDraft(&#39;desc&#39;, this.value)">'
+    + esc(draft.desc || '') + '</textarea></label>';
   h += '<div class="sh-ts-picker-actions">';
-  h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneCreate(' + humanity + ')">Create and link</button>';
-  h += '<button class="sh-ts-slot-btn" onclick="shTouchstonePickerOpen(' + humanity + ', \'choose\')">Back to pick existing</button>';
-  h += '<button class="sh-ts-slot-btn" onclick="shTouchstonePickerClose()">Cancel</button>';
-  h += '</div></div>';
-  return h;
-}
-
-function renderTouchstoneEditStatePicker(edge, npcName) {
-  const edgeIdEsc = esc(String(edge._id));
-  let h = '<div class="sh-ts-slot-filled-row editing">';
-  h += '<span class="sh-ts-slot-name">' + esc(npcName) + '</span>';
-  h += '<textarea id="sh-ts-state-edit-' + edgeIdEsc + '" class="sh-ts-picker-textarea" placeholder="How this touchstone anchors the character">' + esc(edge.state || '') + '</textarea>';
-  h += '<div class="sh-ts-slot-actions">';
-  h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneEditState(\'' + edgeIdEsc + '\', document.getElementById(\'sh-ts-state-edit-' + edgeIdEsc + '\').value)">Save</button>';
+  h += '<button class="sh-ts-slot-btn primary" onclick="shTouchstoneSaveEdit()">Save</button>';
   h += '<button class="sh-ts-slot-btn" onclick="shTouchstonePickerClose()">Cancel</button>';
   h += '</div></div>';
   return h;

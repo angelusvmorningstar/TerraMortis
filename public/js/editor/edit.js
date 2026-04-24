@@ -135,45 +135,266 @@ export function shAddBane() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   TOUCHSTONES
+   TOUCHSTONES (NPCR.4)
+   ----------------------------------------------------------
+   Model: character.touchstones[] is authoritative (cap 6).
+   Slot rating descends from the anchor — 7 for Ventrue, 6 else.
+   Entries may carry optional edge_id linking to a relationships
+   doc (kind='touchstone') when the touchstone is a character; the
+   server resolves the NPC name onto each entry as _npc_name.
+   Operations round-trip atomically via PUT /api/characters/:id
+   so partial state never persists without a character save.
 ══════════════════════════════════════════════════════════ */
 
-export function shEditTouchstone(i, field, val) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  if (!c.touchstones || !c.touchstones[i]) return;
-  c.touchstones[i][field] = field === 'humanity' ? (parseInt(val) || 1) : val;
-  _markDirty();
+export function anchorFor(c) {
+  return c?.clan === 'Ventrue' ? 7 : 6;
 }
 
-export function shAddTouchstone() {
+function _tsCap() { return 6; }
+
+export async function shEnsureTouchstoneData() {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!c.touchstones) c.touchstones = [];
-  c.touchstones.push({ humanity: 1, name: '', desc: '' });
-  _markDirty();
+  if (c._ts_loaded === true || c._ts_loaded === 'loading') return;
+  c._ts_loaded = 'loading';
+  try {
+    const npcs = await apiGet('/api/npcs');
+    c._ts_npcs = Array.isArray(npcs) ? npcs : [];
+    c._ts_loaded = true;
+  } catch (err) {
+    console.error('[touchstone] load error:', err);
+    c._ts_npcs = [];
+    c._ts_loaded = 'error';
+    c._ts_load_error = String(err?.message || err);
+  }
   _renderSheet(c);
 }
 
-export function shRemoveTouchstone(i) {
+export function shTouchstoneStartAdd() {
   if (state.editIdx < 0) return;
   const c = state.chars[state.editIdx];
-  if (!c.touchstones) return;
-  c.touchstones.splice(i, 1);
-  _markDirty();
+  c._ts_picker = {
+    mode: 'add',
+    draft: {
+      is_character: false,
+      pick_existing: true,
+      name: '',
+      desc: '',
+      npc_id: '',
+      new_npc_name: '',
+      new_npc_desc: '',
+    },
+  };
+  _tsClearError(c);
   _renderSheet(c);
+}
+
+export function shTouchstoneStartEdit(i) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const t = (c.touchstones || [])[i];
+  if (!t) return;
+  c._ts_picker = {
+    mode: 'edit',
+    index: +i,
+    draft: { name: String(t.name || ''), desc: String(t.desc || '') },
+  };
+  _tsClearError(c);
+  _renderSheet(c);
+}
+
+export function shTouchstonePickerClose() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  delete c._ts_picker;
+  _renderSheet(c);
+}
+
+export function shTouchstonePickerDraft(field, value) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c._ts_picker) return;
+  c._ts_picker.draft[field] = value;
+}
+
+export function shTouchstonePickerToggleCharacter(on) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c._ts_picker) return;
+  c._ts_picker.draft.is_character = !!on;
+  _renderSheet(c);
+}
+
+export function shTouchstonePickerSetMode(mode) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  if (!c._ts_picker) return;
+  c._ts_picker.draft.pick_existing = mode === 'existing';
+  _renderSheet(c);
+}
+
+export async function shTouchstoneSaveAdd() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const picker = c._ts_picker;
+  if (!picker || picker.mode !== 'add') return;
+  const existing = Array.isArray(c.touchstones) ? c.touchstones : [];
+  if (existing.length >= _tsCap()) { _tsSetError(c, 'Maximum of 6 touchstones reached.'); return; }
+
+  const anchor = anchorFor(c);
+  const humanity = anchor - existing.length;
+  const draft = picker.draft;
+  const charId = String(c._id);
+
+  let newEntry;
+  let newEdge = null;
+  let newNpc = null;
+
+  try {
+    if (draft.is_character) {
+      let npcId, npcName;
+      if (draft.pick_existing) {
+        if (!draft.npc_id) { _tsSetError(c, 'Pick an NPC.'); return; }
+        npcId = String(draft.npc_id);
+        const npc = (c._ts_npcs || []).find(n => String(n._id) === npcId);
+        npcName = String(draft.name || npc?.name || '').trim();
+        if (!npcName) npcName = npc?.name || '(unnamed)';
+      } else {
+        const rawName = String(draft.new_npc_name || draft.name || '').trim();
+        if (!rawName) { _tsSetError(c, 'NPC name is required.'); return; }
+        newNpc = await apiPost('/api/npcs', {
+          name: rawName,
+          description: String(draft.new_npc_desc || '').trim(),
+          status: 'active',
+        });
+        c._ts_npcs = (c._ts_npcs || []).concat(newNpc);
+        npcId = String(newNpc._id);
+        npcName = rawName;
+      }
+
+      newEdge = await apiPost('/api/relationships', {
+        a: { type: 'pc', id: charId },
+        b: { type: 'npc', id: npcId },
+        kind: 'touchstone',
+        direction: 'a_to_b',
+        state: String(draft.desc || ''),
+        st_hidden: false,
+        touchstone_meta: { humanity },
+      });
+
+      newEntry = {
+        humanity,
+        name: npcName,
+        desc: String(draft.desc || ''),
+        edge_id: String(newEdge._id),
+      };
+    } else {
+      const name = String(draft.name || '').trim();
+      if (!name) { _tsSetError(c, 'Name is required.'); return; }
+      newEntry = { humanity, name, desc: String(draft.desc || '') };
+    }
+
+    const nextTouchstones = existing.concat([newEntry]);
+    await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
+    c.touchstones = nextTouchstones;
+    // Surface the resolved name client-side so the slot renders immediately
+    // without waiting for the next GET enrichment.
+    if (newEntry.edge_id) newEntry._npc_name = newEntry.name;
+    delete c._ts_picker;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] add error:', err);
+    _tsSetError(c, 'Save failed: ' + (err?.message || 'unknown error'));
+  }
+}
+
+export async function shTouchstoneSaveEdit() {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const picker = c._ts_picker;
+  if (!picker || picker.mode !== 'edit') return;
+  const i = picker.index;
+  const t = (c.touchstones || [])[i];
+  if (!t) { delete c._ts_picker; _renderSheet(c); return; }
+
+  const newName = String(picker.draft.name || '').trim();
+  const newDesc = String(picker.draft.desc || '');
+  if (!newName) { _tsSetError(c, 'Name is required.'); return; }
+
+  const nextTouchstones = c.touchstones.map((entry, idx) =>
+    idx === i ? { ...entry, name: newName, desc: newDesc } : entry
+  );
+  const charId = String(c._id);
+
+  try {
+    await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
+    c.touchstones = nextTouchstones;
+    // If linked to an edge, mirror the state text onto the edge so the
+    // admin NPC register sees the same description.
+    if (t.edge_id) {
+      try {
+        const edges = await apiGet('/api/relationships?endpoint=' + encodeURIComponent(charId) + '&kind=touchstone');
+        const edge = (edges || []).find(e => String(e._id) === String(t.edge_id));
+        if (edge && edge.state !== newDesc) {
+          await apiPut('/api/relationships/' + t.edge_id, {
+            a: edge.a, b: edge.b, kind: edge.kind,
+            direction: edge.direction || 'a_to_b',
+            state: newDesc,
+            st_hidden: !!edge.st_hidden,
+            status: edge.status,
+            touchstone_meta: edge.touchstone_meta,
+          });
+        }
+      } catch (e) {
+        console.warn('[touchstone] edge state sync failed (non-fatal):', e);
+      }
+    }
+    delete c._ts_picker;
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] edit error:', err);
+    _tsSetError(c, 'Save failed: ' + (err?.message || 'unknown error'));
+  }
+}
+
+export async function shTouchstoneRemove(i) {
+  if (state.editIdx < 0) return;
+  const c = state.chars[state.editIdx];
+  const t = (c.touchstones || [])[i];
+  if (!t) return;
+
+  const ok = await _tsConfirmModal({
+    title: 'Remove touchstone?',
+    body: t.edge_id
+      ? 'The touchstone will be removed and the linked NPC relationship will be retired.'
+      : 'The touchstone will be removed.',
+    confirmLabel: 'Remove',
+    danger: true,
+  });
+  if (!ok) return;
+  _tsClearError(c);
+
+  const charId = String(c._id);
+  const nextTouchstones = c.touchstones.filter((_, idx) => idx !== +i);
+
+  try {
+    await apiPut('/api/characters/' + charId, { touchstones: nextTouchstones });
+    c.touchstones = nextTouchstones;
+    if (t.edge_id) {
+      try { await apiDelete('/api/relationships/' + t.edge_id); }
+      catch (e) { console.warn('[touchstone] edge retire failed (non-fatal):', e); }
+    }
+    _renderSheet(c);
+  } catch (err) {
+    console.error('[touchstone] remove error:', err);
+    _tsSetError(c, 'Remove failed: ' + (err?.message || 'unknown error'));
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
-   TOUCHSTONE EDGES (NPCR.4 — Shape B bridge)
+   TOUCHSTONE SHARED HELPERS
    ----------------------------------------------------------
-   When the character has `touchstone_edge_ids` (even []), the
-   sheet renders a picker backed by the relationships graph.
-   Each operation round-trips immediately (edge POST/PUT/DELETE
-   and a partial character PUT with the new id list) so the
-   state is atomic without waiting for a full Save Character.
-
-   All user-facing prompts use themed modals (see NPCR.3 pattern)
+   All user-facing prompts use themed modals (NPCR.3 pattern)
    — never window.confirm/prompt/alert. Errors surface via an
    inline banner inside the touchstone section.
 ══════════════════════════════════════════════════════════ */
@@ -224,205 +445,6 @@ function _tsClearError(c) {
   if (c._ts_err) { delete c._ts_err; }
 }
 
-export async function shEnsureTouchstoneData() {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  if (!Array.isArray(c.touchstone_edge_ids)) return;
-  if (c._ts_loaded === true || c._ts_loaded === 'loading') return;
-  c._ts_loaded = 'loading';
-  try {
-    const [npcs, edges] = await Promise.all([
-      apiGet('/api/npcs'),
-      apiGet('/api/relationships?endpoint=' + encodeURIComponent(String(c._id)) + '&kind=touchstone'),
-    ]);
-    c._ts_npcs = Array.isArray(npcs) ? npcs : [];
-    c._ts_edges = Array.isArray(edges) ? edges : [];
-    c._ts_loaded = true;
-  } catch (err) {
-    console.error('[touchstone] load error:', err);
-    c._ts_npcs = [];
-    c._ts_edges = [];
-    c._ts_loaded = 'error';
-    c._ts_load_error = String(err?.message || err);
-  }
-  _renderSheet(c);
-}
-
-export function shTouchstonePickerOpen(humanity, mode) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  c._ts_picker = {
-    humanity: +humanity,
-    mode: String(mode),
-    draft: { name: '', desc: '', state: '', npc_id: '' },
-  };
-  _renderSheet(c);
-}
-
-export function shTouchstonePickerClose() {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  delete c._ts_picker;
-  _renderSheet(c);
-}
-
-export function shTouchstonePickerDraft(field, value) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  if (!c._ts_picker) return;
-  c._ts_picker.draft[field] = value;
-}
-
-export function shTouchstoneEditStateOpen(humanity, edgeId) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  c._ts_picker = {
-    humanity: +humanity,
-    mode: 'edit-state',
-    draft: { edge_id: String(edgeId) },
-  };
-  _renderSheet(c);
-}
-
-export async function shTouchstoneLink(humanity) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const draft = c._ts_picker?.draft;
-  if (!draft || !draft.npc_id) { _tsSetError(c, 'Pick an NPC before linking.'); return; }
-  _tsClearError(c);
-  const charId = String(c._id);
-  try {
-    const edge = await apiPost('/api/relationships', {
-      a: { type: 'pc', id: charId },
-      b: { type: 'npc', id: String(draft.npc_id) },
-      kind: 'touchstone',
-      direction: 'a_to_b',
-      state: String(draft.state || ''),
-      st_hidden: false,
-      touchstone_meta: { humanity: +humanity },
-    });
-    c._ts_edges = (c._ts_edges || []).concat(edge);
-    c.touchstone_edge_ids = Array.isArray(c.touchstone_edge_ids)
-      ? c.touchstone_edge_ids.concat(String(edge._id))
-      : [String(edge._id)];
-    await apiPut('/api/characters/' + charId, { touchstone_edge_ids: c.touchstone_edge_ids });
-    delete c._ts_picker;
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[touchstone] link error:', err);
-    _tsSetError(c, 'Link failed: ' + (err?.message || 'unknown error'));
-  }
-}
-
-export async function shTouchstoneCreate(humanity) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const draft = c._ts_picker?.draft;
-  if (!draft) return;
-  const name = String(draft.name || '').trim();
-  if (!name) { _tsSetError(c, 'Name is required to create an NPC.'); return; }
-  _tsClearError(c);
-  const description = String(draft.desc || '').trim();
-  const charId = String(c._id);
-  try {
-    const npc = await apiPost('/api/npcs', { name, description, status: 'active' });
-    c._ts_npcs = (c._ts_npcs || []).concat(npc);
-    const edge = await apiPost('/api/relationships', {
-      a: { type: 'pc', id: charId },
-      b: { type: 'npc', id: String(npc._id) },
-      kind: 'touchstone',
-      direction: 'a_to_b',
-      state: String(draft.state || ''),
-      st_hidden: false,
-      touchstone_meta: { humanity: +humanity },
-    });
-    c._ts_edges = (c._ts_edges || []).concat(edge);
-    c.touchstone_edge_ids = Array.isArray(c.touchstone_edge_ids)
-      ? c.touchstone_edge_ids.concat(String(edge._id))
-      : [String(edge._id)];
-    await apiPut('/api/characters/' + charId, { touchstone_edge_ids: c.touchstone_edge_ids });
-    delete c._ts_picker;
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[touchstone] create error:', err);
-    _tsSetError(c, 'Create failed: ' + (err?.message || 'unknown error'));
-  }
-}
-
-export async function shTouchstoneEditState(edgeId, newState) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const edge = (c._ts_edges || []).find(e => String(e._id) === String(edgeId));
-  if (!edge) return;
-  const trimmed = String(newState || '').trim();
-  if (trimmed === (edge.state || '')) { delete c._ts_picker; _renderSheet(c); return; }
-  _tsClearError(c);
-  try {
-    const body = {
-      a: edge.a, b: edge.b, kind: edge.kind,
-      direction: edge.direction || 'a_to_b',
-      state: trimmed,
-      st_hidden: !!edge.st_hidden,
-      status: edge.status,
-    };
-    if (edge.touchstone_meta) body.touchstone_meta = edge.touchstone_meta;
-    if (edge.disposition) body.disposition = edge.disposition;
-    const updated = await apiPut('/api/relationships/' + edgeId, body);
-    const idx = c._ts_edges.findIndex(e => String(e._id) === String(edgeId));
-    if (idx >= 0) c._ts_edges[idx] = updated;
-    delete c._ts_picker;
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[touchstone] edit state error:', err);
-    _tsSetError(c, 'Save failed: ' + (err?.message || 'unknown error'));
-  }
-}
-
-export async function shTouchstoneUnlink(edgeId) {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const ok = await _tsConfirmModal({
-    title: 'Remove touchstone?',
-    body: 'The relationship record will be retired. An ST can reactivate it from the NPC register if needed.',
-    confirmLabel: 'Remove',
-    danger: true,
-  });
-  if (!ok) return;
-  _tsClearError(c);
-  const charId = String(c._id);
-  try {
-    await apiDelete('/api/relationships/' + edgeId);
-    const idx = (c._ts_edges || []).findIndex(e => String(e._id) === String(edgeId));
-    if (idx >= 0) c._ts_edges[idx].status = 'retired';
-    c.touchstone_edge_ids = (c.touchstone_edge_ids || []).filter(id => String(id) !== String(edgeId));
-    await apiPut('/api/characters/' + charId, { touchstone_edge_ids: c.touchstone_edge_ids });
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[touchstone] unlink error:', err);
-    _tsSetError(c, 'Remove failed: ' + (err?.message || 'unknown error'));
-  }
-}
-
-export async function shBeginTouchstoneMigration() {
-  if (state.editIdx < 0) return;
-  const c = state.chars[state.editIdx];
-  const ok = await _tsConfirmModal({
-    title: 'Begin touchstone migration?',
-    body: 'Convert this character to the new touchstone system. The legacy text entries stay visible (read-only) until NPCR.5 migration runs.',
-    confirmLabel: 'Begin migration',
-  });
-  if (!ok) return;
-  _tsClearError(c);
-  try {
-    c.touchstone_edge_ids = [];
-    await apiPut('/api/characters/' + String(c._id), { touchstone_edge_ids: [] });
-    _renderSheet(c);
-  } catch (err) {
-    console.error('[touchstone] migration init error:', err);
-    delete c.touchstone_edge_ids;
-    _tsSetError(c, 'Migration init failed: ' + (err?.message || 'unknown error'));
-  }
-}
 
 /* ══════════════════════════════════════════════════════════
    BLOOD POTENCY & HUMANITY
